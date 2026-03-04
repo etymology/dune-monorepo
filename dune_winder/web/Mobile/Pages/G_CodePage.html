@@ -1,0 +1,29 @@
+        <div id="position"></div>
+
+        <article id="gCodeControlDiv">
+          <h2>G-Code Control</h2>
+          <button id="startButton" onclick="gCodePage.start()">Start</button>
+          <button id="stopButton" onclick="gCodePage.stop()">Stop now</button>
+          <button id="stopNextButton" onclick="gCodePage.stopNext()">Stop next</button>
+          <button id="stepButton" onclick="gCodePage.step()">Step</button>
+        </article>
+
+        <article id="navigationDiv">
+          <h2>Navigation</h2>
+          <button onclick="load( '/Mobile/Pages/Menu', '#Main' )">Menu</button>
+          <button onclick="load( '/Mobile/Pages/Jog', '#Main' )">Jog</button>
+        </article>
+
+        <article id="manualG_CodeDiv">
+          <button onclick="gCodePage.executeGCode()">Run</button>
+          <h2>Manual G-Code</h2>
+          <input id="manualGCode"  oninput="this.value = this.value.toUpperCase()"/>
+        </article>
+
+        <article id="gCodeAdvanceDiv">
+          <h2>G-Code</h2>
+          <button onclick="gCodePage.nextLine()">+</button>
+          <button onclick="gCodePage.previousLine()">-</button>
+        </article>
+
+        <article id="gCodeDiv">Loading...</article>

@@ -1,0 +1,21 @@
+#gCodeTable tr.gCodeCurrentLine
+{
+  background-color: rgba( 0, 128, 128, 0.5 );
+}
+
+#gCodeTable tr.gCodeNextLine
+{
+  background-color: rgba( 0, 128, 0, 0.5 );
+}
+
+#gCodeTable
+{
+  margin: 2px;
+  border-radius: 4px;
+  background-color: rgba( 64, 64, 64, 0.5 );
+  border: 2px solid rgba( 96, 96, 96, 0.75 );
+  padding: 2px;
+  border-spacing: 0px;
+  border-collapse: separate;
+  width: 100%;
+}

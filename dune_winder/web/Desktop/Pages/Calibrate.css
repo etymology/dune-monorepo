@@ -1,0 +1,392 @@
+#manualCalibrationPage {
+  padding: 8px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.manualCalibrationMainLayout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
+.manualCalibrationLeftColumn,
+.manualCalibrationMiddleColumn,
+.manualCalibrationRightColumn {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.manualCalibrationCard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+  color: #e2e8f0;
+  padding: 12px;
+}
+
+.manualCalibrationCard h2,
+.manualCalibrationCard h3 {
+  margin-top: 0;
+  color: #f8fafc;
+}
+
+#manualMoveCard {
+  min-width: 0;
+}
+
+.manualCalibrationInstructionList {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.manualCalibrationInstructionList li + li {
+  margin-top: 8px;
+}
+
+.manualCalibrationStatusGrid,
+.manualCalibrationPredictionGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.manualCalibrationStatusGrid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.manualCalibrationPredictionGrid {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 12px;
+}
+
+.manualCalibrationStatusGrid h3,
+.manualCalibrationPredictionGrid h3 {
+  margin-bottom: 4px;
+}
+
+.manualCalibrationStatusGrid p,
+.manualCalibrationPredictionGrid p,
+.manualCalibrationCounts p,
+#manualCalibrationSuggestedPinText {
+  margin: 0;
+}
+
+.manualCalibrationPath,
+.manualCalibrationNotice,
+.manualCalibrationMessage,
+.manualCalibrationHint {
+  margin-bottom: 0;
+}
+
+.manualCalibrationPath {
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.manualCalibrationNotice {
+  color: #fdba74;
+}
+
+.manualCalibrationMessage {
+  min-height: 1.2em;
+}
+
+.manualCalibrationMessage.error {
+  color: #fca5a5;
+}
+
+.manualCalibrationMessage.success {
+  color: #86efac;
+}
+
+.manualCalibrationCounts {
+  margin-top: 12px;
+}
+
+.manualCalibrationFieldRow,
+.manualCalibrationButtonRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.manualCalibrationFieldGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.manualCalibrationFieldStack {
+  display: grid;
+  gap: 6px;
+}
+
+.manualCalibrationFieldStack label {
+  font-weight: bold;
+}
+
+.manualCalibrationFieldRow label {
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.manualCalibrationFieldStack input {
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #f8fafc;
+  min-width: 0;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.manualCalibrationFieldRow input,
+.manualCalibrationFieldRow select {
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #f8fafc;
+  min-width: 120px;
+  padding: 6px 8px;
+}
+
+.manualCalibrationCheckboxRow {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.manualCalibrationCheckboxRow label {
+  font-weight: bold;
+}
+
+.manualCalibrationButtonRow button {
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #f8fafc;
+  min-width: 110px;
+  padding: 6px 10px;
+}
+
+.manualCalibrationButtonRow button:hover,
+.manualCalibrationTable td button:hover {
+  background: #475569;
+}
+
+.manualCalibrationWorkflowPanel {
+  display: grid;
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.manualCalibrationBoardRoutineBar {
+  margin-top: 12px;
+}
+
+.manualCalibrationBoardRoutineBar p {
+  margin: 0;
+}
+
+.manualCalibrationBoardSelectorPanel {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.manualCalibrationBoardSelectRow {
+  margin-top: 0;
+}
+
+.manualCalibrationBoardSelectRow select {
+  min-width: 260px;
+}
+
+.manualCalibrationTable {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  overflow: hidden;
+}
+
+.manualCalibrationTable th,
+.manualCalibrationTable td {
+  border-bottom: 1px solid #334155;
+  color: #e2e8f0;
+  padding: 6px 4px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.manualCalibrationTable th {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.manualCalibrationMeasurementsScroller {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  margin-top: 12px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.manualCalibrationMeasurementsScroller .manualCalibrationTable {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+.manualCalibrationMeasurementsScroller .manualCalibrationTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.manualCalibrationGXSummaryGrid {
+  margin-top: 12px;
+}
+
+.manualCalibrationTable td button {
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #f8fafc;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+}
+
+.manualCalibrationStatusTag {
+  border-radius: 999px;
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.manualCalibrationStatusTag.pending {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.manualCalibrationStatusTag.ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.manualCalibrationStatusTag.adjusted {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.manualCalibrationDisabledGroup.disabled {
+  opacity: 0.55;
+}
+
+.manualCalibrationBoardDialog {
+  bottom: 20px;
+  position: fixed;
+  right: 20px;
+  width: min(440px, calc(100vw - 40px));
+  z-index: 20;
+}
+
+.manualCalibrationBoardDialog.hidden {
+  display: none;
+}
+
+.manualCalibrationBoardDialogCard {
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid #475569;
+  border-radius: 10px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+  color: #e2e8f0;
+  padding: 14px;
+}
+
+.manualCalibrationBoardDialogCard h2,
+.manualCalibrationBoardDialogCard h3 {
+  color: #f8fafc;
+  margin-top: 0;
+}
+
+.manualCalibrationBoardDialogHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.manualCalibrationBoardDialogHeader p,
+.manualCalibrationBoardDialogStatus {
+  margin: 4px 0 0;
+}
+
+.manualCalibrationBoardDialogGrid {
+  margin-top: 14px;
+}
+
+.manualCalibrationBoardDialogStatusTag {
+  display: inline-block;
+}
+
+.manualCalibrationBoardDialogHeader button {
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #f8fafc;
+  padding: 6px 10px;
+}
+
+.manualCalibrationBoardDialogHeader button:hover {
+  background: #475569;
+}
+
+@media (max-width: 1500px) {
+  .manualCalibrationMainLayout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .manualCalibrationBoardDialog {
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .manualCalibrationMainLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .manualCalibrationStatusGrid,
+  .manualCalibrationPredictionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .manualCalibrationFieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .manualCalibrationBoardSelectRow select {
+    min-width: 100%;
+    width: 100%;
+  }
+}

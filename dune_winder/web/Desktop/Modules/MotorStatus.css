@@ -1,0 +1,75 @@
+#motorStatusTable td
+{
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#motorStatusTable tr td:first-child
+{
+  font-weight: bold;
+  text-align: center;
+  background-color: rgba( 64, 64, 64, 0.5 );
+}
+
+#motorStatusTable .inMotion
+{
+  background-color: rgba( 0, 128, 0, 0.5 ) !important;
+}
+
+#motorStatusTable .inError
+{
+  background-color: rgba( 255, 0, 0, 1 ) !important;
+}
+
+#motorStatusTable
+{
+  width: 300px;
+}
+
+#motorStatusTable th
+{
+  background-color: rgba( 64, 64, 64, 0.5 );
+}
+
+#xAcceleration, #xVelocity, #xPosition,
+#yAcceleration, #yVelocity, #yPosition,
+#zAcceleration, #zVelocity, #zPosition
+{
+  position: absolute;
+  top: 0;
+  left: 5px;
+  z-index: 10;
+}
+
+#motorStatusTable td
+{
+  position: relative;
+}
+
+#xAccelerationBar, #xVelocityBar, #xPositionBar,
+#yAccelerationBar, #yVelocityBar, #yPositionBar,
+#zAccelerationBar, #zVelocityBar, #zPositionBar
+{
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba( 128, 128, 128, 0.25 );
+  height: 100%;
+  z-index: 0;
+}
+
+#motorStatusTable, #motorStatusTable td, #motorStatusTable th
+{
+  text-align: left;
+  border: 1px solid rgba( 128, 128, 128, 0.5 );
+}
+
+#motorStatusCopyControls
+{
+  margin-top: 8px;
+}
+
+#motorStatusCopyStatus
+{
+  margin-left: 8px;
+}

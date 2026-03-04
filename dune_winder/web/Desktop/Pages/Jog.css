@@ -1,0 +1,71 @@
+main
+{
+  overflow: hidden;
+}
+
+#locationsDiv
+{
+  width: 500px;
+}
+
+#positionGraphic
+{
+  margin-left: 10px;
+  width: 1025px;
+  overflow: hidden;
+}
+
+#column1
+{
+  max-width: 320px;
+  width: 40%;
+  float: left;
+}
+
+#column1 article
+{
+  width: calc( 100% - 20px );
+}
+
+#slidersDiv
+{
+  margin-left: 10px;
+  margin-bottom: 10px;
+  width: 1025px;
+}
+
+
+#seekX_1, #seekY_1,
+#seekX_2, #seekY_2,
+#seekX_3, #seekY_3,
+#seekZ, #extendedPosition
+{
+  width: 3em;
+}
+
+#headControlDiv
+{
+  /*width: 250px;*/
+}
+
+#headControlDiv button
+{
+  width: 80px;
+  margin: 2px;
+  float: left;
+}
+
+#increments
+{
+  width: 450px;
+}
+
+#manualGCode
+{
+  width: 30em;
+}
+
+#manualGCodeDiv
+{
+  width: 500px;
+}

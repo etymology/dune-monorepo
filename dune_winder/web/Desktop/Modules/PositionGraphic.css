@@ -1,0 +1,69 @@
+#sideGraphic, #zGraphic
+{
+  position: relative;
+}
+
+/*#sideGraphic
+{
+  height: 543px;
+}*/
+
+#baseImage
+{
+  /*position: absolute;
+  top: 80px;
+  left: 0;*/
+  margin-top: 80px;
+  display: none;
+}
+
+.pathCanvas, .seekCanvas, .zStatusCanvas, .xyStatusCanvas
+{
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#loopImage
+{
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+}
+
+#headImage
+{
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+}
+
+#zBaseImage
+{
+  margin-left: 420px;
+  display: none;
+}
+
+#zArmImage
+{
+  position: absolute;
+  top: 133px;
+  left: 0;
+  display: none;
+}
+
+#zHeadImage
+{
+  position: absolute;
+  top: 102px;
+  left: 0;
+  display: none;
+}
+
+img.axisFault
+{
+  filter: drop-shadow(0px 0px 5px red);
+  /*filter: blur( 3px );*/
+}

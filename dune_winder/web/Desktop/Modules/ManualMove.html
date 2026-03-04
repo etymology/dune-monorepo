@@ -1,0 +1,49 @@
+<div class="manualMovePanel">
+  <div class="manualMoveHeader">
+    <h2>Manual Move</h2>
+    <button type="button" id="manualMovePopoutButton">Pop out</button>
+  </div>
+  <div class="manualMoveTopRow">
+    <div class="manualMoveStatusColumn">
+      <div id="motorStatusDiv">Loading...</div>
+      <div class="manualMoveGCode">
+        <h3>Manual G-Code</h3>
+        <div class="manualMoveFieldRow">
+          <label for="manualGCode">G-Code</label>
+          <input type="text" id="manualGCode" />
+          <button type="button" id="manualGCodeButton">Execute</button>
+        </div>
+        <p id="manualMoveStatus">Ready.</p>
+      </div>
+      <div class="manualMoveOtherControl">
+        <h3>Other Control</h3>
+        <div class="manualMoveButtonGroup">
+          <span>G106:</span>
+          <button type="button" data-manual-gcode="G106 P0">P0</button>
+          <button type="button" data-manual-gcode="G106 P1">P1</button>
+          <button type="button" data-manual-gcode="G106 P2">P2</button>
+          <button type="button" data-manual-gcode="G106 P3">P3</button>
+        </div>
+        <div class="manualMoveButtonGroup">
+          <span>Positions:</span>
+          <button type="button" data-manual-gcode="X0 Y0 F300">X0 Y0</button>
+          <button type="button" data-manual-gcode="X440 Y0 F300">X440 Y0</button>
+          <button type="button" data-manual-gcode="X7174 Y0 F300">
+            X7174 Y0
+          </button>
+          <button type="button" data-manual-gcode="Z0">Z0</button>
+        </div>
+        <div class="manualMoveButtonGroup">
+          <button type="button" id="manualMoveResetButton">Reset PLC</button>
+          <button type="button" id="manualMoveLatchButton">Latch</button>
+          <button type="button" id="manualMoveServoDisableButton">
+            Servo disable
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="manualMoveModules">
+      <div id="increments">Loading...</div>
+    </div>
+  </div>
+</div>

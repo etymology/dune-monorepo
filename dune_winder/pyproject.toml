@@ -1,0 +1,30 @@
+[project]
+name = "dune-winder"
+version = "0.1.0"
+description = "GUI for the APA winder at UChicago"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pycomm3>=1.2.14",
+    "pyserial>=3.5",
+    "ruff>=0.9.9",
+]
+
+[project.optional-dependencies]
+spreadsheets = [
+    "odfpy>=1.4.1",
+    "pandas>=2.2.3",
+]
+
+[project.scripts]
+dune-winder = "dune_winder.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+indent-width = 2

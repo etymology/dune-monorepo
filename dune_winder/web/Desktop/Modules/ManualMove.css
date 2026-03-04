@@ -1,0 +1,120 @@
+.manualMovePanel
+{
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba( 148, 163, 184, 0.08 );
+  color: #e2e8f0;
+  min-width: 0;
+  padding: 12px;
+}
+
+.manualMovePanel h2,
+.manualMovePanel h3
+{
+  color: #f8fafc;
+  margin-top: 0;
+}
+
+.manualMoveHeader
+{
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.manualMoveHeader h2
+{
+  margin-bottom: 0;
+}
+
+#manualMovePopoutButton
+{
+  min-width: 0;
+  padding: 4px 10px;
+}
+
+.manualMoveTopRow
+{
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax( 0, 1fr ) minmax( 260px, 320px );
+}
+
+.manualMoveStatusColumn
+{
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.manualMoveModules
+{
+  align-content: start;
+  display: grid;
+  grid-template-columns: minmax( 260px, 320px );
+  max-width: 320px;
+}
+
+.manualMoveGCode,
+.manualMoveOtherControl
+{
+  display: grid;
+  gap: 10px;
+}
+
+.manualMoveFieldRow
+{
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manualMoveFieldRow label,
+.manualMoveButtonGroup span
+{
+  color: #e2e8f0;
+  font-weight: bold;
+}
+
+#manualGCode
+{
+  flex: 1 1 220px;
+  text-transform: uppercase;
+}
+
+#manualMoveStatus
+{
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.manualMoveButtonGroup
+{
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#increments .incrementalMotions button
+{
+  width: 44px;
+}
+
+@media ( max-width: 1500px )
+{
+  .manualMoveTopRow
+  {
+    grid-template-columns: 1fr;
+  }
+
+  .manualMoveModules
+  {
+    max-width: none;
+  }
+}

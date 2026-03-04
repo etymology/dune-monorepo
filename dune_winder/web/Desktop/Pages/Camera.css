@@ -1,0 +1,166 @@
+section
+{
+  float: left;
+}
+
+#imageSection, #motorPositionSection
+{
+  height: 600px;
+}
+
+#imageSection
+{
+  width: 35%;
+}
+
+#motorPositionSection
+{
+  width: 35%;
+}
+
+#editSection
+{
+  width: 70%;
+}
+
+#resultsSection
+{
+  width: calc( 30% - 0px );
+  height: calc( 100% - 0px );
+  float: right;
+}
+
+
+#cameraDiv
+{
+  width: 640px;
+  height: 480px;
+  position: relative;
+}
+
+#cameraCanvas
+{
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 640px;
+  height: 480px;
+}
+
+#cameraStats
+{
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+}
+
+
+
+#increments
+{
+  width: 450px;
+}
+
+div.buttonSet
+{
+  width: 175px;
+  margin: auto;
+}
+
+div.buttonSet button, div.buttonSet div
+{
+  height: 50px;
+  width:  50px;
+  font-size: 180%;
+  margin: 2px;
+  float: left;
+}
+
+div.triggerButtons
+{
+  width: 310px;
+}
+
+div.triggerButtons button
+{
+  width: 100px;
+}
+
+#calibrationTableDiv
+{
+  width: 95%;
+  height: calc( 100% - 30px );
+}
+
+#calibrationTableDiv table
+{
+  text-align: center;
+}
+
+input
+{
+  width: 50px;
+  margin-right: 5px;
+  margin-bottom: 5px;
+}
+
+button.notSelected
+{
+  visibility: hidden;
+}
+
+button.selected
+{
+}
+
+div.filter-table
+{
+  height: calc( 100% - 30px );
+}
+
+div.filter-table thead tr
+{
+  background-color: dimgray;
+}
+
+div.filter-table tr.selected
+{
+  background-color: cyan;
+}
+
+div.filter-table tbody tr:hover
+{
+  background-color: gray;
+}
+
+div.float-left
+{
+  float: left;
+}
+
+div.float-right
+{
+  float: right;
+  text-align: right;
+}
+
+.pad-left
+{
+  margin-left: 20px;
+}
+
+div.center
+{
+  text-align: center;
+}
+
+div.clear
+{
+  clear: both;
+}
+
+#slidersDiv
+{
+  /*width: 525px;*/
+  width: calc( 100% - 30px );
+}

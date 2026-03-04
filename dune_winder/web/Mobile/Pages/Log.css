@@ -1,0 +1,24 @@
+#recentLogDiv
+{
+  width: 578px;
+}
+
+#recentLogDiv table
+{
+  font-size: x-small;
+}
+
+#statesDiv
+{
+  width: 205px;
+}
+
+#statesDiv, #systemActionDiv, #navigationDiv
+{
+  height: 80px;
+}
+
+#navigationDiv
+{
+  float: right;
+}

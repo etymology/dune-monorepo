@@ -1,0 +1,65 @@
+#column1, #column2
+{
+  width: 50%;
+  float: left;
+}
+
+#column1 article
+{
+  width: 97%;
+}
+
+#apaListDiv
+{
+  height: 890px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
+#apaList
+{
+  width: 100%;
+  text-align: center;
+
+  border-spacing: 0px;
+  border-collapse: separate;
+}
+
+#apaList tr:hover
+{
+  background-color: gray;
+}
+
+#apaList thead
+{
+  background: dimgray;
+}
+
+div.clear
+{
+  clear: both;
+}
+
+#apaDetails
+{
+  clear: both;
+  width: 50%;
+  display: none;
+}
+
+ul
+{
+  list-style-type: none;
+  padding: 2px;
+  margin: 2px;
+}
+
+li
+{
+  font-weight: bold;
+}
+
+li span
+{
+  font-weight: normal;
+}

@@ -1,0 +1,38 @@
+section
+{
+  float: left;
+  height: 100%;
+}
+
+#section1
+{
+  width: 300px;
+}
+
+#section2
+{
+  width: 350px;
+}
+#section4
+{
+  width: 550px;
+}
+
+.configurationSet div
+{
+  padding-top:    4px;
+  padding-bottom: 4px;
+}
+
+.configurationSet label
+{
+  display: block;
+  float: left;
+  width: 125px;
+}
+
+.configurationSet button
+{
+  margin-right: 5px;
+}
+

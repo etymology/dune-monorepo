@@ -1,0 +1,44 @@
+#gCodeControlDiv, #navigationDiv
+{
+  height: 85px;
+}
+
+#navigationDiv button
+{
+  width: 65px;
+}
+
+#gCodeDiv
+{
+  width: 575px;
+  overflow: hidden;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#manualG_CodeDiv
+{
+  width: 390px;
+}
+
+#manualG_CodeDiv input
+{
+  width: 315px;
+  float: left;
+}
+
+#gCodeAdvanceDiv h2
+{
+  display: inline;
+}
+
+#manualG_CodeDiv button
+{
+  float: right;
+}
+
+#manualG_CodeDiv h2
+{
+  display: block;
+  float: left;
+}

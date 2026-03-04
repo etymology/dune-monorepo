@@ -1,0 +1,15 @@
+div.jogJoystick
+{
+  background: none;
+  width: 175px;
+  margin: auto;
+}
+
+button.jogJoystick
+{
+  height: 50px;
+  width:  50px;
+  font-size: 200%;
+  margin: 2px;
+  float: left;
+}

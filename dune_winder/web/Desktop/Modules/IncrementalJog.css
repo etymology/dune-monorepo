@@ -1,0 +1,23 @@
+.incrementalMotions button
+{
+  width: 44px;
+  margin: 0;
+}
+
+.incrementalMotionRow
+{
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.incrementalMotions
+{
+  display: grid;
+  gap: 4px;
+}
+
+.incrementalMotionsNextAxis
+{
+  margin-top: 8px;
+}

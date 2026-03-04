@@ -1,0 +1,162 @@
+<section id="gCodeGenerationPage">
+  <article class="gCodeGenerationCard">
+    <div class="gCodeGenerationHeader">
+      <div>
+        <h2 id="gCodeGenerationHeading">GCode Generation</h2>
+        <p id="gCodeGenerationSubheading" class="gCodeGenerationHint">
+          Load a recipe to see the generator tools for its active layer.
+        </p>
+      </div>
+      <button
+        type="button"
+        id="gCodeGenerationOpenCalibrateButton"
+        class="hidden"
+      >
+        Open Calibrate
+      </button>
+    </div>
+
+    <div class="gCodeGenerationStatusGrid">
+      <div>
+        <h3>Active Layer</h3>
+        <p id="gCodeGenerationLayer">-</p>
+      </div>
+      <div>
+        <h3>Mode</h3>
+        <p id="gCodeGenerationMode">-</p>
+      </div>
+      <div>
+        <h3>Draft</h3>
+        <p id="gCodeGenerationDirty">-</p>
+      </div>
+      <div>
+        <h3>Machine</h3>
+        <p id="gCodeGenerationMovementReady">-</p>
+      </div>
+      <div>
+        <h3>Output</h3>
+        <p id="gCodeGenerationSummary">-</p>
+      </div>
+      <div>
+        <h3>Ready</h3>
+        <p id="gCodeGenerationReady">-</p>
+      </div>
+    </div>
+
+    <p id="gCodeGenerationLiveFile" class="gCodeGenerationPath"></p>
+
+    <div class="gCodeGenerationStatusGrid gCodeGenerationOutputGrid">
+      <div>
+        <h3>Last Hash</h3>
+        <p id="gCodeGenerationHash">-</p>
+      </div>
+      <div>
+        <h3>Updated</h3>
+        <p id="gCodeGenerationUpdatedAt">-</p>
+      </div>
+    </div>
+
+    <p id="gCodeGenerationDisabled" class="gCodeGenerationNotice"></p>
+    <p id="gCodeGenerationMessage" class="gCodeGenerationMessage"></p>
+  </article>
+
+  <article
+    id="gCodeGenerationVCard"
+    class="gCodeGenerationCard gCodeGenerationControlsGroup hidden"
+  >
+    <h2>V Parameters</h2>
+    <p class="gCodeGenerationHint">
+      Edit the 12 V-layer line offsets and optional transfer pause, then
+      generate the live <code>V-layer.gc</code> file.
+    </p>
+    <div id="gCodeGenerationVFieldGrid" class="gCodeGenerationFieldGrid"></div>
+    <div class="gCodeGenerationCheckboxRow">
+      <input type="checkbox" id="gCodeGenerationVTransferPause" />
+      <label for="gCodeGenerationVTransferPause">Transfer Pause</label>
+    </div>
+    <div class="gCodeGenerationButtonRow">
+      <button type="button" id="gCodeGenerationVResetButton">
+        Reset Defaults
+      </button>
+      <button type="button" id="gCodeGenerationVGenerateButton">
+        Generate V-layer.gc
+      </button>
+    </div>
+  </article>
+
+  <article
+    id="gCodeGenerationGXCard"
+    class="gCodeGenerationCard gCodeGenerationControlsGroup hidden"
+  >
+    <h2 id="gCodeGenerationGXHeading">X/G Parameters</h2>
+    <p class="gCodeGenerationHint">
+      X and G generation uses the head and foot references captured on the
+      Calibrate tab. Adjust offsets here, or return to Calibrate to refresh the
+      reference points.
+    </p>
+
+    <div class="gCodeGenerationReferenceGrid">
+      <div class="gCodeGenerationReferenceCard">
+        <h3>Head Reference</h3>
+        <p id="gCodeGenerationGXHeadStatus">-</p>
+        <p id="gCodeGenerationGXHeadWire" class="gCodeGenerationHint">-</p>
+        <p id="gCodeGenerationGXHeadRawCamera" class="gCodeGenerationHint">-</p>
+        <p id="gCodeGenerationGXHeadUpdated" class="gCodeGenerationHint">-</p>
+      </div>
+      <div class="gCodeGenerationReferenceCard">
+        <h3>Foot Reference</h3>
+        <p id="gCodeGenerationGXFootStatus">-</p>
+        <p id="gCodeGenerationGXFootWire" class="gCodeGenerationHint">-</p>
+        <p id="gCodeGenerationGXFootRawCamera" class="gCodeGenerationHint">-</p>
+        <p id="gCodeGenerationGXFootUpdated" class="gCodeGenerationHint">-</p>
+      </div>
+    </div>
+
+    <div class="gCodeGenerationFieldGrid gCodeGenerationGXFieldGrid">
+      <div class="gCodeGenerationFieldStack">
+        <label for="gCodeGenerationGXHeadAOffset">Head A</label>
+        <input type="number" id="gCodeGenerationGXHeadAOffset" step="0.5" />
+      </div>
+      <div class="gCodeGenerationFieldStack">
+        <label for="gCodeGenerationGXHeadBOffset">Head B</label>
+        <input type="number" id="gCodeGenerationGXHeadBOffset" step="0.5" />
+      </div>
+      <div class="gCodeGenerationFieldStack">
+        <label for="gCodeGenerationGXFootAOffset">Foot A</label>
+        <input type="number" id="gCodeGenerationGXFootAOffset" step="0.5" />
+      </div>
+      <div class="gCodeGenerationFieldStack">
+        <label for="gCodeGenerationGXFootBOffset">Foot B</label>
+        <input type="number" id="gCodeGenerationGXFootBOffset" step="0.5" />
+      </div>
+    </div>
+
+    <div class="gCodeGenerationCheckboxRow">
+      <input type="checkbox" id="gCodeGenerationGXTransferPause" />
+      <label for="gCodeGenerationGXTransferPause">Transfer Pause</label>
+    </div>
+
+    <div class="gCodeGenerationButtonRow">
+      <button type="button" id="gCodeGenerationGXClearButton">
+        Clear Draft
+      </button>
+      <button type="button" id="gCodeGenerationGXGenerateButton">
+        Generate
+      </button>
+    </div>
+  </article>
+
+  <article id="gCodeGenerationInfoCard" class="gCodeGenerationCard hidden">
+    <h2 id="gCodeGenerationInfoTitle">No generator available</h2>
+    <p id="gCodeGenerationInfoText" class="gCodeGenerationHint">
+      Load a recipe to see the generator tools for its active layer.
+    </p>
+  </article>
+
+  <article class="gCodeGenerationCard">
+    <h2>Notes</h2>
+    <ul id="gCodeGenerationNotes" class="gCodeGenerationNotes">
+      <li>Load a recipe to see the active layer.</li>
+    </ul>
+  </article>
+</section>

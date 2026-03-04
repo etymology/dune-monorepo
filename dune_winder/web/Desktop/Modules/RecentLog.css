@@ -1,0 +1,14 @@
+#recentLog tr:hover
+{
+  background-color: gray;
+}
+
+#recentLog table
+{
+  width: 100%;
+}
+
+#recentLog th
+{
+  background: dimgray;
+}

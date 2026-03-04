@@ -1,0 +1,2 @@
+[console_scripts]
+dune-winder = dune_winder.main:main
