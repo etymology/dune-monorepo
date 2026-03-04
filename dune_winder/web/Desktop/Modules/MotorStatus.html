@@ -1,0 +1,73 @@
+    <h2>Motor status</h2>
+    <table id="motorStatusTable">
+      <tbody>
+        <tr>
+          <th style="width: 12%">Axis</th>
+          <th style="width: 22%">Desired</th>
+          <th style="width: 22%">Position</th>
+          <th style="width: 22%">Velocity</th>
+          <th style="width: 22%">Acceleration</th>
+        </tr>
+        <tr>
+          <td id="xLabel">x</td>
+          <td id="xDesiredPosition">&nbsp;</td>
+
+          <td id="xPositionCell">
+            <div id="xPosition"></div>
+            <div id="xPositionBar"></div>
+          </td>
+
+          <td id="xVelocityCell">
+            <div id="xVelocity"></div>
+            <div id="xVelocityBar"></div>
+          </td>
+
+          <td id="xAccelerationCell">
+            <div id="xAcceleration"></div>
+            <div id="xAccelerationBar"></div>
+          </td>
+        </tr>
+
+        <tr>
+          <td id="yLabel">y</td>
+          <td id="yDesiredPosition">&nbsp;</td>
+          <td id="yPositionCell">
+            <div id="yPosition"></div>
+            <div id="yPositionBar"></div>
+          </td>
+
+          <td id="yVelocityCell">
+            <div id="yVelocity"></div>
+            <div id="yVelocityBar"></div>
+          </td>
+
+          <td id="yAccelerationCell">
+            <div id="yAcceleration"></div>
+            <div id="yAccelerationBar"></div>
+          </td>
+        </tr>
+
+        <tr>
+          <td id="zLabel">z</td>
+          <td id="zDesiredPosition">&nbsp;</td>
+          <td id="zPositionCell">
+            <div id="zPosition"></div>
+            <div id="zPositionBar"></div>
+          </td>
+
+          <td id="zVelocityCell">
+            <div id="zVelocity"></div>
+            <div id="zVelocityBar"></div>
+          </td>
+
+          <td id="zAccelerationCell">
+            <div id="zAcceleration"></div>
+            <div id="zAccelerationBar"></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div id="motorStatusCopyControls">
+      <button type="button" id="motorStatusCopyXYButton">Copy X,Y</button>
+      <span id="motorStatusCopyStatus"></span>
+    </div>

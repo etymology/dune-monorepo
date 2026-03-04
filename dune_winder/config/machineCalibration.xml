@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<SerializableData>
+	<MachineCalibration>
+		<int name="parkY">0</int>
+		<int name="parkX">0</int>
+		<int name="transferBottom">0</int>
+		<int name="spoolLoadX">0</int>
+		<int name="limitTop">2688</int>
+		<int name="limitLeft">0</int>
+		<int name="zLimitFront">0</int>
+		<int name="limitBottom">0</int>
+		<int name="transferLeftTop">2683</int>
+		<int name="transferRightTop">2683</int>
+		<float name="headRollerGap">1.27</float>
+		<float name="headRollerRadius">6.35</float>
+		<int name="transferTop">2683</int>
+		<float name="pinDiameter">2.42814880401</float>
+		<int name="transferRight">7174</int>
+		<int name="zLimitRear">425</int>
+		<int name="zFront">0</int>
+		<float name="zBack">417.7</float>
+		<int name="limitRight">7179</int>
+		<int name="transferLeft">440</int>
+		<int name="spoolLoadY">0</int>
+		<int name="headArmLength">77</int>
+	</MachineCalibration>
+</SerializableData>

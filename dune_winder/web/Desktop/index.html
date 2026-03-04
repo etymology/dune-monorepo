@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+
+    <title>Chicago Winder Interface</title>
+
+    <link rel="stylesheet" href="/Scripts/Vendor/Jquery-ui/jquery-ui.css" />
+    <link rel="stylesheet" href="/Desktop/main.css" />
+
+    <style>
+      /*
+       * Local style specific to the header/footer.
+       */
+
+      header h1 {
+        font-size: 200%;
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 0;
+        vertical-align: middle;
+        line-height: 50px;
+        height: 50px;
+      }
+
+      #timeDiv {
+        width: 200px;
+        float: right;
+      }
+
+      #titleDiv {
+        width: 525px;
+        margin: auto;
+        float: none;
+      }
+
+      #fullStopDiv {
+        position: absolute;
+        width: 300px;
+        height: 50px;
+        z-index: 75;
+      }
+
+      /* #versionDiv,  */
+      #statesDiv {
+        float: right;
+      }
+
+      main {
+        clear: both;
+      }
+
+      footer div {
+        position: fixed;
+        margin-left: 5px;
+        margin-right: 5px;
+        left: 0;
+        right: 0;
+      }
+
+      footer button {
+        width: 150px;
+        height: 50px;
+        margin: 5px;
+      }
+    </style>
+
+    <script type="text/javascript" src="/Scripts/Vendor/jquery.js"></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery-ui/jquery-ui.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery.blink.js"
+    ></script>
+    <script type="text/javascript" src="/Scripts/Vendor/dateFormat.js"></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery.dateFormat.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery.cookie.js"
+    ></script>
+    <script type="text/javascript" src="/Scripts/Vendor/sha256.js"></script>
+    <script type="text/javascript" src="/Scripts/FilterTable.js"></script>
+    <script type="text/javascript" src="/Scripts/CopyField.js"></script>
+    <script type="text/javascript" src="/Scripts/Modules.js"></script>
+    <script type="text/javascript" src="/Scripts/Page.js"></script>
+    <script type="text/javascript" src="/Desktop/main.js"></script>
+
+    <script type="text/javascript"></script>
+  </head>
+  <body>
+    <!-- Empty div for modal screens. -->
+    <div id="modalDiv"></div>
+
+    <!-- Heading, used for stop button, tittle, and system time. -->
+    <header>
+      <article id="fullStopDiv"></article>
+
+      <article id="timeDiv"></article>
+
+      <article id="titleDiv">
+        <h1>Chicago Winder Interface</h1>
+      </article>
+    </header>
+
+    <!-- Empty body which will be loaded depending on the page. -->
+    <main id="main">
+      <h2>Loading...</h2>
+    </main>
+
+    <!-- Footer, used for navigation, state information, and version. -->
+    <footer>
+      <!-- <article id="versionDiv" onclick="version.showVersionInformation()">
+      </article> -->
+
+      <article id="statesDiv" onclick="runStatus.showDetails()"></article>
+
+      <article id="loginDiv">
+        <button onclick="showLogin()">Login</button>
+      </article>
+
+      <article id="pageSelectDiv">
+        <button onclick="load('/Desktop/Pages/APA', '#main')">Wind</button>
+        <!-- <button onclick="load('/Desktop/Pages/Grid', '#main')">
+          Machine Layout
+        </button> -->
+        <button onclick="load('/Desktop/Pages/Log', '#main')">Log</button>
+        <button onclick="load('/Desktop/Pages/IO', '#main')">I/O</button>
+        <!-- <button onclick="load('/Desktop/Pages/Camera', '#main')">Camera</button> -->
+        <button onclick="load('/Desktop/Pages/Calibrate', '#main')">
+          Calibrate
+        </button>
+        <button
+          id="gCodeGenerationTabButton"
+          style="width: 170px;"
+          onclick="load('/Desktop/Pages/VTemplate', '#main')"
+        >
+          GCode Generation
+        </button>
+        <button onclick="load('/Desktop/Pages/Configuration', '#main')">
+          Configuration
+        </button>
+      </article>
+    </footer>
+  </body>
+</html>

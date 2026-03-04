@@ -1,0 +1,198 @@
+#gCodeGenerationPage
+{
+  display: grid;
+  gap: 10px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.gCodeGenerationCard
+{
+  min-height: 0;
+}
+
+.gCodeGenerationCard h2,
+.gCodeGenerationCard h3
+{
+  margin-bottom: 8px;
+}
+
+.gCodeGenerationHeader
+{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.gCodeGenerationHeader button
+{
+  min-width: 150px;
+}
+
+.gCodeGenerationStatusGrid
+{
+  display: grid;
+  grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.gCodeGenerationStatusGrid p,
+.gCodeGenerationNotes,
+.gCodeGenerationPath,
+.gCodeGenerationNotice,
+.gCodeGenerationHint,
+.gCodeGenerationMessage
+{
+  color: rgba( 226, 232, 240, 0.92 );
+}
+
+.gCodeGenerationOutputGrid
+{
+  grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+  margin-top: 8px;
+}
+
+.gCodeGenerationPath,
+.gCodeGenerationNotice,
+.gCodeGenerationHint,
+.gCodeGenerationMessage
+{
+  margin-top: 8px;
+}
+
+.gCodeGenerationNotice
+{
+  color: rgb( 253, 224, 71 );
+}
+
+.gCodeGenerationMessage.error
+{
+  color: rgb( 248, 113, 113 );
+}
+
+.gCodeGenerationMessage.success
+{
+  color: rgb( 74, 222, 128 );
+}
+
+.gCodeGenerationFieldGrid
+{
+  display: grid;
+  grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.gCodeGenerationGXFieldGrid
+{
+  grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+}
+
+.gCodeGenerationReferenceGrid
+{
+  display: grid;
+  grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.gCodeGenerationReferenceCard
+{
+  padding: 10px;
+  border: 1px solid rgba( 148, 163, 184, 0.25 );
+  border-radius: 6px;
+  background: rgba( 15, 23, 42, 0.18 );
+}
+
+.gCodeGenerationFieldStack
+{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gCodeGenerationFieldStack label
+{
+  font-size: 0.9rem;
+  color: rgba( 226, 232, 240, 0.88 );
+}
+
+.gCodeGenerationFieldStack input
+{
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+}
+
+.gCodeGenerationCheckboxRow
+{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.gCodeGenerationButtonRow
+{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.gCodeGenerationButtonRow button
+{
+  min-width: 170px;
+  padding: 8px 14px;
+}
+
+.gCodeGenerationControlsGroup.disabled
+{
+  opacity: 0.6;
+}
+
+.gCodeGenerationNotes
+{
+  margin: 0;
+  padding-left: 20px;
+}
+
+.gCodeGenerationNotes li + li
+{
+  margin-top: 6px;
+}
+
+.hidden
+{
+  display: none;
+}
+
+@media ( max-width: 960px )
+{
+  .gCodeGenerationStatusGrid,
+  .gCodeGenerationReferenceGrid,
+  .gCodeGenerationGXFieldGrid
+  {
+    grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+  }
+}
+
+@media ( max-width: 720px )
+{
+  .gCodeGenerationHeader
+  {
+    flex-direction: column;
+  }
+
+  .gCodeGenerationStatusGrid,
+  .gCodeGenerationFieldGrid,
+  .gCodeGenerationGXFieldGrid,
+  .gCodeGenerationReferenceGrid,
+  .gCodeGenerationOutputGrid
+  {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,31 @@
+#column1, #column2, #column3
+{
+  width: 33%;
+  height: calc( 100% - 2px );
+  float: left;
+}
+
+#column1 article, #column2 article, #column3 article
+{
+  width: 95%;
+}
+
+#column1 table, #column2 table, #column3 table
+{
+  width: 100%;
+}
+
+div.filter-table
+{
+  height: 850px;
+}
+
+div.filter-table-inner
+{
+  overflow-y: auto;
+}
+
+main article
+{
+  height: calc( 100% - 25px );
+}

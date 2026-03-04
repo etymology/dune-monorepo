@@ -1,0 +1,248 @@
+body
+{
+  background-color: black;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+  margin-bottom: 0;
+  /* background: linear-gradient(135deg, rgb(116, 165, 206) 0%, rgb(133, 181, 220) 42%, rgb(242, 164, 88) 78%, rgb(247, 107, 39) 92%, rgb(255, 205, 120) 100%); */
+  /*background: linear-gradient(135deg, rgb(116, 165, 206) 0%, rgb(133, 181, 220) 42%, rgb(242, 164, 88) 78%, rgb(247, 107, 39) 92%, rgb(255, 205, 120) 100%);*/
+  /* background: linear-gradient(135deg, rgb(116, 165, 206) 0%, rgb(133, 181, 220) 42%, rgb(242, 164, 88) 78%, rgb(247, 107, 39) 92%, rgb(255, 205, 120) 100%); */
+  background: linear-gradient(135deg, rgb(59, 97, 131) 0%, rgb(66, 105, 136) 42%, rgb(242, 164, 88) 78%, rgb(247, 107, 39) 92%, rgb(255, 205, 120) 100%);
+}
+
+body, input, select, button, textarea
+{
+  color: white;
+}
+
+button:disabled, input:disabled, select:disabled, textarea:disabled
+{
+  color: rgba( 255, 255, 255, 0.25 );
+}
+
+header
+{
+  height: 75px;
+}
+
+footer
+{
+  height: 85px;
+}
+
+main
+{
+  flex: 1;
+  overflow: auto;
+}
+
+header, footer, main
+{
+}
+
+span.error
+{
+  color: red;
+  font-weight: bold;
+}
+
+input, select, textarea, .dropDownButton
+{
+  background-color: rgba( 80, 80, 200, 0.25 );
+  border-color:     rgba( 40, 40, 114, 0.75 );
+  border-radius: 5%;
+}
+
+.ui-slider-horizontal
+{
+  height: 15px;
+}
+
+button,
+.select:after,
+.ui-widget-content,
+.ui-slider-handle,
+.ui-corner-all,
+.ui-widget-header, .dropDownContent
+{
+  border-radius: 5% !important;
+  background-color: rgba( 128, 128, 255, 0.40 );
+  border-top:    3px solid rgba( 128, 128, 255, 0.75 ) !important;
+  border-left:   3px solid rgba( 128, 128, 255, 0.75 ) !important;
+  border-bottom: 3px solid rgba( 128, 128, 255, 0.25 ) !important;
+  border-right:  3px solid rgba( 128, 128, 255, 0.25 ) !important;
+}
+
+.ui-slider-handle
+{
+  background-color: rgb( 96, 96, 192 ) !important;
+}
+
+button.toggle, button.toggleDown
+{
+  margin: 2px;
+}
+
+button.toggleDown
+{
+  background-color: rgba( 64 , 64 , 225, 0.25 );
+  border-top:    3px solid rgba( 128, 128, 255, 0.25 ) !important;
+  border-left:   3px solid rgba( 128, 128, 255, 0.25 ) !important;
+  border-bottom: 3px solid rgba( 128, 128, 255, 0.75 ) !important;
+  border-right:  3px solid rgba( 128, 128, 255, 0.75 ) !important;
+}
+
+article, .standardFrame
+{
+  float: left;
+  background-color: rgba( 30, 41, 59, 0.82 );
+  border-radius: 8px;
+  border: 1px solid rgba( 51, 65, 85, 0.95 );
+  margin: 2px;
+  padding: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba( 148, 163, 184, 0.08 ),
+    4px 4px 5px rgba( 0, 0, 0, 0.20 );
+}
+
+h2
+{
+  font-size: 105%;
+}
+
+h3
+{
+  font-size: 100%;
+}
+
+h1, h2, h3, h4, h5, h6, p
+{
+  margin: 0;
+  padding: 0;
+}
+
+input.changed
+{
+  background-color: grey;
+}
+
+input.error
+{
+  background-color: red;
+}
+
+/*
+ * Copy selection
+ */
+.copySelect
+{
+  border: 2px solid cyan !important;
+}
+
+.copySelect:hover
+{
+  background-color: rgb( 99, 99, 129 );
+}
+
+#pageSelectDiv, #fullStopDiv, #loginDiv
+{
+  display: none;
+}
+
+body.popupMode header,
+body.popupMode footer
+{
+  display: none;
+}
+
+body.popupMode main
+{
+  overflow: auto;
+}
+
+
+/*
+ * Filter table
+ */
+div.filter-table
+{
+}
+
+div.filter-table table
+{
+  width: calc( 100% - 16px );
+  table-layout: fixed;
+}
+
+div.filter-table .filter-table-inner table
+{
+  width: calc( 100% );
+  table-layout: fixed;
+}
+
+div.filter-table td
+{
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+
+div.filter-table-outer
+{
+  position: relative;
+  height: 100%;
+}
+
+div.filter-table-inner
+{
+  overflow-y: auto;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+/*
+ * Drop-down boxes.
+ */
+.dropDown
+{
+  position: relative;
+  display: inline-block;
+}
+
+.dropDown p
+{
+  display: block;
+  min-width: 100px;
+  text-align: center;
+  padding: 2px;
+  border-radius: 5% !important;
+}
+
+.dropDown div
+{
+  z-index: 2;
+  padding: 4px;
+  display: none;
+  position: absolute;
+  min-width: 160px;
+  background-color: rgb( 99, 99, 129 );
+}
+
+.dropDown button
+{
+  min-width: 150px;
+}
+
+.dropDown:hover div
+{
+  display: block;
+}
+/*
+ * --------------------------
+ */
+
+

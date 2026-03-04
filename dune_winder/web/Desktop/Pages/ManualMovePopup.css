@@ -1,0 +1,17 @@
+#manualMovePopupShell
+{
+  padding: 8px;
+}
+
+#manualMovePopupContent
+{
+  min-width: 0;
+}
+
+@media ( max-width: 900px )
+{
+  #manualMovePopupShell
+  {
+    padding: 4px;
+  }
+}

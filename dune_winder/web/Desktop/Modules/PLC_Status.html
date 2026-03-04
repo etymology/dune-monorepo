@@ -1,0 +1,10 @@
+<article>
+  <h2>PLC Status</h2>
+  <p>Control state: <span id="controlStateDetails">--</span></p>
+  <p>PLC state: <span id="plcStateDetails">--</span></p>
+  <p>PLC error: <span id="plcErrorDetails">--</span></p>
+  <button onclick="plcStatus.reset()">Reset</button>
+  <button onclick="plcStatus.PLC_init()">PLC_Init</button>
+</article>
+
+<button id="versionCloseButton" onclick="plcStatus.close()">Close</button>

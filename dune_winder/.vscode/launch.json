@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "dune-winder",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "dune_winder",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "redirectOutput": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "dune-winder (integrated terminal)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "dune_winder",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        }
+    ]
+}

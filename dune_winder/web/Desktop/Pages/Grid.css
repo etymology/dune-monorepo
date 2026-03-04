@@ -1,0 +1,19 @@
+main
+{
+  overflow: hidden;
+}
+
+#positionGraphic
+{
+  width: 1350px;
+  height: 890px;
+  overflow: hidden;
+}
+
+#motorStatusDiv, #gCodeDiv, #recentLogDiv
+{
+  width: 500px;
+  float: right;
+  overflow: hidden;
+  white-space: nowrap;
+}

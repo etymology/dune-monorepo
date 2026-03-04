@@ -1,0 +1,427 @@
+<section id="manualCalibrationPage">
+  <section class="manualCalibrationMainLayout">
+    <section class="manualCalibrationLeftColumn">
+      <article class="manualCalibrationCard">
+        <h2>Status</h2>
+        <div class="manualCalibrationStatusGrid">
+          <div>
+            <h3>Active Layer</h3>
+            <p id="manualCalibrationLayer">-</p>
+          </div>
+          <div>
+            <h3>Baseline</h3>
+            <p id="manualCalibrationBaseline">-</p>
+          </div>
+          <div>
+            <h3>Draft</h3>
+            <p id="manualCalibrationDirty">-</p>
+          </div>
+          <div>
+            <h3>Machine</h3>
+            <p id="manualCalibrationMovementReady">-</p>
+          </div>
+        </div>
+        <p id="manualCalibrationLiveFile" class="manualCalibrationPath"></p>
+        <p id="manualCalibrationDisabled" class="manualCalibrationNotice"></p>
+        <p id="manualCalibrationMessage" class="manualCalibrationMessage"></p>
+      </article>
+
+      <article class="manualCalibrationCard manualCalibrationControlsGroup">
+        <h2>Controls</h2>
+        <div class="manualCalibrationFieldRow">
+          <label for="manualCalibrationOffsetX">Camera Offset X</label>
+          <input type="number" id="manualCalibrationOffsetX" step="0.001" />
+        </div>
+        <div class="manualCalibrationFieldRow">
+          <label for="manualCalibrationOffsetY">Camera Offset Y</label>
+          <input type="number" id="manualCalibrationOffsetY" step="0.001" />
+        </div>
+        <p class="manualCalibrationHint">
+          Offsets apply on change. Capture stores wire = machine + offset and
+          go-to uses wire - offset.
+        </p>
+        <div id="manualCalibrationUVControls">
+          <p class="manualCalibrationHint">
+            Clean APA starts from nominal geometry. Recalibrate APA starts from
+            the current live XML and preserves the previously calibrated shape
+            while you re-align it.
+          </p>
+          <div class="manualCalibrationButtonRow">
+            <button type="button" id="manualCalibrationLoadPreviousButton">
+              Recalibrate APA
+            </button>
+            <button type="button" id="manualCalibrationStartNewButton">
+              Clean APA
+            </button>
+            <button type="button" id="manualCalibrationSaveButton">
+              Save Live
+            </button>
+          </div>
+          <div class="manualCalibrationCounts">
+            <p id="manualCalibrationMeasuredCount">Measured pins: 0</p>
+            <p id="manualCalibrationBootstrapCount">Bootstrap: 0 / 0</p>
+            <p id="manualCalibrationBoardCount">Board checks: 0 / 0</p>
+          </div>
+        </div>
+
+        <div id="manualCalibrationGXControls" class="hidden">
+          <p class="manualCalibrationHint">
+            Record B960 at the head and B1 at the foot, then enter the four APA
+            offsets and generate the live layer recipe.
+          </p>
+          <div class="manualCalibrationFieldGrid">
+            <div class="manualCalibrationFieldStack">
+              <label for="manualCalibrationHeadAOffset">Head A</label>
+              <input type="number" id="manualCalibrationHeadAOffset" step="0.5" />
+            </div>
+            <div class="manualCalibrationFieldStack">
+              <label for="manualCalibrationHeadBOffset">Head B</label>
+              <input type="number" id="manualCalibrationHeadBOffset" step="0.5" />
+            </div>
+            <div class="manualCalibrationFieldStack">
+              <label for="manualCalibrationFootAOffset">Foot A</label>
+              <input type="number" id="manualCalibrationFootAOffset" step="0.5" />
+            </div>
+            <div class="manualCalibrationFieldStack">
+              <label for="manualCalibrationFootBOffset">Foot B</label>
+              <input type="number" id="manualCalibrationFootBOffset" step="0.5" />
+            </div>
+          </div>
+          <div class="manualCalibrationCheckboxRow">
+            <input type="checkbox" id="manualCalibrationTransferPause" />
+            <label for="manualCalibrationTransferPause">Transfer Pause</label>
+          </div>
+          <div class="manualCalibrationButtonRow">
+            <button type="button" id="manualCalibrationClearGXButton">
+              Clear Draft
+            </button>
+            <button type="button" id="manualCalibrationGenerateButton">
+              Generate X-layer.gc
+            </button>
+          </div>
+          <div class="manualCalibrationCounts">
+            <p id="manualCalibrationReferenceCount">References: 0 / 2</p>
+            <p id="manualCalibrationWrapCount">Wraps: -</p>
+            <p id="manualCalibrationGenerateStatus">Ready to generate: No</p>
+          </div>
+        </div>
+      </article>
+
+      <div id="manualMoveCard">Loading...</div>
+    </section>
+
+    <section class="manualCalibrationMiddleColumn">
+      <article class="manualCalibrationCard">
+        <h2>Instructions</h2>
+        <ol id="manualCalibrationUVInstructions" class="manualCalibrationInstructionList">
+          <li>Open the calibration camera in another window.</li>
+          <li>
+            Go to the pins in the suggested worfklow and capture their
+            locations.
+          </li>
+          <li>Perform the board check, editing pins as necessary.</li>
+        </ol>
+        <ol
+          id="manualCalibrationGXInstructions"
+          class="manualCalibrationInstructionList hidden"
+        >
+          <li>Use Go to Current Pin, then center B960 with the camera.</li>
+          <li>Record the current position as the head reference.</li>
+          <li>Center B1 with the camera and record the foot reference.</li>
+          <li>Enter Head A, Head B, Foot A, and Foot B.</li>
+          <li>Generate the live X/G layer recipe.</li>
+        </ol>
+      </article>
+
+      <article class="manualCalibrationCard manualCalibrationControlsGroup">
+        <h2>Workspace</h2>
+        <div id="manualCalibrationUVWorkspace">
+          <div class="manualCalibrationFieldRow">
+            <label for="manualCalibrationPin">B Pin</label>
+            <input type="number" id="manualCalibrationPin" min="1" step="1" />
+          </div>
+          <div class="manualCalibrationButtonRow">
+            <button type="button" id="manualCalibrationGotoButton">
+              Go to Pin
+            </button>
+            <button type="button" id="manualCalibrationCaptureButton">
+              Capture Current
+            </button>
+          </div>
+          <div class="manualCalibrationFieldRow">
+            <label for="manualCalibrationWireX">Wire X</label>
+            <input type="number" id="manualCalibrationWireX" step="0.001" />
+            <label for="manualCalibrationWireY">Wire Y</label>
+            <input type="number" id="manualCalibrationWireY" step="0.001" />
+          </div>
+          <div class="manualCalibrationButtonRow">
+            <button type="button" id="manualCalibrationUpdateButton">
+              Update Measurement
+            </button>
+            <button type="button" id="manualCalibrationDeleteButton">
+              Delete Measurement
+            </button>
+          </div>
+          <div class="manualCalibrationPredictionGrid">
+            <div>
+              <h3>Prediction</h3>
+              <p id="manualCalibrationPredictionMode">-</p>
+            </div>
+            <div>
+              <h3>Side / Board</h3>
+              <p id="manualCalibrationPredictionBoard">-</p>
+            </div>
+            <div>
+              <h3>Camera Target</h3>
+              <p id="manualCalibrationCameraTarget">-</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="manualCalibrationGXWorkspace" class="hidden">
+          <div class="manualCalibrationFieldRow">
+            <label for="manualCalibrationReferenceSelect">Reference</label>
+            <select id="manualCalibrationReferenceSelect">
+              <option value="head">B960 (head)</option>
+              <option value="foot">B1 (foot)</option>
+            </select>
+          </div>
+          <div class="manualCalibrationButtonRow">
+            <button type="button" id="manualCalibrationGotoReferenceButton">
+              Go to B960 (head)
+            </button>
+            <button type="button" id="manualCalibrationCaptureReferenceButton">
+              Record Current Position
+            </button>
+          </div>
+          <div class="manualCalibrationPredictionGrid">
+            <div>
+              <h3>Pin</h3>
+              <p id="manualCalibrationReferencePin">-</p>
+            </div>
+            <div>
+              <h3>Raw Camera</h3>
+              <p id="manualCalibrationReferenceCamera">-</p>
+            </div>
+            <div>
+              <h3>Source</h3>
+              <p id="manualCalibrationReferenceSource">-</p>
+            </div>
+          </div>
+          <div class="manualCalibrationFieldRow">
+            <label for="manualCalibrationReferenceWireX">Wire X</label>
+            <input type="number" id="manualCalibrationReferenceWireX" step="0.001" />
+            <label for="manualCalibrationReferenceWireY">Wire Y</label>
+            <input type="number" id="manualCalibrationReferenceWireY" step="0.001" />
+          </div>
+          <div class="manualCalibrationButtonRow">
+            <button type="button" id="manualCalibrationUpdateReferenceButton">
+              Update Reference
+            </button>
+          </div>
+          <p id="manualCalibrationReferenceUpdatedAt" class="manualCalibrationHint">
+            -
+          </p>
+        </div>
+      </article>
+
+      <article class="manualCalibrationCard">
+        <h2>Measurements</h2>
+        <div id="manualCalibrationUVMeasurements">
+          <div class="manualCalibrationMeasurementsScroller">
+            <table
+              id="manualCalibrationMeasurementsTable"
+              class="manualCalibrationTable"
+            >
+              <thead>
+                <tr>
+                  <th>Pin</th>
+                  <th>Raw Camera</th>
+                  <th>Wire</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="manualCalibrationGXMeasurements" class="hidden">
+          <div class="manualCalibrationMeasurementsScroller">
+            <table id="manualCalibrationReferenceTable" class="manualCalibrationTable">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Pin</th>
+                  <th>Raw Camera</th>
+                  <th>Wire</th>
+                  <th>Source</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="manualCalibrationPredictionGrid manualCalibrationGXSummaryGrid">
+            <div>
+              <h3>Output</h3>
+              <p id="manualCalibrationGXOutputFile" class="manualCalibrationPath">-</p>
+            </div>
+            <div>
+              <h3>Hash</h3>
+              <p id="manualCalibrationGXHash">-</p>
+            </div>
+            <div>
+              <h3>Updated</h3>
+              <p id="manualCalibrationGXUpdatedAt">-</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="manualCalibrationRightColumn" class="manualCalibrationRightColumn">
+      <article
+        id="manualCalibrationUVWorkflowCard"
+        class="manualCalibrationCard manualCalibrationControlsGroup"
+      >
+        <h2>Suggested Workflow</h2>
+        <p id="manualCalibrationSuggestedPinText">Suggested pin: -</p>
+        <div class="manualCalibrationBoardRoutineBar">
+          <p
+            id="manualCalibrationBoardRoutineSummary"
+            class="manualCalibrationHint"
+          >
+            Complete the bootstrap pins, then walk the board endpoints in order.
+          </p>
+        </div>
+        <div class="manualCalibrationWorkflowPanel">
+          <div>
+            <h3>Bootstrap</h3>
+            <table
+              id="manualCalibrationBootstrapTable"
+              class="manualCalibrationTable"
+            >
+              <thead>
+                <tr>
+                  <th>Pin</th>
+                  <th>Side</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="manualCalibrationBoardSelectorPanel">
+            <h3>Board Checks</h3>
+            <div class="manualCalibrationButtonRow">
+              <button type="button" id="manualCalibrationBoardRoutineButton">
+                Start Board Check
+              </button>
+            </div>
+            <div
+              class="manualCalibrationFieldRow manualCalibrationBoardSelectRow"
+            >
+              <label for="manualCalibrationBoardSelect">End Pin</label>
+              <select id="manualCalibrationBoardSelect"></select>
+            </div>
+            <p
+              id="manualCalibrationBoardSelectSummary"
+              class="manualCalibrationPath"
+            >
+              No board endpoints available.
+            </p>
+            <p
+              id="manualCalibrationBoardSelectTarget"
+              class="manualCalibrationHint"
+            >
+              Select an end pin to sync it into the pin workspace.
+            </p>
+            <div class="manualCalibrationButtonRow">
+              <button type="button" id="manualCalibrationBoardGotoButton">
+                Go to End Pin
+              </button>
+              <button type="button" id="manualCalibrationBoardEditButton">
+                Edit End Pin
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </section>
+
+  <section
+    id="manualCalibrationBoardDialog"
+    class="manualCalibrationBoardDialog hidden"
+  >
+    <article class="manualCalibrationBoardDialogCard">
+      <div class="manualCalibrationBoardDialogHeader">
+        <div>
+          <h2>Board Check Assistant</h2>
+          <p id="manualCalibrationBoardDialogStep">Endpoint -</p>
+        </div>
+        <button type="button" id="manualCalibrationBoardDialogCloseButton">
+          Close
+        </button>
+      </div>
+      <p
+        id="manualCalibrationBoardDialogStatus"
+        class="manualCalibrationBoardDialogStatus"
+      ></p>
+      <div
+        class="manualCalibrationPredictionGrid manualCalibrationBoardDialogGrid"
+      >
+        <div>
+          <h3>Board</h3>
+          <p id="manualCalibrationBoardDialogBoard">-</p>
+        </div>
+        <div>
+          <h3>Predicted Wire</h3>
+          <p id="manualCalibrationBoardDialogWire">-</p>
+        </div>
+        <div>
+          <h3>Camera Target</h3>
+          <p id="manualCalibrationBoardDialogCamera">-</p>
+        </div>
+        <div>
+          <h3>Machine Now</h3>
+          <p id="manualCalibrationBoardDialogMachine">-</p>
+        </div>
+        <div>
+          <h3>Remaining</h3>
+          <p id="manualCalibrationBoardDialogRemaining">-</p>
+        </div>
+        <div>
+          <h3>Status</h3>
+          <p id="manualCalibrationBoardDialogTag">-</p>
+        </div>
+      </div>
+      <p
+        id="manualCalibrationBoardDialogInstruction"
+        class="manualCalibrationHint"
+      >
+        Use the page motion controls to refine the location, then accept the
+        prediction or capture the current machine position.
+      </p>
+      <div class="manualCalibrationButtonRow">
+        <button type="button" id="manualCalibrationBoardDialogMoveButton">
+          Move to Pin
+        </button>
+        <button type="button" id="manualCalibrationBoardDialogAcceptButton">
+          Accept Prediction
+        </button>
+        <button type="button" id="manualCalibrationBoardDialogCaptureButton">
+          Use Current Position
+        </button>
+        <button type="button" id="manualCalibrationBoardDialogNextButton">
+          Next Pending
+        </button>
+      </div>
+    </article>
+  </section>
+</section>

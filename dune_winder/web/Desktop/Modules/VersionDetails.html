@@ -1,0 +1,21 @@
+<h2>Version details</h2>
+
+<article>
+  <h3>Control software</h3>
+  <p>Version string: <span id="controlVersionString">--</span></p>
+  <p>Version hash: <span id="controlVersionHash">--</span></p>
+  <p>Version date: <span id="controlVersionDate">--</span></p>
+  <p>Is valid? : <span id="controlVersionValid">--</span></p>
+  <button onclick="versionDetails.versionControlRecompute()">Recompute</button>
+</article>
+
+<article>
+  <h3>User Interface</h3>
+  <p>Version string: <span id="uiVersionString">--</span></p>
+  <p>Version hash: <span id="uiVersionHash">--</span></p>
+  <p>Version date: <span id="uiVersionDate">--</span></p>
+  <p>Is valid? : <span id="uiVersionValid">--</span></p>
+  <button onclick="versionDetails.versionUI_Recompute()">Recompute</button>
+</article>
+
+<button id="versionCloseButton" onclick="versionDetails.close()">Close</button>

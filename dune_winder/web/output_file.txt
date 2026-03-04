@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<config>
+	<plcAddress>192.168.140.13</plcAddress>
+	<cameraURL>ftp://admin@192.168.140.19/image.bmp</cameraURL>
+	<pixelsPer_mm>18</pixelsPer_mm>
+	<serverAddress>127.0.0.1</serverAddress>
+	<serverPort>6626</serverPort>
+	<webServerPort>80</webServerPort>
+	<LogDirectory>../Data</LogDirectory>
+	<machineCalibrationPath>../Data/</machineCalibrationPath>
+	<machineCalibrationFile>machineCalibration.xml</machineCalibrationFile>
+	<APA_LogDirectory>../Data/APA</APA_LogDirectory>
+	<recipeDirectory>../Recipes</recipeDirectory>
+	<recipeArchiveDirectory>../Recipes</recipeArchiveDirectory>
+	<maxVelocity>406.4</maxVelocity>
+	<maxSlowVelocity>25.4</maxSlowVelocity>
+	<maxAcceleration>203.2</maxAcceleration>
+	<maxDeceleration>50.8</maxDeceleration>
+</config>

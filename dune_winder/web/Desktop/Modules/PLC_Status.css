@@ -1,0 +1,13 @@
+.badVersion
+{
+  color: red;
+}
+
+#versionCloseButton
+{
+  display: block;
+  width: 100px;
+  height: 50px;
+  margin: auto;
+  clear: both;
+}

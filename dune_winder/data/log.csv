@@ -1,0 +1,13 @@
+Time	Module	Type	Message
+2026-03-02 17:41:15.081375	Main	START	Control system starts.
+2026-03-02 17:41:20.102325	StopStateMachine	MODE	Mode changed from <None> to Idle	<None>	Idle
+2026-03-02 17:41:20.103328	ControlStateMachine	MODE	Mode changed from <None> to HardwareMode	<None>	HardwareMode
+2026-03-02 17:43:03.577266	Main	START	Control system starts.
+2026-03-02 17:43:08.595540	StopStateMachine	MODE	Mode changed from <None> to Idle	<None>	Idle
+2026-03-02 17:43:08.595540	ControlStateMachine	MODE	Mode changed from <None> to HardwareMode	<None>	HardwareMode
+2026-03-02 17:46:33.300003	Main	START	Control system starts.
+2026-03-02 17:46:38.312897	StopStateMachine	MODE	Mode changed from <None> to Idle	<None>	Idle
+2026-03-02 17:46:38.312897	ControlStateMachine	MODE	Mode changed from <None> to HardwareMode	<None>	HardwareMode
+2026-03-02 17:48:05.562016	Main	START	Control system starts.
+2026-03-02 17:48:10.579187	StopStateMachine	MODE	Mode changed from <None> to Idle	<None>	Idle
+2026-03-02 17:48:10.579829	ControlStateMachine	MODE	Mode changed from <None> to HardwareMode	<None>	HardwareMode
