@@ -1,6 +1,7 @@
 function APA(modules) {
   var self = this;
-  var commands = window.CommandCatalog;
+  var uiServices = modules.get("UiServices");
+  var commands = uiServices.getCommands();
 
   // True when the APA settings can be modified.  Used to prevent modifications
   // to the APA while the machine is running.
@@ -312,13 +313,86 @@ function APA(modules) {
   var page = modules.get("Page");
   var winder = modules.get("Winder");
   var runStatus = modules.get("RunStatus");
-  var call = function (commandName, args, onSuccess) {
-    winder.call(commandName, args, function (response) {
-      if (response && response.ok) {
-        if (onSuccess) onSuccess(response.data);
-      }
-    });
+  var call = function (commandName, args, onSuccess, onError) {
+    uiServices.call(commandName, args, onSuccess, onError);
   };
+
+  var bindControls = function () {
+    $("#startButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.setRunningState(true);
+      });
+
+    $("#stopButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.stopNext();
+      });
+
+    $("#stepButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.stepG_Code();
+      });
+
+    $("#layerSelection")
+      .off("change.apa")
+      .on("change.apa", function () {
+        self.selectLayer();
+      });
+
+    $("#gCodeSelection")
+      .off("change.apa")
+      .on("change.apa", function () {
+        self.selectG_Code();
+      });
+
+    $("#openGCodeButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.openG_Code();
+      });
+
+    $("#openCalibrationButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.openCalibration();
+      });
+
+    $("#apaGotoLineButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.gotoLine();
+      });
+
+    $("#apaNextLineButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.nextLine();
+      });
+
+    $("#apaPreviousLineButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.previousLine();
+      });
+
+    $("#apaRefreshButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.refreshGCode();
+      });
+
+    $("#apaGotoWrapButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.gotoWrap();
+      });
+  };
+
+  bindControls();
+  modules.registerRestoreCallback(bindControls);
 
   // Populate lists and have this function run after error recovery.
   this.populateLists();
@@ -442,9 +516,9 @@ function APA(modules) {
     recentLog.create(LOG_ENTIRES);
   });
 
-  createSlider = function (slider, getString, setString) {
+  var createSlider = function (slider, getString, setString) {
     var isLoad = true;
-    velocitySliderFunction = function (event, ui) {
+    var velocitySliderFunction = function (event, ui) {
       $("#" + slider + "Value").html(ui.value + "%");
     };
 
@@ -883,23 +957,14 @@ function APA(modules) {
   };
 
   fetchForecastLogs();
-  if (window.__apaForecastPollTimer) {
-    clearInterval(window.__apaForecastPollTimer);
-  }
   forecastPollTimer = setInterval(fetchForecastLogs, 2000);
-  window.__apaForecastPollTimer = forecastPollTimer;
 
   modules.registerShutdownCallback(function () {
     if (forecastPollTimer) {
       clearInterval(forecastPollTimer);
-      if (window.__apaForecastPollTimer === forecastPollTimer) {
-        window.__apaForecastPollTimer = null;
-      }
       forecastPollTimer = null;
     }
   });
-
-  window["apa"] = self;
 }
 //
 // //-----------------------------------------------------------------------------

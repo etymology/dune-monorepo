@@ -5,7 +5,7 @@
             <button class="jog" id="jogXY_u">&#8593;</button>
             <button class="jog" id="jogXY_ur">&#8599;</button>
             <button class="jog" id="jogXY_l">&#8592;</button>
-            <button class="jog" onclick="jog.seekXY( 0, 0 )">&#8962;</button>
+            <button class="jog" id="jogXY_home">&#8962;</button>
             <button class="jog" id="jogXY_r">&#8594;</button>
             <button class="jog" id="jogXY_dl">&#8601;</button>
             <button class="jog" id="jogXY_d">&#8595;</button>
@@ -14,25 +14,25 @@
           <h2>Jog Z</h2>
           <div class="jog" >
             <button class="jog" id="jogZ_b">&#8592;</button>
-              <button class="jog" onclick="jog.seekZ( 0 )">&#8962;</button>
+              <button class="jog" id="jogZ_home">&#8962;</button>
             <button class="jog" id="jogZ_f">&#8594;</button>
           </div>
         </article>
 
         <article id="headControlDiv">
           <h2>Head Control</h2>
-          <button onclick="jog.headPosition( 0 )">Front</button>
-          <button onclick="jog.headPosition( 3 )">Back</button>
-          <button onclick="jog.headPosition( 1 )">Level Front</button>
-          <button onclick="jog.headPosition( 2 )">Level Back</button>
+          <button id="jogHeadFront">Front</button>
+          <button id="jogHeadBack">Back</button>
+          <button id="jogHeadLevelFront">Level Front</button>
+          <button id="jogHeadLevelBack">Level Back</button>
         </article>
 
         <article id="speedDiv">
           <h2>Jog speed</h2>
-          <button onclick="jog.setSpeed( 0.5 )">50%</button>
-          <button onclick="jog.setSpeed( 0.2 )">20%</button>
-          <button onclick="jog.setSpeed( 0.1 )">10%</button>
-          <button onclick="jog.setSpeed( 0.01 )">1%</button>
+          <button id="jogSpeed50">50%</button>
+          <button id="jogSpeed20">20%</button>
+          <button id="jogSpeed10">10%</button>
+          <button id="jogSpeed1">1%</button>
         </article>
 
         <div id="position"></div>

@@ -1,4 +1,9 @@
 var USE_FULL_PAGE_CACHE = false
+var APP_STATE =
+{
+  page: null,
+  baseStylesheets: []
+}
 
 //-----------------------------------------------------------------------------
 // Uses:
@@ -39,10 +44,8 @@ function getParameterByName( name, url )
 // $$$FUTURE - Remove this function and merge it into cache callback.  Only
 //   needed for old system.
 //-----------------------------------------------------------------------------
-function setupMainScreen()
+function setupMainScreen( page )
 {
-  var page = window[ "page" ]
-
   // Before sub-pages begin to load, register a callback to run after all
   // have been loaded.
   page.addFullyLoadedCallback
@@ -98,56 +101,86 @@ function setupMainScreen()
 // Input:
 //   page - Desired page to load.
 //-----------------------------------------------------------------------------
-var baseStylesheets = []
+function removeNonBaseStylesheets()
+{
+  // Remove all styles sheets that are not base styles.
+  $( 'head' )
+    .find( 'link' )
+    .each
+    (
+      function()
+      {
+        // Where did this style sheet come from?
+        var url = $( this ).attr( 'href' )
+
+        // Is it a base style sheet?
+        if ( -1 == APP_STATE.baseStylesheets.indexOf( url ) )
+          // Remove it.
+          $( this ).remove()
+      }
+    )
+}
+
+function configureCommonModules( page )
+{
+  // Winder module is used on every page.
+  page.addCommonModule( "/Scripts/Winder" )
+  page.addCommonModule( "/Scripts/UiServices" )
+
+  // page.addCommonPage( "/Desktop/Modules/RunStatus",   "#statesDiv"   )
+  // page.addCommonPage( "/Desktop/Modules/Time",        "#timeDiv"     )
+  // page.addCommonPage( "/Desktop/Modules/Version",     "#versionDiv"  )
+  // page.addCommonPage( "/Desktop/Modules/FullStop",    "#fullStopDiv" )
+}
+
+function createPageController()
+{
+  var page = new Page()
+  APP_STATE.page = page
+  configureCommonModules( page )
+  return page
+}
+
 function load( pageName )
 {
+  var page = APP_STATE.page
+
   if ( ! USE_FULL_PAGE_CACHE )
   {
-    var page = window[ "page" ]
-    var modules = page.getModules()
-    var winder = modules.get( "Winder" )
-    winder.shutdown()
+    if ( page )
+    {
+      var modules = page.getModules()
+      modules.shutdown()
+    }
 
     $( '#main' ).html( "Loading..." )
 
-    // Remove all styles sheets that are not base styles.
-    $( 'head' )
-      .find( 'link' )
-      .each
-      (
-        function()
-        {
-          // Where did this style sheet come from?
-          var url = $( this ).attr( 'href' )
+    removeNonBaseStylesheets()
 
-          // Is it a base style sheet?
-          if ( -1 == baseStylesheets.indexOf( url ) )
-            // Remove it.
-            $( this ).remove()
-        }
-      )
-
-    var page = new Page()
-    window[ "page" ] = page
-
-    // Winder module is used on every page.
-    page.addCommonModule( "/Scripts/Winder" )
-
-    // page.addCommonPage( "/Desktop/Modules/RunStatus",   "#statesDiv"   )
-    // page.addCommonPage( "/Desktop/Modules/Time",        "#timeDiv"     )
-    // page.addCommonPage( "/Desktop/Modules/Version",     "#versionDiv"  )
-    // page.addCommonPage( "/Desktop/Modules/FullStop",    "#fullStopDiv" )
+    page = createPageController()
 
     // Loading sub page and setup main screen after sub page finishes loading.
     page.load
     (
       pageName,
       "#main",
-      setupMainScreen
+      function()
+      {
+        setupMainScreen( page )
+      }
     )
   }
   else
-    page.load( page )
+    if ( page )
+      page.load
+      (
+        pageName,
+        "#main",
+        function()
+        {
+          setupMainScreen( page )
+        }
+      )
 }
 
 //-----------------------------------------------------------------------------
@@ -165,40 +198,33 @@ $( document ).ready
     if ( ! pageName )
       pageName = "Menu"
 
-    // Save all the loaded style sheet URLs.  These need to stay regardless
-    // of what page is loaded.
+    // Save all loaded style sheets.  These stay regardless of page changes.
+    APP_STATE.baseStylesheets = []
     $( 'head' )
       .find( 'link' )
       .each
       (
         function()
         {
-          // Add to list of base style sheets.
-          baseStylesheets.push( $( this ).attr( 'href' ) )
+          APP_STATE.baseStylesheets.push( $( this ).attr( 'href' ) )
         }
       )
-
-    var page = new Page()
-    window[ "page" ] = page
 
     $( "#pageSelectDiv" ).css( "display", "block" )
     $( "#fullStopDiv" ).css( "display", "block" )
     $( "#loginDiv" ).css( "display", "none" )
 
-    // Winder module is used on every page.
-    page.addCommonModule( "/Scripts/Winder" )
-
-    // page.addCommonPage( "/Desktop/Modules/RunStatus",   "#statesDiv"   )
-    // page.addCommonPage( "/Desktop/Modules/Time",        "#timeDiv"     )
-    // page.addCommonPage( "/Desktop/Modules/Version",     "#versionDiv"  )
-    // page.addCommonPage( "/Desktop/Modules/FullStop",    "#fullStopDiv" )
+    var page = createPageController()
 
     // Load the requested page.
     page.load
     (
       "/Mobile/Pages/" + pageName,
       "#main",
-      setupMainScreen,
+      function()
+      {
+        setupMainScreen( page )
+      },
       null,
       function( error )
       {
