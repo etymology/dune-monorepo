@@ -10,16 +10,17 @@ import math
 
 from dune_winder.library.Geometry.Location import Location
 
-from .G_CodeFunctions.WireLengthG_Code import WireLengthG_Code
-from .G_CodeFunctions.SeekTransferG_Code import SeekTransferG_Code
-from .G_CodeFunctions.OffsetG_Code import OffsetG_Code
-from .G_CodeFunctions.ArmCorrectG_Code import ArmCorrectG_Code
-from .G_CodeFunctions.AnchorPointG_Code import AnchorPointG_Code
-from .G_CodeFunctions.TransferCorrectG_Code import TransferCorrectG_Code
-
 from .RecipeGenerator import RecipeGenerator
 from .HeadPosition import HeadPosition
-from .G_CodePath import G_CodePath
+from .gcode_functions import (
+  anchor_point,
+  arm_correct,
+  offset,
+  seek_transfer,
+  transfer_correct,
+  wire_length,
+)
+from .gcode_path import GCodePath
 
 
 class LayerUV_Recipe(RecipeGenerator):
@@ -182,10 +183,10 @@ class LayerUV_Recipe(RecipeGenerator):
 
       # Push a G-Code length function to the next G-Code command to specify the
       # amount of wire consumed by this move.
-      self.gCodePath.pushG_Code(WireLengthG_Code(length))
+      self.gCodePath.pushG_Code(wire_length(length))
 
       # Push the anchor point of the last placed wire.
-      self.gCodePath.pushG_Code(AnchorPointG_Code(lastNet, anchorOrientation))
+      self.gCodePath.pushG_Code(anchor_point(lastNet, anchorOrientation))
 
       result = True
 
@@ -200,20 +201,20 @@ class LayerUV_Recipe(RecipeGenerator):
     # To center pin.
     if self._nextNet():
       self.gCodePath.pushG_Code(self.pinCenterTarget("XY"))
-      self.gCodePath.pushG_Code(SeekTransferG_Code())
-      self.gCodePath.pushG_Code(ArmCorrectG_Code())
+      self.gCodePath.pushG_Code(seek_transfer())
+      self.gCodePath.pushG_Code(arm_correct())
       self.gCodePath.push()
       self.z.set(HeadPosition.OTHER_SIDE)
 
     if self._nextNet():
       # Hook pin and line up with next pin on other side.
       self.gCodePath.pushG_Code(self.pinCenterTarget("X"))
-      self.gCodePath.pushG_Code(TransferCorrectG_Code("X"))
+      self.gCodePath.pushG_Code(transfer_correct("X"))
       self.gCodePath.push()
 
       # Go to other side and seek past pin so it is hooked with next move.
       self.gCodePath.pushG_Code(self.pinCenterTarget("Y"))
-      self.gCodePath.pushG_Code(OffsetG_Code(y=-LayerUV_Recipe.OVERSHOOT))
+      self.gCodePath.pushG_Code(offset(y=-LayerUV_Recipe.OVERSHOOT))
       self.gCodePath.push()
 
   # ---------------------------------------------------------------------
@@ -231,8 +232,8 @@ class LayerUV_Recipe(RecipeGenerator):
     # Column pin.
     if self._nextNet():
       self.gCodePath.pushG_Code(self.pinCenterTarget("XY"))
-      self.gCodePath.pushG_Code(SeekTransferG_Code())
-      self.gCodePath.pushG_Code(ArmCorrectG_Code())
+      self.gCodePath.pushG_Code(seek_transfer())
+      self.gCodePath.pushG_Code(arm_correct())
       self.gCodePath.push()
       self.z.set(HeadPosition.PARTIAL)
 
@@ -242,26 +243,26 @@ class LayerUV_Recipe(RecipeGenerator):
       self.gCodePath.push()
       self.z.set(HeadPosition.OTHER_SIDE)
       self.gCodePath.pushG_Code(self.pinCenterTarget("Y"))
-      self.gCodePath.pushG_Code(TransferCorrectG_Code("Y"))
+      self.gCodePath.pushG_Code(transfer_correct("Y"))
       self.gCodePath.push()
       self.gCodePath.pushG_Code(self.pinCenterTarget("X"))
-      self.gCodePath.pushG_Code(OffsetG_Code(x=xOffset))
+      self.gCodePath.pushG_Code(offset(x=xOffset))
       self.gCodePath.push()
 
     if self._nextNet():
       # Anchor point is set--find a path between.
       self.gCodePath.pushG_Code(self.pinCenterTarget("XY"))
-      self.gCodePath.pushG_Code(SeekTransferG_Code())
-      self.gCodePath.pushG_Code(ArmCorrectG_Code())
+      self.gCodePath.pushG_Code(seek_transfer())
+      self.gCodePath.pushG_Code(arm_correct())
       self.gCodePath.push()
       self.z.set(HeadPosition.OTHER_SIDE)
 
     if self._nextNet():
       self.gCodePath.pushG_Code(self.pinCenterTarget("X"))
-      self.gCodePath.pushG_Code(TransferCorrectG_Code("X"))
+      self.gCodePath.pushG_Code(transfer_correct("X"))
       self.gCodePath.push()
       self.gCodePath.pushG_Code(self.pinCenterTarget("Y"))
-      self.gCodePath.pushG_Code(OffsetG_Code(y=LayerUV_Recipe.OVERSHOOT))
+      self.gCodePath.pushG_Code(offset(y=LayerUV_Recipe.OVERSHOOT))
       self.gCodePath.push()
 
   # ---------------------------------------------------------------------
@@ -289,7 +290,7 @@ class LayerUV_Recipe(RecipeGenerator):
       self.location(self.netIndex), self.geometry.pinRadius, self.orientations[net]
     )
 
-    self.gCodePath = G_CodePath()
+    self.gCodePath = GCodePath()
     self.z = HeadPosition(self.gCodePath, self.geometry, HeadPosition.FRONT)
     self.z.set(HeadPosition.BACK)
 
@@ -321,7 +322,7 @@ class LayerUV_Recipe(RecipeGenerator):
 
       if halfCount == index:
         self.firstHalf = self.gCodePath
-        self.gCodePath = G_CodePath()
+        self.gCodePath = GCodePath()
         self.gCodePath.pushG_Code(self.pinCenterTarget("XY", start2))
         self.gCodePath.push()
         self.z = HeadPosition(self.gCodePath, self.geometry, HeadPosition.FRONT)

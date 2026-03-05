@@ -6,7 +6,7 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
-from dune_winder.library.G_Code import G_Code, G_CodeException
+from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
 from dune_winder.machine.G_CodeHandlerBase import G_CodeHandlerBase
 from dune_winder.io.Maps.BaseIO import BaseIO
 
@@ -341,7 +341,7 @@ class G_CodeHandler(G_CodeHandlerBase):
       Failure data.  None if there was no failure.
     """
     errorData = None
-    gCode = G_Code([], self._callbacks)
+    gCode = GCodeProgramExecutor([], self._callbacks)
     try:
       if self._beforeExecuteLineCallback:
         error = self._beforeExecuteLineCallback()
@@ -351,7 +351,7 @@ class G_CodeHandler(G_CodeHandlerBase):
       # Interpret the next line.
       gCode.execute(line)
       self.poll()
-    except G_CodeException as exception:
+    except GCodeExecutionError as exception:
       errorData = {"line": line, "message": str(exception), "data": exception.data}
 
     return errorData
@@ -381,7 +381,7 @@ class G_CodeHandler(G_CodeHandlerBase):
 
       # Interpret the next line.
       self._gCode.executeNextLine(self._nextLine)
-    except G_CodeException as exception:
+    except GCodeExecutionError as exception:
       self._isG_CodeErrorMessage = str(exception)
 
       self._isG_CodeErrorData = [self._nextLine, self._gCode.lines[self._nextLine]]
@@ -447,7 +447,7 @@ class G_CodeHandler(G_CodeHandlerBase):
       calibration: Calibration for layer being loaded.
     """
 
-    self._gCode = G_Code(lines, self._callbacks)
+    self._gCode = GCodeProgramExecutor(lines, self._callbacks)
     self._currentLine = -1
     self._nextLine = -1
     self._firstMove = True
@@ -472,7 +472,7 @@ class G_CodeHandler(G_CodeHandlerBase):
     Raises:
       ValueError: Current execution pointers do not fit in the new file.
     """
-    gCode = G_Code(lines, self._callbacks)
+    gCode = GCodeProgramExecutor(lines, self._callbacks)
     lineCount = gCode.getLineCount()
 
     currentLine = self._currentLine

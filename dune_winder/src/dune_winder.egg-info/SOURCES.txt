@@ -29,6 +29,11 @@ src/dune_winder/core/__init__.py
 src/dune_winder/core/forecast_time_from_last_windmode_block.py
 src/dune_winder/debug/APA_Generator.py
 src/dune_winder/debug/__init__.py
+src/dune_winder/gcode/__init__.py
+src/dune_winder/gcode/model.py
+src/dune_winder/gcode/parser.py
+src/dune_winder/gcode/renderer.py
+src/dune_winder/gcode/runtime.py
 src/dune_winder/io/IO_map.py
 src/dune_winder/io/PLC.py
 src/dune_winder/io/__init__.py
@@ -63,7 +68,6 @@ src/dune_winder/io/Types/SoftwareOutput.py
 src/dune_winder/io/Types/__init__.py
 src/dune_winder/library/ArrayToCSV.py
 src/dune_winder/library/Configuration.py
-src/dune_winder/library/G_Code.py
 src/dune_winder/library/Hash.py
 src/dune_winder/library/HashedSerializable.py
 src/dune_winder/library/Log.py
@@ -92,7 +96,6 @@ src/dune_winder/machine/APA_Geometry.py
 src/dune_winder/machine/DefaultCalibration.py
 src/dune_winder/machine/GX_LayerGeometry.py
 src/dune_winder/machine/G_CodeHandlerBase.py
-src/dune_winder/machine/G_Codes.py
 src/dune_winder/machine/G_LayerGeometry.py
 src/dune_winder/machine/GeometrySelection.py
 src/dune_winder/machine/HeadCompensation.py
@@ -109,7 +112,6 @@ src/dune_winder/machine/U_LayerGeometry.py
 src/dune_winder/machine/V_LayerGeometry.py
 src/dune_winder/machine/X_LayerGeometry.py
 src/dune_winder/machine/__init__.py
-src/dune_winder/recipes/G_CodePath.py
 src/dune_winder/recipes/G_CodeToPath.py
 src/dune_winder/recipes/HeadPosition.py
 src/dune_winder/recipes/LayerGX_Recipe.py
@@ -121,19 +123,8 @@ src/dune_winder/recipes/LayerX_Recipe.py
 src/dune_winder/recipes/Path3d.py
 src/dune_winder/recipes/RecipeGenerator.py
 src/dune_winder/recipes/__init__.py
-src/dune_winder/recipes/G_CodeFunctions/AnchorPointG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/ArmCorrectG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/BreakG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/ClipG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/G_CodeFunction.py
-src/dune_winder/recipes/G_CodeFunctions/HeadLocationG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/LatchG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/OffsetG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/PinCenterG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/SeekTransferG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/TransferCorrectG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/WireLengthG_Code.py
-src/dune_winder/recipes/G_CodeFunctions/__init__.py
+src/dune_winder/recipes/gcode_functions.py
+src/dune_winder/recipes/gcode_path.py
 src/dune_winder/threads/CameraThread.py
 src/dune_winder/threads/ControlThread.py
 src/dune_winder/threads/PrimaryThread.py

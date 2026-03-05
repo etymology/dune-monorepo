@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from .G_CodeFunctions.HeadLocationG_Code import HeadLocationG_Code
+from .gcode_functions import head_location
 
 
 class HeadPosition:
@@ -24,7 +24,7 @@ class HeadPosition:
     Constructor.
 
     Args:
-      gCodePath: An instance of G_CodePath.
+      gCodePath: An instance of GCodePath.
       geometry: An instance of LayerGeometry (or child of).
       initialPosition: Initial position of Z axis.
     """
@@ -75,7 +75,7 @@ class HeadPosition:
         location = HeadPosition.BACK
 
     if self._currentPostion != location:
-      self._gCodePath.pushG_Code(HeadLocationG_Code(location))
+      self._gCodePath.pushG_Code(head_location(location))
       self._gCodePath.push()
 
       self._currentPostion = location

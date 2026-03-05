@@ -9,7 +9,7 @@
 from dune_winder.library.SerializableLocation import SerializableLocation
 from dune_winder.library.Recipe import Recipe
 
-from .G_CodeFunctions.PinCenterG_Code import PinCenterG_Code
+from .gcode_functions import pin_center
 from .Path3d import Path3d
 
 from dune_winder.machine.LayerCalibration import LayerCalibration
@@ -134,14 +134,14 @@ class RecipeGenerator:
       axis: Either "X", "Y" or "XY" for which coordinates will be used in the
             targeting.
     Returns:
-      An instance of PinCenterG_Code (G_CodeFunction).
+      Canonical FunctionCall for pin centering.
     """
     if pinNames is None:
       net = self.net[self.netIndex]
       direction = self.centering[net]
       pinNames = self.pinNames(self.netIndex, direction)
 
-    return PinCenterG_Code(pinNames, axis)
+    return pin_center(pinNames, axis)
 
   # ---------------------------------------------------------------------
   def writeRubyBasePath(self, outputFileName, isAppend=True):

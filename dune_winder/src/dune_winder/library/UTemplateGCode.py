@@ -15,6 +15,7 @@ from dune_winder.library.RecipeTemplateLanguage import (
   execute_template_script,
 )
 from dune_winder.library.Recipe import Recipe
+from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.library.TemplateGCodeTransitions import (
   append_motion_to_pause_transition,
   append_pause_to_motion_transition,
@@ -135,9 +136,10 @@ def _normalize_pin_tokens(text):
 
 
 def _line(*parts):
-  return _normalize_pin_tokens(
+  text = _normalize_pin_tokens(
     " ".join(str(part) for part in parts if part not in (None, ""))
   )
+  return normalize_line_text(text)
 
 
 def _coord(axis, value):

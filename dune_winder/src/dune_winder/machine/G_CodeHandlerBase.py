@@ -11,14 +11,18 @@
 ###############################################################################
 
 from dune_winder.library.MathExtra import MathExtra
-from dune_winder.library.G_Code import G_CodeCallbacks, G_CodeException
+from dune_winder.gcode.model import Opcode
+from dune_winder.gcode.runtime import (
+  GCodeCallbacks,
+  GCodeExecutionError,
+  GCodeProgramExecutor,
+)
 
 from dune_winder.library.Geometry.Location import Location
 from dune_winder.library.Geometry.Line import Line
 from dune_winder.library.Geometry.Box import Box
 from dune_winder.library.Geometry.Segment import Segment
 
-from .G_Codes import G_Codes
 from .LayerCalibration import LayerCalibration
 from .MachineCalibration import MachineCalibration
 
@@ -118,7 +122,7 @@ class G_CodeHandlerBase:
       An instance of 'newType' with data.
 
     Throws:
-      G_CodeException if formatting is incorrect.
+      GCodeExecutionError if formatting is incorrect.
     """
 
     try:
@@ -131,7 +135,7 @@ class G_CodeHandlerBase:
     except (IndexError, AttributeError, ValueError):
       data = [str(parameters)]
 
-      raise G_CodeException(
+      raise GCodeExecutionError(
         "G-Code " + errorMessage + " function incorrectly formatted.", data
       )
 
@@ -149,7 +153,7 @@ class G_CodeHandlerBase:
       What Z will be at the requested head position.
 
     Throws:
-      G_CodeException if formatting is incorrect.
+      GCodeExecutionError if formatting is incorrect.
     """
 
     # $$$DEBUG - Get rid of constants.
@@ -164,7 +168,7 @@ class G_CodeHandlerBase:
     else:
       data = [str(headPosition)]
 
-      raise G_CodeException("Unknown head position " + str(headPosition) + ".", data)
+      raise GCodeExecutionError("Unknown head position " + str(headPosition) + ".", data)
 
     return z
 
@@ -180,14 +184,14 @@ class G_CodeHandlerBase:
       Instance of Location.
 
     Throws:
-      G_CodeException if pin is not found.
+      GCodeExecutionError if pin is not found.
     """
     try:
       result = self._layerCalibration.getPinLocation(pinName)
     except KeyError:
       data = [str(pinName)]
 
-      raise G_CodeException("Unknown pin " + str(pinName) + ".", data)
+      raise GCodeExecutionError("Unknown pin " + str(pinName) + ".", data)
 
     return result
 
@@ -238,7 +242,7 @@ class G_CodeHandlerBase:
         str(endLocation),
       ]
 
-      raise G_CodeException(
+      raise GCodeExecutionError(
         "G-Code seek transfer could not establish an anchor point.", data
       )
 
@@ -259,7 +263,7 @@ class G_CodeHandlerBase:
     if location is None:
       data = [str(edges), str(segment)]
 
-      raise G_CodeException(
+      raise GCodeExecutionError(
         "G-Code seek transfer could not establish a finial location.", data
       )
 
@@ -281,7 +285,7 @@ class G_CodeHandlerBase:
       print("  PIN_CENTER", pinNumberA, pinNumberB, end=" ")
 
     if not self._layerCalibration:
-      raise G_CodeException(
+      raise GCodeExecutionError(
         "G-Code request for calibrated move, but no layer calibration to use."
       )
 
@@ -497,7 +501,7 @@ class G_CodeHandlerBase:
         direction = -1
       else:
         data = [str(orientation)]
-        raise G_CodeException("Unknown orientation: " + orientation + ".", data)
+        raise GCodeExecutionError("Unknown orientation: " + orientation + ".", data)
 
       self._x = self._headCompensation.transferCorrectX(start, zHead, direction)
     elif "Y" == correction:
@@ -510,12 +514,12 @@ class G_CodeHandlerBase:
         direction = 1
       else:
         data = [str(orientation)]
-        raise G_CodeException("Unknown orientation: " + orientation + ".", data)
+        raise GCodeExecutionError("Unknown orientation: " + orientation + ".", data)
 
       self._y = self._headCompensation.transferCorrectY(start, zHead, direction)
     else:
       data = [str(correction)]
-      raise G_CodeException("Unknown correction type: " + str(correction) + ".", data)
+      raise GCodeExecutionError("Unknown correction type: " + str(correction) + ".", data)
 
     if G_CodeHandlerBase.DEBUG_UNIT:
       print("x", self._x, "y", self._y)
@@ -533,19 +537,19 @@ class G_CodeHandlerBase:
   # Look-up table of all G-Code functions.
   # ------------------------------------
   G_CODE_FUNCTION_TABLE = {
-    G_Codes.LATCH: _latch,
-    G_Codes.WIRE_LENGTH: _wireLength,
-    G_Codes.SEEK_TRANSFER: _seekTransfer,
-    G_Codes.PIN_CENTER: _pinCenter,
-    G_Codes.CLIP: _clip,
-    G_Codes.OFFSET: _offset,
-    G_Codes.HEAD_LOCATION: _headLocation,
-    G_Codes.DELAY: _delay,
-    G_Codes.ANCHOR_POINT: _anchorPoint,
-    G_Codes.ARM_CORRECT: _armCorrect,
-    G_Codes.TRANSFER_CORRECT: _transferCorrect,
-    G_Codes.BREAK_POINT: _break,
-    G_Codes.TENSION_TESTING: _tensionTesting,
+    Opcode.LATCH: _latch,
+    Opcode.WIRE_LENGTH: _wireLength,
+    Opcode.SEEK_TRANSFER: _seekTransfer,
+    Opcode.PIN_CENTER: _pinCenter,
+    Opcode.CLIP: _clip,
+    Opcode.OFFSET: _offset,
+    Opcode.HEAD_LOCATION: _headLocation,
+    Opcode.DELAY: _delay,
+    Opcode.ANCHOR_POINT: _anchorPoint,
+    Opcode.ARM_CORRECT: _armCorrect,
+    Opcode.TRANSFER_CORRECT: _transferCorrect,
+    Opcode.BREAK_POINT: _break,
+    Opcode.TENSION_TESTING: _tensionTesting,
   }
 
   # ---------------------------------------------------------------------
@@ -557,7 +561,7 @@ class G_CodeHandlerBase:
       function: Function number to execute.
 
     Throws:
-      G_CodeException if formatting is incorrect.
+      GCodeExecutionError if formatting is incorrect.
     """
     number = self._parameterExtract(function, 0, None, int, "base")
     self._functions.append(function)
@@ -567,7 +571,7 @@ class G_CodeHandlerBase:
       G_CodeHandlerBase.G_CODE_FUNCTION_TABLE[number](self, function)
     else:
       data = [str(number)]
-      raise G_CodeException("Unknown G-Code " + str(number), data)
+      raise GCodeExecutionError("Unknown G-Code " + str(number), data)
 
   # ---------------------------------------------------------------------
   def setLimitVelocity(self, maxVelocity):
@@ -637,7 +641,7 @@ class G_CodeHandlerBase:
       machineCalibration: Machine calibration instance.
       headCompensation: Instance of HeadCompensation.
     """
-    self._callbacks = G_CodeCallbacks()
+    self._callbacks = GCodeCallbacks()
     self._callbacks.registerCallback("X", self._setX)
     self._callbacks.registerCallback("Y", self._setY)
     self._callbacks.registerCallback("Z", self._setZ)
@@ -690,7 +694,6 @@ class G_CodeHandlerBase:
 
 # Unit test code.
 if __name__ == "__main__":
-  from dune_winder.library.G_Code import G_Code
   from dune_winder.library.MathExtra import MathExtra
   from dune_winder.machine.DefaultCalibration import (
     DefaultMachineCalibration,
@@ -718,7 +721,7 @@ if __name__ == "__main__":
       self.useLayerCalibration(layerCalibration)
 
       # Setup G-Code interpreter.
-      gCode = G_Code(lines, self._callbacks)
+      gCode = GCodeProgramExecutor(lines, self._callbacks)
 
       #
       # Run tests.
@@ -744,3 +747,5 @@ if __name__ == "__main__":
 
   # Create instance of test class, thereby running tests.
   tester = G_CodeTester()
+
+
