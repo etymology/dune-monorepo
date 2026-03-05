@@ -1,6 +1,28 @@
 function VTemplate( modules )
 {
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
+  var call = function( commandName, args, callback )
+  {
+    winder.call
+    (
+      commandName,
+      args,
+      function( response )
+      {
+        if ( response && response.ok )
+        {
+          if ( callback )
+            callback( response.data, null )
+        }
+        else
+        {
+          if ( callback )
+            callback( null, response )
+        }
+      }
+    )
+  }
   var activeLayer = null
   var lastRenderedLayer = null
   var lastVState = null
@@ -617,9 +639,10 @@ function VTemplate( modules )
 
   function refreshLayerOnce()
   {
-    winder.remoteAction
+    call
     (
-      "process.getRecipeLayer()",
+      commands.process.getRecipeLayer,
+      {},
       function( layer )
       {
         activeLayer = layer
@@ -630,9 +653,10 @@ function VTemplate( modules )
 
   function refreshVStateOnce( callback )
   {
-    winder.remoteAction
+    call
     (
-      "process.vTemplateRecipe.getState()",
+      commands.process.vTemplateGetState,
+      {},
       function( state )
       {
         if ( state )
@@ -648,9 +672,10 @@ function VTemplate( modules )
 
   function refreshUStateOnce( callback )
   {
-    winder.remoteAction
+    call
     (
-      "process.uTemplateRecipe.getState()",
+      commands.process.uTemplateGetState,
+      {},
       function( state )
       {
         if ( state )
@@ -666,9 +691,10 @@ function VTemplate( modules )
 
   function refreshManualStateOnce( callback )
   {
-    winder.remoteAction
+    call
     (
-      "process.manualCalibration.getState()",
+      commands.process.manualCalibrationGetState,
+      {},
       function( state )
       {
         if ( state )
@@ -682,16 +708,50 @@ function VTemplate( modules )
     )
   }
 
-  function pageAction( command, callback )
+  function refreshInitialStateOnce()
   {
-    winder.remoteAction
+    winder.batch
     (
-      command,
-      function( data )
+      [
+        { id: "layer", name: commands.process.getRecipeLayer, args: {} },
+        { id: "v", name: commands.process.vTemplateGetState, args: {} },
+        { id: "u", name: commands.process.uTemplateGetState, args: {} },
+        { id: "manual", name: commands.process.manualCalibrationGetState, args: {} },
+      ],
+      function( response )
       {
-        if ( data && data.ok === false )
+        if ( ! response || ! response.ok || ! response.data || ! response.data.results )
+          return
+
+        var results = response.data.results
+        if ( results.layer && results.layer.ok )
+          activeLayer = results.layer.data
+        if ( results.v && results.v.ok )
+          lastVState = results.v.data
+        if ( results.u && results.u.ok )
+          lastUState = results.u.data
+        if ( results.manual && results.manual.ok )
+          lastManualState = results.manual.data
+
+        render()
+      }
+    )
+  }
+
+  function pageAction( commandName, args, callback )
+  {
+    call
+    (
+      commandName,
+      args,
+      function( data, responseError )
+      {
+        if ( responseError )
         {
-          setMessage( data.error, "error" )
+          var errorMessage = "Command failed."
+          if ( responseError.error && responseError.error.message )
+            errorMessage = responseError.error.message
+          setMessage( errorMessage, "error" )
           return
         }
 
@@ -715,7 +775,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      'process.vTemplateRecipe.setOffset( "' + offsetId + '", ' + value + " )",
+      commands.process.vTemplateSetOffset,
+      { offset_id: offsetId, value: value },
       function()
       {
         refreshVStateOnce()
@@ -730,9 +791,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      "process.vTemplateRecipe.setTransferPause( "
-      + ( $( "#gCodeGenerationVTransferPause" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.vTemplateSetTransferPause,
+      { enabled: $( "#gCodeGenerationVTransferPause" ).is( ":checked" ) },
       function()
       {
         refreshVStateOnce()
@@ -747,9 +807,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      "process.vTemplateRecipe.setIncludeLeadMode( "
-      + ( $( "#gCodeGenerationVIncludeLeadMode" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.vTemplateSetIncludeLeadMode,
+      { enabled: $( "#gCodeGenerationVIncludeLeadMode" ).is( ":checked" ) },
       function()
       {
         refreshVStateOnce()
@@ -771,7 +830,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      'process.uTemplateRecipe.setOffset( "' + offsetId + '", ' + value + " )",
+      commands.process.uTemplateSetOffset,
+      { offset_id: offsetId, value: value },
       function()
       {
         refreshUStateOnce()
@@ -786,9 +846,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      "process.uTemplateRecipe.setTransferPause( "
-      + ( $( "#gCodeGenerationUTransferPause" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.uTemplateSetTransferPause,
+      { enabled: $( "#gCodeGenerationUTransferPause" ).is( ":checked" ) },
       function()
       {
         refreshUStateOnce()
@@ -803,9 +862,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      "process.uTemplateRecipe.setIncludeLeadMode( "
-      + ( $( "#gCodeGenerationUIncludeLeadMode" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.uTemplateSetIncludeLeadMode,
+      { enabled: $( "#gCodeGenerationUIncludeLeadMode" ).is( ":checked" ) },
       function()
       {
         refreshUStateOnce()
@@ -827,7 +885,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      'process.manualCalibration.setCornerOffset( "' + offsetId + '", ' + value + " )",
+      commands.process.manualCalibrationSetCornerOffset,
+      { offset_id: offsetId, value: value },
       function()
       {
         refreshManualStateOnce()
@@ -842,9 +901,8 @@ function VTemplate( modules )
 
     pageAction
     (
-      "process.manualCalibration.setTransferPause( "
-      + ( $( "#gCodeGenerationGXTransferPause" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.manualCalibrationSetTransferPause,
+      { enabled: $( "#gCodeGenerationGXTransferPause" ).is( ":checked" ) },
       function()
       {
         refreshManualStateOnce()
@@ -955,7 +1013,8 @@ function VTemplate( modules )
       {
         pageAction
         (
-          "process.vTemplateRecipe.resetDraft()",
+          commands.process.vTemplateResetDraft,
+          {},
           function()
           {
             setMessage( "Reset the V recipe parameters to defaults.", "success" )
@@ -972,7 +1031,8 @@ function VTemplate( modules )
       {
         pageAction
         (
-          "process.vTemplateRecipe.generateRecipeFile()",
+          commands.process.vTemplateGenerateRecipeFile,
+          {},
           function()
           {
             setMessage( "Generated the live V-layer.gc recipe.", "success" )
@@ -989,7 +1049,8 @@ function VTemplate( modules )
       {
         pageAction
         (
-          "process.uTemplateRecipe.resetDraft()",
+          commands.process.uTemplateResetDraft,
+          {},
           function()
           {
             setMessage( "Reset the U recipe parameters to defaults.", "success" )
@@ -1006,7 +1067,8 @@ function VTemplate( modules )
       {
         pageAction
         (
-          "process.uTemplateRecipe.generateRecipeFile()",
+          commands.process.uTemplateGenerateRecipeFile,
+          {},
           function()
           {
             setMessage( "Generated the live U-layer.gc recipe.", "success" )
@@ -1023,7 +1085,8 @@ function VTemplate( modules )
       {
         pageAction
         (
-          "process.manualCalibration.clearGXDraft()",
+          commands.process.manualCalibrationClearGXDraft,
+          {},
           function()
           {
             setMessage( "Cleared the " + activeLayer + " draft.", "success" )
@@ -1040,7 +1103,8 @@ function VTemplate( modules )
       {
         pageAction
         (
-          "process.manualCalibration.generateRecipeFile()",
+          commands.process.manualCalibrationGenerateRecipeFile,
+          {},
           function()
           {
             setMessage( "Generated the live " + activeLayer + "-layer.gc recipe.", "success" )
@@ -1112,8 +1176,5 @@ function VTemplate( modules )
   setControlsDisabled( "#gCodeGenerationUCard", true )
   setControlsDisabled( "#gCodeGenerationGXCard", true )
   render()
-  refreshLayerOnce()
-  refreshVStateOnce()
-  refreshUStateOnce()
-  refreshManualStateOnce()
+  refreshInitialStateOnce()
 }

@@ -87,6 +87,29 @@ python -m ruff format .
 python -m ruff check .
 ```
 
+## Remote Command API v2
+
+The web server now exposes typed JSON command endpoints in addition to the
+legacy expression-based XML interface:
+
+- `POST /api/v2/command`
+- `POST /api/v2/batch`
+
+Each command uses an explicit `{"name": "...", "args": {...}}` contract and
+returns a structured response envelope:
+
+```json
+{
+  "ok": true,
+  "data": {},
+  "error": null
+}
+```
+
+For architecture follow-up and remaining high-priority refactors, see:
+
+- [`docs/ArchitecturePriorityBacklog.md`](docs/ArchitecturePriorityBacklog.md)
+
 ## Template G-Code Generation
 
 ### V-layer CLI generator

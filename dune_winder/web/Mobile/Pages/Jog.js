@@ -5,6 +5,28 @@ function Jog( modules )
 
   var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
+  var commands = window.CommandCatalog
+  var call = function( commandName, args, callback )
+  {
+    winder.call
+    (
+      commandName,
+      args,
+      function( response )
+      {
+        if ( response && response.ok )
+        {
+          if ( callback )
+            callback( response.data, null )
+        }
+        else
+        {
+          if ( callback )
+            callback( null, response )
+        }
+      }
+    )
+  }
 
   var MIN_VELOCITY = 1.0
   var maxVelocity
@@ -64,9 +86,15 @@ function Jog( modules )
     var acceleration = maxAcceleration
     var deceleration = maxDeceleration
 
-    winder.remoteAction
+    call
     (
-      "process.jogXY(" + x + "," + y + "," + acceleration + "," + deceleration + ")"
+      commands.process.jogXY,
+      {
+        x_velocity: x,
+        y_velocity: y,
+        acceleration: acceleration,
+        deceleration: deceleration,
+      }
     )
   }
 
@@ -76,7 +104,7 @@ function Jog( modules )
   //-----------------------------------------------------------------------------
   this.jogXY_Stop = function()
   {
-    winder.remoteAction( "process.jogXY( 0, 0 )" )
+    call( commands.process.jogXY, { x_velocity: 0, y_velocity: 0 } )
   }
 
   //-----------------------------------------------------------------------------
@@ -94,14 +122,16 @@ function Jog( modules )
     var velocity = maxVelocity
     var acceleration = maxAcceleration
     var deceleration = maxDeceleration
-    winder.remoteAction
+    call
     (
-      "process.manualSeekXY("
-      + x + ","
-      + y + ","
-      + velocity + ","
-      + acceleration + ","
-      + deceleration + ")"
+      commands.process.manualSeekXY,
+      {
+        x: x,
+        y: y,
+        velocity: velocity,
+        acceleration: acceleration,
+        deceleration: deceleration,
+      }
     )
   }
 
@@ -115,18 +145,15 @@ function Jog( modules )
   this.seekLocation = function( x, y )
   {
     var velocity = maxVelocity
-
-    if ( x )
-      x = "process.apa._gCodeHandler." + x
-    else
-      x = "None"
-
-    if ( y )
-      y = "process.apa._gCodeHandler." + y
-    else
-      y = "None"
-
-    winder.remoteAction( "process.manualSeekXY( " + x + ", " + y + "," + velocity + ")"  )
+    call
+    (
+      commands.process.manualSeekXYNamed,
+      {
+        x_name: x || null,
+        y_name: y || null,
+        velocity: velocity,
+      }
+    )
   }
 
   //-----------------------------------------------------------------------------
@@ -140,7 +167,7 @@ function Jog( modules )
       z = $( "#seekZ" ).val()
 
     var velocity = maxVelocity
-    winder.remoteAction( "process.manualSeekZ(" + z + "," + velocity + ")"  )
+    call( commands.process.manualSeekZ, { position: z, velocity: velocity } )
   }
 
   //-----------------------------------------------------------------------------
@@ -149,7 +176,7 @@ function Jog( modules )
   //-----------------------------------------------------------------------------
   this.jogZ_Stop = function()
   {
-    winder.remoteAction( "process.jogZ( 0 )" )
+    call( commands.process.jogZ, { velocity: 0 } )
   }
 
   //-----------------------------------------------------------------------------
@@ -161,7 +188,7 @@ function Jog( modules )
   this.jogZ_Start = function( direction )
   {
     var velocity = maxVelocity * direction * speedLimit
-    winder.remoteAction( "process.jogZ(" + velocity + ")"  )
+    call( commands.process.jogZ, { velocity: velocity } )
   }
 
   //-----------------------------------------------------------------------------
@@ -171,7 +198,7 @@ function Jog( modules )
   this.zRetract = function()
   {
     var velocity = maxVelocity
-    winder.remoteAction( "process.manualSeekZ( 0, " + velocity + " )" )
+    call( commands.process.manualSeekZ, { position: 0, velocity: velocity } )
   }
 
   //-----------------------------------------------------------------------------
@@ -181,7 +208,10 @@ function Jog( modules )
   this.zExtend = function()
   {
     var velocity = maxVelocity
-    winder.remoteAction( "process.manualSeekZ( " + extendedPosition + ", " + velocity + " )" )
+    call(
+      commands.process.manualSeekZ,
+      { position: extendedPosition, velocity: velocity }
+    )
   }
 
   //-----------------------------------------------------------------------------
@@ -192,7 +222,7 @@ function Jog( modules )
   {
     var velocity = maxVelocity
     var position = extendedPosition / 2
-    winder.remoteAction( "process.manualSeekZ( " + position + ", " + velocity + " )" )
+    call( commands.process.manualSeekZ, { position: position, velocity: velocity } )
   }
 
   //-----------------------------------------------------------------------------
@@ -201,7 +231,7 @@ function Jog( modules )
   //-----------------------------------------------------------------------------
   this.latch = function()
   {
-    winder.remoteAction( "io.plcLogic.latch()" )
+    call( commands.io.latch, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -210,7 +240,7 @@ function Jog( modules )
   //-----------------------------------------------------------------------------
   this.latchHome = function()
   {
-    winder.remoteAction( "io.plcLogic.latchHome()" )
+    call( commands.io.latchHome, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -219,7 +249,7 @@ function Jog( modules )
   //-----------------------------------------------------------------------------
   this.latchUnlock = function()
   {
-    winder.remoteAction( "io.plcLogic.latchUnlock()" )
+    call( commands.io.latchUnlock, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -229,7 +259,10 @@ function Jog( modules )
   this.headPosition = function( position )
   {
     var velocity = maxVelocity
-    winder.remoteAction( "process.manualHeadPosition( " + position + "," + velocity + " )" )
+    call(
+      commands.process.manualHeadPosition,
+      { position: position, velocity: velocity }
+    )
   }
 
   //-----------------------------------------------------------------------------
@@ -238,13 +271,14 @@ function Jog( modules )
   {
     var pin = $( "#seekPin" ).val().toUpperCase()
     var velocity = maxVelocity
-    winder.remoteAction( "process.seekPin( '" + pin + "', " + velocity + " )" )
+    call( commands.process.seekPin, { pin: pin, velocity: velocity } )
   }
 
   // Fetch fully extended position from machine calibration.
-  winder.remoteAction
+  call
   (
-    "machineCalibration.zBack",
+    commands.machine.getZBack,
+    {},
     function( data )
     {
       extendedPosition = data
@@ -255,9 +289,10 @@ function Jog( modules )
 
 
   // Maximum velocity.
-  winder.remoteAction
+  call
   (
-    'configuration.get( "maxAcceleration" )',
+    commands.configuration.get,
+    { key: "maxAcceleration" },
     function( data )
     {
       maxAcceleration = parseFloat( data )
@@ -265,9 +300,10 @@ function Jog( modules )
   )
 
   // Maximum velocity.
-  winder.remoteAction
+  call
   (
-    'configuration.get( "maxDeceleration" )',
+    commands.configuration.get,
+    { key: "maxDeceleration" },
     function( data )
     {
       maxDeceleration = parseFloat( data )
@@ -275,9 +311,10 @@ function Jog( modules )
   )
 
   // Maximum velocity.
-  winder.remoteAction
+  call
   (
-    'configuration.get( "maxVelocity" )',
+    commands.configuration.get,
+    { key: "maxVelocity" },
     function( data )
     {
       maxVelocity = parseFloat( data )
