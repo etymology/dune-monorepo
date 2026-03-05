@@ -27,7 +27,7 @@ import re
 import os.path
 import shutil
 
-from dune_winder.library.Hash import Hash
+from dune_winder.library.hash import Hash
 
 
 class Recipe:

@@ -1,7 +1,7 @@
 import threading
 import unittest
 
-from dune_winder.threads.PrimaryThread import PrimaryThread
+from dune_winder.threads.primary_thread import PrimaryThread
 
 
 class FakeLog:

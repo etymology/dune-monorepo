@@ -1,6 +1,6 @@
 import unittest
 
-from dune_winder.library.RemoteCommand import isReadOnlyRemoteCommand
+from dune_winder.library.remote_command import isReadOnlyRemoteCommand
 
 
 class RemoteCommandTests(unittest.TestCase):
