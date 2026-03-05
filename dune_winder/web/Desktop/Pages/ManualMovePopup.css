@@ -1,6 +1,21 @@
+@import url("/Desktop/Modules/FullStop.css");
+
 #manualMovePopupShell
 {
   padding: 8px;
+}
+
+#manualMovePopupShell .manualMovePopupStopRow
+{
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+#manualMovePopupStop
+{
+  float: none;
+  padding: 0;
 }
 
 #manualMovePopupContent

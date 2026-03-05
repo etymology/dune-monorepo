@@ -2,6 +2,16 @@ function Log( modules )
 {
   var winder = modules.get( "Winder" )
 
+  function formatDescription( row )
+  {
+    var description = row[ 3 ]
+    var debugData = row.slice( 4 ).filter( function( item ) { return item !== "" } )
+    if ( debugData.length > 0 )
+      description += " [" + debugData.join( ", " ) + "]"
+
+    return description
+  }
+
   //-----------------------------------------------------------------------------
   // Uses:
   //   Load the log data into a filtered table.
@@ -44,8 +54,9 @@ function Log( modules )
           var time = new Date( row[ 0 ] + 'Z' )
           var timeString = $.format.date( time, "yyyy-MM-dd HH:mm:ss.SSS")
           row[ 0 ] = timeString
+          row[ 3 ] = formatDescription( row )
 
-          dataSet.push( row )
+          dataSet.push( [ row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ] )
         }
 
         filteredTable.loadFromArray( dataSet )

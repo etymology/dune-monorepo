@@ -4,6 +4,8 @@ function ManualMovePopup(modules) {
 
   document.title = "Manual Move - Chicago Winder Interface";
 
+  page.loadSubPage("/Desktop/Modules/FullStop", "#manualMovePopupStop");
+
   page.loadSubPage("/Desktop/Modules/ManualMove", "#manualMovePopupContent", function () {
     var manualMove = modules.get("ManualMove");
     var popupOptions = {

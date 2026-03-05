@@ -1377,30 +1377,31 @@ class Process:
     else:
       # Check the format of the string matches a VALID PATTERN
       xy = "(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"  # 'X1234 Y1234','X0 Y1234'
+      x_only = "(\ *[X]\d{1,4}(\.\d{1,2})?\ *$)"  # 'X1234'
+      y_only = "(\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"  # 'Y1234'
       gxy = "(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *$)"  # 'G105 PX123','G105  PY123',G105  PY-12', 'G105  PX-123'
       gx_y = "(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *$)"  # 'G105  PX123 PY123'
       xyf = "(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Y]\d{1,4}(\.\d{1,2})?\ *[F]\d{1,3}\ *$)"  # 'X1234 Y1234 F123'
       fxy = "(\ *[F]\d{1,3}\ *[X]\d{1,4}(\.\d{1,2})?\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"  # 'X1234 Y1234 F123'
+      xf = "(\ *[X]\d{1,4}(\.\d{1,2})?\ *[F]\d{1,3}\ *$)"  # 'X1234 F123'
+      fx = "(\ *[F]\d{1,3}\ *[X]\d{1,4}(\.\d{1,2})?\ *$)"  # 'F123 X1234'
+      yf = "(\ *[Y]\d{1,4}(\.\d{1,2})?\ *[F]\d{1,3}\ *$)"  # 'Y1234 F123'
+      fy = "(\ *[F]\d{1,3}\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"  # 'F123 Y1234'
+      f_only = "(\ *[F]\d{1,3}(\.\d{1,2})?\ *$)"  # 'F123', 'F123.45'
       gxyf = "(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,3}\ *$)"  # 'G105 PX123 F12','G105 PY123 F123'
       gx_yf = "(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,3}\ *$)"  # 'G105  PX123 PY123 F123'
       gp = "(\ *[G]106\ *P[0123]\ *$)"  # 'G106 P0', ..., 'G106 P4'
       z_move = "(\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"  # 'Z123' , 'Z-123' , 'Z123.45'
+      absoluteXYMovePattern = "|".join([xy, x_only, y_only, xyf, fxy, xf, fx, yf, fy])
+      relativeXYMovePattern = "|".join([gxy, gxyf, gx_y, gx_yf])
       if not re.match(
-        xy
+        absoluteXYMovePattern
         + "|"
-        + gxy
-        + "|"
-        + xyf
-        + "|"
-        + fxy
-        + "|"
-        + gxyf
-        + "|"
-        + gx_y
-        + "|"
-        + gx_yf
+        + relativeXYMovePattern
         + "|"
         + gp
+        + "|"
+        + f_only
         + "|"
         + z_move,
         line,
@@ -1416,15 +1417,15 @@ class Process:
       yPosition = self._io.yAxis.getPosition()
       self._io.zAxis.getPosition()
       codeLineSplit = line.split()
-      x = float(0)
-      y = float(0)
+      x = float(xPosition)
+      y = float(yPosition)
       # x and y coordinates delimiting the forbidden area where the head is not allowed to travel
 
       for cmd in codeLineSplit :
-        if "X" in cmd and re.match(xy+'|'+gxy+'|'+xyf+'|'+fxy+'|'+gxyf+'|'+gx_y+'|'+gx_yf, line) :
+        if "X" in cmd and re.match(absoluteXYMovePattern+'|'+relativeXYMovePattern, line) :
           xCmd = cmd.split("X")
           x = float(xCmd[1])
-          if re.match( gxy+'|'+gxyf+'|'+gx_y+'|'+gx_yf, line):   # if G105 is used then add relative coordinate
+          if re.match(relativeXYMovePattern, line):   # if G105 is used then add relative coordinate
             x = x + xPosition
             if x < self._transferLeft -10 and yPosition > 1000 :
               error = "Invalid XY-axis Coordinates, forbiden area due to safety of winder head [X="+str(x)+" < "+str(self._transferLeft - 10)+" , Y="+str(yPosition)+" > "+str(1000)+"]"
@@ -1433,18 +1434,30 @@ class Process:
           if line_intersects_rectangle(xPosition,yPosition,x,y,HEADWARD_PIVOT_X,150,HEADWARD_PIVOT_Y,300) or (x<HEADWARD_PIVOT_X+150 and x>HEADWARD_PIVOT_X-150 and y<HEADWARD_PIVOT_Y+300 and y>HEADWARD_PIVOT_Y-300):
             error = "Collision predicted between winding head and support arm pivot block"  
 
-        if "Y" in cmd and re.match(xy+'|'+gxy+'|'+xyf+'|'+fxy+'|'+gxyf+'|'+gx_y+'|'+gx_yf, line) :
+        if "Y" in cmd and re.match(absoluteXYMovePattern+'|'+relativeXYMovePattern, line) :
           yCmd = cmd.split("Y")
           y = float(yCmd[1])
-          if re.match( gxy+'|'+gxyf+'|'+gx_y+'|'+gx_yf, line):
+          if re.match(relativeXYMovePattern, line):
             y = y + yPosition
             if xPosition < self._transferLeft -10 and y > 1000 :
               error = "Invalid XY-axis Coordinates, forbiden area due to safety of winder head [X="+str(xPosition)+" < "+str(self._transferLeft - 10)+" , Y="+str(y)+" > "+str(1000)+"]"
           if y < self._limitBottom or y > self._limitTop :
             error = "Invalid Y-axis Coordinates, exceeding limit ["+str(self._limitBottom)+" , "+str(self._limitTop)+"]"
 
-        if x < self._transferLeft -10 and y > 1000 and re.match(xy+'|'+xyf+'|'+fxy, line) :
+        if x < self._transferLeft -10 and y > 1000 and re.match(absoluteXYMovePattern, line) :
           error = "Invalid XY-axis Coordinates, forbiden area due to safety of winder head [X="+str(x)+" < "+str(self._transferLeft - 10)+" , Y="+str(y)+" > "+str(1000)+"]"
+
+        if "F" in cmd and re.match(
+          "|".join([xyf, fxy, xf, fx, yf, fy, gxyf, gx_yf, f_only]),
+          line,
+        ):
+          velocity = float(cmd.split("F")[1])
+          if velocity < 0 or velocity > self._maxVelocity:
+            error = (
+              "Invalid F-axis Speed, exceeding limit [0.0 , "
+              + str(self._maxVelocity)
+              + "]"
+            )
           
         if "Z" in cmd and re.match(z_move, line) :
           zCmd = cmd.split("Z")
@@ -1466,8 +1479,14 @@ class Process:
           [line],
         )
       else:
+        lineToExecute = line
+        if re.match(x_only+'|'+xf+'|'+fx, line):
+          lineToExecute = line.strip() + " Y" + str(yPosition)
+        elif re.match(y_only+'|'+yf+'|'+fy, line):
+          lineToExecute = line.strip() + " X" + str(xPosition)
+
         # Excute G_CodeLine
-        errorData = self.gCodeHandler.executeG_CodeLine(line)
+        errorData = self.gCodeHandler.executeG_CodeLine(lineToExecute)
 
         if errorData:
           error = errorData["message"]
