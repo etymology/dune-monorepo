@@ -3,6 +3,28 @@ function G_CodePage( modules )
   var self = this
   var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
+  var commands = window.CommandCatalog
+  var call = function( commandName, args, callback )
+  {
+    winder.call
+    (
+      commandName,
+      args,
+      function( response )
+      {
+        if ( response && response.ok )
+        {
+          if ( callback )
+            callback( response.data, null )
+        }
+        else
+        {
+          if ( callback )
+            callback( null, response )
+        }
+      }
+    )
+  }
 
   var G_CODE_ROWS = 2
 
@@ -14,7 +36,7 @@ function G_CodePage( modules )
   //-----------------------------------------------------------------------------
   this.start = function()
   {
-    winder.remoteAction( 'process.start()' )
+    call( commands.process.start, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -23,7 +45,7 @@ function G_CodePage( modules )
   //-----------------------------------------------------------------------------
   this.stop = function()
   {
-    winder.remoteAction( 'process.stop()' )
+    call( commands.process.stop, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -32,7 +54,7 @@ function G_CodePage( modules )
   //-----------------------------------------------------------------------------
   this.stopNext = function()
   {
-    winder.remoteAction( 'process.stopNextLine()' )
+    call( commands.process.stopNextLine, {} )
     $( "#stopNextButton" ).prop( "disabled", true )
   }
 
@@ -42,7 +64,7 @@ function G_CodePage( modules )
   //-----------------------------------------------------------------------------
   this.step = function()
   {
-    winder.remoteAction( 'process.step()' )
+    call( commands.process.step, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -54,11 +76,15 @@ function G_CodePage( modules )
     $( "#gExecutionCodeStatus" ).html( "Request G-Code execution..." )
 
     var gCode = $( "#manualGCode" ).val()
-    winder.remoteAction
+    call
     (
-      'process.executeG_CodeLine( "' + gCode + '" )',
-      function( data )
+      commands.process.executeGCodeLine,
+      { line: gCode },
+      function( data, error )
       {
+        if ( error )
+          $( "#gExecutionCodeStatus" ).html( "Error interpreting line: " + error.error.message )
+        else
         if ( ! data )
           $( "#gExecutionCodeStatus" ).html( "Executed with no errors." )
         else
@@ -79,7 +105,7 @@ function G_CodePage( modules )
       // by 1.
       var nextLine = gCodeLine[ "currentLine" ]
       if ( nextLine < ( gCodeLine[ "totalLines" ] - 1 ) )
-        winder.remoteAction( 'process.setG_CodeLine( ' + nextLine + ' )' )
+        call( commands.process.setGCodeLine, { line: nextLine } )
     }
   }
 
@@ -93,7 +119,7 @@ function G_CodePage( modules )
     {
       var nextLine = gCodeLine[ "currentLine" ] - 2
       if ( nextLine >= -1 )
-        winder.remoteAction( 'process.setG_CodeLine( ' + nextLine + ' )' )
+        call( commands.process.setGCodeLine, { line: nextLine } )
     }
   }
 

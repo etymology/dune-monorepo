@@ -26,7 +26,78 @@ class WebServerInterface(SimpleHTTPRequestHandler):
 
   # Global callback to run requested action.
   callback: Optional[Callable] = None
+  commandRegistry = None
   log = None
+
+  # ---------------------------------------------------------------------
+  @staticmethod
+  def _cookieData(headers):
+    cookies = {}
+    if "Cookie" in headers:
+      cookieData = headers["Cookie"]
+      cookieData = cookieData.split("; ")
+      for cookie in cookieData:
+        if "=" in cookie:
+          cookieName, cookieValue = cookie.split("=", 1)
+          cookies[cookieName] = cookieValue
+    return cookies
+
+  # ---------------------------------------------------------------------
+  @staticmethod
+  def _setupSession(headers, clientAddress):
+    cookies = WebServerInterface._cookieData(headers)
+
+    # Get session identification.
+    sessionId = None
+    if "sessionId" in cookies:
+      sessionId = cookies["sessionId"]
+
+    # Find or create session.
+    session = RemoteSession.sessionSetup(sessionId)
+    sessionId = session.getId()
+    cookies["sessionId"] = sessionId
+
+    # If the client address is a loop-back (i.e. the local machine) then
+    # it by default is authenticated.
+    if (
+      re.search(r"127\.[0-9]+\.[0-9]+\.[0-9]+", clientAddress)
+      or WebServerInterface.BYPASS_AUTHENTICATION
+    ):
+      session.setAuthenticated(True)
+
+    # Check to see if session is authenticated.
+    isAuthenticated = session.getAuthenticated()
+    return session, cookies, isAuthenticated
+
+  # ---------------------------------------------------------------------
+  @staticmethod
+  def _statusCodeFromError(error):
+    if not error or "code" not in error:
+      return 500
+
+    code = str(error["code"])
+    if code in ("BAD_REQUEST", "VALIDATION_ERROR"):
+      return 400
+    if code == "UNAUTHORIZED":
+      return 401
+    if code == "UNKNOWN_COMMAND":
+      return 404
+    if code == "INTERNAL_ERROR":
+      return 500
+    return 400
+
+  # ---------------------------------------------------------------------
+  def _sendJsonResponse(self, responseBody, cookies, statusCode=200):
+    self.send_response(statusCode)
+
+    for cookieName in cookies:
+      cookieValue = str(cookies[cookieName])
+      cookieData = cookieName + "=" + cookieValue
+      self.send_header("Set-Cookie", cookieData)
+
+    self.send_header("Content-type", "application/json")
+    self.end_headers()
+    self.wfile.write(json.dumps(responseBody).encode("utf-8"))
 
   # ---------------------------------------------------------------------
   @staticmethod
@@ -103,41 +174,54 @@ class WebServerInterface(SimpleHTTPRequestHandler):
     This will process all requests for data.
     """
 
-    result = None
-
     # Get post data length.
-    length = int(self.headers.get("content-length"))
+    length = int(self.headers.get("content-length", "0"))
 
-    # Get cookie data.
-    cookies = {}
-    if "Cookie" in self.headers:
-      cookieData = self.headers["Cookie"]
-      cookieData = cookieData.split("; ")
-      for cookie in cookieData:
-        cookieName, cookieValue = cookie.split("=")
-        cookies[cookieName] = cookieValue
-
-    # Get session identification.
-    sessionId = None
-    if "sessionId" in cookies:
-      sessionId = cookies["sessionId"]
-
-    # Find or create session.
-    session = RemoteSession.sessionSetup(sessionId)
-    sessionId = session.getId()
-    cookies["sessionId"] = sessionId
-
-    # If the client address is a loop-back (i.e. the local machine) then
-    # it by default is authenticated.
     clientAddress = self.client_address[0]
-    if (
-      re.search(r"127\.[0-9]+\.[0-9]+\.[0-9]+", clientAddress)
-      or WebServerInterface.BYPASS_AUTHENTICATION
-    ):
-      session.setAuthenticated(True)
+    session, cookies, isAuthenticated = WebServerInterface._setupSession(
+      self.headers, clientAddress
+    )
 
-    # Check to see if session is authenticated.
-    isAuthenticated = session.getAuthenticated()
+    path = self.path.split("?")[0]
+    if path in ("/api/v2/command", "/api/v2/batch"):
+      payload = None
+      if length > 0:
+        try:
+          body = self.rfile.read(length).decode("utf-8")
+          payload = json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+          payload = None
+
+      if payload is None:
+        response = {
+          "ok": False,
+          "data": None,
+          "error": {"code": "BAD_REQUEST", "message": "Invalid JSON request body."},
+        }
+      elif WebServerInterface.commandRegistry is None:
+        response = {
+          "ok": False,
+          "data": None,
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "Command registry is not configured.",
+          },
+        }
+      elif path == "/api/v2/command":
+        response = WebServerInterface.commandRegistry.executeRequest(
+          payload, isAuthenticated=isAuthenticated
+        )
+      else:
+        response = WebServerInterface.commandRegistry.executeBatchRequest(
+          payload, isAuthenticated=isAuthenticated
+        )
+
+      statusCode = 200
+      if not response.get("ok"):
+        statusCode = WebServerInterface._statusCodeFromError(response.get("error"))
+
+      self._sendJsonResponse(response, cookies, statusCode=statusCode)
+      return
 
     # Start XML result.
     self.send_response(200)
@@ -192,8 +276,6 @@ class WebServerInterface(SimpleHTTPRequestHandler):
 
     # Close XML.
     self.wfile.write(b"</ResultData>")
-
-    return result
 
 
 # end class

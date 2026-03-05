@@ -16,7 +16,7 @@ from dune_winder.library.WebServerInterface import WebServerInterface
 
 class WebServerThread(PrimaryThread):
   # ---------------------------------------------------------------------
-  def __init__(self, commandCallback, log):
+  def __init__(self, commandCallback, log, commandRegistry=None):
     """
     Constructor.
 
@@ -28,6 +28,7 @@ class WebServerThread(PrimaryThread):
 
     PrimaryThread.__init__(self, "WebServerThread", log)
     self._callback = commandCallback
+    self._commandRegistry = commandRegistry
     self._log = log
     self._httpd = None
 
@@ -43,6 +44,7 @@ class WebServerThread(PrimaryThread):
       pass
 
     WebServerInterface.callback = self._callback
+    WebServerInterface.commandRegistry = self._commandRegistry
     WebServerInterface.log = self._log
     server_address = ("", Settings.WEB_SERVER_PORT)
     self._httpd = ThreadedHTTPServer(server_address, WebServerInterface)

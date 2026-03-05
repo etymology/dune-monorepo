@@ -2,6 +2,16 @@ function Jog(modules) {
   var self = this;
   var winder = modules.get("Winder");
   var page = modules.get("Page");
+  var commands = window.CommandCatalog;
+  var call = function (commandName, args, callback) {
+    winder.call(commandName, args, function (response) {
+      if (response && response.ok) {
+        if (callback) callback(response.data, null);
+      } else {
+        if (callback) callback(null, response);
+      }
+    });
+  };
   var motorStatus;
   modules.load("/Desktop/Modules/MotorStatus", function () {
     motorStatus = modules.get("MotorStatus");
@@ -13,7 +23,7 @@ function Jog(modules) {
   //   Callback for reset button.
   //-----------------------------------------------------------------------------
   this.reset = function () {
-    winder.remoteAction("process.acknowledgeError()");
+    call(commands.process.acknowledgeError, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -21,7 +31,7 @@ function Jog(modules) {
   //   Callback for servo disable button.
   //-----------------------------------------------------------------------------
   this.servoDisable = function () {
-    winder.remoteAction("process.servoDisable()");
+    call(commands.process.servoDisable, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -32,19 +42,13 @@ function Jog(modules) {
     var velocity = this.getVelocity();
     var acceleration = this.getAcceleration();
     var deceleration = this.getDeceleration();
-    winder.remoteAction(
-      "process.manualSeekXY(" +
-        x +
-        "," +
-        y +
-        "," +
-        velocity +
-        "," +
-        acceleration +
-        "," +
-        deceleration +
-        ")"
-    );
+    call(commands.process.manualSeekXY, {
+      x: x,
+      y: y,
+      velocity: velocity,
+      acceleration: acceleration,
+      deceleration: deceleration,
+    });
   };
 
   //-----------------------------------------------------------------------------
@@ -68,16 +72,11 @@ function Jog(modules) {
   //-----------------------------------------------------------------------------
   this.seekLocation = function (x, y) {
     var velocity = this.getVelocity();
-
-    if (x) x = "process.apa._gCodeHandler." + x;
-    else x = "None";
-
-    if (y) y = "process.apa._gCodeHandler." + y;
-    else y = "None";
-
-    winder.remoteAction(
-      "process.manualSeekXY( " + x + ", " + y + "," + velocity + ")"
-    );
+    call(commands.process.manualSeekXYNamed, {
+      x_name: x || null,
+      y_name: y || null,
+      velocity: velocity,
+    });
   };
 
   //-----------------------------------------------------------------------------
@@ -89,7 +88,7 @@ function Jog(modules) {
     if (null == z) z = $("#seekZ").val();
 
     var velocity = this.getVelocity();
-    winder.remoteAction("process.manualSeekZ(" + z + "," + velocity + ")");
+    call(commands.process.manualSeekZ, { position: z, velocity: velocity });
   };
 
   //-----------------------------------------------------------------------------
@@ -97,7 +96,7 @@ function Jog(modules) {
   //   Callback to stop Z axis jogging.
   //-----------------------------------------------------------------------------
   this.jogZ_Stop = function () {
-    winder.remoteAction("process.jogZ( 0 )");
+    call(commands.process.jogZ, { velocity: 0 });
   };
 
   //-----------------------------------------------------------------------------
@@ -108,7 +107,7 @@ function Jog(modules) {
   //-----------------------------------------------------------------------------
   this.jogZ_Start = function (direction) {
     var velocity = this.getVelocity() * direction;
-    winder.remoteAction("process.jogZ(" + velocity + ")");
+    call(commands.process.jogZ, { velocity: velocity });
   };
 
   //-----------------------------------------------------------------------------
@@ -117,7 +116,7 @@ function Jog(modules) {
   //-----------------------------------------------------------------------------
   this.zRetract = function () {
     var velocity = this.getVelocity();
-    winder.remoteAction("process.manualSeekZ( 0, " + velocity + " )");
+    call(commands.process.manualSeekZ, { position: 0, velocity: velocity });
   };
 
   //-----------------------------------------------------------------------------
@@ -127,9 +126,7 @@ function Jog(modules) {
   this.zExtend = function () {
     var velocity = this.getVelocity();
     var position = $("#extendedPosition").val();
-    winder.remoteAction(
-      "process.manualSeekZ( " + position + ", " + velocity + " )"
-    );
+    call(commands.process.manualSeekZ, { position: position, velocity: velocity });
   };
 
   //-----------------------------------------------------------------------------
@@ -139,9 +136,7 @@ function Jog(modules) {
   this.zMid = function () {
     var velocity = this.getVelocity();
     var position = $("#extendedPosition").val() / 2;
-    winder.remoteAction(
-      "process.manualSeekZ( " + position + ", " + velocity + " )"
-    );
+    call(commands.process.manualSeekZ, { position: position, velocity: velocity });
   };
 
   //-----------------------------------------------------------------------------
@@ -149,7 +144,7 @@ function Jog(modules) {
   //   Run a latching operation.
   //-----------------------------------------------------------------------------
   this.latch = function () {
-    winder.remoteAction("io.plcLogic.move_latch()");
+    call(commands.io.moveLatch, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -157,7 +152,7 @@ function Jog(modules) {
   //   Switch to latch homing sequence.
   //-----------------------------------------------------------------------------
   this.latchHome = function () {
-    winder.remoteAction("io.plcLogic.latchHome()");
+    call(commands.io.latchHome, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -165,7 +160,7 @@ function Jog(modules) {
   //   Switch to latch unlock.
   //-----------------------------------------------------------------------------
   this.latchUnlock = function () {
-    winder.remoteAction("io.plcLogic.latchUnlock()");
+    call(commands.io.latchUnlock, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -174,9 +169,10 @@ function Jog(modules) {
   //-----------------------------------------------------------------------------
   this.headPosition = function (position) {
     var velocity = this.getVelocity();
-    winder.remoteAction(
-      "process.manualHeadPosition( " + position + "," + velocity + " )"
-    );
+    call(commands.process.manualHeadPosition, {
+      position: position,
+      velocity: velocity,
+    });
   };
 
   //-----------------------------------------------------------------------------
@@ -186,7 +182,7 @@ function Jog(modules) {
   this.seekPin = function () {
     var pin = $("#seekPin").val().toUpperCase();
     var velocity = this.getVelocity();
-    winder.remoteAction("process.seekPin( '" + pin + "', " + velocity + " )");
+    call(commands.process.seekPin, { pin: pin, velocity: velocity });
   };
 
   //-----------------------------------------------------------------------------
@@ -196,13 +192,12 @@ function Jog(modules) {
   this.setAnchor = function () {
     var pin = $("#anchorPin").val().toUpperCase();
 
-    var parameters = '"' + pin + '"';
+    var args = { pin_a: pin };
     if (pin.indexOf(",") >= 0) {
       var pins = pin.split(",");
-      parameters = '"' + pins[0] + '", "' + pins[1] + '"';
+      args = { pin_a: pins[0], pin_b: pins[1] };
     }
-
-    winder.remoteAction("process.setAnchorPoint( " + parameters + " )");
+    call(commands.process.setAnchorPoint, args);
   };
 
   //-----------------------------------------------------------------------------
@@ -215,14 +210,15 @@ function Jog(modules) {
     var gCode = $("#manualGCode").val();
     //UPDATED TO CHANGE MANUAL GCODE TO UPPERCASE - deactivated as update was made to Jog.html
     //gCode = gCode.toUpperCase()
-    winder.remoteAction(
-      'process.executeG_CodeLine( "' + gCode + '" )',
-      function (data) {
-        if (!data) $("#gExecutionCodeStatus").html("Executed with no errors.");
-        else
-          $("#gExecutionCodeStatus").html("Error interpreting line: " + data);
+    call(commands.process.executeGCodeLine, { line: gCode }, function (data, error) {
+      if (error) {
+        $("#gExecutionCodeStatus").html("Error interpreting line: " + error.error.message);
+      } else if (!data) {
+        $("#gExecutionCodeStatus").html("Executed with no errors.");
+      } else {
+        $("#gExecutionCodeStatus").html("Error interpreting line: " + data);
       }
-    );
+    });
   };
 
   page.loadSubPage(
@@ -276,7 +272,7 @@ function Jog(modules) {
   });
 
   // Fetch fully extended position from machine calibration.
-  winder.remoteAction("machineCalibration.zBack", function (data) {
+  call(commands.machine.getZBack, {}, function (data) {
     $("#extendedPosition").val(data);
   });
 

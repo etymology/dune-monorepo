@@ -1,5 +1,6 @@
 function APA(modules) {
   var self = this;
+  var commands = window.CommandCatalog;
 
   // True when the APA settings can be modified.  Used to prevent modifications
   // to the APA while the machine is running.
@@ -69,8 +70,8 @@ function APA(modules) {
   //   isRunning - True to start, false to stop.
   //-----------------------------------------------------------------------------
   this.setRunningState = function (isRunning) {
-    if (isRunning) winder.remoteAction("process.start()");
-    else winder.remoteAction("process.stop()");
+    if (isRunning) call(commands.process.start, {});
+    else call(commands.process.stop, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -78,7 +79,7 @@ function APA(modules) {
   //   Execute next line of G-Code, then stop.
   //-----------------------------------------------------------------------------
   this.stepG_Code = function () {
-    winder.remoteAction("process.step()");
+    call(commands.process.step, {});
   };
 
   //-----------------------------------------------------------------------------
@@ -123,12 +124,13 @@ function APA(modules) {
       this.disableAPA_Interface("Loading G-Code");
 
       // Begin loading G-Code.
-      winder.remoteAction(
-        'process.apa.loadRecipe( "' +
-          layer +
-          '", "' +
-          gCodeSelection +
-          '", -1 )',
+      call(
+        commands.process.loadRecipe,
+        {
+          layer: layer,
+          recipe: gCodeSelection,
+          line: -1,
+        },
         self.reenableAPA,
       );
     }
@@ -140,7 +142,7 @@ function APA(modules) {
     var defaultRecipe = (layer + "-layer.gc").toLowerCase();
 
     // Try to find the layer recipe in the available recipe list.
-    winder.remoteAction("process.getRecipes()", function (recipes) {
+    call(commands.process.getRecipes, {}, function (recipes) {
       var matchedRecipe = "";
 
       for (var i = 0; recipes && i < recipes.length; i += 1) {
@@ -160,19 +162,17 @@ function APA(modules) {
 
   this.openG_Code = function () {
     var gCodeSelection = $("#gCodeSelection").val();
-    winder.remoteAction(
-      "process.openRecipeInEditor(" + JSON.stringify(gCodeSelection) + ")",
-    );
+    call(commands.process.openRecipeInEditor, { recipe_file: gCodeSelection });
   };
 
   this.openCalibration = function () {
-    winder.remoteAction("process.openCalibrationInEditor()");
+    call(commands.process.openCalibrationInEditor, {});
   };
 
   function refreshRecipePeriod() {
     forecastPeriodRequestId += 1;
     var requestId = forecastPeriodRequestId;
-    winder.remoteAction("process.getRecipePeriod()", function (data) {
+    call(commands.process.getRecipePeriod, {}, function (data) {
       if (requestId < forecastPeriodHandledId) return;
       forecastPeriodHandledId = requestId;
       forecastRecipePeriod = data;
@@ -192,7 +192,7 @@ function APA(modules) {
     );
 
     // Get the current layer.
-    winder.remoteAction("process.getRecipeLayer()", function (data) {
+    call(commands.process.getRecipeLayer, {}, function (data) {
       $("#layerSelection").val(data);
     });
 
@@ -209,7 +209,7 @@ function APA(modules) {
       // by 1.
       var nextLine = gCodeLine["currentLine"];
       if (nextLine < gCodeLine["totalLines"] - 1)
-        winder.remoteAction("process.setG_CodeLine( " + nextLine + " )");
+        call(commands.process.setGCodeLine, { line: nextLine });
     }
   };
 
@@ -221,7 +221,7 @@ function APA(modules) {
     if (null != gCodeLine["currentLine"]) {
       var nextLine = gCodeLine["currentLine"] - 2;
       if (nextLine >= -1)
-        winder.remoteAction("process.setG_CodeLine( " + nextLine + " )");
+        call(commands.process.setGCodeLine, { line: nextLine });
     }
   };
 
@@ -231,18 +231,19 @@ function APA(modules) {
   //-----------------------------------------------------------------------------
   this.gotoLine = function () {
     var line = parseInt($("#apaLine").val()) - 2;
-    winder.remoteAction("process.setG_CodeLine( " + line + " )");
+    call(commands.process.setGCodeLine, { line: line });
   };
 
   this.gotoWrap = function () {
     var wrap = parseInt($("#wrapNumber").val(), 10);
     if (!isFinite(wrap) || wrap < 1) return;
 
-    winder.remoteAction(
-      "process.getWrapSeekLine( " + wrap + " )",
+    call(
+      commands.process.getWrapSeekLine,
+      { wrap: wrap },
       function (line) {
         if (null === line || undefined === line) return;
-        winder.remoteAction("process.setG_CodeLine( " + line + " )");
+        call(commands.process.setGCodeLine, { line: line });
       },
     );
   };
@@ -252,14 +253,13 @@ function APA(modules) {
     var layer = $("#layerSelection").val();
     var gCodeSelection = $("#gCodeSelection").val();
     var currentLine = gCodeLine["currentLine"] - 1;
-    winder.remoteAction(
-      'process.apa.loadRecipe( "' +
-        layer +
-        '", "' +
-        gCodeSelection +
-        '", ' +
-        currentLine +
-        " )",
+    call(
+      commands.process.loadRecipe,
+      {
+        layer: layer,
+        recipe: gCodeSelection,
+        line: currentLine,
+      },
       self.reenableAPA,
     );
   };
@@ -268,9 +268,9 @@ function APA(modules) {
   //   Callback for setting G-Code breakpoint.
   //-----------------------------------------------------------------------------
   this.runToLine = function () {
-    winder.remoteAction(
-      "process.setG_CodeRunToLine( " + $("#apaBreakLine").val() + " )",
-    );
+    call(commands.process.setGCodeRunToLine, {
+      line: parseInt($("#apaBreakLine").val(), 10),
+    });
   };
 
   //-----------------------------------------------------------------------------
@@ -280,7 +280,7 @@ function APA(modules) {
   this.setSpool = function () {
     // Get the values and convert to millimeters.
     var value = $("#setSpool").val() * 1000;
-    winder.remoteAction("process.spool.setWire( " + value + " )");
+    call(commands.process.setSpoolWire, { wire: value });
   };
 
   //-----------------------------------------------------------------------------
@@ -290,8 +290,9 @@ function APA(modules) {
   this.changeStage = function () {
     var newStage = $("#apaStageSelect").val();
     var reasonForChange = $("#apaStageReason").val();
-    winder.remoteAction(
-      "process.setStage( " + newStage + ', "' + reasonForChange + '" )',
+    call(
+      commands.process.setStage,
+      { stage: newStage, message: reasonForChange },
       function () {
         $("#apaStageReason").val("");
         self.populateLists();
@@ -304,13 +305,20 @@ function APA(modules) {
   //   Stop wind after completing current move.
   //-----------------------------------------------------------------------------
   this.stopNext = function () {
-    winder.remoteAction("process.stopNextLine()", function () {
+    call(commands.process.stopNextLine, {}, function () {
       isStopping = true;
     });
   };
   var page = modules.get("Page");
   var winder = modules.get("Winder");
   var runStatus = modules.get("RunStatus");
+  var call = function (commandName, args, onSuccess) {
+    winder.call(commandName, args, function (response) {
+      if (response && response.ok) {
+        if (onSuccess) onSuccess(response.data);
+      }
+    });
+  };
 
   // Populate lists and have this function run after error recovery.
   this.populateLists();
@@ -449,7 +457,7 @@ function APA(modules) {
       change: function (event, ui) {
         if (!isLoad) {
           var value = ui.value / 100.0;
-          winder.remoteAction(setString + "( " + value + " )");
+          call(setString, { scale_factor: value });
           var manualMove = modules.get("ManualMove");
           if (manualMove && manualMove.refreshDefaultVelocity) {
             manualMove.refreshDefaultVelocity();
@@ -463,7 +471,7 @@ function APA(modules) {
     });
 
     var readSlider = function () {
-      winder.remoteAction(getString + "()", function (value) {
+      call(getString, {}, function (value) {
         if (value) {
           isLoad = true;
           value *= 100;
@@ -492,8 +500,8 @@ function APA(modules) {
   var createSliders = function () {
     createSlider(
       "velocity",
-      "process.gCodeHandler.getVelocityScale",
-      "process.setG_CodeVelocityScale",
+      commands.process.getGCodeVelocityScale,
+      commands.process.setGCodeVelocityScale,
     );
 
     //createSlider( "acceleration" )
@@ -862,8 +870,9 @@ function APA(modules) {
   var fetchForecastLogs = function () {
     forecastLogRequestId += 1;
     var requestId = forecastLogRequestId;
-    winder.remoteAction(
-      "log.getAll( " + FORECAST_LOG_LINES + " )",
+    call(
+      commands.log.getAll,
+      { number_of_lines: FORECAST_LOG_LINES },
       function (data) {
         if (requestId < forecastLogHandledId) return;
         forecastLogHandledId = requestId;

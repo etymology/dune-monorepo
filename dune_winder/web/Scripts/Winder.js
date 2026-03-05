@@ -506,6 +506,109 @@ var Winder = function( modules )
 
   //---------------------------------------------------------------------------
   // Uses:
+  //   Execute a typed API v2 command.
+  // Input:
+  //   commandName - Command identifier from CommandCatalog.
+  //   args - Command arguments object.
+  //   callback - Callback receiving API response envelope.
+  //---------------------------------------------------------------------------
+  this.call = function( commandName, args, callback )
+  {
+    if ( ! args )
+      args = {}
+
+    $.ajax
+    (
+      {
+        url: "/api/v2/command",
+        method: "POST",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify( { name: commandName, args: args } )
+      }
+    )
+    .error
+    (
+      function()
+      {
+        if ( callback )
+          callback
+          (
+            {
+              ok: false,
+              data: null,
+              error:
+              {
+                code: "NETWORK_ERROR",
+                message: "Unable to reach command API."
+              }
+            }
+          )
+      }
+    )
+    .done
+    (
+      function( data )
+      {
+        if ( callback )
+          callback( data )
+      }
+    )
+  }
+
+  //---------------------------------------------------------------------------
+  // Uses:
+  //   Execute a typed API v2 batch command request.
+  // Input:
+  //   requests - List of command requests: [{id,name,args}, ...]
+  //   callback - Callback receiving API response envelope.
+  //---------------------------------------------------------------------------
+  this.batch = function( requests, callback )
+  {
+    if ( ! requests )
+      requests = []
+
+    $.ajax
+    (
+      {
+        url: "/api/v2/batch",
+        method: "POST",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify( { requests: requests } )
+      }
+    )
+    .error
+    (
+      function()
+      {
+        if ( callback )
+          callback
+          (
+            {
+              ok: false,
+              data: null,
+              error:
+              {
+                code: "NETWORK_ERROR",
+                message: "Unable to reach command API."
+              }
+            }
+          )
+      }
+    )
+    .done
+    (
+      function( data )
+      {
+        if ( callback )
+          callback( data )
+      }
+    )
+  }
+
+  //---------------------------------------------------------------------------
+  // Uses:
   //   Execute a remote action.
   // Input:
   //   actionQuery - The action to execute on remote server.

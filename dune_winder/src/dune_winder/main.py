@@ -23,6 +23,7 @@ from dune_winder.machine.Settings import Settings
 
 from dune_winder.core.LowLevelIO import LowLevelIO
 from dune_winder.core.Process import Process
+from dune_winder.api.commands import build_command_registry
 
 from dune_winder.threads.PrimaryThread import PrimaryThread
 from dune_winder.threads.UI_ServerThread import UICommandServerThread
@@ -64,11 +65,42 @@ process = None
 systemTime = None
 configuration = None
 machineCalibration = None
+commandRegistry = None
+
+# Track legacy query shapes that have been observed so telemetry captures
+# migration status without spamming every periodic poll cycle.
+_legacyTelemetrySeen = set()
 
 
 # -----------------------------------------------------------------------
 def _isReadOnlyRemoteCommand(command):
   return isReadOnlyRemoteCommand(command)
+
+
+# -----------------------------------------------------------------------
+def _normalizeCommand(command):
+  if isinstance(command, bytes):
+    return command.decode("utf-8", errors="replace")
+  return str(command)
+
+
+# -----------------------------------------------------------------------
+def _describeCaller(source):
+  if source is None:
+    return {"type": "ui-socket", "address": None, "port": None}
+
+  if hasattr(source, "client_address"):
+    address = source.client_address
+    host = None
+    port = None
+    if isinstance(address, tuple):
+      if len(address) > 0:
+        host = address[0]
+      if len(address) > 1:
+        port = address[1]
+    return {"type": source.__class__.__name__, "address": host, "port": port}
+
+  return {"type": source.__class__.__name__, "address": None, "port": None}
 
 
 # -----------------------------------------------------------------------
@@ -89,7 +121,7 @@ def _describeFrame(frame):
 
 
 # -----------------------------------------------------------------------
-def commandHandler(_, command):
+def commandHandler(source, command):
   """
   Handle a remote command.
   This is define in main so that is has the most global access possible.
@@ -101,12 +133,27 @@ def commandHandler(_, command):
     The data returned from the command.
   """
 
-  if log and not _isReadOnlyRemoteCommand(command):
+  command = _normalizeCommand(command)
+  isReadOnly = _isReadOnlyRemoteCommand(command)
+
+  if log:
+    telemetryKey = command
+    if telemetryKey not in _legacyTelemetrySeen:
+      _legacyTelemetrySeen.add(telemetryKey)
+      caller = _describeCaller(source)
+      log.add(
+        "Main",
+        "LEGACY_REMOTE_QUERY",
+        "Observed legacy expression-based remote command.",
+        [caller, isReadOnly, command],
+      )
+
+  if log and not isReadOnly:
     log.add(
       "Main",
       "REMOTE_ACTION",
       "Remote command requested.",
-      [threading.current_thread().name, command],
+      [threading.current_thread().name, _describeCaller(source), command],
     )
 
   try:
@@ -168,7 +215,7 @@ def signalHandler(signalNumber, frame):
 
 # -----------------------------------------------------------------------
 def main():
-  global log, io, process, systemTime, configuration, machineCalibration
+  global log, io, process, systemTime, configuration, machineCalibration, commandRegistry
   global isStartAPA, isLogEchoed, isIO_Logged
 
   # Handle command line.
@@ -224,17 +271,25 @@ def main():
 
     # Primary control process.
     process = Process(io, log, configuration, systemTime, machineCalibration)
+    commandRegistry = build_command_registry(
+      process,
+      io,
+      configuration,
+      LowLevelIO,
+      log,
+      machineCalibration,
+    )
 
     #
     # Initialize threads.
     #
 
-    uiServer = UICommandServerThread(commandHandler, log)
-    webServerThread = WebServerThread(commandHandler, log)
-    controlThread = ControlThread(
+    _ = UICommandServerThread(commandHandler, log)
+    _ = WebServerThread(commandHandler, log, commandRegistry)
+    _ = ControlThread(
       io, log, process.controlStateMachine, systemTime, isIO_Logged
     )
-    cameraThread = CameraThread(io.camera, log, systemTime)
+    _ = CameraThread(io.camera, log, systemTime)
 
     # Also stop on SIGTERM (e.g. `kill <pid>` or terminal close on Linux/Mac).
     signal.signal(signal.SIGTERM, signalHandler)
