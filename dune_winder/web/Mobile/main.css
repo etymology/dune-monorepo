@@ -1,20 +1,52 @@
+html,
+body
+{
+  height: 100%;
+}
+
 body
 {
   background-color: black;
-  color: white;
-
   height: 100vh;
   display: flex;
   flex-direction: column;
   margin: 0;
-  /*background: linear-gradient(135deg, #506582 0%,#404e5a 36%,#141e24 100%);*/
-  /*background: linear-gradient(135deg, rgba(18,55,96,1) 0%,rgba(30,87,153,1) 20%,rgba(35,119,188,1) 50%,rgba(46,30,153,1) 80%,rgba(25,17,86,1) 100%);*/
-  /*background: linear-gradient(155deg, rgba(54,54,155,1) 0%,rgba(87,87,175,1) 11%,rgba(24,24,96,1) 100%);*/
-  background: linear-gradient(155deg, rgba(40,40,114,1) 0%,rgba(70,70,140,1) 15%,rgba(42,42,84,1) 60%,rgba(12,12,51,1) 100%);
+  background: linear-gradient(135deg, rgb(59, 97, 131) 0%, rgb(66, 105, 136) 42%, rgb(242, 164, 88) 78%, rgb(247, 107, 39) 92%, rgb(255, 205, 120) 100%);
 }
 
-header, footer, main
+body, input, select, button, textarea
 {
+  color: white;
+}
+
+button:disabled, input:disabled, select:disabled, textarea:disabled
+{
+  color: rgba( 255, 255, 255, 0.25 );
+}
+
+header
+{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  flex: 0 0 auto;
+}
+
+main
+{
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+header article,
+main article,
+.standardFrame
+{
+  float: none;
 }
 
 span.error
@@ -23,53 +55,64 @@ span.error
   font-weight: bold;
 }
 
-input, select
+input, select, textarea, .dropDownButton
 {
-  background-color: rgba( 255, 255, 255, 0.25 );
-  border-color:     rgba( 255, 255, 255, 0.75 );
+  background-color: rgba( 80, 80, 200, 0.25 );
+  border-color: rgba( 40, 40, 114, 0.75 );
   border-radius: 5%;
-  color: white;
 }
 
-button
+.ui-slider-horizontal
 {
-  border-radius: 5%;
+  height: 15px;
+}
+
+button,
+.select:after,
+.ui-widget-content,
+.ui-slider-handle,
+.ui-corner-all,
+.ui-widget-header,
+.dropDownContent
+{
+  border-radius: 5% !important;
   background-color: rgba( 128, 128, 255, 0.40 );
-  border-top:    3px solid rgba( 128, 128, 255, 0.75 );
-  border-left:   3px solid rgba( 128, 128, 255, 0.75 );
-  border-bottom: 3px solid rgba( 128, 128, 255, 0.25 );
-  border-right:  3px solid rgba( 128, 128, 255, 0.25 );
-
-  color: white;
+  border-top: 3px solid rgba( 128, 128, 255, 0.75 ) !important;
+  border-left: 3px solid rgba( 128, 128, 255, 0.75 ) !important;
+  border-bottom: 3px solid rgba( 128, 128, 255, 0.25 ) !important;
+  border-right: 3px solid rgba( 128, 128, 255, 0.25 ) !important;
 }
 
-button.toggle
+.ui-slider-handle
 {
+  background-color: rgb( 96, 96, 192 ) !important;
 }
 
-button:disabled, input:disabled, select:disabled
+button.toggle, button.toggleDown
 {
-  color: gray;
+  margin: 2px;
 }
 
 button.toggleDown
 {
-  background-color: rgba( 96 , 96 , 255, 0.25 );
-  border-top:    3px solid rgba( 128, 128, 192, 0.25 );
-  border-left:   3px solid rgba( 128, 128, 192, 0.25 );
-  border-bottom: 3px solid rgba( 128, 128, 192, 0.75 );
-  border-right:  3px solid rgba( 128, 128, 192, 0.75 );
+  background-color: rgba( 64, 64, 225, 0.25 );
+  border-top: 3px solid rgba( 128, 128, 255, 0.25 ) !important;
+  border-left: 3px solid rgba( 128, 128, 255, 0.25 ) !important;
+  border-bottom: 3px solid rgba( 128, 128, 255, 0.75 ) !important;
+  border-right: 3px solid rgba( 128, 128, 255, 0.75 ) !important;
 }
 
 article, .standardFrame
 {
-  float: left;
-  background-color: rgba( 64, 64, 64, 0.5 );
-  border-radius: 4px;
-  border: 2px solid rgba( 48, 48, 48, 0.5 );
+  background-color: rgba( 30, 41, 59, 0.82 );
+  border-radius: 8px;
+  border: 1px solid rgba( 51, 65, 85, 0.95 );
   margin: 2px;
-  padding: 2px;
-  box-shadow: 4px 4px 5px rgba( 0, 0, 0, 0.20 );
+  padding: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba( 148, 163, 184, 0.08 ),
+    4px 4px 5px rgba( 0, 0, 0, 0.20 );
+  box-sizing: border-box;
 }
 
 h2
@@ -79,7 +122,7 @@ h2
 
 h3
 {
-  font-size: 100%;
+  font-size: 95%;
 }
 
 h1, h2, h3, h4, h5, h6, p
@@ -88,16 +131,334 @@ h1, h2, h3, h4, h5, h6, p
   padding: 0;
 }
 
-
 main button
 {
-  min-width:  50px;
-  height: 50px;
-  font-size: 100%;
+  min-width: 44px;
+  min-height: 40px;
   margin: 2px;
 }
 
-main
+input.changed
 {
-  width: 590px;
+  background-color: grey;
+}
+
+input.error
+{
+  background-color: red;
+}
+
+.copySelect
+{
+  border: 2px solid cyan !important;
+}
+
+.copySelect:hover
+{
+  background-color: rgb( 99, 99, 129 );
+}
+
+/*
+ * Filter table
+ */
+div.filter-table table
+{
+  width: calc( 100% - 16px );
+  table-layout: fixed;
+}
+
+div.filter-table .filter-table-inner table
+{
+  width: calc( 100% );
+  table-layout: fixed;
+}
+
+div.filter-table td
+{
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+div.filter-table-outer
+{
+  position: relative;
+  height: 100%;
+}
+
+div.filter-table-inner
+{
+  overflow-y: auto;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+/*
+ * Drop-down boxes.
+ */
+.dropDown
+{
+  position: relative;
+  display: inline-block;
+}
+
+.dropDown p
+{
+  display: block;
+  min-width: 100px;
+  text-align: center;
+  padding: 2px;
+  border-radius: 5% !important;
+}
+
+.dropDown div
+{
+  z-index: 2;
+  padding: 4px;
+  display: none;
+  position: absolute;
+  min-width: 160px;
+  background-color: rgb( 99, 99, 129 );
+}
+
+.dropDown button
+{
+  min-width: 150px;
+}
+
+.dropDown:hover div
+{
+  display: block;
+}
+
+/*
+ * Mobile desktop-APA layout
+ */
+#fullStopDiv,
+#statesDiv,
+#timeDiv
+{
+  min-width: 0;
+}
+
+#fullStopDiv article,
+#statesDiv article,
+#timeDiv article
+{
+  margin: 0;
+}
+
+#fullStopButton
+{
+  width: 100% !important;
+  box-sizing: border-box;
+  height: 42px;
+  font-size: 115%;
+}
+
+#statesDiv h2,
+#timeDiv h2
+{
+  margin-bottom: 4px;
+}
+
+#statesDiv p,
+#timeDiv p
+{
+  font-size: 90%;
+  line-height: 1.3;
+}
+
+#apaColumns
+{
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: stretch;
+  gap: 4px;
+}
+
+#column1,
+#column2,
+#column4
+{
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#column3
+{
+  display: none;
+}
+
+#column1 > article,
+#manualMoveCard,
+#forecastDiv,
+#gCodeDiv,
+#recentLogDiv
+{
+  width: 100% !important;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#manualMoveCard
+{
+  margin: 2px;
+}
+
+.apaGCodeTopRow,
+.apaGCodeBottomRow
+{
+  flex-direction: column;
+  gap: 6px;
+}
+
+.apaGCodeSubbox
+{
+  min-width: 0;
+}
+
+.apaGCodeInlineRow input
+{
+  flex: 1 1 90px;
+  min-width: 0;
+}
+
+#forecastWrapText
+{
+  font-size: 16px;
+  gap: 8px;
+}
+
+.manualMovePanel
+{
+  padding: 8px;
+}
+
+#manualMovePopoutButton
+{
+  display: none;
+}
+
+.manualMoveTopRow,
+.manualMoveModules
+{
+  grid-template-columns: minmax( 0, 1fr );
+  max-width: none;
+}
+
+#gCodeDiv,
+#recentLog,
+#recentLogDiv
+{
+  overflow-x: hidden;
+}
+
+@media ( min-width: 860px )
+{
+  header
+  {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+
+  #fullStopButton
+  {
+    width: 100%;
+  }
+}
+
+@media ( max-width: 480px )
+{
+  #fullStopButton
+  {
+    font-size: 100%;
+    height: 38px;
+  }
+
+  main button
+  {
+    min-height: 36px;
+  }
+
+  /* table min-widths removed — tables use fixed layout, see below */
+}
+
+/*
+ * Mobile APA: flatten G-Code panel wrapper into a transparent container
+ * so each sub-panel (Control, Selection, Line Seek) appears as its own block.
+ */
+#apaGCodePanel
+{
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+#apaGCodePanel > h2
+{
+  display: none;
+}
+
+.apaGCodeBottomRow
+{
+  margin-top: 0 !important;
+}
+
+.apaGCodeSubbox
+{
+  background-color: rgba( 30, 41, 59, 0.82 ) !important;
+  border: 1px solid rgba( 51, 65, 85, 0.95 ) !important;
+  border-radius: 8px !important;
+  margin: 2px !important;
+  box-shadow:
+    inset 0 1px 0 rgba( 148, 163, 184, 0.08 ),
+    4px 4px 5px rgba( 0, 0, 0, 0.20 ) !important;
+}
+
+/*
+ * Fix horizontal overflow in Running G-Code and Recent Logs.
+ * Replace scrollable min-width tables with fixed-layout truncating tables.
+ */
+#gCodeDiv,
+#recentLog,
+#recentLogDiv
+{
+  overflow-x: hidden !important;
+}
+
+#gCodeTable,
+#recentLog table
+{
+  min-width: 0 !important;
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+#gCodeTable td
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#recentLog th:first-child,
+#recentLog td:first-child
+{
+  width: 9.5em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#recentLog td
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
