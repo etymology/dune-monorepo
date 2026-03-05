@@ -146,7 +146,7 @@ input.error
   background-color: rgb( 99, 99, 129 );
 }
 
-#pageSelectDiv, #fullStopDiv, #loginDiv
+#pageSelectDiv, #fullStopDiv
 {
   display: none;
 }
