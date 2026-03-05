@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import argparse
-import re
 from pathlib import Path
 
 from dune_winder.recipes.recipe_template_language import (
@@ -15,6 +14,7 @@ from dune_winder.recipes.recipe_template_language import (
   execute_template_script,
 )
 from dune_winder.recipes.recipe import Recipe
+from dune_winder.recipes import template_gcode_common
 from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.recipes.template_gcode_transitions import (
   append_motion_to_pause_transition,
@@ -128,14 +128,8 @@ class VTemplateInputError(ValueError):
   pass
 
 
-_PIN_TOKEN_RE = re.compile(r"\b(P[BF])(-?\d+)\b")
-
-
 def _format_number(value):
-  text = "{0:.6f}".format(float(value)).rstrip("0").rstrip(".")
-  if text in ("", "-0"):
-    return "0"
-  return text
+  return template_gcode_common.format_number(value)
 
 
 def _wrap_pin_number(value):
@@ -146,27 +140,23 @@ def _wrap_pin_number(value):
 
 
 def _normalize_pin_tokens(text):
-  def replace(match):
-    return match.group(1) + str(_wrap_pin_number(match.group(2)))
-
-  return _PIN_TOKEN_RE.sub(replace, text)
+  return template_gcode_common.normalize_pin_tokens(text, _wrap_pin_number)
 
 
 def _line(*parts):
-  text = _normalize_pin_tokens(
-    " ".join(str(part) for part in parts if part not in (None, ""))
+  return template_gcode_common.build_line(
+    parts,
+    normalize_pin_tokens_fn=_normalize_pin_tokens,
+    normalize_line_text_fn=normalize_line_text,
   )
-  return normalize_line_text(text)
 
 
 def _coord(axis, value):
-  return axis + _format_number(value)
+  return template_gcode_common.coord(axis, value)
 
 
 def _offset_fragment(axis, value):
-  if abs(float(value)) < 1e-9:
-    return None
-  return "G105 " + _coord(axis, value)
+  return template_gcode_common.offset_fragment(axis, value, coord_fn=_coord)
 
 
 def _g106(mode):
@@ -174,124 +164,72 @@ def _g106(mode):
 
 
 def _near_comb(pin_number):
-  return any(abs(int(pin_number) - comb_pin) <= 5 for comb_pin in COMBS)
+  return template_gcode_common.near_comb(pin_number, COMBS)
 
 
 def _coerce_bool(value):
-  if isinstance(value, bool):
-    return value
-  if isinstance(value, (int, float)):
-    return 0 != value
-  if isinstance(value, str):
-    normalized = value.strip().lower()
-    if normalized in ("", "0", "false", "no", "off"):
-      return False
-    if normalized in ("1", "true", "yes", "on"):
-      return True
-  raise VTemplateInputError("Expected a boolean-compatible value, got " + repr(value) + ".")
+  return template_gcode_common.coerce_bool(value, error_type=VTemplateInputError)
 
 
 def _coerce_number(value):
-  if isinstance(value, bool):
-    raise VTemplateInputError("Boolean values are not valid offsets.")
-  if isinstance(value, (int, float)):
-    return float(value)
-  if isinstance(value, str):
-    try:
-      return float(value.strip())
-    except ValueError as exc:
-      raise VTemplateInputError("Expected a numeric value, got " + repr(value) + ".") from exc
-  raise VTemplateInputError("Expected a numeric value, got " + type(value).__name__ + ".")
+  return template_gcode_common.coerce_number(value, error_type=VTemplateInputError)
 
 
 def _coerce_offsets(value):
-  if value is None:
-    return list(DEFAULT_OFFSETS)
-  if isinstance(value, str):
-    raw_values = [part.strip() for part in value.split(",")]
-  else:
-    try:
-      raw_values = list(value)
-    except TypeError as exc:
-      raise VTemplateInputError("Offsets must be a 12-item iterable.") from exc
-  if len(raw_values) != len(OFFSET_IDS):
-    raise VTemplateInputError("Expected 12 V offsets, got " + str(len(raw_values)) + ".")
-  return [_coerce_number(item) for item in raw_values]
+  return template_gcode_common.coerce_offsets(
+    value,
+    default_offsets=DEFAULT_OFFSETS,
+    offset_ids=OFFSET_IDS,
+    coerce_number_fn=_coerce_number,
+    error_type=VTemplateInputError,
+    layer_name="V",
+  )
 
 
 def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode):
-  current_transfer_pause = transfer_pause
-  current_include_lead_mode = include_lead_mode
-  for key, value in (named_inputs or {}).items():
-    if key == "transferPause" or key == "pause at combs":
-      current_transfer_pause = _coerce_bool(value)
-      continue
-    if key in ("includeLeadMode", "include lead mode"):
-      current_include_lead_mode = _coerce_bool(value)
-      continue
-    if key in LEGACY_OFFSET_NAMES:
-      offsets[LEGACY_OFFSET_NAMES[key]] = _coerce_number(value)
-      continue
-    if key in OFFSET_IDS:
-      offsets[OFFSET_IDS.index(key)] = _coerce_number(value)
-      continue
-    if key.endswith("_offset") and key[:-7] in OFFSET_IDS:
-      offsets[OFFSET_IDS.index(key[:-7])] = _coerce_number(value)
-      continue
-    raise VTemplateInputError("Unknown V named input: " + repr(key))
-  return current_transfer_pause, current_include_lead_mode
-
-
-def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_mode):
-  current_transfer_pause = transfer_pause
-  current_include_lead_mode = include_lead_mode
-  for key, value in (special_inputs or {}).items():
-    if key in ("transferPause", "transfer_pause", "pause_at_combs"):
-      current_transfer_pause = _coerce_bool(value)
-      continue
-    if key in ("includeLeadMode", "include_lead_mode", "include_lead"):
-      current_include_lead_mode = _coerce_bool(value)
-      continue
-    if key == "offsets":
-      parsed_offsets = _coerce_offsets(value)
-      for index, offset in enumerate(parsed_offsets):
-        offsets[index] = offset
-      continue
-    if key in SPECIAL_OFFSET_ALIASES:
-      offsets[SPECIAL_OFFSET_ALIASES[key]] = _coerce_number(value)
-      continue
-    if key in OFFSET_IDS:
-      offsets[OFFSET_IDS.index(key)] = _coerce_number(value)
-      continue
-    if key.endswith("_offset") and key[:-7] in OFFSET_IDS:
-      offsets[OFFSET_IDS.index(key[:-7])] = _coerce_number(value)
-      continue
-    raise VTemplateInputError("Unknown V special input: " + repr(key))
-  return current_transfer_pause, current_include_lead_mode
-
-
-def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
-  if cell_overrides:
-    raise VTemplateInputError(
-      "Cell overrides are not supported by the programmatic V generator."
-    )
-
-  offsets = list(DEFAULT_OFFSETS)
-  transfer_pause = False
-  include_lead_mode = False
-  transfer_pause, include_lead_mode = _apply_named_input(
+  return template_gcode_common.apply_named_input(
     named_inputs,
     offsets,
     transfer_pause,
     include_lead_mode,
+    coerce_bool_fn=_coerce_bool,
+    coerce_number_fn=_coerce_number,
+    legacy_offset_names=LEGACY_OFFSET_NAMES,
+    offset_ids=OFFSET_IDS,
+    error_type=VTemplateInputError,
+    layer_name="V",
   )
-  transfer_pause, include_lead_mode = _apply_special_input(
+
+
+def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_mode):
+  return template_gcode_common.apply_special_input(
     special_inputs,
     offsets,
     transfer_pause,
     include_lead_mode,
+    coerce_bool_fn=_coerce_bool,
+    coerce_number_fn=_coerce_number,
+    coerce_offsets_fn=_coerce_offsets,
+    special_offset_aliases=SPECIAL_OFFSET_ALIASES,
+    offset_ids=OFFSET_IDS,
+    error_type=VTemplateInputError,
+    layer_name="V",
   )
-  return offsets, transfer_pause, include_lead_mode
+
+
+def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
+  return template_gcode_common.resolve_options(
+    named_inputs=named_inputs,
+    special_inputs=special_inputs,
+    cell_overrides=cell_overrides,
+    default_offsets=DEFAULT_OFFSETS,
+    apply_named_input_fn=_apply_named_input,
+    apply_special_input_fn=_apply_special_input,
+    error_type=VTemplateInputError,
+    cell_overrides_error_message=(
+      "Cell overrides are not supported by the programmatic V generator."
+    ),
+  )
 
 
 def _resolve_render_state(
@@ -303,45 +241,33 @@ def _resolve_render_state(
   special_inputs=None,
   cell_overrides=None,
 ):
-  if offsets is None:
-    resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = _resolve_options(
-      named_inputs=named_inputs,
-      special_inputs=special_inputs,
-      cell_overrides=cell_overrides,
-    )
-    return (
-      resolved_offsets,
-      (_coerce_bool(transfer_pause) or resolved_transfer_pause),
-      (_coerce_bool(include_lead_mode) or resolved_include_lead_mode),
-    )
-
-  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = _resolve_options(
+  return template_gcode_common.resolve_render_state(
+    offsets=offsets,
+    transfer_pause=transfer_pause,
+    include_lead_mode=include_lead_mode,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
-  )
-  for index, value in enumerate(_coerce_offsets(offsets)):
-    resolved_offsets[index] = value
-  return (
-    resolved_offsets,
-    (_coerce_bool(transfer_pause) or resolved_transfer_pause),
-    (_coerce_bool(include_lead_mode) or resolved_include_lead_mode),
+    resolve_options_fn=_resolve_options,
+    coerce_offsets_fn=_coerce_offsets,
+    coerce_bool_fn=_coerce_bool,
   )
 
 
 def _wrap_identifier(wrap_number, line_number):
-  return "(" + str(wrap_number) + "," + str(line_number) + ")"
+  return template_gcode_common.wrap_identifier(wrap_number, line_number)
 
 
 def _annotate_wrap_lines(wrap_number, lines):
-  return [
-    _line(_wrap_identifier(wrap_number, line_number), line)
-    for line_number, line in enumerate(lines, start=1)
-  ]
+  return template_gcode_common.annotate_wrap_lines(
+    wrap_number,
+    lines,
+    line_builder=_line,
+  )
 
 
 def _number_lines(lines):
-  return [_line("N" + str(line_number), line) for line_number, line in enumerate(lines)]
+  return template_gcode_common.number_lines(lines, line_builder=_line)
 
 
 def _render_wrap_lines(
@@ -651,24 +577,20 @@ VTemplateGCodeGenerator = VTemplateProgrammaticGenerator
 
 
 def _coerce_cli_value(value):
-  normalized = value.strip()
-  if "," in normalized:
-    return [part.strip() for part in normalized.split(",")]
-  if normalized.lower() in ("true", "false", "yes", "no", "on", "off"):
-    return _coerce_bool(normalized)
-  try:
-    return _coerce_number(normalized)
-  except VTemplateInputError:
-    return normalized
+  return template_gcode_common.coerce_cli_value(
+    value,
+    coerce_bool_fn=_coerce_bool,
+    coerce_number_fn=_coerce_number,
+    input_error_type=VTemplateInputError,
+  )
 
 
 def _parse_assignment(raw_assignment):
-  if "=" not in raw_assignment:
-    raise VTemplateInputError(
-      "Expected KEY=VALUE assignment, got " + repr(raw_assignment) + "."
-    )
-  key, value = raw_assignment.split("=", 1)
-  return key.strip(), _coerce_cli_value(value)
+  return template_gcode_common.parse_assignment(
+    raw_assignment,
+    coerce_cli_value_fn=_coerce_cli_value,
+    input_error_type=VTemplateInputError,
+  )
 
 
 def main(argv=None):
