@@ -7,6 +7,9 @@
 ###############################################################################
 
 import math
+
+from dune_winder.library.Geometry.Location import Location
+
 from .LayerGeometry import LayerGeometry
 
 
@@ -52,3 +55,59 @@ class UV_LayerGeometry(LayerGeometry):
     )
     self.pinDiameter = self.pinRadius * 2
     self.pinHeight = 2
+
+  # -------------------------------------------------------------------
+  def _configure_induction_layer(
+    self,
+    *,
+    pins,
+    front_back_offset,
+    front_back_modulus,
+    depth_mm,
+    start_pin_front,
+  ):
+    """
+    Configure shared state for U/V induction layers.
+
+    Args:
+      pins: Total number of pins.
+      front_back_offset: Pin offset between front/back sides.
+      front_back_modulus: Modulus for front/back pin translation.
+      depth_mm: Layer depth in millimeters at scale 1.
+      start_pin_front: First front-side pin.
+    """
+
+    # Total number of pins.
+    self.pins = pins
+
+    # Values to translate front/back pin numbers.
+    self.frontBackOffset = front_back_offset
+    self.frontBackModulus = front_back_modulus
+
+    # Spacing between pins and front to back.
+    self.depth = depth_mm / self.scale
+
+    # Travel for partial Z.  Should place head level with board and below pin
+    # height.
+    self.mostlyRetract = (self.zTravel - self.depth) / (2 * self.scale)
+    self.mostlyExtend = (self.zTravel + self.depth) / (2 * self.scale)
+
+    self.startPinFront = start_pin_front
+    self.directionFront = -1
+    self.startPinBack = 1
+    self.directionBack = 1
+
+  # -------------------------------------------------------------------
+  def _set_apa_offset(self, x, y, z=0):
+    """
+    Set APA origin offset.
+
+    Args:
+      x: X offset.
+      y: Y offset.
+      z: Z offset.
+    """
+    self.apaOffsetX = x
+    self.apaOffsetY = y
+    self.apaOffsetZ = z
+    self.apaOffset = Location(self.apaOffsetX, self.apaOffsetY, self.apaOffsetZ)
