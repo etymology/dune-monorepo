@@ -1125,7 +1125,7 @@ function VTemplate( modules )
 
   winder.addPeriodicCallback
   (
-    "process.getRecipeLayer()",
+    commands.process.getRecipeLayer,
     function( layer )
     {
       activeLayer = layer
@@ -1135,7 +1135,7 @@ function VTemplate( modules )
 
   winder.addPeriodicCallback
   (
-    "process.vTemplateRecipe.getState()",
+    commands.process.vTemplateGetState,
     function( state )
     {
       if ( state )
@@ -1148,7 +1148,7 @@ function VTemplate( modules )
 
   winder.addPeriodicCallback
   (
-    "process.uTemplateRecipe.getState()",
+    commands.process.uTemplateGetState,
     function( state )
     {
       if ( state )
@@ -1161,7 +1161,7 @@ function VTemplate( modules )
 
   winder.addPeriodicCallback
   (
-    "process.manualCalibration.getState()",
+    commands.process.manualCalibrationGetState,
     function( state )
     {
       if ( state )

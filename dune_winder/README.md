@@ -89,8 +89,7 @@ python -m ruff check .
 
 ## Remote Command API v2
 
-The web server now exposes typed JSON command endpoints in addition to the
-legacy expression-based XML interface:
+The web server exposes typed JSON command endpoints:
 
 - `POST /api/v2/command`
 - `POST /api/v2/batch`
@@ -105,6 +104,8 @@ returns a structured response envelope:
   "error": null
 }
 ```
+
+Legacy expression/XML remote command shims have been removed.
 
 For architecture follow-up and remaining high-priority refactors, see:
 

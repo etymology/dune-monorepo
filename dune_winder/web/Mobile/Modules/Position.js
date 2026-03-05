@@ -1,60 +1,37 @@
 function Position( modules )
 {
   var self = this
-
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
 
   // Public motor status data.
   this.motor = {}
 
-  //-----------------------------------------------------------------------------
-  // Uses:
-  //   Read configuration variables related to motor limits. (Private)
-  //-----------------------------------------------------------------------------
-  var readConfig = function()
+  var readConfigValue = function( key )
   {
-    winder.remoteAction
+    winder.call
     (
-      'configuration.get( "maxAcceleration" )',
-      function( data )
+      commands.configuration.get,
+      { key: key },
+      function( response )
       {
-        self.motor[ "maxAcceleration" ] = parseFloat( data )
-      }
-    )
-
-    winder.remoteAction
-    (
-      'configuration.get( "maxDeceleration" )',
-      function( data )
-      {
-        self.motor[ "maxDeceleration" ] = parseFloat( data )
-      }
-    )
-
-    winder.remoteAction
-    (
-      'configuration.get( "maxVelocity" )',
-      function( data )
-      {
-        self.motor[ "maxVelocity" ] = parseFloat( data )
+        if ( response && response.ok )
+          self.motor[ key ] = parseFloat( response.data )
       }
     )
   }
 
-  //-----------------------------------------------------------------------------
-  // Uses:
-  //   Format a number with request number of decimal places.  (Private)
-  // Input:
-  //   data - Number to format.
-  //   decimals - Number of decimal places.
-  // Output:
-  //   Number rounded to the requested decimal places.
-  //-----------------------------------------------------------------------------
+  var readConfig = function()
+  {
+    readConfigValue( "maxAcceleration" )
+    readConfigValue( "maxDeceleration" )
+    readConfigValue( "maxVelocity" )
+  }
+
   var formatFunction = function( data, decimals )
   {
     if ( $.isNumeric( data ) )
     {
-
       var multiplier = Math.pow( 10, decimals )
       data = Math.round( data * multiplier ) / multiplier
     }
@@ -64,30 +41,32 @@ function Position( modules )
     return data
   }
 
-  readConfig()
-  var AXIES = [ "x", "y", "z" ]
-  for ( var index in AXIES )
+  var updateAxis = function( axis, value )
   {
-    var axis = AXIES[ index ]
-
-    winder.addPeriodicDisplay
-    (
-      "io." + axis + "Axis.getPosition()",
-      "#" + axis + "Position",
-      this.motor,
-      axis + "Position",
-      formatFunction,
-      1
-    )
-
-    winder.addPeriodicDisplay
-    (
-      "io." + axis + "Axis.getPosition()",
-      "#" + axis + "Position",
-      this.motor,
-      axis + "Position",
-      formatFunction,
-      1
-    )
+    self.motor[ axis + "Position" ] = value
+    $( "#" + axis + "Position" ).text( formatFunction( value, 1 ) )
   }
+
+  winder.addPeriodicCallback
+  (
+    commands.process.getUISnapshot,
+    function( snapshot )
+    {
+      if ( snapshot && snapshot.axes )
+      {
+        updateAxis( "x", snapshot.axes.x.position )
+        updateAxis( "y", snapshot.axes.y.position )
+        updateAxis( "z", snapshot.axes.z.position )
+      }
+      else
+      {
+        updateAxis( "x", null )
+        updateAxis( "y", null )
+        updateAxis( "z", null )
+      }
+    }
+  )
+
+  readConfig()
+  winder.addErrorClearCallback( readConfig )
 }

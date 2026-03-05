@@ -9,6 +9,7 @@ function Version( modules )
   }
 
   var winder
+  var commands = window.CommandCatalog
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -43,17 +44,19 @@ function Version( modules )
   {
     winder.singleRemoteDisplay
     (
-      "version.getVersion()",
+      commands.version.getVersion,
       "#controlVersion",
       this.softwareVersion,
       "controlVersion"
     )
 
-    winder.remoteAction
+    winder.call
     (
-      "version.isValid()",
-      function( data )
+      commands.version.verify,
+      {},
+      function( response )
       {
+        var data = response && response.ok && response.data
         if ( data )
           $( "#controlVersion" ).attr( 'class', "" )
         else
@@ -63,17 +66,19 @@ function Version( modules )
 
     winder.singleRemoteDisplay
     (
-      "uiVersion.getVersion()",
+      commands.uiVersion.getVersion,
       "#uiVersion",
       this.softwareVersion,
       "uiVersion"
     )
 
-    winder.remoteAction
+    winder.call
     (
-      "uiVersion.isValid()",
-      function( data )
+      commands.uiVersion.verify,
+      {},
+      function( response )
       {
+        var data = response && response.ok && response.data
         if ( data )
           $( "#uiVersion" ).attr( 'class', "" )
         else

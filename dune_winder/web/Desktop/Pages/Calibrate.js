@@ -2,6 +2,7 @@ function Calibrate(modules)
 {
   var page = modules.get( "Page" )
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
   var motorStatus = null
   var fixedVelocity = 1000
   var lastState = null
@@ -421,7 +422,8 @@ function Calibrate(modules)
   {
     manualAction
     (
-      "process.manualCalibration.gotoPin( " + pin + ", " + currentVelocity() + " )",
+      commands.process.manualCalibrationGotoPin,
+      { pin: pin, velocity: currentVelocity() },
       function()
       {
         setMessage( "Move requested for B" + pin + ".", "success" )
@@ -436,7 +438,8 @@ function Calibrate(modules)
   {
     manualAction
     (
-      "process.manualCalibration.captureCurrentPin( " + pin + " )",
+      commands.process.manualCalibrationCaptureCurrentPin,
+      { pin: pin },
       function()
       {
         setMessage( "Captured B" + pin + ".", "success" )
@@ -457,7 +460,8 @@ function Calibrate(modules)
   {
     manualAction
     (
-      'process.manualCalibration.markBoardCheck( ' + pin + ', "ok" )',
+      commands.process.manualCalibrationMarkBoardCheck,
+      { pin: pin, status: "ok" },
       function()
       {
         setMessage( "Marked B" + pin + " OK.", "success" )
@@ -586,11 +590,16 @@ function Calibrate(modules)
 
   function refreshStateOnce( callback )
   {
-    winder.remoteAction
+    winder.call
     (
-      "process.manualCalibration.getState()",
-      function( state )
+      commands.process.manualCalibrationGetState,
+      {},
+      function( response )
       {
+        if ( ! response || ! response.ok )
+          return
+
+        var state = response.data
         if ( state )
         {
           renderState( state )
@@ -601,21 +610,31 @@ function Calibrate(modules)
     )
   }
 
-  function manualAction( command, callback )
+  function manualAction( commandName, args, callback )
   {
-    winder.remoteAction
+    winder.call
     (
-      command,
-      function( data )
+      commandName,
+      args || {},
+      function( response )
       {
-        if ( data && data.ok === false )
+        if ( ! response )
         {
-          setMessage( data.error, "error" )
+          setMessage( "Command failed.", "error" )
+          return
+        }
+
+        if ( response.ok === false )
+        {
+          var errorText = "Command failed."
+          if ( response.error && response.error.message )
+            errorText = response.error.message
+          setMessage( errorText, "error" )
           return
         }
 
         if ( callback )
-          callback( data )
+          callback( response.data )
       }
     )
   }
@@ -631,11 +650,16 @@ function Calibrate(modules)
       return
     }
 
-    winder.remoteAction
+    winder.call
     (
-      "process.manualCalibration.predictPin( " + pin + " )",
-      function( prediction )
+      commands.process.manualCalibrationPredictPin,
+      { pin: pin },
+      function( response )
       {
+        var prediction = null
+        if ( response && response.ok )
+          prediction = response.data
+
         if ( ! prediction || prediction.ok === false )
         {
           if ( prediction && prediction.error )
@@ -928,7 +952,8 @@ function Calibrate(modules)
 
     manualAction
     (
-      "process.manualCalibration.setCameraOffset( " + xValue + ", " + yValue + " )",
+      commands.process.manualCalibrationSetCameraOffset,
+      { x: xValue, y: yValue },
       function()
       {
         refreshStateOnce()
@@ -947,7 +972,8 @@ function Calibrate(modules)
 
     manualAction
     (
-      'process.manualCalibration.setCornerOffset( "' + offsetId + '", ' + value + " )",
+      commands.process.manualCalibrationSetCornerOffset,
+      { offset_id: offsetId, value: value },
       function()
       {
         refreshStateOnce()
@@ -962,9 +988,8 @@ function Calibrate(modules)
 
     manualAction
     (
-      "process.manualCalibration.setTransferPause( "
-      + ( $( "#manualCalibrationTransferPause" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.manualCalibrationSetTransferPause,
+      { enabled: $( "#manualCalibrationTransferPause" ).is( ":checked" ) },
       function()
       {
         refreshStateOnce()
@@ -979,9 +1004,8 @@ function Calibrate(modules)
 
     manualAction
     (
-      "process.manualCalibration.setIncludeLeadMode( "
-      + ( $( "#manualCalibrationIncludeLeadMode" ).is( ":checked" ) ? "True" : "False" )
-      + " )",
+      commands.process.manualCalibrationSetIncludeLeadMode,
+      { enabled: $( "#manualCalibrationIncludeLeadMode" ).is( ":checked" ) },
       function()
       {
         refreshStateOnce()
@@ -993,7 +1017,8 @@ function Calibrate(modules)
   {
     manualAction
     (
-      'process.manualCalibration.captureCurrentReference( "' + referenceId + '" )',
+      commands.process.manualCalibrationCaptureCurrentReference,
+      { reference_id: referenceId },
       function()
       {
         setMessage( "Recorded " + referenceLabel( referenceId ) + ".", "success" )
@@ -1015,7 +1040,8 @@ function Calibrate(modules)
   {
     manualAction
     (
-      'process.manualCalibration.gotoReference( "' + referenceId + '", ' + currentVelocity() + " )",
+      commands.process.manualCalibrationGotoReference,
+      { reference_id: referenceId, velocity: currentVelocity() },
       function()
       {
         setMessage( "Move requested for " + referenceLabel( referenceId ) + ".", "success" )
@@ -1058,7 +1084,8 @@ function Calibrate(modules)
       {
         manualAction
         (
-          "process.manualCalibration.startNew()",
+          commands.process.manualCalibrationStartNew,
+          {},
           function()
           {
             setMessage( "Started a clean-APA draft from nominal geometry.", "success" )
@@ -1075,7 +1102,8 @@ function Calibrate(modules)
       {
         manualAction
         (
-          "process.manualCalibration.loadPrevious()",
+          commands.process.manualCalibrationLoadPrevious,
+          {},
           function()
           {
             setMessage( "Loaded the current live XML for APA recalibration.", "success" )
@@ -1092,7 +1120,8 @@ function Calibrate(modules)
       {
         manualAction
         (
-          "process.manualCalibration.saveLive()",
+          commands.process.manualCalibrationSaveLive,
+          {},
           function()
           {
             setMessage( "Saved the live calibration file.", "success" )
@@ -1109,7 +1138,8 @@ function Calibrate(modules)
       {
         manualAction
         (
-          "process.manualCalibration.clearGXDraft()",
+          commands.process.manualCalibrationClearGXDraft,
+          {},
           function()
           {
             setMessage( "Cleared the X/G draft.", "success" )
@@ -1126,7 +1156,8 @@ function Calibrate(modules)
       {
         manualAction
         (
-          "process.manualCalibration.generateRecipeFile()",
+          commands.process.manualCalibrationGenerateRecipeFile,
+          {},
           function()
           {
             setMessage( "Generated the live " + ( lastState.layer || "X" ) + " recipe.", "success" )
@@ -1209,13 +1240,8 @@ function Calibrate(modules)
 
         manualAction
         (
-          'process.manualCalibration.updateReferencePoint( "'
-          + referenceId
-          + '", '
-          + wireX
-          + ", "
-          + wireY
-          + " )",
+          commands.process.manualCalibrationUpdateReferencePoint,
+          { reference_id: referenceId, wire_x: wireX, wire_y: wireY },
           function()
           {
             setMessage( "Updated " + referenceLabel( referenceId ) + ".", "success" )
@@ -1403,7 +1429,8 @@ function Calibrate(modules)
 
         manualAction
         (
-          "process.manualCalibration.updateMeasuredPin( " + pin + ", " + wireX + ", " + wireY + " )",
+          commands.process.manualCalibrationUpdateMeasuredPin,
+          { pin: pin, wire_x: wireX, wire_y: wireY },
           function()
           {
             setMessage( "Updated measurement for B" + pin + ".", "success" )
@@ -1427,7 +1454,8 @@ function Calibrate(modules)
 
         manualAction
         (
-          "process.manualCalibration.deleteMeasuredPin( " + pin + " )",
+          commands.process.manualCalibrationDeleteMeasuredPin,
+          { pin: pin },
           function()
           {
             setMessage( "Deleted measurement for B" + pin + ".", "success" )
@@ -1527,7 +1555,7 @@ function Calibrate(modules)
 
   winder.addPeriodicCallback
   (
-    "process.manualCalibration.getState()",
+    commands.process.manualCalibrationGetState,
     function( state )
     {
       if ( state )

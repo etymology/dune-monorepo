@@ -16,18 +16,18 @@ from dune_winder.library.WebServerInterface import WebServerInterface
 
 class WebServerThread(PrimaryThread):
   # ---------------------------------------------------------------------
-  def __init__(self, commandCallback, log, commandRegistry=None):
+  def __init__(self, log, commandRegistry):
     """
     Constructor.
 
     Args:
-      callback: Function to send data from client.
+      log: Logger instance.
+      commandRegistry: API command registry.
     """
 
     os.chdir(Settings.WEB_DIRECTORY)
 
     PrimaryThread.__init__(self, "WebServerThread", log)
-    self._callback = commandCallback
     self._commandRegistry = commandRegistry
     self._log = log
     self._httpd = None
@@ -43,7 +43,6 @@ class WebServerThread(PrimaryThread):
 
       pass
 
-    WebServerInterface.callback = self._callback
     WebServerInterface.commandRegistry = self._commandRegistry
     WebServerInterface.log = self._log
     server_address = ("", Settings.WEB_SERVER_PORT)

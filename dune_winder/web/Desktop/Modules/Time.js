@@ -8,11 +8,12 @@ function Time( modules )
     function()
     {
       var winder = modules.get( "Winder" )
+      var commands = window.CommandCatalog
 
       // Display system time.
       winder.addPeriodicDisplay
       (
-        "systemTime.get()",
+        commands.system.getTime,
         "#systemTime",
         null,
         null,

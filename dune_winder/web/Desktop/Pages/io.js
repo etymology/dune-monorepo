@@ -6,17 +6,22 @@ function IO( modules )
   // Uses:
   //   Load an I/O query into a table.
   // Input:
-  //   listQuery - Query to run to get a list of I/O.
-  //   itemQuery - Query to run to get status of a specific I/O point.
+  //   listRequest - Request to load list of I/O.
+  //   itemRequestBuilder - Callback to build request for each I/O point.
   //   tag - Tag to place I/O list after loading.
   //-----------------------------------------------------------------------------
-  function loadIO_Set( listQuery, itemQuery, tag )
+  function loadIO_Set( listRequest, itemRequestBuilder, tag )
   {
-    winder.remoteAction
+    winder.call
     (
-      listQuery,
-      function( data )
+      listRequest.name,
+      listRequest.args || {},
+      function( response )
       {
+        if ( ! response || ! response.ok || ! response.data )
+          return
+
+        var data = response.data
         var columnNames = [ "Name", "Value" ]
         var widths = [ "60%", "40%" ]
         var filteredTable = new FilteredTable( columnNames, false, widths )
@@ -28,15 +33,14 @@ function IO( modules )
         {
           var ioPoint = data[ row ]
           var name = ioPoint[ 0 ]
-
-          var query = itemQuery.replace( "$", '"' + name + '"' )
+          var request = itemRequestBuilder( name )
 
           let localRow = row
 
           // Update function.
           winder.addPeriodicCallback
           (
-            query,
+            request,
             function( data )
             {
               // Get the cell id this data is stored.
@@ -58,9 +62,25 @@ function IO( modules )
   //-----------------------------------------------------------------------------
   function loadIO()
   {
-    loadIO_Set( "LowLevelIO.getInputs()", "LowLevelIO.getInput( $ )", "#inputsDiv" )
-    loadIO_Set( "LowLevelIO.getOutputs()", "LowLevelIO.getOutput( $ )", "#outputsDiv" )
-    loadIO_Set( "LowLevelIO.getTags()", "LowLevelIO.getTag( $ )", "#tagsDiv" )
+    var commands = window.CommandCatalog
+    loadIO_Set
+    (
+      { name: commands.lowLevelIO.getInputs, args: {} },
+      function( name ) { return { name: commands.lowLevelIO.getInput, args: { name: name } } },
+      "#inputsDiv"
+    )
+    loadIO_Set
+    (
+      { name: commands.lowLevelIO.getOutputs, args: {} },
+      function( name ) { return { name: commands.lowLevelIO.getOutput, args: { name: name } } },
+      "#outputsDiv"
+    )
+    loadIO_Set
+    (
+      { name: commands.lowLevelIO.getTags, args: {} },
+      function( name ) { return { name: commands.lowLevelIO.getTag, args: { name: name } } },
+      "#tagsDiv"
+    )
   }
 
   // Load I/O lists and have this function run after error recovery.

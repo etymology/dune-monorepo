@@ -1,16 +1,14 @@
+import datetime
 import json
 import threading
 import unittest
 import urllib.error
-import urllib.parse
 import urllib.request
 from http.server import HTTPServer
 
 from dune_winder.library.WebServerInterface import WebServerInterface
 from tests._command_api_test_support import (
   build_registry_fixture,
-  encode_legacy_callback_result,
-  parse_xml_value,
 )
 
 
@@ -18,14 +16,15 @@ class WebApiV2Tests(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     cls.registry, _, _, _, _, _ = build_registry_fixture()
+    cls.registry.register(
+      "test.fixed_datetime",
+      lambda _args: datetime.datetime(2026, 3, 5, 20, 45, 4, 848085),
+      False,
+    )
 
-    cls._originalCallback = WebServerInterface.callback
     cls._originalRegistry = WebServerInterface.commandRegistry
     cls._originalLog = WebServerInterface.log
 
-    WebServerInterface.callback = (
-      lambda _, command: encode_legacy_callback_result("legacy:" + str(command))
-    )
     WebServerInterface.commandRegistry = cls.registry
     WebServerInterface.log = None
 
@@ -40,7 +39,6 @@ class WebApiV2Tests(unittest.TestCase):
     cls.server.server_close()
     cls.thread.join(timeout=2)
 
-    WebServerInterface.callback = cls._originalCallback
     WebServerInterface.commandRegistry = cls._originalRegistry
     WebServerInterface.log = cls._originalLog
 
@@ -101,18 +99,33 @@ class WebApiV2Tests(unittest.TestCase):
     self.assertTrue(results["three"]["ok"])
     self.assertEqual(results["three"]["data"], "100")
 
-  def test_legacy_xml_post_path_remains_available(self):
-    body = urllib.parse.urlencode({"action": "process.getRecipeLayer()"}).encode("utf-8")
-    request = urllib.request.Request(self.baseUrl + "/", data=body, method="POST")
+  def test_post_to_unsupported_path_returns_json_error(self):
+    request = urllib.request.Request(
+      self.baseUrl + "/",
+      data=json.dumps({"name": "process.get_recipe_layer", "args": {}}).encode("utf-8"),
+      method="POST",
+      headers={"Content-Type": "application/json"},
+    )
 
-    with urllib.request.urlopen(request, timeout=5) as response:
-      xmlText = response.read().decode("utf-8")
+    with self.assertRaises(urllib.error.HTTPError) as context:
+      urllib.request.urlopen(request, timeout=5)
 
-    actionValue = parse_xml_value(xmlText, "action")
-    self.assertIsNotNone(actionValue)
-    self.assertEqual(json.loads(actionValue), "legacy:process.getRecipeLayer()")
+    self.assertEqual(context.exception.code, 404)
+    payload = json.loads(context.exception.read().decode("utf-8"))
+    self.assertFalse(payload["ok"])
+    self.assertEqual(payload["error"]["code"], "BAD_REQUEST")
+
+  def test_command_response_serializes_datetime_data(self):
+    status, payload = self._post_json(
+      "/api/v2/command",
+      {"name": "test.fixed_datetime", "args": {}},
+    )
+
+    self.assertEqual(status, 200)
+    self.assertTrue(payload["ok"])
+    self.assertEqual(payload["data"], "2026-03-05 20:45:04.848085")
+    self.assertIsNone(payload["error"])
 
 
 if __name__ == "__main__":
   unittest.main()
-

@@ -143,7 +143,7 @@ function G_CodePage( modules )
   // Set updates of current line and total lines.
   winder.addPeriodicCallback
   (
-    "process.gCodeHandler.getLine()",
+    commands.process.getGCodeLine,
     function( data )
     {
       if ( null !== data )
@@ -163,7 +163,7 @@ function G_CodePage( modules )
 
   winder.addPeriodicRead
   (
-    "process.gCodeHandler.getTotalLines()",
+    commands.process.getGCodeTotalLines,
     gCodeLine,
     "totalLines"
   )
@@ -171,7 +171,7 @@ function G_CodePage( modules )
   // Update for primary state machine.
   winder.addPeriodicCallback
   (
-    "process.controlStateMachine.state.__class__.__name__",
+    commands.process.getControlStateName,
     // NOTE: Callback only runs when data has changed.
     function( state )
     {

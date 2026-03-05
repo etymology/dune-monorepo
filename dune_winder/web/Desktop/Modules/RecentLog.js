@@ -4,6 +4,7 @@ function RecentLog( modules )
   var self = this
 
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
 
   function formatDescription( row )
   {
@@ -37,7 +38,7 @@ function RecentLog( modules )
 
     winder.addPeriodicCallback
     (
-      "log.getRecent()",
+      commands.log.getRecent,
       function( data )
       {
         for ( var index = 0; index < LOG_ENTIRES; index += 1 )

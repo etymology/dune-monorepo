@@ -3,6 +3,7 @@ function Log( modules )
   var self = this
   var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
+  var commands = window.CommandCatalog
 
   var LOG_ENTIRES = 8
 
@@ -16,7 +17,7 @@ function Log( modules )
   // Update for primary state machine.
   winder.addPeriodicDisplay
   (
-    "process.controlStateMachine.state.__class__.__name__",
+    commands.process.getControlStateName,
     "#controlState",
     states,
     "controlState"
@@ -28,13 +29,13 @@ function Log( modules )
   //-----------------------------------------------------------------------------
   this.acknowledgeErrors = function()
   {
-    winder.remoteAction( 'process.acknowledgeError()' )
+    winder.call( commands.process.acknowledgeError, {} )
   }
 
   // Update for PLC state machine.
   winder.addPeriodicCallback
   (
-    "io.plcLogic.getState()",
+    commands.io.getState,
     function( value )
     {
       if ( null !== value )

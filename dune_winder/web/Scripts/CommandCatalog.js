@@ -24,12 +24,16 @@
       seekPin: "process.seek_pin",
       setAnchorPoint: "process.set_anchor_point",
       acknowledgeError: "process.acknowledge_error",
+      acknowledgePLCInit: "process.acknowledge_plc_init",
       servoDisable: "process.servo_disable",
+      maxVelocity: "process.max_velocity",
       loadRecipe: "process.load_recipe",
       getRecipes: "process.get_recipes",
       getRecipeName: "process.get_recipe_name",
       getRecipeLayer: "process.get_recipe_layer",
       getRecipePeriod: "process.get_recipe_period",
+      getAPADetailedList: "process.get_apa_detailed_list",
+      getAPADetails: "process.get_apa_details",
       getWrapSeekLine: "process.get_wrap_seek_line",
       openRecipeInEditor: "process.open_recipe_in_editor",
       openCalibrationInEditor: "process.open_calibration_in_editor",
@@ -40,7 +44,11 @@
       setSpoolWire: "process.set_spool_wire",
       getGCodeLine: "process.get_gcode_line",
       getGCodeTotalLines: "process.get_gcode_total_lines",
+      getGCodeList: "process.get_gcode_list",
       getControlStateName: "process.get_control_state_name",
+      getUISnapshot: "process.get_ui_snapshot",
+      getPositionLogging: "process.get_position_logging",
+      setPositionLogging: "process.set_position_logging",
       getStage: "process.get_stage",
       getCameraImageURL: "process.get_camera_image_url",
       vTemplateGetState: "process.v_template.get_state",
@@ -61,6 +69,19 @@
       manualCalibrationSetIncludeLeadMode: "process.manual_calibration.set_include_lead_mode",
       manualCalibrationClearGXDraft: "process.manual_calibration.clear_gx_draft",
       manualCalibrationGenerateRecipeFile: "process.manual_calibration.generate_recipe_file",
+      manualCalibrationStartNew: "process.manual_calibration.start_new",
+      manualCalibrationLoadPrevious: "process.manual_calibration.load_previous",
+      manualCalibrationSaveLive: "process.manual_calibration.save_live",
+      manualCalibrationGotoPin: "process.manual_calibration.goto_pin",
+      manualCalibrationCaptureCurrentPin: "process.manual_calibration.capture_current_pin",
+      manualCalibrationMarkBoardCheck: "process.manual_calibration.mark_board_check",
+      manualCalibrationPredictPin: "process.manual_calibration.predict_pin",
+      manualCalibrationSetCameraOffset: "process.manual_calibration.set_camera_offset",
+      manualCalibrationUpdateMeasuredPin: "process.manual_calibration.update_measured_pin",
+      manualCalibrationDeleteMeasuredPin: "process.manual_calibration.delete_measured_pin",
+      manualCalibrationCaptureCurrentReference: "process.manual_calibration.capture_current_reference",
+      manualCalibrationGotoReference: "process.manual_calibration.goto_reference",
+      manualCalibrationUpdateReferencePoint: "process.manual_calibration.update_reference_point",
     },
     io:
     {
@@ -68,18 +89,57 @@
       latch: "io.latch",
       latchHome: "io.latch_home",
       latchUnlock: "io.latch_unlock",
+      getState: "io.get_state",
+      getErrorCodeString: "io.get_error_code_string",
+      maxAcceleration: "io.max_acceleration",
+      maxDeceleration: "io.max_deceleration",
     },
     machine:
     {
       getZBack: "machine.get_z_back",
+      getCalibration: "machine.get_calibration",
+      setCalibration: "machine.set_calibration",
+      saveCalibration: "machine.save_calibration",
     },
     configuration:
     {
       get: "configuration.get",
+      set: "configuration.set",
+      save: "configuration.save",
     },
     log:
     {
       getAll: "log.get_all",
+      getRecent: "log.get_recent",
+    },
+    lowLevelIO:
+    {
+      getInputs: "low_level_io.get_inputs",
+      getOutputs: "low_level_io.get_outputs",
+      getTags: "low_level_io.get_tags",
+      getInput: "low_level_io.get_input",
+      getOutput: "low_level_io.get_output",
+      getTag: "low_level_io.get_tag",
+    },
+    system:
+    {
+      getTime: "system.get_time",
+    },
+    version:
+    {
+      getVersion: "version.get_version",
+      getHash: "version.get_hash",
+      getDate: "version.get_date",
+      verify: "version.verify",
+      update: "version.update",
+    },
+    uiVersion:
+    {
+      getVersion: "ui_version.get_version",
+      getHash: "ui_version.get_hash",
+      getDate: "ui_version.get_date",
+      verify: "ui_version.verify",
+      update: "ui_version.update",
     },
   }
 

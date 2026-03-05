@@ -171,6 +171,3 @@ class UICommandServerThread(PrimaryThread):
 
 # end class
 
-
-# Backward-compatible class alias.
-UI_ServerThread = UICommandServerThread

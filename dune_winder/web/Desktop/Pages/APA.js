@@ -187,8 +187,8 @@ function APA(modules) {
   this.populateLists = function () {
     winder.populateComboBox(
       "#gCodeSelection",
-      "process.getRecipes()",
-      "process.getRecipeName()",
+      commands.process.getRecipes,
+      commands.process.getRecipeName,
     );
 
     // Get the current layer.
@@ -325,7 +325,7 @@ function APA(modules) {
   winder.addErrorClearCallback(this.populateLists);
 
   // Set updates of current line and total lines.
-  winder.addPeriodicCallback("process.gCodeHandler.getLine()", function (data) {
+  winder.addPeriodicCallback(commands.process.getGCodeLine, function (data) {
     if (null !== data) {
       data = data + 1;
       gCodeLine["currentLine"] = data;
@@ -338,14 +338,14 @@ function APA(modules) {
   });
 
   winder.addPeriodicDisplay(
-    "process.gCodeHandler.getTotalLines()",
+    commands.process.getGCodeTotalLines,
     "#totalLines",
     gCodeLine,
     "totalLines",
   );
 
   // Special periodic for current APA stage.
-  winder.addPeriodicCallback("process.getStage()", function (value) {
+  winder.addPeriodicCallback(commands.process.getStage, function (value) {
     var STAGES = [
       "Uninitialized",
       "X first",

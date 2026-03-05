@@ -57,7 +57,17 @@ def _asBool(value, name):
   raise ValueError("Argument '" + name + "' must be boolean.")
 
 
-def build_command_registry(process, io, configuration, lowLevelIO, log, machineCalibration):
+def build_command_registry(
+  process,
+  io,
+  configuration,
+  lowLevelIO,
+  log,
+  machineCalibration,
+  systemTime=None,
+  version=None,
+  uiVersion=None,
+):
   registry = CommandRegistry(log=log)
 
   # ---------------------------------------------------------------------------
@@ -293,6 +303,138 @@ def build_command_registry(process, io, configuration, lowLevelIO, log, machineC
     lambda args: (_validateArgs(args), process.manualCalibration.generateRecipeFile())[1],
     True,
   )
+  registry.register(
+    "process.manual_calibration.start_new",
+    lambda args: (_validateArgs(args), process.manualCalibration.startNew())[1],
+    True,
+  )
+  registry.register(
+    "process.manual_calibration.load_previous",
+    lambda args: (_validateArgs(args), process.manualCalibration.loadPrevious())[1],
+    True,
+  )
+  registry.register(
+    "process.manual_calibration.save_live",
+    lambda args: (_validateArgs(args), process.manualCalibration.saveLive())[1],
+    True,
+  )
+
+  def manual_calibration_goto_pin(args):
+    _validateArgs(args, required=("pin",), optional=("velocity",))
+    velocity = args.get("velocity")
+    if velocity is not None:
+      velocity = _asFloat(velocity, "velocity")
+    return process.manualCalibration.gotoPin(_asInt(args["pin"], "pin"), velocity)
+
+  registry.register("process.manual_calibration.goto_pin", manual_calibration_goto_pin, True)
+
+  def manual_calibration_capture_current_pin(args):
+    _validateArgs(args, required=("pin",))
+    return process.manualCalibration.captureCurrentPin(_asInt(args["pin"], "pin"))
+
+  registry.register(
+    "process.manual_calibration.capture_current_pin",
+    manual_calibration_capture_current_pin,
+    True,
+  )
+
+  def manual_calibration_mark_board_check(args):
+    _validateArgs(args, required=("pin", "status"))
+    return process.manualCalibration.markBoardCheck(
+      _asInt(args["pin"], "pin"),
+      _asString(args["status"], "status"),
+    )
+
+  registry.register(
+    "process.manual_calibration.mark_board_check",
+    manual_calibration_mark_board_check,
+    True,
+  )
+
+  def manual_calibration_predict_pin(args):
+    _validateArgs(args, required=("pin",))
+    return process.manualCalibration.predictPin(_asInt(args["pin"], "pin"))
+
+  registry.register("process.manual_calibration.predict_pin", manual_calibration_predict_pin, False)
+
+  def manual_calibration_set_camera_offset(args):
+    _validateArgs(args, required=("x", "y"))
+    return process.manualCalibration.setCameraOffset(
+      _asFloat(args["x"], "x"),
+      _asFloat(args["y"], "y"),
+    )
+
+  registry.register(
+    "process.manual_calibration.set_camera_offset",
+    manual_calibration_set_camera_offset,
+    True,
+  )
+
+  def manual_calibration_update_measured_pin(args):
+    _validateArgs(args, required=("pin", "wire_x", "wire_y"))
+    return process.manualCalibration.updateMeasuredPin(
+      _asInt(args["pin"], "pin"),
+      _asFloat(args["wire_x"], "wire_x"),
+      _asFloat(args["wire_y"], "wire_y"),
+    )
+
+  registry.register(
+    "process.manual_calibration.update_measured_pin",
+    manual_calibration_update_measured_pin,
+    True,
+  )
+
+  def manual_calibration_delete_measured_pin(args):
+    _validateArgs(args, required=("pin",))
+    return process.manualCalibration.deleteMeasuredPin(_asInt(args["pin"], "pin"))
+
+  registry.register(
+    "process.manual_calibration.delete_measured_pin",
+    manual_calibration_delete_measured_pin,
+    True,
+  )
+
+  def manual_calibration_capture_current_reference(args):
+    _validateArgs(args, required=("reference_id",))
+    return process.manualCalibration.captureCurrentReference(
+      _asString(args["reference_id"], "reference_id"),
+    )
+
+  registry.register(
+    "process.manual_calibration.capture_current_reference",
+    manual_calibration_capture_current_reference,
+    True,
+  )
+
+  def manual_calibration_goto_reference(args):
+    _validateArgs(args, required=("reference_id",), optional=("velocity",))
+    velocity = args.get("velocity")
+    if velocity is not None:
+      velocity = _asFloat(velocity, "velocity")
+    return process.manualCalibration.gotoReference(
+      _asString(args["reference_id"], "reference_id"),
+      velocity,
+    )
+
+  registry.register(
+    "process.manual_calibration.goto_reference",
+    manual_calibration_goto_reference,
+    True,
+  )
+
+  def manual_calibration_update_reference_point(args):
+    _validateArgs(args, required=("reference_id", "wire_x", "wire_y"))
+    return process.manualCalibration.updateReferencePoint(
+      _asString(args["reference_id"], "reference_id"),
+      _asFloat(args["wire_x"], "wire_x"),
+      _asFloat(args["wire_y"], "wire_y"),
+    )
+
+  registry.register(
+    "process.manual_calibration.update_reference_point",
+    manual_calibration_update_reference_point,
+    True,
+  )
 
   def v_template_set_offset(args):
     _validateArgs(args, required=("offset_id", "value"))
@@ -411,6 +553,17 @@ def build_command_registry(process, io, configuration, lowLevelIO, log, machineC
     lambda args: (_validateArgs(args), process.getRecipePeriod())[1],
     False,
   )
+  registry.register(
+    "process.get_apa_detailed_list",
+    lambda args: (_validateArgs(args), process.getAPA_DetailedList())[1],
+    False,
+  )
+
+  def process_get_apa_details(args):
+    _validateArgs(args, required=("name",))
+    return process.getAPA_Details(_asString(args["name"], "name"))
+
+  registry.register("process.get_apa_details", process_get_apa_details, False)
 
   def process_get_wrap_seek_line(args):
     _validateArgs(args, required=("wrap",))
@@ -485,6 +638,45 @@ def build_command_registry(process, io, configuration, lowLevelIO, log, machineC
     lambda args: (_validateArgs(args), process.controlStateMachine.state.__class__.__name__)[1],
     False,
   )
+  registry.register(
+    "process.get_ui_snapshot",
+    lambda args: (_validateArgs(args), process.getUiSnapshot())[1],
+    False,
+  )
+
+  def process_get_gcode_list(args):
+    _validateArgs(args, required=("delta",), optional=("center",))
+    center = args.get("center")
+    if center is not None:
+      center = _asInt(center, "center")
+    return process.getG_CodeList(center, _asInt(args["delta"], "delta"))
+
+  registry.register("process.get_gcode_list", process_get_gcode_list, False)
+  registry.register(
+    "process.get_position_logging",
+    lambda args: (_validateArgs(args), process.getPositionLogging())[1],
+    False,
+  )
+
+  def process_set_position_logging(args):
+    _validateArgs(args, required=("enabled",))
+    return process.setPositionLogging(_asBool(args["enabled"], "enabled"))
+
+  registry.register("process.set_position_logging", process_set_position_logging, True)
+
+  def process_max_velocity(args):
+    _validateArgs(args, optional=("value",))
+    value = args.get("value")
+    if value is not None:
+      value = _asFloat(value, "value")
+    return process.maxVelocity(value)
+
+  registry.register("process.max_velocity", process_max_velocity, True)
+  registry.register(
+    "process.acknowledge_plc_init",
+    lambda args: (_validateArgs(args), process.acknowledgePLC_Init())[1],
+    True,
+  )
 
   def log_get_all(args):
     _validateArgs(args, optional=("number_of_lines",))
@@ -492,6 +684,11 @@ def build_command_registry(process, io, configuration, lowLevelIO, log, machineC
     return log.getAll(_asInt(count, "number_of_lines"))
 
   registry.register("log.get_all", log_get_all, False)
+  registry.register(
+    "log.get_recent",
+    lambda args: (_validateArgs(args), log.getRecent())[1],
+    False,
+  )
 
   registry.register("io.move_latch", lambda args: (_validateArgs(args), io.plcLogic.move_latch())[1], True)
   registry.register("io.latch", lambda args: (_validateArgs(args), io.plcLogic.latch())[1], True)
@@ -499,9 +696,59 @@ def build_command_registry(process, io, configuration, lowLevelIO, log, machineC
   registry.register(
     "io.latch_unlock", lambda args: (_validateArgs(args), io.plcLogic.latchUnlock())[1], True
   )
+  registry.register(
+    "io.get_state",
+    lambda args: (_validateArgs(args), io.plcLogic.getState())[1],
+    False,
+  )
+  registry.register(
+    "io.get_error_code_string",
+    lambda args: (_validateArgs(args), io.plcLogic.getErrorCodeString())[1],
+    False,
+  )
+
+  def io_max_acceleration(args):
+    _validateArgs(args, optional=("value",))
+    value = args.get("value")
+    if value is not None:
+      value = _asFloat(value, "value")
+    return io.plcLogic.maxAcceleration(value)
+
+  registry.register("io.max_acceleration", io_max_acceleration, True)
+
+  def io_max_deceleration(args):
+    _validateArgs(args, optional=("value",))
+    value = args.get("value")
+    if value is not None:
+      value = _asFloat(value, "value")
+    return io.plcLogic.maxDeceleration(value)
+
+  registry.register("io.max_deceleration", io_max_deceleration, True)
 
   registry.register(
     "machine.get_z_back", lambda args: (_validateArgs(args), machineCalibration.zBack)[1], False
+  )
+  registry.register(
+    "machine.get_calibration",
+    lambda args: (
+      _validateArgs(args),
+      {key: value for key, value in machineCalibration.__dict__.items() if not key.startswith("_")},
+    )[1],
+    False,
+  )
+
+  def machine_set_calibration(args):
+    _validateArgs(args, required=("key", "value"))
+    return machineCalibration.set(
+      _asString(args["key"], "key"),
+      _asFloat(args["value"], "value"),
+    )
+
+  registry.register("machine.set_calibration", machine_set_calibration, True)
+  registry.register(
+    "machine.save_calibration",
+    lambda args: (_validateArgs(args), machineCalibration.save())[1],
+    True,
   )
 
   def configuration_get(args):
@@ -510,7 +757,110 @@ def build_command_registry(process, io, configuration, lowLevelIO, log, machineC
 
   registry.register("configuration.get", configuration_get, False)
 
+  def configuration_set(args):
+    _validateArgs(args, required=("key", "value"))
+    return configuration.set(
+      _asString(args["key"], "key"),
+      _asString(args["value"], "value"),
+    )
+
+  registry.register("configuration.set", configuration_set, True)
+  registry.register(
+    "configuration.save",
+    lambda args: (_validateArgs(args), configuration.save())[1],
+    True,
+  )
+
   # Useful read-only utility command used by pages that still rely on this data.
   registry.register("low_level_io.get_tags", lambda args: (_validateArgs(args), lowLevelIO.getTags())[1], False)
+  registry.register(
+    "low_level_io.get_inputs",
+    lambda args: (_validateArgs(args), lowLevelIO.getInputs())[1],
+    False,
+  )
+  registry.register(
+    "low_level_io.get_outputs",
+    lambda args: (_validateArgs(args), lowLevelIO.getOutputs())[1],
+    False,
+  )
+
+  def low_level_io_get_input(args):
+    _validateArgs(args, required=("name",))
+    return lowLevelIO.getInput(_asString(args["name"], "name"))
+
+  registry.register("low_level_io.get_input", low_level_io_get_input, False)
+
+  def low_level_io_get_output(args):
+    _validateArgs(args, required=("name",))
+    return lowLevelIO.getOutput(_asString(args["name"], "name"))
+
+  registry.register("low_level_io.get_output", low_level_io_get_output, False)
+
+  def low_level_io_get_tag(args):
+    _validateArgs(args, required=("name",))
+    return lowLevelIO.getTag(_asString(args["name"], "name"))
+
+  registry.register("low_level_io.get_tag", low_level_io_get_tag, False)
+
+  if systemTime is not None:
+    registry.register(
+      "system.get_time",
+      lambda args: (_validateArgs(args), systemTime.get())[1],
+      False,
+    )
+
+  if version is not None:
+    registry.register(
+      "version.get_version",
+      lambda args: (_validateArgs(args), version.getVersion())[1],
+      False,
+    )
+    registry.register(
+      "version.get_hash",
+      lambda args: (_validateArgs(args), version.getHash())[1],
+      False,
+    )
+    registry.register(
+      "version.get_date",
+      lambda args: (_validateArgs(args), version.getDate())[1],
+      False,
+    )
+    registry.register(
+      "version.verify",
+      lambda args: (_validateArgs(args), version.verify())[1],
+      False,
+    )
+    registry.register(
+      "version.update",
+      lambda args: (_validateArgs(args), version.update())[1],
+      True,
+    )
+
+  if uiVersion is not None:
+    registry.register(
+      "ui_version.get_version",
+      lambda args: (_validateArgs(args), uiVersion.getVersion())[1],
+      False,
+    )
+    registry.register(
+      "ui_version.get_hash",
+      lambda args: (_validateArgs(args), uiVersion.getHash())[1],
+      False,
+    )
+    registry.register(
+      "ui_version.get_date",
+      lambda args: (_validateArgs(args), uiVersion.getDate())[1],
+      False,
+    )
+    registry.register(
+      "ui_version.verify",
+      lambda args: (_validateArgs(args), uiVersion.verify())[1],
+      False,
+    )
+    registry.register(
+      "ui_version.update",
+      lambda args: (_validateArgs(args), uiVersion.update())[1],
+      True,
+    )
 
   return registry

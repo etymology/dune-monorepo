@@ -4,6 +4,7 @@ function G_Code( modules )
   var self = this
 
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -36,7 +37,10 @@ function G_Code( modules )
     // Setup G-Code table.
     winder.addPeriodicCallback
     (
-      "process.getG_CodeList( None, " + G_CODE_ROWS + " )",
+      {
+        name: commands.process.getGCodeList,
+        args: { center: null, delta: G_CODE_ROWS }
+      },
       function( data )
       {
         // If there is any data.

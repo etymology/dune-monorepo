@@ -54,16 +54,14 @@ var Winder = function( modules )
   var buttonEnables
 
   // The periodic remote commands are each assigned an id because there needs
-  // to be a way to translate from a remote query to the data returned by that
+  // to be a way to translate from a command request to the data returned by that
   // query.  Two dictionaries are used to do this.
-  //   periodicQuery maps an id to a remote query.
+  //   periodicQuery stores command requests for the batch API.
   //   periodicCallbackTable maps an id to a callback function.
-  // This intermediate id is needed because the query probably isn't safe as
-  // an XML field name.  So a unique id is used instead.  The id simply takes
-  // the form "idN" where N is an integer number starting at 0 and incrementing
-  // by one for each periodic query.
+  // The id simply takes the form "idN" where N is an integer number starting
+  // at 0 and incrementing by one for each periodic request.
   var periodicCallbackTable = {}
-  var periodicQuery = {}
+  var periodicQuery = []
 
   // Callbacks to run when an error occurs.
   var onErrorCallbacks = []
@@ -84,6 +82,57 @@ var Winder = function( modules )
   // Current values of the edit fields.  Used to check for changes.
   var editFieldValues = {}
 
+  // Internal helper to normalize command requests.
+  var normalizeRequest = function( request, fallbackId )
+  {
+    if ( "string" == typeof request )
+      return { id: fallbackId, name: request, args: {} }
+
+    if ( request && "object" == typeof request && "string" == typeof request.name )
+    {
+      var result =
+      {
+        id: fallbackId,
+        name: request.name,
+        args: request.args || {}
+      }
+      if ( request.id )
+        result.id = request.id
+      return result
+    }
+
+    return null
+  }
+
+  // Internal helper to execute a command request.
+  var executeRequest = function( request, callback )
+  {
+    var normalized = normalizeRequest( request, null )
+    if ( ! normalized )
+    {
+      if ( callback )
+        callback( null )
+      return
+    }
+
+    self.call
+    (
+      normalized.name,
+      normalized.args,
+      function( response )
+      {
+        if ( response && response.ok )
+        {
+          if ( callback )
+            callback( response.data )
+        }
+        else
+        if ( callback )
+          callback( null )
+      }
+    )
+  }
+
   //---------------------------------------------------------------------------
   // Uses:
   //   Populate a combobox was elements from a remote query.
@@ -98,14 +147,16 @@ var Winder = function( modules )
   //   The combobox will first be emptied.
   //   The first entry of the combobox is always blank.
   //---------------------------------------------------------------------------
-  this.populateComboBox = function( tagId, remoteCommand, selectCommand, additionalCallback )
+  this.populateComboBox = function( tagId, remoteRequest, selectRequest, additionalCallback )
   {
-    // Issue remote command.
-    self.remoteAction
+    executeRequest
     (
-      remoteCommand,
+      remoteRequest,
       function( data )
       {
+        if ( ! data )
+          data = []
+
         // Empty the combobox and make first entry blank.
         $( tagId )
           .empty()
@@ -129,12 +180,11 @@ var Winder = function( modules )
             )
         }
         // If there is a command to get the current selection, run it.
-        if ( selectCommand )
+        if ( selectRequest )
         {
-          // Issue remote command.
-          self.remoteAction
+          executeRequest
           (
-            selectCommand,
+            selectRequest,
             function( data )
             {
               $( tagId ).val( data )
@@ -144,7 +194,9 @@ var Winder = function( modules )
             }
           )
         }
-
+        else
+        if ( additionalCallback )
+          additionalCallback()
       }
     )
   }
@@ -161,65 +213,59 @@ var Winder = function( modules )
     // happen if there are long network delays.
     if ( ( 0 == periodicUpdateSemaphore )
       && ( ! self.periodicShutdown )
-      && ( Object.keys( periodicQuery ).length > 0 ) )
+      && ( periodicQuery.length > 0 ) )
     {
       periodicUpdateSemaphore += 1
 
-      // Make the request to the remote server.
-      periodicLoadInstance = $.post
-      (
-        "",
-        periodicQuery
-      )
-      .error
-      (
-        // Callback if there has been an error in retrieving the data.
-        function()
+      var onPeriodicError = function()
+      {
+        if ( ! isInError )
         {
-          if ( ! isInError )
+          // Run all callbacks with no data to signal an error.
+          for ( var index in periodicCallbacks )
           {
-            // Run all the remote callbacks with no data to signal an error.
-            for ( var index in periodicCallbacks )
-            {
-              var remoteCallback = periodicCallbacks[ index ]
-              remoteCallback[ 1 ]( null )
-            }
-
-            // All data is invalid and must be refreshed.
-            periodicHistory = {}
-
-            // Enable blinking.
-            $( '.error' ).blink( { delay: 500 } )
-
-            // Save the state of each button, input, and select, then disable
-            // them.
-            buttonEnables = {}
-            $( "main button, main input, main select" )
-              .each
-              (
-                function()
-                {
-                  buttonEnables[ this.id ] = $( this ).prop( "disabled" )
-                  $( this ).prop( "disabled", true )
-                }
-              )
-
-            // Run error callbacks.
-            for ( var index in onErrorCallbacks )
-              onErrorCallbacks[ index ]()
+            var remoteCallback = periodicCallbacks[ index ]
+            remoteCallback[ 1 ]( null )
           }
 
-          // Now in an error state.
-          isInError = true
+          // All data is invalid and must be refreshed.
+          periodicHistory = {}
 
-          periodicUpdateSemaphore -= 1
+          // Enable blinking.
+          $( '.error' ).blink( { delay: 500 } )
+
+          // Save the state of each button, input, and select, then disable them.
+          buttonEnables = {}
+          $( "main button, main input, main select" )
+            .each
+            (
+              function()
+              {
+                buttonEnables[ this.id ] = $( this ).prop( "disabled" )
+                $( this ).prop( "disabled", true )
+              }
+            )
+
+          // Run error callbacks.
+          for ( var callbackIndex in onErrorCallbacks )
+            onErrorCallbacks[ callbackIndex ]()
         }
-      )
-      .done
+
+        isInError = true
+        periodicUpdateSemaphore -= 1
+      }
+
+      periodicLoadInstance = self.batch
       (
-        // Callback when data arrives.
-        function( data )
+        periodicQuery,
+        function( response )
         {
+          if ( ! response || ! response.ok || ! response.data || ! response.data.results )
+          {
+            onPeriodicError()
+            return
+          }
+
           if ( isInError )
           {
             // Restore operational status of buttons, inputs, and selects.
@@ -228,62 +274,41 @@ var Winder = function( modules )
               (
                 function()
                 {
-                  $( this ).prop( "disabled", buttonEnables[ this.id ]  )
+                  $( this ).prop( "disabled", buttonEnables[ this.id ] )
                 }
               )
 
             // Run error-clear callbacks.
-            for ( var index in onErrorClearCallbacks )
-              onErrorClearCallbacks[ index ]()
-
+            for ( var clearIndex in onErrorClearCallbacks )
+              onErrorClearCallbacks[ clearIndex ]()
           }
 
-          // Data arrived, thus not in an error state.
           isInError = false
 
-          // Get XML data.
-          var xml = $( data )
+          for ( var id in periodicCallbackTable )
+          {
+            var callbackFunction = periodicCallbackTable[ id ]
+            var requestResult = response.data.results[ id ]
+            var valueData = null
+            var valueString = "__error__"
 
-          // For each of the data results...
-          // Results are all children of <ResultData>.
-          xml.find( 'ResultData' )
-            .first()
-            .children()
-            .each
-            (
-              function()
-              {
-                // Extract the result of this command.
-                var valueString = $( this ).text()
-                var valueData = jQuery.parseJSON( valueString )
+            if ( requestResult && requestResult.ok )
+            {
+              valueData = requestResult.data
+              valueString = JSON.stringify( valueData )
+            }
 
-                // Extract the ID of the result.
-                var id = this.tagName
+            if ( periodicHistory[ id ] != valueString )
+            {
+              if ( callbackFunction )
+                callbackFunction( valueData )
+              periodicHistory[ id ] = valueString
+            }
+          }
 
-                // Has the value changed?
-                if ( periodicHistory[ id ] != valueString )
-                {
+          for ( var endIndex in onPeriodicEndCallbacks )
+            onPeriodicEndCallbacks[ endIndex ]()
 
-                  // Fetch the callback function associated with the ID.
-                  callbackFunction = periodicCallbackTable[ id ]
-
-                  // Send the retrieved data to the callback.
-                  if ( callbackFunction )
-                    callbackFunction( valueData )
-
-                  // Save the current data.
-                  periodicHistory[ id ] = valueString
-                }
-
-              } // each callback function
-
-            ) // each
-
-          // Run end of period update callbacks.
-          for ( var index in onPeriodicEndCallbacks )
-            onPeriodicEndCallbacks[ index ]()
-
-          // Release semaphore.
           periodicUpdateSemaphore -= 1
         }
       )
@@ -297,32 +322,31 @@ var Winder = function( modules )
   //   Add a remote query and a callback function to be sent new data to the
   //   list of periodically updated queries.
   // Input:
-  //   query - Remote query to execute that returns the desired data.
+  //   request - Command name string or request object ({name,args}).
   //   callback - Function to be sent the data when data changes.
   // Notes:
   //   The callback function receives one parameter containing the new data.
   //   Callbacks are not run if the data has not changed.
   //---------------------------------------------------------------------------
-  this.addPeriodicCallback = function( query, callback )
+  this.addPeriodicCallback = function( request, callback )
   {
-    periodicCallbacks.push( [ query, callback ] )
+    periodicCallbacks.push( [ request, callback ] )
 
     // Build a remote query table, and a callback table.  The query table
     // associates an ID with a remote command needing to be issued.  The
     // callback table associates the ID with the callback function to run
     // if the data changes.
-    var values = ""
-    var index = 0
     periodicCallbackTable = {}
-    periodicQuery = {}
+    periodicQuery = []
     for ( var index in periodicCallbacks )
     {
       var remoteCallback = periodicCallbacks[ index ]
-      // Make an ID for this callback.
       var id = "id" + index
+      var normalizedRequest = normalizeRequest( remoteCallback[ 0 ], id )
+      if ( ! normalizedRequest )
+        continue
       periodicCallbackTable[ id ] = remoteCallback[ 1 ]
-      periodicQuery[ id ] = remoteCallback[ 0 ]
-      index += 1
+      periodicQuery.push( normalizedRequest )
     }
 
   }
@@ -331,7 +355,7 @@ var Winder = function( modules )
   // Uses:
   //   Add a remote query that is periodically updated and displayed in a tag.
   // Input:
-  //   query - Remote query to execute that returns the desired data.
+  //   request - Command name string or request object.
   //   displayId - The id of the tag the data is displayed.
   //   variableMap - Dictionary to place value of item. (Optional)
   //   variableIndex - Input in dictionary to place value of item. (Optional)
@@ -340,7 +364,7 @@ var Winder = function( modules )
   //---------------------------------------------------------------------------
   this.addPeriodicDisplay = function
   (
-    query,
+    request,
     displayId,
     variableMap,
     variableIndex,
@@ -351,7 +375,7 @@ var Winder = function( modules )
     // Add a periodic callback with the callback being specified.
     self.addPeriodicCallback
     (
-      query,
+      request,
       function( value )
       {
         self.displayCallback
@@ -371,7 +395,7 @@ var Winder = function( modules )
   // Uses:
   //   Add a periodic query whose value is saved in a dictionary.
   // Input:
-  //   query - Remote query to execute that returns the desired data.
+  //   request - Command name string or request object.
   //   variableMap - Dictionary to place value of item.
   //   variableIndex - Input in dictionary to place value of item.
   //   callback - Optional function to to call wiht data. (Optional)
@@ -383,7 +407,7 @@ var Winder = function( modules )
   //---------------------------------------------------------------------------
   this.addPeriodicRead = function
   (
-    query,
+    request,
     variableMap,
     variableIndex,
     callback,
@@ -393,7 +417,7 @@ var Winder = function( modules )
     // Add a periodic callback with the callback being specified.
     self.addPeriodicCallback
     (
-      query,
+      request,
       function( value )
       {
         // Save value.
@@ -420,88 +444,10 @@ var Winder = function( modules )
   //---------------------------------------------------------------------------
   this.login = function( password, callback )
   {
-    var fetchField =
-      function( xml, field )
-      {
-        var value = xml.find( field ).text()
-        if ( value )
-          value = jQuery.parseJSON( value )
-
-        return value
-      }
-
-    // Run an empty query to setup login process.
-    $.post
-    (
-      ""
-    )
-    .error
-    (
-      function()
-      {
-        // Any failure is a failure to login.
-        if ( callback )
-          callback( false )
-      }
-    )
-    .done
-    (
-      function( data )
-      {
-        var xml = $( data )
-
-        var loginStatus = fetchField( xml, "loginStatus" )
-
-        // If a login/logout is needed...
-        if ( ( ! loginStatus )
-          || ( null == password ) )
-        {
-          // Get the session Id and salt value.
-          var salt = fetchField( xml, "salt" )
-
-          // Construct a hashed version of password.
-          var hashString = salt + password
-          var hashValue = Sha256.hash( hashString )
-
-          // Send password back to server.
-          $.post
-          (
-            "",
-            {
-              passwordHash: hashValue
-            }
-          )
-          .error
-          (
-            function()
-            {
-              // Any failure is a failure to login.
-              if ( callback )
-                callback( false )
-            }
-          )
-          .done
-          (
-            function( data )
-            {
-              var xml = $( data )
-
-              // See if the login was accepted.
-              var loginResult = fetchField( xml, "loginResult" )
-
-              // Run callback with results.
-              if ( callback )
-                callback( loginResult )
-            }
-          )
-        }
-        else
-          // If we are already logged in, run callback in the affirmative.
-          if ( callback )
-            callback( true )
-      }
-    )
-
+    // v2 API uses session-based auth policy managed server-side.
+    // Current deployment bypasses explicit login.
+    if ( callback )
+      callback( true )
   }
 
   //---------------------------------------------------------------------------
@@ -517,7 +463,7 @@ var Winder = function( modules )
     if ( ! args )
       args = {}
 
-    $.ajax
+    return $.ajax
     (
       {
         url: "/api/v2/command",
@@ -568,7 +514,7 @@ var Winder = function( modules )
     if ( ! requests )
       requests = []
 
-    $.ajax
+    return $.ajax
     (
       {
         url: "/api/v2/batch",
@@ -606,56 +552,6 @@ var Winder = function( modules )
       }
     )
   }
-
-  //---------------------------------------------------------------------------
-  // Uses:
-  //   Execute a remote action.
-  // Input:
-  //   actionQuery - The action to execute on remote server.
-  //   callback - A callback to run with the results of this query.  Optional.
-  // Notes:
-  //   Remote actions are a query (presumably a Python command) whose results
-  //   are returned as a JSON object.  This JSON object is unpacked and that
-  //   unpacked result sent to the callback.
-  //---------------------------------------------------------------------------
-  this.remoteAction = function( actionQuery, callback )
-  {
-    // Run the query.
-    $.post
-    (
-      "",
-      {
-        action : actionQuery
-      }
-    )
-    .error
-    (
-      function()
-      {
-        if ( callback )
-          callback( null )
-      }
-    )
-    .done
-    (
-      function( data )
-      {
-        // If there is a callback, send it the results.
-        if ( callback )
-        {
-          var xml = $( data )
-          var value = xml.find( "action" ).text()
-
-          if ( value )
-            value = jQuery.parseJSON( value )
-
-          if ( callback )
-            callback( value )
-        }
-      }
-    )
-  }
-
 
   //---------------------------------------------------------------------------
   // Uses:
@@ -717,7 +613,7 @@ var Winder = function( modules )
   //---------------------------------------------------------------------------
   this.singleRemoteDisplay = function
   (
-    query,
+    request,
     displayId,
     variableMap,
     variableIndex,
@@ -725,9 +621,9 @@ var Winder = function( modules )
     formatParameters
   )
   {
-    self.remoteAction
+    executeRequest
     (
-      query,
+      request,
       function( value )
       {
         self.displayCallback
@@ -806,8 +702,8 @@ var Winder = function( modules )
   (
     inputTag,
     submitButton,
-    getQuery,
-    setQuery,
+    getRequest,
+    setRequest,
     verifyFunction,
     getCallback,
     setCallback
@@ -833,20 +729,19 @@ var Winder = function( modules )
         $( inputTag ).val( value )
 
         if ( getCallback )
-          getCallback( data )
+          getCallback( value )
       }
 
-    if ( getQuery )
+    var queryFunction = function()
+    {
+      if ( getRequest )
+        executeRequest( getRequest, updateFunction )
+    }
+
+    if ( getRequest )
     {
       // Disable button until we know what state (on/off) it should be in.
       $( inputTag ).prop( "disabled", true )
-
-      // Function to get the current state of button.
-      queryFunction = function()
-      {
-        // Get the initial value.
-        self.remoteAction( getQuery, updateFunction )
-      }
 
       // Run the query now.
       queryFunction()
@@ -881,14 +776,18 @@ var Winder = function( modules )
         {
           var value = $( inputTag ).val()
 
-          // If there is a set query to run...
-          if ( null != setQuery )
+          // If there is a set request to run...
+          if ( null != setRequest )
           {
-            // Construct query.
-            query = setQuery.replace( "$", value )
-            self.remoteAction
+            var request = null
+            if ( "function" == typeof setRequest )
+              request = setRequest( value )
+            else
+              request = setRequest
+
+            executeRequest
             (
-              query,
+              request,
               function( value )
               {
                 // Call the update function (make sure the transition took place).
@@ -954,7 +853,7 @@ var Winder = function( modules )
   //   Function that can be called to manually update the buttons using the
   //   get query.  Function is moot if no get query is specified.
   //---------------------------------------------------------------------------
-  this.addToggleButton = function( tagId, getQuery, setQuery, getCallback, setCallback )
+  this.addToggleButton = function( tagId, getRequest, setRequest, getCallback, setCallback )
   {
     // Save the enable/disabled state of the button in case we modify it latter.
     buttonStates[ tagId ] = $( tagId ).prop( "disabled" )
@@ -991,12 +890,12 @@ var Winder = function( modules )
     var queryFunction = function()
     {
       // Query (if there is a query to run).
-      if ( getQuery )
-        self.remoteAction( getQuery, updateFunction )
+      if ( getRequest )
+        executeRequest( getRequest, updateFunction )
     }
 
     // If there is a function that can query the current state of button...
-    if ( getQuery )
+    if ( getRequest )
     {
       // Disable button until we know what state (on/off) it should be in.
       $( tagId ).prop( "disabled", true )
@@ -1038,22 +937,26 @@ var Winder = function( modules )
 
           $( this ).val( value )
 
-          // If there is a set query to run...
-          if ( null != setQuery )
+          // If there is a set request to run...
+          if ( null != setRequest )
           {
-            // Construct query.
-            var query = setQuery.replace( "$", value )
-            self.remoteAction
+            var request = null
+            if ( "function" == typeof setRequest )
+              request = setRequest( value )
+            else
+              request = setRequest
+
+            executeRequest
             (
-              query,
+              request,
               function( value )
               {
                 // Call query function to make sure the transition took place.
-                if ( getQuery )
+                if ( getRequest )
                   queryFunction()
                 else
                   // If there isn't a query to run, just update using the new value.
-                  update( value )
+                  updateFunction( value )
 
                 // Run additional callback.
                 if ( setCallback )

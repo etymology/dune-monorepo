@@ -12,6 +12,7 @@ function G_Code( modules )
   this.create = function( G_CODE_ROWS )
   {
     var winder = modules.get( "Winder" )
+    var commands = window.CommandCatalog
 
     var totalRows = G_CODE_ROWS * 2 + 1
     $( "#gCodeTable" ).empty()
@@ -36,7 +37,10 @@ function G_Code( modules )
     // Setup G-Code table.
     winder.addPeriodicCallback
     (
-      "process.getG_CodeList( None, " + G_CODE_ROWS + " )",
+      {
+        name: commands.process.getGCodeList,
+        args: { center: null, delta: G_CODE_ROWS }
+      },
       function( data )
       {
         // If there is any data.

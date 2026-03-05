@@ -9,6 +9,7 @@ function MotorStatus( modules )
   this.uiSnapshot = null
 
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -86,30 +87,36 @@ function MotorStatus( modules )
   //-----------------------------------------------------------------------------
   var readConfig = function()
   {
-    winder.remoteAction
+    winder.call
     (
-      'configuration.get( "maxAcceleration" )',
-      function( data )
+      commands.configuration.get,
+      { key: "maxAcceleration" },
+      function( response )
       {
-        self.motor[ "maxAcceleration" ] = parseFloat( data )
+        if ( response && response.ok )
+          self.motor[ "maxAcceleration" ] = parseFloat( response.data )
       }
     )
 
-    winder.remoteAction
+    winder.call
     (
-      'configuration.get( "maxDeceleration" )',
-      function( data )
+      commands.configuration.get,
+      { key: "maxDeceleration" },
+      function( response )
       {
-        self.motor[ "maxDeceleration" ] = parseFloat( data )
+        if ( response && response.ok )
+          self.motor[ "maxDeceleration" ] = parseFloat( response.data )
       }
     )
 
-    winder.remoteAction
+    winder.call
     (
-      'configuration.get( "maxVelocity" )',
-      function( data )
+      commands.configuration.get,
+      { key: "maxVelocity" },
+      function( response )
       {
-        self.motor[ "maxVelocity" ] = parseFloat( data )
+        if ( response && response.ok )
+          self.motor[ "maxVelocity" ] = parseFloat( response.data )
       }
     )
   }
@@ -318,7 +325,7 @@ function MotorStatus( modules )
 
   winder.addPeriodicCallback
   (
-    "process.getUiSnapshot()",
+    commands.process.getUISnapshot,
     updateFromSnapshot
   )
 

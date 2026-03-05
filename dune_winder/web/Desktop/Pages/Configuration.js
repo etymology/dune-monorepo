@@ -6,6 +6,7 @@
 function ConfigurationList( winder, remotePrefix, tagPrefix )
 {
   var self = this
+  var commands = window.CommandCatalog
 
   // Used to track the number of items still updating.  When all updates have
   // taken place, the data is saved.
@@ -15,13 +16,89 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
   if ( null == tagPrefix )
     tagPrefix = remotePrefix
 
+  var isConfiguration = ( "configuration" == remotePrefix )
+  var isMachineCalibration = ( "machineCalibration" == remotePrefix )
+
+  var executeGet = function( item, callback )
+  {
+    if ( isConfiguration )
+    {
+      winder.call
+      (
+        commands.configuration.get,
+        { key: item },
+        function( response )
+        {
+          if ( response && response.ok )
+            callback( response.data )
+        }
+      )
+      return
+    }
+
+    if ( isMachineCalibration )
+    {
+      winder.call
+      (
+        commands.machine.getCalibration,
+        {},
+        function( response )
+        {
+          if ( response && response.ok && response.data )
+            callback( response.data[ item ] )
+        }
+      )
+    }
+  }
+
+  var executeSet = function( item, value, callback )
+  {
+    if ( isConfiguration )
+    {
+      winder.call
+      (
+        commands.configuration.set,
+        { key: item, value: value },
+        function( response )
+        {
+          if ( callback )
+            callback( response && response.ok )
+        }
+      )
+      return
+    }
+
+    if ( isMachineCalibration )
+    {
+      winder.call
+      (
+        commands.machine.setCalibration,
+        { key: item, value: value },
+        function( response )
+        {
+          if ( callback )
+            callback( response && response.ok )
+        }
+      )
+    }
+  }
+
+  var executeSave = function()
+  {
+    if ( isConfiguration )
+      winder.call( commands.configuration.save, {} )
+    else
+    if ( isMachineCalibration )
+      winder.call( commands.machine.saveCalibration, {} )
+  }
+
   //-----------------------------------------------------------------------------
   // Uses:
   //   Save the modified values.
   //-----------------------------------------------------------------------------
   this.save = function()
   {
-    winder.remoteAction( remotePrefix + ".save()" )
+    executeSave()
     $( "#" + tagPrefix + "Save" ).prop( "disabled", true )
   }
 
@@ -102,10 +179,9 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
 
     var div = $( "<div />" ).appendTo( tag )
     var id = remotePrefix + "." + item
-    var listQuery = remotePrefix + '.get( "' + item + '" )'
-    winder.remoteAction
+    executeGet
     (
-      listQuery,
+      item,
       function( data )
       {
         values[ item ] = data
@@ -130,14 +206,17 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
             {
               var changedObject = this
               var newValue = $( this ).val()
-              var setQuery = remotePrefix + '.set( "' + item + '", ' + newValue + ' )'
 
               // Submit new data.
-              winder.remoteAction
+              executeSet
               (
-                setQuery,
-                function( data )
+                item,
+                newValue,
+                function( isOk )
                 {
+                  if ( ! isOk )
+                    return
+
                   // Initial value (for revert purposes) is now the new value.
                   values[ item ] = newValue
 
@@ -196,6 +275,7 @@ function Configuration( modules )
 
   var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
+  var commands = window.CommandCatalog
 
   var machineCalibration
   var configuration
@@ -203,8 +283,14 @@ function Configuration( modules )
   winder.addToggleButton
   (
     "#loggingButton",
-    "process.getPositionLogging()",
-    "process.setPositionLogging( $ )"
+    commands.process.getPositionLogging,
+    function( value )
+    {
+      return {
+        name: commands.process.setPositionLogging,
+        args: { enabled: !! parseInt( value, 10 ) }
+      }
+    }
   )
 
 
@@ -289,23 +375,21 @@ function Configuration( modules )
   //-----------------------------------------------------------------------------
   this.createRandomAPA = function( number )
   {
-    winder.remoteAction
-    (
-      'APA_Generator.create( process, ' + number + ' )',
-      function()
-      {
-        self.populateLists()
-      }
-    )
-
+    $( "#customCommandResult" ).val( "Legacy custom generators removed from API v2." )
   }
 
   winder.addEditField
   (
     "#velocity",
     "#velocityButton",
-    "process.maxVelocity()",
-    "process.maxVelocity( $ )",
+    commands.process.maxVelocity,
+    function( value )
+    {
+      return {
+        name: commands.process.maxVelocity,
+        args: { value: value }
+      }
+    },
     $.isNumeric
   )
 
@@ -313,16 +397,28 @@ function Configuration( modules )
   (
     "#acceleration",
     "#accelerationButton",
-    "io.plcLogic.maxAcceleration()",
-    "io.plcLogic.maxAcceleration( $ )"
+    commands.io.maxAcceleration,
+    function( value )
+    {
+      return {
+        name: commands.io.maxAcceleration,
+        args: { value: value }
+      }
+    }
   )
 
   winder.addEditField
   (
     "#deceleration",
     "#decelerationButton",
-    "io.plcLogic.maxDeceleration()",
-    "io.plcLogic.maxDeceleration( $ )"
+    commands.io.maxDeceleration,
+    function( value )
+    {
+      return {
+        name: commands.io.maxDeceleration,
+        args: { value: value }
+      }
+    }
   )
 
   $( "#customCommandButton" )
@@ -331,12 +427,26 @@ function Configuration( modules )
       function()
       {
         var command = $( "#customCommand" ).val()
-        winder.remoteAction
+        command = $.trim( command )
+        if ( ! command )
+        {
+          $( "#customCommandResult" ).val( "Enter a command name." )
+          return
+        }
+
+        winder.call
         (
           command,
-          function( data )
+          {},
+          function( response )
           {
-            $( "#customCommandResult" ).val( data )
+            if ( response && response.ok )
+              $( "#customCommandResult" ).val( JSON.stringify( response.data ) )
+            else
+            if ( response && response.error )
+              $( "#customCommandResult" ).val( response.error.message )
+            else
+              $( "#customCommandResult" ).val( "Command failed." )
           }
         )
       }
