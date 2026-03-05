@@ -14,28 +14,28 @@ import json
 import threading
 import os
 
-from dune_winder.library.SystemTime import SystemTime
-from dune_winder.library.Log import Log
-from dune_winder.library.Configuration import Configuration
-from dune_winder.library.Json import dumps as jsonDumps
-from dune_winder.library.Version import Version
+from dune_winder.library.system_time import SystemTime
+from dune_winder.library.log import Log
+from dune_winder.library.configuration import Configuration
+from dune_winder.library.json import dumps as jsonDumps
+from dune_winder.library.version import Version
 
-from dune_winder.machine.Settings import Settings
+from dune_winder.machine.settings import Settings
 
-from dune_winder.core.LowLevelIO import LowLevelIO
-from dune_winder.core.Process import Process
+from dune_winder.core.low_level_io import LowLevelIO
+from dune_winder.core.process import Process
 from dune_winder.api.commands import build_command_registry
 
-from dune_winder.threads.PrimaryThread import PrimaryThread
-from dune_winder.threads.UI_ServerThread import UICommandServerThread
-from dune_winder.threads.ControlThread import ControlThread
-from dune_winder.threads.WebServerThread import WebServerThread
-from dune_winder.threads.CameraThread import CameraThread
+from dune_winder.threads.primary_thread import PrimaryThread
+from dune_winder.threads.ui_server_thread import UICommandServerThread
+from dune_winder.threads.control_thread import ControlThread
+from dune_winder.threads.web_server_thread import WebServerThread
+from dune_winder.threads.camera_thread import CameraThread
 
-from dune_winder.io.Maps.ProductionIO import ProductionIO
+from dune_winder.io.Maps.production_io import ProductionIO
 
 # $$$TEMPORARY - Temporary.
-from dune_winder.machine.DefaultCalibration import DefaultMachineCalibration
+from dune_winder.machine.default_calibration import DefaultMachineCalibration
 
 # ==============================================================================
 # Debug settings.

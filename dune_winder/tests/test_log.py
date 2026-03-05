@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from dune_winder.library.Log import Log
+from dune_winder.library.log import Log
 
 
 class FakeTimeSource:

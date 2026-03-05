@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from dune_winder.core.Process import Process
+from dune_winder.core.process import Process
 from dune_winder.recipes.recipe import Recipe
 
 

@@ -1,7 +1,7 @@
 import unittest
 
-from dune_winder.core.Process import Process
-from dune_winder.io.Primitives.DigitalInput import DigitalInput
+from dune_winder.core.process import Process
+from dune_winder.io.Primitives.digital_input import DigitalInput
 
 
 class FakeAxis:

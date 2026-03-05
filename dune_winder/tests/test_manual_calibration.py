@@ -2,19 +2,19 @@ import os
 import tempfile
 import unittest
 
-from dune_winder.core.ManualCalibration import (
+from dune_winder.core.manual_calibration import (
   LAYER_METADATA,
   ManualCalibration,
   _apply_transform,
   build_nominal_calibration,
   build_transform,
 )
-from dune_winder.core.AnodePlaneArray import AnodePlaneArray
-from dune_winder.library.Configuration import Configuration
-from dune_winder.library.SerializableLocation import SerializableLocation
+from dune_winder.core.anode_plane_array import AnodePlaneArray
+from dune_winder.library.configuration import Configuration
+from dune_winder.library.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import WIRE_SPACING as GX_WIRE_SPACING
-from dune_winder.machine.LayerCalibration import LayerCalibration
-from dune_winder.machine.Settings import Settings
+from dune_winder.machine.layer_calibration import LayerCalibration
+from dune_winder.machine.settings import Settings
 
 
 class FakeLog:

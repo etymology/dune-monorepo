@@ -1,7 +1,7 @@
 import unittest
 
-from dune_winder.core.AnodePlaneArray import AnodePlaneArray
-from dune_winder.core.Process import Process
+from dune_winder.core.anode_plane_array import AnodePlaneArray
+from dune_winder.core.process import Process
 
 
 class FakeRecipe:

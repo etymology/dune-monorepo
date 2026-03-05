@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from http.server import HTTPServer
 
-from dune_winder.library.WebServerInterface import WebServerInterface
+from dune_winder.library.web_server_interface import WebServerInterface
 from tests._command_api_test_support import (
   build_registry_fixture,
 )

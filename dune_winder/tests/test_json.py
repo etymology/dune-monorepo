@@ -2,7 +2,7 @@ import datetime
 import json
 import unittest
 
-from dune_winder.library.Json import dumps
+from dune_winder.library.json import dumps
 
 
 class JsonTests(unittest.TestCase):

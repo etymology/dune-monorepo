@@ -8,7 +8,7 @@ import datetime
 import json
 import os
 
-from dune_winder.machine.Settings import Settings
+from dune_winder.machine.settings import Settings
 
 
 class TemplateRecipeBase:
