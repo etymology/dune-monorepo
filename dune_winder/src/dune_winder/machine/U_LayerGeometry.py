@@ -8,8 +8,6 @@
 
 from .UV_LayerGeometry import UV_LayerGeometry
 
-from dune_winder.library.Geometry.Location import Location
-
 
 class U_LayerGeometry(UV_LayerGeometry):
   # -------------------------------------------------------------------
@@ -20,25 +18,13 @@ class U_LayerGeometry(UV_LayerGeometry):
 
     UV_LayerGeometry.__init__(self)
 
-    # Total number of pins.
-    self.pins = 2 * self.rows + 2 * self.columns + 1
-
-    # Values to translate front/back pin numbers.
-    self.frontBackOffset = self.rows
-    self.frontBackModulus = self.pins - 1
-
-    # Spacing between pins and front to back.
-    self.depth = 104.7 / self.scale
-
-    # Travel for partial Z.  Should place head level with board and below pin
-    # height.
-    self.mostlyRetract = (self.zTravel - self.depth) / (2 * self.scale)
-    self.mostlyExtend = (self.zTravel + self.depth) / (2 * self.scale)
-
-    self.startPinFront = 400
-    self.directionFront = -1
-    self.startPinBack = 1
-    self.directionBack = 1
+    self._configure_induction_layer(
+      pins=2 * self.rows + 2 * self.columns + 1,
+      front_back_offset=self.rows,
+      front_back_modulus=2 * self.rows + 2 * self.columns,
+      depth_mm=104.7,
+      start_pin_front=400,
+    )
 
     # Alias names for several equations.
     # This makes the patterns in the equations more obvious.
@@ -49,11 +35,7 @@ class U_LayerGeometry(UV_LayerGeometry):
 
     # Offset from APA's (0,0,0) position.
     # (Exactly -8.2875 -4.9375).
-    self.apaOffsetX = -2 * s - t
-    self.apaOffsetY = -s - t
-    self.apaOffsetZ = 0
-
-    self.apaOffset = Location(self.apaOffsetX, self.apaOffsetY, self.apaOffsetZ)
+    self._set_apa_offset(-2 * s - t, -s - t, 0)
 
     # Offsets of pins.
     offsetXF0 = 0
