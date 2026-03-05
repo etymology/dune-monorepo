@@ -9,6 +9,7 @@ from dune_winder.library.RecipeTemplateLanguage import (
   compile_template_script,
   execute_template_script,
 )
+from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.library.TemplateGCodeTransitions import (
   append_motion_to_pause_transition,
   append_pause_to_motion_transition,
@@ -119,7 +120,8 @@ def _require_offset(special_inputs, offsetId):
 
 
 def _line(*codes):
-  return " ".join(str(code) for code in codes if code not in (None, ""))
+  text = " ".join(str(code) for code in codes if code not in (None, ""))
+  return normalize_line_text(text)
 
 
 def _g106(position):

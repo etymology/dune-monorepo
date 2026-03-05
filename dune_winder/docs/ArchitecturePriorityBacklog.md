@@ -5,6 +5,10 @@ intentionally left out of the phase-1 remote command API implementation.
 
 ## P1: Split G-code domain model across `library/`, `machine/`, and `recipes/`
 
+Status: Implemented with legacy wrapper removal (2026-03-05). Canonical domain package:
+`src/dune_winder/gcode/` (`model`, `parser`, `renderer`, `runtime`).
+Details: [`docs/GCodeDomainArchitecture.md`](docs/GCodeDomainArchitecture.md)
+
 ### Impact
 - Domain behavior is hard to reason about because parsing, generation, and execution logic are spread across multiple layers with overlapping names.
 - Changes to G-code behavior require touching several modules, increasing regression risk.
