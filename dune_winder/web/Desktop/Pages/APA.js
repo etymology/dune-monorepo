@@ -27,6 +27,11 @@ function APA(modules) {
 
   var stage = null;
   var isStopping = false;
+  var forecastPeriodRequestId = 0;
+  var forecastPeriodHandledId = 0;
+  var forecastLogRequestId = 0;
+  var forecastLogHandledId = 0;
+  var forecastPollTimer = null;
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -104,6 +109,15 @@ function APA(modules) {
 
     // If not the null selection...
     if ("" != gCodeSelection) {
+      // Invalidate any pending forecast fetches while switching recipes.
+      forecastPeriodRequestId += 1;
+      forecastPeriodHandledId = forecastPeriodRequestId;
+      forecastLogRequestId += 1;
+      forecastLogHandledId = forecastLogRequestId;
+      forecastRecipePeriod = null;
+      forecastRecentRows = null;
+      if ("function" === typeof updateForecast) updateForecast();
+
       // Disable APA interface during loading process.
       apaEnabledInhabit = true;
       this.disableAPA_Interface("Loading G-Code");
@@ -156,7 +170,11 @@ function APA(modules) {
   };
 
   function refreshRecipePeriod() {
+    forecastPeriodRequestId += 1;
+    var requestId = forecastPeriodRequestId;
     winder.remoteAction("process.getRecipePeriod()", function (data) {
+      if (requestId < forecastPeriodHandledId) return;
+      forecastPeriodHandledId = requestId;
       forecastRecipePeriod = data;
       if ("function" === typeof updateForecast) updateForecast();
     });
@@ -842,9 +860,13 @@ function APA(modules) {
 
   var FORECAST_LOG_LINES = 2000;
   var fetchForecastLogs = function () {
+    forecastLogRequestId += 1;
+    var requestId = forecastLogRequestId;
     winder.remoteAction(
       "log.getAll( " + FORECAST_LOG_LINES + " )",
       function (data) {
+        if (requestId < forecastLogHandledId) return;
+        forecastLogHandledId = requestId;
         forecastRecentRows = data;
         updateForecast();
       },
@@ -852,8 +874,21 @@ function APA(modules) {
   };
 
   fetchForecastLogs();
-  setInterval(fetchForecastLogs, 2000);
-  setInterval(updateForecast, 2000);
+  if (window.__apaForecastPollTimer) {
+    clearInterval(window.__apaForecastPollTimer);
+  }
+  forecastPollTimer = setInterval(fetchForecastLogs, 2000);
+  window.__apaForecastPollTimer = forecastPollTimer;
+
+  modules.registerShutdownCallback(function () {
+    if (forecastPollTimer) {
+      clearInterval(forecastPollTimer);
+      if (window.__apaForecastPollTimer === forecastPollTimer) {
+        window.__apaForecastPollTimer = null;
+      }
+      forecastPollTimer = null;
+    }
+  });
 
   window["apa"] = self;
 }

@@ -816,6 +816,7 @@ function Calibrate(modules)
       false
     )
     $( "#manualCalibrationTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#manualCalibrationIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#manualCalibrationGenerateButton" ).text( "Generate " + ( state.layer || "X" ) + "-layer.gc" )
     $( "#manualCalibrationReferenceCount" )
       .text(
@@ -963,6 +964,23 @@ function Calibrate(modules)
     (
       "process.manualCalibration.setTransferPause( "
       + ( $( "#manualCalibrationTransferPause" ).is( ":checked" ) ? "True" : "False" )
+      + " )",
+      function()
+      {
+        refreshStateOnce()
+      }
+    )
+  }
+
+  function applyIncludeLeadMode()
+  {
+    if ( ! lastState || ! lastState.enabled || ! isGXMode() )
+      return
+
+    manualAction
+    (
+      "process.manualCalibration.setIncludeLeadMode( "
+      + ( $( "#manualCalibrationIncludeLeadMode" ).is( ":checked" ) ? "True" : "False" )
       + " )",
       function()
       {
@@ -1451,6 +1469,7 @@ function Calibrate(modules)
   $( "#manualCalibrationFootAOffset" ).change( function() { applyGXOffsetInput( "footA", "#manualCalibrationFootAOffset" ) } )
   $( "#manualCalibrationFootBOffset" ).change( function() { applyGXOffsetInput( "footB", "#manualCalibrationFootBOffset" ) } )
   $( "#manualCalibrationTransferPause" ).change( applyTransferPause )
+  $( "#manualCalibrationIncludeLeadMode" ).change( applyIncludeLeadMode )
 
   $( "#manualCalibrationWireX, #manualCalibrationWireY" )
     .focus

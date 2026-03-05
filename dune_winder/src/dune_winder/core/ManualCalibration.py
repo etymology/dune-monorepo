@@ -517,6 +517,7 @@ class _ManualCalibrationGXSession:
     self.references = {}
     self.offsets = {}
     self.transferPause = True
+    self.includeLeadMode = True
     self.generated = {}
     self.dirty = False
 
@@ -637,6 +638,7 @@ class ManualCalibration:
     session.offsets = offsets
 
     session.transferPause = bool(data.get("transferPause", True))
+    session.includeLeadMode = bool(data.get("includeLeadMode", True))
     session.generated = self._emptyGXGenerated(session)
     generated = data.get("generated", {})
     if generated is not None:
@@ -665,6 +667,7 @@ class ManualCalibration:
         "cameraOffsetY": session.cameraOffsetY,
         "dirty": session.dirty,
         "transferPause": session.transferPause,
+        "includeLeadMode": session.includeLeadMode,
         "references": {},
         "offsets": {},
         "generated": dict(session.generated),
@@ -1047,6 +1050,7 @@ class ManualCalibration:
       session.offsets[offsetId] = None
 
     session.transferPause = True
+    session.includeLeadMode = True
     session.generated = self._emptyGXGenerated(session)
     session.dirty = False
     session.initialized = True
@@ -1360,6 +1364,7 @@ class ManualCalibration:
         "references": references,
         "offsets": offsets,
         "transferPause": session.transferPause,
+        "includeLeadMode": session.includeLeadMode,
         "wrapCount": GX_WRAP_COUNTS[layer],
         "wireSpacing": GX_WIRE_SPACING,
         "counts": {
@@ -1717,6 +1722,22 @@ class ManualCalibration:
     return self._okResult({"transferPause": session.transferPause})
 
   # -------------------------------------------------------------------
+  def setIncludeLeadMode(self, enabled):
+    layer, error = self._getActiveLayerForMode("gx")
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    session = self._getSession(layer)
+    session.includeLeadMode = bool(enabled)
+    session.dirty = True
+    self._persistSession(session)
+    return self._okResult({"includeLeadMode": session.includeLeadMode})
+
+  # -------------------------------------------------------------------
   def clearGXDraft(self):
     layer, error = self._getActiveLayerForMode("gx")
     if error is not None:
@@ -1768,6 +1789,7 @@ class ManualCalibration:
         "references": session.references,
         "offsets": session.offsets,
         "transferPause": session.transferPause,
+        "includeLeadMode": session.includeLeadMode,
       },
       archive_directory=self._recipeArchiveDirectory(),
     )
@@ -1801,6 +1823,7 @@ class ManualCalibration:
         generation["hashValue"],
         generation["wrapCount"],
         session.transferPause,
+        session.includeLeadMode,
       ],
     )
     return self._okResult(

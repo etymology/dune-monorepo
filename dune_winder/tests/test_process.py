@@ -186,3 +186,85 @@ class ProcessSnapshotTests(unittest.TestCase):
     self.assertEqual(process.apa.calls, ["recipe"])
     self.assertEqual(len(process._log.entries), 1)
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+
+
+class _AxisForManualGCode:
+  def __init__(self, position):
+    self._position = position
+
+  def getPosition(self):
+    return self._position
+
+
+class _ControlStateMachineForManualGCode:
+  def __init__(self):
+    self.manualRequest = False
+    self.executeGCode = False
+
+  def isReadyForMovement(self):
+    return True
+
+
+class _GCodeHandlerForManualGCode:
+  def __init__(self):
+    self.lines = []
+
+  def executeG_CodeLine(self, line):
+    self.lines.append(line)
+    return None
+
+
+class ProcessManualGCodeTests(unittest.TestCase):
+  def _build_process_for_manual_gcode(self, x_position=10.0, y_position=20.0):
+    process = object.__new__(Process)
+    process._io = type("IO", (), {})()
+    process._io.xAxis = _AxisForManualGCode(x_position)
+    process._io.yAxis = _AxisForManualGCode(y_position)
+    process._io.zAxis = _AxisForManualGCode(5.0)
+    process._log = FakeLog()
+    process.controlStateMachine = _ControlStateMachineForManualGCode()
+    process.gCodeHandler = _GCodeHandlerForManualGCode()
+
+    process._transferLeft = -1000.0
+    process._transferRight = 10000.0
+    process._limitLeft = -1000.0
+    process._limitRight = 10000.0
+    process._limitTop = 10000.0
+    process._limitBottom = -1000.0
+    process._zlimitFront = 0.0
+    process._zlimitRear = 100.0
+    process._maxVelocity = 300.0
+
+    return process
+
+  def test_execute_manual_gcode_accepts_x_only_and_keeps_current_y(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("X4")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["X4 Y22.0"])
+
+  def test_execute_manual_gcode_accepts_y_only_and_keeps_current_x(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("Y3")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["Y3 X11.0"])
+
+  def test_execute_manual_gcode_accepts_feed_only_without_movement(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("F120")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["F120"])
+
+  def test_execute_manual_gcode_rejects_feed_above_max_velocity(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("F301")
+
+    self.assertIn("Invalid F-axis Speed, exceeding limit", error)
+    self.assertEqual(process.gCodeHandler.lines, [])

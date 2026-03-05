@@ -5,6 +5,16 @@ function RecentLog( modules )
 
   var winder = modules.get( "Winder" )
 
+  function formatDescription( row )
+  {
+    var description = row[ 3 ]
+    var debugData = row.slice( 4 ).filter( function( item ) { return item !== "" } )
+    if ( debugData.length > 0 )
+      description += " [" + debugData.join( ", " ) + "]"
+
+    return description
+  }
+
   this.create = function( LOG_ENTIRES )
   {
     var table = $( "<table />" ).appendTo( "#recentLog" )
@@ -49,7 +59,7 @@ function RecentLog( modules )
               var time = new Date( row[ 0 ] + 'Z' )
               timeString = $.format.date( time, "yyyy-MM-dd HH:mm:ss.SSS")
 
-              description = row[ 3 ]
+              description = formatDescription( row )
             }
           }
 

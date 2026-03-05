@@ -10,6 +10,10 @@ import argparse
 import re
 from pathlib import Path
 
+from dune_winder.library.RecipeTemplateLanguage import (
+  compile_template_script,
+  execute_template_script,
+)
 from dune_winder.library.Recipe import Recipe
 from dune_winder.library.TemplateGCodeTransitions import (
   append_motion_to_pause_transition,
@@ -69,6 +73,39 @@ SPECIAL_OFFSET_ALIASES = {
   "foot_a_offset": 10,
   "foot_b_offset": 11,
 }
+
+U_WRAP_SCRIPT = compile_template_script(
+  (
+    "emit (------------------STARTING LOOP ${wrap}------------------)",
+    "emit G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
+    "transition transfer_b_to_a",
+    "emit G109 PB${1200 + wrap} PLT G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${conditional_offset('PX', offsets[1], 12 + offsets[1])} (Top A corner - foot end)",
+    "emit G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(799 + wrap): emit G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Bottom A corner - head end)",
+    "transition transfer_a_to_b",
+    "emit G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY ${offset('PY', offsets[3])} (Bottom B corner - head end, rewind)",
+    "emit G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PY', Y_PULL_IN)}",
+    "emit (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
+    "transition transfer_b_to_a",
+    "emit G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
+    "emit G103 PF${1 + wrap} PF${wrap} PY G105 ${coord('PX', X_PULL_IN)} ( BOARD GAP )",
+    "emit G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+    "transition transfer_a_to_b",
+    "emit G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY ${conditional_offset('PX', offsets[7], offsets[7] - 12)} (Top B corner - head end)",
+    "emit G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(1999 + wrap): emit G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Bottom B corner - foot end)",
+    "transition transfer_b_to_a",
+    "emit G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY ${offset('PY', offsets[9])} (Bottom A corner - foot end, rewind)",
+    "emit G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(1601 + wrap): emit G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
+    "transition transfer_a_to_b",
+    "emit G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
+    "emit G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+  )
+)
 
 
 class UTemplateInputError(ValueError):
@@ -279,22 +316,6 @@ def _resolve_render_state(
   )
 
 
-def _loop_intro_line(wrap_number, offsets):
-  return _line(
-    "G109",
-    "PB" + str(1200 + wrap_number),
-    "PBR",
-    "G103",
-    "PB" + str(2002 - wrap_number),
-    "PB" + str(2003 - wrap_number),
-    "PXY",
-    _offset_fragment("PX", offsets[0]),
-    "G102",
-    "G108",
-    "(Top B corner - foot end)",
-  )
-
-
 def _wrap_identifier(wrap_number, line_number):
   return "(" + str(wrap_number) + "," + str(line_number) + ")"
 
@@ -311,297 +332,41 @@ def _number_lines(lines):
 
 
 def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
-  lines = [
-    "(------------------STARTING LOOP " + str(wrap_number) + "------------------)",
-    _loop_intro_line(wrap_number, offsets),
-  ]
+  lines = []
 
-  append_pause_to_motion_transition(
-    lines,
+  transitions = {
+    "transfer_b_to_a": lambda output: append_pause_to_motion_transition(
+      output,
+      line_builder=_line,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+    ),
+    "transfer_a_to_b": lambda output: append_motion_to_pause_transition(
+      output,
+      line_builder=_line,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+    ),
+  }
+
+  environment = {
+    "wrap": wrap_number,
+    "offsets": offsets,
+    "coord": _coord,
+    "offset": _offset_fragment,
+    "conditional_offset": _conditional_offset_fragment,
+    "near_comb": _near_comb,
+    "Y_PULL_IN": Y_PULL_IN,
+    "X_PULL_IN": X_PULL_IN,
+    "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
+  }
+
+  execute_template_script(
+    U_WRAP_SCRIPT,
+    environment=environment,
+    output_lines=lines,
     line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-  )
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PB" + str(1200 + wrap_number),
-        "PLT",
-        "G103",
-        "PB" + str(2002 - wrap_number),
-        "PB" + str(2003 - wrap_number),
-        "PXY",
-        _conditional_offset_fragment("PX", offsets[1], 12 + offsets[1]),
-        "(Top A corner - foot end)",
-      ),
-      _line(
-        "G103",
-        "PF" + str(800 + wrap_number),
-        "PF" + str(801 + wrap_number),
-        "PY",
-        "G105 " + _coord("PY", -Y_PULL_IN),
-      ),
-    ]
-  )
-
-  if _near_comb(799 + wrap_number):
-    lines.append(
-      _line(
-        "G103",
-        "PF" + str(800 + wrap_number),
-        "PF" + str(801 + wrap_number),
-        "PX",
-        "G105 " + _coord("PX-", Y_PULL_IN * COMB_PULL_FACTOR),
-      )
-    )
-
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PF" + str(800 + wrap_number),
-        "PLB",
-        "G103",
-        "PF" + str(2402 - wrap_number),
-        "PF" + str(2403 - wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[2]),
-        "G102",
-        "G108",
-        "(Bottom A corner - head end)",
-      ),
-    ]
-  )
-
-  append_motion_to_pause_transition(
-    lines,
-    line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-  )
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PF" + str(2402 - wrap_number),
-        "PBR",
-        "G103",
-        "PB" + str(400 + wrap_number),
-        "PB" + str(401 + wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[3]),
-        "(Bottom B corner - head end, rewind)",
-      ),
-      _line(
-        "G103",
-        "PB" + str(400 + wrap_number),
-        "PB" + str(401 + wrap_number),
-        "PX",
-        "G105 " + _coord("PY", Y_PULL_IN),
-      ),
-      _line(
-        "(HEAD RESTART)",
-        "G109",
-        "PB" + str(400 + wrap_number),
-        "PLT",
-        "G103",
-        "PB" + str(401 - wrap_number),
-        "PB" + str(400 - wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[4]),
-        "G102",
-        "G108",
-        "(Head B corner)",
-      ),
-    ]
-  )
-
-  append_pause_to_motion_transition(
-    lines,
-    line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-  )
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PB" + str(401 - wrap_number),
-        "PLT",
-        "G103",
-        "PF" + str(wrap_number),
-        "PF" + str(2400 + wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[5]),
-        "(Head A corner, rewind)",
-      ),
-      _line(
-        "G103",
-        "PF" + str(1 + wrap_number),
-        "PF" + str(wrap_number),
-        "PY",
-        "G105 " + _coord("PX", X_PULL_IN),
-        "( BOARD GAP )",
-      ),
-      _line(
-        "G109",
-        "PF" + str(1 + wrap_number),
-        "PRT",
-        "G103",
-        "PF" + str(800 - wrap_number),
-        "PF" + str(799 - wrap_number),
-        "PXY",
-        _offset_fragment("PX", offsets[6]),
-        "G102",
-        "G108",
-        "(Top A corner - head end)",
-      ),
-    ]
-  )
-
-  append_motion_to_pause_transition(
-    lines,
-    line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-  )
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PF" + str(800 - wrap_number),
-        "PRT",
-        "G103",
-        "PB" + str(2002 + wrap_number),
-        "PB" + str(2003 + wrap_number),
-        "PXY",
-        _conditional_offset_fragment("PX", offsets[7], offsets[7] - 12),
-        "(Top B corner - head end)",
-      ),
-      _line(
-        "G103",
-        "PB" + str(2002 + wrap_number),
-        "PB" + str(2003 + wrap_number),
-        "PY",
-        "G105 " + _coord("PY", -Y_PULL_IN),
-      ),
-    ]
-  )
-
-  if _near_comb(1999 + wrap_number):
-    lines.append(
-      _line(
-        "G103",
-        "PB" + str(2002 + wrap_number),
-        "PB" + str(2003 + wrap_number),
-        "PX",
-        "G105 " + _coord("PX", Y_PULL_IN * COMB_PULL_FACTOR),
-      )
-    )
-
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PB" + str(2001 + wrap_number),
-        "PRB",
-        "G103",
-        "PB" + str(1201 - wrap_number),
-        "PB" + str(1202 - wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[8]),
-        "G102",
-        "G108",
-        "(Bottom B corner - foot end)",
-      ),
-    ]
-  )
-
-  append_pause_to_motion_transition(
-    lines,
-    line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-  )
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PB" + str(1199 + wrap_number),
-        "PBL",
-        "G103",
-        "PF" + str(1601+ wrap_number),
-        "PF" + str(1602 + wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[9]),
-        "(Bottom A corner - foot end, rewind)",
-      ),
-      _line(
-        "G103",
-        "PF" + str(1601 + wrap_number),
-        "PF" + str(1602 + wrap_number),
-        "PY",
-        "G105 " + _coord("PY", Y_PULL_IN),
-      ),
-    ]
-  )
-
-  if _near_comb(1601 + wrap_number):
-      lines.append( 
-        _line(
-          "G103",
-          "PF" + str(1601 + wrap_number),
-          "PF" + str(1602 + wrap_number),
-          "PX",
-          "G105 " + _coord("PX", X_PULL_IN * COMB_PULL_FACTOR),
-      ),
-    )
-      
-
-  lines.append(
-      _line(
-        "G109",
-        "PF" + str(1601+wrap_number),
-        "PRT",
-        "G103",
-        "PF" + str(1601 - wrap_number),
-        "PF" + str(1600 - wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[10]),
-        "G102",
-        "G108",
-        "(Foot A corner)",
-      ),
-    )
-
-  append_motion_to_pause_transition(
-    lines,
-    line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-  )
-  lines.extend(
-    [
-      _line(
-        "G109",
-        "PF" + str(1601 - wrap_number),
-        "PRT",
-        "G103",
-        "PB" + str(1201 + wrap_number),
-        "PB" + str(1200 + wrap_number),
-        "PXY",
-        _offset_fragment("PY", offsets[11]),
-        "(Foot B corner, rewind)",
-      ),
-      _line(
-        "G103",
-        "PB" + str(1201 + wrap_number),
-        "PB" + str(1200 + wrap_number),
-        "PX",
-        "G105 " + _coord("PX", -X_PULL_IN),
-      ),
-    ]
+    transitions=transitions,
   )
 
   return _annotate_wrap_lines(wrap_number, lines)

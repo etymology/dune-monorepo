@@ -5,6 +5,10 @@
 ###############################################################################
 
 from dune_winder.library.Recipe import Recipe
+from dune_winder.library.RecipeTemplateLanguage import (
+  compile_template_script,
+  execute_template_script,
+)
 from dune_winder.library.TemplateGCodeTransitions import (
   append_motion_to_pause_transition,
   append_pause_to_motion_transition,
@@ -27,6 +31,30 @@ WRAP_COUNTS = {
 REFERENCE_IDS = ("head", "foot")
 OFFSET_IDS = ("headA", "headB", "footA", "footB")
 
+XG_PREAMBLE_SCRIPT = compile_template_script(
+  (
+    "emit X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_a_offset)}",
+    "emit ${g106(0)}",
+  )
+)
+
+XG_WRAP_SCRIPT = compile_template_script(
+  (
+    "emit X${r(HEAD_PULL_FLAT)} Y${r(head_a_value)}",
+    "emit X${r(FOOT_TRANSFER_ZONE)} Y${r(wire_foot_y + foot_a_offset + spacing_offset)}",
+    "transition transfer_a_to_b",
+    "emit X${r(FOOT_PULL_FLAT)} Y${r(wire_foot_y + foot_b_offset + spacing_offset)}",
+    "emit_head_restart X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_b_offset + spacing_offset)}",
+    "transition transfer_b_to_a",
+  )
+)
+
+XG_POSTAMBLE_SCRIPT = compile_template_script(
+  (
+    "emit X${r(HEAD_PULL_FLAT)} Y${r(wire_head_y + head_a_offset + 480.0 * WIRE_SPACING)}",
+  )
+)
+
 
 def _normalize_layer(layer):
   layer = str(layer).strip().upper()
@@ -43,8 +71,8 @@ def _format_number(value):
   return text
 
 
-def _coord(axis, value):
-  return axis + _format_number(value)
+def _round_for_motion(value):
+  return _format_number(value)
 
 
 def _resolve_special_inputs(special_inputs=None, legacy_special_inputs=None):
@@ -134,54 +162,63 @@ def _render_wrap_lines(
   foot_a_offset,
   foot_b_offset,
   transfer_pause,
+  include_lead_mode,
 ):
   spacing_offset = (wrap_number - 1) * WIRE_SPACING
   head_a_value = wire_head_y + head_a_offset + spacing_offset
   if wrap_number > 1:
     head_a_value += DIAGONAL_CORRECT
 
-  wrap_steps = [
-    _wrap_step(
-      _coord("X", HEAD_PULL_FLAT),
-      _coord("Y", head_a_value)
+  def append_transition_steps(output, transition_function):
+    transition_lines = []
+    transition_function(
+      transition_lines,
+      line_builder=_line,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+    )
+    output.extend(_wrap_step(transition_line) for transition_line in transition_lines)
+
+  transitions = {
+    "transfer_a_to_b": lambda output: append_transition_steps(
+      output,
+      append_motion_to_pause_transition,
     ),
-    _wrap_step(
-      _coord("X", FOOT_TRANSFER_ZONE),
-      _coord("Y", wire_foot_y + foot_a_offset + spacing_offset),
+    "transfer_b_to_a": lambda output: append_transition_steps(
+      output,
+      append_pause_to_motion_transition,
     ),
-  ]
+  }
 
-  transition_lines = []
-  append_motion_to_pause_transition(
-    transition_lines,
+  wrap_steps = []
+  environment = {
+    "r": _round_for_motion,
+    "HEAD_PULL_FLAT": HEAD_PULL_FLAT,
+    "FOOT_TRANSFER_ZONE": FOOT_TRANSFER_ZONE,
+    "FOOT_PULL_FLAT": FOOT_PULL_FLAT,
+    "HEAD_TRANSFER_ZONE": HEAD_TRANSFER_ZONE,
+    "wire_head_y": wire_head_y,
+    "wire_foot_y": wire_foot_y,
+    "head_a_offset": head_a_offset,
+    "head_b_offset": head_b_offset,
+    "foot_a_offset": foot_a_offset,
+    "foot_b_offset": foot_b_offset,
+    "spacing_offset": spacing_offset,
+    "head_a_value": head_a_value,
+  }
+
+  def emit_wrap_step(output, line, action):
+    output.append(_wrap_step(line, head_restart=(action == "emit_head_restart")))
+
+  execute_template_script(
+    XG_WRAP_SCRIPT,
+    environment=environment,
+    output_lines=wrap_steps,
     line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=True,
-  )
-  wrap_steps.extend(_wrap_step(transition_line) for transition_line in transition_lines)
-
-  wrap_steps.extend(
-    [
-      _wrap_step(
-        _coord("X", FOOT_PULL_FLAT),
-        _coord("Y", wire_foot_y + foot_b_offset + spacing_offset),
-      ),
-      _wrap_step(
-        _coord("X", HEAD_TRANSFER_ZONE),
-        _coord("Y", wire_head_y + head_b_offset + spacing_offset),
-        head_restart=True,
-      ),
-    ]
+    transitions=transitions,
+    emit_callback=emit_wrap_step,
   )
 
-  transition_lines = []
-  append_pause_to_motion_transition(
-    transition_lines,
-    line_builder=_line,
-    transfer_pause=transfer_pause,
-    include_lead_mode=True,
-  )
-  wrap_steps.extend(_wrap_step(transition_line) for transition_line in transition_lines)
   return _annotate_wrap_lines(wrap_number, wrap_steps)
 
 
@@ -209,14 +246,31 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
   foot_a_offset = _require_offset(special_inputs, "footA")
   foot_b_offset = _require_offset(special_inputs, "footB")
   transfer_pause = bool(special_inputs.get("transferPause", True))
+  include_lead_mode = bool(
+    special_inputs.get(
+      "includeLeadMode",
+      special_inputs.get("include_lead_mode", True),
+    )
+  )
 
-  lines = [
-    _line(
-      _coord("X", HEAD_TRANSFER_ZONE),
-      _coord("Y", wire_head_y + head_a_offset),
-    ),
-    _g106(0),
-  ]
+  lines = []
+  base_environment = {
+    "r": _round_for_motion,
+    "g106": _g106,
+    "HEAD_TRANSFER_ZONE": HEAD_TRANSFER_ZONE,
+    "HEAD_PULL_FLAT": HEAD_PULL_FLAT,
+    "WIRE_SPACING": WIRE_SPACING,
+    "wire_head_y": wire_head_y,
+    "head_a_offset": head_a_offset,
+  }
+
+  execute_template_script(
+    XG_PREAMBLE_SCRIPT,
+    environment=base_environment,
+    output_lines=lines,
+    line_builder=_line,
+    transitions={},
+  )
 
   for wrap_number in range(1, WRAP_COUNTS[layer] + 1):
     lines.extend(
@@ -229,14 +283,16 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
         foot_a_offset=foot_a_offset,
         foot_b_offset=foot_b_offset,
         transfer_pause=transfer_pause,
+        include_lead_mode=include_lead_mode,
       )
     )
 
-  lines.append(
-    _line(
-      _coord("X", HEAD_PULL_FLAT),
-      _coord("Y", wire_head_y + head_a_offset + 480.0 * WIRE_SPACING),
-    )
+  execute_template_script(
+    XG_POSTAMBLE_SCRIPT,
+    environment=base_environment,
+    output_lines=lines,
+    line_builder=_line,
+    transitions={},
   )
   return _number_lines(lines)
 
