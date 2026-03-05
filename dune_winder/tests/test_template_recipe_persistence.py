@@ -2,8 +2,8 @@ import os
 import tempfile
 import unittest
 
-from dune_winder.core.UTemplateRecipe import UTemplateRecipe
-from dune_winder.core.VTemplateRecipe import VTemplateRecipe
+from dune_winder.recipes.u_template_recipe import UTemplateRecipe
+from dune_winder.recipes.v_template_recipe import VTemplateRecipe
 from dune_winder.library.Configuration import Configuration
 from dune_winder.machine.Settings import Settings
 

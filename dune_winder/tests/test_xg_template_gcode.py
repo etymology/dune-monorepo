@@ -2,8 +2,8 @@ import os
 import tempfile
 import unittest
 
-from dune_winder.library.Recipe import Recipe
-from dune_winder.library.XGTemplateGCode import (
+from dune_winder.recipes.recipe import Recipe
+from dune_winder.recipes.xg_template_gcode import (
   WIRE_SPACING,
   render_xg_template_lines,
   write_xg_template_file,

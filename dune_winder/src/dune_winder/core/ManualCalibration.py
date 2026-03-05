@@ -10,7 +10,7 @@ import json
 
 from dune_winder.library.Geometry.Location import Location
 from dune_winder.library.SerializableLocation import SerializableLocation
-from dune_winder.library.XGTemplateGCode import (
+from dune_winder.recipes.xg_template_gcode import (
   WIRE_SPACING as GX_WIRE_SPACING,
   WRAP_COUNTS as GX_WRAP_COUNTS,
   get_xg_recipe_file_name,

@@ -1,7 +1,7 @@
 ###############################################################################
-# Name: VTemplateRecipe.py
-# Uses: Manage V-layer template parameters and recipe generation.
-# Date: 2026-03-03
+# Name: UTemplateRecipe.py
+# Uses: Manage U-layer template parameters and recipe generation.
+# Date: 2026-03-04
 ###############################################################################
 
 import datetime
@@ -9,12 +9,12 @@ import json
 import os
 import re
 
-from dune_winder.library.VTemplateGCode import (
-  DEFAULT_V_TEMPLATE_ROW_COUNT,
+from dune_winder.recipes.u_template_gcode import (
+  DEFAULT_U_TEMPLATE_ROW_COUNT,
   OFFSET_IDS,
   WRAP_COUNT,
-  get_v_recipe_file_name,
-  write_v_template_file,
+  get_u_recipe_file_name,
+  write_u_template_file,
 )
 from dune_winder.machine.Settings import Settings
 
@@ -22,22 +22,22 @@ from dune_winder.machine.Settings import Settings
 OFFSET_LABELS = {
   "top_b_foot_end": "Top B / foot end",
   "top_a_foot_end": "Top A / foot end",
-  "foot_a_corner": "Foot A",
-  "foot_b_corner": "Foot B",
-  "bottom_b_foot_end": "Bottom B / foot end",
-  "bottom_a_foot_end": "Bottom A / foot end",
-  "top_a_head_end": "Top A / head end",
-  "top_b_head_end": "Top B / head end",
-  "head_b_corner": "Head B",
-  "head_a_corner": "Head A",
   "bottom_a_head_end": "Bottom A / head end",
   "bottom_b_head_end": "Bottom B / head end",
+  "head_b_corner": "Head B",
+  "head_a_corner": "Head A",
+  "top_a_head_end": "Top A / head end",
+  "top_b_head_end": "Top B / head end",
+  "bottom_b_foot_end": "Bottom B / foot end",
+  "bottom_a_foot_end": "Bottom A / foot end",
+  "foot_a_corner": "Foot A",
+  "foot_b_corner": "Foot B",
 }
 
-_HEADER_HASH_RE = re.compile(r"^\(\s*V-layer\s+([A-Z0-9-]+)\s*\)")
+_HEADER_HASH_RE = re.compile(r"^\(\s*U-layer\s+([A-Z0-9-]+)\s*\)")
 
 
-class VTemplateRecipe:
+class UTemplateRecipe:
   def __init__(self, process):
     self._process = process
     self._offsets = {}
@@ -51,17 +51,17 @@ class VTemplateRecipe:
   # -------------------------------------------------------------------
   def _getActiveLayer(self):
     layer = self._process.getRecipeLayer()
-    if layer != "V":
+    if layer != "U":
       if layer is None:
-        return (None, "Load a V recipe to use the V recipe generator.")
-      return (None, "This page is only available when the active layer is V.")
+        return (None, "Load a U recipe to use the U recipe generator.")
+      return (None, "This page is only available when the active layer is U.")
 
     return (layer, None)
 
   # -------------------------------------------------------------------
   def _mutationGuard(self):
     if not self._process.controlStateMachine.isReadyForMovement():
-      return self._errorResult("Machine is not ready to generate the V recipe.")
+      return self._errorResult("Machine is not ready to generate the U recipe.")
 
     return None
 
@@ -79,7 +79,7 @@ class VTemplateRecipe:
 
   # -------------------------------------------------------------------
   def _liveFileName(self):
-    return get_v_recipe_file_name()
+    return get_u_recipe_file_name()
 
   # -------------------------------------------------------------------
   def _liveFilePath(self):
@@ -93,7 +93,7 @@ class VTemplateRecipe:
 
   # -------------------------------------------------------------------
   def _draftFileName(self):
-    return "V_Draft.json"
+    return "U_Draft.json"
 
   # -------------------------------------------------------------------
   def _draftFilePath(self):
@@ -103,7 +103,7 @@ class VTemplateRecipe:
   def _normalizeOffsetId(self, offsetId):
     offsetId = str(offsetId).strip()
     if offsetId not in OFFSET_IDS:
-      raise ValueError("Unknown V offset: " + repr(offsetId))
+      raise ValueError("Unknown U offset: " + repr(offsetId))
     return offsetId
 
   # -------------------------------------------------------------------
@@ -183,9 +183,9 @@ class VTemplateRecipe:
       return True
     except (OSError, ValueError, TypeError) as exception:
       self._process._log.add(
-        "VTemplateRecipe",
+        "UTemplateRecipe",
         "DRAFT_LOAD",
-        "Failed to load V template draft state.",
+        "Failed to load U template draft state.",
         [draftPath, exception],
       )
       return False
@@ -212,9 +212,9 @@ class VTemplateRecipe:
       return True
     except Exception as exception:
       self._process._log.add(
-        "VTemplateRecipe",
+        "UTemplateRecipe",
         "DRAFT_SAVE",
-        "Failed to save V template draft state.",
+        "Failed to save U template draft state.",
         [draftPath, exception],
       )
       return False
@@ -235,12 +235,12 @@ class VTemplateRecipe:
     self._ensureDraftStateLoaded()
 
     layer = self._process.getRecipeLayer()
-    enabled = layer == "V"
+    enabled = layer == "U"
     disabledReason = ""
     if layer is None:
-      disabledReason = "Load a V recipe to use the V recipe generator."
+      disabledReason = "Load a U recipe to use the U recipe generator."
     elif not enabled:
-      disabledReason = "This page is only available when the active layer is V."
+      disabledReason = "This page is only available when the active layer is U."
 
     liveFile = self._liveFilePath()
     return {
@@ -257,7 +257,7 @@ class VTemplateRecipe:
       "offsetOrder": list(OFFSET_IDS),
       "offsetLabels": dict(OFFSET_LABELS),
       "wrapCount": WRAP_COUNT,
-      "lineCount": DEFAULT_V_TEMPLATE_ROW_COUNT,
+      "lineCount": DEFAULT_U_TEMPLATE_ROW_COUNT,
       "generated": self._getGeneratedState(liveFile),
     }
 
@@ -356,7 +356,7 @@ class VTemplateRecipe:
       os.makedirs(outputDirectory)
 
     outputPath = self._liveFilePath()
-    generation = write_v_template_file(
+    generation = write_u_template_file(
       outputPath,
       offsets=[self._offsets[offsetId] for offsetId in OFFSET_IDS],
       transfer_pause=self._transferPause,
@@ -382,9 +382,9 @@ class VTemplateRecipe:
       recipeWasRefreshed = True
 
     self._process._log.add(
-      "VTemplateRecipe",
+      "UTemplateRecipe",
       "GENERATE",
-      "Generated V recipe file.",
+      "Generated U recipe file.",
       [
         layer,
         outputPath,

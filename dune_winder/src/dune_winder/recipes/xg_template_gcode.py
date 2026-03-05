@@ -4,13 +4,13 @@
 # Date: 2026-03-03
 ###############################################################################
 
-from dune_winder.library.Recipe import Recipe
-from dune_winder.library.RecipeTemplateLanguage import (
+from dune_winder.recipes.recipe import Recipe
+from dune_winder.recipes.recipe_template_language import (
   compile_template_script,
   execute_template_script,
 )
 from dune_winder.gcode.renderer import normalize_line_text
-from dune_winder.library.TemplateGCodeTransitions import (
+from dune_winder.recipes.template_gcode_transitions import (
   append_motion_to_pause_transition,
   append_pause_to_motion_transition,
   g106_line,

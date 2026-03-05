@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 from dune_winder.library.Hash import Hash
-from dune_winder.library.Recipe import Recipe
+from dune_winder.recipes.recipe import Recipe
 
 
 class RecipeTests(unittest.TestCase):

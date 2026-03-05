@@ -19,8 +19,8 @@ from dune_winder.core.G_CodeHandler import G_CodeHandler
 from dune_winder.core.ControlStateMachine import ControlStateMachine
 from dune_winder.core.CameraCalibration import CameraCalibration
 from dune_winder.core.ManualCalibration import ManualCalibration
-from dune_winder.core.VTemplateRecipe import VTemplateRecipe
-from dune_winder.core.UTemplateRecipe import UTemplateRecipe
+from dune_winder.recipes.v_template_recipe import VTemplateRecipe
+from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 
 from dune_winder.machine.HeadCompensation import HeadCompensation
 from dune_winder.machine.GeometrySelection import GeometrySelection
