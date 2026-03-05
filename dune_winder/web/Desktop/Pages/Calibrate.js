@@ -2,7 +2,8 @@ function Calibrate(modules)
 {
   var page = modules.get( "Page" )
   var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
   var motorStatus = null
   var fixedVelocity = 1000
   var lastState = null
@@ -590,16 +591,12 @@ function Calibrate(modules)
 
   function refreshStateOnce( callback )
   {
-    winder.call
+    uiServices.call
     (
       commands.process.manualCalibrationGetState,
       {},
-      function( response )
+      function( state )
       {
-        if ( ! response || ! response.ok )
-          return
-
-        var state = response.data
         if ( state )
         {
           renderState( state )
@@ -612,10 +609,15 @@ function Calibrate(modules)
 
   function manualAction( commandName, args, callback )
   {
-    winder.call
+    uiServices.call
     (
       commandName,
       args || {},
+      function( data )
+      {
+        if ( callback )
+          callback( data )
+      },
       function( response )
       {
         if ( ! response )
@@ -633,8 +635,6 @@ function Calibrate(modules)
           return
         }
 
-        if ( callback )
-          callback( response.data )
       }
     )
   }
@@ -650,16 +650,12 @@ function Calibrate(modules)
       return
     }
 
-    winder.call
+    uiServices.call
     (
       commands.process.manualCalibrationPredictPin,
       { pin: pin },
-      function( response )
+      function( prediction )
       {
-        var prediction = null
-        if ( response && response.ok )
-          prediction = response.data
-
         if ( ! prediction || prediction.ok === false )
         {
           if ( prediction && prediction.error )

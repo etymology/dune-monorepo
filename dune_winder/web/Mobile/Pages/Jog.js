@@ -1,29 +1,25 @@
 function Jog( modules )
 {
   var self = this
-  window[ "jog" ] = this
 
-  var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
   var call = function( commandName, args, callback )
   {
-    winder.call
+    uiServices.call
     (
       commandName,
       args,
+      function( data )
+      {
+        if ( callback )
+          callback( data, null )
+      },
       function( response )
       {
-        if ( response && response.ok )
-        {
-          if ( callback )
-            callback( response.data, null )
-        }
-        else
-        {
-          if ( callback )
-            callback( null, response )
-        }
+        if ( callback )
+          callback( null, response )
       }
     )
   }
@@ -326,6 +322,52 @@ function Jog( modules )
     "/Mobile/Modules/Position",
     "#position"
   )
+
+  var bindControls = function()
+  {
+    $( "#jogXY_home" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.seekXY( 0, 0 ) } )
+
+    $( "#jogZ_home" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.seekZ( 0 ) } )
+
+    $( "#jogHeadFront" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.headPosition( 0 ) } )
+
+    $( "#jogHeadBack" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.headPosition( 3 ) } )
+
+    $( "#jogHeadLevelFront" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.headPosition( 1 ) } )
+
+    $( "#jogHeadLevelBack" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.headPosition( 2 ) } )
+
+    $( "#jogSpeed50" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.setSpeed( 0.5 ) } )
+
+    $( "#jogSpeed20" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.setSpeed( 0.2 ) } )
+
+    $( "#jogSpeed10" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.setSpeed( 0.1 ) } )
+
+    $( "#jogSpeed1" )
+      .off( "click.jog" )
+      .on( "click.jog", function() { self.setSpeed( 0.01 ) } )
+  }
+
+  bindControls()
+  modules.registerRestoreCallback( bindControls )
 
   //
   // Bind the touch start/end events for each jog button.

@@ -274,7 +274,7 @@ var Page = function()
         function()
         {
           // Run the pre-callback.  Checks to see if the load should be skipped.
-          isSkip = false
+          var isSkip = false
           if ( preCallback )
             isSkip = preCallback( preCallbackParameters )
 

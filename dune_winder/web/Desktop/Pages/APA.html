@@ -10,11 +10,11 @@
             <span id="totalLines">-</span>
           </p>
           <div class="apaGCodeButtonRow">
-            <button id="startButton" onclick="apa.setRunningState(true)">
+            <button id="startButton">
               Start
             </button>
-            <button id="stopButton" onclick="apa.stopNext()">Stop Next</button>
-            <button id="stepButton" onclick="apa.stepG_Code()">Step</button>
+            <button id="stopButton">Stop Next</button>
+            <button id="stepButton">Step</button>
           </div>
         </section>
       </div>
@@ -24,7 +24,7 @@
           <h3>G-Code Selection</h3>
           <label for="layerSelection">Layer</label>
           <div class="select">
-            <select onchange="apa.selectLayer()" id="layerSelection">
+            <select id="layerSelection">
               <option value="G">G</option>
               <option value="U">U</option>
               <option value="V">V</option>
@@ -33,15 +33,15 @@
           </div>
           <label for="gCodeSelection">G-Code selection</label>
           <div class="select">
-            <select onchange="apa.selectG_Code()" id="gCodeSelection">
+            <select id="gCodeSelection">
               <option value=""></option>
             </select>
           </div>
           <div class="apaGCodeButtonRow">
-            <button id="openGCodeButton" onclick="apa.openG_Code()">
+            <button id="openGCodeButton">
               Open G-code
             </button>
-            <button id="openCalibrationButton" onclick="apa.openCalibration()">
+            <button id="openCalibrationButton">
               Open calibration
             </button>
           </div>
@@ -52,17 +52,17 @@
           <label for="apaLine">Next line</label>
           <div class="apaGCodeInlineRow">
             <input type="text" id="apaLine" />
-            <button onclick="apa.gotoLine()">Go</button>
-            <button onclick="apa.nextLine()">+</button>
-            <button onclick="apa.previousLine()">-</button>
-            <button onclick="apa.refreshGCode()">Refresh</button>
+            <button id="apaGotoLineButton">Go</button>
+            <button id="apaNextLineButton">+</button>
+            <button id="apaPreviousLineButton">-</button>
+            <button id="apaRefreshButton">Refresh</button>
           </div>
 
           <h3>Go to wrap</h3>
           <label for="wrapNumber">Wrap</label>
           <div class="apaGCodeInlineRow">
             <input type="number" id="wrapNumber" min="0" style="width: 4em" />
-            <button onclick="apa.gotoWrap()">Go</button>
+            <button id="apaGotoWrapButton">Go</button>
           </div>
         </section>
       </div>

@@ -71,6 +71,11 @@ Details: [`docs/GCodeDomainArchitecture.md`](docs/GCodeDomainArchitecture.md)
 
 ## P3: Legacy page/module organization in `web/`
 
+Status: Partially implemented (2026-03-05) with centralized typed UI command
+service (`web/Scripts/UiServices.js`) and refactors for `APA`, `Jog`, and
+`Calibrate` page modules to remove direct global command catalog dependency and
+inline global page singletons.
+
 ### Impact
 - UI behavior is difficult to trace because modules rely on global mutable state and loosely structured callback chains.
 - Feature work and bug fixes are slow due to hidden coupling and duplicate command string usage.
