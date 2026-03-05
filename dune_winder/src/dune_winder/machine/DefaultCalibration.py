@@ -7,16 +7,69 @@
 ###############################################################################
 import os
 
+from dune_winder.library.Geometry.Location import Location
 from dune_winder.library.SerializableLocation import SerializableLocation
 
+from dune_winder.machine.GeometrySelection import GeometrySelection
 from dune_winder.machine.LayerCalibration import LayerCalibration
 from dune_winder.machine.MachineCalibration import MachineCalibration
 from dune_winder.machine.UV_LayerGeometry import UV_LayerGeometry
-from dune_winder.machine.V_LayerGeometry import V_LayerGeometry
-from dune_winder.machine.U_LayerGeometry import U_LayerGeometry
 
-from dune_winder.recipes.LayerV_Recipe import LayerV_Recipe
-from dune_winder.recipes.LayerU_Recipe import LayerU_Recipe
+
+def _populate_nominal_locations(calibration, geometry):
+  """
+  Populate the calibration map with nominal pin locations from geometry.
+
+  Args:
+    calibration: Instance of LayerCalibration to fill.
+    geometry: Instance of LayerGeometry for the target layer.
+  """
+  grids = [
+    (
+      "F",
+      geometry.gridFront,
+      geometry.mostlyExtend,
+      geometry.startPinFront,
+      geometry.directionFront,
+    ),
+    (
+      "B",
+      geometry.gridBack,
+      geometry.mostlyRetract,
+      geometry.startPinBack,
+      geometry.directionBack,
+    ),
+  ]
+
+  for side, grid, depth, startPin, direction in grids:
+    xValue = 0.0
+    yValue = 0.0
+    pinNumber = int(startPin)
+
+    for parameter in grid:
+      count = int(parameter[0])
+      xIncrement = parameter[1]
+      yIncrement = parameter[2]
+      xValue += parameter[3]
+      yValue += parameter[4]
+
+      for _ in range(count):
+        calibration.setPinLocation(
+          side + str(pinNumber), Location(round(xValue, 5), round(yValue, 5), depth)
+        )
+
+        pinNumber += int(direction)
+
+        if 0 == pinNumber:
+          pinNumber = int(geometry.pins)
+        elif pinNumber > int(geometry.pins):
+          pinNumber = 1
+
+        xValue += xIncrement
+        yValue += yIncrement
+
+      xValue -= xIncrement
+      yValue -= yIncrement
 
 
 class DefaultMachineCalibration(MachineCalibration):
@@ -80,14 +133,10 @@ class DefaultLayerCalibration(LayerCalibration):
       layerName: Name of recipe.
     """
 
-    if "V" == layerName:
-      geometry = V_LayerGeometry()
-      recipe = LayerV_Recipe(geometry)
-    elif "U" == layerName:
-      geometry = U_LayerGeometry()
-      recipe = LayerU_Recipe(geometry)
-    else:
-      raise ValueError("Unknown layer: " + str(layerName))
+    try:
+      geometry = GeometrySelection(layerName)
+    except KeyError as exception:
+      raise ValueError("Unknown layer: " + str(layerName)) from exception
 
     LayerCalibration.__init__(self, layerName)
     self.offset = geometry.apaLocation.add(geometry.apaOffset)
@@ -95,10 +144,7 @@ class DefaultLayerCalibration(LayerCalibration):
     self.zFront = geometry.mostlyRetract
     self.zBack = geometry.mostlyExtend
 
-    for node in recipe.nodes:
-      location = recipe.nodes[node]
-      newLocation = SerializableLocation(location.x, location.y, location.z)
-      self.setPinLocation(node, newLocation)
+    _populate_nominal_locations(self, geometry)
 
     if outputFilePath and outputFileName:
       self.save(outputFilePath, outputFileName, "LayerCalibration")
