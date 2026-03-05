@@ -100,10 +100,32 @@ function setupMainScreen()
 //   page - Desired page to load.
 //-----------------------------------------------------------------------------
 var baseStylesheets = []
+var PAGE_NAME_MAP =
+{
+  apa: "APA",
+  log: "Log",
+  io: "IO",
+  calibrate: "Calibrate",
+  vtemplate: "VTemplate",
+  configuration: "Configuration",
+  manualmovepopup: "ManualMovePopup"
+}
 
 function isPopupMode()
 {
   return "1" == getParameterByName( "popup" )
+}
+
+function sanitizePageName( pageName )
+{
+  if ( ! pageName )
+    return "APA"
+
+  var key = ( "" + pageName ).replace( /\s+/g, "" ).toLowerCase()
+  if ( key in PAGE_NAME_MAP )
+    return PAGE_NAME_MAP[ key ]
+
+  return "APA"
 }
 
 function load( pageName )
@@ -185,9 +207,7 @@ $( document ).ready
     var pageName = getParameterByName( "page" )
     var popupMode = isPopupMode()
 
-    // If there is no page, use default.
-    if ( ! pageName )
-      pageName = "APA"
+    pageName = sanitizePageName( pageName )
 
     // Save all the loaded style sheet URLs.  These need to stay regardless
     // of what page is loaded.
@@ -211,7 +231,6 @@ $( document ).ready
     {
       $( "#pageSelectDiv" ).css( "display", "block" )
       $( "#fullStopDiv" ).css( "display", "block" )
-      $( "#loginDiv" ).css( "display", "none" )
     }
 
     // Winder module is used on every page.
@@ -237,48 +256,6 @@ $( document ).ready
         alert( "Error loading page. " + error )
       }
     )
-
-    // $$$FUTURE // Check authentication either load requested page, or show grid page.
-    // $$$FUTURE winder = new WinderInterface()
-    // $$$FUTURE winder.remoteAction
-    // $$$FUTURE (
-    // $$$FUTURE   'RemoteSession.isAuthenticated( "' + $.cookie( "sessionId" ) + '" )',
-    // $$$FUTURE   function( status )
-    // $$$FUTURE   {
-    // $$$FUTURE     console.log( "isAuthenticated = " + status )
-    // $$$FUTURE     if ( ! status )
-    // $$$FUTURE     {
-    // $$$FUTURE       load( "grid" )
-    // $$$FUTURE       $( "#loginDiv" ).css( "display", "block" )
-    // $$$FUTURE     }
-    // $$$FUTURE     else
-    // $$$FUTURE     {
-    // $$$FUTURE       $( "#pageSelectDiv" ).css( "display", "block" )
-    // $$$FUTURE       $( "#fullStopDiv" ).css( "display", "block" )
-    // $$$FUTURE       $( "#loginDiv" ).css( "display", "none" )
-    // $$$FUTURE
-    // $$$FUTURE       // Load the requested page.
-    // $$$FUTURE       page.load( page )
-    // $$$FUTURE     }
-    // $$$FUTURE   }
-    // $$$FUTURE )
   }
 )
-
-// $$$FUTURE //-----------------------------------------------------------------------------
-// $$$FUTURE // Uses:
-// $$$FUTURE //   Callback when version information box is clicked.
-// $$$FUTURE //-----------------------------------------------------------------------------
-// $$$FUTURE function showLogin()
-// $$$FUTURE {
-// $$$FUTURE   winder.loadSubPage
-// $$$FUTURE   (
-// $$$FUTURE     "/Desktop/Modules/overlay",
-// $$$FUTURE     "#modalDiv",
-// $$$FUTURE     function()
-// $$$FUTURE     {
-// $$$FUTURE       winder.loadSubPage( "/Desktop/Modules/login", "#overlayBox" )
-// $$$FUTURE     }
-// $$$FUTURE   )
-// $$$FUTURE }
 
