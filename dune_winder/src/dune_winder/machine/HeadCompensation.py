@@ -91,7 +91,12 @@ class HeadCompensation:
       pinRadius = self._machineCalibration.pinDiameter / 2
       circle = Circle(self._anchorPoint, pinRadius)
       result = circle.tangentPoint(self._orientation, endPoint)
-      self._anchorOffset = result.sub(self._anchorPoint)
+      if result is not None:
+        self._anchorOffset = result.sub(self._anchorPoint)
+      else:
+        # Preserve a neutral offset when tangent point cannot be established.
+        # Caller will handle this as an invalid transfer geometry/orientation.
+        self._anchorOffset = Location()
     else:
       result = self._anchorPoint
       self._anchorOffset = Location()

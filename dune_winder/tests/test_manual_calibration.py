@@ -398,6 +398,7 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertEqual(state["counts"]["referencePointsTotal"], 2)
       self.assertEqual(state["wrapCount"], 480)
       self.assertAlmostEqual(state["wireSpacing"], GX_WIRE_SPACING, places=6)
+      self.assertTrue(state["transferPause"])
       self.assertAlmostEqual(state["references"]["head"]["wireX"], 570.0)
       self.assertAlmostEqual(state["references"]["head"]["wireY"], 170.0)
       self.assertAlmostEqual(state["references"]["foot"]["wireX"], 6970.0)
@@ -489,6 +490,7 @@ class ManualCalibrationTests(unittest.TestCase):
       service.setCornerOffset("headB", 2.0)
       service.setCornerOffset("footA", 3.0)
       service.setCornerOffset("footB", 4.0)
+      service.setTransferPause(False)
 
       generateResult = service.generateRecipeFile()
       self.assertTrue(generateResult["ok"])

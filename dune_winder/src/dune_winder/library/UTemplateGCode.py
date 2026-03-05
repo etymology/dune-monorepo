@@ -1,7 +1,7 @@
 ###############################################################################
-# Name: VTemplateGCode.py
-# Uses: Generate V-layer G-Code from the programmatic specification.
-# Date: 2026-03-03
+# Name: UTemplateGCode.py
+# Uses: Generate U-layer G-Code from the programmatic specification.
+# Date: 2026-03-04
 ###############################################################################
 
 from __future__ import annotations
@@ -19,58 +19,59 @@ from dune_winder.library.TemplateGCodeTransitions import (
 
 
 WRAP_COUNT = 400
-PRE_FINAL_WRAP_COUNT = WRAP_COUNT - 1
 Y_PULL_IN = 60.0
 X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 3.0
-PREAMBLE_BOARD_GAP_PULL = 30.0
+PREAMBLE_X = 7174.0
+PREAMBLE_Y = 60.0
+PREAMBLE_BOARD_GAP_PULL = -50.0
 COMBS = (592, 740, 888, 1043, 1191, 1754, 1902, 2050, 2198)
 PIN_MIN = 1
-PIN_MAX = 2400
+PIN_MAX = 2401
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
 DEFAULT_OFFSETS = (0.0,) * 12
-DEFAULT_V_TEMPLATE_WORKBOOK = None
-DEFAULT_V_TEMPLATE_SHEET = None
+DEFAULT_U_TEMPLATE_WORKBOOK = None
+DEFAULT_U_TEMPLATE_SHEET = None
 
 OFFSET_IDS = (
   "top_b_foot_end",
   "top_a_foot_end",
-  "foot_a_corner",
-  "foot_b_corner",
-  "bottom_b_foot_end",
-  "bottom_a_foot_end",
-  "top_a_head_end",
-  "top_b_head_end",
-  "head_b_corner",
-  "head_a_corner",
   "bottom_a_head_end",
   "bottom_b_head_end",
+  "head_b_corner",
+  "head_a_corner",
+  "top_a_head_end",
+  "top_b_head_end",
+  "bottom_b_foot_end",
+  "bottom_a_foot_end",
+  "foot_a_corner",
+  "foot_b_corner",
 )
 
 LEGACY_OFFSET_NAMES = {
   "line 1 (Top B corner - foot end)": 0,
   "line 2 (Top A corner - foot end)": 1,
-  "line 3 (Foot A corner)": 2,
-  "line 4 (Foot B corner)": 3,
-  "line 5 (Bottom B corner - foot end)": 4,
-  "line 6 (Bottom A corner - foot end)": 5,
+  "line 3 (Bottom A corner - head end)": 2,
+  "line 4 (Bottom B corner - head end)": 3,
+  "line 5 (Head B corner)": 4,
+  "line 6 (Head A corner)": 5,
   "line 7 (Top A corner - head end)": 6,
   "line 8 (Top B corner - head end)": 7,
-  "line 9 (Head B corner)": 8,
-  "line 10 (Head A corner)": 9,
-  "line 11 (Bottom A corner - head end)": 10,
-  "line 12 (Bottom B corner - head end)": 11,
+  "line 9 (Bottom B corner - foot end)": 8,
+  "line 10 (Bottom A corner - foot end)": 9,
+  "line 11 (Foot A corner)": 10,
+  "line 12 (Foot B corner)": 11,
 }
 
 SPECIAL_OFFSET_ALIASES = {
-  "foot_a_offset": 2,
-  "foot_b_offset": 3,
-  "head_b_offset": 8,
-  "head_a_offset": 9,
+  "head_b_offset": 4,
+  "head_a_offset": 5,
+  "foot_a_offset": 10,
+  "foot_b_offset": 11,
 }
 
 
-class VTemplateInputError(ValueError):
+class UTemplateInputError(ValueError):
   pass
 
 
@@ -86,8 +87,6 @@ def _format_number(value):
 
 def _wrap_pin_number(value):
   pin_number = int(value)
-  if pin_number < PIN_MIN:
-    return PIN_MAX
   return ((pin_number - PIN_MIN) % PIN_SPAN) + PIN_MIN
 
 
@@ -118,6 +117,12 @@ def _g106(mode):
   return g106_line(_line, mode)
 
 
+def _conditional_offset_fragment(axis, condition_value, rendered_value):
+  if abs(float(condition_value)) < 1e-9:
+    return None
+  return "G105 " + _coord(axis, rendered_value)
+
+
 def _near_comb(pin_number):
   return any(abs(int(pin_number) - comb_pin) <= 5 for comb_pin in COMBS)
 
@@ -133,20 +138,20 @@ def _coerce_bool(value):
       return False
     if normalized in ("1", "true", "yes", "on"):
       return True
-  raise VTemplateInputError("Expected a boolean-compatible value, got " + repr(value) + ".")
+  raise UTemplateInputError("Expected a boolean-compatible value, got " + repr(value) + ".")
 
 
 def _coerce_number(value):
   if isinstance(value, bool):
-    raise VTemplateInputError("Boolean values are not valid offsets.")
+    raise UTemplateInputError("Boolean values are not valid offsets.")
   if isinstance(value, (int, float)):
     return float(value)
   if isinstance(value, str):
     try:
       return float(value.strip())
     except ValueError as exc:
-      raise VTemplateInputError("Expected a numeric value, got " + repr(value) + ".") from exc
-  raise VTemplateInputError("Expected a numeric value, got " + type(value).__name__ + ".")
+      raise UTemplateInputError("Expected a numeric value, got " + repr(value) + ".") from exc
+  raise UTemplateInputError("Expected a numeric value, got " + type(value).__name__ + ".")
 
 
 def _coerce_offsets(value):
@@ -158,9 +163,9 @@ def _coerce_offsets(value):
     try:
       raw_values = list(value)
     except TypeError as exc:
-      raise VTemplateInputError("Offsets must be a 12-item iterable.") from exc
+      raise UTemplateInputError("Offsets must be a 12-item iterable.") from exc
   if len(raw_values) != len(OFFSET_IDS):
-    raise VTemplateInputError("Expected 12 V offsets, got " + str(len(raw_values)) + ".")
+    raise UTemplateInputError("Expected 12 U offsets, got " + str(len(raw_values)) + ".")
   return [_coerce_number(item) for item in raw_values]
 
 
@@ -183,7 +188,7 @@ def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode)
     if key.endswith("_offset") and key[:-7] in OFFSET_IDS:
       offsets[OFFSET_IDS.index(key[:-7])] = _coerce_number(value)
       continue
-    raise VTemplateInputError("Unknown V named input: " + repr(key))
+    raise UTemplateInputError("Unknown U named input: " + repr(key))
   return current_transfer_pause, current_include_lead_mode
 
 
@@ -211,14 +216,14 @@ def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_m
     if key.endswith("_offset") and key[:-7] in OFFSET_IDS:
       offsets[OFFSET_IDS.index(key[:-7])] = _coerce_number(value)
       continue
-    raise VTemplateInputError("Unknown V special input: " + repr(key))
+    raise UTemplateInputError("Unknown U special input: " + repr(key))
   return current_transfer_pause, current_include_lead_mode
 
 
 def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
   if cell_overrides:
-    raise VTemplateInputError(
-      "Cell overrides are not supported by the programmatic V generator."
+    raise UTemplateInputError(
+      "Cell overrides are not supported by the programmatic U generator."
     )
 
   offsets = list(DEFAULT_OFFSETS)
@@ -277,11 +282,11 @@ def _resolve_render_state(
 def _loop_intro_line(wrap_number, offsets):
   return _line(
     "G109",
-    "PB" + str(399 + wrap_number),
-    "PRT",
+    "PB" + str(1200 + wrap_number),
+    "PBR",
     "G103",
-    "PB" + str(1999 - wrap_number),
-    "PB" + str(2000 - wrap_number),
+    "PB" + str(2002 - wrap_number),
+    "PB" + str(2003 - wrap_number),
     "PXY",
     _offset_fragment("PX", offsets[0]),
     "G102",
@@ -305,13 +310,7 @@ def _number_lines(lines):
   return [_line("N" + str(line_number), line) for line_number, line in enumerate(lines)]
 
 
-def _render_wrap_lines(
-  wrap_number,
-  offsets,
-  transfer_pause,
-  include_lead_mode,
-  final_wrap=False,
-):
+def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
   lines = [
     "(------------------STARTING LOOP " + str(wrap_number) + "------------------)",
     _loop_intro_line(wrap_number, offsets),
@@ -327,19 +326,19 @@ def _render_wrap_lines(
     [
       _line(
         "G109",
-        "PB" + str(2000 - wrap_number),
+        "PB" + str(1200 + wrap_number),
         "PLT",
         "G103",
-        "PF" + str(799 + wrap_number),
-        "PF" + str(798 + wrap_number),
-        "PX",
-        _offset_fragment("PX", offsets[1]),
+        "PB" + str(2002 - wrap_number),
+        "PB" + str(2003 - wrap_number),
+        "PXY",
+        _conditional_offset_fragment("PX", offsets[1], 12 + offsets[1]),
         "(Top A corner - foot end)",
       ),
       _line(
         "G103",
-        "PF" + str(799 + wrap_number),
-        "PF" + str(798 + wrap_number),
+        "PF" + str(800 + wrap_number),
+        "PF" + str(801 + wrap_number),
         "PY",
         "G105 " + _coord("PY", -Y_PULL_IN),
       ),
@@ -350,10 +349,10 @@ def _render_wrap_lines(
     lines.append(
       _line(
         "G103",
-        "PF" + str(799 + wrap_number),
-        "PF" + str(798 + wrap_number),
+        "PF" + str(800 + wrap_number),
+        "PF" + str(801 + wrap_number),
         "PX",
-        "G105 " + _coord("PX", Y_PULL_IN * COMB_PULL_FACTOR),
+        "G105 " + _coord("PX-", Y_PULL_IN * COMB_PULL_FACTOR),
       )
     )
 
@@ -361,17 +360,16 @@ def _render_wrap_lines(
     [
       _line(
         "G109",
-        "PF" + str(799 + wrap_number),
-        "PRB",
+        "PF" + str(800 + wrap_number),
+        "PLB",
         "G103",
-        "PF" + str(1601 - wrap_number),
-        "PF" + str(1600 - wrap_number),
+        "PF" + str(2402 - wrap_number),
+        "PF" + str(2403 - wrap_number),
         "PXY",
         _offset_fragment("PY", offsets[2]),
         "G102",
         "G108",
-        "( BOARD GAP )",
-        "(Foot A corner)",
+        "(Bottom A corner - head end)",
       ),
     ]
   )
@@ -386,34 +384,35 @@ def _render_wrap_lines(
     [
       _line(
         "G109",
-        "PF" + str(1600 - wrap_number),
-        "PBL",
+        "PF" + str(2402 - wrap_number),
+        "PBR",
         "G103",
-        "PB" + str(1199 + wrap_number),
-        "PB" + str(1200 + wrap_number),
-        "PY",
-        _offset_fragment("PY", offsets[3]),
-        "(Foot B corner)",
-      ),
-      _line(
-        "G103",
-        "PB" + str(1199 + wrap_number),
-        "PB" + str(1200 + wrap_number),
-        "PX",
-        "G105 " + _coord("PX", -X_PULL_IN),
-      ),
-      _line(
-        "G109",
-        "PB" + str(1199 + wrap_number),
-        "PTR",
-        "G103",
-        "PB" + str(1200 - wrap_number),
-        "PB" + str(1199 - wrap_number),
+        "PB" + str(400 + wrap_number),
+        "PB" + str(401 + wrap_number),
         "PXY",
-        _offset_fragment("PX", offsets[4]),
+        _offset_fragment("PY", offsets[3]),
+        "(Bottom B corner - head end, rewind)",
+      ),
+      _line(
+        "G103",
+        "PB" + str(400 + wrap_number),
+        "PB" + str(401 + wrap_number),
+        "PX",
+        "G105 " + _coord("PY", Y_PULL_IN),
+      ),
+      _line(
+        "(HEAD RESTART)",
+        "G109",
+        "PB" + str(400 + wrap_number),
+        "PLT",
+        "G103",
+        "PB" + str(401 - wrap_number),
+        "PB" + str(400 - wrap_number),
+        "PXY",
+        _offset_fragment("PY", offsets[4]),
         "G102",
         "G108",
-        "(Bottom B corner - foot end)",
+        "(Head B corner)",
       ),
     ]
   )
@@ -428,27 +427,27 @@ def _render_wrap_lines(
     [
       _line(
         "G109",
-        "PB" + str(1200 - wrap_number),
-        "PBR",
+        "PB" + str(401 - wrap_number),
+        "PLT",
         "G103",
-        "PF" + str(1598 + wrap_number),
-        "PF" + str(1599 + wrap_number),
-        "PX",
-        _offset_fragment("PX", offsets[5]),
-        "(Bottom A corner - foot end)",
+        "PF" + str(wrap_number),
+        "PF" + str(2400 + wrap_number),
+        "PXY",
+        _offset_fragment("PY", offsets[5]),
+        "(Head A corner, rewind)",
       ),
       _line(
         "G103",
-        "PF" + str(1598 + wrap_number),
-        "PF" + str(1599 + wrap_number),
+        "PF" + str(1 + wrap_number),
+        "PF" + str(wrap_number),
         "PY",
-        "G105 " + _coord("PY", Y_PULL_IN),
+        "G105 " + _coord("PX", X_PULL_IN),
         "( BOARD GAP )",
       ),
       _line(
         "G109",
-        "PF" + str(1599 + wrap_number),
-        "PLT",
+        "PF" + str(1 + wrap_number),
+        "PRT",
         "G103",
         "PF" + str(800 - wrap_number),
         "PF" + str(799 - wrap_number),
@@ -474,16 +473,16 @@ def _render_wrap_lines(
         "PF" + str(800 - wrap_number),
         "PRT",
         "G103",
-        "PB" + str(1998 + wrap_number),
-        "PB" + str(1999 + wrap_number),
-        "PX",
-        _offset_fragment("PX", offsets[7]),
+        "PB" + str(2002 + wrap_number),
+        "PB" + str(2003 + wrap_number),
+        "PXY",
+        _conditional_offset_fragment("PX", offsets[7], offsets[7] - 12),
         "(Top B corner - head end)",
       ),
       _line(
         "G103",
-        "PB" + str(1998 + wrap_number),
-        "PB" + str(1999 + wrap_number),
+        "PB" + str(2002 + wrap_number),
+        "PB" + str(2003 + wrap_number),
         "PY",
         "G105 " + _coord("PY", -Y_PULL_IN),
       ),
@@ -494,43 +493,27 @@ def _render_wrap_lines(
     lines.append(
       _line(
         "G103",
-        "PB" + str(1998 + wrap_number),
-        "PB" + str(1999 + wrap_number),
+        "PB" + str(2002 + wrap_number),
+        "PB" + str(2003 + wrap_number),
         "PX",
-        "G105 " + _coord("PX", -Y_PULL_IN * COMB_PULL_FACTOR),
+        "G105 " + _coord("PX", Y_PULL_IN * COMB_PULL_FACTOR),
       )
     )
 
-  if final_wrap:
-    lines.extend(
-      [
-        "G103 PB2398 PB2399 PY G105 PY0 G111",
-        "X440 Y2315 F300",
-        _g106(0),
-        "X440 Y2335",
-        "X650 Y2335 G111",
-        "X440 Y2335",
-      ]
-    )
-    return _annotate_wrap_lines(wrap_number, lines)
-
-  # vDescription.md contains a stray spreadsheet line label before HEAD RESTART.
-  # Treat that token as editorial numbering rather than emitted G-Code.
   lines.extend(
     [
       _line(
-        "(HEAD RESTART)",
         "G109",
-        "PB" + str(1999 + wrap_number),
-        "PLB",
+        "PB" + str(2001 + wrap_number),
+        "PRB",
         "G103",
-        "PB" + str(401 - wrap_number),
-        "PB" + str(400 - wrap_number),
+        "PB" + str(1201 - wrap_number),
+        "PB" + str(1202 - wrap_number),
         "PXY",
         _offset_fragment("PY", offsets[8]),
         "G102",
         "G108",
-        "( BOARD GAP )",
+        "(Bottom B corner - foot end)",
       ),
     ]
   )
@@ -545,37 +528,52 @@ def _render_wrap_lines(
     [
       _line(
         "G109",
-        "PB" + str(400 - wrap_number),
-        "PBR",
+        "PB" + str(1199 + wrap_number),
+        "PBL",
         "G103",
-        "PF" + str(wrap_number),
-        "PF" + str(wrap_number + 1),
-        "PY",
-        _offset_fragment("PY", offsets[9]),
-        "(Head A corner)",
-      ),
-      _line(
-        "G103",
-        "PF" + str(wrap_number),
-        "PF" + str(wrap_number + 1),
-        "PX",
-        "G105 " + _coord("PX", X_PULL_IN),
-      ),
-      _line(
-        "G109",
-        "PF" + str(wrap_number),
-        "PTL",
-        "G103",
-        "PF" + str(2399 - wrap_number),
-        "PF" + str(2398 - wrap_number),
+        "PF" + str(1601+ wrap_number),
+        "PF" + str(1602 + wrap_number),
         "PXY",
-        _offset_fragment("PX", offsets[10]),
-        "G102",
-        "G108",
-        "(Bottom A corner - head end)",
+        _offset_fragment("PY", offsets[9]),
+        "(Bottom A corner - foot end, rewind)",
+      ),
+      _line(
+        "G103",
+        "PF" + str(1601 + wrap_number),
+        "PF" + str(1602 + wrap_number),
+        "PY",
+        "G105 " + _coord("PY", Y_PULL_IN),
       ),
     ]
   )
+
+  if _near_comb(1601 + wrap_number):
+      lines.append( 
+        _line(
+          "G103",
+          "PF" + str(1601 + wrap_number),
+          "PF" + str(1602 + wrap_number),
+          "PX",
+          "G105 " + _coord("PX", X_PULL_IN * COMB_PULL_FACTOR),
+      ),
+    )
+      
+
+  lines.append(
+      _line(
+        "G109",
+        "PF" + str(1601+wrap_number),
+        "PRT",
+        "G103",
+        "PF" + str(1601 - wrap_number),
+        "PF" + str(1600 - wrap_number),
+        "PXY",
+        _offset_fragment("PY", offsets[10]),
+        "G102",
+        "G108",
+        "(Foot A corner)",
+      ),
+    )
 
   append_motion_to_pause_transition(
     lines,
@@ -587,40 +585,29 @@ def _render_wrap_lines(
     [
       _line(
         "G109",
-        "PF" + str(2399 - wrap_number),
-        "PBL",
+        "PF" + str(1601 - wrap_number),
+        "PRT",
         "G103",
-        "PB" + str(399 + wrap_number),
-        "PB" + str(400 + wrap_number),
-        _offset_fragment("PX", offsets[11]),
-        "PX12",
-        "(Bottom B corner - head end)",
+        "PB" + str(1201 + wrap_number),
+        "PB" + str(1200 + wrap_number),
+        "PXY",
+        _offset_fragment("PY", offsets[11]),
+        "(Foot B corner, rewind)",
       ),
       _line(
         "G103",
-        "PB" + str(399 + wrap_number),
-        "PB" + str(400 + wrap_number),
-        "PY",
-        "G105 " + _coord("PY", Y_PULL_IN),
+        "PB" + str(1201 + wrap_number),
+        "PB" + str(1200 + wrap_number),
+        "PX",
+        "G105 " + _coord("PX", -X_PULL_IN),
       ),
     ]
   )
 
-  if _near_comb(399 + wrap_number):
-    lines.append(
-      _line(
-        "G103",
-        "PB" + str(399 + wrap_number),
-        "PB" + str(400 + wrap_number),
-        "PX",
-        "G105 " + _coord("PX", Y_PULL_IN * COMB_PULL_FACTOR),
-      )
-    )
-
   return _annotate_wrap_lines(wrap_number, lines)
 
 
-def render_v_template_lines(
+def render_u_template_lines(
   *,
   offsets=None,
   transfer_pause=False,
@@ -639,22 +626,26 @@ def render_v_template_lines(
   )
 
   lines = [
-    "( V Layer )",
-    _line("(HEAD RESTART)",_coord("X", 440), _coord("Y", 0)),
-    _g106(3),
+    "( U Layer )",
+    _line(
+      _coord("X", PREAMBLE_X),
+      _coord("Y", PREAMBLE_Y),
+      "F300",
+      "(load new calibration file)",
+    ),
+    _line("F300", _g106(3)),
     _line(
       "(0, )",
-      "F1000",
+      "F300",
       "G103",
-      "PB400",
-      "PB399",
+      "PB1201",
+      "PB1200",
       "PXY",
-      "G105 " + _coord("PY", PREAMBLE_BOARD_GAP_PULL),
-      "( BOARD GAP )",
+      "G105 " + _coord("PX", PREAMBLE_BOARD_GAP_PULL),
     ),
   ]
 
-  for wrap_number in range(1, PRE_FINAL_WRAP_COUNT + 1):
+  for wrap_number in range(1, WRAP_COUNT + 1):
     lines.extend(
       _render_wrap_lines(
         wrap_number,
@@ -664,25 +655,16 @@ def render_v_template_lines(
       )
     )
 
-  lines.extend(
-    _render_wrap_lines(
-      WRAP_COUNT,
-      resolved_offsets,
-      transfer_pause_value,
-      include_lead_mode_value,
-      final_wrap=True,
-    )
-  )
   return _number_lines(lines)
 
 
-def render_v_template_text_lines(
+def render_u_template_text_lines(
   cell_overrides=None,
   *,
   named_inputs=None,
   special_inputs=None,
 ):
-  return render_v_template_lines(
+  return render_u_template_lines(
     named_inputs=named_inputs,
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
@@ -690,7 +672,7 @@ def render_v_template_text_lines(
 
 
 # Legacy compatibility wrappers that preserve spreadsheet-era symbol names.
-def render_v_template_ac_lines(
+def render_u_template_ac_lines(
   cell_overrides=None,
   *,
   named_inputs=None,
@@ -698,42 +680,42 @@ def render_v_template_ac_lines(
   special_inputs=None,
 ):
   _ = sheet_path
-  return render_v_template_text_lines(
+  return render_u_template_text_lines(
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
 
 
-def render_default_v_template_text_lines(workbook_path=None):
+def render_default_u_template_text_lines(workbook_path=None):
   _ = workbook_path
-  return render_v_template_text_lines()
+  return render_u_template_text_lines()
 
 
-def read_cached_v_template_ac_lines(workbook_path=None):
+def read_cached_u_template_ac_lines(workbook_path=None):
   _ = workbook_path
-  return render_default_v_template_text_lines()
+  return render_default_u_template_text_lines()
 
 
-def get_v_template_named_inputs_snapshot(sheet_path=None):
+def get_u_template_named_inputs_snapshot(sheet_path=None):
   _ = sheet_path
-  return VTemplateProgrammaticGenerator().get_named_inputs()
+  return UTemplateProgrammaticGenerator().get_named_inputs()
 
 
-def read_v_template_named_inputs(sheet_path=None):
+def read_u_template_named_inputs(sheet_path=None):
   _ = sheet_path
-  return get_v_template_named_inputs_snapshot()
+  return get_u_template_named_inputs_snapshot()
 
 
-def get_v_recipe_description():
-  return "V-layer"
+def get_u_recipe_description():
+  return "U-layer"
 
 
-def get_v_recipe_file_name():
-  return "V-layer.gc"
+def get_u_recipe_file_name():
+  return "U-layer.gc"
 
 
-def write_v_template_text_file(
+def write_u_template_text_file(
   output_path,
   cell_overrides=None,
   *,
@@ -741,7 +723,7 @@ def write_v_template_text_file(
   special_inputs=None,
 ):
   output = Path(output_path)
-  lines = render_v_template_text_lines(
+  lines = render_u_template_text_lines(
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -750,7 +732,7 @@ def write_v_template_text_file(
   return output
 
 
-def write_v_template_ac_file(
+def write_u_template_ac_file(
   output_path,
   cell_overrides=None,
   *,
@@ -759,7 +741,7 @@ def write_v_template_ac_file(
   special_inputs=None,
 ):
   _ = sheet_path
-  return write_v_template_text_file(
+  return write_u_template_text_file(
     output_path,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
@@ -767,7 +749,7 @@ def write_v_template_ac_file(
   )
 
 
-def write_v_template_file(
+def write_u_template_file(
   output_path,
   *,
   offsets=None,
@@ -785,7 +767,7 @@ def write_v_template_file(
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
-  lines = render_v_template_lines(
+  lines = render_u_template_lines(
     offsets=offsets,
     transfer_pause=transfer_pause,
     include_lead_mode=include_lead_mode,
@@ -794,14 +776,14 @@ def write_v_template_file(
   )
   hash_value = Recipe.writeGeneratedFile(
     output_path,
-    get_v_recipe_description(),
+    get_u_recipe_description(),
     lines,
     archiveDirectory=archive_directory,
     parentHash=parent_hash,
   )
   return {
-    "description": get_v_recipe_description(),
-    "fileName": get_v_recipe_file_name(),
+    "description": get_u_recipe_description(),
+    "fileName": get_u_recipe_file_name(),
     "hashValue": hash_value,
     "lines": lines,
     "offsets": list(resolved_offsets),
@@ -811,7 +793,7 @@ def write_v_template_file(
   }
 
 
-class VTemplateProgrammaticGenerator:
+class UTemplateProgrammaticGenerator:
   def __init__(
     self,
     sheet_path=None,
@@ -826,7 +808,7 @@ class VTemplateProgrammaticGenerator:
       special_inputs=special_inputs,
       cell_overrides=cell_overrides,
     )
-    self._lines = render_v_template_lines(
+    self._lines = render_u_template_lines(
       offsets=self.offsets,
       transfer_pause=self.transfer_pause,
       include_lead_mode=self.include_lead_mode,
@@ -837,8 +819,8 @@ class VTemplateProgrammaticGenerator:
 
   def render_column_lines(self, column_label):
     if str(column_label).upper() != "AC":
-      raise VTemplateInputError(
-        "Only AC compatibility output is available for VTemplateGCode."
+      raise UTemplateInputError(
+        "Only AC compatibility output is available for UTemplateGCode."
       )
     return self.render_lines()
 
@@ -867,7 +849,7 @@ class VTemplateProgrammaticGenerator:
 
 
 # Backward-compatible class alias.
-VTemplateGCodeGenerator = VTemplateProgrammaticGenerator
+UTemplateGCodeGenerator = UTemplateProgrammaticGenerator
 
 
 def _coerce_cli_value(value):
@@ -878,13 +860,13 @@ def _coerce_cli_value(value):
     return _coerce_bool(normalized)
   try:
     return _coerce_number(normalized)
-  except VTemplateInputError:
+  except UTemplateInputError:
     return normalized
 
 
 def _parse_assignment(raw_assignment):
   if "=" not in raw_assignment:
-    raise VTemplateInputError(
+    raise UTemplateInputError(
       "Expected KEY=VALUE assignment, got " + repr(raw_assignment) + "."
     )
   key, value = raw_assignment.split("=", 1)
@@ -893,13 +875,13 @@ def _parse_assignment(raw_assignment):
 
 def main(argv=None):
   parser = argparse.ArgumentParser(
-    description="Render V-layer G-Code from the programmatic specification."
+    description="Render U-layer G-Code from the programmatic specification."
   )
   parser.add_argument("output", help="Path to the text or recipe file to write.")
   parser.add_argument(
     "--sheet",
     default=None,
-    help="Compatibility option. Ignored because the V generator is programmatic.",
+    help="Compatibility option. Ignored because the U generator is programmatic.",
   )
   parser.add_argument(
     "--set",
@@ -913,14 +895,14 @@ def main(argv=None):
     dest="named_assignments",
     action="append",
     default=[],
-    help="Named V input override in KEY=VALUE form.",
+    help="Named U input override in KEY=VALUE form.",
   )
   parser.add_argument(
     "--special",
     dest="special_assignments",
     action="append",
     default=[],
-    help="Special V input override in KEY=VALUE form.",
+    help="Special U input override in KEY=VALUE form.",
   )
   parser.add_argument(
     "--offsets",
@@ -944,8 +926,8 @@ def main(argv=None):
   args = parser.parse_args(argv)
 
   if args.assignments:
-    raise VTemplateInputError(
-      "Cell overrides are not supported by the programmatic V generator."
+    raise UTemplateInputError(
+      "Cell overrides are not supported by the programmatic U generator."
     )
 
   named_inputs = dict(_parse_assignment(assignment) for assignment in args.named_assignments)
@@ -961,13 +943,13 @@ def main(argv=None):
     special_inputs["includeLeadMode"] = True
 
   if args.recipe:
-    write_v_template_file(
+    write_u_template_file(
       args.output,
       named_inputs=named_inputs,
       special_inputs=special_inputs,
     )
   else:
-    write_v_template_text_file(
+    write_u_template_text_file(
       args.output,
       named_inputs=named_inputs,
       special_inputs=special_inputs,
@@ -975,7 +957,7 @@ def main(argv=None):
   return 0
 
 
-DEFAULT_V_TEMPLATE_ROW_COUNT = len(render_v_template_text_lines())
+DEFAULT_U_TEMPLATE_ROW_COUNT = len(render_u_template_text_lines())
 
 
 if __name__ == "__main__":

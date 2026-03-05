@@ -5,12 +5,12 @@ from pathlib import Path
 from dune_winder.library.VTemplateGCode import (
   DEFAULT_V_TEMPLATE_ROW_COUNT,
   PRE_FINAL_WRAP_COUNT,
-  VTemplateGCodeGenerator,
+  VTemplateProgrammaticGenerator,
+  get_v_template_named_inputs_snapshot,
   _normalize_pin_tokens,
-  read_cached_v_template_ac_lines,
-  read_v_template_named_inputs,
-  render_v_template_ac_lines,
-  write_v_template_ac_file,
+  render_default_v_template_text_lines,
+  render_v_template_text_lines,
+  write_v_template_text_file,
   write_v_template_file,
 )
 
@@ -23,7 +23,7 @@ class VTemplateGCodeTests(unittest.TestCase):
     )
 
   def test_default_render_matches_expected_spec_edges(self):
-    lines = render_v_template_ac_lines()
+    lines = render_v_template_text_lines()
 
     self.assertEqual(len(lines), DEFAULT_V_TEMPLATE_ROW_COUNT)
     self.assertEqual(
@@ -52,10 +52,13 @@ class VTemplateGCodeTests(unittest.TestCase):
     )
 
   def test_cached_reader_is_now_the_programmatic_default(self):
-    self.assertEqual(read_cached_v_template_ac_lines(), render_v_template_ac_lines())
+    self.assertEqual(
+      render_default_v_template_text_lines(),
+      render_v_template_text_lines(),
+    )
 
   def test_named_inputs_and_special_aliases_remain_usable(self):
-    lines = render_v_template_ac_lines(
+    lines = render_v_template_text_lines(
       named_inputs={
         "line 1 (Top B corner - foot end)": 2,
         "pause at combs": True,
@@ -67,14 +70,14 @@ class VTemplateGCodeTests(unittest.TestCase):
     )
     self.assertEqual(lines[7], "N7 (1,4) G106 P2")
 
-    special_lines = render_v_template_ac_lines(special_inputs={"head_a_offset": 7})
+    special_lines = render_v_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
       "N28 (1,25) G109 PB399 PBR G103 PF1 PF2 PY G105 PY7 (Head A corner)",
       special_lines,
     )
 
   def test_offset_vector_maps_to_all_twelve_adjustment_sites(self):
-    generator = VTemplateGCodeGenerator(
+    generator = VTemplateProgrammaticGenerator(
       special_inputs={"offsets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13]}
     )
     lines = generator.render_lines()
@@ -133,8 +136,8 @@ class VTemplateGCodeTests(unittest.TestCase):
     )
 
   def test_transfer_pause_adds_all_optional_pause_lines(self):
-    base_lines = render_v_template_ac_lines()
-    paused_lines = render_v_template_ac_lines(special_inputs={"transferPause": True})
+    base_lines = render_v_template_text_lines()
+    paused_lines = render_v_template_text_lines(special_inputs={"transferPause": True})
 
     self.assertEqual(len(paused_lines) - len(base_lines), PRE_FINAL_WRAP_COUNT * 6 + 4)
     self.assertEqual(paused_lines[7], "N7 (1,4) G106 P2")
@@ -142,7 +145,7 @@ class VTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(paused_lines[19], "N19 (1,16) G106 P2")
 
   def test_named_input_snapshot_and_file_writers(self):
-    named_inputs = read_v_template_named_inputs()
+    named_inputs = get_v_template_named_inputs_snapshot()
     self.assertFalse(named_inputs["transferPause"])
     self.assertEqual(named_inputs["line 10 (Head A corner)"], 0.0)
 
@@ -150,7 +153,7 @@ class VTemplateGCodeTests(unittest.TestCase):
       plain_output = Path(directory) / "V_template.txt"
       recipe_output = Path(directory) / "V-layer.gc"
 
-      write_v_template_ac_file(plain_output, special_inputs={"head_a_offset": 7})
+      write_v_template_text_file(plain_output, special_inputs={"head_a_offset": 7})
       plain_lines = plain_output.read_text(encoding="utf-8").splitlines()
       self.assertIn(
         "N28 (1,25) G109 PB399 PBR G103 PF1 PF2 PY G105 PY7 (Head A corner)",
