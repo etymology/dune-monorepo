@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dune_winder.library.VTemplateGCode import (
+from dune_winder.recipes.v_template_gcode import (
   DEFAULT_V_TEMPLATE_ROW_COUNT,
   PRE_FINAL_WRAP_COUNT,
   VTemplateProgrammaticGenerator,

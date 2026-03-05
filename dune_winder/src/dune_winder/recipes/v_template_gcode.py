@@ -1,7 +1,7 @@
 ###############################################################################
-# Name: UTemplateGCode.py
-# Uses: Generate U-layer G-Code from the programmatic specification.
-# Date: 2026-03-04
+# Name: VTemplateGCode.py
+# Uses: Generate V-layer G-Code from the programmatic specification.
+# Date: 2026-03-03
 ###############################################################################
 
 from __future__ import annotations
@@ -10,13 +10,13 @@ import argparse
 import re
 from pathlib import Path
 
-from dune_winder.library.RecipeTemplateLanguage import (
+from dune_winder.recipes.recipe_template_language import (
   compile_template_script,
   execute_template_script,
 )
-from dune_winder.library.Recipe import Recipe
+from dune_winder.recipes.recipe import Recipe
 from dune_winder.gcode.renderer import normalize_line_text
-from dune_winder.library.TemplateGCodeTransitions import (
+from dune_winder.recipes.template_gcode_transitions import (
   append_motion_to_pause_transition,
   append_pause_to_motion_transition,
   g106_line,
@@ -24,92 +24,107 @@ from dune_winder.library.TemplateGCodeTransitions import (
 
 
 WRAP_COUNT = 400
+PRE_FINAL_WRAP_COUNT = WRAP_COUNT - 1
 Y_PULL_IN = 60.0
 X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 3.0
-PREAMBLE_X = 7174.0
-PREAMBLE_Y = 60.0
-PREAMBLE_BOARD_GAP_PULL = -50.0
+PREAMBLE_BOARD_GAP_PULL = 30.0
 COMBS = (592, 740, 888, 1043, 1191, 1754, 1902, 2050, 2198)
 PIN_MIN = 1
-PIN_MAX = 2401
+PIN_MAX = 2400
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
 DEFAULT_OFFSETS = (0.0,) * 12
-DEFAULT_U_TEMPLATE_WORKBOOK = None
-DEFAULT_U_TEMPLATE_SHEET = None
+DEFAULT_V_TEMPLATE_WORKBOOK = None
+DEFAULT_V_TEMPLATE_SHEET = None
 
 OFFSET_IDS = (
   "top_b_foot_end",
   "top_a_foot_end",
-  "bottom_a_head_end",
-  "bottom_b_head_end",
-  "head_b_corner",
-  "head_a_corner",
-  "top_a_head_end",
-  "top_b_head_end",
-  "bottom_b_foot_end",
-  "bottom_a_foot_end",
   "foot_a_corner",
   "foot_b_corner",
+  "bottom_b_foot_end",
+  "bottom_a_foot_end",
+  "top_a_head_end",
+  "top_b_head_end",
+  "head_b_corner",
+  "head_a_corner",
+  "bottom_a_head_end",
+  "bottom_b_head_end",
 )
 
 LEGACY_OFFSET_NAMES = {
   "line 1 (Top B corner - foot end)": 0,
   "line 2 (Top A corner - foot end)": 1,
-  "line 3 (Bottom A corner - head end)": 2,
-  "line 4 (Bottom B corner - head end)": 3,
-  "line 5 (Head B corner)": 4,
-  "line 6 (Head A corner)": 5,
+  "line 3 (Foot A corner)": 2,
+  "line 4 (Foot B corner)": 3,
+  "line 5 (Bottom B corner - foot end)": 4,
+  "line 6 (Bottom A corner - foot end)": 5,
   "line 7 (Top A corner - head end)": 6,
   "line 8 (Top B corner - head end)": 7,
-  "line 9 (Bottom B corner - foot end)": 8,
-  "line 10 (Bottom A corner - foot end)": 9,
-  "line 11 (Foot A corner)": 10,
-  "line 12 (Foot B corner)": 11,
+  "line 9 (Head B corner)": 8,
+  "line 10 (Head A corner)": 9,
+  "line 11 (Bottom A corner - head end)": 10,
+  "line 12 (Bottom B corner - head end)": 11,
 }
 
 SPECIAL_OFFSET_ALIASES = {
-  "head_b_offset": 4,
-  "head_a_offset": 5,
-  "foot_a_offset": 10,
-  "foot_b_offset": 11,
+  "foot_a_offset": 2,
+  "foot_b_offset": 3,
+  "head_b_offset": 8,
+  "head_a_offset": 9,
 }
 
-U_WRAP_SCRIPT = compile_template_script(
+V_WRAP_BASE_SCRIPT = compile_template_script(
   (
     "emit (------------------STARTING LOOP ${wrap}------------------)",
-    "emit G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
+    "emit G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
     "transition transfer_b_to_a",
-    "emit G109 PB${1200 + wrap} PLT G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${conditional_offset('PX', offsets[1], 12 + offsets[1])} (Top A corner - foot end)",
-    "emit G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(799 + wrap): emit G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Bottom A corner - head end)",
+    "emit G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} PX ${offset('PX', offsets[1])} (Top A corner - foot end)",
+    "emit G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(799 + wrap): emit G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 ( BOARD GAP ) (Foot A corner)",
     "transition transfer_a_to_b",
-    "emit G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY ${offset('PY', offsets[3])} (Bottom B corner - head end, rewind)",
-    "emit G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PY', Y_PULL_IN)}",
-    "emit (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
+    "emit G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PY ${offset('PY', offsets[3])} (Foot B corner)",
+    "emit G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+    "emit G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
     "transition transfer_b_to_a",
-    "emit G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
-    "emit G103 PF${1 + wrap} PF${wrap} PY G105 ${coord('PX', X_PULL_IN)} ( BOARD GAP )",
-    "emit G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+    "emit G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} PX ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
+    "emit G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ( BOARD GAP )",
+    "emit G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "transition transfer_a_to_b",
-    "emit G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY ${conditional_offset('PX', offsets[7], offsets[7] - 12)} (Top B corner - head end)",
-    "emit G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(1999 + wrap): emit G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Bottom B corner - foot end)",
+    "emit G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
+    "emit G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(1999 + wrap): emit G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
+  )
+)
+
+V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
+  (
+    "emit (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 ( BOARD GAP )",
     "transition transfer_b_to_a",
-    "emit G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY ${offset('PY', offsets[9])} (Bottom A corner - foot end, rewind)",
-    "emit G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-    "if near_comb(1601 + wrap): emit G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
+    "emit G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PY ${offset('PY', offsets[9])} (Head A corner)",
+    "emit G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)}",
+    "emit G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
     "transition transfer_a_to_b",
-    "emit G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
-    "emit G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+    "emit G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ${offset('PX', offsets[11])} PX12 (Bottom B corner - head end)",
+    "emit G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(399 + wrap): emit G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+  )
+)
+
+V_WRAP_FINAL_TAIL_SCRIPT = compile_template_script(
+  (
+    "emit G103 PB2398 PB2399 PY G105 PY0 G111",
+    "emit X440 Y2315 F300",
+    "emit ${g106(0)}",
+    "emit X440 Y2335",
+    "emit X650 Y2335 G111",
+    "emit X440 Y2335",
   )
 )
 
 
-class UTemplateInputError(ValueError):
+class VTemplateInputError(ValueError):
   pass
 
 
@@ -125,6 +140,8 @@ def _format_number(value):
 
 def _wrap_pin_number(value):
   pin_number = int(value)
+  if pin_number < PIN_MIN:
+    return PIN_MAX
   return ((pin_number - PIN_MIN) % PIN_SPAN) + PIN_MIN
 
 
@@ -156,12 +173,6 @@ def _g106(mode):
   return g106_line(_line, mode)
 
 
-def _conditional_offset_fragment(axis, condition_value, rendered_value):
-  if abs(float(condition_value)) < 1e-9:
-    return None
-  return "G105 " + _coord(axis, rendered_value)
-
-
 def _near_comb(pin_number):
   return any(abs(int(pin_number) - comb_pin) <= 5 for comb_pin in COMBS)
 
@@ -177,20 +188,20 @@ def _coerce_bool(value):
       return False
     if normalized in ("1", "true", "yes", "on"):
       return True
-  raise UTemplateInputError("Expected a boolean-compatible value, got " + repr(value) + ".")
+  raise VTemplateInputError("Expected a boolean-compatible value, got " + repr(value) + ".")
 
 
 def _coerce_number(value):
   if isinstance(value, bool):
-    raise UTemplateInputError("Boolean values are not valid offsets.")
+    raise VTemplateInputError("Boolean values are not valid offsets.")
   if isinstance(value, (int, float)):
     return float(value)
   if isinstance(value, str):
     try:
       return float(value.strip())
     except ValueError as exc:
-      raise UTemplateInputError("Expected a numeric value, got " + repr(value) + ".") from exc
-  raise UTemplateInputError("Expected a numeric value, got " + type(value).__name__ + ".")
+      raise VTemplateInputError("Expected a numeric value, got " + repr(value) + ".") from exc
+  raise VTemplateInputError("Expected a numeric value, got " + type(value).__name__ + ".")
 
 
 def _coerce_offsets(value):
@@ -202,9 +213,9 @@ def _coerce_offsets(value):
     try:
       raw_values = list(value)
     except TypeError as exc:
-      raise UTemplateInputError("Offsets must be a 12-item iterable.") from exc
+      raise VTemplateInputError("Offsets must be a 12-item iterable.") from exc
   if len(raw_values) != len(OFFSET_IDS):
-    raise UTemplateInputError("Expected 12 U offsets, got " + str(len(raw_values)) + ".")
+    raise VTemplateInputError("Expected 12 V offsets, got " + str(len(raw_values)) + ".")
   return [_coerce_number(item) for item in raw_values]
 
 
@@ -227,7 +238,7 @@ def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode)
     if key.endswith("_offset") and key[:-7] in OFFSET_IDS:
       offsets[OFFSET_IDS.index(key[:-7])] = _coerce_number(value)
       continue
-    raise UTemplateInputError("Unknown U named input: " + repr(key))
+    raise VTemplateInputError("Unknown V named input: " + repr(key))
   return current_transfer_pause, current_include_lead_mode
 
 
@@ -255,14 +266,14 @@ def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_m
     if key.endswith("_offset") and key[:-7] in OFFSET_IDS:
       offsets[OFFSET_IDS.index(key[:-7])] = _coerce_number(value)
       continue
-    raise UTemplateInputError("Unknown U special input: " + repr(key))
+    raise VTemplateInputError("Unknown V special input: " + repr(key))
   return current_transfer_pause, current_include_lead_mode
 
 
 def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
   if cell_overrides:
-    raise UTemplateInputError(
-      "Cell overrides are not supported by the programmatic U generator."
+    raise VTemplateInputError(
+      "Cell overrides are not supported by the programmatic V generator."
     )
 
   offsets = list(DEFAULT_OFFSETS)
@@ -333,7 +344,13 @@ def _number_lines(lines):
   return [_line("N" + str(line_number), line) for line_number, line in enumerate(lines)]
 
 
-def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
+def _render_wrap_lines(
+  wrap_number,
+  offsets,
+  transfer_pause,
+  include_lead_mode,
+  final_wrap=False,
+):
   lines = []
 
   transitions = {
@@ -356,15 +373,24 @@ def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
     "offsets": offsets,
     "coord": _coord,
     "offset": _offset_fragment,
-    "conditional_offset": _conditional_offset_fragment,
     "near_comb": _near_comb,
+    "g106": _g106,
     "Y_PULL_IN": Y_PULL_IN,
     "X_PULL_IN": X_PULL_IN,
     "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
   }
 
   execute_template_script(
-    U_WRAP_SCRIPT,
+    V_WRAP_BASE_SCRIPT,
+    environment=environment,
+    output_lines=lines,
+    line_builder=_line,
+    transitions=transitions,
+  )
+
+  tail_script = V_WRAP_FINAL_TAIL_SCRIPT if final_wrap else V_WRAP_NORMAL_TAIL_SCRIPT
+  execute_template_script(
+    tail_script,
     environment=environment,
     output_lines=lines,
     line_builder=_line,
@@ -374,7 +400,7 @@ def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
   return _annotate_wrap_lines(wrap_number, lines)
 
 
-def render_u_template_lines(
+def render_v_template_lines(
   *,
   offsets=None,
   transfer_pause=False,
@@ -393,26 +419,22 @@ def render_u_template_lines(
   )
 
   lines = [
-    "( U Layer )",
-    _line(
-      _coord("X", PREAMBLE_X),
-      _coord("Y", PREAMBLE_Y),
-      "F300",
-      "(load new calibration file)",
-    ),
-    _line("F300", _g106(3)),
+    "( V Layer )",
+    _line("(HEAD RESTART)",_coord("X", 440), _coord("Y", 0)),
+    _g106(3),
     _line(
       "(0, )",
-      "F300",
+      "F1000",
       "G103",
-      "PB1201",
-      "PB1200",
+      "PB400",
+      "PB399",
       "PXY",
-      "G105 " + _coord("PX", PREAMBLE_BOARD_GAP_PULL),
+      "G105 " + _coord("PY", PREAMBLE_BOARD_GAP_PULL),
+      "( BOARD GAP )",
     ),
   ]
 
-  for wrap_number in range(1, WRAP_COUNT + 1):
+  for wrap_number in range(1, PRE_FINAL_WRAP_COUNT + 1):
     lines.extend(
       _render_wrap_lines(
         wrap_number,
@@ -422,16 +444,25 @@ def render_u_template_lines(
       )
     )
 
+  lines.extend(
+    _render_wrap_lines(
+      WRAP_COUNT,
+      resolved_offsets,
+      transfer_pause_value,
+      include_lead_mode_value,
+      final_wrap=True,
+    )
+  )
   return _number_lines(lines)
 
 
-def render_u_template_text_lines(
+def render_v_template_text_lines(
   cell_overrides=None,
   *,
   named_inputs=None,
   special_inputs=None,
 ):
-  return render_u_template_lines(
+  return render_v_template_lines(
     named_inputs=named_inputs,
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
@@ -439,7 +470,7 @@ def render_u_template_text_lines(
 
 
 # Legacy compatibility wrappers that preserve spreadsheet-era symbol names.
-def render_u_template_ac_lines(
+def render_v_template_ac_lines(
   cell_overrides=None,
   *,
   named_inputs=None,
@@ -447,42 +478,42 @@ def render_u_template_ac_lines(
   special_inputs=None,
 ):
   _ = sheet_path
-  return render_u_template_text_lines(
+  return render_v_template_text_lines(
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
 
 
-def render_default_u_template_text_lines(workbook_path=None):
+def render_default_v_template_text_lines(workbook_path=None):
   _ = workbook_path
-  return render_u_template_text_lines()
+  return render_v_template_text_lines()
 
 
-def read_cached_u_template_ac_lines(workbook_path=None):
+def read_cached_v_template_ac_lines(workbook_path=None):
   _ = workbook_path
-  return render_default_u_template_text_lines()
+  return render_default_v_template_text_lines()
 
 
-def get_u_template_named_inputs_snapshot(sheet_path=None):
+def get_v_template_named_inputs_snapshot(sheet_path=None):
   _ = sheet_path
-  return UTemplateProgrammaticGenerator().get_named_inputs()
+  return VTemplateProgrammaticGenerator().get_named_inputs()
 
 
-def read_u_template_named_inputs(sheet_path=None):
+def read_v_template_named_inputs(sheet_path=None):
   _ = sheet_path
-  return get_u_template_named_inputs_snapshot()
+  return get_v_template_named_inputs_snapshot()
 
 
-def get_u_recipe_description():
-  return "U-layer"
+def get_v_recipe_description():
+  return "V-layer"
 
 
-def get_u_recipe_file_name():
-  return "U-layer.gc"
+def get_v_recipe_file_name():
+  return "V-layer.gc"
 
 
-def write_u_template_text_file(
+def write_v_template_text_file(
   output_path,
   cell_overrides=None,
   *,
@@ -490,7 +521,7 @@ def write_u_template_text_file(
   special_inputs=None,
 ):
   output = Path(output_path)
-  lines = render_u_template_text_lines(
+  lines = render_v_template_text_lines(
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -499,7 +530,7 @@ def write_u_template_text_file(
   return output
 
 
-def write_u_template_ac_file(
+def write_v_template_ac_file(
   output_path,
   cell_overrides=None,
   *,
@@ -508,7 +539,7 @@ def write_u_template_ac_file(
   special_inputs=None,
 ):
   _ = sheet_path
-  return write_u_template_text_file(
+  return write_v_template_text_file(
     output_path,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
@@ -516,7 +547,7 @@ def write_u_template_ac_file(
   )
 
 
-def write_u_template_file(
+def write_v_template_file(
   output_path,
   *,
   offsets=None,
@@ -534,7 +565,7 @@ def write_u_template_file(
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
-  lines = render_u_template_lines(
+  lines = render_v_template_lines(
     offsets=offsets,
     transfer_pause=transfer_pause,
     include_lead_mode=include_lead_mode,
@@ -543,14 +574,14 @@ def write_u_template_file(
   )
   hash_value = Recipe.writeGeneratedFile(
     output_path,
-    get_u_recipe_description(),
+    get_v_recipe_description(),
     lines,
     archiveDirectory=archive_directory,
     parentHash=parent_hash,
   )
   return {
-    "description": get_u_recipe_description(),
-    "fileName": get_u_recipe_file_name(),
+    "description": get_v_recipe_description(),
+    "fileName": get_v_recipe_file_name(),
     "hashValue": hash_value,
     "lines": lines,
     "offsets": list(resolved_offsets),
@@ -560,7 +591,7 @@ def write_u_template_file(
   }
 
 
-class UTemplateProgrammaticGenerator:
+class VTemplateProgrammaticGenerator:
   def __init__(
     self,
     sheet_path=None,
@@ -575,7 +606,7 @@ class UTemplateProgrammaticGenerator:
       special_inputs=special_inputs,
       cell_overrides=cell_overrides,
     )
-    self._lines = render_u_template_lines(
+    self._lines = render_v_template_lines(
       offsets=self.offsets,
       transfer_pause=self.transfer_pause,
       include_lead_mode=self.include_lead_mode,
@@ -586,8 +617,8 @@ class UTemplateProgrammaticGenerator:
 
   def render_column_lines(self, column_label):
     if str(column_label).upper() != "AC":
-      raise UTemplateInputError(
-        "Only AC compatibility output is available for UTemplateGCode."
+      raise VTemplateInputError(
+        "Only AC compatibility output is available for VTemplateGCode."
       )
     return self.render_lines()
 
@@ -616,7 +647,7 @@ class UTemplateProgrammaticGenerator:
 
 
 # Backward-compatible class alias.
-UTemplateGCodeGenerator = UTemplateProgrammaticGenerator
+VTemplateGCodeGenerator = VTemplateProgrammaticGenerator
 
 
 def _coerce_cli_value(value):
@@ -627,13 +658,13 @@ def _coerce_cli_value(value):
     return _coerce_bool(normalized)
   try:
     return _coerce_number(normalized)
-  except UTemplateInputError:
+  except VTemplateInputError:
     return normalized
 
 
 def _parse_assignment(raw_assignment):
   if "=" not in raw_assignment:
-    raise UTemplateInputError(
+    raise VTemplateInputError(
       "Expected KEY=VALUE assignment, got " + repr(raw_assignment) + "."
     )
   key, value = raw_assignment.split("=", 1)
@@ -642,13 +673,13 @@ def _parse_assignment(raw_assignment):
 
 def main(argv=None):
   parser = argparse.ArgumentParser(
-    description="Render U-layer G-Code from the programmatic specification."
+    description="Render V-layer G-Code from the programmatic specification."
   )
   parser.add_argument("output", help="Path to the text or recipe file to write.")
   parser.add_argument(
     "--sheet",
     default=None,
-    help="Compatibility option. Ignored because the U generator is programmatic.",
+    help="Compatibility option. Ignored because the V generator is programmatic.",
   )
   parser.add_argument(
     "--set",
@@ -662,14 +693,14 @@ def main(argv=None):
     dest="named_assignments",
     action="append",
     default=[],
-    help="Named U input override in KEY=VALUE form.",
+    help="Named V input override in KEY=VALUE form.",
   )
   parser.add_argument(
     "--special",
     dest="special_assignments",
     action="append",
     default=[],
-    help="Special U input override in KEY=VALUE form.",
+    help="Special V input override in KEY=VALUE form.",
   )
   parser.add_argument(
     "--offsets",
@@ -693,8 +724,8 @@ def main(argv=None):
   args = parser.parse_args(argv)
 
   if args.assignments:
-    raise UTemplateInputError(
-      "Cell overrides are not supported by the programmatic U generator."
+    raise VTemplateInputError(
+      "Cell overrides are not supported by the programmatic V generator."
     )
 
   named_inputs = dict(_parse_assignment(assignment) for assignment in args.named_assignments)
@@ -710,13 +741,13 @@ def main(argv=None):
     special_inputs["includeLeadMode"] = True
 
   if args.recipe:
-    write_u_template_file(
+    write_v_template_file(
       args.output,
       named_inputs=named_inputs,
       special_inputs=special_inputs,
     )
   else:
-    write_u_template_text_file(
+    write_v_template_text_file(
       args.output,
       named_inputs=named_inputs,
       special_inputs=special_inputs,
@@ -724,7 +755,7 @@ def main(argv=None):
   return 0
 
 
-DEFAULT_U_TEMPLATE_ROW_COUNT = len(render_u_template_text_lines())
+DEFAULT_V_TEMPLATE_ROW_COUNT = len(render_v_template_text_lines())
 
 
 if __name__ == "__main__":

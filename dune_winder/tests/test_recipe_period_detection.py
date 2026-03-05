@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from dune_winder.core.Process import Process
-from dune_winder.library.Recipe import Recipe
+from dune_winder.recipes.recipe import Recipe
 
 
 class FakeAPA:

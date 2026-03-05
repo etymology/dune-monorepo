@@ -10,7 +10,7 @@ import os
 import re
 
 from dune_winder.library.Hash import Hash
-from dune_winder.library.Recipe import Recipe
+from dune_winder.recipes.recipe import Recipe
 from dune_winder.machine.Settings import Settings
 from dune_winder.machine.LayerCalibration import LayerCalibration
 from .APA_Base import APA_Base

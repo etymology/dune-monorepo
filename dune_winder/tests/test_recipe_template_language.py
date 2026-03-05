@@ -1,6 +1,6 @@
 import unittest
 
-from dune_winder.library.RecipeTemplateLanguage import (
+from dune_winder.recipes.recipe_template_language import (
   RecipeTemplateLanguageError,
   compile_template_script,
   execute_template_script,
