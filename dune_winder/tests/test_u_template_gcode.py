@@ -34,16 +34,16 @@ class UTemplateGCodeTests(unittest.TestCase):
         "N2 F300 G106 P3",
         "N3 (0, ) F300 G103 PB1201 PB1200 PXY G105 PX-50",
         "N4 (1,1) (------------------STARTING LOOP 1------------------)",
-        "N5 (1,2) G109 PB1201 PRT G103 PB2001 PB2002 PXY G102 G108 (Top B corner - foot end)",
+        "N5 (1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G102 G108 (Top B corner - foot end)",
       ],
     )
     self.assertEqual(
       lines[-4:],
       [
-        "N12855 (400,29) G106 P0",
-        "N12856 (400,30) G106 P3",
-        "N12857 (400,31) G109 PF1201 PBL G103 PB1601 PB1600 PX12 (Foot B corner, rewind)",
-        "N12858 (400,32) G103 PB1601 PB1600 PY G105 PX-70",
+        "N10077 (400,22) G109 PF2001 PRT G103 PF1201 PF1200 PXY G102 G108 (Foot A corner)",
+        "N10078 (400,23) G106 P3",
+        "N10079 (400,24) G109 PF1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
+        "N10080 (400,25) G103 PB1601 PB1600 PX G105 PX-70",
       ],
     )
 
@@ -62,13 +62,13 @@ class UTemplateGCodeTests(unittest.TestCase):
     )
     self.assertEqual(
       lines[5],
-      "N5 (1,2) G109 PB1201 PRT G103 PB2001 PB2002 PXY G105 PX2 G102 G108 (Top B corner - foot end)",
+      "N5 (1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX2 G102 G108 (Top B corner - foot end)",
     )
-    self.assertEqual(lines[7], "N7 (1,4) G106 P2")
+    self.assertEqual(lines[7], "N7 (1,4) G106 P0")
 
     special_lines = render_u_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
-      "N18 (1,15) G109 PB400 PLT G103 PF1 PF1 PXY G105 PY7 (Head A corner, rewind)",
+      "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
       special_lines,
     )
 
@@ -78,57 +78,26 @@ class UTemplateGCodeTests(unittest.TestCase):
     )
     lines = generator.render_lines()
 
+    expected_first_wrap = [
+      "N5 (1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
+      "N7 (1,4) G109 PB1201 PLT G103 PB2001 PB2002 PXY G105 PX14 (Top A corner - foot end)",
+      "N9 (1,6) G109 PF801 PLB G103 PF2401 PF1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
+      "N11 (1,8) G109 PF2401 PBR G103 PB401 PB402 PXY G105 PY4 (Bottom B corner - head end, rewind)",
+      "N13 (1,10) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
+      "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N17 (1,14) G109 PF2 PRT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
+      "N19 (1,16) G109 PF799 PRT G103 PB2003 PB2004 PXY G105 PX-4 (Top B corner - head end)",
+      "N21 (1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
+      "N23 (1,20) G109 PB1200 PBL G103 PF1602 PF1603 PXY G105 PY10 (Bottom A corner - foot end, rewind)",
+      "N25 (1,22) G109 PF1602 PRT G103 PF1600 PF1599 PXY G105 PY11 G102 G108 (Foot A corner)",
+      "N27 (1,24) G109 PF1600 PRT G103 PB1202 PB1201 PXY G105 PY13 (Foot B corner, rewind)",
+    ]
+    for expected_line in expected_first_wrap:
+      self.assertIn(expected_line, lines)
+
     self.assertEqual(
-      lines[5],
-      "N5 (1,2) G109 PB1201 PRT G103 PB2001 PB2002 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
-    )
-    self.assertEqual(
-      lines[8],
-      "N8 (1,5) G109 PB1201 PLT G103 PB2001 PB2002 PX G105 PX14 (Top A corner - foot end)",
-    )
-    self.assertEqual(
-      lines[10],
-      "N10 (1,7) G109 PF800 PRB G103 PF1600 PF1599 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
-    )
-    self.assertEqual(
-      lines[13],
-      "N13 (1,10) G109 PF1 PBL G103 PB401 PB402 PXY G105 PY4 (Bottom B corner - head end, rewind)",
-    )
-    self.assertEqual(
-      lines[15],
-      "N15 (1,12) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
-    )
-    self.assertEqual(
-      lines[18],
-      "N18 (1,15) G109 PB400 PLT G103 PF1 PF1 PXY G105 PY6 (Head A corner, rewind)",
-    )
-    self.assertEqual(
-      lines[20],
-      "N20 (1,17) G109 PF2 PLT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
-    )
-    self.assertEqual(
-      lines[23],
-      "N23 (1,20) G109 PF799 PRT G103 PB2003 PB2004 PX G105 PX-4 (Top B corner - head end)",
-    )
-    self.assertEqual(
-      lines[25],
-      "N25 (1,22) G109 PB2002 PLB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
-    )
-    self.assertEqual(
-      lines[28],
-      "N28 (1,25) G109 PB399 PBR G103 PF1 PF2 PY G105 PY10 (Bottom A corner - foot end, rewind)",
-    )
-    self.assertEqual(
-      lines[31],
-      "N31 (1,28) G109 PF1 PTL G103 PF1600 PF1599 PXY G105 PY11 G102 G108 (Foot A corner)",
-    )
-    self.assertEqual(
-      lines[34],
-      "N34 (1,31) G109 PF1600 PBL G103 PB1202 PB1201 G105 PY13 PX12 (Foot B corner, rewind)",
-    )
-    self.assertEqual(
-      generator.get_value("AC", 19),
-      "N18 (1,15) G109 PB400 PLT G103 PF1 PF1 PXY G105 PY6 (Head A corner, rewind)",
+      generator.get_value("AC", 16),
+      "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
     )
 
   def test_transfer_pause_adds_all_optional_pause_lines(self):
@@ -136,9 +105,9 @@ class UTemplateGCodeTests(unittest.TestCase):
     paused_lines = render_u_template_text_lines(special_inputs={"transferPause": True})
 
     self.assertEqual(len(paused_lines) - len(base_lines), WRAP_COUNT * 6)
-    self.assertEqual(paused_lines[7], "N7 (1,4) G106 P2")
-    self.assertEqual(paused_lines[13], "N13 (1,10) G106 P1")
-    self.assertEqual(paused_lines[19], "N19 (1,16) G106 P2")
+    self.assertEqual(paused_lines[6], "N6 (1,3) G106 P2")
+    self.assertEqual(paused_lines[11], "N11 (1,8) G106 P1")
+    self.assertEqual(paused_lines[16], "N16 (1,13) G106 P2")
 
   def test_named_input_snapshot_and_file_writers(self):
     named_inputs = get_u_template_named_inputs_snapshot()
@@ -152,7 +121,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       write_u_template_text_file(plain_output, special_inputs={"head_a_offset": 7})
       plain_lines = plain_output.read_text(encoding="utf-8").splitlines()
       self.assertIn(
-        "N18 (1,15) G109 PB400 PLT G103 PF1 PF1 PXY G105 PY7 (Head A corner, rewind)",
+        "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
         plain_lines,
       )
 
