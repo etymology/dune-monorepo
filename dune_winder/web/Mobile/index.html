@@ -1,25 +1,36 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+    <meta charset="utf-8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+    />
 
-    <title>
-      Chicago Winder Interface
-    </title>
+    <title>Chicago Winder Interface</title>
 
-    <link rel="stylesheet" href="/Mobile/main.css">
-
-    <style>
-    </style>
+    <link rel="stylesheet" href="/Scripts/Vendor/jquery-ui/jquery-ui.css" />
+    <link rel="stylesheet" href="/Mobile/main.css" />
 
     <script type="text/javascript" src="/Scripts/Vendor/jquery.js"></script>
-    <script type="text/javascript" src="/Scripts/Vendor/jquery-ui/jquery-ui.js"></script>
-    <script type="text/javascript" src="/Scripts/Vendor/jquery.blink.js"></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery-ui/jquery-ui.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery.blink.js"
+    ></script>
     <script type="text/javascript" src="/Scripts/Vendor/dateFormat.js"></script>
-    <script type="text/javascript" src="/Scripts/Vendor/jquery.dateFormat.js"></script>
-    <script type="text/javascript" src="/Scripts/Vendor/jquery.cookie.js"></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery.dateFormat.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="/Scripts/Vendor/jquery.cookie.js"
+    ></script>
     <script type="text/javascript" src="/Scripts/Vendor/sha256.js"></script>
     <script type="text/javascript" src="/Scripts/FilterTable.js"></script>
     <script type="text/javascript" src="/Scripts/CopyField.js"></script>
@@ -27,17 +38,17 @@
     <script type="text/javascript" src="/Scripts/Modules.js"></script>
     <script type="text/javascript" src="/Scripts/Page.js"></script>
     <script type="text/javascript" src="/Mobile/main.js"></script>
-
-    <script type="text/javascript">
-    </script>
-
   </head>
   <body>
+    <div id="modalDiv"></div>
 
-    <!-- Empty body which will be loaded depending on the page. -->
+    <header>
+      <article id="fullStopDiv"></article>
+      <article id="statesDiv"></article>
+    </header>
+
     <main id="main">
       <h2>Loading...</h2>
     </main>
-
   </body>
 </html>

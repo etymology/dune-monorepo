@@ -70,37 +70,50 @@ function setupMainScreen( page )
             else
               $( this ).attr( "class", "toggle" )
 
-            //if ( ! $( this ).click() )
-            {
-              $( this )
-                .click
-                (
-                  function()
-                  {
-                    $( this ).toggleClass( "toggle" )
-                    $( this ).toggleClass( "toggleDown" )
+            $( this )
+              .click
+              (
+                function()
+                {
+                  $( this ).toggleClass( "toggle" )
+                  $( this ).toggleClass( "toggleDown" )
 
-                    var value = 0
-                    if ( $( this ).attr( 'class' ) == "toggleDown" )
-                      value = 1
+                  var value = 0
+                  if ( $( this ).attr( 'class' ) == "toggleDown" )
+                    value = 1
 
-                    $( this ).val( value )
-                  }
-                )
-            }
-
+                  $( this ).val( value )
+                }
+              )
           }
         )
     }
   )
 }
 
-//-----------------------------------------------------------------------------
-// Uses:
-//   Callback for loading an other page.
-// Input:
-//   page - Desired page to load.
-//-----------------------------------------------------------------------------
+var PAGE_NAME_MAP =
+{
+  apa: "APA",
+  log: "Log",
+  io: "IO",
+  calibrate: "Calibrate",
+  vtemplate: "VTemplate",
+  configuration: "Configuration",
+  manualmovepopup: "ManualMovePopup"
+}
+
+function sanitizePageName( pageName )
+{
+  if ( ! pageName )
+    return "APA"
+
+  var key = ( "" + pageName ).replace( /\s+/g, "" ).toLowerCase()
+  if ( key in PAGE_NAME_MAP )
+    return PAGE_NAME_MAP[ key ]
+
+  return "APA"
+}
+
 function removeNonBaseStylesheets()
 {
   // Remove all styles sheets that are not base styles.
@@ -127,10 +140,9 @@ function configureCommonModules( page )
   page.addCommonModule( "/Scripts/Winder" )
   page.addCommonModule( "/Scripts/UiServices" )
 
-  // page.addCommonPage( "/Desktop/Modules/RunStatus",   "#statesDiv"   )
-  // page.addCommonPage( "/Desktop/Modules/Time",        "#timeDiv"     )
-  // page.addCommonPage( "/Desktop/Modules/Version",     "#versionDiv"  )
-  // page.addCommonPage( "/Desktop/Modules/FullStop",    "#fullStopDiv" )
+  // Keep desktop behavior for controls and runtime state.
+  page.addCommonPage( "/Desktop/Modules/RunStatus", "#statesDiv" )
+  page.addCommonPage( "/Desktop/Modules/FullStop", "#fullStopDiv" )
 }
 
 function createPageController()
@@ -144,6 +156,7 @@ function createPageController()
 function load( pageName )
 {
   var page = APP_STATE.page
+  var sanitizedPageName = sanitizePageName( pageName )
 
   if ( ! USE_FULL_PAGE_CACHE )
   {
@@ -158,29 +171,24 @@ function load( pageName )
     removeNonBaseStylesheets()
 
     page = createPageController()
+  }
 
-    // Loading sub page and setup main screen after sub page finishes loading.
+  // Loading sub page and setup main screen after sub page finishes loading.
+  if ( page )
     page.load
     (
-      pageName,
+      "/Desktop/Pages/" + sanitizedPageName,
       "#main",
       function()
       {
         setupMainScreen( page )
+      },
+      null,
+      function( error )
+      {
+        alert( "Error loading page. " + error )
       }
     )
-  }
-  else
-    if ( page )
-      page.load
-      (
-        pageName,
-        "#main",
-        function()
-        {
-          setupMainScreen( page )
-        }
-      )
 }
 
 //-----------------------------------------------------------------------------
@@ -191,13 +199,6 @@ $( document ).ready
 (
   function()
   {
-    // Get the requested page.
-    var pageName = getParameterByName( "page" )
-
-    // If there is no page, use default.
-    if ( ! pageName )
-      pageName = "Menu"
-
     // Save all loaded style sheets.  These stay regardless of page changes.
     APP_STATE.baseStylesheets = []
     $( 'head' )
@@ -210,26 +211,7 @@ $( document ).ready
         }
       )
 
-    $( "#pageSelectDiv" ).css( "display", "block" )
-    $( "#fullStopDiv" ).css( "display", "block" )
-    $( "#loginDiv" ).css( "display", "none" )
-
-    var page = createPageController()
-
-    // Load the requested page.
-    page.load
-    (
-      "/Mobile/Pages/" + pageName,
-      "#main",
-      function()
-      {
-        setupMainScreen( page )
-      },
-      null,
-      function( error )
-      {
-        alert( "Error loading page. " + error )
-      }
-    )
+    // Mobile intentionally launches into the Wind/APA interface.
+    load( "APA" )
   }
 )
