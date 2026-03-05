@@ -1,6 +1,7 @@
 function Log( modules )
 {
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
 
   function formatDescription( row )
   {
@@ -29,9 +30,9 @@ function Log( modules )
           [ "200px", "150px", "150px" ]
         )
 
-    var query = "log.getAll( 50 )"
+    var args = { number_of_lines: 50 }
     if ( loadAll )
-      query = "log.getAll()"
+      args = {}
 
     var loadingText = $( "<p />" )
       .attr( "id", "logTable" )
@@ -39,11 +40,16 @@ function Log( modules )
 
     $( "#logTable" ).replaceWith( loadingText )
 
-    winder.remoteAction
+    winder.call
     (
-      query,
-      function( data )
+      commands.log.getAll,
+      args,
+      function( response )
       {
+        if ( ! response || ! response.ok || ! response.data )
+          return
+
+        var data = response.data
         var dataSet = []
 
         for ( item of data )

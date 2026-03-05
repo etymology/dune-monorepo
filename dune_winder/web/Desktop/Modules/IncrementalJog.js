@@ -2,6 +2,7 @@ function IncrementalJog( modules )
 {
   var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
+  var commands = window.CommandCatalog
 
   var motorStatus
   modules.load
@@ -37,9 +38,13 @@ function IncrementalJog( modules )
   {
     var velocity = getVelocity()
     var x = motorStatus.motor[ "xPosition" ] + offset
-    var y = "None"
+    var y = motorStatus.motor[ "yPosition" ]
 
-    winder.remoteAction( "process.manualSeekXY( " + x + ", " + y + "," + velocity + ")"  )
+    winder.call
+    (
+      commands.process.manualSeekXY,
+      { x: x, y: y, velocity: velocity }
+    )
   }
 
   //-----------------------------------------------------------------------------
@@ -51,9 +56,13 @@ function IncrementalJog( modules )
   this.moveY = function( offset )
   {
     var velocity = getVelocity()
-    var x = "None"
+    var x = motorStatus.motor[ "xPosition" ]
     var y = motorStatus.motor[ "yPosition" ] + offset
-    winder.remoteAction( "process.manualSeekXY( " + x + ", " + y + "," + velocity + ")"  )
+    winder.call
+    (
+      commands.process.manualSeekXY,
+      { x: x, y: y, velocity: velocity }
+    )
   }
 
   window[ "incrementalJog" ] = this

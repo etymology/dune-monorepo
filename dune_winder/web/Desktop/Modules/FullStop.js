@@ -3,6 +3,7 @@ function FullStop( modules )
   var self = this
 
   var winder
+  var commands = window.CommandCatalog
 
   modules.load
   (
@@ -30,7 +31,7 @@ function FullStop( modules )
   //-----------------------------------------------------------------------------
   this.stop = function ()
   {
-    winder.remoteAction( 'process.stop()' )
+    winder.call( commands.process.stop, {} )
   }
 
   window[ "fullStop" ] = this

@@ -12,12 +12,13 @@ import traceback
 import time
 import json
 import threading
+import os
 
 from dune_winder.library.SystemTime import SystemTime
 from dune_winder.library.Log import Log
 from dune_winder.library.Configuration import Configuration
 from dune_winder.library.Json import dumps as jsonDumps
-from dune_winder.library.RemoteCommand import isReadOnlyRemoteCommand
+from dune_winder.library.Version import Version
 
 from dune_winder.machine.Settings import Settings
 
@@ -57,8 +58,8 @@ isStartAPA = False
 
 # ==============================================================================
 
-# Module-level references so commandHandler and eval'd UI commands can reach
-# runtime objects regardless of which scope creates them.
+# Module-level references so command handler and runtime bootstrap can share
+# object state regardless of which scope creates them.
 log = None
 io = None
 process = None
@@ -66,15 +67,8 @@ systemTime = None
 configuration = None
 machineCalibration = None
 commandRegistry = None
-
-# Track legacy query shapes that have been observed so telemetry captures
-# migration status without spamming every periodic poll cycle.
-_legacyTelemetrySeen = set()
-
-
-# -----------------------------------------------------------------------
-def _isReadOnlyRemoteCommand(command):
-  return isReadOnlyRemoteCommand(command)
+controlVersion = None
+uiVersion = None
 
 
 # -----------------------------------------------------------------------
@@ -123,67 +117,53 @@ def _describeFrame(frame):
 # -----------------------------------------------------------------------
 def commandHandler(source, command):
   """
-  Handle a remote command.
-  This is define in main so that is has the most global access possible.
+  Handle a remote command payload.
+  This path now only accepts JSON API request envelopes.
 
   Args:
-    command: A command to evaluate.
+    command: JSON request payload (single command or batch envelope).
 
   Returns:
-    The data returned from the command.
+    JSON envelope string.
   """
-
-  command = _normalizeCommand(command)
-  isReadOnly = _isReadOnlyRemoteCommand(command)
+  commandText = _normalizeCommand(command)
+  caller = _describeCaller(source)
 
   if log:
-    telemetryKey = command
-    if telemetryKey not in _legacyTelemetrySeen:
-      _legacyTelemetrySeen.add(telemetryKey)
-      caller = _describeCaller(source)
-      log.add(
-        "Main",
-        "LEGACY_REMOTE_QUERY",
-        "Observed legacy expression-based remote command.",
-        [caller, isReadOnly, command],
-      )
-
-  if log and not isReadOnly:
     log.add(
       "Main",
-      "REMOTE_ACTION",
+      "REMOTE_COMMAND",
       "Remote command requested.",
-      [threading.current_thread().name, _describeCaller(source), command],
+      [threading.current_thread().name, caller, commandText],
     )
 
   try:
-    result = eval(command)
-  except Exception as exception:
-    result = "Invalid request"
-
-    exceptionTypeName, exceptionValues, tracebackValue = sys.exc_info()
-
-    if debugInterface:
-      traceback.print_tb(tracebackValue)
-
-    tracebackAsString = repr(traceback.format_tb(tracebackValue))
-    log.add(
-      "Main",
-      "commandHandler",
-      "Invalid command issued from UI.",
-      [command, exception, exceptionTypeName, exceptionValues, tracebackAsString],
-    )
-
-  # Try and make JSON object of result.
-  # (Custom encoder escapes any invalid UTF-8 characters which would otherwise
-  # raise an exception.)
-  try:
-    result = jsonDumps(result)
+    payload = json.loads(commandText)
   except (TypeError, ValueError):
-    # If it cannot be made JSON, just make it a string.
-    result = json.dumps(str(result))
+    payload = None
 
-  return result
+  if payload is None:
+    response = {
+      "ok": False,
+      "data": None,
+      "error": {"code": "BAD_REQUEST", "message": "Request body must be valid JSON."},
+    }
+    return jsonDumps(response)
+
+  if commandRegistry is None:
+    response = {
+      "ok": False,
+      "data": None,
+      "error": {"code": "INTERNAL_ERROR", "message": "Command registry is not configured."},
+    }
+    return jsonDumps(response)
+
+  if isinstance(payload, dict) and "requests" in payload:
+    response = commandRegistry.executeBatchRequest(payload, isAuthenticated=True)
+  else:
+    response = commandRegistry.executeRequest(payload, isAuthenticated=True)
+
+  return jsonDumps(response)
 
 
 # -----------------------------------------------------------------------
@@ -216,6 +196,7 @@ def signalHandler(signalNumber, frame):
 # -----------------------------------------------------------------------
 def main():
   global log, io, process, systemTime, configuration, machineCalibration, commandRegistry
+  global controlVersion, uiVersion
   global isStartAPA, isLogEchoed, isIO_Logged
 
   # Handle command line.
@@ -271,6 +252,17 @@ def main():
 
     # Primary control process.
     process = Process(io, log, configuration, systemTime, machineCalibration)
+    projectRoot = os.path.dirname(Settings.CONFIG_FILE)
+    controlVersion = Version(
+      os.path.join(projectRoot, "src", "version.xml"),
+      os.path.join(projectRoot, "src"),
+      Settings.CONTROL_FILES,
+    )
+    uiVersion = Version(
+      os.path.join(projectRoot, "web", "version.xml"),
+      os.path.join(projectRoot, "web"),
+      Settings.UI_FILES,
+    )
     commandRegistry = build_command_registry(
       process,
       io,
@@ -278,6 +270,9 @@ def main():
       LowLevelIO,
       log,
       machineCalibration,
+      systemTime=systemTime,
+      version=controlVersion,
+      uiVersion=uiVersion,
     )
 
     #
@@ -285,7 +280,7 @@ def main():
     #
 
     _ = UICommandServerThread(commandHandler, log)
-    _ = WebServerThread(commandHandler, log, commandRegistry)
+    _ = WebServerThread(log, commandRegistry)
     _ = ControlThread(
       io, log, process.controlStateMachine, systemTime, isIO_Logged
     )

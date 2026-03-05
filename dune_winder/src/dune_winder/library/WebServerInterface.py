@@ -5,27 +5,21 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
-import xml.sax.saxutils
 import urllib.request
-import urllib.parse
 import urllib.error
 import json
 import re
-from typing import Callable, Optional
 
 from http.server import HTTPServer
 from http.server import SimpleHTTPRequestHandler
-from dune_winder.library.Json import dumps as jsonDumps
-from dune_winder.library.RemoteCommand import isReadOnlyRemoteCommand
 from dune_winder.library.RemoteSession import RemoteSession
+from dune_winder.library.Json import dumps as jsonDumps
 
 
 class WebServerInterface(SimpleHTTPRequestHandler):
   # $$$FUTURE - If we decide to use authentication, this must change.
   BYPASS_AUTHENTICATION = True
 
-  # Global callback to run requested action.
-  callback: Optional[Callable] = None
   commandRegistry = None
   log = None
 
@@ -97,18 +91,7 @@ class WebServerInterface(SimpleHTTPRequestHandler):
 
     self.send_header("Content-type", "application/json")
     self.end_headers()
-    self.wfile.write(json.dumps(responseBody).encode("utf-8"))
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _logRemoteCommand(clientAddress, query, isBasicQuery):
-    if WebServerInterface.log is not None and not isBasicQuery:
-      WebServerInterface.log.add(
-        WebServerInterface.__name__,
-        "HTTP_ACTION",
-        "HTTP remote action requested.",
-        [clientAddress, query],
-      )
+    self.wfile.write(jsonDumps(responseBody).encode("utf-8"))
 
   # ---------------------------------------------------------------------
   def log_message(self, *_):
@@ -125,15 +108,24 @@ class WebServerInterface(SimpleHTTPRequestHandler):
     the browser can load it (browsers no longer support ftp:// in <img> tags).
     All other paths are handled by SimpleHTTPRequestHandler as static files.
     """
-    if self.path.split('?')[0] == '/camera_image':
+    if self.path.split("?")[0] == "/camera_image":
       try:
-        camera_url = json.loads(WebServerInterface.callback(self, "process._cameraURL"))
+        if WebServerInterface.commandRegistry is None:
+          raise RuntimeError("Command registry is not configured.")
+
+        commandResult = WebServerInterface.commandRegistry.execute(
+          "process.get_camera_image_url", {}, isAuthenticated=True
+        )
+        if not commandResult.get("ok", False):
+          raise RuntimeError("Camera URL command failed.")
+
+        camera_url = commandResult.get("data")
         with urllib.request.urlopen(camera_url, timeout=3) as response:
           data = response.read()
         self.send_response(200)
-        self.send_header('Content-Type', 'image/bmp')
-        self.send_header('Content-Length', str(len(data)))
-        self.send_header('Cache-Control', 'no-store')
+        self.send_header("Content-Type", "image/bmp")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
       except Exception:
@@ -141,31 +133,6 @@ class WebServerInterface(SimpleHTTPRequestHandler):
         self.end_headers()
       return
     super().do_GET()
-
-  # ---------------------------------------------------------------------
-  def _send(self, tag, data):
-    """
-    Send an XML field back to client.  Private.
-
-    Args:
-      tag: Name of tag to encapsulate data.
-      data: Data associated with tag.
-    """
-    data = xml.sax.saxutils.escape(str(data))
-    data = "<" + tag + ">" + str(data) + "</" + tag + ">"
-    self.wfile.write(data.encode("utf-8"))
-
-  # ---------------------------------------------------------------------
-  def _JSON_send(self, tag, data):
-    """
-    Encode data in JSON string and send to client.  Private.
-
-    Args:
-      tag: Name of tag to encapsulate data.
-      data: Data associated with tag.
-    """
-    data = jsonDumps(data)
-    self._send(tag, data)
 
   # ---------------------------------------------------------------------
   def do_POST(self):
@@ -178,121 +145,62 @@ class WebServerInterface(SimpleHTTPRequestHandler):
     length = int(self.headers.get("content-length", "0"))
 
     clientAddress = self.client_address[0]
-    session, cookies, isAuthenticated = WebServerInterface._setupSession(
+    _session, cookies, isAuthenticated = WebServerInterface._setupSession(
       self.headers, clientAddress
     )
 
     path = self.path.split("?")[0]
-    if path in ("/api/v2/command", "/api/v2/batch"):
-      payload = None
-      if length > 0:
-        try:
-          body = self.rfile.read(length).decode("utf-8")
-          payload = json.loads(body)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-          payload = None
-
-      if payload is None:
-        response = {
-          "ok": False,
-          "data": None,
-          "error": {"code": "BAD_REQUEST", "message": "Invalid JSON request body."},
-        }
-      elif WebServerInterface.commandRegistry is None:
-        response = {
-          "ok": False,
-          "data": None,
-          "error": {
-            "code": "INTERNAL_ERROR",
-            "message": "Command registry is not configured.",
-          },
-        }
-      elif path == "/api/v2/command":
-        response = WebServerInterface.commandRegistry.executeRequest(
-          payload, isAuthenticated=isAuthenticated
-        )
-      else:
-        response = WebServerInterface.commandRegistry.executeBatchRequest(
-          payload, isAuthenticated=isAuthenticated
-        )
-
-      statusCode = 200
-      if not response.get("ok"):
-        statusCode = WebServerInterface._statusCodeFromError(response.get("error"))
-
-      self._sendJsonResponse(response, cookies, statusCode=statusCode)
+    if path not in ("/api/v2/command", "/api/v2/batch"):
+      response = {
+        "ok": False,
+        "data": None,
+        "error": {"code": "BAD_REQUEST", "message": "Unsupported POST path."},
+      }
+      self._sendJsonResponse(response, cookies, statusCode=404)
       return
 
-    # Start XML result.
-    self.send_response(200)
-
-    # Construct cookie data to send back.
-    for cookieName in cookies:
-      cookieValue = str(cookies[cookieName])
-
-      cookieData = cookieName + "=" + cookieValue
-      self.send_header("Set-Cookie", cookieData)
-
-    self.send_header("Content-type", "text/xml")
-    self.end_headers()
-    self.wfile.write(b'<?xml version="1.0" ?>')
-    self.wfile.write(b"<ResultData>")
-
-    # Send login status.
-    self._JSON_send("loginStatus", isAuthenticated)
-
-    # If session has not been authenticated, send the session id and password
-    # salt value.  This can be used by the login process on the client.
-    if not isAuthenticated:
-      self._JSON_send("sessionId", session.getId())
-      self._JSON_send("salt", session.getSalt())
-
-    # Does request have parameters?
+    payload = None
     if length > 0:
-      # Get post data.
-      postData = self.rfile.read(length)
-      postDataDecoded = postData.decode("utf-8")
-      # Split the data by commands.
-      commands = postDataDecoded.split("&")
+      try:
+        body = self.rfile.read(length).decode("utf-8")
+        payload = json.loads(body)
+      except (UnicodeDecodeError, json.JSONDecodeError):
+        payload = None
 
-      # For each command...
-      for command in commands:
-        # Break up the command.
-        id, query = command.split("=")
+    if payload is None:
+      response = {
+        "ok": False,
+        "data": None,
+        "error": {"code": "BAD_REQUEST", "message": "Invalid JSON request body."},
+      }
+    elif WebServerInterface.commandRegistry is None:
+      response = {
+        "ok": False,
+        "data": None,
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "Command registry is not configured.",
+        },
+      }
+    elif path == "/api/v2/command":
+      response = WebServerInterface.commandRegistry.executeRequest(
+        payload, isAuthenticated=isAuthenticated
+      )
+    else:
+      response = WebServerInterface.commandRegistry.executeBatchRequest(
+        payload, isAuthenticated=isAuthenticated
+      )
 
-        # Unquote the command.
-        query = urllib.parse.unquote_plus(query)
+    statusCode = 200
+    if not response.get("ok"):
+      statusCode = WebServerInterface._statusCodeFromError(response.get("error"))
 
-        # See if this is a basic query (i.e. changes nothing).
-        isBasicQuery = isReadOnlyRemoteCommand(query)
-        WebServerInterface._logRemoteCommand(clientAddress, query, isBasicQuery)
-
-        if "passwordHash" == id:
-          passwordResult = session.checkPassword(query)
-          self._JSON_send("loginResult", passwordResult)
-        elif isAuthenticated or isBasicQuery:
-          callbackResult = WebServerInterface.callback(self, query)
-          self._send(id, callbackResult)
-
-    # Close XML.
-    self.wfile.write(b"</ResultData>")
+    self._sendJsonResponse(response, cookies, statusCode=statusCode)
 
 
 # end class
 
 if __name__ == "__main__":
-
-  def callback(_, command):
-    # Attempt to run command.
-    result = None
-    try:
-      result = eval(command)
-    except Exception:
-      result = "Exception"
-
-    return result
-
-  WebServerInterface.callback = callback
   server_address = ("", 80)
   httpd = HTTPServer(server_address, WebServerInterface)
 

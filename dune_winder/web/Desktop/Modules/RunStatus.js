@@ -72,10 +72,11 @@ function RunStatus( modules )
     function()
     {
       var winder = modules.get( "Winder" )
+      var commands = window.CommandCatalog
 
       winder.addPeriodicRead
       (
-        "io.plcLogic.getErrorCodeString()",
+        commands.io.getErrorCodeString,
         self.states,
         "plcError"
       )
@@ -83,7 +84,7 @@ function RunStatus( modules )
       // Update for primary state machine.
       winder.addPeriodicDisplay
       (
-        "process.controlStateMachine.state.__class__.__name__",
+        commands.process.getControlStateName,
         "#controlState",
         self.states,
         "controlState"
@@ -92,7 +93,7 @@ function RunStatus( modules )
       // Update for PLC state machine.
       winder.addPeriodicCallback
       (
-        "io.plcLogic.getState()",
+        commands.io.getState,
         function( value )
         {
           if ( null !== value )

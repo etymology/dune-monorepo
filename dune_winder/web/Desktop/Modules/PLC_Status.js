@@ -2,6 +2,7 @@ function PLC_Status( modules )
 {
   var winder = modules.get( "Winder" )
   var runStatus = modules.get( "RunStatus" )
+  var commands = window.CommandCatalog
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -9,13 +10,13 @@ function PLC_Status( modules )
   //-----------------------------------------------------------------------------
   this.reset = function ()
   {
-    winder.remoteAction( 'process.acknowledgeError()' )
+    winder.call( commands.process.acknowledgeError, {} )
   }
   
   // new function for PLC_Init - PWH - September 2021
   this.PLC_init = function ()
   {
-    winder.remoteAction( 'process.acknowledgePLC_Init()' )
+    winder.call( commands.process.acknowledgePLCInit, {} )
   }
 
   //-----------------------------------------------------------------------------

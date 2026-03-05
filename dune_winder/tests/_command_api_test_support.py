@@ -1,5 +1,3 @@
-import json
-
 from dune_winder.api.commands import build_command_registry
 
 
@@ -267,20 +265,4 @@ def build_registry_fixture():
   )
   return registry, process, io, configuration, log, machineCalibration
 
-
-def parse_xml_value(xmlText, tag):
-  openTag = "<" + tag + ">"
-  closeTag = "</" + tag + ">"
-  start = xmlText.find(openTag)
-  if start < 0:
-    return None
-  start += len(openTag)
-  end = xmlText.find(closeTag, start)
-  if end < 0:
-    return None
-  return xmlText[start:end]
-
-
-def encode_legacy_callback_result(value):
-  return json.dumps(value)
 

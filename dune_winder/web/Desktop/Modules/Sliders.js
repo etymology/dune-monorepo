@@ -5,6 +5,7 @@ function Sliders( modules )
 
   var self = this
   var winder = modules.get( "Winder" )
+  var commands = window.CommandCatalog
 
   var sliderValues =
   {
@@ -108,7 +109,7 @@ function Sliders( modules )
   // Uses
   //   Construct a slider.
   // Input:
-  //   query - Query to fetch maximum value.
+  //   request - Command request to fetch maximum value.
   //   sliderTag - HTML tag to place slider.
   //   valueTag - HTML tag to print value of slider.
   //   valueUnits - Text units to display after value.
@@ -116,14 +117,19 @@ function Sliders( modules )
   // Notes:
   //   All sliders run from 0-100 internally.
   //-----------------------------------------------------------------------------
-  function createSlider( query, sliderTag, valueTag, valueUnits, minimum )
+  function createSlider( request, sliderTag, valueTag, valueUnits, minimum )
   {
     // Maximum value query.
-    winder.remoteAction
+    winder.call
     (
-      query,
-      function( data )
+      request.name,
+      request.args || {},
+      function( response )
       {
+        if ( ! response || ! response.ok )
+          return
+
+        var data = response.data
         var maximum = parseFloat( data )
 
         // Callback when slider is changed.
@@ -166,7 +172,7 @@ function Sliders( modules )
               create:
                 function()
                 {
-                  velocitySlider[ sliderTag ] = true
+                  isLoaded[ sliderTag ] = true
                 }
             }
           )
@@ -185,7 +191,7 @@ function Sliders( modules )
   {
     createSlider
     (
-      'process.maxVelocity()',
+      { name: commands.process.maxVelocity, args: {} },
       "velocitySlider",
       "velocityValue",
       "mm/s",
@@ -194,7 +200,7 @@ function Sliders( modules )
 
     createSlider
     (
-      'io.plcLogic.maxAcceleration()',
+      { name: commands.io.maxAcceleration, args: {} },
       "accelerationSlider",
       "accelerationValue",
       "mm/s<sup>2</sup>",
@@ -203,7 +209,7 @@ function Sliders( modules )
 
     createSlider
     (
-      'io.plcLogic.maxDeceleration()',
+      { name: commands.io.maxDeceleration, args: {} },
       "decelerationSlider",
       "decelerationValue",
       "mm/s<sup>2</sup>",

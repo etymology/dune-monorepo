@@ -5,6 +5,7 @@ function Increment( modules )
   var winder = modules.get( "Winder" )
   var page = modules.get( "Page" )
   var position
+  var commands = window.CommandCatalog
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -14,7 +15,11 @@ function Increment( modules )
   {
     var pin = $( "#seekPin" ).val().toUpperCase()
     var velocity = position.motor[ "maxVelocity" ]
-    winder.remoteAction( "process.seekPin( '" + pin + "', " + velocity + " )" )
+    winder.call
+    (
+      commands.process.seekPin,
+      { pin: pin, velocity: velocity }
+    )
   }
 
   //-----------------------------------------------------------------------------
@@ -27,8 +32,12 @@ function Increment( modules )
   {
     var velocity = position.motor[ "maxVelocity" ]
     var x = position.motor[ "xPosition" ] + offset
-    var y = "None"
-    winder.remoteAction( "process.manualSeekXY( " + x + ", " + y + "," + velocity + ")"  )
+    var y = position.motor[ "yPosition" ]
+    winder.call
+    (
+      commands.process.manualSeekXY,
+      { x: x, y: y, velocity: velocity }
+    )
   }
 
   //-----------------------------------------------------------------------------
@@ -40,9 +49,13 @@ function Increment( modules )
   this.moveY = function( offset )
   {
     var velocity = position.motor[ "maxVelocity" ]
-    var x = "None"
+    var x = position.motor[ "xPosition" ]
     var y = position.motor[ "yPosition" ] + offset
-    winder.remoteAction( "process.manualSeekXY( " + x + ", " + y + "," + velocity + ")"  )
+    winder.call
+    (
+      commands.process.manualSeekXY,
+      { x: x, y: y, velocity: velocity }
+    )
   }
 
   page.loadSubPage

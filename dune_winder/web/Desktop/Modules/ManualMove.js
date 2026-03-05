@@ -3,6 +3,7 @@ function ManualMove(modules) {
 
   var page = modules.get("Page");
   var winder = modules.get("Winder");
+  var commands = window.CommandCatalog;
   var sliders = modules.get("Sliders");
   var incrementalJog = null;
   var isMotorStatusLoaded = false;
@@ -77,23 +78,38 @@ function ManualMove(modules) {
   };
 
   var refreshIncrementalJogVelocity = function () {
-    winder.remoteAction("process.maxVelocity()", function (maxVelocity) {
-      maxVelocity = parseFloat(maxVelocity);
-      if (!isFinite(maxVelocity) || maxVelocity <= 0) {
-        return;
-      }
+    winder.batch(
+      [
+        { id: "maxVelocity", name: commands.process.maxVelocity, args: {} },
+        { id: "velocityScale", name: commands.process.getGCodeVelocityScale, args: {} },
+      ],
+      function (response) {
+        if (!response || !response.ok || !response.data || !response.data.results) {
+          return;
+        }
 
-      winder.remoteAction(
-        "process.gCodeHandler.getVelocityScale()",
-        function (velocityScale) {
-          velocityScale = parseFloat(velocityScale);
+        var maxVelocityResult = response.data.results.maxVelocity;
+        var velocityScaleResult = response.data.results.velocityScale;
+        if (!maxVelocityResult || !maxVelocityResult.ok) {
+          return;
+        }
+
+        var maxVelocity = parseFloat(maxVelocityResult.data);
+        if (!isFinite(maxVelocity) || maxVelocity <= 0) {
+          return;
+        }
+
+        var velocityScale = 1.0;
+        if (velocityScaleResult && velocityScaleResult.ok) {
+          velocityScale = parseFloat(velocityScaleResult.data);
           if (!isFinite(velocityScale) || velocityScale <= 0) {
             velocityScale = 1.0;
           }
-          incrementalJogVelocity = maxVelocity * velocityScale;
-        },
-      );
-    });
+        }
+
+        incrementalJogVelocity = maxVelocity * velocityScale;
+      },
+    );
   };
 
   var setStatus = function (text) {
@@ -101,8 +117,9 @@ function ManualMove(modules) {
   };
 
   var executeActionGCode = function (gCode) {
-    winder.remoteAction(
-      "process.executeG_CodeLine( " + JSON.stringify(gCode) + " )",
+    winder.call(
+      commands.process.executeGCodeLine,
+      { line: gCode },
     );
   };
 
@@ -170,34 +187,34 @@ function ManualMove(modules) {
     $("#manualGCode").val(gCode);
     setStatus("Request G-Code execution...");
 
-    winder.remoteAction(
-      "process.executeG_CodeLine( " + JSON.stringify(gCode) + " )",
-      function (data) {
-        if (!data || (typeof data == "object" && data.ok !== false)) {
+    winder.call(
+      commands.process.executeGCodeLine,
+      { line: gCode },
+      function (response) {
+        if (!response || response.ok) {
           setStatus("Executed with no errors.");
           return;
         }
 
-        if (typeof data == "string") {
-          setStatus("Error interpreting line: " + data);
-          return;
+        if (response.error && response.error.message) {
+          setStatus("Error interpreting line: " + response.error.message);
+        } else {
+          setStatus("Manual G-code execution failed.");
         }
-
-        setStatus(data.error || "Manual G-code execution failed.");
       },
     );
   };
 
   this.reset = function () {
-    winder.remoteAction("process.acknowledgeError()");
+    winder.call(commands.process.acknowledgeError, {});
   };
 
   this.latch = function () {
-    winder.remoteAction("io.plcLogic.move_latch()");
+    winder.call(commands.io.moveLatch, {});
   };
 
   this.servoDisable = function () {
-    winder.remoteAction("process.servoDisable()");
+    winder.call(commands.process.servoDisable, {});
   };
 
   refreshIncrementalJogVelocity();
