@@ -4,6 +4,7 @@ function VTemplate( modules )
   var activeLayer = null
   var lastRenderedLayer = null
   var lastVState = null
+  var lastUState = null
   var lastManualState = null
 
   var vFieldSpecs = [
@@ -19,6 +20,21 @@ function VTemplate( modules )
     { key: "head_a_corner", label: "Head A" },
     { key: "bottom_a_head_end", label: "Bottom A / head end" },
     { key: "bottom_b_head_end", label: "Bottom B / head end" }
+  ]
+
+  var uFieldSpecs = [
+    { key: "top_b_foot_end", label: "Top B / foot end" },
+    { key: "top_a_foot_end", label: "Top A / foot end" },
+    { key: "bottom_a_head_end", label: "Bottom A / head end" },
+    { key: "bottom_b_head_end", label: "Bottom B / head end" },
+    { key: "head_b_corner", label: "Head B" },
+    { key: "head_a_corner", label: "Head A" },
+    { key: "top_a_head_end", label: "Top A / head end" },
+    { key: "top_b_head_end", label: "Top B / head end" },
+    { key: "bottom_b_foot_end", label: "Bottom B / foot end" },
+    { key: "bottom_a_foot_end", label: "Bottom A / foot end" },
+    { key: "foot_a_corner", label: "Foot A" },
+    { key: "foot_b_corner", label: "Foot B" }
   ]
 
   var gxOffsetSpecs = [
@@ -101,21 +117,21 @@ function VTemplate( modules )
     $( selector + " button, " + selector + " input" ).prop( "disabled", disabled )
   }
 
-  function buildVOffsetFields()
+  function buildOffsetFields( containerSelector, specs, inputPrefix )
   {
     var rows = []
-    for ( var index in vFieldSpecs )
+    for ( var index in specs )
     {
-      var field = vFieldSpecs[ index ]
+      var field = specs[ index ]
       rows.push(
         '<div class="gCodeGenerationFieldStack">'
-        + '<label for="gCodeGenerationV_' + field.key + '">' + field.label + '</label>'
-        + '<input type="number" id="gCodeGenerationV_' + field.key + '" step="0.001" />'
+        + '<label for="' + inputPrefix + field.key + '">' + field.label + '</label>'
+        + '<input type="number" id="' + inputPrefix + field.key + '" step="0.5" />'
         + "</div>"
       )
     }
 
-    $( "#gCodeGenerationVFieldGrid" ).html( rows.join( "" ) )
+    $( containerSelector ).html( rows.join( "" ) )
   }
 
   function setNotes( notes )
@@ -159,6 +175,7 @@ function VTemplate( modules )
   function setModeVisibility( mode, showCalibrate )
   {
     $( "#gCodeGenerationVCard" ).toggleClass( "hidden", mode != "v" )
+    $( "#gCodeGenerationUCard" ).toggleClass( "hidden", mode != "u" )
     $( "#gCodeGenerationGXCard" ).toggleClass( "hidden", mode != "gx" )
     $( "#gCodeGenerationInfoCard" ).toggleClass( "hidden", mode != "info" )
     $( "#gCodeGenerationOpenCalibrateButton" ).toggleClass( "hidden", ! showCalibrate )
@@ -225,7 +242,7 @@ function VTemplate( modules )
       setControlsDisabled( "#gCodeGenerationVCard", true )
       setNotes(
         [
-          "Edit the 12 V offsets and transfer pause after the V generator state finishes loading.",
+          "Edit the 12 V offsets and transition options after the V generator state finishes loading.",
           "Generation writes the live V-layer.gc file for the active APA."
         ]
       )
@@ -242,6 +259,7 @@ function VTemplate( modules )
     }
 
     $( "#gCodeGenerationVTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#gCodeGenerationVIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     setControlsDisabled( "#gCodeGenerationVCard", ! state.enabled || ! state.movementReady )
 
     setStatus(
@@ -263,7 +281,80 @@ function VTemplate( modules )
 
     setNotes(
       [
-        "Adjust the 12 V offsets and optional transfer pause, then generate the live V-layer.gc file.",
+        "Adjust the 12 V offsets plus optional transfer pause and include-lead-mode, then generate the live V-layer.gc file.",
+        "The generated recipe includes N-line numbering and wrap-level identifiers on each emitted line.",
+        "The header hash updates each time the file is regenerated."
+      ]
+    )
+  }
+
+  function renderUState( state )
+  {
+    setModeVisibility( "u", false )
+    setHeader(
+      "GCode Generation",
+      "Active layer U uses the direct U template generator."
+    )
+
+    if ( ! state || state.layer != "U" )
+    {
+      setStatus(
+        {
+          layer: "U",
+          mode: "U template",
+          dirty: "-",
+          machine: "-",
+          summary: "Loading U generator state...",
+          ready: "-",
+          liveFile: "",
+          hash: "-",
+          updatedAt: "-",
+          disabled: "",
+        }
+      )
+      setControlsDisabled( "#gCodeGenerationUCard", true )
+      setNotes(
+        [
+          "Edit the 12 U offsets and transition options after the U generator state finishes loading.",
+          "Generation writes the live U-layer.gc file for the active APA."
+        ]
+      )
+      return
+    }
+
+    for ( var index in uFieldSpecs )
+    {
+      var field = uFieldSpecs[ index ]
+      setFieldValueIfIdle(
+        "#gCodeGenerationU_" + field.key,
+        formatInputNumber( state.offsets[ field.key ], 3 )
+      )
+    }
+
+    $( "#gCodeGenerationUTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#gCodeGenerationUIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
+    setControlsDisabled( "#gCodeGenerationUCard", ! state.enabled || ! state.movementReady )
+
+    setStatus(
+      {
+        layer: state.layer || "U",
+        mode: "U template",
+        dirty: state.dirty ? "Unsaved draft" : "Saved",
+        machine: state.movementReady ? "Ready to generate" : "Machine busy",
+        summary: state.wrapCount + " wraps  |  " + state.lineCount + " lines",
+        ready: state.enabled && state.movementReady ? "Ready to generate" : "Waiting for machine",
+        liveFile: state.liveFile || "",
+        hash: state.generated && state.generated.hashValue ? state.generated.hashValue : "-",
+        updatedAt: state.generated && state.generated.updatedAt ? state.generated.updatedAt : "-",
+        disabled: state.movementReady
+          ? ( state.disabledReason || "" )
+          : "Machine is not ready to generate the U recipe.",
+      }
+    )
+
+    setNotes(
+      [
+        "Adjust the 12 U offsets plus optional transfer pause and include-lead-mode, then generate the live U-layer.gc file.",
         "The generated recipe includes N-line numbering and wrap-level identifiers on each emitted line.",
         "The header hash updates each time the file is regenerated."
       ]
@@ -459,46 +550,7 @@ function VTemplate( modules )
 
   function renderInfoState( layer, state )
   {
-    setModeVisibility( "info", layer == "U" )
-
-    if ( layer == "U" )
-    {
-      setHeader(
-        "GCode Generation",
-        "Active layer U uses the calibration workflow rather than a direct G-code template."
-      )
-      setInfoCard(
-        "U Layer Uses Calibration",
-        "Use the Calibrate tab to maintain the live U_Calibration.xml file. This page only exposes direct .gc generation for V."
-      )
-
-      setStatus(
-        {
-          layer: "U",
-          mode: "Calibration XML",
-          dirty: state ? ( state.dirty ? "Unsaved draft" : "Saved" ) : "-",
-          machine: state ? ( state.movementReady ? "Ready for calibration" : "Machine busy" ) : "-",
-          summary: state
-            ? state.counts.boardCheckDone + " / " + state.counts.boardCheckTotal + " endpoints checked"
-            : "Calibration only",
-          ready: state && state.counts.bootstrapComplete
-            ? "Use Calibrate"
-            : "Complete bootstrap on Calibrate",
-          liveFile: state && state.liveFile ? state.liveFile : "",
-          hash: "-",
-          updatedAt: "-",
-          disabled: "No standalone U-layer .gc generator is available on this page.",
-        }
-      )
-
-      setNotes(
-        [
-          "Use Calibrate to capture bootstrap pins, complete board checks, and save the live U calibration XML.",
-          "This tab stays available so the active layer always has a consistent generation or workflow summary."
-        ]
-      )
-      return
-    }
+    setModeVisibility( "info", false )
 
     setHeader(
       "GCode Generation",
@@ -548,6 +600,12 @@ function VTemplate( modules )
       return
     }
 
+    if ( activeLayer == "U" )
+    {
+      renderUState( lastUState )
+      return
+    }
+
     if ( isGXLayer( activeLayer ) )
     {
       renderGXCalibrateState( lastManualState )
@@ -580,6 +638,24 @@ function VTemplate( modules )
         if ( state )
         {
           lastVState = state
+          render()
+          if ( callback )
+            callback( state )
+        }
+      }
+    )
+  }
+
+  function refreshUStateOnce( callback )
+  {
+    winder.remoteAction
+    (
+      "process.uTemplateRecipe.getState()",
+      function( state )
+      {
+        if ( state )
+        {
+          lastUState = state
           render()
           if ( callback )
             callback( state )
@@ -664,6 +740,79 @@ function VTemplate( modules )
     )
   }
 
+  function applyVIncludeLeadMode()
+  {
+    if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
+      return
+
+    pageAction
+    (
+      "process.vTemplateRecipe.setIncludeLeadMode( "
+      + ( $( "#gCodeGenerationVIncludeLeadMode" ).is( ":checked" ) ? "True" : "False" )
+      + " )",
+      function()
+      {
+        refreshVStateOnce()
+      }
+    )
+  }
+
+  function applyUOffsetInput( offsetId )
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    var value = parseFloat( $( "#gCodeGenerationU_" + offsetId ).val() )
+    if ( isNaN( value ) )
+    {
+      refreshUStateOnce()
+      return
+    }
+
+    pageAction
+    (
+      'process.uTemplateRecipe.setOffset( "' + offsetId + '", ' + value + " )",
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
+  function applyUTransferPause()
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    pageAction
+    (
+      "process.uTemplateRecipe.setTransferPause( "
+      + ( $( "#gCodeGenerationUTransferPause" ).is( ":checked" ) ? "True" : "False" )
+      + " )",
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
+  function applyUIncludeLeadMode()
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    pageAction
+    (
+      "process.uTemplateRecipe.setIncludeLeadMode( "
+      + ( $( "#gCodeGenerationUIncludeLeadMode" ).is( ":checked" ) ? "True" : "False" )
+      + " )",
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
   function applyGXOffsetInput( offsetId, selector )
   {
     if ( ! isGXLayer( activeLayer ) || ! lastManualState || lastManualState.mode != "gx" )
@@ -703,7 +852,8 @@ function VTemplate( modules )
     )
   }
 
-  buildVOffsetFields()
+  buildOffsetFields( "#gCodeGenerationVFieldGrid", vFieldSpecs, "gCodeGenerationV_" )
+  buildOffsetFields( "#gCodeGenerationUFieldGrid", uFieldSpecs, "gCodeGenerationU_" )
 
   for ( var index in vFieldSpecs )
   {
@@ -737,6 +887,22 @@ function VTemplate( modules )
     )( gxOffsetSpecs[ gxIndex ].key, gxOffsetSpecs[ gxIndex ].selector )
   }
 
+  for ( var uIndex in uFieldSpecs )
+  {
+    ( function( offsetId )
+      {
+        $( "#gCodeGenerationU_" + offsetId )
+          .change
+          (
+            function()
+            {
+              applyUOffsetInput( offsetId )
+            }
+          )
+      }
+    )( uFieldSpecs[ uIndex ].key )
+  }
+
   $( "#gCodeGenerationVTransferPause" )
     .change
     (
@@ -746,12 +912,39 @@ function VTemplate( modules )
       }
     )
 
+  $( "#gCodeGenerationVIncludeLeadMode" )
+    .change
+    (
+      function()
+      {
+        applyVIncludeLeadMode()
+      }
+    )
+
   $( "#gCodeGenerationGXTransferPause" )
     .change
     (
       function()
       {
         applyGXTransferPause()
+      }
+    )
+
+  $( "#gCodeGenerationUTransferPause" )
+    .change
+    (
+      function()
+      {
+        applyUTransferPause()
+      }
+    )
+
+  $( "#gCodeGenerationUIncludeLeadMode" )
+    .change
+    (
+      function()
+      {
+        applyUIncludeLeadMode()
       }
     )
 
@@ -784,6 +977,40 @@ function VTemplate( modules )
           {
             setMessage( "Generated the live V-layer.gc recipe.", "success" )
             refreshVStateOnce()
+          }
+        )
+      }
+    )
+
+  $( "#gCodeGenerationUResetButton" )
+    .click
+    (
+      function()
+      {
+        pageAction
+        (
+          "process.uTemplateRecipe.resetDraft()",
+          function()
+          {
+            setMessage( "Reset the U recipe parameters to defaults.", "success" )
+            refreshUStateOnce()
+          }
+        )
+      }
+    )
+
+  $( "#gCodeGenerationUGenerateButton" )
+    .click
+    (
+      function()
+      {
+        pageAction
+        (
+          "process.uTemplateRecipe.generateRecipeFile()",
+          function()
+          {
+            setMessage( "Generated the live U-layer.gc recipe.", "success" )
+            refreshUStateOnce()
           }
         )
       }
@@ -857,6 +1084,19 @@ function VTemplate( modules )
 
   winder.addPeriodicCallback
   (
+    "process.uTemplateRecipe.getState()",
+    function( state )
+    {
+      if ( state )
+      {
+        lastUState = state
+        render()
+      }
+    }
+  )
+
+  winder.addPeriodicCallback
+  (
     "process.manualCalibration.getState()",
     function( state )
     {
@@ -869,9 +1109,11 @@ function VTemplate( modules )
   )
 
   setControlsDisabled( "#gCodeGenerationVCard", true )
+  setControlsDisabled( "#gCodeGenerationUCard", true )
   setControlsDisabled( "#gCodeGenerationGXCard", true )
   render()
   refreshLayerOnce()
   refreshVStateOnce()
+  refreshUStateOnce()
   refreshManualStateOnce()
 }

@@ -1,5 +1,5 @@
 ###############################################################################
-# Name: IO_LogThread.py
+# Name: IO_Log.py
 # Uses: System to log I/O.
 # Date: 2016-03-03
 # Author(s):

@@ -1,5 +1,5 @@
 ###############################################################################
-# Name: X_LayerGeometry.py
+# Name: G_LayerGeometry.py
 # Uses: Geometry specific to the 2nd grid layer, G.
 # Date: 2016-03-23
 # Author(s):

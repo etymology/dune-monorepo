@@ -516,7 +516,7 @@ class _ManualCalibrationGXSession:
     self.cameraOffsetY = cameraOffsetY
     self.references = {}
     self.offsets = {}
-    self.transferPause = False
+    self.transferPause = True
     self.generated = {}
     self.dirty = False
 
@@ -636,7 +636,7 @@ class ManualCalibration:
       offsets[offsetId] = self._optionalFloat(storedOffsets.get(offsetId))
     session.offsets = offsets
 
-    session.transferPause = bool(data.get("transferPause", False))
+    session.transferPause = bool(data.get("transferPause", True))
     session.generated = self._emptyGXGenerated(session)
     generated = data.get("generated", {})
     if generated is not None:
@@ -1046,7 +1046,7 @@ class ManualCalibration:
     for offsetId in GX_OFFSET_IDS:
       session.offsets[offsetId] = None
 
-    session.transferPause = False
+    session.transferPause = True
     session.generated = self._emptyGXGenerated(session)
     session.dirty = False
     session.initialized = True
@@ -1763,13 +1763,13 @@ class ManualCalibration:
     outputPath = self._liveFilePath(layer)
     generation = write_xg_template_file(
       layer,
-      outputPath,
-      specialInputs={
+      output_path=outputPath,
+      special_inputs={
         "references": session.references,
         "offsets": session.offsets,
         "transferPause": session.transferPause,
       },
-      archiveDirectory=self._recipeArchiveDirectory(),
+      archive_directory=self._recipeArchiveDirectory(),
     )
 
     updatedAt = str(self._process._systemTime.get())

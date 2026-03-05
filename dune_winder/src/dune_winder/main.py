@@ -25,7 +25,7 @@ from dune_winder.core.LowLevelIO import LowLevelIO
 from dune_winder.core.Process import Process
 
 from dune_winder.threads.PrimaryThread import PrimaryThread
-from dune_winder.threads.UI_ServerThread import UI_ServerThread
+from dune_winder.threads.UI_ServerThread import UICommandServerThread
 from dune_winder.threads.ControlThread import ControlThread
 from dune_winder.threads.WebServerThread import WebServerThread
 from dune_winder.threads.CameraThread import CameraThread
@@ -229,7 +229,7 @@ def main():
     # Initialize threads.
     #
 
-    uiServer = UI_ServerThread(commandHandler, log)
+    uiServer = UICommandServerThread(commandHandler, log)
     webServerThread = WebServerThread(commandHandler, log)
     controlThread = ControlThread(
       io, log, process.controlStateMachine, systemTime, isIO_Logged

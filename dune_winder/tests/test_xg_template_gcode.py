@@ -80,6 +80,23 @@ class XGTemplateGCodeTests(unittest.TestCase):
       self.assertEqual(recipe.getLines()[1], "N1 (1,1) X635.0 Y201.5\n")
       self.assertEqual(recipe.getLines()[2], "N2 (1,2 HEAD RESTART) X440.0\n")
 
+  def test_write_xg_template_file_accepts_snake_case_aliases(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      outputPath = os.path.join(rootDirectory, "G-layer.gc")
+      archiveDirectory = os.path.join(rootDirectory, "Archive")
+
+      result = write_xg_template_file(
+        "G",
+        output_path=outputPath,
+        special_inputs=self._special_inputs(transferPause=True),
+        archive_directory=archiveDirectory,
+      )
+
+      recipe = Recipe(outputPath, None)
+      self.assertEqual(result["description"], "G-layer")
+      self.assertEqual(recipe.getDescription(), "G-layer")
+      self.assertEqual(recipe.getID(), result["hashValue"])
+
 
 if __name__ == "__main__":
   unittest.main()

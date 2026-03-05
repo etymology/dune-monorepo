@@ -16,6 +16,7 @@ def nearComb(pin which is PB{n} or PF{n}):
 
 curly braces are replacements, square braces are conditional lines
 
+Whenever we have a PB{n} or PF{n} n should wrap around after 2401 back to 1, and vice versa.
 
 ( U Layer )
 N0 X7174 Y60 F300 (load new calibration file)

@@ -71,8 +71,12 @@
     </p>
     <div id="gCodeGenerationVFieldGrid" class="gCodeGenerationFieldGrid"></div>
     <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationVTransferPause" />
+      <input type="checkbox" id="gCodeGenerationVTransferPause" checked />
       <label for="gCodeGenerationVTransferPause">Transfer Pause</label>
+    </div>
+    <div class="gCodeGenerationCheckboxRow">
+      <input type="checkbox" id="gCodeGenerationVIncludeLeadMode" />
+      <label for="gCodeGenerationVIncludeLeadMode">Include Lead Mode</label>
     </div>
     <div class="gCodeGenerationButtonRow">
       <button type="button" id="gCodeGenerationVResetButton">
@@ -80,6 +84,34 @@
       </button>
       <button type="button" id="gCodeGenerationVGenerateButton">
         Generate V-layer.gc
+      </button>
+    </div>
+  </article>
+
+  <article
+    id="gCodeGenerationUCard"
+    class="gCodeGenerationCard gCodeGenerationControlsGroup hidden"
+  >
+    <h2>U Parameters</h2>
+    <p class="gCodeGenerationHint">
+      Edit the 12 U-layer line offsets and optional transfer pause, then
+      generate the live <code>U-layer.gc</code> file.
+    </p>
+    <div id="gCodeGenerationUFieldGrid" class="gCodeGenerationFieldGrid"></div>
+    <div class="gCodeGenerationCheckboxRow">
+      <input type="checkbox" id="gCodeGenerationUTransferPause" checked />
+      <label for="gCodeGenerationUTransferPause">Transfer Pause</label>
+    </div>
+    <div class="gCodeGenerationCheckboxRow">
+      <input type="checkbox" id="gCodeGenerationUIncludeLeadMode" />
+      <label for="gCodeGenerationUIncludeLeadMode">Include Lead Mode</label>
+    </div>
+    <div class="gCodeGenerationButtonRow">
+      <button type="button" id="gCodeGenerationUResetButton">
+        Reset Defaults
+      </button>
+      <button type="button" id="gCodeGenerationUGenerateButton">
+        Generate U-layer.gc
       </button>
     </div>
   </article>
@@ -132,7 +164,7 @@
     </div>
 
     <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationGXTransferPause" />
+      <input type="checkbox" id="gCodeGenerationGXTransferPause" checked />
       <label for="gCodeGenerationGXTransferPause">Transfer Pause</label>
     </div>
 

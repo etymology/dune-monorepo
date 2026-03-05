@@ -20,6 +20,7 @@ from dune_winder.core.ControlStateMachine import ControlStateMachine
 from dune_winder.core.CameraCalibration import CameraCalibration
 from dune_winder.core.ManualCalibration import ManualCalibration
 from dune_winder.core.VTemplateRecipe import VTemplateRecipe
+from dune_winder.core.UTemplateRecipe import UTemplateRecipe
 
 from dune_winder.machine.HeadCompensation import HeadCompensation
 from dune_winder.machine.GeometrySelection import GeometrySelection
@@ -138,6 +139,7 @@ class Process:
     self.cameraCalibration.pixelsPer_mm(configuration.get("pixelsPer_mm"))
     self.manualCalibration = ManualCalibration(self)
     self.vTemplateRecipe = VTemplateRecipe(self)
+    self.uTemplateRecipe = UTemplateRecipe(self)
 
     self.controlStateMachine.cameraCalibration = self.cameraCalibration
     self.controlStateMachine.machineCalibration = self._machineCalibration
@@ -1781,13 +1783,13 @@ class Process:
 
 
 def line_intersects_rectangle(
-  x1, y1, x2, y2, rect_x_center, rect_x_tolerance, rect_y_center, rectangle_y_tolerance
+  x1, y1, x2, y2, rect_x_center, rect_x_tolerance, rect_y_center, rect_y_tolerance
 ):
   # Calculate the rectangle's boundaries based on the center and offset
   x_min, x_max = rect_x_center - rect_x_tolerance, rect_x_center + rect_x_tolerance
   y_min, y_max = (
-    rect_y_center - rectangle_y_tolerance,
-    rect_y_center + rectangle_y_tolerance,
+    rect_y_center - rect_y_tolerance,
+    rect_y_center + rect_y_tolerance,
   )
 
   # Define a function to check if two line segments intersect

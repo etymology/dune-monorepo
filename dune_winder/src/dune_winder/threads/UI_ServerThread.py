@@ -17,26 +17,27 @@ import threading  # For additional threads.
 
 
 # ------------------------------------------------------------------------------
-# PrimaryThread to handle an individual connection from a client socket.
+# Thread to handle an individual connection from a client socket.
 # ------------------------------------------------------------------------------
-class _Client(threading.Thread):
+class _CommandClientThread(threading.Thread):
   # ---------------------------------------------------------------------
-  def __init__(self, xxx_todo_changeme, callback, log):
+  def __init__(self, client_connection, command_callback, log):
     """
     Constructor.
 
     Args:
       clientSocket: Connection to client.
       address: Address of client (ignored)
-      callback: Function to send data from client. What the callback returns is then sent back to client.
+      command_callback: Function to send data from client. What the callback
+        returns is then sent back to client.
 
     """
-    (clientSocket, address) = xxx_todo_changeme
+    clientSocket, address = client_connection
     threading.Thread.__init__(self)
 
-    address = address
+    _ = address
     self._socket = clientSocket
-    self._callback = callback
+    self._callback = command_callback
     self._log = log
     self.start()
 
@@ -59,30 +60,30 @@ class _Client(threading.Thread):
     while isRunning:
       try:
         # Get the client request.
-        data = self._socket.recv(Settings.SERVER_MAX_DATA_SIZE)
+        requestData = self._socket.recv(Settings.SERVER_MAX_DATA_SIZE)
       except Exception:
         # If there was a problem it is probably because the socket was
         # closed.  Just shutdown the client thread.
         isRunning = False
 
       # Did we get anything?
-      if isRunning and not "" == data:
+      if isRunning and not "" == requestData:
         # Process the request.
-        dataString = str(self._callback(None, data))
+        responseText = str(self._callback(None, requestData))
 
         # Break sting into chunks that are no larger than
         # Settings.SERVER_MAX_DATA_SIZE characters.
         chunks = [
-          dataString[index : index + Settings.SERVER_MAX_DATA_SIZE]
-          for index in range(0, len(dataString), Settings.SERVER_MAX_DATA_SIZE)
+          responseText[index : index + Settings.SERVER_MAX_DATA_SIZE]
+          for index in range(0, len(responseText), Settings.SERVER_MAX_DATA_SIZE)
         ]
 
         # Send each chunk of data.
         chunkSize = 0
-        for subString in chunks:
+        for responseChunk in chunks:
           # Send the results back to client.
-          self._socket.send(subString)
-          chunkSize = len(subString)
+          self._socket.send(responseChunk)
+          chunkSize = len(responseChunk)
 
         # If the last chunk was either empty or exactly the max data size, send
         # a blank line as the client will expect at least/one more packet.
@@ -110,7 +111,7 @@ class _Client(threading.Thread):
 # ------------------------------------------------------------------------------
 # User interface server thread.
 # ------------------------------------------------------------------------------
-class UI_ServerThread(PrimaryThread):
+class UICommandServerThread(PrimaryThread):
   # ---------------------------------------------------------------------
   def __init__(self, commandCallback, log):
     """
@@ -121,14 +122,14 @@ class UI_ServerThread(PrimaryThread):
 
     """
 
-    PrimaryThread.__init__(self, "UI_ServerThread", log)
+    PrimaryThread.__init__(self, "UICommandServerThread", log)
     self._callback = commandCallback
     self._log = log
 
   # ---------------------------------------------------------------------
   def body(self):
     """
-    Body of thread. Accepts client connections and swans threads to deal with client requests.
+    Body of thread. Accepts client connections and spawns threads to deal with client requests.
 
     """
 
@@ -136,35 +137,40 @@ class UI_ServerThread(PrimaryThread):
     isError = False
 
     # Attempt to open a listening socket...
+    serverSocket = None
     try:
-      server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      server.bind(("", Settings.SERVER_PORT))
-      server.listen(Settings.SERVER_BACK_LOG)
+      serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      serverSocket.bind(("", Settings.SERVER_PORT))
+      serverSocket.listen(Settings.SERVER_BACK_LOG)
     except socket.error:
       # Unable to open listening socket.
       isError = True
-      if server:
-        server.close()
+      if serverSocket:
+        serverSocket.close()
 
     # If all went alright...
     if not isError:
       # While the system is running...
       while PrimaryThread.isRunning:
         # Wait for a connection, or 100 ms.
-        inputReady, _, _ = select.select([server], [], [], 0.1)
+        inputReady, _, _ = select.select([serverSocket], [], [], 0.1)
 
         # For all the results the unblocked...
         for readySource in inputReady:
           # Was the source our server getting a connection?
-          if readySource == server:
+          if readySource == serverSocket:
             # Start a thread to deal with this client
-            _Client(server.accept(), self._callback, self._log)
+            _CommandClientThread(serverSocket.accept(), self._callback, self._log)
         # end for
 
       # end while
 
     # Close server socket.
-    server.close()
+    serverSocket.close()
 
 
 # end class
+
+
+# Backward-compatible class alias.
+UI_ServerThread = UICommandServerThread
