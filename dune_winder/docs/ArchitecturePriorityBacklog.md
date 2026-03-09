@@ -240,6 +240,8 @@ The codebase has two separate XML-based persistence mechanisms with different re
 
 ## P8: `GCodeCallbacks` delivers one callback per parameter word, forcing handlers to re-assemble instructions from fragments
 
+Status: Implemented (2026-03-09). `gcode/runtime.py` now dispatches exactly one `on_instruction(line: ProgramLine)` callback per parsed line. `machine/g_code_handler_base.py` now consumes complete instructions via `handle_instruction`, removing per-letter callback registration (`X/Y/Z/F/G/N`) and related dirty-flag fields from the base class. `core/g_code_handler.py` now executes queued instruction actions (`xy`, `z`, `head`, `latch`) plus deferred stop requests, preserving move sequencing without per-word callback fanout.
+
 ### Root Cause
 `gcode/runtime.py` `execute_program_line` iterates over every `CommandWord` in a `ProgramLine` and fires a separate callback per letter. A single instruction like `G1 X10 Y20 F500` arrives as four independent calls: `G(1)`, `X(10.0)`, `Y(20.0)`, `F(500.0)`. The runtime has no concept of instruction boundary — it treats a program line as an unordered bag of words rather than a structured command.
 

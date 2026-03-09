@@ -39,29 +39,14 @@ class GCodeParserTests(unittest.TestCase):
 
 
 class GCodeRuntimeTests(unittest.TestCase):
-  def test_runtime_callback_order_and_payload_match_legacy_shapes(self):
+  def test_runtime_delivers_one_callback_per_instruction(self):
     seen = []
-    callbacks = {
-      "X": lambda value: seen.append(("X", value)),
-      "Y": lambda value: seen.append(("Y", value)),
-      "F": lambda value: seen.append(("F", value)),
-      "G": lambda value: seen.append(("G", value)),
-      "N": lambda value: seen.append(("N", value)),
-    }
+    callbacks = {"on_instruction": lambda line: seen.append(line)}
 
-    line = parse_line_text("X10 Y11 F120 G103 PF1 PF2 PXY N7")
+    line = parse_line_text("X10 Y11 F120 G103 PF1 PF2 PXY N7 ( note )")
     execute_program_line(line, callbacks.get)
 
-    self.assertEqual(
-      seen,
-      [
-        ("X", 10.0),
-        ("Y", 11.0),
-        ("F", 120.0),
-        ("G", ["103", "F1", "F2", "XY"]),
-        ("N", 7),
-      ],
-    )
+    self.assertEqual(seen, [line])
 
 
 class GCodeDomainTests(unittest.TestCase):
@@ -81,12 +66,14 @@ class GCodeDomainTests(unittest.TestCase):
   def test_program_executor_executes_with_canonical_runtime(self):
     seen = []
     callbacks = GCodeCallbacks()
-    callbacks.registerCallback("G", lambda parameter: seen.append(parameter))
+    callbacks.registerCallback("on_instruction", lambda line: seen.append(line))
     gCode = GCodeProgramExecutor([], callbacks)
 
     gCode.execute("G105 PX-10")
 
-    self.assertEqual(seen, [[str(int(Opcode.OFFSET)), "X-10"]])
+    self.assertEqual(len(seen), 1)
+    self.assertIsInstance(seen[0].items[0], FunctionCall)
+    self.assertEqual(seen[0].items[0].as_legacy_parameter_list(), [str(int(Opcode.OFFSET)), "X-10"])
 
   def test_program_executor_maps_parse_errors_to_execution_errors(self):
     callbacks = GCodeCallbacks()

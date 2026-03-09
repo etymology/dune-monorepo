@@ -200,39 +200,23 @@ class G_CodeHandler(G_CodeHandlerBase):
       velocity = min(self._velocity, self._maxVelocity)
       velocity *= self._velocityScale
 
-      # If an X/Y coordinate change is needed...
-      if self._xyChange and not moving:
-        # Make the move.
-        self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+      if not moving and self._pending_actions:
+        action = self._pending_actions.pop(0)
+        if action == "xy":
+          self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+          moving = True
+        elif action == "z":
+          self._io.plcLogic.setZ_Position(self._z, velocity)
+          moving = True
+        elif action == "head":
+          self._io.head.setHeadPosition(self._headPosition, velocity)
+          moving = True
+        elif action == "latch":
+          self._io.plcLogic.move_latch()
+          moving = True
 
-        # Reset change flag.
-        self._xyChange = False
-        moving = True
-
-      # If Z move...
-      if self._zChange and not moving:
-        # Make the move.
-        self._io.plcLogic.setZ_Position(self._z, velocity)
-
-        # Reset change flag.
-        self._zChange = False
-        moving = True
-
-      # Head movement...
-      if self._headPositionChange and not moving:
-        self._io.head.setHeadPosition(self._headPosition, velocity)
-        self._headPositionChange = False
-
-        moving = True
-
-      # Toggle the latch.
-      if self._latchRequest and not moving:
-        self._io.plcLogic.move_latch()
-        self._latchRequest = False
-        moving = True
-
-      if self._stopRequest:
-        self._stopRequest = False
+      if self._pending_stop_request:
+        self._pending_stop_request = False
         self._stopNextMove = True
 
       # If there are no more moves, run the next line of G-Code.
