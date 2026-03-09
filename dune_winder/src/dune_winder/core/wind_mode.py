@@ -7,8 +7,11 @@
 ###############################################################################
 
 from dune_winder.library.state_machine_state import StateMachineState
+from dune_winder.core.control_events import SetLoopModeEvent, StopMotionEvent
 from dune_winder.io.Maps.base_io import BaseIO
 from dune_winder.library.log import Log
+
+
 class WindMode(StateMachineState):
   # ---------------------------------------------------------------------
   def __init__(
@@ -29,6 +32,9 @@ class WindMode(StateMachineState):
     self._log = log
     self._startTime = None
     self._currentLine = 0
+    self._stopRequested = False
+    self._loopMode = False
+    self._windTime = 0
 
   # ---------------------------------------------------------------------
   def enter(self):
@@ -64,8 +70,8 @@ class WindMode(StateMachineState):
 
     if not isError:
       self._startTime = self.stateMachine.systemTime.get()
-      self.stateMachine.windTime = 0
-      self.stateMachine.stopRequest = False
+      self._windTime = 0
+      self._stopRequested = False
       self._log.add(
         self.__class__.__name__,
         "WIND",
@@ -85,18 +91,16 @@ class WindMode(StateMachineState):
       True if there was an error, false if not.
     """
 
-    self.stateMachine.windTime += self.stateMachine.systemTime.getDelta(self._startTime)
+    self._windTime += self.stateMachine.systemTime.getDelta(self._startTime)
 
-    deltaString = self.stateMachine.systemTime.getElapsedString(
-      self.stateMachine.windTime
-    )
+    deltaString = self.stateMachine.systemTime.getElapsedString(self._windTime)
 
     # Log message that wind is complete.
     self._log.add(
       self.__class__.__name__,
       "WIND_TIME",
       "Wind ran for " + deltaString + ".",
-      [self.stateMachine.windTime],
+      [self._windTime],
     )
 
     self.stateMachine.gCodeHandler.stop()
@@ -110,11 +114,11 @@ class WindMode(StateMachineState):
     # Want to print G-Code line
 
     # If stop requested...
-    if self.stateMachine.stopRequest:  # and self.io.Tension_10N.get() :
+    if self._stopRequested:  # and self.io.Tension_10N.get() :
       # We didn't finish this line.  Run it again.
       self._io.plcLogic.stopSeek()
       self.changeState(self.stateMachine.States.STOP)
-      self.stateMachine.stopRequest = False
+      self._stopRequested = False
     else:
       # Update G-Code handler.
       isDone = self.stateMachine.gCodeHandler.poll()
@@ -181,9 +185,41 @@ class WindMode(StateMachineState):
         # Log message that wind is complete.
         self._log.add(self.__class__.__name__, "WIND", "G-Code execution complete")
 
-        if self.stateMachine.loopMode:
+        if self._loopMode:
           # Rewind.
           self.stateMachine.gCodeHandler.setLine(-1)
         else:
           # Return to stopped state.
           self.changeState(self.stateMachine.States.STOP)
+
+  # ---------------------------------------------------------------------
+  def handle(self, event):
+    """
+    Handle events while wind mode is active.
+    """
+
+    if isinstance(event, StopMotionEvent):
+      self._stopRequested = True
+      return True
+
+    if isinstance(event, SetLoopModeEvent):
+      self.setLoopMode(event.enabled)
+      return True
+
+    return False
+
+  # ---------------------------------------------------------------------
+  def getLoopMode(self):
+    return self._loopMode
+
+  # ---------------------------------------------------------------------
+  def setLoopMode(self, enabled):
+    self._loopMode = enabled
+
+  # ---------------------------------------------------------------------
+  def getWindTime(self):
+    return self._windTime
+
+  # ---------------------------------------------------------------------
+  def resetWindTime(self):
+    self._windTime = 0

@@ -6,6 +6,13 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+from typing import Optional
+
+from dune_winder.core.control_events import (
+  ManualModeEvent,
+  SetManualJoggingEvent,
+  StopMotionEvent,
+)
 from dune_winder.library.state_machine_state import StateMachineState
 from dune_winder.io.Maps.production_io import ProductionIO
 from dune_winder.library.log import Log
@@ -31,7 +38,21 @@ class ManualMode(StateMachineState):
     self._wasJogging = False
     self._wasSeekingZ = False
     self._noteSeekStop = False
+    self._isJogging = False
+    self._stopRequested = False
+    self._request: Optional[ManualModeEvent] = None
 
+  # ---------------------------------------------------------------------
+  def setRequest(self, request: ManualModeEvent):
+    self._request = request
+    if request.isJogging:
+      self._isJogging = True
+
+  # ---------------------------------------------------------------------
+  def isJogging(self):
+    return self._isJogging
+
+  # ---------------------------------------------------------------------
   def enter(self):
     """
     Enter into manual mode.
@@ -44,52 +65,50 @@ class ManualMode(StateMachineState):
 
     self._wasJogging = False
     self._noteSeekStop = False
+    self._stopRequested = False
+
+    request = self._request
+    self._request = None
+
+    if request is None:
+      return True
 
     # If executing a G-Code line.
-    if self.stateMachine.executeGCode:
-      self.stateMachine.executeGCode = False
+    if request.executeGCode:
       isError = False
 
     # X/Y axis move?
-    if self.stateMachine.seekX is not None or self.stateMachine.seekY is not None:
-      x = self.stateMachine.seekX
+    if request.seekX is not None or request.seekY is not None:
+      x = request.seekX
       if x is None:
         x = self._io.xAxis.getPosition()
 
-      y = self.stateMachine.seekY
+      y = request.seekY
       if y is None:
         y = self._io.yAxis.getPosition()
 
       self._io.plcLogic.setXY_Position(
         x,
         y,
-        self.stateMachine.seekVelocity,
-        self.stateMachine.seekAcceleration,
-        self.stateMachine.seekDeceleration,
+        request.velocity,
+        request.acceleration,
+        request.deceleration,
       )
 
-      self.stateMachine.seekX = None
-      self.stateMachine.seekY = None
-      self.stateMachine.seekVelocity = None
-      self.stateMachine.seekAcceleration = None
-      self.stateMachine.seekDeceleration = None
       isError = False
 
-    if self.stateMachine.isJogging:
+    if request.isJogging:
       self._wasJogging = True
       isError = False
 
-    if self.stateMachine.seekZ is not None:
-      self._io.plcLogic.setZ_Position(
-        self.stateMachine.seekZ, self.stateMachine.seekVelocity
-      )
-      self.stateMachine.seekZ = None
+    if request.seekZ is not None:
+      self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
       isError = False
 
     # Move the head?
-    if self.stateMachine.setHeadPosition is not None:
+    if request.setHeadPosition is not None:
       isError = self._io.head.setHeadPosition(
-        self.stateMachine.setHeadPosition, self.stateMachine.seekVelocity
+        request.setHeadPosition, request.velocity
       )
 
       if isError:
@@ -97,16 +116,14 @@ class ManualMode(StateMachineState):
           self.__class__.__name__, "SEEK_HEAD", "Head position request failed."
         )
 
-      self.stateMachine.setHeadPosition = None
-
     # Shutoff servo control.
-    if self.stateMachine.idleServos:
+    if request.idleServos:
       self._io.plcLogic.servoDisable()
-      self.stateMachine.idleServos = False
       isError = False
 
     return isError
 
+  # ---------------------------------------------------------------------
   def update(self):
     """
     Update function that is called periodically.
@@ -114,13 +131,13 @@ class ManualMode(StateMachineState):
     """
 
     # If stop requested...
-    if self.stateMachine.stopRequest:
+    if self._stopRequested:
       # We didn't finish this line.  Run it again.
       self._io.plcLogic.stopSeek()
       self._io.head.stop()
       self._log.add(self.__class__.__name__, "SEEK_STOP", "Seek stop requested")
       self._noteSeekStop = True
-      self.stateMachine.stopRequest = False
+      self._stopRequested = False
 
     # Is movement done?
     if self._io.plcLogic.isReady() and self._io.head.isReady():
@@ -148,7 +165,20 @@ class ManualMode(StateMachineState):
           [x, y, z],
         )
 
+      self._isJogging = False
       self.changeState(self.stateMachine.States.STOP)
+
+  # ---------------------------------------------------------------------
+  def handle(self, event):
+    if isinstance(event, StopMotionEvent):
+      self._stopRequested = True
+      return True
+
+    if isinstance(event, SetManualJoggingEvent):
+      self._isJogging = event.isJogging
+      return True
+
+    return False
 
 
 # end class

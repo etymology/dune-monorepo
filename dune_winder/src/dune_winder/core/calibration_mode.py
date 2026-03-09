@@ -6,6 +6,9 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+from typing import Optional
+
+from dune_winder.core.control_events import CalibrationModeEvent, StopMotionEvent
 from dune_winder.library.state_machine_state import StateMachineState
 
 
@@ -32,6 +35,12 @@ class CalibrationMode(StateMachineState):
     self._log = log
     self._noteSeekStop = False
     self._shutdownCount = None
+    self._stopRequested = False
+    self._request: Optional[CalibrationModeEvent] = None
+
+  # ---------------------------------------------------------------------
+  def setRequest(self, request: CalibrationModeEvent):
+    self._request = request
 
   # ---------------------------------------------------------------------
   def enter(self):
@@ -46,31 +55,32 @@ class CalibrationMode(StateMachineState):
     isError = True
 
     self._noteSeekStop = False
+    self._stopRequested = False
     self._shutdownCount = None
 
+    request = self._request
+    self._request = None
+    if request is None:
+      return True
+
     # X/Y axis move?
-    if self.stateMachine.seekX is not None or self.stateMachine.seekY is not None:
-      x = self.stateMachine.seekX
+    if request.seekX is not None or request.seekY is not None:
+      x = request.seekX
       if x is None:
         x = self._io.xAxis.getPosition()
 
-      y = self.stateMachine.seekY
+      y = request.seekY
       if y is None:
         y = self._io.yAxis.getPosition()
 
       self._io.plcLogic.setXY_Position(
         x,
         y,
-        self.stateMachine.seekVelocity,
-        self.stateMachine.seekAcceleration,
-        self.stateMachine.seekDeceleration,
+        request.velocity,
+        request.acceleration,
+        request.deceleration,
       )
 
-      self.stateMachine.seekX = None
-      self.stateMachine.seekY = None
-      self.stateMachine.seekVelocity = None
-      self.stateMachine.seekAcceleration = None
-      self.stateMachine.seekDeceleration = None
       isError = False
 
     return isError
@@ -97,12 +107,12 @@ class CalibrationMode(StateMachineState):
     self.stateMachine.cameraCalibration.poll()
 
     # If stop requested...
-    if self.stateMachine.stopRequest:
+    if self._stopRequested:
       # We didn't finish this line.  Run it again.
       self._io.plcLogic.stopSeek()
       self._log.add(self.__class__.__name__, "CALIBRATION_STOP", "Seek stop requested")
       self._noteSeekStop = True
-      self.stateMachine.stopRequest = False
+      self._stopRequested = False
 
     if self._shutdownCount > 0:
       self._shutdownCount -= 1
@@ -128,6 +138,14 @@ class CalibrationMode(StateMachineState):
 
       self._io.camera.endScan()
       self.changeState(self.stateMachine.States.STOP)
+
+  # ---------------------------------------------------------------------
+  def handle(self, event):
+    if isinstance(event, StopMotionEvent):
+      self._stopRequested = True
+      return True
+
+    return False
 
 
 # end class

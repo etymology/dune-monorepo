@@ -91,3 +91,20 @@ class StateMachine:
 
     if self.state:
       self.state.update()
+
+  # ---------------------------------------------------------------------
+  def dispatch(self, event):
+    """
+    Deliver an event to the active state.
+
+    Args:
+      event: Event payload object.
+
+    Returns:
+      True if event was handled by active state, False if ignored.
+    """
+
+    if self.state:
+      return self.state.handle(event)
+
+    return False

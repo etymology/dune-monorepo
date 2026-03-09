@@ -1,5 +1,6 @@
 import unittest
 
+from dune_winder.core.control_events import ManualModeEvent
 from dune_winder.core.process import Process
 from dune_winder.io.Primitives.digital_input import DigitalInput
 
@@ -198,10 +199,13 @@ class _AxisForManualGCode:
 
 class _ControlStateMachineForManualGCode:
   def __init__(self):
-    self.manualRequest = False
-    self.executeGCode = False
+    self.events = []
 
   def isReadyForMovement(self):
+    return True
+
+  def dispatch(self, event):
+    self.events.append(event)
     return True
 
 
@@ -244,6 +248,9 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["X4 Y22.0"])
+    self.assertEqual(len(process.controlStateMachine.events), 1)
+    self.assertIsInstance(process.controlStateMachine.events[0], ManualModeEvent)
+    self.assertTrue(process.controlStateMachine.events[0].executeGCode)
 
   def test_execute_manual_gcode_accepts_y_only_and_keeps_current_x(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)

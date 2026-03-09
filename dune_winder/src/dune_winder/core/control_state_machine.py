@@ -6,7 +6,10 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+from enum import Enum, auto
+
 from dune_winder.library.logged_state_machine import LoggedStateMachine
+from dune_winder.core.control_events import SetLoopModeEvent
 from dune_winder.core.hardware_mode import HardwareMode
 from dune_winder.core.stop_mode import StopMode
 from dune_winder.core.wind_mode import WindMode
@@ -18,14 +21,15 @@ from dune_winder.io.Maps.base_io import BaseIO
 from dune_winder.core.g_code_handler import G_CodeHandler
 from typing import Optional
 
+
 class ControlStateMachine(LoggedStateMachine):
-  class States:
-    HARDWARE = (0,)
-    STOP = (1,)
-    WIND = (2,)
-    CALIBRATE = (3,)
-    MANUAL = (4,)
-    TENTION = 5
+  class States(Enum):
+    HARDWARE = auto()
+    STOP = auto()
+    WIND = auto()
+    CALIBRATE = auto()
+    MANUAL = auto()
+    TENTION = auto()
 
   # end class
 
@@ -52,6 +56,24 @@ class ControlStateMachine(LoggedStateMachine):
     LoggedStateMachine.update(self)
 
   # ---------------------------------------------------------------------
+  def dispatch(self, event):
+    """
+    Handle global control events and route all others to active mode.
+
+    Args:
+      event: Event payload object.
+
+    Returns:
+      True if handled, False if ignored.
+    """
+
+    if isinstance(event, SetLoopModeEvent):
+      self.windMode.setLoopMode(event.enabled)
+      return True
+
+    return LoggedStateMachine.dispatch(self, event)
+
+  # ---------------------------------------------------------------------
   def isStopped(self):
     """
     See if state machine is in stop.
@@ -69,8 +91,11 @@ class ControlStateMachine(LoggedStateMachine):
     Returns:
       True if machine is in motion, False if not.
     """
-    return (
-      self.States.HARDWARE != self.getState() or self.States.STOP != self.getState()
+    return self.getState() in (
+      self.States.WIND,
+      self.States.CALIBRATE,
+      self.States.MANUAL,
+      self.States.TENTION,
     )
 
   # ---------------------------------------------------------------------
@@ -83,6 +108,40 @@ class ControlStateMachine(LoggedStateMachine):
       True if machine can begin motion.
     """
     return self.States.STOP == self.getState() and self.stopMode.isIdle()
+
+  # ---------------------------------------------------------------------
+  def isJogging(self):
+    """
+    Check if manual jogging is currently active.
+
+    Returns:
+      True if jogging, False if not.
+    """
+    return self.manualMode.isJogging()
+
+  # ---------------------------------------------------------------------
+  def getLoopMode(self):
+    """
+    See if G-Code loop mode is enabled.
+
+    Returns:
+      True if loop mode enabled.
+    """
+    return self.windMode.getLoopMode()
+
+  # ---------------------------------------------------------------------
+  def getWindTime(self):
+    """
+    Return the most recent wind runtime in seconds.
+    """
+    return self.windMode.getWindTime()
+
+  # ---------------------------------------------------------------------
+  def resetWindTime(self):
+    """
+    Clear accumulated wind runtime.
+    """
+    self.windMode.resetWindTime()
 
   # ---------------------------------------------------------------------
   def __init__(self, io: BaseIO, log: Log, systemTime: TimeSource):
@@ -108,36 +167,10 @@ class ControlStateMachine(LoggedStateMachine):
 
     self.systemTime = systemTime
 
-    self.windTime = 0
-
-    # Wind mode.
-    self.startRequest = False
-    self.stopRequest = False
-    self.stopNextRequest = (
-      False  # True to stop after completing the current G-Code line.
-    )
-    self.loopMode = False  # True to continuously loop the G-Code.
-    self.positionLogging = False  # True to log resulting position after each move.
+    # Runtime wiring shared by modes.
     self.gCodeHandler: Optional[G_CodeHandler] = None
-
-    # Manual mode options.
-    self.manualRequest = False
-    self.isJogging = False
-    self.idleServos = False
-    self.executeGCode = False
-    self.setHeadPosition = None
-
-    # Calibration mode options.
-    self.calibrationRequest = False
     self.cameraCalibration = None
-
-    # Manual/calibration mode options.
-    self.seekX = None
-    self.seekY = None
-    self.seekZ = None
-    self.seekVelocity = None
-    self.seekAcceleration = None
-    self.seekDeceleration = None
+    self.machineCalibration = None
 
 
 # end class

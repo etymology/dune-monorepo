@@ -133,6 +133,8 @@ Status: Implemented (2026-03-09). Deleted `GeometrySelection` class; replaced wi
 
 ## P5: `StateMachine` is a polling-only abstraction with no event dispatch, forcing the orchestrator to become a shared flag mailbox
 
+Status: Implemented (2026-03-09). `library/state_machine.py` now exposes `dispatch(event)` and `library/state_machine_state.py` now exposes `handle(event)`. Control intents are represented as typed dataclass events in `core/control_events.py` and are dispatched from `core/process.py` instead of writing shared control flags. `ControlStateMachine.States` now uses `enum.Enum`; the prior `isInMotion()` tautology is fixed. Mode-private request data moved into mode classes (`StopMode`, `WindMode`, `ManualMode`, `CalibrationMode`), removing the root-level flag mailbox.
+
 ### Root Cause
 `library/state_machine.py` defines `StateMachine` with only two entry points: `update()` (called each cycle) and `changeState()` (for transitions). There is no `dispatch(event)` mechanism — no way for external code to deliver intent to whichever state is currently active. Because states hold a back-reference to their parent (`self.stateMachine` in `StateMachineState.__init__`), the orchestrator is the only shared object both external callers and states can see. It inevitably becomes a mailbox: callers write flags, states read them in `update()`.
 

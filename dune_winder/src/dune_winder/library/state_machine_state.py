@@ -69,3 +69,17 @@ class StateMachineState:
     """
 
     return False
+
+  # ---------------------------------------------------------------------
+  def handle(self, event):
+    """
+    Handle an externally dispatched event.
+
+    Args:
+      event: Event payload object.
+
+    Returns:
+      True if event was handled, False if ignored.
+    """
+
+    return False
