@@ -17,6 +17,14 @@ from dune_winder.core.anode_plane_array import AnodePlaneArray
 from dune_winder.core.apa_base import APA_Base
 from dune_winder.core.g_code_handler import G_CodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
+from dune_winder.core.control_events import (
+  CalibrationModeEvent,
+  ManualModeEvent,
+  SetLoopModeEvent,
+  SetManualJoggingEvent,
+  StartWindEvent,
+  StopMotionEvent,
+)
 from dune_winder.core.camera_calibration import CameraCalibration
 from dune_winder.core.manual_calibration import ManualCalibration
 from dune_winder.recipes.v_template_recipe import VTemplateRecipe
@@ -207,8 +215,7 @@ class Process:
     Request that the winding process begin.
     """
     if self.controlStateMachine.isReadyForMovement():
-      self.controlStateMachine.startRequest = True
-      self.controlStateMachine.stopRequest = False
+      self.controlStateMachine.dispatch(StartWindEvent())
 
   # ---------------------------------------------------------------------
   def _refreshCalibrationBeforeExecution(self):
@@ -241,8 +248,7 @@ class Process:
     Request that the winding process stop.
     """
     if self.controlStateMachine.isInMotion():
-      self.controlStateMachine.startRequest = False
-      self.controlStateMachine.stopRequest = True
+      self.controlStateMachine.dispatch(StopMotionEvent())
 
   # ---------------------------------------------------------------------
   def stopNextLine(self):
@@ -320,8 +326,7 @@ class Process:
       and self.gCodeHandler.isG_CodeLoaded()
     ):
       self.gCodeHandler.singleStep = True
-      self.controlStateMachine.startRequest = True
-      self.controlStateMachine.stopRequest = False
+      self.controlStateMachine.dispatch(StartWindEvent())
 
   # ---------------------------------------------------------------------
   def acknowledgeError(self):
@@ -355,8 +360,7 @@ class Process:
     """
     if self.controlStateMachine.isInMotion():
       self._log.add(self.__class__.__name__, "SERVO", "Idling servo control.")
-      self.controlStateMachine.manualRequest = True
-      self.controlStateMachine.idleServos = True
+      self.controlStateMachine.dispatch(ManualModeEvent(idleServos=True))
 
   # ---------------------------------------------------------------------
   def createAPA(self):
@@ -602,7 +606,7 @@ class Process:
     Returns:
       True if G-Code should loop.
     """
-    return self.controlStateMachine.loopMode
+    return self.controlStateMachine.getLoopMode()
 
   # ---------------------------------------------------------------------
   def setG_CodeLoop(self, isLoopMode):
@@ -613,17 +617,19 @@ class Process:
     Args:
       isLoopMode: True if G-Code should loop.
     """
+    currentLoopMode = self.controlStateMachine.getLoopMode()
+
     self._log.add(
       self.__class__.__name__,
       "LOOP",
       "G-Code loop mode set from "
-      + str(self.controlStateMachine.loopMode)
+      + str(currentLoopMode)
       + " to "
       + str(isLoopMode),
-      [self.controlStateMachine.loopMode, isLoopMode],
+      [currentLoopMode, isLoopMode],
     )
 
-    self.controlStateMachine.loopMode = isLoopMode
+    self.controlStateMachine.dispatch(SetLoopModeEvent(isLoopMode))
 
   # ---------------------------------------------------------------------
   def setG_CodeVelocityScale(self, scaleFactor=1.0):
@@ -915,7 +921,7 @@ class Process:
       os.path.join(self._apaLogDirectory, APA_Base.FILE_NAME)
     )
 
-    self.controlStateMachine.windTime = 0
+    self.controlStateMachine.resetWindTime()
     self.apa = AnodePlaneArray(
       self.gCodeHandler,
       self._apaLogDirectory,
@@ -942,8 +948,8 @@ class Process:
     """
 
     if self.apa:
-      self.apa.addWindTime(self.controlStateMachine.windTime)
-      self.controlStateMachine.windTime = 0
+      self.apa.addWindTime(self.controlStateMachine.getWindTime())
+      self.controlStateMachine.resetWindTime()
       self.apa.close()
       self.apa = None
 
@@ -994,12 +1000,15 @@ class Process:
         [xVelocity, yVelocity, acceleration, deceleration],
       )
 
-      self.controlStateMachine.manualRequest = True
-      self.controlStateMachine.isJogging = True
+      self.controlStateMachine.dispatch(ManualModeEvent(isJogging=True))
       self._io.plcLogic.jogXY(xVelocity, yVelocity, acceleration, deceleration)
-    elif 0 == xVelocity and 0 == yVelocity and self.controlStateMachine.isJogging:
+    elif (
+      0 == xVelocity
+      and 0 == yVelocity
+      and self.controlStateMachine.isJogging()
+    ):
       self._log.add(self.__class__.__name__, "JOG", "Jog X/Y stop.")
-      self.controlStateMachine.isJogging = False
+      self.controlStateMachine.dispatch(SetManualJoggingEvent(False))
       self._io.plcLogic.jogXY(xVelocity, yVelocity)
     else:
       isError = True
@@ -1053,12 +1062,15 @@ class Process:
         + " m/s^2.",
         [xPosition, yPosition, velocity, acceleration, deceleration],
       )
-      self.controlStateMachine.seekX = xPosition
-      self.controlStateMachine.seekY = yPosition
-      self.controlStateMachine.seekVelocity = velocity
-      self.controlStateMachine.seekAcceleration = acceleration
-      self.controlStateMachine.seekDeceleration = deceleration
-      self.controlStateMachine.manualRequest = True
+      self.controlStateMachine.dispatch(
+        ManualModeEvent(
+          seekX=xPosition,
+          seekY=yPosition,
+          velocity=velocity,
+          acceleration=acceleration,
+          deceleration=deceleration,
+        )
+      )
     else:
       self._log.add(
         self.__class__.__name__,
@@ -1090,9 +1102,9 @@ class Process:
         "Manual move Z to " + str(position) + " at " + str(velocity) + ".",
         [position, velocity],
       )
-      self.controlStateMachine.seekZ = position
-      self.controlStateMachine.seekVelocity = velocity
-      self.controlStateMachine.manualRequest = True
+      self.controlStateMachine.dispatch(
+        ManualModeEvent(seekZ=position, velocity=velocity)
+      )
     else:
       self._log.add(
         self.__class__.__name__, "JOG", "Manual move Z ignored.", [position, velocity]
@@ -1126,9 +1138,9 @@ class Process:
         "Manual head position to " + str(position) + " at " + str(velocity) + ".",
         [position, velocity],
       )
-      self.controlStateMachine.setHeadPosition = position
-      self.controlStateMachine.seekVelocity = velocity
-      self.controlStateMachine.manualRequest = True
+      self.controlStateMachine.dispatch(
+        ManualModeEvent(setHeadPosition=position, velocity=velocity)
+      )
 
     else:
       self._log.add(
@@ -1157,12 +1169,11 @@ class Process:
       self._log.add(
         self.__class__.__name__, "JOG", "Jog Z at " + str(velocity) + ".", [velocity]
       )
-      self.controlStateMachine.manualRequest = True
-      self.controlStateMachine.isJogging = True
+      self.controlStateMachine.dispatch(ManualModeEvent(isJogging=True))
       self._io.plcLogic.jogZ(velocity)
-    elif 0 == velocity and self.controlStateMachine.isJogging:
+    elif 0 == velocity and self.controlStateMachine.isJogging():
       self._log.add(self.__class__.__name__, "JOG", "Jog Z stop.")
-      self.controlStateMachine.isJogging = False
+      self.controlStateMachine.dispatch(SetManualJoggingEvent(False))
       self._io.plcLogic.jogZ(velocity)
     else:
       isError = True
@@ -1497,8 +1508,7 @@ class Process:
             [line, error],
           )
         else:
-          self.controlStateMachine.manualRequest = True
-          self.controlStateMachine.executeGCode = True
+          self.controlStateMachine.dispatch(ManualModeEvent(executeGCode=True))
 
           self._log.add(
             self.__class__.__name__,
@@ -1581,12 +1591,15 @@ class Process:
       yPosition = self._io.yAxis.getPosition() + deltaY * (pinCount + 0.5)
 
       # Begin the seek by switching into calibration mode.
-      self.controlStateMachine.seekX = xPosition
-      self.controlStateMachine.seekY = yPosition
-      self.controlStateMachine.seekVelocity = velocity
-      self.controlStateMachine.seekAcceleration = acceleration
-      self.controlStateMachine.seekDeceleration = deceleration
-      self.controlStateMachine.calibrationRequest = True
+      self.controlStateMachine.dispatch(
+        CalibrationModeEvent(
+          seekX=xPosition,
+          seekY=yPosition,
+          velocity=velocity,
+          acceleration=acceleration,
+          deceleration=deceleration,
+        )
+      )
 
       self._log.add(
         self.__class__.__name__,

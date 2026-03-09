@@ -9,6 +9,11 @@
 from dune_winder.library.state_machine_state import StateMachineState
 from dune_winder.library.logged_state_machine import LoggedStateMachine
 from dune_winder.io.Maps.base_io import BaseIO
+from dune_winder.core.control_events import (
+  CalibrationModeEvent,
+  ManualModeEvent,
+  StartWindEvent,
+)
 
 
 class StopMode(StateMachineState):
@@ -45,15 +50,6 @@ class StopMode(StateMachineState):
         self.changeState(self.stateMachine.States.ESTOP)
       elif self.io.park.get():
         self.changeState(self.stateMachine.States.PARK)
-      elif self.control.startRequest:
-        self.control.changeState(self.control.States.WIND)
-        self.control.startRequest = False
-      elif self.control.manualRequest:
-        self.control.changeState(self.control.States.MANUAL)
-        self.control.manualRequest = False
-      elif self.control.calibrationRequest:
-        self.control.changeState(self.control.States.CALIBRATE)
-        self.control.calibrationRequest = False
 
   # ====================================
   # Emergency stop.
@@ -186,6 +182,40 @@ class StopMode(StateMachineState):
 
     # Update active sub-state.
     self.stopStateMachine.update()
+
+  # ---------------------------------------------------------------------
+  def handle(self, event):
+    """
+    Handle events while root control state is STOP.
+
+    Args:
+      event: Event payload object.
+
+    Returns:
+      True if event was consumed.
+    """
+
+    if isinstance(event, StartWindEvent):
+      if self.isIdle():
+        self.stateMachine.changeState(self.stateMachine.States.WIND)
+
+      return True
+
+    if isinstance(event, ManualModeEvent):
+      if self.isIdle():
+        self.stateMachine.manualMode.setRequest(event)
+        self.stateMachine.changeState(self.stateMachine.States.MANUAL)
+
+      return True
+
+    if isinstance(event, CalibrationModeEvent):
+      if self.isIdle():
+        self.stateMachine.calibrationMode.setRequest(event)
+        self.stateMachine.changeState(self.stateMachine.States.CALIBRATE)
+
+      return True
+
+    return self.stopStateMachine.dispatch(event)
 
   # ---------------------------------------------------------------------
   def isIdle(self):
