@@ -34,7 +34,7 @@ class CommandRegistry:
     self._commands[name] = _CommandSpec(name, handler, bool(isMutating))
 
   # ---------------------------------------------------------------------------
-  def _dispatch(self, name: str, args: dict, isAuthenticated: bool):
+  def _dispatch(self, name: str, args: dict):
     if not isinstance(args, dict):
       raise CommandDispatchException(
         "VALIDATION_ERROR", "Command arguments must be a JSON object."
@@ -44,10 +44,6 @@ class CommandRegistry:
       raise CommandDispatchException("UNKNOWN_COMMAND", "Unknown command: " + str(name))
 
     commandSpec = self._commands[name]
-    if commandSpec.isMutating and not isAuthenticated:
-      raise CommandDispatchException(
-        "UNAUTHORIZED", "Authentication is required for mutating commands."
-      )
 
     try:
       return commandSpec.handler(args)
@@ -67,12 +63,12 @@ class CommandRegistry:
     return {"ok": False, "data": None, "error": {"code": str(code), "message": str(message)}}
 
   # ---------------------------------------------------------------------------
-  def execute(self, name: str, args=None, isAuthenticated=False):
+  def execute(self, name: str, args=None):
     if args is None:
       args = {}
 
     try:
-      data = self._dispatch(name, args, isAuthenticated)
+      data = self._dispatch(name, args)
       return CommandRegistry._ok(data)
     except CommandDispatchException as exception:
       return CommandRegistry._error(exception.error.code, exception.error.message)
@@ -87,7 +83,7 @@ class CommandRegistry:
       return CommandRegistry._error("INTERNAL_ERROR", "Internal error while executing command.")
 
   # ---------------------------------------------------------------------------
-  def executeRequest(self, payload, isAuthenticated=False):
+  def executeRequest(self, payload):
     if not isinstance(payload, dict):
       return CommandRegistry._error("BAD_REQUEST", "Request body must be a JSON object.")
 
@@ -96,10 +92,10 @@ class CommandRegistry:
       return CommandRegistry._error("BAD_REQUEST", "Field 'name' must be a non-empty string.")
 
     args = payload.get("args", {})
-    return self.execute(name.strip(), args=args, isAuthenticated=isAuthenticated)
+    return self.execute(name.strip(), args=args)
 
   # ---------------------------------------------------------------------------
-  def executeBatchRequest(self, payload, isAuthenticated=False):
+  def executeBatchRequest(self, payload):
     if not isinstance(payload, dict):
       return CommandRegistry._error("BAD_REQUEST", "Request body must be a JSON object.")
 
@@ -119,7 +115,7 @@ class CommandRegistry:
         )
         continue
 
-      results[requestId] = self.executeRequest(request, isAuthenticated=isAuthenticated)
+      results[requestId] = self.executeRequest(request)
 
     return {"ok": True, "data": {"results": results}, "error": None}
 

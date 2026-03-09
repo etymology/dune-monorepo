@@ -159,9 +159,9 @@ def commandHandler(source, command):
     return jsonDumps(response)
 
   if isinstance(payload, dict) and "requests" in payload:
-    response = commandRegistry.executeBatchRequest(payload, isAuthenticated=True)
+    response = commandRegistry.executeBatchRequest(payload)
   else:
-    response = commandRegistry.executeRequest(payload, isAuthenticated=True)
+    response = commandRegistry.executeRequest(payload)
 
   return jsonDumps(response)
 

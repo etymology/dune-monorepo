@@ -165,6 +165,8 @@ Add event dispatch to the state machine abstraction:
 
 ## P6: Remove unused `RemoteSession` authentication layer
 
+Status: Implemented (2026-03-09). Deleted `library/remote_session.py` and `library/remote_command.py`; removed `isAuthenticated` surface from `web_server_interface.py`, `api/registry.py`, `main.py`, and related tests.
+
 `RemoteSession` implements a custom session/password authentication system that is not actively used. It carries meaningful maintenance risk (global mutable class state, a hardcoded password in source, unguarded semaphore pairs) for no active benefit. The correct resolution is deletion, not improvement.
 
 ### Impact

@@ -8,7 +8,6 @@ class CommandRegistryTests(unittest.TestCase):
     registry, process, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(
       {"name": "process.start", "args": {}},
-      isAuthenticated=True,
     )
 
     self.assertTrue(response["ok"])
@@ -19,7 +18,6 @@ class CommandRegistryTests(unittest.TestCase):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(
       {"name": "process.does_not_exist", "args": {}},
-      isAuthenticated=True,
     )
 
     self.assertFalse(response["ok"])
@@ -29,22 +27,10 @@ class CommandRegistryTests(unittest.TestCase):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(
       {"name": "process.set_gcode_line", "args": {"line": "not-an-int"}},
-      isAuthenticated=True,
     )
 
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
-
-  def test_mutating_command_requires_authentication(self):
-    registry, process, _, _, _, _ = build_registry_fixture()
-    response = registry.executeRequest(
-      {"name": "process.stop", "args": {}},
-      isAuthenticated=False,
-    )
-
-    self.assertFalse(response["ok"])
-    self.assertEqual(response["error"]["code"], "UNAUTHORIZED")
-    self.assertFalse(process.stopped)
 
   def test_batch_returns_mixed_result_entries(self):
     registry, process, _, _, _, _ = build_registry_fixture()
@@ -56,7 +42,6 @@ class CommandRegistryTests(unittest.TestCase):
           {"id": "c", "name": "process.set_gcode_line", "args": {"line": "bad"}},
         ]
       },
-      isAuthenticated=True,
     )
 
     self.assertTrue(response["ok"])
