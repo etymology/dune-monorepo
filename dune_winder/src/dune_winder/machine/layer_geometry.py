@@ -46,3 +46,12 @@ class LayerGeometry(APA_Geometry):
 
     # Edge name to grid index.
     self.edgeToGridIndex = {"L": 0, "T": 1, "R": 2, "B": 3}
+
+    # Attributes populated by each concrete layer subclass.
+    self.pins: int
+    self.startPinFront: float
+    self.startPinBack: int
+    self.directionFront: int
+    self.directionBack: int
+    self.gridFront: list[list]
+    self.gridBack: list[list]

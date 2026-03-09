@@ -16,7 +16,7 @@ from dune_winder.recipes.xg_template_gcode import (
   get_xg_recipe_file_name,
   write_xg_template_file,
 )
-from dune_winder.machine.geometry_selection import GeometrySelection
+from dune_winder.machine.geometry_selection import create_layer_geometry
 from dune_winder.machine.layer_calibration import LayerCalibration
 from dune_winder.machine.layer_functions import LayerFunctions
 from dune_winder.machine.settings import Settings
@@ -355,7 +355,7 @@ def normalize_calibration(calibration, layer):
 
 
 def build_nominal_calibration(layer):
-  geometry = GeometrySelection(layer)
+  geometry = create_layer_geometry(layer)
   calibration = LayerCalibration(layer=layer)
   calibration.zFront = geometry.mostlyRetract
   calibration.zBack = geometry.mostlyExtend
@@ -422,7 +422,7 @@ def _bootstrap_pins_for_side(sideBoards):
 
 
 def _build_layer_metadata(layer):
-  geometry = GeometrySelection(layer)
+  geometry = create_layer_geometry(layer)
   pinMax = int(geometry.pins)
   endpoints = LAYER_ENDPOINTS[layer]
   if endpoints[-1] != pinMax:

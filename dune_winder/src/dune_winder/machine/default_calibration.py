@@ -10,7 +10,7 @@ import os
 from dune_winder.library.Geometry.location import Location
 from dune_winder.library.serializable_location import SerializableLocation
 
-from dune_winder.machine.geometry_selection import GeometrySelection
+from dune_winder.machine.geometry_selection import create_layer_geometry
 from dune_winder.machine.layer_calibration import LayerCalibration
 from dune_winder.machine.machine_calibration import MachineCalibration
 from dune_winder.machine.uv_layer_geometry import UV_LayerGeometry
@@ -133,10 +133,7 @@ class DefaultLayerCalibration(LayerCalibration):
       layerName: Name of recipe.
     """
 
-    try:
-      geometry = GeometrySelection(layerName)
-    except KeyError as exception:
-      raise ValueError("Unknown layer: " + str(layerName)) from exception
+    geometry = create_layer_geometry(layerName)
 
     LayerCalibration.__init__(self, layerName)
     self.offset = geometry.apaLocation.add(geometry.apaOffset)
