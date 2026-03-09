@@ -16,7 +16,7 @@ import os
 
 from dune_winder.library.system_time import SystemTime
 from dune_winder.library.log import Log
-from dune_winder.library.configuration import Configuration
+from dune_winder.library.app_config import AppConfig
 from dune_winder.library.json import dumps as jsonDumps
 from dune_winder.library.version import Version
 
@@ -225,12 +225,11 @@ def main():
 
   startTime = systemTime.get()
 
-  # Load configuration and setup default values.
-  configuration = Configuration(Settings.CONFIG_FILE)
-  Settings.defaultConfig(configuration)
+  # Load configuration (creates with defaults if the file does not exist).
+  import pathlib
+  configuration = AppConfig.load(pathlib.Path(Settings.CONFIG_FILE))
 
-  # Save configuration (just in case it had not been created or new default
-  # values added).
+  # Persist on first run so the file exists for operators to inspect.
   configuration.save()
 
   # Setup log file.
@@ -238,7 +237,7 @@ def main():
   log.add("Main", "START", "Control system starts.")
 
   try:
-    io = ProductionIO(configuration.get("plcAddress"))
+    io = ProductionIO(configuration.plcAddress)
 
     # Use low-level I/O to avoid warning.
     # (Low-level I/O is needed by remote commands.)
@@ -247,7 +246,7 @@ def main():
     # $$$TEMPORARY
     machineCalibration = DefaultMachineCalibration(
       Settings.MACHINE_CALIBRATION_PATH,
-      configuration.get("machineCalibrationFile"),
+      configuration.machineCalibrationFile,
     )
 
     # Primary control process.

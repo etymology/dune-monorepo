@@ -10,7 +10,7 @@ from dune_winder.core.manual_calibration import (
   build_transform,
 )
 from dune_winder.core.anode_plane_array import AnodePlaneArray
-from dune_winder.library.configuration import Configuration
+from dune_winder.library.app_config import AppConfig
 from dune_winder.library.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import WIRE_SPACING as GX_WIRE_SPACING
 from dune_winder.machine.layer_calibration import LayerCalibration
@@ -162,9 +162,8 @@ def _create_process(layer, rootDirectory):
   os.makedirs(recipeDirectory, exist_ok=True)
   os.makedirs(recipeArchiveDirectory, exist_ok=True)
 
-  configurationPath = os.path.join(rootDirectory, "configuration.xml")
-  configuration = Configuration(configurationPath)
-  Settings.defaultConfig(configuration)
+  import pathlib
+  configuration = AppConfig.load(pathlib.Path(rootDirectory) / "configuration.toml")
   configuration.save()
 
   if layer in ("U", "V"):
@@ -339,14 +338,14 @@ class ManualCalibrationTests(unittest.TestCase):
       saveResult = service.saveLive()
       self.assertTrue(saveResult["ok"])
 
-      savedPath = os.path.join(process._apaCalibrationDirectory, "U_Calibration.xml")
+      savedPath = os.path.join(process._apaCalibrationDirectory, "U_Calibration.json")
       self.assertTrue(os.path.isfile(savedPath))
       self.assertIsNotNone(process.gCodeHandler.currentCalibration)
-      self.assertEqual(process.apa._calibrationFile, "U_Calibration.xml")
+      self.assertEqual(process.apa._calibrationFile, "U_Calibration.json")
       self.assertEqual(process.apa.loadReasons, ["manual calibration save"])
 
       savedCalibration = LayerCalibration(layer="U")
-      savedCalibration.load(process._apaCalibrationDirectory, "U_Calibration.xml")
+      savedCalibration.load(process._apaCalibrationDirectory, "U_Calibration.json")
       self.assertAlmostEqual(savedCalibration.offset.x, 0.0)
       self.assertAlmostEqual(savedCalibration.offset.y, 0.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6)
@@ -367,10 +366,10 @@ class ManualCalibrationTests(unittest.TestCase):
 
       draftDirectory = os.path.join(process.apa.getPath(), "ManualCalibration")
       self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_Draft.json")))
-      self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_DraftBaseline.xml")))
+      self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_DraftBaseline.json")))
 
       liveCalibration = LayerCalibration(layer="U")
-      liveCalibration.load(process._apaCalibrationDirectory, "U_Calibration.xml")
+      liveCalibration.load(process._apaCalibrationDirectory, "U_Calibration.json")
       self.assertAlmostEqual(liveCalibration.getPinLocation("B1").x, baselineBack.x, places=6)
       self.assertAlmostEqual(liveCalibration.getPinLocation("B1").y, baselineBack.y, places=6)
 

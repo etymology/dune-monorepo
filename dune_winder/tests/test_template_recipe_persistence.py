@@ -4,7 +4,7 @@ import unittest
 
 from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 from dune_winder.recipes.v_template_recipe import VTemplateRecipe
-from dune_winder.library.configuration import Configuration
+from dune_winder.library.app_config import AppConfig
 from dune_winder.machine.settings import Settings
 
 
@@ -70,9 +70,8 @@ class FakeProcess:
 
 
 def _build_configuration(rootDirectory):
-  configurationPath = os.path.join(rootDirectory, "configuration.xml")
-  configuration = Configuration(configurationPath)
-  Settings.defaultConfig(configuration)
+  import pathlib
+  configuration = AppConfig.load(pathlib.Path(rootDirectory) / "configuration.toml")
   configuration.save()
   return configuration
 

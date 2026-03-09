@@ -192,6 +192,10 @@ Status: Implemented (2026-03-09). Deleted `library/remote_session.py` and `libra
 
 ## P7: XML used for two distinct persistence concerns that need different solutions
 
+Status: Implemented (2026-03-09). `Configuration` / `configuration.xml` replaced by `AppConfig` (`library/app_config.py`) backed by `configuration.toml` — all fields are typed dataclass attributes; `tomllib` (stdlib 3.11+) loads the file; a simple inline writer saves it atomically. `Serializable` / `HashedSerializable` replaced by JSON load/save in each consumer: `MachineCalibration` (`machine_calibration.py`), `LayerCalibration` (`layer_calibration.py`), and `APA_Base` (`apa_base.py`) each have `_to_dict`/`_from_dict` and atomic JSON writes. Hash integrity is preserved in `LayerCalibration` via MD5 over the JSON payload. All three classes include an XML fallback that reads the legacy file and immediately re-saves as JSON on first run. `library/configuration.py`, `library/serializable.py`, and `library/hashed_serializable.py` are deleted; `serializable_location.py` retains only the `Location` subclass.
+
+
+
 The codebase has two separate XML-based persistence mechanisms with different requirements that are currently conflated under a single "use XML" approach:
 
 - **`Configuration` / `configuration.xml`** — ~15 operator-tunable settings (PLC address, camera URL, velocity limits, ports). Set once or rarely; should be human-editable with explanatory comments.

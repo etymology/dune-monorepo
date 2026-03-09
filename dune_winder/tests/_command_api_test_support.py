@@ -238,6 +238,12 @@ class DummyConfiguration:
     }
     return values.get(key, "")
 
+  def set(self, key, value):
+    pass
+
+  def save(self):
+    pass
+
 
 class DummyLowLevelIO:
   @staticmethod

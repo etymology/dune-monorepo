@@ -6,11 +6,40 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.library.serializable import Serializable
-from dune_winder.library.serializable_location import SerializableLocation
+import json
+import os
+import pathlib
+import tempfile
 
 
-class MachineCalibration(Serializable):
+# Fields persisted to disk, in declaration order.
+_FIELDS = (
+    "parkX",
+    "parkY",
+    "spoolLoadX",
+    "spoolLoadY",
+    "transferLeft",
+    "transferLeftTop",
+    "transferTop",
+    "transferRight",
+    "transferRightTop",
+    "transferBottom",
+    "limitLeft",
+    "limitTop",
+    "limitRight",
+    "limitBottom",
+    "zFront",
+    "zBack",
+    "zLimitFront",
+    "zLimitRear",
+    "headArmLength",
+    "headRollerRadius",
+    "headRollerGap",
+    "pinDiameter",
+)
+
+
+class MachineCalibration:
   # -------------------------------------------------------------------
   def __init__(self, outputFilePath=None, outputFileName=None):
     """
@@ -18,15 +47,12 @@ class MachineCalibration(Serializable):
 
     Args:
       outputFilePath - Path to save/load data.
-      outputFileName - Name of data file.
+      outputFileName - Name of data file (JSON).
     """
-
-    Serializable.__init__(self, exclude=["_outputFilePath", "_outputFileName"])
-
     self._outputFilePath = outputFilePath
     self._outputFileName = outputFileName
 
-    # Location of the park position.  Instance of Location.
+    # Location of the park position.
     self.parkX = None
     self.parkY = None
 
@@ -34,9 +60,7 @@ class MachineCalibration(Serializable):
     self.spoolLoadX = None
     self.spoolLoadY = None
 
-    # Locations of the transfer areas.  Single number.
-    # NOTE: The left/right transfer areas can transfer from the bottom and up
-    # until some height not the top.  Hence a second number for this limit.
+    # Locations of the transfer areas.
     self.transferLeft = None
     self.transferLeftTop = None
     self.transferTop = None
@@ -44,17 +68,17 @@ class MachineCalibration(Serializable):
     self.transferRightTop = None
     self.transferBottom = None
 
-    # Locations of the end-of-travels.  Single number.
+    # Locations of the end-of-travels.
     self.limitLeft = None
     self.limitTop = None
     self.limitRight = None
     self.limitBottom = None
 
-    # Location of Z-axis when fully extended, and fully retracted.  Single number.
+    # Location of Z-axis when fully extended, and fully retracted.
     self.zFront = None
     self.zBack = None
 
-    # End-of-travels for Z-axis.  Single number.
+    # End-of-travels for Z-axis.
     self.zLimitFront = None
     self.zLimitRear = None
 
@@ -91,75 +115,70 @@ class MachineCalibration(Serializable):
     return self.__dict__[item]
 
   # ---------------------------------------------------------------------
+  def _to_dict(self) -> dict:
+    return {field: getattr(self, field) for field in _FIELDS}
+
+  # ---------------------------------------------------------------------
+  def _from_dict(self, data: dict) -> None:
+    for field in _FIELDS:
+      if field in data:
+        setattr(self, field, data[field])
+
+  # ---------------------------------------------------------------------
   def save(self):
-    """
-    Save data to disk.  Overloaded to correctly name class.
-    """
-    if self._outputFilePath and self._outputFileName:
-      Serializable.save(
-        self, self._outputFilePath, self._outputFileName, "MachineCalibration"
-      )
+    """Save calibration data to JSON atomically."""
+    if not (self._outputFilePath and self._outputFileName):
+      return
+
+    path = pathlib.Path(self._outputFilePath) / self._outputFileName
+    content = json.dumps(self._to_dict(), indent=2)
+
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent))
+    try:
+      with os.fdopen(fd, "w") as f:
+        f.write(content)
+      os.replace(tmp, str(path))
+    except Exception:
+      try:
+        os.unlink(tmp)
+      except OSError:
+        pass
+      raise
 
   # ---------------------------------------------------------------------
   def load(self):
-    """
-    Load data from disk.  Overloaded to correctly name class.
-    """
-    if self._outputFilePath and self._outputFileName:
-      Serializable.load(
-        self, self._outputFilePath, self._outputFileName, "MachineCalibration"
-      )
+    """Load calibration from JSON.  Falls back to XML on first migration."""
+    if not (self._outputFilePath and self._outputFileName):
+      return
 
+    path = pathlib.Path(self._outputFilePath) / self._outputFileName
+    if path.exists():
+      with path.open() as f:
+        self._from_dict(json.load(f))
+    else:
+      # Migration: try the legacy XML file.
+      xml_path = path.with_suffix(".xml")
+      if xml_path.exists():
+        self._load_from_xml(xml_path)
+        self.save()  # Persist as JSON.
 
-if __name__ == "__main__":
-  machineCalibration = MachineCalibration()
+  # ---------------------------------------------------------------------
+  def _load_from_xml(self, xml_path: pathlib.Path) -> None:
+    """Parse the legacy Serializable XML format into this instance."""
+    import xml.dom.minidom
 
-  machineCalibration.park = SerializableLocation(1, 2)
-  machineCalibration.spoolLoad = SerializableLocation(3, 4)
-  machineCalibration.transferLeft = 1
-  machineCalibration.transferLeftTop = 2
-  machineCalibration.transferTop = 3
-  machineCalibration.transferRight = 4
-  machineCalibration.transferRightTop = 4
-  machineCalibration.transferBottom = 5
+    doc = xml.dom.minidom.parse(str(xml_path))
+    nodes = doc.getElementsByTagName("MachineCalibration")
+    if not nodes:
+      raise KeyError("MachineCalibration not found in XML file")
 
-  machineCalibration.limitLeft = 6
-  machineCalibration.limitTop = 7
-  machineCalibration.limitRight = 8
-  machineCalibration.limitBottom = 9
-
-  machineCalibration.zFront = 10
-  machineCalibration.zBack = 11
-
-  machineCalibration.zLimitFront = 12
-  machineCalibration.zLimitRear = 13
-
-  machineCalibration.save(".", "machineCalibrationTest.xml")
-
-  machineCalibrationOut = MachineCalibration()
-  machineCalibrationOut.load(".", "machineCalibrationTest.xml")
-
-  assert machineCalibrationOut.park.x == machineCalibration.park.x
-  assert machineCalibrationOut.park.y == machineCalibration.park.y
-  assert machineCalibrationOut.park.z == machineCalibration.park.z
-  assert machineCalibrationOut.spoolLoad.x == machineCalibration.spoolLoad.x
-  assert machineCalibrationOut.spoolLoad.y == machineCalibration.spoolLoad.y
-  assert machineCalibrationOut.spoolLoad.z == machineCalibration.spoolLoad.z
-
-  assert machineCalibrationOut.transferLeft == machineCalibration.transferLeft
-  assert machineCalibrationOut.transferLeftTop == machineCalibration.transferLeftTop
-  assert machineCalibrationOut.transferTop == machineCalibration.transferTop
-  assert machineCalibrationOut.transferRight == machineCalibration.transferRight
-  assert machineCalibrationOut.transferRightTop == machineCalibration.transferRightTop
-  assert machineCalibrationOut.transferBottom == machineCalibration.transferBottom
-
-  assert machineCalibrationOut.limitLeft == machineCalibration.limitLeft
-  assert machineCalibrationOut.limitTop == machineCalibration.limitTop
-  assert machineCalibrationOut.limitRight == machineCalibration.limitRight
-  assert machineCalibrationOut.limitBottom == machineCalibration.limitBottom
-
-  assert machineCalibrationOut.zFront == machineCalibration.zFront
-  assert machineCalibrationOut.zBack == machineCalibration.zBack
-
-  assert machineCalibrationOut.zLimitFront == machineCalibration.zLimitFront
-  assert machineCalibrationOut.zLimitRear == machineCalibration.zLimitRear
+    for node in nodes[0].childNodes:
+      if node.nodeType != node.ELEMENT_NODE:
+        continue
+      name = node.getAttribute("name")
+      if not node.firstChild:
+        continue
+      if node.nodeName == "float":
+        setattr(self, name, float(node.firstChild.nodeValue))
+      elif node.nodeName == "int":
+        setattr(self, name, int(node.firstChild.nodeValue))

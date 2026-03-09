@@ -114,12 +114,14 @@ class DefaultMachineCalibration(MachineCalibration):
     self.pinDiameter = geometry.pinDiameter
 
     if outputFilePath and outputFileName:
-      # If there isn't a calibration file, create it.  Otherwise, load what
-      # has already been saved.
-      if not os.path.isfile(outputFilePath + "/" + outputFileName):
-        self.save()
-      else:
+      import pathlib
+      json_path = pathlib.Path(outputFilePath) / outputFileName
+      xml_path = json_path.with_suffix(".xml")
+      if json_path.exists() or xml_path.exists():
+        # load() handles XML → JSON migration automatically.
         self.load()
+      else:
+        self.save()
 
 
 class DefaultLayerCalibration(LayerCalibration):
@@ -150,6 +152,6 @@ class DefaultLayerCalibration(LayerCalibration):
 # end class
 
 if __name__ == "__main__":
-  DefaultMachineCalibration(".", "MachineCalibration.xml")
-  DefaultLayerCalibration(".", "V_Calibration.xml", "V")
-  DefaultLayerCalibration(".", "U_Calibration.xml", "U")
+  DefaultMachineCalibration(".", "MachineCalibration.json")
+  DefaultLayerCalibration(".", "V_Calibration.json", "V")
+  DefaultLayerCalibration(".", "U_Calibration.json", "U")

@@ -1,16 +1,15 @@
 ###############################################################################
 # Name: SerializableLocation.py
-# Uses: Serializable version of Location.
+# Uses: Location subclass used by calibration classes.
 # Date: 2016-04-19
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.library.serializable import Serializable
 from dune_winder.library.Geometry.location import Location
 
 
-class SerializableLocation(Location, Serializable):
+class SerializableLocation(Location):
   # ---------------------------------------------------------------------
   @staticmethod
   def fromLocation(location):
