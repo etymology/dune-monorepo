@@ -29,7 +29,7 @@ from dune_winder.machine.default_calibration import DefaultLayerCalibration
 
 from dune_winder.io.Maps.base_io import BaseIO
 from dune_winder.library.log import Log
-from dune_winder.library.configuration import Configuration
+from dune_winder.library.app_config import AppConfig
 from dune_winder.library.time_source import TimeSource
 from dune_winder.machine.settings import Settings
 from dune_winder.machine.machine_calibration import MachineCalibration
@@ -57,7 +57,7 @@ class Process:
     self,
     io: BaseIO,
     log: Log,
-    configuration: Configuration,
+    configuration: AppConfig,
     systemTime: TimeSource,
     machineCalibration: MachineCalibration,
   ):
@@ -67,7 +67,7 @@ class Process:
     Args:
       io: Instance of I/O map.
       log: Log file to write state changes.
-      configuration: Instance of Configuration.
+      configuration: Instance of AppConfig.
       systemTime: Instance of TimeSource.
       machineCalibration: Machine calibration instance.
     """
@@ -106,17 +106,17 @@ class Process:
     self.gCodeHandler.setBeforeExecuteLineCallback(self._refreshCalibrationBeforeExecution)
     self.controlStateMachine.gCodeHandler = self.gCodeHandler
 
-    self._maxVelocity = float(configuration.get("maxVelocity"))
-    self._maxSlowVelocity = float(configuration.get("maxSlowVelocity"))
+    self._maxVelocity = float(configuration.maxVelocity)
+    self._maxSlowVelocity = float(configuration.maxSlowVelocity)
 
     # Setup initial limits on velocity and acceleration.
     io.plcLogic.setupLimits(
       self._maxVelocity,
-      float(configuration.get("maxAcceleration")),
-      float(configuration.get("maxDeceleration")),
+      float(configuration.maxAcceleration),
+      float(configuration.maxDeceleration),
     )
 
-    self._cameraURL = configuration.get("cameraURL")
+    self._cameraURL = configuration.cameraURL
 
     # Setup extended/retracted positions for head.
     io.head.setExtendedAndRetracted(machineCalibration.zFront, machineCalibration.zBack)
@@ -136,7 +136,7 @@ class Process:
     self._zlimitRear = float(self._machineCalibration.get("zLimitRear"))
 
     self.cameraCalibration = CameraCalibration(io)
-    self.cameraCalibration.pixelsPer_mm(configuration.get("pixelsPer_mm"))
+    self.cameraCalibration.pixelsPer_mm(configuration.pixelsPer_mm)
     self.manualCalibration = ManualCalibration(self)
     self.vTemplateRecipe = VTemplateRecipe(self)
     self.uTemplateRecipe = UTemplateRecipe(self)

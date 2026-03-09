@@ -548,7 +548,7 @@ class ManualCalibration:
 
   # -------------------------------------------------------------------
   def _draftBaselineFileName(self, layer):
-    return layer + "_DraftBaseline.xml"
+    return layer + "_DraftBaseline.json"
 
   # -------------------------------------------------------------------
   def _draftBaselinePath(self, layer):
@@ -890,7 +890,7 @@ class ManualCalibration:
   def _liveFileName(self, layer):
     if _mode_for_layer(layer) == "gx":
       return get_xg_recipe_file_name(layer)
-    return layer + "_Calibration.xml"
+    return layer + "_Calibration.json"
 
   # -------------------------------------------------------------------
   def _liveFilePath(self, layer):

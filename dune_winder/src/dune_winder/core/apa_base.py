@@ -8,16 +8,19 @@
 #   Contains just the data portion of the APA, but no process control.
 ###############################################################################
 
+import json
+import os
 import os.path
+import pathlib
+import tempfile
 
-from dune_winder.library.serializable import Serializable
 from dune_winder.library.time_source import TimeSource
 from typing import Optional
 
 
-class APA_Base(Serializable):
+class APA_Base:
   # File name of the APA state (this object) on disk.
-  FILE_NAME = "state.xml"
+  FILE_NAME = "state.json"
   LOG_FILE = "apa_history.csv"
 
   class Stages:
@@ -119,8 +122,6 @@ class APA_Base(Serializable):
       systemTime: Instance of TimeSource.
     """
 
-    Serializable.__init__(self, includeOnly=APA_Base.SERIALIZED_VARIABLES)
-
     self._apaDirectory = apaDirectory
     self._name = name
 
@@ -152,53 +153,30 @@ class APA_Base(Serializable):
 
   # ---------------------------------------------------------------------
   def getPath(self):
-    """
-    Get the path for all files related to this APA.
-    """
+    """Get the path for all files related to this APA."""
     return self._apaDirectory.rstrip("/\\") + "/"
 
   # ---------------------------------------------------------------------
   def getName(self):
-    """
-    Return the name of the APA.
-
-    Returns:
-      String name of the APA.
-    """
+    """Return the name of the APA."""
     return self._name
 
   # ---------------------------------------------------------------------
   def getLayer(self):
-    """
-    Return the current layer of the APA.
-
-    Returns:
-      String name of the current layer of the APA.
-    """
+    """Return the current layer of the APA."""
     return self._layer
 
   # ---------------------------------------------------------------------
   def getStage(self):
-    """
-    Return the current stage of APA progress.
-
-    Returns:
-      Integer number (table in APA.Stages) of APA progress.
-    """
+    """Return the current stage of APA progress."""
     return self._stage
 
   # ---------------------------------------------------------------------
   def getRecipe(self):
-    """
-    Return the name of the loaded recipe.
-
-    Returns:
-      String name of the loaded recipe.  Empty string if no recipe loaded.
-    """
+    """Return the name of the loaded recipe (empty string if none)."""
     result = self._recipeFile
     if result is None:
       result = ""
-
     return result
 
   # ---------------------------------------------------------------------
@@ -213,17 +191,8 @@ class APA_Base(Serializable):
 
   # ---------------------------------------------------------------------
   def toDictionary(self):
-    """
-    Return class data as dictionary.
-
-    Returns:
-      Dictionary object with all class data typically serialized.
-    """
-    result = {}
-    for variable in APA_Base.SERIALIZED_VARIABLES:
-      result[variable] = self.__dict__[variable]
-
-    return result
+    """Return class data as dictionary."""
+    return {var: self.__dict__[var] for var in APA_Base.SERIALIZED_VARIABLES}
 
   # ---------------------------------------------------------------------
   def setLocation(self, x, y, headLocation):
@@ -233,40 +202,93 @@ class APA_Base(Serializable):
     Args:
       x: X location.
       y: Y location.
-      z: Z location.
       headLocation: Position of the winder head (front/back).
     """
-    # print("$$$$$ APA_Base.setLocation SETTING X: %f Y: %f" %(self._x, self._y))
     self._x = x
     self._y = y
     self._headLocation = headLocation
 
   # ---------------------------------------------------------------------
   def load(self, nameOverride=None):
-    """
-    Load
-
-    Returns:
-      True if there was an error, False if not.
-    """
-
+    """Load APA state from JSON.  Falls back to XML for first-run migration."""
     if self._systemTime:
       self._loadStart = self._systemTime.get()
 
-    Serializable.load(self, self.getPath(), APA_Base.FILE_NAME, nameOverride)
+    path = pathlib.Path(self.getPath()) / APA_Base.FILE_NAME
+    if path.exists():
+      with path.open() as f:
+        data = json.load(f)
+      for var in APA_Base.SERIALIZED_VARIABLES:
+        if var in data:
+          setattr(self, var, data[var])
+    else:
+      # Migration: try the legacy state.xml.
+      xml_path = path.with_name("state.xml")
+      if xml_path.exists():
+        self._load_from_xml(xml_path)
+        self.save()
 
   # ---------------------------------------------------------------------
   def save(self):
-    """
-    Save current APA state to file.
-    """
-    now = self._systemTime.get()
-    self._lastModifyDate = str(now)
+    """Save current APA state to JSON atomically."""
+    if self._systemTime:
+      now = self._systemTime.get()
+      self._lastModifyDate = str(now)
+      self._loadedTime += self._systemTime.getDelta(self._loadStart, now)
 
-    # Count the amount of APA time loaded.
-    self._loadedTime += self._systemTime.getDelta(self._loadStart, now)
+    data = {var: getattr(self, var) for var in APA_Base.SERIALIZED_VARIABLES}
+    content = json.dumps(data, indent=2)
 
-    Serializable.save(self, self.getPath(), APA_Base.FILE_NAME)
+    path = pathlib.Path(self.getPath()) / APA_Base.FILE_NAME
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent))
+    try:
+      with os.fdopen(fd, "w") as f:
+        f.write(content)
+      os.replace(tmp, str(path))
+    except Exception:
+      try:
+        os.unlink(tmp)
+      except OSError:
+        pass
+      raise
+
+  # ---------------------------------------------------------------------
+  def _load_from_xml(self, xml_path: pathlib.Path) -> None:
+    """Parse the legacy Serializable XML format into this instance."""
+    import xml.dom.minidom
+
+    doc = xml.dom.minidom.parse(str(xml_path))
+    # The XML root element is the subclass name (e.g. AnodePlaneArray).
+    root = doc.documentElement.firstChild
+    while root and root.nodeType != root.ELEMENT_NODE:
+      root = root.nextSibling
+    if root is None:
+      return
+
+    for node in root.childNodes:
+      if node.nodeType != node.ELEMENT_NODE:
+        continue
+      name = node.getAttribute("name")
+      if name not in APA_Base.SERIALIZED_VARIABLES:
+        continue
+      tag = node.nodeName
+      if tag == "NoneType" or not node.firstChild:
+        setattr(self, name, None)
+      elif tag == "float":
+        setattr(self, name, float(node.firstChild.nodeValue))
+      elif tag == "int":
+        setattr(self, name, int(node.firstChild.nodeValue))
+      elif tag == "str":
+        setattr(self, name, str(node.firstChild.nodeValue))
+      elif tag == "dict":
+        d = {}
+        for child in node.childNodes:
+          if child.nodeType != child.ELEMENT_NODE:
+            continue
+          k = child.getAttribute("name")
+          if child.firstChild:
+            d[k] = child.firstChild.nodeValue
+        setattr(self, name, d)
 
 
 # end class

@@ -6,7 +6,9 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+import json
 import os
+import pathlib
 import re
 
 from dune_winder.library.hash import Hash
@@ -134,7 +136,7 @@ class AnodePlaneArray(APA_Base):
 
     if layer is not None:
       self._layer = layer
-    self._calibrationFile = self._layer + "_Calibration.xml" if self._layer is not None else None
+    self._calibrationFile = self._layer + "_Calibration.json" if self._layer is not None else None
     if self._lineNumber is not None:
       self._lineNumber = startingLine
     # If there is a calibration file, load it.
@@ -357,7 +359,9 @@ class AnodePlaneArray(APA_Base):
   # ---------------------------------------------------------------------
   def _getCalibrationFullPath(self):
     """
-    Get the full path to the active calibration XML file.
+    Get the full path to the active calibration file.
+
+    Prefers the JSON version so the path stays correct after migration.
 
     Returns:
       Full path to calibration file, or None when no file is selected.
@@ -365,7 +369,13 @@ class AnodePlaneArray(APA_Base):
     if not self._calibrationFile:
       return None
 
-    return self._calibrationDirectory + "/" + self._calibrationFile
+    # Prefer .json (canonical post-migration format).
+    json_name = pathlib.Path(self._calibrationFile).with_suffix(".json").name
+    json_path = os.path.join(self._calibrationDirectory, json_name)
+    if os.path.isfile(json_path):
+      return json_path
+
+    return os.path.join(self._calibrationDirectory, self._calibrationFile)
 
   # ---------------------------------------------------------------------
   def _getRecipeFullPath(self):
@@ -401,7 +411,7 @@ class AnodePlaneArray(APA_Base):
   # ---------------------------------------------------------------------
   def _calculateCalibrationSignature(self):
     """
-    Calculate a file-content signature for the active calibration XML.
+    Calculate a file-content signature for the active calibration file.
 
     Returns:
       Hash string of the file contents, or None if the file does not exist.
@@ -411,13 +421,18 @@ class AnodePlaneArray(APA_Base):
       return None
 
     with open(calibFullPath) as inputFile:
-      lines = inputFile.read()
+      content = inputFile.read()
 
-    calibration = self._calibration
-    if calibration is None:
-      calibration = LayerCalibration()
+    # For JSON: strip the hashValue field and canonicalize before hashing so
+    # the signature only changes when calibration data changes (not on re-save).
+    try:
+      data = json.loads(content)
+      data.pop("hashValue", None)
+      canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
+    except json.JSONDecodeError:
+      canonical = content
 
-    return calibration._calculateStringHash(lines)
+    return Hash.singleLine(canonical)
 
   # ---------------------------------------------------------------------
   def _useCalibration(self, calibration, calibrationFile=None):
@@ -561,7 +576,7 @@ class AnodePlaneArray(APA_Base):
     self._calibration = LayerCalibration()
     self._calibration.zFront = geometry.mostlyRetract
     self._calibration.zBack = geometry.mostlyExtend
-    self._calibrationFile = layer + "_Calibration.xml"
+    self._calibrationFile = layer + "_Calibration.json"
     self._calibration.save(self._calibrationDirectory, self._calibrationFile)
     self._useCalibration(self._calibration)
 
