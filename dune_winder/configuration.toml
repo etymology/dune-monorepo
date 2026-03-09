@@ -1,17 +1,6 @@
-# Dune Winder operator configuration.
-# Edit this file to configure machine-specific settings.
-# All values are validated at startup; unknown keys or wrong types raise an error.
-
-# PLC network address.
 plcAddress = "192.168.140.13"
-
-# Camera FTP URL for last captured image.
 cameraURL = "ftp://admin@192.168.140.19/image.bmp"
-
-# Camera calibration: pixels per millimetre.
 pixelsPer_mm = 18
-
-# Manual calibration camera offsets (mm) — X and Y for each layer.
 manualCalibrationOffsetUX = 65.0
 manualCalibrationOffsetUY = -108.2
 manualCalibrationOffsetVX = 65.0
@@ -20,23 +9,11 @@ manualCalibrationOffsetXX = 65.0
 manualCalibrationOffsetXY = -108.2
 manualCalibrationOffsetGX = 65.0
 manualCalibrationOffsetGY = -108.2
-
-# UI command server address and port.
 serverAddress = "127.0.0.1"
 serverPort = 6626
-
-# Web server port.
 webServerPort = 8080
-
-# Machine calibration file name (located in config/).
 machineCalibrationFile = "machineCalibration.json"
-
-# Maximum velocity (mm/min).
 maxVelocity = 1020
-
-# Maximum slow velocity (mm/min) — used during calibration moves.
 maxSlowVelocity = 25.4
-
-# Acceleration and deceleration limits (mm/s²).
 maxAcceleration = 800
 maxDeceleration = 800
