@@ -65,11 +65,18 @@ The main process supports command-line flags in `KEY=VALUE` form:
 - `START=TRUE|FALSE`: auto-start the current APA after launch.
 - `LOG=TRUE|FALSE`: echo runtime log messages to stdout.
 - `LOG_IO=TRUE|FALSE`: log low-level I/O activity (very verbose).
+- `PLC_MODE=REAL|SIM`: override PLC backend mode for this launch.
 
 Example:
 
 ```bash
-python -m dune_winder START=TRUE LOG=TRUE LOG_IO=FALSE
+python -m dune_winder START=TRUE LOG=TRUE LOG_IO=FALSE PLC_MODE=SIM
+```
+
+Runtime default PLC mode is configured in `configuration.toml` with:
+
+```toml
+plcMode = "REAL" # or "SIM"
 ```
 
 ## Development
@@ -152,7 +159,7 @@ write_xg_template_file("G", "gc_files/G-layer.gc", specialInputs=special_inputs)
 
 ## Key Paths
 
-- Configuration: `configuration.xml`
+- Configuration: `configuration.toml`
 - Machine calibration: `config/`
 - Generated recipes: `gc_files/`
 - Runtime logs/cache: `cache/`

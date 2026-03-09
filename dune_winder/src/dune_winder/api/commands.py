@@ -802,6 +802,71 @@ def build_command_registry(
 
   registry.register("low_level_io.get_tag", low_level_io_get_tag, False)
 
+  def _require_sim_plc():
+    plc = getattr(io, "plc", None)
+    requiredMethods = (
+      "get_status",
+      "get_tag",
+      "set_tag",
+      "clear_override",
+      "inject_error",
+      "clear_error",
+    )
+    if plc is None or any(not hasattr(plc, name) for name in requiredMethods):
+      raise ValueError("SIM mode required for sim_plc.* commands.")
+    return plc
+
+  def sim_plc_get_status(args):
+    _validateArgs(args)
+    return _require_sim_plc().get_status()
+
+  registry.register("sim_plc.get_status", sim_plc_get_status, False)
+
+  def sim_plc_get_tag(args):
+    _validateArgs(args, required=("name",))
+    return _require_sim_plc().get_tag(_asString(args["name"], "name"))
+
+  registry.register("sim_plc.get_tag", sim_plc_get_tag, False)
+
+  def sim_plc_set_tag(args):
+    _validateArgs(args, required=("name", "value"), optional=("override",))
+    override = args.get("override")
+    if override is not None:
+      override = _asBool(override, "override")
+
+    return _require_sim_plc().set_tag(
+      _asString(args["name"], "name"),
+      args["value"],
+      override=override,
+    )
+
+  registry.register("sim_plc.set_tag", sim_plc_set_tag, True)
+
+  def sim_plc_clear_override(args):
+    _validateArgs(args, optional=("name",))
+    name = args.get("name")
+    if name is not None:
+      name = _asString(name, "name")
+    return _require_sim_plc().clear_override(name)
+
+  registry.register("sim_plc.clear_override", sim_plc_clear_override, True)
+
+  def sim_plc_inject_error(args):
+    _validateArgs(args, optional=("code", "state"))
+    code = _asInt(args.get("code", 3003), "code")
+    state = args.get("state")
+    if state is not None:
+      state = _asInt(state, "state")
+    return _require_sim_plc().inject_error(code=code, state=state)
+
+  registry.register("sim_plc.inject_error", sim_plc_inject_error, True)
+
+  def sim_plc_clear_error(args):
+    _validateArgs(args)
+    return _require_sim_plc().clear_error()
+
+  registry.register("sim_plc.clear_error", sim_plc_clear_error, True)
+
   if systemTime is not None:
     registry.register(
       "system.get_time",

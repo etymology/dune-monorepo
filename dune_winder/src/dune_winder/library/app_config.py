@@ -18,8 +18,13 @@ import typing
 
 @dataclasses.dataclass
 class AppConfig:
+    VALID_PLC_MODES = ("REAL", "SIM")
+
     # PLC network address.
     plcAddress: str = "192.168.140.13"
+
+    # PLC backend mode.
+    plcMode: str = "REAL"
 
     # Camera FTP URL for last captured image.
     cameraURL: str = "ftp://admin@192.168.140.19/image.bmp"
@@ -53,7 +58,18 @@ class AppConfig:
     maxAcceleration: int = 800
     maxDeceleration: int = 800
 
+    @classmethod
+    def normalizePlcMode(cls, value: typing.Any) -> str:
+        mode = str(value).strip().upper()
+        if mode not in cls.VALID_PLC_MODES:
+            raise ValueError(
+                "configuration.toml: 'plcMode' must be one of "
+                + ", ".join(cls.VALID_PLC_MODES)
+            )
+        return mode
+
     def __post_init__(self) -> None:
+        self.plcMode = self.normalizePlcMode(self.plcMode)
         # Not a dataclass field — stores the file path for save().
         self._path: typing.Optional[pathlib.Path] = None
 
@@ -199,6 +215,9 @@ class AppConfig:
                     f"Cannot convert {type(value).__name__!r} to "
                     f"{expected.__name__!r} for key {key!r}"
                 )
+
+        if key == "plcMode":
+            value = self.normalizePlcMode(value)
 
         setattr(self, key, value)
         self.save()

@@ -224,9 +224,60 @@ class DummyPLCLogic:
     return None
 
 
-class DummyIO:
+class DummyRealPLC:
+  pass
+
+
+class DummySimPLC:
   def __init__(self):
+    self.tags = {"STATE": 1, "MACHINE_SW_STAT[6]": 1}
+    self.overrides = {}
+    self.errorCode = 0
+
+  def get_status(self):
+    return {
+      "mode": "SIM",
+      "state": self.tags.get("STATE", 1),
+      "errorCode": self.errorCode,
+      "overrides": sorted(self.overrides.keys()),
+    }
+
+  def get_tag(self, name):
+    return self.tags.get(name, 0)
+
+  def set_tag(self, name, value, override=None):
+    if override:
+      self.overrides[name] = value
+    else:
+      self.overrides.pop(name, None)
+      self.tags[name] = value
+    return self.get_tag(name)
+
+  def clear_override(self, name=None):
+    if name is None:
+      count = len(self.overrides)
+      self.overrides = {}
+      return {"cleared": count}
+
+    cleared = 1 if name in self.overrides else 0
+    self.overrides.pop(name, None)
+    return {"cleared": cleared, "name": name}
+
+  def inject_error(self, code=3003, state=None):
+    self.errorCode = code
+    self.tags["STATE"] = 10 if state is None else state
+    return self.get_status()
+
+  def clear_error(self):
+    self.errorCode = 0
+    self.tags["STATE"] = 1
+    return self.get_status()
+
+
+class DummyIO:
+  def __init__(self, plc=None):
     self.plcLogic = DummyPLCLogic()
+    self.plc = plc if plc is not None else DummyRealPLC()
 
 
 class DummyConfiguration:
@@ -255,9 +306,9 @@ class DummyMachineCalibration:
   zBack = 123.45
 
 
-def build_registry_fixture():
+def build_registry_fixture(sim_plc=False):
   process = DummyProcess()
-  io = DummyIO()
+  io = DummyIO(plc=DummySimPLC() if sim_plc else DummyRealPLC())
   configuration = DummyConfiguration()
   log = DummyLog()
   machineCalibration = DummyMachineCalibration()
