@@ -69,7 +69,7 @@ class HashedSerializable(Serializable):
     # Remove all white-space.
     # This is done because white-space will not alter the content of the data
     # but can legitimately be different for two identical sets of data.
-    lines = re.sub("[\s]+", "", lines)
+    lines = re.sub(r"[\s]+", "", lines)
 
     # Ignore the hash entry completely.
     lines = re.sub('(<strname="hashValue">' + Hash.HASH_PATTERN + "?</str>)", "", lines)
@@ -112,7 +112,7 @@ class HashedSerializable(Serializable):
     # Recalculate the current content hash from the XML file itself.
     hashValue = self._calculateStringHash(lines)
     body = re.search(
-      '<str[\s]*?name="hashValue"[\s]*?>' + Hash.HASH_PATTERN + "?</str>", lines
+      r'<str[\s]*?name="hashValue"[\s]*?>' + Hash.HASH_PATTERN + "?</str>", lines
     )
 
     # Hashless files are valid.  The content-derived hash is now the source of
@@ -194,7 +194,7 @@ class HashedSerializable(Serializable):
 
     # Replace hash value with updated value.
     outputText = re.sub(
-      '<str[\s]*?name="hashValue"[\s]*?>' + Hash.HASH_PATTERN + "?</str>",
+      r'<str[\s]*?name="hashValue"[\s]*?>' + Hash.HASH_PATTERN + "?</str>",
       '<str name="hashValue">' + self.hashValue + "</str>",
       outputText,
     )

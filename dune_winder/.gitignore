@@ -13,5 +13,5 @@ cache/
 
 # Leftover physical directory from Windows file-lock during reorganization
 /src/winder/
-spreadsheets/
+src/dune_winder.egg-info/
 .venv
