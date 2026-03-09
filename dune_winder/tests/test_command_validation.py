@@ -11,7 +11,6 @@ class CommandValidationTests(unittest.TestCase):
         "name": "process.v_template.set_transfer_pause",
         "args": {"enabled": "True"},
       },
-      isAuthenticated=True,
     )
 
     self.assertTrue(response["ok"])
@@ -24,7 +23,6 @@ class CommandValidationTests(unittest.TestCase):
         "name": "process.seek_pin",
         "args": {"pin": "F1", "velocity": 10, "extra": 1},
       },
-      isAuthenticated=True,
     )
 
     self.assertFalse(response["ok"])
@@ -38,7 +36,6 @@ class CommandValidationTests(unittest.TestCase):
         "name": "configuration.get",
         "args": {},
       },
-      isAuthenticated=True,
     )
 
     self.assertFalse(response["ok"])
@@ -47,7 +44,7 @@ class CommandValidationTests(unittest.TestCase):
 
   def test_request_requires_name_field(self):
     registry, _, _, _, _, _ = build_registry_fixture()
-    response = registry.executeRequest({"args": {}}, isAuthenticated=True)
+    response = registry.executeRequest({"args": {}})
 
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "BAD_REQUEST")
@@ -59,7 +56,6 @@ class CommandValidationTests(unittest.TestCase):
         "name": "process.start",
         "args": ["not", "an", "object"],
       },
-      isAuthenticated=True,
     )
 
     self.assertFalse(response["ok"])
@@ -68,4 +64,3 @@ class CommandValidationTests(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
-

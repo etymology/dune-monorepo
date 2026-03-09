@@ -8,60 +8,15 @@
 import urllib.request
 import urllib.error
 import json
-import re
 
 from http.server import HTTPServer
 from http.server import SimpleHTTPRequestHandler
-from dune_winder.library.remote_session import RemoteSession
 from dune_winder.library.json import dumps as jsonDumps
 
 
 class WebServerInterface(SimpleHTTPRequestHandler):
-  # $$$FUTURE - If we decide to use authentication, this must change.
-  BYPASS_AUTHENTICATION = True
-
   commandRegistry = None
   log = None
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _cookieData(headers):
-    cookies = {}
-    if "Cookie" in headers:
-      cookieData = headers["Cookie"]
-      cookieData = cookieData.split("; ")
-      for cookie in cookieData:
-        if "=" in cookie:
-          cookieName, cookieValue = cookie.split("=", 1)
-          cookies[cookieName] = cookieValue
-    return cookies
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _setupSession(headers, clientAddress):
-    cookies = WebServerInterface._cookieData(headers)
-
-    # Get session identification.
-    sessionId = None
-    if "sessionId" in cookies:
-      sessionId = cookies["sessionId"]
-
-    # Find or create session.
-    session = RemoteSession.sessionSetup(sessionId)
-    sessionId = session.getId()
-    cookies["sessionId"] = sessionId
-
-    # If the client address is a loop-back (i.e. the local machine) then
-    # it by default is authenticated.
-    if (
-      re.search(r"127\.[0-9]+\.[0-9]+\.[0-9]+", clientAddress)
-      or WebServerInterface.BYPASS_AUTHENTICATION
-    ):
-      session.setAuthenticated(True)
-
-    # Check to see if session is authenticated.
-    isAuthenticated = session.getAuthenticated()
-    return session, cookies, isAuthenticated
 
   # ---------------------------------------------------------------------
   @staticmethod
@@ -114,7 +69,7 @@ class WebServerInterface(SimpleHTTPRequestHandler):
           raise RuntimeError("Command registry is not configured.")
 
         commandResult = WebServerInterface.commandRegistry.execute(
-          "process.get_camera_image_url", {}, isAuthenticated=True
+          "process.get_camera_image_url", {}
         )
         if not commandResult.get("ok", False):
           raise RuntimeError("Camera URL command failed.")
@@ -144,11 +99,6 @@ class WebServerInterface(SimpleHTTPRequestHandler):
     # Get post data length.
     length = int(self.headers.get("content-length", "0"))
 
-    clientAddress = self.client_address[0]
-    _session, cookies, isAuthenticated = WebServerInterface._setupSession(
-      self.headers, clientAddress
-    )
-
     path = self.path.split("?")[0]
     if path not in ("/api/v2/command", "/api/v2/batch"):
       response = {
@@ -156,7 +106,7 @@ class WebServerInterface(SimpleHTTPRequestHandler):
         "data": None,
         "error": {"code": "BAD_REQUEST", "message": "Unsupported POST path."},
       }
-      self._sendJsonResponse(response, cookies, statusCode=404)
+      self._sendJsonResponse(response, {}, statusCode=404)
       return
 
     payload = None
@@ -183,19 +133,15 @@ class WebServerInterface(SimpleHTTPRequestHandler):
         },
       }
     elif path == "/api/v2/command":
-      response = WebServerInterface.commandRegistry.executeRequest(
-        payload, isAuthenticated=isAuthenticated
-      )
+      response = WebServerInterface.commandRegistry.executeRequest(payload)
     else:
-      response = WebServerInterface.commandRegistry.executeBatchRequest(
-        payload, isAuthenticated=isAuthenticated
-      )
+      response = WebServerInterface.commandRegistry.executeBatchRequest(payload)
 
     statusCode = 200
     if not response.get("ok"):
       statusCode = WebServerInterface._statusCodeFromError(response.get("error"))
 
-    self._sendJsonResponse(response, cookies, statusCode=statusCode)
+    self._sendJsonResponse(response, {}, statusCode=statusCode)
 
 
 # end class
