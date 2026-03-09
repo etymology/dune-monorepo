@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from .model import CommandWord, Comment, FunctionCall, Program, ProgramLine
+from .model import Program, ProgramLine
 from .parser import GCodeParseError, parse_line_text
 
 
@@ -19,17 +19,7 @@ class GCodeExecutionError(Exception):
 
 class GCodeCallbacks:
   def __init__(self):
-    self._callbacks = {
-      "F": None,
-      "G": None,
-      "M": None,
-      "N": None,
-      "O": None,
-      "P": None,
-      "X": None,
-      "Y": None,
-      "Z": None,
-    }
+    self._callbacks = {"on_instruction": None}
 
   def get(self, code):
     return self._callbacks[code]
@@ -38,6 +28,8 @@ class GCodeCallbacks:
     return self.get(code)
 
   def register(self, code, callback):
+    if code != "on_instruction":
+      raise KeyError("Only 'on_instruction' callbacks are supported.")
     self._callbacks[code] = callback
 
   def registerCallback(self, code, callback):
@@ -91,41 +83,10 @@ class GCodeProgramExecutor:
     self.execute_next_line(lineNumber)
 
 
-def _coerce_command_value(letter: str, value):
-  if letter in ("F", "X", "Y", "Z"):
-    return float(value)
-  if letter in ("M", "N"):
-    return int(value)
-  return value
-
-
-def _command_callback_payload(command: CommandWord):
-  values = [_coerce_command_value(command.letter, command.value)]
-  values.extend(_coerce_command_value(command.letter, parameter) for parameter in command.parameters)
-  if 1 == len(values):
-    return values[0]
-  return values
-
-
-def _function_callback_payload(function: FunctionCall):
-  return function.as_legacy_parameter_list()
-
-
 def execute_program_line(line: ProgramLine, callback_lookup: CallbackLookup) -> None:
-  for item in line.items:
-    if isinstance(item, Comment):
-      continue
-
-    if isinstance(item, FunctionCall):
-      callback = callback_lookup("G")
-      if callback is not None:
-        callback(_function_callback_payload(item))
-      continue
-
-    if isinstance(item, CommandWord):
-      callback = callback_lookup(item.letter)
-      if callback is not None:
-        callback(_command_callback_payload(item))
+  callback = callback_lookup("on_instruction")
+  if callback is not None:
+    callback(line)
 
 
 def execute_program(program: Program, callback_lookup: CallbackLookup) -> None:

@@ -11,7 +11,7 @@
 ###############################################################################
 
 from dune_winder.library.math_extra import MathExtra
-from dune_winder.gcode.model import Opcode
+from dune_winder.gcode.model import CommandWord, Comment, FunctionCall, Opcode, ProgramLine
 from dune_winder.gcode.runtime import (
   GCodeCallbacks,
   GCodeExecutionError,
@@ -31,79 +31,96 @@ class G_CodeHandlerBase:
   DEBUG_UNIT = False
 
   # ---------------------------------------------------------------------
-  def _setX(self, x):
-    """
-    Callback for setting x-axis.
-
-    Args:
-      x: Desired x-axis location.
-
-    Returns:
-      None.
-    """
-    self._xyChange = True
-    self._x = x
-
-  # ---------------------------------------------------------------------
-  def _setY(self, y):
-    """
-    Callback for setting y-axis.
-
-    Args:
-      y: Desired y-axis location.
-
-    Returns:
-      None.
-    """
-    self._xyChange = True
-    self._y = y
-
-  # ---------------------------------------------------------------------
-  def _setZ(self, z):
-    """
-    Callback for setting z-axis.
-
-    Args:
-      z: Desired z-axis location.
-
-    Returns:
-      None.
-    """
-    self._zChange = True
-    self._z = z
-
-  # ---------------------------------------------------------------------
   def _setVelocity(self, velocity):
-    """
-    Callback for setting velocity.
-
-    Args:
-      velocity: Desired maximum velocity.
-    Returns:
-      None.
-    Notes:
-      Limited to 'maxVelocity'.
-    """
+    """Set commanded velocity, capped to the configured maximum."""
     if velocity < self._maxVelocity:
       self._velocity = velocity
     else:
       self._velocity = self._maxVelocity
 
   # ---------------------------------------------------------------------
-  def _setLine(self, line):
-    """
-    Callback for setting line number.
+  def _request_xy_move(self):
+    self._instruction_request_xy = True
 
-    Args:
-      line: Current line number.
+  # ---------------------------------------------------------------------
+  def _request_z_move(self):
+    self._instruction_request_z = True
 
-    Returns:
-      None.
-    """
-    self._line = line
+  # ---------------------------------------------------------------------
+  def _request_head_move(self):
+    self._instruction_request_head = True
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
-      print("Line", line)
+  # ---------------------------------------------------------------------
+  def _request_latch(self):
+    self._instruction_request_latch = True
+
+  # ---------------------------------------------------------------------
+  def _request_stop(self):
+    self._instruction_request_stop = True
+
+  # ---------------------------------------------------------------------
+  def _consume_command_word(self, command: CommandWord):
+    if command.letter == "X":
+      self._x = float(command.value)
+      self._request_xy_move()
+      return
+
+    if command.letter == "Y":
+      self._y = float(command.value)
+      self._request_xy_move()
+      return
+
+    if command.letter == "Z":
+      self._z = float(command.value)
+      self._request_z_move()
+      return
+
+    if command.letter == "F":
+      self._setVelocity(float(command.value))
+      return
+
+    if command.letter == "N":
+      self._line = int(command.value)
+      if G_CodeHandlerBase.DEBUG_UNIT:
+        print("Line", self._line)
+      return
+
+  # ---------------------------------------------------------------------
+  def _queue_instruction_actions(self):
+    if self._instruction_request_xy:
+      self._pending_actions.append("xy")
+
+    if self._instruction_request_z:
+      self._pending_actions.append("z")
+
+    if self._instruction_request_head:
+      self._pending_actions.append("head")
+
+    if self._instruction_request_latch:
+      self._pending_actions.append("latch")
+
+    if self._instruction_request_stop:
+      self._pending_stop_request = True
+
+  # ---------------------------------------------------------------------
+  def handle_instruction(self, line: ProgramLine):
+    """Handle one complete parsed G-code instruction line atomically."""
+    self._instruction_request_xy = False
+    self._instruction_request_z = False
+    self._instruction_request_head = False
+    self._instruction_request_latch = False
+    self._instruction_request_stop = False
+
+    for item in line.items:
+      if isinstance(item, Comment):
+        continue
+      if isinstance(item, CommandWord):
+        self._consume_command_word(item)
+        continue
+      if isinstance(item, FunctionCall):
+        self._runFunction(item.as_legacy_parameter_list())
+
+    self._queue_instruction_actions()
 
   # ---------------------------------------------------------------------
   def _parameterExtract(self, parameters, start, finish, newType, errorMessage):
@@ -200,7 +217,7 @@ class G_CodeHandlerBase:
     """
     Toggle spool latch.
     """
-    self._latchRequest = True
+    self._request_latch()
 
   # ---------------------------------------------------------------------
   def _wireLength(self, function):
@@ -269,7 +286,7 @@ class G_CodeHandlerBase:
 
     self._x = location.x
     self._y = location.y
-    self._xyChange = True
+    self._request_xy_move()
 
   # ---------------------------------------------------------------------
   def _pinCenter(self, function):
@@ -298,11 +315,11 @@ class G_CodeHandlerBase:
 
     if "X" in axies:
       self._x = center.x
-      self._xyChange = True
+      self._request_xy_move()
 
     if "Y" in axies:
       self._y = center.y
-      self._xyChange = True
+      self._request_xy_move()
 
     # Save the Z center location (but don't act on it).
     self._z = center.z
@@ -322,7 +339,8 @@ class G_CodeHandlerBase:
     if G_CodeHandlerBase.DEBUG_UNIT:
       print("  CLIP", oldX, oldY, "->", self._x, self._y)
 
-    self._xyChange |= (oldX != self._x) or (oldY != self._y)
+    if (oldX != self._x) or (oldY != self._y):
+      self._request_xy_move()
 
   def _offset(self, function):
     # Offset coordinates.
@@ -340,14 +358,14 @@ class G_CodeHandlerBase:
           print("x", offset, end=" ")
 
         self._x += offset
-        self._xyChange = True
+        self._request_xy_move()
 
       if "Y" == axis:
         if G_CodeHandlerBase.DEBUG_UNIT:
           print("y", offset, end=" ")
 
         self._y += offset
-        self._xyChange = True
+        self._request_xy_move()
 
       if G_CodeHandlerBase.DEBUG_UNIT:
         print()
@@ -359,7 +377,7 @@ class G_CodeHandlerBase:
     """
 
     self._headPosition = self._parameterExtract(function, 1, None, int, "head location")
-    self._headPositionChange = True
+    self._request_head_move()
 
     if G_CodeHandlerBase.DEBUG_UNIT:
       print("  HEAD_LOCATION", self._headPosition)
@@ -460,7 +478,7 @@ class G_CodeHandlerBase:
     if G_CodeHandlerBase.DEBUG_UNIT:
       print()
 
-    self._xyChange = True
+    self._request_xy_move()
 
   # ---------------------------------------------------------------------
   def _transferCorrect(self, function):
@@ -529,7 +547,7 @@ class G_CodeHandlerBase:
     """
     Break point.  Stop G-Code execution.
     """
-    self._stopRequest = True
+    self._request_stop()
 
   # ---------------------------------------------------------------------
 
@@ -642,12 +660,7 @@ class G_CodeHandlerBase:
       headCompensation: Instance of HeadCompensation.
     """
     self._callbacks = GCodeCallbacks()
-    self._callbacks.registerCallback("X", self._setX)
-    self._callbacks.registerCallback("Y", self._setY)
-    self._callbacks.registerCallback("Z", self._setZ)
-    self._callbacks.registerCallback("F", self._setVelocity)
-    self._callbacks.registerCallback("G", self._runFunction)
-    self._callbacks.registerCallback("N", self._setLine)
+    self._callbacks.registerCallback("on_instruction", self.handle_instruction)
 
     self._functions = []
 
@@ -661,12 +674,13 @@ class G_CodeHandlerBase:
     self._lastY = None
     self._lastZ = None
 
-    self._xyChange = False
-    self._zChange = False
-    self._headPositionChange = False
-    self._stopRequest = False
-
-    self._latchRequest = False
+    self._pending_actions = []
+    self._pending_stop_request = False
+    self._instruction_request_xy = False
+    self._instruction_request_z = False
+    self._instruction_request_head = False
+    self._instruction_request_latch = False
+    self._instruction_request_stop = False
 
     # Current line number.
     self._line = 0
