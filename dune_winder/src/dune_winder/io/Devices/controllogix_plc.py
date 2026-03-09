@@ -13,7 +13,6 @@
 ###############################################################################
 
 from .plc import PLC
-from pycomm3 import LogixDriver as ClxDriver
 import threading
 
 
@@ -119,6 +118,13 @@ class ControllogixPLC(PLC):
     """
     # Use logger only for DEBUG
     # configure_default_logger(level="ERROR", filename='C:/dune/bin/T05-Winder-test/src/winder/pycomm3.log')
+    try:
+      from pycomm3 import LogixDriver as ClxDriver
+    except Exception as exception:
+      raise RuntimeError(
+        "pycomm3 is required for PLC REAL mode. Install pycomm3 or use PLC_MODE=SIM."
+      ) from exception
+
     self._ipAddress = ipAddress
     self._plcDriver = ClxDriver(self._ipAddress)
     self._isFunctional = False

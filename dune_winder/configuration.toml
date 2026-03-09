@@ -1,4 +1,5 @@
 plcAddress = "192.168.140.13"
+plcMode = "REAL"
 cameraURL = "ftp://admin@192.168.140.19/image.bmp"
 pixelsPer_mm = 18
 manualCalibrationOffsetUX = 65.0

@@ -72,6 +72,23 @@ uiVersion = None
 
 
 # -----------------------------------------------------------------------
+def _parseOption(argument):
+  text = str(argument).strip()
+  option = text
+  value = "TRUE"
+  if "=" in text:
+    option, value = text.split("=", 1)
+
+  return option.strip().upper(), value.strip()
+
+
+# -----------------------------------------------------------------------
+def _resolvePlcMode(configuredMode, cliOverride):
+  source = cliOverride if cliOverride is not None else configuredMode
+  return AppConfig.normalizePlcMode(source)
+
+
+# -----------------------------------------------------------------------
 def _normalizeCommand(command):
   if isinstance(command, bytes):
     return command.decode("utf-8", errors="replace")
@@ -200,19 +217,18 @@ def main():
   global isStartAPA, isLogEchoed, isIO_Logged
 
   # Handle command line.
+  plcModeOverride = None
   for argument in sys.argv[1:]:
-    argument = argument.upper()
-    option = argument
-    value = "TRUE"
-    if -1 != argument.find("="):
-      option, value = argument.split("=")
+    option, value = _parseOption(argument)
 
     if "START" == option:
-      isStartAPA = "TRUE" == value
+      isStartAPA = str(value).upper() == "TRUE"
     elif "LOG" == option:
-      isLogEchoed = "TRUE" == value
+      isLogEchoed = str(value).upper() == "TRUE"
     elif "LOG_IO" == option:
-      isIO_Logged = "TRUE" == value
+      isIO_Logged = str(value).upper() == "TRUE"
+    elif "PLC_MODE" == option:
+      plcModeOverride = value
 
   # Install signal handler for Ctrl-C shutdown.
   signal.signal(signal.SIGINT, signalHandler)
@@ -228,6 +244,7 @@ def main():
   # Load configuration (creates with defaults if the file does not exist).
   import pathlib
   configuration = AppConfig.load(pathlib.Path(Settings.CONFIG_FILE))
+  plcMode = _resolvePlcMode(configuration.plcMode, plcModeOverride)
 
   # Persist on first run so the file exists for operators to inspect.
   configuration.save()
@@ -235,9 +252,10 @@ def main():
   # Setup log file.
   log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
   log.add("Main", "START", "Control system starts.")
+  log.add("Main", "PLC_MODE", "PLC backend mode selected.", [plcMode])
 
   try:
-    io = ProductionIO(configuration.plcAddress)
+    io = ProductionIO(configuration.plcAddress, plcMode=plcMode)
 
     # Use low-level I/O to avoid warning.
     # (Low-level I/O is needed by remote commands.)
