@@ -103,6 +103,9 @@ inline global page singletons.
 
 ## P4: `GeometrySelection` abusing `__new__` as a disguised factory function
 
+Status: Implemented (2026-03-09). Deleted `GeometrySelection` class; replaced with `create_layer_geometry(layer_name: str) -> LayerGeometry` factory function in `machine/geometry_selection.py`. All call sites updated. Invalid layer names now raise `ValueError` with a descriptive message listing valid names. Common layer attributes declared on `LayerGeometry` base class for correct static typing.
+
+
 ### Impact
 - Type checkers and IDEs report the return type as `GeometrySelection`, but no `GeometrySelection` instance is ever created, misleading any static analysis.
 - The pattern violates Python's contract for `__new__` and surprises readers who expect class instantiation to produce the declared type.

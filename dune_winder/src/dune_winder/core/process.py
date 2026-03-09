@@ -23,7 +23,7 @@ from dune_winder.recipes.v_template_recipe import VTemplateRecipe
 from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 
 from dune_winder.machine.head_compensation import HeadCompensation
-from dune_winder.machine.geometry_selection import GeometrySelection
+from dune_winder.machine.geometry_selection import create_layer_geometry
 from dune_winder.machine.layer_functions import LayerFunctions
 from dune_winder.machine.default_calibration import DefaultLayerCalibration
 
@@ -397,7 +397,7 @@ class Process:
         if settings:
           layer = settings["layer"]
           recipe = settings["recipe"]
-          geometry = GeometrySelection(layer)
+          geometry = create_layer_geometry(layer)
 
           self.apa.setupBlankCalibration(layer, geometry)
           self.apa.loadRecipe(layer, recipe)
@@ -1645,7 +1645,8 @@ class Process:
       stage = self.apa.getStage()
       self.apa.STAGE_SIDE[stage]
       layer = self.apa.getLayer()
-      geometry = GeometrySelection(layer)
+      assert layer is not None
+      geometry = create_layer_geometry(layer)
 
       pinFront = geometry.startPinFront
       pinBack = geometry.startPinBack
@@ -1719,7 +1720,8 @@ class Process:
     if self.apa is not None:
       isError = False
       layer = self.apa.getLayer()
-      geometry = GeometrySelection(layer)
+      assert layer is not None
+      geometry = create_layer_geometry(layer)
       calibration = self.gCodeHandler.getLayerCalibration()
       calibrationFileName = calibration.getFileName()
       cameraDataPath = self.apa.getPath() + "Scans"

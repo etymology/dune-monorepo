@@ -1,55 +1,31 @@
-###############################################################################
-# Name: GeometrySelection.py
-# Uses: Create layer geometry based on layer name.
-# Date: 2016-11-01
-# Author(s):
-#   Andrew Que <aque@bb7.com>
-###############################################################################
-
 from .layer_geometry import LayerGeometry
 from .x_layer_geometry import X_LayerGeometry
 from .v_layer_geometry import V_LayerGeometry
 from .u_layer_geometry import U_LayerGeometry
 from .g_layer_geometry import G_LayerGeometry
 
-
-class GeometrySelection(LayerGeometry):
-  # -------------------------------------------------------------------
-  def __new__(_, layerName: str):
-    """
-    The new operator will actually not create an instance of this class, but
-    rather an instance of the requested layer's geometry class.
-
-    Args:
-      layerName: Name of layer geometry to create (X/V/U/G).
-
-    Returns:
-      Instance of the requested layer geometry.
-    """
-
-    # Lookup table of layer geometries.
-    LAYERS = {
-      "X": X_LayerGeometry,
-      "V": V_LayerGeometry,
-      "U": U_LayerGeometry,
-      "G": G_LayerGeometry,
-    }
-
-    # Select requested geometry.
-    specificLayer = LAYERS[layerName]
-
-    # Return instance of specified layer.
-    return specificLayer()
+_LAYERS: dict[str, type[LayerGeometry]] = {
+  "X": X_LayerGeometry,
+  "V": V_LayerGeometry,
+  "U": U_LayerGeometry,
+  "G": G_LayerGeometry,
+}
 
 
-# Unit test.
-if __name__ == "__main__":
-  xGeometry = GeometrySelection("X")
-  vGeometry = GeometrySelection("V")
-  uGeometry = GeometrySelection("U")
-  gGeometry = GeometrySelection("G")
+def create_layer_geometry(layer_name: str) -> LayerGeometry:
+  """
+  Factory function that returns a LayerGeometry instance for the given layer name.
 
-  assert isinstance(xGeometry, X_LayerGeometry)
-  assert isinstance(vGeometry, V_LayerGeometry)
-  assert isinstance(uGeometry, U_LayerGeometry)
-  assert isinstance(gGeometry, G_LayerGeometry)
+  Args:
+    layer_name: Name of layer geometry to create ("X", "V", "U", or "G").
+
+  Returns:
+    Instance of the corresponding LayerGeometry subclass.
+
+  Raises:
+    ValueError: If layer_name is not one of the valid layer names.
+  """
+  if layer_name not in _LAYERS:
+    valid = ", ".join(sorted(_LAYERS))
+    raise ValueError(f"Unknown layer name {layer_name!r}. Valid layer names are: {valid}")
+  return _LAYERS[layer_name]()
