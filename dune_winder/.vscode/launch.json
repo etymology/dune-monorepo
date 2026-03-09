@@ -2,6 +2,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "dune-winder (simulated PLC)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "dune_winder",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "PLC_MODE=SIM",
+                "LOG=TRUE",
+                "LOG_IO=FALSE",
+                "START=FALSE"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
             "name": "dune-winder",
             "type": "debugpy",
             "request": "launch",
