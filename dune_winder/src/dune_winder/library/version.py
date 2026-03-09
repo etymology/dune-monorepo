@@ -228,7 +228,7 @@ class Version:
 # Unit test.
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
-  version = Version("testVersion.xml", ".", ".*\.py")
+  version = Version("testVersion.xml", ".", r".*\.py")
   print(version.update())
   print(version.getVersion())
   print(version.getDate())
