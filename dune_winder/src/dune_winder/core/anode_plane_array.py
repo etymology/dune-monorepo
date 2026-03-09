@@ -134,7 +134,7 @@ class AnodePlaneArray(APA_Base):
 
     if layer is not None:
       self._layer = layer
-    self._calibrationFile = self._layer + "_Calibration.xml"
+    self._calibrationFile = self._layer + "_Calibration.xml" if self._layer is not None else None
     if self._lineNumber is not None:
       self._lineNumber = startingLine
     # If there is a calibration file, load it.
