@@ -148,6 +148,7 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
   this.buttonSet = function( tag )
   {
     var div = $( "<div />" ).appendTo( tag )
+    div.addClass( "configurationButtons" )
 
     $( "<button />" )
       .appendTo( div )

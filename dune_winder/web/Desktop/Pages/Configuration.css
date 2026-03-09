@@ -1,34 +1,52 @@
 section
 {
-  float: left;
-  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
 }
 
 #section1
 {
-  width: 300px;
+  display: grid;
+  grid-template-columns: repeat( auto-fit, minmax(320px, 1fr) );
+  gap: 16px;
+  justify-items: stretch;
 }
 
-#section2
+#section1 article
 {
-  width: 350px;
-}
-#section4
-{
-  width: 550px;
+  float: none;
+  width: 100%;
+  margin: 0;
 }
 
-.configurationSet div
+.configurationSet
 {
-  padding-top:    4px;
-  padding-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.configurationSet > div:not(.configurationButtons)
+{
+  display: grid;
+  grid-template-columns: 160px minmax(150px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
 }
 
 .configurationSet label
 {
   display: block;
-  float: left;
-  width: 125px;
+  margin: 0;
+}
+
+.configurationSet input
+{
+  min-width: 120px;
 }
 
 .configurationSet button
@@ -36,3 +54,15 @@ section
   margin-right: 5px;
 }
 
+.configurationButtons
+{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.configurationButtons button
+{
+  min-width: 90px;
+}
