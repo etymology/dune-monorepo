@@ -92,7 +92,29 @@ class AnodePlaneArray(APA_Base):
     Args:
       layer: Name of the layer.
     """
+    if layer is None:
+      return None
     return self.getPath() + "/Layer" + layer + Settings.G_CODE_LOG_FILE
+
+  # ---------------------------------------------------------------------
+  def _inferLayerFromRecipeFile(self, recipeFile):
+    """
+    Infer layer name from a recipe file name.
+
+    Args:
+      recipeFile: Recipe file name (for example ``G-Layer_1.gc``).
+
+    Returns:
+      Uppercase single-letter layer name, or None if no valid prefix is found.
+    """
+    if not recipeFile:
+      return None
+
+    match = re.match(r"^\s*([A-Za-z])(?:[-_]|$)", recipeFile)
+    if not match:
+      return None
+
+    return match.group(1).upper()
 
   # ---------------------------------------------------------------------
   def closeLoadedRecipe(self):
@@ -176,13 +198,14 @@ class AnodePlaneArray(APA_Base):
     if not isError:
       self._gCodeHandler.setLineChangeCallback(self.save)
       recipeFullPath = self._recipeDirectory + "/" + self._recipeFile
+      activeLayer = self._layer if self._layer is not None else "<unset>"
       self._log.add(
         self.__class__.__name__,
         "GCODE",
         "Loaded G-Code file "
         + recipeFullPath
         + ", active layer "
-        + self._layer
+        + activeLayer
         + ", starting at line "
         + str(self._lineNumber),
         [
@@ -235,6 +258,8 @@ class AnodePlaneArray(APA_Base):
         )
 
     if recipeFile is not None:
+      if self._layer is None:
+        self._layer = self._inferLayerFromRecipeFile(recipeFile)
       self.loadRecipe(self._layer, recipeFile, self._lineNumber)
       self._gCodeHandler.setInitialLocation(self._x, self._y, self._headLocation)
 
