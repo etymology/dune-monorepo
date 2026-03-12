@@ -20,13 +20,13 @@ class RecipeTemplateLanguageTests(unittest.TestCase):
     )
     self.assertEqual(rendered, "G109 PB1203 PXY")
 
-  def test_execute_template_script_emits_conditionals_and_transitions(self):
+  def test_execute_template_script_emits_conditionals_and_transfers(self):
     script = compile_template_script(
       (
         "# comment",
         "emit START ${value}",
         "if is_enabled: emit ENABLED",
-        "if is_enabled: transition to_end",
+        "if is_enabled: transfer to_end",
       )
     )
 
@@ -37,10 +37,10 @@ class RecipeTemplateLanguageTests(unittest.TestCase):
       environment={"value": 5, "is_enabled": True},
       output_lines=lines,
       line_builder=_line_builder,
-      transitions={"to_end": lambda output: output.append("TRANSITION")},
+      transfers={"to_end": lambda output: output.append("TRANSFER")},
     )
 
-    self.assertEqual(lines, ["START 5", "ENABLED", "TRANSITION"])
+    self.assertEqual(lines, ["START 5", "ENABLED", "TRANSFER"])
 
   def test_execute_template_script_supports_emit_head_restart(self):
     script = compile_template_script(
@@ -57,7 +57,7 @@ class RecipeTemplateLanguageTests(unittest.TestCase):
       environment={},
       output_lines=lines,
       line_builder=_line_builder,
-      transitions={},
+      transfers={},
       emit_callback=lambda output, line, action: output.append((line, action)),
     )
 

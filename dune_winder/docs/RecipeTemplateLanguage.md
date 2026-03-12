@@ -16,10 +16,10 @@ Each script line is one of:
 
 - `emit <text>`
 - `emit_head_restart <text>`
-- `transition <name>`
+- `transfer <name>`
 - `if <expr>: emit <text>`
 - `if <expr>: emit_head_restart <text>`
-- `if <expr>: transition <name>`
+- `if <expr>: transfer <name>`
 
 Blank lines and lines starting with `#` are ignored.
 
@@ -40,18 +40,18 @@ emit G109 PB${1200 + wrap} PXY ${offset('PX', offsets[0])} G102
 if near_comb(799 + wrap): emit G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}
 ```
 
-## Transitions
+## Transfers
 
-`transition <name>` dispatches to a Python callback supplied by the caller.
+`transfer <name>` dispatches to a Python callback supplied by the caller.
 
 U/V currently register:
 
-- `transfer_b_to_a`
-- `transfer_a_to_b`
+- `b_to_a_transfer`
+- `a_to_b_transfer`
 
-These map to `append_pause_to_motion_transition(...)` and
-`append_motion_to_pause_transition(...)` in
-`TemplateGCodeTransitions.py`.
+These map to `append_b_to_a_transfer(...)` and
+`append_a_to_b_transfer(...)` in
+`TemplateGCodeTransfers.py`.
 
 ## Current Usage
 
