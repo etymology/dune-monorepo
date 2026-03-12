@@ -10,9 +10,9 @@ from dune_winder.recipes.recipe_template_language import (
   execute_template_script,
 )
 from dune_winder.gcode.renderer import normalize_line_text
-from dune_winder.recipes.template_gcode_transitions import (
-  append_motion_to_pause_transition,
-  append_pause_to_motion_transition,
+from dune_winder.recipes.template_gcode_transfers import (
+  append_a_to_b_transfer,
+  append_b_to_a_transfer,
   g106_line,
 )
 
@@ -43,10 +43,10 @@ XG_WRAP_SCRIPT = compile_template_script(
   (
     "emit X${r(HEAD_PULL_FLAT)} Y${r(head_a_value)}",
     "emit X${r(FOOT_TRANSFER_ZONE)} Y${r(wire_foot_y + foot_a_offset + spacing_offset)}",
-    "transition transfer_a_to_b",
+    "transfer a_to_b_transfer",
     "emit X${r(FOOT_PULL_FLAT)} Y${r(wire_foot_y + foot_b_offset + spacing_offset)}",
     "emit_head_restart X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_b_offset + spacing_offset)}",
-    "transition transfer_b_to_a",
+    "transfer b_to_a_transfer",
   )
 )
 
@@ -171,24 +171,24 @@ def _render_wrap_lines(
   if wrap_number > 1:
     head_a_value += DIAGONAL_CORRECT
 
-  def append_transition_steps(output, transition_function):
-    transition_lines = []
-    transition_function(
-      transition_lines,
+  def append_transfer_steps(output, transfer_function):
+    transfer_lines = []
+    transfer_function(
+      transfer_lines,
       line_builder=_line,
       transfer_pause=transfer_pause,
       include_lead_mode=include_lead_mode,
     )
-    output.extend(_wrap_step(transition_line) for transition_line in transition_lines)
+    output.extend(_wrap_step(transfer_line) for transfer_line in transfer_lines)
 
-  transitions = {
-    "transfer_a_to_b": lambda output: append_transition_steps(
+  transfers = {
+    "a_to_b_transfer": lambda output: append_transfer_steps(
       output,
-      append_motion_to_pause_transition,
+      append_a_to_b_transfer,
     ),
-    "transfer_b_to_a": lambda output: append_transition_steps(
+    "b_to_a_transfer": lambda output: append_transfer_steps(
       output,
-      append_pause_to_motion_transition,
+      append_b_to_a_transfer,
     ),
   }
 
@@ -217,7 +217,7 @@ def _render_wrap_lines(
     environment=environment,
     output_lines=wrap_steps,
     line_builder=_line,
-    transitions=transitions,
+    transfers=transfers,
     emit_callback=emit_wrap_step,
   )
 
@@ -271,7 +271,7 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
     environment=base_environment,
     output_lines=lines,
     line_builder=_line,
-    transitions={},
+    transfers={},
   )
 
   for wrap_number in range(1, WRAP_COUNTS[layer] + 1):
@@ -294,7 +294,7 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
     environment=base_environment,
     output_lines=lines,
     line_builder=_line,
-    transitions={},
+    transfers={},
   )
   return _number_lines(lines)
 

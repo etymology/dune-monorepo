@@ -1,0 +1,125 @@
+EQU QueueCtl.POS 0 OTE QueueEmpty 
+GEQ QueueCtl.POS 32 OTE QueueFull 
+MOV QueueCtl.POS QueueCount 
+NEQ IncomingSegReqID LastIncomingSegReqID OTL EnqueueReq 
+XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 1 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 OTE SegValid 
+XIC EnqueueReq XIC SegValid XIO QueueFull FFL IncomingSeg SegQueue[0] QueueCtl ? ? 
+XIC EnqueueReq XIC SegValid XIO QueueFull MOV IncomingSeg.Seq IncomingSegAck 
+XIC EnqueueReq XIC SegValid XIO QueueFull MOV IncomingSegReqID LastIncomingSegReqID 
+XIC EnqueueReq OTU EnqueueReq 
+XIC MoveA.ER MOV 3 FaultCode OTU MoveA.ER 
+XIC MoveB.ER MOV 4 FaultCode OTU MoveB.ER 
+[XIC QueueFault  XIC MoveA.ER  XIC MoveB.ER ]OTE MotionFault 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 OTL PrepCurMove 
+XIC CheckCurSeg XIO CurSeg.Valid MOV 1 FaultCode 
+XIC CheckCurSeg XIO CurSeg.Valid OTL QueueFault 
+XIC CheckCurSeg XIC CurSeg.Valid LEQ CurSeg.Seq 0 MOV 6 FaultCode 
+XIC CheckCurSeg XIC CurSeg.Valid LEQ CurSeg.Seq 0 OTL QueueFault 
+XIC CheckCurSeg OTU CheckCurSeg 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 OTL PrepNextMove 
+XIC CheckNextSeg XIO NextSeg.Valid MOV 2 FaultCode 
+XIC CheckNextSeg XIO NextSeg.Valid OTL QueueFault 
+XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 MOV 5 FaultCode 
+XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 OTL QueueFault 
+XIC CheckNextSeg OTU CheckNextSeg 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 2 ONS StartCurONS OTL LoadCurReq 
+XIC LoadCurReq OTU StartQueuedPath 
+XIC LoadCurReq FFU SegQueue[0] CurSeg QueueCtl ? ? 
+XIC LoadCurReq OTL CheckCurSeg 
+XIC LoadCurReq OTU LoadCurReq 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.X CmdA_XY[0] 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Y CmdA_XY[1] 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Speed CmdA_Speed 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Accel CmdA_Accel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Decel CmdA_Decel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.JerkAccel CmdA_JerkAccel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.JerkDecel CmdA_JerkDecel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.TermType CmdA_TermType 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Seq ActiveSeq 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.X CmdB_XY[0] 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Y CmdB_XY[1] 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Speed CmdB_Speed 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Accel CmdB_Accel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Decel CmdB_Decel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.JerkAccel CmdB_JerkAccel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.JerkDecel CmdB_JerkDecel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.TermType CmdB_TermType 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeq 
+XIC PrepCurMove OTL IssueCurPulse 
+XIC PrepCurMove OTU PrepCurMove 
+XIC IssueCurPulse XIC UseAasCurrent MCLM X_Y MoveA 0 CmdA_XY CmdA_Speed Units per sec CmdA_Accel Units per sec2 CmdA_Decel Units per sec2 S-Curve CmdA_JerkAccel CmdA_JerkDecel Units per sec3 CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIO UseAasCurrent MCLM X_Y MoveB 0 CmdB_XY CmdB_Speed Units per sec CmdB_Accel Units per sec2 CmdB_Decel Units per sec2 S-Curve CmdB_JerkAccel CmdB_JerkDecel Units per sec3 CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse OTL CurIssued 
+XIC IssueCurPulse OTU IssueCurPulse 
+XIC CurIssued XIC UseAasCurrent XIC MoveA.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextA_ONS OTL LoadNextReq 
+XIC CurIssued XIO UseAasCurrent XIC MoveB.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextB_ONS OTL LoadNextReq 
+XIC LoadNextReq FFU SegQueue[0] NextSeg QueueCtl ? ? 
+XIC LoadNextReq OTL CheckNextSeg 
+XIC LoadNextReq OTU LoadNextReq 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.X CmdB_XY[0] 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Y CmdB_XY[1] 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Speed CmdB_Speed 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Accel CmdB_Accel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Decel CmdB_Decel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.JerkAccel CmdB_JerkAccel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.JerkDecel CmdB_JerkDecel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.TermType CmdB_TermType 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Seq PendingSeq 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.X CmdA_XY[0] 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Y CmdA_XY[1] 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Speed CmdA_Speed 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Accel CmdA_Accel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Decel CmdA_Decel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.JerkAccel CmdA_JerkAccel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.JerkDecel CmdA_JerkDecel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.TermType CmdA_TermType 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Seq PendingSeq 
+XIC PrepNextMove OTL IssueNextPulse 
+XIC PrepNextMove OTU PrepNextMove 
+XIC IssueNextPulse XIC UseAasCurrent MCLM X_Y MoveB 0 CmdB_XY CmdB_Speed Units per sec CmdB_Accel Units per sec2 CmdB_Decel Units per sec2 S-Curve CmdB_JerkAccel CmdB_JerkDecel Units per sec3 CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIO UseAasCurrent MCLM X_Y MoveA 0 CmdA_XY CmdA_Speed Units per sec CmdA_Accel Units per sec2 CmdA_Decel Units per sec2 S-Curve CmdA_JerkAccel CmdA_JerkDecel Units per sec3 CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse OTL NextIssued 
+XIC IssueNextPulse OTU IssueNextPulse 
+XIC CurIssued XIC NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.IP ONS RotateONS_AtoB OTL RotateMoves 
+XIC CurIssued XIC NextIssued XIO UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveA.IP ONS RotateONS_BtoA OTL RotateMoves 
+XIC RotateMoves COP NextSeg CurSeg 1 
+XIC RotateMoves XIC UseAasCurrent OTL FlipToB 
+XIC RotateMoves XIO UseAasCurrent OTL FlipToA 
+XIC FlipToB OTU UseAasCurrent 
+XIC FlipToA OTL UseAasCurrent 
+XIC RotateMoves OTU NextIssued 
+XIC RotateMoves MOV PendingSeq ActiveSeq 
+XIC RotateMoves MOV 0 PendingSeq 
+XIC RotateMoves OTU RotateMoves 
+XIC FlipToA OTU FlipToA 
+XIC FlipToB OTU FlipToB 
+XIC CurIssued XIO NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveA.PC ONS DoneONS_A OTU CurIssued 
+XIC CurIssued XIO NextIssued XIO UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.PC ONS DoneONS_B OTU CurIssued 
+XIC AbortQueue RES QueueCtl 
+XIC AbortQueue OTU CurIssued 
+XIC AbortQueue OTU NextIssued 
+XIC AbortQueue OTU LoadCurReq 
+XIC AbortQueue OTU LoadNextReq 
+XIC AbortQueue OTU PrepCurMove 
+XIC AbortQueue OTU PrepNextMove 
+XIC AbortQueue OTU IssueCurPulse 
+XIC AbortQueue OTU IssueNextPulse 
+XIC AbortQueue OTU EnqueueReq 
+XIC AbortQueue OTU RotateMoves 
+XIC AbortQueue OTU FlipToA 
+XIC AbortQueue OTU FlipToB 
+XIC AbortQueue OTL UseAasCurrent 
+XIC AbortQueue OTU StartQueuedPath 
+XIC AbortQueue MOV 0 FaultCode 
+XIC AbortQueue OTU QueueFault 
+XIC AbortQueue OTU CheckCurSeg 
+XIC AbortQueue OTU CheckNextSeg 
+XIC AbortQueue OTU CurSeg.Valid 
+XIC AbortQueue MOV 0 CurSeg.Seq 
+XIC AbortQueue OTU NextSeg.Valid 
+XIC AbortQueue MOV 0 NextSeg.Seq 
+XIC AbortQueue MOV IncomingSegReqID LastIncomingSegReqID 
+XIC AbortQueue MOV 0 ActiveSeq 
+XIC AbortQueue MOV 0 PendingSeq 
+XIC AbortQueue FLL 0 SegQueue[0] 32 
+ 

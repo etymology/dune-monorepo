@@ -16,9 +16,9 @@ from dune_winder.recipes.recipe_template_language import (
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes import template_gcode_common
 from dune_winder.gcode.renderer import normalize_line_text
-from dune_winder.recipes.template_gcode_transitions import (
-  append_motion_to_pause_transition,
-  append_pause_to_motion_transition,
+from dune_winder.recipes.template_gcode_transfers import (
+  append_a_to_b_transfer,
+  append_b_to_a_transfer,
   g106_line,
 )
 
@@ -79,30 +79,30 @@ U_WRAP_SCRIPT = compile_template_script(
   (
     "emit (------------------STARTING LOOP ${wrap}------------------)",
     "emit G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
-    "transition transfer_b_to_a",
+    "transfer b_to_a_transfer",
     "emit G109 PB${1200 + wrap} PLT G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${conditional_offset('PX', offsets[1], 12 + offsets[1])} (Top A corner - foot end)",
     "emit G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
     "if near_comb(799 + wrap): emit G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Bottom A corner - head end)",
-    "transition transfer_a_to_b",
+    "transfer a_to_b_transfer",
     "emit G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY ${offset('PY', offsets[3])} (Bottom B corner - head end, rewind)",
     "emit G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PY', Y_PULL_IN)}",
     "emit (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
-    "transition transfer_b_to_a",
+    "transfer b_to_a_transfer",
     "emit G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
     "emit G103 PF${1 + wrap} PF${wrap} PY G105 ${coord('PX', X_PULL_IN)} ( BOARD GAP )",
     "emit G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
-    "transition transfer_a_to_b",
+    "transfer a_to_b_transfer",
     "emit G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY ${conditional_offset('PX', offsets[7], offsets[7] - 12)} (Top B corner - head end)",
     "emit G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
     "if near_comb(1999 + wrap): emit G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Bottom B corner - foot end)",
-    "transition transfer_b_to_a",
+    "transfer b_to_a_transfer",
     "emit G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY ${offset('PY', offsets[9])} (Bottom A corner - foot end, rewind)",
     "emit G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
     "if near_comb(1601 + wrap): emit G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
-    "transition transfer_a_to_b",
+    "transfer a_to_b_transfer",
     "emit G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
     "emit G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
   )
@@ -265,14 +265,14 @@ def _number_lines(lines):
 def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
   lines = []
 
-  transitions = {
-    "transfer_b_to_a": lambda output: append_pause_to_motion_transition(
+  transfers = {
+    "b_to_a_transfer": lambda output: append_b_to_a_transfer(
       output,
       line_builder=_line,
       transfer_pause=transfer_pause,
       include_lead_mode=include_lead_mode,
     ),
-    "transfer_a_to_b": lambda output: append_motion_to_pause_transition(
+    "a_to_b_transfer": lambda output: append_a_to_b_transfer(
       output,
       line_builder=_line,
       transfer_pause=transfer_pause,
@@ -297,7 +297,7 @@ def _render_wrap_lines(wrap_number, offsets, transfer_pause, include_lead_mode):
     environment=environment,
     output_lines=lines,
     line_builder=_line,
-    transitions=transitions,
+    transfers=transfers,
   )
 
   return _annotate_wrap_lines(wrap_number, lines)
@@ -608,7 +608,7 @@ def main(argv=None):
   parser.add_argument(
     "--include-lead-mode",
     action="store_true",
-    help="Include lead-mode G106 lines during transition sequences.",
+    help="Include lead-mode G106 lines during transfer sequences.",
   )
   parser.add_argument(
     "--recipe",

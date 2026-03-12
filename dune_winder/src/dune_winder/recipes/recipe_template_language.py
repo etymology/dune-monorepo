@@ -23,7 +23,7 @@ class TemplateInstruction:
 
 _INTERPOLATION_RE = re.compile(r"\$\{([^{}]+)\}")
 _CONDITIONAL_RE = re.compile(
-  r"^if\s+(.+?):\s*(emit|emit_head_restart|transition)\s+(.+)$"
+  r"^if\s+(.+?):\s*(emit|emit_head_restart|transfer)\s+(.+)$"
 )
 
 _SAFE_EVAL_GLOBALS = {
@@ -65,9 +65,9 @@ def compile_template_script(script_lines):
       instructions.append(TemplateInstruction(action="emit", value=line[5:].strip()))
       continue
 
-    if line.startswith("transition "):
+    if line.startswith("transfer "):
       instructions.append(
-        TemplateInstruction(action="transition", value=line[11:].strip())
+        TemplateInstruction(action="transfer", value=line[9:].strip())
       )
       continue
 
@@ -106,7 +106,7 @@ def execute_template_script(
   environment,
   output_lines,
   line_builder,
-  transitions,
+  transfers,
   emit_callback=None,
 ):
   for instruction in instructions:
@@ -124,12 +124,12 @@ def execute_template_script(
         emit_callback(output_lines, line, instruction.action)
       continue
 
-    if instruction.action == "transition":
-      if instruction.value not in transitions:
+    if instruction.action == "transfer":
+      if instruction.value not in transfers:
         raise RecipeTemplateLanguageError(
-          "Unknown transition action: " + repr(instruction.value)
+          "Unknown transfer action: " + repr(instruction.value)
         )
-      transitions[instruction.value](output_lines)
+      transfers[instruction.value](output_lines)
       continue
 
     raise RecipeTemplateLanguageError(
