@@ -104,6 +104,10 @@ class DefaultMachineCalibration(MachineCalibration):
     self.limitTop = geometry.limitTop
     self.limitRight = geometry.limitRight
     self.limitBottom = geometry.limitBottom
+    self.headwardPivotX = 150
+    self.headwardPivotY = 1400
+    self.headwardPivotXTolerance = 150
+    self.headwardPivotYTolerance = 300
     self.zFront = 0
     self.zBack = geometry.zTravel
     self.zLimitFront = geometry.limitRetracted

@@ -9,6 +9,10 @@
 		<int name="limitLeft">0</int>
 		<int name="zLimitFront">0</int>
 		<int name="limitBottom">0</int>
+		<int name="headwardPivotX">150</int>
+		<int name="headwardPivotY">1400</int>
+		<int name="headwardPivotXTolerance">150</int>
+		<int name="headwardPivotYTolerance">300</int>
 		<int name="transferLeftTop">2683</int>
 		<int name="transferRightTop">2683</int>
 		<float name="headRollerGap">1.27</float>

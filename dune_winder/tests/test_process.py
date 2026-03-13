@@ -237,6 +237,10 @@ class ProcessManualGCodeTests(unittest.TestCase):
     process._limitBottom = -1000.0
     process._zlimitFront = 0.0
     process._zlimitRear = 100.0
+    process._headwardPivotX = 150.0
+    process._headwardPivotY = 1400.0
+    process._headwardPivotXTolerance = 150.0
+    process._headwardPivotYTolerance = 300.0
     process._maxVelocity = 300.0
 
     return process
@@ -275,3 +279,43 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIn("Invalid F-axis Speed, exceeding limit", error)
     self.assertEqual(process.gCodeHandler.lines, [])
+
+  def test_execute_manual_gcode_rejects_pivot_keepout_crossing(self):
+    process = self._build_process_for_manual_gcode(x_position=400.0, y_position=1400.0)
+
+    error = process.executeG_CodeLine("X100 Y1400")
+
+    self.assertIn("Collision predicted", error)
+    self.assertEqual(process.gCodeHandler.lines, [])
+
+  def test_manual_seek_xy_rejects_out_of_bounds_target(self):
+    process = self._build_process_for_manual_gcode(x_position=10.0, y_position=20.0)
+    process._limitLeft = 0.0
+    process._limitRight = 100.0
+    process._limitBottom = 0.0
+    process._limitTop = 100.0
+
+    isError = process.manualSeekXY(xPosition=120.0, yPosition=20.0)
+
+    self.assertTrue(isError)
+    self.assertEqual(process.gCodeHandler.lines, [])
+    self.assertEqual(process.controlStateMachine.events, [])
+
+  def test_manual_seek_xy_rejects_pivot_keepout_crossing(self):
+    process = self._build_process_for_manual_gcode(x_position=400.0, y_position=1400.0)
+
+    isError = process.manualSeekXY(xPosition=100.0, yPosition=1400.0)
+
+    self.assertTrue(isError)
+    self.assertEqual(process.controlStateMachine.events, [])
+
+  def test_manual_seek_xy_accepts_safe_target(self):
+    process = self._build_process_for_manual_gcode(x_position=400.0, y_position=100.0)
+
+    isError = process.manualSeekXY(xPosition=500.0, yPosition=200.0)
+
+    self.assertFalse(isError)
+    self.assertEqual(len(process.controlStateMachine.events), 1)
+    self.assertIsInstance(process.controlStateMachine.events[0], ManualModeEvent)
+    self.assertEqual(process.controlStateMachine.events[0].seekX, 500.0)
+    self.assertEqual(process.controlStateMachine.events[0].seekY, 200.0)

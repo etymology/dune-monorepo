@@ -134,14 +134,22 @@ class Process:
 
     # Set the limits to prevent manually inputting wrong coordinate values
     self._machineCalibration = machineCalibration
-    self._transferLeft = float(self._machineCalibration.get("transferLeft"))
-    self._transferRight = float(self._machineCalibration.get("transferRight"))
-    self._limitLeft = float(self._machineCalibration.get("limitLeft"))
-    self._limitRight = float(self._machineCalibration.get("limitRight"))
-    self._limitTop = float(self._machineCalibration.get("limitTop"))
-    self._limitBottom = float(self._machineCalibration.get("limitBottom"))
-    self._zlimitFront = float(self._machineCalibration.get("zLimitFront"))
-    self._zlimitRear = float(self._machineCalibration.get("zLimitRear"))
+    self._transferLeft = self._calibration_float("transferLeft", 0.0)
+    self._transferRight = self._calibration_float("transferRight", 0.0)
+    self._limitLeft = self._calibration_float("limitLeft", 0.0)
+    self._limitRight = self._calibration_float("limitRight", 0.0)
+    self._limitTop = self._calibration_float("limitTop", 0.0)
+    self._limitBottom = self._calibration_float("limitBottom", 0.0)
+    self._zlimitFront = self._calibration_float("zLimitFront", 0.0)
+    self._zlimitRear = self._calibration_float("zLimitRear", 0.0)
+    self._headwardPivotX = self._calibration_float("headwardPivotX", 150.0)
+    self._headwardPivotY = self._calibration_float("headwardPivotY", 1400.0)
+    self._headwardPivotXTolerance = self._calibration_float(
+      "headwardPivotXTolerance", 150.0
+    )
+    self._headwardPivotYTolerance = self._calibration_float(
+      "headwardPivotYTolerance", 300.0
+    )
 
     self.cameraCalibration = CameraCalibration(io)
     self.cameraCalibration.pixelsPer_mm(configuration.pixelsPer_mm)
@@ -151,6 +159,77 @@ class Process:
 
     self.controlStateMachine.cameraCalibration = self.cameraCalibration
     self.controlStateMachine.machineCalibration = self._machineCalibration
+
+  # ---------------------------------------------------------------------
+  def _calibration_float(self, key, default):
+    value = None
+    try:
+      value = self._machineCalibration.get(key)
+    except Exception:
+      value = None
+
+    if value is None:
+      self._machineCalibration.set(key, default)
+      value = default
+
+    return float(value)
+
+  # ---------------------------------------------------------------------
+  def _point_in_headward_pivot_keepout(self, x, y):
+    return (
+      x < self._headwardPivotX + self._headwardPivotXTolerance
+      and x > self._headwardPivotX - self._headwardPivotXTolerance
+      and y < self._headwardPivotY + self._headwardPivotYTolerance
+      and y > self._headwardPivotY - self._headwardPivotYTolerance
+    )
+
+  # ---------------------------------------------------------------------
+  def _validate_xy_move_target(self, startX, startY, targetX, targetY):
+    if targetX < self._limitLeft or targetX > self._limitRight:
+      return (
+        "Invalid X-axis Coordinates, exceeding limit ["
+        + str(self._limitLeft)
+        + " , "
+        + str(self._limitRight)
+        + "]"
+      )
+
+    if targetY < self._limitBottom or targetY > self._limitTop:
+      return (
+        "Invalid Y-axis Coordinates, exceeding limit ["
+        + str(self._limitBottom)
+        + " , "
+        + str(self._limitTop)
+        + "]"
+      )
+
+    if targetX < self._transferLeft - 10 and targetY > 1000:
+      return (
+        "Invalid XY-axis Coordinates, forbiden area due to safety of winder head "
+        + "[X="
+        + str(targetX)
+        + " < "
+        + str(self._transferLeft - 10)
+        + " , Y="
+        + str(targetY)
+        + " > "
+        + str(1000)
+        + "]"
+      )
+
+    if line_intersects_rectangle(
+      startX,
+      startY,
+      targetX,
+      targetY,
+      self._headwardPivotX,
+      self._headwardPivotXTolerance,
+      self._headwardPivotY,
+      self._headwardPivotYTolerance,
+    ) or self._point_in_headward_pivot_keepout(targetX, targetY):
+      return "Collision predicted between winding head and support arm pivot block"
+
+    return None
 
   # ---------------------------------------------------------------------
   def getRecipes(self):
@@ -1045,32 +1124,46 @@ class Process:
 
     isError = True
     if self.controlStateMachine.isReadyForMovement():
-      isError = False
-      self._log.add(
-        self.__class__.__name__,
-        "JOG",
-        "Manual move X/Y to ("
-        + str(xPosition)
-        + ", "
-        + str(yPosition)
-        + ") at "
-        + str(velocity)
-        + ", "
-        + str(acceleration)
-        + ", "
-        + str(deceleration)
-        + " m/s^2.",
-        [xPosition, yPosition, velocity, acceleration, deceleration],
-      )
-      self.controlStateMachine.dispatch(
-        ManualModeEvent(
-          seekX=xPosition,
-          seekY=yPosition,
-          velocity=velocity,
-          acceleration=acceleration,
-          deceleration=deceleration,
+      currentX = float(self._io.xAxis.getPosition())
+      currentY = float(self._io.yAxis.getPosition())
+      targetX = currentX if xPosition is None else float(xPosition)
+      targetY = currentY if yPosition is None else float(yPosition)
+
+      error = self._validate_xy_move_target(currentX, currentY, targetX, targetY)
+      if error is not None:
+        self._log.add(
+          self.__class__.__name__,
+          "JOG",
+          "Manual move X/Y ignored.",
+          [xPosition, yPosition, velocity, acceleration, deceleration, error],
         )
-      )
+      else:
+        isError = False
+        self._log.add(
+          self.__class__.__name__,
+          "JOG",
+          "Manual move X/Y to ("
+          + str(xPosition)
+          + ", "
+          + str(yPosition)
+          + ") at "
+          + str(velocity)
+          + ", "
+          + str(acceleration)
+          + ", "
+          + str(deceleration)
+          + " m/s^2.",
+          [xPosition, yPosition, velocity, acceleration, deceleration],
+        )
+        self.controlStateMachine.dispatch(
+          ManualModeEvent(
+            seekX=xPosition,
+            seekY=yPosition,
+            velocity=velocity,
+            acceleration=acceleration,
+            deceleration=deceleration,
+          )
+        )
     else:
       self._log.add(
         self.__class__.__name__,
@@ -1424,39 +1517,27 @@ class Process:
 
       # Check that X and Y input coordinate are within limits
       # Get the current positions
-      xPosition = self._io.xAxis.getPosition()
-      yPosition = self._io.yAxis.getPosition()
+      xPosition = float(self._io.xAxis.getPosition())
+      yPosition = float(self._io.yAxis.getPosition())
       self._io.zAxis.getPosition()
       codeLineSplit = line.split()
-      x = float(xPosition)
-      y = float(yPosition)
-      # x and y coordinates delimiting the forbidden area where the head is not allowed to travel
+      x = xPosition
+      y = yPosition
+      isXYMove = re.match(absoluteXYMovePattern + "|" + relativeXYMovePattern, line)
+      isRelativeXYMove = re.match(relativeXYMovePattern, line)
 
-      for cmd in codeLineSplit :
-        if "X" in cmd and re.match(absoluteXYMovePattern+'|'+relativeXYMovePattern, line) :
+      for cmd in codeLineSplit:
+        if "X" in cmd and isXYMove:
           xCmd = cmd.split("X")
           x = float(xCmd[1])
-          if re.match(relativeXYMovePattern, line):   # if G105 is used then add relative coordinate
-            x = x + xPosition
-            if x < self._transferLeft -10 and yPosition > 1000 :
-              error = "Invalid XY-axis Coordinates, forbiden area due to safety of winder head [X="+str(x)+" < "+str(self._transferLeft - 10)+" , Y="+str(yPosition)+" > "+str(1000)+"]"
-          if x < self._limitLeft or x > self._limitRight :     # if X is exeeding safety limit 
-            error = "Invalid X-axis Coordinates, exceeding limit ["+str(self._limitLeft)+" , "+str(self._limitRight)+"]"
-          if line_intersects_rectangle(xPosition,yPosition,x,y,HEADWARD_PIVOT_X,150,HEADWARD_PIVOT_Y,300) or (x<HEADWARD_PIVOT_X+150 and x>HEADWARD_PIVOT_X-150 and y<HEADWARD_PIVOT_Y+300 and y>HEADWARD_PIVOT_Y-300):
-            error = "Collision predicted between winding head and support arm pivot block"  
+          if isRelativeXYMove:
+            x += xPosition
 
-        if "Y" in cmd and re.match(absoluteXYMovePattern+'|'+relativeXYMovePattern, line) :
+        if "Y" in cmd and isXYMove:
           yCmd = cmd.split("Y")
           y = float(yCmd[1])
-          if re.match(relativeXYMovePattern, line):
-            y = y + yPosition
-            if xPosition < self._transferLeft -10 and y > 1000 :
-              error = "Invalid XY-axis Coordinates, forbiden area due to safety of winder head [X="+str(xPosition)+" < "+str(self._transferLeft - 10)+" , Y="+str(y)+" > "+str(1000)+"]"
-          if y < self._limitBottom or y > self._limitTop :
-            error = "Invalid Y-axis Coordinates, exceeding limit ["+str(self._limitBottom)+" , "+str(self._limitTop)+"]"
-
-        if x < self._transferLeft -10 and y > 1000 and re.match(absoluteXYMovePattern, line) :
-          error = "Invalid XY-axis Coordinates, forbiden area due to safety of winder head [X="+str(x)+" < "+str(self._transferLeft - 10)+" , Y="+str(y)+" > "+str(1000)+"]"
+          if isRelativeXYMove:
+            y += yPosition
 
         if "F" in cmd and re.match(
           "|".join([xyf, fxy, xf, fx, yf, fy, gxyf, gx_yf, f_only]),
@@ -1481,6 +1562,9 @@ class Process:
               + str(self._zlimitRear)
               + "]"
             )
+
+      if error is None and isXYMove:
+        error = self._validate_xy_move_target(xPosition, yPosition, x, y)
 
       if error is not None:
         self._log.add(
@@ -1848,7 +1932,3 @@ def line_intersects_rectangle(
 
   # If no intersection is found
   return False
-
-
-HEADWARD_PIVOT_X = 150
-HEADWARD_PIVOT_Y = 1400
