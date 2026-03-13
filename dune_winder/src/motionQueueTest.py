@@ -77,6 +77,14 @@ def parse_args() -> argparse.Namespace:
     help="Path pattern to enqueue.",
   )
   parser.add_argument(
+    "--gui",
+    action="store_true",
+    help=(
+      "Launch the waypoint planner GUI. "
+      "This mode is intended for waypoint_path planning and execution."
+    ),
+  )
+  parser.add_argument(
     "--term-type",
     type=int,
     default=DEFAULT_TEST_TERM_TYPE,
@@ -483,6 +491,19 @@ def main() -> None:
   args = parse_args()
   if (args.start_x is None) != (args.start_y is None):
     raise ValueError("Specify both --start-x and --start-y together.")
+
+  if args.gui:
+    from motionQueueTest_gui import WaypointPlannerApp
+
+    app = WaypointPlannerApp(
+      plc_path=PLC_PATH,
+      machine_calibration=args.machine_calibration or "",
+    )
+    if args.start_x is not None and args.start_y is not None:
+      app.start_x_var.set(str(float(args.start_x)))
+      app.start_y_var.set(str(float(args.start_y)))
+    app.mainloop()
+    return
 
   start_xy = None if args.start_x is None else (float(args.start_x), float(args.start_y))
   waypoint_points = _collect_waypoints(args)
