@@ -28,6 +28,10 @@ _FIELDS = (
     "limitTop",
     "limitRight",
     "limitBottom",
+    "headwardPivotX",
+    "headwardPivotY",
+    "headwardPivotXTolerance",
+    "headwardPivotYTolerance",
     "zFront",
     "zBack",
     "zLimitFront",
@@ -73,6 +77,12 @@ class MachineCalibration:
     self.limitTop = None
     self.limitRight = None
     self.limitBottom = None
+
+    # Keepout region around winding-head support arm pivot.
+    self.headwardPivotX = None
+    self.headwardPivotY = None
+    self.headwardPivotXTolerance = None
+    self.headwardPivotYTolerance = None
 
     # Location of Z-axis when fully extended, and fully retracted.
     self.zFront = None

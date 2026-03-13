@@ -27,10 +27,10 @@ class MotionSegment:
   x: float
   y: float
   speed: float = 600.0
-  accel: float = 2000.0
-  decel: float = 2000.0
-  jerk_accel: float = 10000.0
-  jerk_decel: float = 10000.0
+  accel: float = 1500.0
+  decel: float = 1500.0
+  jerk_accel: float = 100.0
+  jerk_decel: float = 100.0
   term_type: int = DEFAULT_TEST_TERM_TYPE
   seg_type: int = SEG_TYPE_LINE
   circle_type: int = CIRCLE_TYPE_CENTER
@@ -62,7 +62,9 @@ def circle_center_for_segment(
   return None
 
 
-def arc_sweep_rad(start_angle: float, end_angle: float, direction: int) -> Optional[float]:
+def arc_sweep_rad(
+  start_angle: float, end_angle: float, direction: int
+) -> Optional[float]:
   tau = 2.0 * math.pi
   ccw = (end_angle - start_angle) % tau
   cw = (start_angle - end_angle) % tau
