@@ -44,6 +44,15 @@ DEFAULT_ORBIT_ECCENTRICITY = 0.6
 DEFAULT_ORBIT_PRECESSION_DEG_PER_REVOLUTION = 18.0
 DEFAULT_ORBIT_INITIAL_APSIS_DEG = 0.0
 DEFAULT_ORBIT_BOUNDARY_MARGIN = 20.0
+DEFAULT_ARCHIMEDEAN_TURNS = 6.0
+DEFAULT_ARCHIMEDEAN_POINTS_PER_TURN = 120
+DEFAULT_ARCHIMEDEAN_INITIAL_ANGLE_DEG = 0.0
+DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN = 20.0
+DEFAULT_ARCHIMEDEAN_DIRECTION = "ccw"
+DEFAULT_WAYPOINT_MIN_ARC_RADIUS = 50.0
+DEFAULT_WAYPOINT_ORDER_MODE = "shortest"
+DEFAULT_V_X_MAX = 825.0
+DEFAULT_V_Y_MAX = 600.0
 
 
 def validate_term_type(term_type: int) -> None:
@@ -57,6 +66,176 @@ def _normalize_xy(x: float, y: float) -> tuple[float, float]:
   if mag <= 1e-9:
     return (1.0, 0.0)
   return (x / mag, y / mag)
+
+
+def _distance_xy(p0: tuple[float, float], p1: tuple[float, float]) -> float:
+  return math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+
+
+def _path_length(points: list[tuple[float, float]], start_xy: Optional[tuple[float, float]]) -> float:
+  if not points:
+    return 0.0
+
+  total = 0.0
+  if start_xy is not None:
+    total += _distance_xy((float(start_xy[0]), float(start_xy[1])), points[0])
+
+  for i in range(1, len(points)):
+    total += _distance_xy(points[i - 1], points[i])
+  return total
+
+
+def _nearest_neighbor_order(
+  points: list[tuple[float, float]],
+  start_idx: int,
+) -> list[tuple[float, float]]:
+  remaining = set(range(len(points)))
+  remaining.remove(start_idx)
+  ordered = [points[start_idx]]
+  cur_idx = start_idx
+
+  while remaining:
+    next_idx = min(
+      remaining,
+      key=lambda idx: _distance_xy(points[cur_idx], points[idx]),
+    )
+    ordered.append(points[next_idx])
+    remaining.remove(next_idx)
+    cur_idx = next_idx
+
+  return ordered
+
+
+def _two_opt_open_path(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+  if len(points) < 4:
+    return points
+
+  out = list(points)
+  improved = True
+  while improved:
+    improved = False
+    n = len(out)
+    for i in range(0, n - 3):
+      a = out[i]
+      b = out[i + 1]
+      for k in range(i + 2, n - 1):
+        c = out[k]
+        d = out[k + 1]
+        old_len = _distance_xy(a, b) + _distance_xy(c, d)
+        new_len = _distance_xy(a, c) + _distance_xy(b, d)
+        if new_len + 1e-9 < old_len:
+          out[i + 1 : k + 1] = reversed(out[i + 1 : k + 1])
+          improved = True
+    # For open paths, also allow reversing the tail to improve final edge.
+    n = len(out)
+    for i in range(0, n - 2):
+      a = out[i]
+      b = out[i + 1]
+      c = out[-1]
+      old_len = _distance_xy(a, b)
+      new_len = _distance_xy(a, c)
+      if new_len + 1e-9 < old_len:
+        out[i + 1 :] = reversed(out[i + 1 :])
+        improved = True
+  return out
+
+
+def _order_waypoints_for_short_path(
+  points: list[tuple[float, float]],
+  start_xy: Optional[tuple[float, float]] = None,
+) -> list[tuple[float, float]]:
+  if len(points) <= 2:
+    return points
+
+  if start_xy is not None:
+    sx, sy = float(start_xy[0]), float(start_xy[1])
+    start_idx_candidates = [
+      min(range(len(points)), key=lambda i: _distance_xy((sx, sy), points[i]))
+    ]
+  else:
+    start_idx_candidates = list(range(len(points)))
+
+  best: Optional[list[tuple[float, float]]] = None
+  best_len = float("inf")
+  for start_idx in start_idx_candidates:
+    candidate = _nearest_neighbor_order(points, start_idx)
+    candidate = _two_opt_open_path(candidate)
+    length = _path_length(candidate, start_xy=start_xy)
+    if length < best_len:
+      best_len = length
+      best = candidate
+
+  return points if best is None else best
+
+
+def _waypoint_tangents(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+  if not points:
+    return []
+  if len(points) == 1:
+    return [(1.0, 0.0)]
+
+  tangents: list[tuple[float, float]] = []
+  for i, p in enumerate(points):
+    if i == 0:
+      dx = points[1][0] - p[0]
+      dy = points[1][1] - p[1]
+      tangents.append(_normalize_xy(dx, dy))
+      continue
+    if i == len(points) - 1:
+      dx = p[0] - points[i - 1][0]
+      dy = p[1] - points[i - 1][1]
+      tangents.append(_normalize_xy(dx, dy))
+      continue
+
+    in_dx = p[0] - points[i - 1][0]
+    in_dy = p[1] - points[i - 1][1]
+    out_dx = points[i + 1][0] - p[0]
+    out_dy = points[i + 1][1] - p[1]
+    in_v = _normalize_xy(in_dx, in_dy)
+    out_v = _normalize_xy(out_dx, out_dy)
+    sum_x = in_v[0] + out_v[0]
+    sum_y = in_v[1] + out_v[1]
+    if math.hypot(sum_x, sum_y) <= 1e-9:
+      tangents.append(out_v)
+    else:
+      tangents.append(_normalize_xy(sum_x, sum_y))
+
+  return tangents
+
+
+def _enforce_min_arc_radius(
+  segments: list[MotionSegment],
+  min_arc_radius: float,
+) -> list[MotionSegment]:
+  if min_arc_radius <= 0.0 or len(segments) <= 1:
+    return segments
+
+  out: list[MotionSegment] = [segments[0]]
+  prev_x = float(segments[0].x)
+  prev_y = float(segments[0].y)
+
+  for seg in segments[1:]:
+    rewritten = seg
+    if seg.seg_type == SEG_TYPE_CIRCLE:
+      start = MotionSegment(seq=seg.seq - 1, x=prev_x, y=prev_y)
+      center = circle_center_for_segment(start, seg)
+      if center is not None:
+        cx, cy = center
+        radius = math.hypot(prev_x - cx, prev_y - cy)
+        if radius + 1e-9 < min_arc_radius:
+          rewritten = replace(
+            seg,
+            seg_type=SEG_TYPE_LINE,
+            circle_type=CIRCLE_TYPE_CENTER,
+            via_center_x=0.0,
+            via_center_y=0.0,
+            direction=MCCM_DIR_2D_CCW,
+          )
+    out.append(rewritten)
+    prev_x = float(rewritten.x)
+    prev_y = float(rewritten.y)
+
+  return out
 
 
 def _tangent_biarc_tessellation(
@@ -645,6 +824,105 @@ def apsidal_precessing_orbit_segments(
   return _tangent_biarc_tessellation(points, tangents, start_seq, term_type)
 
 
+def archimedean_spiral_segments(
+  start_seq: int = 600,
+  term_type: int = DEFAULT_TEST_TERM_TYPE,
+  x_min: float = 1000.0,
+  x_max: float = 6000.0,
+  y_min: float = 0.0,
+  y_max: float = 2500.0,
+  turns: float = DEFAULT_ARCHIMEDEAN_TURNS,
+  points_per_turn: int = DEFAULT_ARCHIMEDEAN_POINTS_PER_TURN,
+  initial_angle_deg: float = DEFAULT_ARCHIMEDEAN_INITIAL_ANGLE_DEG,
+  boundary_margin: float = DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN,
+  direction: str = DEFAULT_ARCHIMEDEAN_DIRECTION,
+) -> list[MotionSegment]:
+  validate_term_type(term_type)
+  if x_min >= x_max or y_min >= y_max:
+    raise ValueError("invalid bounds")
+  if turns <= 0.0:
+    raise ValueError("turns must be > 0")
+  if points_per_turn < 16:
+    raise ValueError("points_per_turn must be >= 16")
+  if boundary_margin < 0.0:
+    raise ValueError("boundary_margin must be >= 0")
+
+  direction_text = direction.strip().lower()
+  if direction_text not in ("ccw", "cw"):
+    raise ValueError("direction must be 'ccw' or 'cw'")
+
+  center_x = 0.5 * (x_min + x_max)
+  center_y = 0.5 * (y_min + y_max)
+  x_amp = 0.5 * (x_max - x_min) - boundary_margin
+  y_amp = 0.5 * (y_max - y_min) - boundary_margin
+  if x_amp <= 0.0 or y_amp <= 0.0:
+    raise ValueError("boundary_margin is too large for the requested box")
+
+  theta_max = 2.0 * math.pi * turns
+  if theta_max <= 1e-9:
+    raise ValueError("turns must be large enough to form a spiral")
+  dscale_dtheta = 1.0 / theta_max
+  direction_sign = 1.0 if direction_text == "ccw" else -1.0
+  phase0 = math.radians(initial_angle_deg)
+  total_points = max(3, int(math.ceil(turns * points_per_turn)) + 1)
+
+  points: list[tuple[float, float]] = []
+  tangents: list[tuple[float, float]] = []
+  for i in range(total_points):
+    theta = theta_max * (i / (total_points - 1))
+    scale = theta / theta_max
+    phase = phase0 + direction_sign * theta
+    cos_p = math.cos(phase)
+    sin_p = math.sin(phase)
+
+    x = center_x + x_amp * scale * cos_p
+    y = center_y + y_amp * scale * sin_p
+    points.append((x, y))
+
+    dx = x_amp * (dscale_dtheta * cos_p - scale * sin_p * direction_sign)
+    dy = y_amp * (dscale_dtheta * sin_p + scale * cos_p * direction_sign)
+    tangents.append(_normalize_xy(dx, dy))
+
+  return _tangent_biarc_tessellation(points, tangents, start_seq, term_type)
+
+
+def waypoint_path_segments(
+  start_seq: int = 700,
+  term_type: int = DEFAULT_TEST_TERM_TYPE,
+  waypoints: Optional[list[tuple[float, float]]] = None,
+  min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+  waypoint_order_mode: str = DEFAULT_WAYPOINT_ORDER_MODE,
+  start_xy: Optional[tuple[float, float]] = None,
+) -> list[MotionSegment]:
+  validate_term_type(term_type)
+  if waypoints is None or len(waypoints) < 2:
+    raise ValueError("waypoints pattern requires at least 2 waypoints")
+  if min_arc_radius < 0.0:
+    raise ValueError("min_arc_radius must be >= 0")
+
+  mode = waypoint_order_mode.strip().lower()
+  if mode not in ("input", "shortest"):
+    raise ValueError("waypoint_order_mode must be 'input' or 'shortest'")
+
+  points: list[tuple[float, float]] = []
+  for x, y in waypoints:
+    px = float(x)
+    py = float(y)
+    if not points or _distance_xy(points[-1], (px, py)) > 1e-9:
+      points.append((px, py))
+
+  if len(points) < 2:
+    raise ValueError("waypoints must contain at least 2 distinct points")
+
+  if mode == "shortest":
+    points = _order_waypoints_for_short_path(points, start_xy=start_xy)
+
+  tangents = _waypoint_tangents(points)
+  segments = _tangent_biarc_tessellation(points, tangents, start_seq, term_type)
+  segments = _enforce_min_arc_radius(segments, min_arc_radius=min_arc_radius)
+  return [replace(seg, seq=start_seq + i) for i, seg in enumerate(segments)]
+
+
 def enforce_min_segment_length(
   segments: list[MotionSegment],
   min_segment_length: float,
@@ -729,6 +1007,126 @@ def _normalize_vector(x: float, y: float) -> Optional[tuple[float, float]]:
   if mag <= 1e-9:
     return None
   return (x / mag, y / mag)
+
+
+def _max_abs_sin_over_sweep(start_angle: float, sweep: float) -> float:
+  end_angle = start_angle + sweep
+  lo = min(start_angle, end_angle)
+  hi = max(start_angle, end_angle)
+  max_val = max(abs(math.sin(start_angle)), abs(math.sin(end_angle)))
+
+  # |sin(theta)| reaches 1 at theta = pi/2 + k*pi
+  k0 = math.ceil((lo - (0.5 * math.pi)) / math.pi)
+  k1 = math.floor((hi - (0.5 * math.pi)) / math.pi)
+  if k0 <= k1:
+    return 1.0
+  return max_val
+
+
+def _max_abs_cos_over_sweep(start_angle: float, sweep: float) -> float:
+  end_angle = start_angle + sweep
+  lo = min(start_angle, end_angle)
+  hi = max(start_angle, end_angle)
+  max_val = max(abs(math.cos(start_angle)), abs(math.cos(end_angle)))
+
+  # |cos(theta)| reaches 1 at theta = k*pi
+  k0 = math.ceil(lo / math.pi)
+  k1 = math.floor(hi / math.pi)
+  if k0 <= k1:
+    return 1.0
+  return max_val
+
+
+def _segment_tangent_component_bounds(
+  start_x: float,
+  start_y: float,
+  seg: MotionSegment,
+) -> tuple[float, float]:
+  if seg.seg_type == SEG_TYPE_LINE:
+    dx = seg.x - start_x
+    dy = seg.y - start_y
+    dist = math.hypot(dx, dy)
+    if dist <= 1e-9:
+      return (0.0, 0.0)
+    return (abs(dx / dist), abs(dy / dist))
+
+  if seg.seg_type == SEG_TYPE_CIRCLE:
+    start = MotionSegment(seq=seg.seq - 1, x=start_x, y=start_y)
+    center = circle_center_for_segment(start, seg)
+    if center is not None:
+      cx, cy = center
+      r0 = math.hypot(start_x - cx, start_y - cy)
+      r1 = math.hypot(seg.x - cx, seg.y - cy)
+      if r0 > 1e-9 and r1 > 1e-9:
+        a0 = math.atan2(start_y - cy, start_x - cx)
+        a1 = math.atan2(seg.y - cy, seg.x - cx)
+        sweep = arc_sweep_rad(a0, a1, seg.direction)
+        if sweep is not None:
+          # Tangent vector (up to sign) is (-sin(theta), cos(theta)),
+          # so component maxima over sweep reduce to maxima of |sin| and |cos|.
+          max_tx = _max_abs_sin_over_sweep(a0, sweep)
+          max_ty = _max_abs_cos_over_sweep(a0, sweep)
+          return (max_tx, max_ty)
+
+  # Conservative fallback for unsupported/degenerate segment definitions.
+  dx = seg.x - start_x
+  dy = seg.y - start_y
+  dist = math.hypot(dx, dy)
+  if dist <= 1e-9:
+    return (0.0, 0.0)
+  return (abs(dx / dist), abs(dy / dist))
+
+
+def cap_segments_speed_by_axis_velocity(
+  segments: list[MotionSegment],
+  v_x_max: float = DEFAULT_V_X_MAX,
+  v_y_max: float = DEFAULT_V_Y_MAX,
+  start_xy: Optional[tuple[float, float]] = None,
+) -> list[MotionSegment]:
+  if not segments:
+    return segments
+  if v_x_max <= 0.0 or v_y_max <= 0.0:
+    raise ValueError("v_x_max and v_y_max must be > 0")
+  if math.isinf(v_x_max) and math.isinf(v_y_max):
+    return segments
+
+  if start_xy is None:
+    prev_x = float(segments[0].x)
+    prev_y = float(segments[0].y)
+    first_segment_start_unknown = True
+  else:
+    prev_x = float(start_xy[0])
+    prev_y = float(start_xy[1])
+    first_segment_start_unknown = False
+
+  out: list[MotionSegment] = []
+  for idx, seg in enumerate(segments):
+    if idx == 0 and first_segment_start_unknown:
+      # Without a known current position, the first segment direction is unknown.
+      # Use a conservative cap that guarantees both component limits.
+      speed_cap = min(v_x_max, v_y_max)
+      max_tx = 1.0
+      max_ty = 1.0
+    else:
+      max_tx, max_ty = _segment_tangent_component_bounds(prev_x, prev_y, seg)
+      limit_x = float("inf") if max_tx <= 1e-9 else (v_x_max / max_tx)
+      limit_y = float("inf") if max_ty <= 1e-9 else (v_y_max / max_ty)
+      speed_cap = min(limit_x, limit_y)
+    target_speed = min(float(seg.speed), speed_cap)
+
+    if target_speed <= 0.0:
+      raise ValueError(
+        f"Computed non-positive speed for seq={seg.seq}. "
+        f"Requested={seg.speed:.6f}, cap={speed_cap:.6f}, "
+        f"v_x_max={v_x_max:.6f}, v_y_max={v_y_max:.6f}, "
+        f"max_tx={max_tx:.6f}, max_ty={max_ty:.6f}"
+      )
+
+    out.append(replace(seg, speed=target_speed))
+    prev_x = float(seg.x)
+    prev_y = float(seg.y)
+
+  return out
 
 
 def _segment_tangent_vector(
@@ -892,7 +1290,6 @@ def tune_segments_for_constant_velocity(
 
   tuned_segments: list[MotionSegment] = []
   for i, seg in enumerate(tuned):
-    interior = i < len(tuned) - 1
     if min_jerk_ratio > 0.0:
       min_jerk = base_a * min_jerk_ratio
       jerk_accel = max(seg.jerk_accel, min_jerk)
@@ -906,7 +1303,6 @@ def tune_segments_for_constant_velocity(
         speed=tuned_speed,
         jerk_accel=jerk_accel,
         jerk_decel=jerk_decel,
-        term_type=4 if interior else 1,
       )
     )
 
@@ -935,6 +1331,19 @@ def build_segments(
   orbit_precession_deg_per_revolution: float = DEFAULT_ORBIT_PRECESSION_DEG_PER_REVOLUTION,
   orbit_initial_apsis_deg: float = DEFAULT_ORBIT_INITIAL_APSIS_DEG,
   orbit_boundary_margin: float = DEFAULT_ORBIT_BOUNDARY_MARGIN,
+  archimedean_x_min: float = 1000.0,
+  archimedean_x_max: float = 6000.0,
+  archimedean_y_min: float = 0.0,
+  archimedean_y_max: float = 2500.0,
+  archimedean_turns: float = DEFAULT_ARCHIMEDEAN_TURNS,
+  archimedean_points_per_turn: int = DEFAULT_ARCHIMEDEAN_POINTS_PER_TURN,
+  archimedean_initial_angle_deg: float = DEFAULT_ARCHIMEDEAN_INITIAL_ANGLE_DEG,
+  archimedean_boundary_margin: float = DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN,
+  archimedean_direction: str = DEFAULT_ARCHIMEDEAN_DIRECTION,
+  waypoint_points: Optional[list[tuple[float, float]]] = None,
+  waypoint_min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+  waypoint_order_mode: str = DEFAULT_WAYPOINT_ORDER_MODE,
+  waypoint_start_xy: Optional[tuple[float, float]] = None,
 ) -> list[MotionSegment]:
   if min_segment_length < 0.0:
     raise ValueError("min_segment_length must be >= 0")
@@ -977,6 +1386,29 @@ def build_segments(
       initial_apsis_deg=orbit_initial_apsis_deg,
       boundary_margin=orbit_boundary_margin,
     )
+  elif pattern == "archimedean_spiral":
+    segments = archimedean_spiral_segments(
+      start_seq=start_seq,
+      term_type=term_type,
+      x_min=archimedean_x_min,
+      x_max=archimedean_x_max,
+      y_min=archimedean_y_min,
+      y_max=archimedean_y_max,
+      turns=archimedean_turns,
+      points_per_turn=archimedean_points_per_turn,
+      initial_angle_deg=archimedean_initial_angle_deg,
+      boundary_margin=archimedean_boundary_margin,
+      direction=archimedean_direction,
+    )
+  elif pattern == "waypoint_path":
+    segments = waypoint_path_segments(
+      start_seq=start_seq,
+      term_type=term_type,
+      waypoints=waypoint_points,
+      min_arc_radius=waypoint_min_arc_radius,
+      waypoint_order_mode=waypoint_order_mode,
+      start_xy=waypoint_start_xy,
+    )
   else:
     raise ValueError(f"Unsupported pattern: {pattern}")
 
@@ -998,11 +1430,17 @@ def print_pattern_summary(
   min_len = min(lengths) if lengths else 0.0
   max_len = max(lengths) if lengths else 0.0
   avg_len = (sum(lengths) / len(lengths)) if lengths else 0.0
-  speed = segments[0].speed if segments else 0.0
+  speeds = [seg.speed for seg in segments]
+  min_speed = min(speeds) if speeds else 0.0
+  max_speed = max(speeds) if speeds else 0.0
   accel = segments[0].accel if segments else 0.0
   jerk = segments[0].jerk_accel if segments else 0.0
   line_count = sum(1 for seg in segments if seg.seg_type == SEG_TYPE_LINE)
   circle_count = sum(1 for seg in segments if seg.seg_type == SEG_TYPE_CIRCLE)
+  term_counts: dict[int, int] = {}
+  for seg in segments:
+    term_counts[seg.term_type] = term_counts.get(seg.term_type, 0) + 1
+  term_summary = ",".join(f"{tt}:{term_counts[tt]}" for tt in sorted(term_counts))
   kmax = estimate_max_curvature(segments)
   vmax_from_curvature = math.sqrt(accel / kmax) if (kmax > 0 and accel > 0) else float(
     "inf"
@@ -1010,14 +1448,15 @@ def print_pattern_summary(
   vmax_text = f"{vmax_from_curvature:.1f}" if math.isfinite(vmax_from_curvature) else "inf"
   print(
     f"{pattern} queue generated: "
-    f"term_type={term_type} "
+    f"requested_term_type={term_type} "
+    f"actual_term_types={term_summary} "
     f"min_segment_length={min_segment_length:.2f} "
     f"segments={len(segments)} "
     f"line/circle=({line_count}/{circle_count}) "
     f"x_range=({min(xs):.1f},{max(xs):.1f}) "
     f"y_range=({min(ys):.1f},{max(ys):.1f}) "
     f"segment_len[min/avg/max]=({min_len:.2f}/{avg_len:.2f}/{max_len:.2f}) "
-    f"v={speed:.1f} a={accel:.1f} j={jerk:.1f} "
+    f"v[min/max]=({min_speed:.1f}/{max_speed:.1f}) a={accel:.1f} j={jerk:.1f} "
     f"kmax={kmax:.5f} vmax_from_a={vmax_text}"
   )
 

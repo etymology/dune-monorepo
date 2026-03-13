@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import json
+import math
 from pathlib import Path
 
 from dune_winder.motion import (
   DEFAULT_CONSTANT_VELOCITY_MODE,
   DEFAULT_CURVATURE_SPEED_SAFETY,
+  DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN,
+  DEFAULT_ARCHIMEDEAN_DIRECTION,
+  DEFAULT_ARCHIMEDEAN_INITIAL_ANGLE_DEG,
+  DEFAULT_ARCHIMEDEAN_POINTS_PER_TURN,
+  DEFAULT_ARCHIMEDEAN_TURNS,
   DEFAULT_FIBONACCI_ARC_COUNT,
   DEFAULT_FIBONACCI_DIRECTION,
   DEFAULT_FIBONACCI_X_MAX,
@@ -18,6 +25,10 @@ from dune_winder.motion import (
   DEFAULT_ORBIT_POINTS_PER_REVOLUTION,
   DEFAULT_ORBIT_PRECESSION_DEG_PER_REVOLUTION,
   DEFAULT_ORBIT_REVOLUTIONS,
+  DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+  DEFAULT_WAYPOINT_ORDER_MODE,
+  DEFAULT_V_X_MAX,
+  DEFAULT_V_Y_MAX,
   DEFAULT_MAX_SEGMENT_FACTOR,
   DEFAULT_MIN_JERK_RATIO,
   DEFAULT_MIN_SEGMENT_LENGTH,
@@ -29,6 +40,7 @@ from dune_winder.motion import (
   PLC_QUEUE_DEPTH,
   TESTABLE_TERM_TYPES,
   apply_merge_term_types,
+  cap_segments_speed_by_axis_velocity,
   build_segments,
   load_motion_safety_limits,
   print_pattern_summary,
@@ -58,6 +70,8 @@ def parse_args() -> argparse.Namespace:
       "tangent_mix",
       "fibonacci_arcs",
       "apsidal_orbit",
+      "archimedean_spiral",
+      "waypoint_path",
     ),
     default="lissajous",
     help="Path pattern to enqueue.",
@@ -68,6 +82,33 @@ def parse_args() -> argparse.Namespace:
     default=DEFAULT_TEST_TERM_TYPE,
     choices=TESTABLE_TERM_TYPES,
     help="Termination type for all queued segments in the run.",
+  )
+  parser.add_argument(
+    "--tangential-term-type",
+    type=int,
+    default=None,
+    choices=TESTABLE_TERM_TYPES,
+    help=(
+      "Termination type applied at tangential merges. "
+      "Defaults to --term-type."
+    ),
+  )
+  parser.add_argument(
+    "--non-tangential-term-type",
+    type=int,
+    default=0,
+    choices=TESTABLE_TERM_TYPES,
+    help="Termination type applied at non-tangential merges.",
+  )
+  parser.add_argument(
+    "--final-term-type",
+    type=int,
+    default=None,
+    choices=TESTABLE_TERM_TYPES,
+    help=(
+      "Optional termination type override for the final segment after "
+      "merge-based assignment."
+    ),
   )
   parser.add_argument(
     "--sweep-term-types",
@@ -186,6 +227,108 @@ def parse_args() -> argparse.Namespace:
     help="Margin from orbit bounds for apsidal_orbit.",
   )
   parser.add_argument(
+    "--archimedean-x-min",
+    type=float,
+    default=None,
+    help="Optional X min bound for archimedean_spiral (defaults to machine limitLeft).",
+  )
+  parser.add_argument(
+    "--archimedean-x-max",
+    type=float,
+    default=None,
+    help="Optional X max bound for archimedean_spiral (defaults to machine limitRight).",
+  )
+  parser.add_argument(
+    "--archimedean-y-min",
+    type=float,
+    default=None,
+    help="Optional Y min bound for archimedean_spiral (defaults to machine limitBottom).",
+  )
+  parser.add_argument(
+    "--archimedean-y-max",
+    type=float,
+    default=None,
+    help="Optional Y max bound for archimedean_spiral (defaults to machine limitTop).",
+  )
+  parser.add_argument(
+    "--archimedean-turns",
+    type=float,
+    default=DEFAULT_ARCHIMEDEAN_TURNS,
+    help="Number of turns for archimedean_spiral.",
+  )
+  parser.add_argument(
+    "--archimedean-points-per-turn",
+    type=int,
+    default=DEFAULT_ARCHIMEDEAN_POINTS_PER_TURN,
+    help="Discretization points per turn for archimedean_spiral.",
+  )
+  parser.add_argument(
+    "--archimedean-initial-angle-deg",
+    type=float,
+    default=DEFAULT_ARCHIMEDEAN_INITIAL_ANGLE_DEG,
+    help="Initial angle in degrees for archimedean_spiral.",
+  )
+  parser.add_argument(
+    "--archimedean-boundary-margin",
+    type=float,
+    default=DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN,
+    help="Margin from bounds for archimedean_spiral.",
+  )
+  parser.add_argument(
+    "--archimedean-direction",
+    choices=("ccw", "cw"),
+    default=DEFAULT_ARCHIMEDEAN_DIRECTION,
+    help="Rotation direction for archimedean_spiral.",
+  )
+  parser.add_argument(
+    "--waypoints",
+    type=str,
+    default="",
+    help=(
+      "Semicolon-delimited waypoint list: "
+      "'x1,y1;x2,y2;...'. Used by waypoint_path."
+    ),
+  )
+  parser.add_argument(
+    "--waypoints-file",
+    type=str,
+    default="",
+    help=(
+      "Optional waypoint file for waypoint_path. "
+      "Supports JSON list ([[x,y],...]) or CSV/text lines 'x,y'."
+    ),
+  )
+  parser.add_argument(
+    "--waypoint-order",
+    choices=("input", "shortest"),
+    default=DEFAULT_WAYPOINT_ORDER_MODE,
+    help="Waypoint visitation order mode for waypoint_path.",
+  )
+  parser.add_argument(
+    "--waypoint-min-arc-radius",
+    type=float,
+    default=DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+    help="Minimum allowed radius for arc segments in waypoint_path.",
+  )
+  parser.add_argument(
+    "--v-x-max",
+    type=float,
+    default=DEFAULT_V_X_MAX,
+    help=(
+      "Maximum allowed X-axis velocity component magnitude. "
+      "Segment speed is capped so |vx| <= v-x-max."
+    ),
+  )
+  parser.add_argument(
+    "--v-y-max",
+    type=float,
+    default=DEFAULT_V_Y_MAX,
+    help=(
+      "Maximum allowed Y-axis velocity component magnitude. "
+      "Segment speed is capped so |vy| <= v-y-max."
+    ),
+  )
+  parser.add_argument(
     "--queue-depth",
     type=int,
     default=PLC_QUEUE_DEPTH,
@@ -202,8 +345,8 @@ def parse_args() -> argparse.Namespace:
     action=argparse.BooleanOptionalAction,
     default=DEFAULT_CONSTANT_VELOCITY_MODE,
     help=(
-      "Tune segments for smoother single-velocity motion: force TT4 interior, "
-      "TT1 final, enforce minimum length from v^2/(2a), and cap speed by curvature."
+      "Tune segments for smoother single-velocity motion by enforcing segment "
+      "length and speed constraints from v^2/(2a) and curvature."
     ),
   )
   parser.add_argument(
@@ -271,12 +414,82 @@ def parse_args() -> argparse.Namespace:
   return parser.parse_args()
 
 
+def _parse_waypoint_text(text: str) -> list[tuple[float, float]]:
+  points: list[tuple[float, float]] = []
+  if not text.strip():
+    return points
+
+  chunks = text.replace("\n", ";").split(";")
+  for chunk in chunks:
+    token = chunk.strip()
+    if not token:
+      continue
+    parts = [part.strip() for part in token.split(",")]
+    if len(parts) != 2:
+      raise ValueError(
+        f"Invalid waypoint token '{token}'. Expected format 'x,y'."
+      )
+    points.append((float(parts[0]), float(parts[1])))
+
+  return points
+
+
+def _load_waypoints_file(path: str) -> list[tuple[float, float]]:
+  file_path = Path(path)
+  raw = file_path.read_text(encoding="utf-8-sig")
+  if file_path.suffix.lower() == ".json":
+    data = json.loads(raw)
+    if not isinstance(data, list):
+      raise ValueError("waypoints JSON must be a list")
+    points: list[tuple[float, float]] = []
+    for idx, item in enumerate(data):
+      if isinstance(item, dict):
+        if "x" not in item or "y" not in item:
+          raise ValueError(f"waypoints JSON item {idx} must contain x and y")
+        points.append((float(item["x"]), float(item["y"])))
+      elif isinstance(item, (list, tuple)) and len(item) == 2:
+        points.append((float(item[0]), float(item[1])))
+      else:
+        raise ValueError(
+          f"waypoints JSON item {idx} must be [x,y] or {{'x':..,'y':..}}"
+        )
+    return points
+
+  # CSV/text fallback: one waypoint per line, "x,y"
+  points: list[tuple[float, float]] = []
+  for idx, line in enumerate(raw.splitlines(), start=1):
+    token = line.strip()
+    if not token:
+      continue
+    parts = [part.strip() for part in token.split(",")]
+    if len(parts) != 2:
+      raise ValueError(
+        f"Invalid waypoint line {idx} in {file_path}: expected 'x,y'"
+      )
+    points.append((float(parts[0]), float(parts[1])))
+  return points
+
+
+def _collect_waypoints(args: argparse.Namespace) -> list[tuple[float, float]]:
+  points: list[tuple[float, float]] = []
+  if args.waypoints_file:
+    points.extend(_load_waypoints_file(args.waypoints_file))
+  if args.waypoints:
+    points.extend(_parse_waypoint_text(args.waypoints))
+  return points
+
+
 def main() -> None:
   args = parse_args()
   if (args.start_x is None) != (args.start_y is None):
     raise ValueError("Specify both --start-x and --start-y together.")
 
   start_xy = None if args.start_x is None else (float(args.start_x), float(args.start_y))
+  waypoint_points = _collect_waypoints(args)
+  if args.pattern == "waypoint_path" and len(waypoint_points) < 2:
+    raise ValueError(
+      "waypoint_path requires at least two waypoints via --waypoints and/or --waypoints-file"
+    )
   safety_limits = load_motion_safety_limits(args.machine_calibration or None)
   term_types = list(TESTABLE_TERM_TYPES) if args.sweep_term_types else [args.term_type]
   failures: list[tuple[int, Exception]] = []
@@ -293,6 +506,26 @@ def main() -> None:
     )
     orbit_y_max = (
       safety_limits.limit_top if args.orbit_y_max is None else args.orbit_y_max
+    )
+    archimedean_x_min = (
+      safety_limits.limit_left
+      if args.archimedean_x_min is None
+      else args.archimedean_x_min
+    )
+    archimedean_x_max = (
+      safety_limits.limit_right
+      if args.archimedean_x_max is None
+      else args.archimedean_x_max
+    )
+    archimedean_y_min = (
+      safety_limits.limit_bottom
+      if args.archimedean_y_min is None
+      else args.archimedean_y_min
+    )
+    archimedean_y_max = (
+      safety_limits.limit_top
+      if args.archimedean_y_max is None
+      else args.archimedean_y_max
     )
 
     segments = build_segments(
@@ -317,6 +550,19 @@ def main() -> None:
       orbit_precession_deg_per_revolution=args.orbit_precession_deg_per_rev,
       orbit_initial_apsis_deg=args.orbit_initial_apsis_deg,
       orbit_boundary_margin=args.orbit_boundary_margin,
+      archimedean_x_min=archimedean_x_min,
+      archimedean_x_max=archimedean_x_max,
+      archimedean_y_min=archimedean_y_min,
+      archimedean_y_max=archimedean_y_max,
+      archimedean_turns=args.archimedean_turns,
+      archimedean_points_per_turn=args.archimedean_points_per_turn,
+      archimedean_initial_angle_deg=args.archimedean_initial_angle_deg,
+      archimedean_boundary_margin=args.archimedean_boundary_margin,
+      archimedean_direction=args.archimedean_direction,
+      waypoint_points=waypoint_points,
+      waypoint_min_arc_radius=args.waypoint_min_arc_radius,
+      waypoint_order_mode=args.waypoint_order,
+      waypoint_start_xy=start_xy,
     )
     effective_min_segment_length = args.min_segment_length
 
@@ -339,11 +585,40 @@ def main() -> None:
         f"configured_speed={segments[0].speed:.2f}"
       )
 
+    before_caps = [float(seg.speed) for seg in segments]
+    segments = cap_segments_speed_by_axis_velocity(
+      segments=segments,
+      v_x_max=float(args.v_x_max),
+      v_y_max=float(args.v_y_max),
+      start_xy=start_xy,
+    )
+    after_caps = [float(seg.speed) for seg in segments]
+    if before_caps and after_caps and (
+      not math.isinf(float(args.v_x_max)) or not math.isinf(float(args.v_y_max))
+    ):
+      print(
+        "Axis-component speed capping: "
+        f"v_x_max={args.v_x_max:.2f} "
+        f"v_y_max={args.v_y_max:.2f} "
+        f"speed[min/max]={min(after_caps):.2f}/{max(after_caps):.2f}"
+      )
+      if start_xy is None:
+        print(
+          "Axis-component speed capping note: "
+          "start XY is unknown, so the first segment is conservatively "
+          "capped to min(v_x_max, v_y_max). "
+          "Set --start-x/--start-y for exact first-segment capping."
+        )
+
+    tangential_term_type = (
+      term_type if args.tangential_term_type is None else args.tangential_term_type
+    )
     segments = apply_merge_term_types(
       segments,
       start_xy=start_xy,
-      tangential_term_type=4,
-      non_tangential_term_type=0,
+      tangential_term_type=tangential_term_type,
+      non_tangential_term_type=args.non_tangential_term_type,
+      final_term_type=args.final_term_type,
     )
 
     return segments, effective_min_segment_length

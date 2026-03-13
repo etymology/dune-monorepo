@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+<rect width="100%" height="100%" fill="#0f172a"/>
+<rect x="70.00" y="295.08" width="1060.00" height="309.85" fill="#111827" stroke="#334155" stroke-width="2"/>
+<line x1="70.00" y1="539.69" x2="226.48" y2="595.06" stroke="#3043f2" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="226.48" y1="595.06" x2="379.85" y2="604.92" stroke="#3097f2" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="379.85" y1="604.92" x2="416.56" y2="570.06" stroke="#30ebf2" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="416.56" y1="570.06" x2="445.08" y2="523.38" stroke="#30f2a4" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="445.08" y1="523.38" x2="505.74" y2="444.91" stroke="#30f250" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="505.74" y1="444.91" x2="575.54" y2="376.62" stroke="#64f230" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="575.54" y1="376.62" x2="684.85" y2="311.89" stroke="#b8f230" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="684.85" y1="311.89" x2="803.85" y2="295.08" stroke="#f2d830" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="803.85" y1="295.08" x2="980.68" y2="414.35" stroke="#f28430" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="980.68" y1="414.35" x2="1130.00" y2="588.62" stroke="#f23030" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="70.00" cy="539.69" r="7" fill="#22c55e"/>
+<circle cx="1130.00" cy="588.62" r="7" fill="#ef4444"/>
+<circle cx="70.00" cy="539.69" r="9" fill="#f59e0b" stroke="#0b0f18" stroke-width="2"/>
+<text x="70" y="36" fill="#e5e7eb" font-family="Consolas, Menlo, monospace" font-size="24">waypoint_path term_type=4</text>
+<text x="70" y="864" fill="#cbd5e1" font-family="Consolas, Menlo, monospace" font-size="18">Position seq=100 index=0/10</text>
+</svg>
