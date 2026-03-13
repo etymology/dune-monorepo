@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import math
 import threading
+from dataclasses import replace
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Optional
@@ -18,6 +19,7 @@ from dune_winder.motion import (
   DEFAULT_TEST_TERM_TYPE,
   DEFAULT_V_X_MAX,
   DEFAULT_V_Y_MAX,
+  DEFAULT_WAYPOINT_ALLOW_STOPS,
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   DEFAULT_WAYPOINT_ORDER_MODE,
   LISSAJOUS_TESSELLATION_SEGMENTS,
@@ -47,6 +49,7 @@ TAG_X_ACTUAL_POSITION = "X_axis.ActualPosition"
 TAG_Y_ACTUAL_POSITION = "Y_axis.ActualPosition"
 POSITION_POLL_S = 0.20
 POSITION_ERROR_RETRY_S = 1.00
+DEFAULT_COMMAND_SPEED = 1000.0
 
 
 class WaypointPlannerApp(tk.Tk):
@@ -73,11 +76,10 @@ class WaypointPlannerApp(tk.Tk):
     self.start_y_var = tk.StringVar(value="")
     self.order_mode_var = tk.StringVar(value=DEFAULT_WAYPOINT_ORDER_MODE)
     self.min_arc_radius_var = tk.StringVar(value=f"{DEFAULT_WAYPOINT_MIN_ARC_RADIUS:.1f}")
+    self.allow_stops_var = tk.BooleanVar(value=DEFAULT_WAYPOINT_ALLOW_STOPS)
+    self.speed_var = tk.StringVar(value=f"{DEFAULT_COMMAND_SPEED:.1f}")
     self.term_type_var = tk.StringVar(value=str(DEFAULT_TEST_TERM_TYPE))
-    self.queue_depth_var = tk.StringVar(value=str(PLC_QUEUE_DEPTH))
     self.min_segment_length_var = tk.StringVar(value=f"{DEFAULT_MIN_SEGMENT_LENGTH:.1f}")
-    self.v_x_max_var = tk.StringVar(value=f"{DEFAULT_V_X_MAX:.1f}")
-    self.v_y_max_var = tk.StringVar(value=f"{DEFAULT_V_Y_MAX:.1f}")
     self.constant_velocity_var = tk.BooleanVar(value=DEFAULT_CONSTANT_VELOCITY_MODE)
     self.status_var = tk.StringVar(
       value=(
@@ -144,10 +146,8 @@ class WaypointPlannerApp(tk.Tk):
     row += 1
 
     row = self._entry_row(controls, row, "Min arc radius", self.min_arc_radius_var)
-    row = self._entry_row(controls, row, "Queue depth", self.queue_depth_var)
+    row = self._entry_row(controls, row, "Speed", self.speed_var)
     row = self._entry_row(controls, row, "Min segment length", self.min_segment_length_var)
-    row = self._entry_row(controls, row, "Vx max", self.v_x_max_var)
-    row = self._entry_row(controls, row, "Vy max", self.v_y_max_var)
 
     cv_check = ttk.Checkbutton(
       controls,
@@ -158,12 +158,23 @@ class WaypointPlannerApp(tk.Tk):
     cv_check.grid(row=row, column=0, columnspan=2, sticky="w", pady=(10, 0))
     row += 1
 
+    stops_check = ttk.Checkbutton(
+      controls,
+      text="Allow stop/start fallback",
+      variable=self.allow_stops_var,
+      command=self._replan,
+    )
+    stops_check.grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 0))
+    row += 1
+
     ttk.Label(
       controls,
       text=(
         "Machine bounds: "
         f"X[{self.safety_limits.limit_left:.1f}, {self.safety_limits.limit_right:.1f}] "
-        f"Y[{self.safety_limits.limit_bottom:.1f}, {self.safety_limits.limit_top:.1f}]"
+        f"Y[{self.safety_limits.limit_bottom:.1f}, {self.safety_limits.limit_top:.1f}]\n"
+        f"Intrinsic caps: Vx={DEFAULT_V_X_MAX:.1f}, Vy={DEFAULT_V_Y_MAX:.1f}, "
+        f"QueueDepth={PLC_QUEUE_DEPTH}"
       ),
       wraplength=320,
       justify="left",
@@ -556,19 +567,15 @@ class WaypointPlannerApp(tk.Tk):
       if term_type not in TESTABLE_TERM_TYPES:
         raise ValueError("Term type must be one of 0..6.")
 
-      queue_depth = self._parse_int(self.queue_depth_var.get(), "Queue depth")
-      if queue_depth < 2:
-        raise ValueError("Queue depth must be >= 2.")
-
       min_arc_radius = self._parse_float(self.min_arc_radius_var.get(), "Min arc radius")
+      speed = self._parse_float(self.speed_var.get(), "Speed")
+      if speed <= 0.0:
+        raise ValueError("Speed must be > 0.")
       min_segment_length = self._parse_float(
         self.min_segment_length_var.get(), "Min segment length"
       )
       if min_segment_length < 0.0:
         raise ValueError("Min segment length must be >= 0.")
-
-      v_x_max = self._parse_float(self.v_x_max_var.get(), "Vx max")
-      v_y_max = self._parse_float(self.v_y_max_var.get(), "Vy max")
 
       segments = build_segments(
         pattern="waypoint_path",
@@ -580,7 +587,15 @@ class WaypointPlannerApp(tk.Tk):
         waypoint_min_arc_radius=min_arc_radius,
         waypoint_order_mode=self.order_mode_var.get(),
         waypoint_start_xy=start_xy,
+        waypoint_bounds=(
+          self.safety_limits.limit_left,
+          self.safety_limits.limit_right,
+          self.safety_limits.limit_bottom,
+          self.safety_limits.limit_top,
+        ),
+        waypoint_allow_stops=self.allow_stops_var.get(),
       )
+      segments = [replace(seg, speed=speed) for seg in segments]
       effective_min_segment_length = min_segment_length
 
       if self.constant_velocity_var.get():
@@ -594,15 +609,15 @@ class WaypointPlannerApp(tk.Tk):
 
       segments = cap_segments_speed_by_axis_velocity(
         segments=segments,
-        v_x_max=v_x_max,
-        v_y_max=v_y_max,
+        v_x_max=DEFAULT_V_X_MAX,
+        v_y_max=DEFAULT_V_Y_MAX,
         start_xy=start_xy,
       )
       segments = apply_merge_term_types(
         segments=segments,
         start_xy=start_xy,
         tangential_term_type=term_type,
-        non_tangential_term_type=0,
+        non_tangential_term_type=1 if self.allow_stops_var.get() else 0,
         final_term_type=None,
       )
       validate_segments_within_safety_limits(
@@ -627,8 +642,8 @@ class WaypointPlannerApp(tk.Tk):
       f"segments={len(segments)} "
       f"line/circle={line_count}/{circle_count} "
       f"path_length={total_length:.1f} "
-      f"effective_min_segment_length={effective_min_segment_length:.2f} "
-      f"queue_depth={queue_depth}"
+      f"speed={speed:.1f} "
+      f"effective_min_segment_length={effective_min_segment_length:.2f}"
     )
 
     self.segments = segments
@@ -650,18 +665,11 @@ class WaypointPlannerApp(tk.Tk):
       self._set_status("PLC path is required.", is_error=True)
       return
 
-    try:
-      queue_depth = self._parse_int(self.queue_depth_var.get(), "Queue depth")
-      if queue_depth < 2:
-        raise ValueError("Queue depth must be >= 2.")
-    except Exception as exc:
-      self._set_status(str(exc), is_error=True)
-      return
-
     if not messagebox.askyesno(
       "Execute path",
       (
-        f"Queue and execute {len(self.segments)} segment(s) on PLC '{plc_path}'?\n\n"
+        f"Queue and execute {len(self.segments)} segment(s) on PLC '{plc_path}' "
+        f"(queue depth {PLC_QUEUE_DEPTH})?\n\n"
         "Use this only when the machine is ready."
       ),
       parent=self,
@@ -675,7 +683,7 @@ class WaypointPlannerApp(tk.Tk):
     def run() -> None:
       try:
         with MotionQueueClient(plc_path) as motion:
-          run_queue_case(motion, segments_to_run, queue_depth=queue_depth)
+          run_queue_case(motion, segments_to_run, queue_depth=PLC_QUEUE_DEPTH)
       except Exception as exc:
         error_message = str(exc)
         self.after(
@@ -812,6 +820,15 @@ def parse_args() -> argparse.Namespace:
       "Defaults to config/machineCalibration.json."
     ),
   )
+  parser.add_argument(
+    "--waypoint-allow-stops",
+    action=argparse.BooleanOptionalAction,
+    default=DEFAULT_WAYPOINT_ALLOW_STOPS,
+    help=(
+      "Enable stop/start fallback for waypoint planning when smooth biarc "
+      "segments cannot stay inside machine XY bounds."
+    ),
+  )
   return parser.parse_args()
 
 
@@ -821,6 +838,7 @@ def main() -> None:
     plc_path=args.plc_path,
     machine_calibration=args.machine_calibration,
   )
+  app.allow_stops_var.set(bool(args.waypoint_allow_stops))
   app.mainloop()
 
 

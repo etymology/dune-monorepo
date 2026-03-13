@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import colorsys
 import math
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Optional
@@ -51,6 +52,8 @@ DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN = 20.0
 DEFAULT_ARCHIMEDEAN_DIRECTION = "ccw"
 DEFAULT_WAYPOINT_MIN_ARC_RADIUS = 50.0
 DEFAULT_WAYPOINT_ORDER_MODE = "shortest"
+DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S = 3.0
+DEFAULT_WAYPOINT_ALLOW_STOPS = False
 DEFAULT_V_X_MAX = 825.0
 DEFAULT_V_Y_MAX = 600.0
 
@@ -85,9 +88,30 @@ def _path_length(points: list[tuple[float, float]], start_xy: Optional[tuple[flo
   return total
 
 
+def _planner_deadline(timeout_s: float) -> Optional[float]:
+  if timeout_s <= 0.0 and not math.isinf(timeout_s):
+    raise ValueError("waypoint_planner_timeout_s must be > 0 or inf")
+  if math.isinf(timeout_s):
+    return None
+  return time.monotonic() + timeout_s
+
+
+def _planner_timed_out(deadline: Optional[float]) -> bool:
+  return deadline is not None and time.monotonic() >= deadline
+
+
+def _raise_planner_timeout(timeout_s: float, phase: str) -> None:
+  raise TimeoutError(
+    f"Waypoint planner timed out after {timeout_s:.1f}s while {phase}. "
+    "Try fewer waypoints or use waypoint_order_mode='input'."
+  )
+
+
 def _nearest_neighbor_order(
   points: list[tuple[float, float]],
   start_idx: int,
+  planner_deadline: Optional[float] = None,
+  planner_timeout_s: float = DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S,
 ) -> list[tuple[float, float]]:
   remaining = set(range(len(points)))
   remaining.remove(start_idx)
@@ -95,6 +119,8 @@ def _nearest_neighbor_order(
   cur_idx = start_idx
 
   while remaining:
+    if _planner_timed_out(planner_deadline):
+      _raise_planner_timeout(planner_timeout_s, "building nearest-neighbor seed path")
     next_idx = min(
       remaining,
       key=lambda idx: _distance_xy(points[cur_idx], points[idx]),
@@ -106,19 +132,29 @@ def _nearest_neighbor_order(
   return ordered
 
 
-def _two_opt_open_path(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+def _two_opt_open_path(
+  points: list[tuple[float, float]],
+  planner_deadline: Optional[float] = None,
+  planner_timeout_s: float = DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S,
+) -> list[tuple[float, float]]:
   if len(points) < 4:
     return points
 
   out = list(points)
   improved = True
   while improved:
+    if _planner_timed_out(planner_deadline):
+      _raise_planner_timeout(planner_timeout_s, "running 2-opt waypoint optimization")
     improved = False
     n = len(out)
     for i in range(0, n - 3):
+      if _planner_timed_out(planner_deadline):
+        _raise_planner_timeout(planner_timeout_s, "running 2-opt waypoint optimization")
       a = out[i]
       b = out[i + 1]
       for k in range(i + 2, n - 1):
+        if _planner_timed_out(planner_deadline):
+          _raise_planner_timeout(planner_timeout_s, "running 2-opt waypoint optimization")
         c = out[k]
         d = out[k + 1]
         old_len = _distance_xy(a, b) + _distance_xy(c, d)
@@ -129,6 +165,8 @@ def _two_opt_open_path(points: list[tuple[float, float]]) -> list[tuple[float, f
     # For open paths, also allow reversing the tail to improve final edge.
     n = len(out)
     for i in range(0, n - 2):
+      if _planner_timed_out(planner_deadline):
+        _raise_planner_timeout(planner_timeout_s, "running 2-opt waypoint optimization")
       a = out[i]
       b = out[i + 1]
       c = out[-1]
@@ -143,9 +181,11 @@ def _two_opt_open_path(points: list[tuple[float, float]]) -> list[tuple[float, f
 def _order_waypoints_for_short_path(
   points: list[tuple[float, float]],
   start_xy: Optional[tuple[float, float]] = None,
+  waypoint_planner_timeout_s: float = DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S,
 ) -> list[tuple[float, float]]:
   if len(points) <= 2:
     return points
+  planner_deadline = _planner_deadline(waypoint_planner_timeout_s)
 
   if start_xy is not None:
     sx, sy = float(start_xy[0]), float(start_xy[1])
@@ -158,8 +198,22 @@ def _order_waypoints_for_short_path(
   best: Optional[list[tuple[float, float]]] = None
   best_len = float("inf")
   for start_idx in start_idx_candidates:
-    candidate = _nearest_neighbor_order(points, start_idx)
-    candidate = _two_opt_open_path(candidate)
+    if _planner_timed_out(planner_deadline):
+      _raise_planner_timeout(
+        waypoint_planner_timeout_s,
+        "evaluating waypoint start candidates",
+      )
+    candidate = _nearest_neighbor_order(
+      points,
+      start_idx,
+      planner_deadline=planner_deadline,
+      planner_timeout_s=waypoint_planner_timeout_s,
+    )
+    candidate = _two_opt_open_path(
+      candidate,
+      planner_deadline=planner_deadline,
+      planner_timeout_s=waypoint_planner_timeout_s,
+    )
     length = _path_length(candidate, start_xy=start_xy)
     if length < best_len:
       best_len = length
@@ -201,6 +255,138 @@ def _waypoint_tangents(points: list[tuple[float, float]]) -> list[tuple[float, f
       tangents.append(_normalize_xy(sum_x, sum_y))
 
   return tangents
+
+
+def _point_within_bounds(
+  x: float,
+  y: float,
+  bounds: tuple[float, float, float, float],
+  eps: float = 1e-6,
+) -> bool:
+  x_min, x_max, y_min, y_max = bounds
+  return (x_min - eps) <= x <= (x_max + eps) and (y_min - eps) <= y <= (y_max + eps)
+
+
+def _segments_within_bounds(
+  segments: list[MotionSegment],
+  bounds: tuple[float, float, float, float],
+) -> bool:
+  if not segments:
+    return True
+
+  prev_x = float(segments[0].x)
+  prev_y = float(segments[0].y)
+  if not _point_within_bounds(prev_x, prev_y, bounds):
+    return False
+
+  for seg in segments[1:]:
+    if seg.seg_type != SEG_TYPE_CIRCLE:
+      if not _point_within_bounds(seg.x, seg.y, bounds):
+        return False
+      prev_x = float(seg.x)
+      prev_y = float(seg.y)
+      continue
+
+    start = MotionSegment(seq=seg.seq - 1, x=prev_x, y=prev_y)
+    center = circle_center_for_segment(start, seg)
+    if center is None:
+      if not _point_within_bounds(seg.x, seg.y, bounds):
+        return False
+      prev_x = float(seg.x)
+      prev_y = float(seg.y)
+      continue
+
+    cx, cy = center
+    r0 = math.hypot(prev_x - cx, prev_y - cy)
+    r1 = math.hypot(seg.x - cx, seg.y - cy)
+    if r0 <= 1e-9 or r1 <= 1e-9:
+      if not _point_within_bounds(seg.x, seg.y, bounds):
+        return False
+      prev_x = float(seg.x)
+      prev_y = float(seg.y)
+      continue
+
+    a0 = math.atan2(prev_y - cy, prev_x - cx)
+    a1 = math.atan2(seg.y - cy, seg.x - cx)
+    sweep = arc_sweep_rad(a0, a1, seg.direction)
+    if sweep is None:
+      if not _point_within_bounds(seg.x, seg.y, bounds):
+        return False
+      prev_x = float(seg.x)
+      prev_y = float(seg.y)
+      continue
+
+    radius = 0.5 * (r0 + r1)
+    steps = max(8, int(math.ceil(abs(sweep) / math.radians(4.0))))
+    for i in range(1, steps + 1):
+      angle = a0 + sweep * (i / steps)
+      x = cx + radius * math.cos(angle)
+      y = cy + radius * math.sin(angle)
+      if not _point_within_bounds(x, y, bounds):
+        return False
+
+    prev_x = float(seg.x)
+    prev_y = float(seg.y)
+
+  return True
+
+
+def _build_waypoint_stoppable_segments(
+  points: list[tuple[float, float]],
+  tangents: list[tuple[float, float]],
+  start_seq: int,
+  term_type: int,
+  min_arc_radius: float,
+  bounds: tuple[float, float, float, float],
+) -> list[MotionSegment]:
+  out: list[MotionSegment] = [
+    MotionSegment(
+      seq=start_seq,
+      x=points[0][0],
+      y=points[0][1],
+      term_type=term_type,
+      seg_type=SEG_TYPE_LINE,
+    )
+  ]
+  next_seq = start_seq + 1
+
+  for i in range(len(points) - 1):
+    p0 = points[i]
+    p1 = points[i + 1]
+    edge_segments = _tangent_biarc_tessellation(
+      [p0, p1],
+      [tangents[i], tangents[i + 1]],
+      start_seq=0,
+      term_type=term_type,
+    )
+    edge_segments = _enforce_min_arc_radius(
+      edge_segments,
+      min_arc_radius=min_arc_radius,
+    )
+
+    if not _segments_within_bounds(edge_segments, bounds):
+      edge_segments = [
+        MotionSegment(
+          seq=0,
+          x=p0[0],
+          y=p0[1],
+          term_type=term_type,
+          seg_type=SEG_TYPE_LINE,
+        ),
+        MotionSegment(
+          seq=1,
+          x=p1[0],
+          y=p1[1],
+          term_type=term_type,
+          seg_type=SEG_TYPE_LINE,
+        ),
+      ]
+
+    for seg in edge_segments[1:]:
+      out.append(replace(seg, seq=next_seq))
+      next_seq += 1
+
+  return out
 
 
 def _enforce_min_arc_radius(
@@ -893,6 +1079,9 @@ def waypoint_path_segments(
   min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   waypoint_order_mode: str = DEFAULT_WAYPOINT_ORDER_MODE,
   start_xy: Optional[tuple[float, float]] = None,
+  waypoint_planner_timeout_s: float = DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S,
+  waypoint_bounds: Optional[tuple[float, float, float, float]] = None,
+  waypoint_allow_stops: bool = DEFAULT_WAYPOINT_ALLOW_STOPS,
 ) -> list[MotionSegment]:
   validate_term_type(term_type)
   if waypoints is None or len(waypoints) < 2:
@@ -915,11 +1104,29 @@ def waypoint_path_segments(
     raise ValueError("waypoints must contain at least 2 distinct points")
 
   if mode == "shortest":
-    points = _order_waypoints_for_short_path(points, start_xy=start_xy)
+    points = _order_waypoints_for_short_path(
+      points,
+      start_xy=start_xy,
+      waypoint_planner_timeout_s=waypoint_planner_timeout_s,
+    )
 
   tangents = _waypoint_tangents(points)
   segments = _tangent_biarc_tessellation(points, tangents, start_seq, term_type)
   segments = _enforce_min_arc_radius(segments, min_arc_radius=min_arc_radius)
+  if (
+    waypoint_allow_stops
+    and waypoint_bounds is not None
+    and not _segments_within_bounds(segments, waypoint_bounds)
+  ):
+    segments = _build_waypoint_stoppable_segments(
+      points=points,
+      tangents=tangents,
+      start_seq=start_seq,
+      term_type=term_type,
+      min_arc_radius=min_arc_radius,
+      bounds=waypoint_bounds,
+    )
+
   return [replace(seg, seq=start_seq + i) for i, seg in enumerate(segments)]
 
 
@@ -1344,6 +1551,9 @@ def build_segments(
   waypoint_min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   waypoint_order_mode: str = DEFAULT_WAYPOINT_ORDER_MODE,
   waypoint_start_xy: Optional[tuple[float, float]] = None,
+  waypoint_planner_timeout_s: float = DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S,
+  waypoint_bounds: Optional[tuple[float, float, float, float]] = None,
+  waypoint_allow_stops: bool = DEFAULT_WAYPOINT_ALLOW_STOPS,
 ) -> list[MotionSegment]:
   if min_segment_length < 0.0:
     raise ValueError("min_segment_length must be >= 0")
@@ -1408,6 +1618,9 @@ def build_segments(
       min_arc_radius=waypoint_min_arc_radius,
       waypoint_order_mode=waypoint_order_mode,
       start_xy=waypoint_start_xy,
+      waypoint_planner_timeout_s=waypoint_planner_timeout_s,
+      waypoint_bounds=waypoint_bounds,
+      waypoint_allow_stops=waypoint_allow_stops,
     )
   else:
     raise ValueError(f"Unsupported pattern: {pattern}")

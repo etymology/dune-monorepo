@@ -57,6 +57,16 @@ Waypoint segment generation (`waypoint_path_segments`) does the following:
 - Uses tangent biarc tessellation to generate line/arc segments.
 - Enforces minimum arc radius:
   - arcs tighter than threshold are rewritten to lines.
+- Optional stop/start fallback (`waypoint_allow_stops`):
+  - planner first attempts smooth biarc path through waypoints.
+  - if smooth segments violate machine XY bounds, offending spans fallback to
+    linear moves between waypoints.
+  - merge assignment then uses stop transitions (`term_type=1`) at
+    non-tangential joins in this mode.
+- Applies a planner timeout for `shortest` ordering:
+  - default `3.0 s` (`DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S`).
+  - if exceeded, planning raises `TimeoutError` with guidance to reduce waypoint
+    count or use `waypoint_order_mode='input'`.
 
 ## GUI Planner
 
@@ -86,10 +96,15 @@ python src/motionQueueTest_gui.py
 - Waypoint order mode (`input` or `shortest`).
 - Term type.
 - Min arc radius.
-- Queue depth.
+- Allow stop/start fallback.
+- Speed.
 - Min segment length.
-- `Vx max` / `Vy max`.
 - Constant-velocity tuning toggle.
+
+The following are now fixed to machine-intrinsic values in the GUI:
+
+- `Vx max` / `Vy max` (internal axis speed caps).
+- Queue depth (`PLC_QUEUE_DEPTH`).
 
 ## Live Position Overlay
 
@@ -117,6 +132,7 @@ python src/motionQueueTest.py \
   --waypoints "1000,200;2000,900;3500,1400;5000,500" \
   --waypoint-order shortest \
   --waypoint-min-arc-radius 80 \
+  --waypoint-allow-stops \
   --visualize-svg waypoints.svg \
   --visualize-only
 ```
