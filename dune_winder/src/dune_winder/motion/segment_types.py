@@ -18,7 +18,7 @@ MCCM_DIR_2D_CCW = 1
 MCCM_DIR_2D_CW_FULL = 2
 MCCM_DIR_2D_CCW_FULL = 3
 
-DEFAULT_TEST_TERM_TYPE = 4
+DEFAULT_TEST_TERM_TYPE = 3
 
 
 @dataclass(frozen=True)
@@ -26,9 +26,9 @@ class MotionSegment:
   seq: int
   x: float
   y: float
-  speed: float = 600.0
-  accel: float = 1500.0
-  decel: float = 1500.0
+  speed: float = 1000
+  accel: float = 2000.0
+  decel: float = 2000.0
   jerk_accel: float = 100.0
   jerk_decel: float = 100.0
   term_type: int = DEFAULT_TEST_TERM_TYPE
