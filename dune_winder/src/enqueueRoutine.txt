@@ -1,6 +1,9 @@
 EQU QueueCtl.POS 0 OTE QueueEmpty 
 GEQ QueueCtl.POS 32 OTE QueueFull 
 MOV QueueCtl.POS QueueCount 
+BST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 
+XIO ALL_EOT_GOOD MAS X_Y MoveA All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIO ALL_EOT_GOOD MAS X_Y MoveB All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
 NEQ IncomingSegReqID LastIncomingSegReqID OTL EnqueueReq 
 XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 1 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 OTE SegValidLine 
 XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 2 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 GEQ IncomingSeg.CircleType 0 LEQ IncomingSeg.CircleType 3 GEQ IncomingSeg.Direction 0 LEQ IncomingSeg.Direction 3 OTE SegValidArc 
@@ -117,31 +120,31 @@ XIC FlipToA OTU FlipToA
 XIC FlipToB OTU FlipToB 
 XIC CurIssued XIO NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveA.PC ONS DoneONS_A OTU CurIssued 
 XIC CurIssued XIO NextIssued XIO UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.PC ONS DoneONS_B OTU CurIssued 
-XIC AbortQueue RES QueueCtl 
-XIC AbortQueue OTU CurIssued 
-XIC AbortQueue OTU NextIssued 
-XIC AbortQueue OTU LoadCurReq 
-XIC AbortQueue OTU LoadNextReq 
-XIC AbortQueue OTU PrepCurMove 
-XIC AbortQueue OTU PrepNextMove 
-XIC AbortQueue OTU IssueCurPulse 
-XIC AbortQueue OTU IssueNextPulse 
-XIC AbortQueue OTU EnqueueReq 
-XIC AbortQueue OTU RotateMoves 
-XIC AbortQueue OTU FlipToA 
-XIC AbortQueue OTU FlipToB 
-XIC AbortQueue OTL UseAasCurrent 
-XIC AbortQueue OTU StartQueuedPath 
-XIC AbortQueue MOV 0 FaultCode 
-XIC AbortQueue OTU QueueFault 
-XIC AbortQueue OTU CheckCurSeg 
-XIC AbortQueue OTU CheckNextSeg 
-XIC AbortQueue OTU CurSeg.Valid 
-XIC AbortQueue MOV 0 CurSeg.Seq 
-XIC AbortQueue OTU NextSeg.Valid 
-XIC AbortQueue MOV 0 NextSeg.Seq 
-XIC AbortQueue MOV IncomingSegReqID LastIncomingSegReqID 
-XIC AbortQueue MOV 0 ActiveSeq 
-XIC AbortQueue MOV 0 PendingSeq 
-XIC AbortQueue FLL 0 SegQueue[0] 32 
+XIC AbortActive RES QueueCtl 
+XIC AbortActive OTU CurIssued 
+XIC AbortActive OTU NextIssued 
+XIC AbortActive OTU LoadCurReq 
+XIC AbortActive OTU LoadNextReq 
+XIC AbortActive OTU PrepCurMove 
+XIC AbortActive OTU PrepNextMove 
+XIC AbortActive OTU IssueCurPulse 
+XIC AbortActive OTU IssueNextPulse 
+XIC AbortActive OTU EnqueueReq 
+XIC AbortActive OTU RotateMoves 
+XIC AbortActive OTU FlipToA 
+XIC AbortActive OTU FlipToB 
+XIC AbortActive OTL UseAasCurrent 
+XIC AbortActive OTU StartQueuedPath 
+XIC AbortActive MOV 0 FaultCode 
+XIC AbortActive OTU QueueFault 
+XIC AbortActive OTU CheckCurSeg 
+XIC AbortActive OTU CheckNextSeg 
+XIC AbortActive OTU CurSeg.Valid 
+XIC AbortActive MOV 0 CurSeg.Seq 
+XIC AbortActive OTU NextSeg.Valid 
+XIC AbortActive MOV 0 NextSeg.Seq 
+XIC AbortActive MOV IncomingSegReqID LastIncomingSegReqID 
+XIC AbortActive MOV 0 ActiveSeq 
+XIC AbortActive MOV 0 PendingSeq 
+XIC AbortActive FLL 0 SegQueue[0] 32 
  

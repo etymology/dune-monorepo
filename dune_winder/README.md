@@ -117,6 +117,7 @@ Legacy expression/XML remote command shims have been removed.
 For architecture follow-up and remaining high-priority refactors, see:
 
 - [`docs/ArchitecturePriorityBacklog.md`](docs/ArchitecturePriorityBacklog.md)
+- [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
 
 ## Template G-Code Generation
 
