@@ -27,6 +27,7 @@ from dune_winder.motion import (
   DEFAULT_ORBIT_REVOLUTIONS,
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   DEFAULT_WAYPOINT_ORDER_MODE,
+  DEFAULT_WAYPOINT_ALLOW_STOPS,
   DEFAULT_V_X_MAX,
   DEFAULT_V_Y_MAX,
   DEFAULT_MAX_SEGMENT_FACTOR,
@@ -75,6 +76,14 @@ def parse_args() -> argparse.Namespace:
     ),
     default="lissajous",
     help="Path pattern to enqueue.",
+  )
+  parser.add_argument(
+    "--gui",
+    action="store_true",
+    help=(
+      "Launch the waypoint planner GUI. "
+      "This mode is intended for waypoint_path planning and execution."
+    ),
   )
   parser.add_argument(
     "--term-type",
@@ -311,6 +320,16 @@ def parse_args() -> argparse.Namespace:
     help="Minimum allowed radius for arc segments in waypoint_path.",
   )
   parser.add_argument(
+    "--waypoint-allow-stops",
+    action=argparse.BooleanOptionalAction,
+    default=DEFAULT_WAYPOINT_ALLOW_STOPS,
+    help=(
+      "For waypoint_path, allow fallback to stop-and-restart linear transitions "
+      "(term type 1 at non-tangential merges) when smooth biarc segments cannot "
+      "fit within machine XY bounds."
+    ),
+  )
+  parser.add_argument(
     "--v-x-max",
     type=float,
     default=DEFAULT_V_X_MAX,
@@ -484,6 +503,20 @@ def main() -> None:
   if (args.start_x is None) != (args.start_y is None):
     raise ValueError("Specify both --start-x and --start-y together.")
 
+  if args.gui:
+    from motionQueueTest_gui import WaypointPlannerApp
+
+    app = WaypointPlannerApp(
+      plc_path=PLC_PATH,
+      machine_calibration=args.machine_calibration or "",
+    )
+    app.allow_stops_var.set(bool(args.waypoint_allow_stops))
+    if args.start_x is not None and args.start_y is not None:
+      app.start_x_var.set(str(float(args.start_x)))
+      app.start_y_var.set(str(float(args.start_y)))
+    app.mainloop()
+    return
+
   start_xy = None if args.start_x is None else (float(args.start_x), float(args.start_y))
   waypoint_points = _collect_waypoints(args)
   if args.pattern == "waypoint_path" and len(waypoint_points) < 2:
@@ -563,6 +596,13 @@ def main() -> None:
       waypoint_min_arc_radius=args.waypoint_min_arc_radius,
       waypoint_order_mode=args.waypoint_order,
       waypoint_start_xy=start_xy,
+      waypoint_bounds=(
+        safety_limits.limit_left,
+        safety_limits.limit_right,
+        safety_limits.limit_bottom,
+        safety_limits.limit_top,
+      ),
+      waypoint_allow_stops=args.waypoint_allow_stops,
     )
     effective_min_segment_length = args.min_segment_length
 
@@ -613,11 +653,19 @@ def main() -> None:
     tangential_term_type = (
       term_type if args.tangential_term_type is None else args.tangential_term_type
     )
+    non_tangential_term_type = args.non_tangential_term_type
+    if (
+      args.pattern == "waypoint_path"
+      and args.waypoint_allow_stops
+      and non_tangential_term_type == 0
+    ):
+      non_tangential_term_type = 1
+
     segments = apply_merge_term_types(
       segments,
       start_xy=start_xy,
       tangential_term_type=tangential_term_type,
-      non_tangential_term_type=args.non_tangential_term_type,
+      non_tangential_term_type=non_tangential_term_type,
       final_term_type=args.final_term_type,
     )
 
