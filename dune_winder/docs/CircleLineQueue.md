@@ -31,6 +31,7 @@ The queue state machine uses dual command buffers (`MoveA`/`MoveB`) for blending
 - Current segment loads into active buffer.
 - Next segment preloads into alternate buffer while current is in progress.
 - On pending completion, buffers rotate and continue.
+- A queued path can start with a single queued segment; blending only applies once a second segment is available.
 
 Instruction argument arrays are indexed explicitly for Studio 5000 text form:
 
@@ -186,7 +187,7 @@ The queue supports mixed line/circle generation from reusable patterns, includin
 
 If segments enqueue but motion does not start:
 
-1. Confirm `QueueCount >= 2` before `StartQueuedPath`.
+1. Confirm `QueueCount >= 1` before `StartQueuedPath`.
 2. Confirm `IncomingSegAck` advances to each `Seq`.
 3. Check `MotionFault`, `QueueFault`, `FaultCode`, `MoveA.ER`, `MoveB.ER`.
 4. Verify `SegType`, `CircleType`, `Direction`, and `TermType` are in valid ranges.
