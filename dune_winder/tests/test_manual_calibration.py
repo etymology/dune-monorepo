@@ -117,7 +117,7 @@ def _create_stub_apa(calibrationDirectory, apaPath, calibrationFile):
   apa._calibrationFile = calibrationFile
   apa._gCodeHandler = FakeGCodeHandler()
   apa._log = FakeLog()
-  apa._apaDirectory = apaPath
+  apa._workspaceDirectory = apaPath
   apa._calibration = None
   apa._calibrationSignature = None
   return apa
@@ -134,18 +134,18 @@ class FakeProcess:
     recipeArchiveDirectory,
   ):
     self._configuration = configuration
-    self._apaCalibrationDirectory = calibrationDirectory
+    self._workspaceCalibrationDirectory = calibrationDirectory
     self._systemTime = FakeTimeSource()
     self._log = FakeLog()
     self.controlStateMachine = FakeControlStateMachine(True)
     self._io = FakeIO()
     self.gCodeHandler = FakeGCodeHandler()
-    self.apa = FakeAPA(layer, apaPath, calibrationDirectory, recipeDirectory, recipeArchiveDirectory)
-    self.apa._gCodeHandler = self.gCodeHandler
+    self.workspace = FakeAPA(layer, apaPath, calibrationDirectory, recipeDirectory, recipeArchiveDirectory)
+    self.workspace._gCodeHandler = self.gCodeHandler
     self.seekCalls = []
 
   def getRecipeLayer(self):
-    return self.apa.getLayer()
+    return self.workspace.getLayer()
 
   def manualSeekXY(self, xPosition=None, yPosition=None, velocity=None, acceleration=None, deceleration=None):
     self.seekCalls.append((xPosition, yPosition, velocity, acceleration, deceleration))
@@ -245,7 +245,7 @@ class ManualCalibrationTests(unittest.TestCase):
         "B1",
         SerializableLocation(livePin.x + 50.0, livePin.y - 25.0, livePin.z),
       )
-      liveCalibration.save(process._apaCalibrationDirectory, "U_Calibration.xml", "LayerCalibration")
+      liveCalibration.save(process._workspaceCalibrationDirectory, "U_Calibration.xml", "LayerCalibration")
 
       service = ManualCalibration(process)
       nominalPin = build_nominal_calibration("U").getPinLocation("B1")
@@ -274,7 +274,7 @@ class ManualCalibrationTests(unittest.TestCase):
         "B1",
         SerializableLocation(baselineBack.x + 25.0, baselineBack.y - 12.0, baselineBack.z),
       )
-      process.apa._useCalibration(calibration, "U_Custom_Calibration.xml")
+      process.workspace._useCalibration(calibration, "U_Custom_Calibration.xml")
 
       service = ManualCalibration(process)
       state = service.getState()
@@ -338,14 +338,14 @@ class ManualCalibrationTests(unittest.TestCase):
       saveResult = service.saveLive()
       self.assertTrue(saveResult["ok"])
 
-      savedPath = os.path.join(process._apaCalibrationDirectory, "U_Calibration.json")
+      savedPath = os.path.join(process._workspaceCalibrationDirectory, "U_Calibration.json")
       self.assertTrue(os.path.isfile(savedPath))
       self.assertIsNotNone(process.gCodeHandler.currentCalibration)
-      self.assertEqual(process.apa._calibrationFile, "U_Calibration.json")
-      self.assertEqual(process.apa.loadReasons, ["manual calibration save"])
+      self.assertEqual(process.workspace._calibrationFile, "U_Calibration.json")
+      self.assertEqual(process.workspace.loadReasons, ["manual calibration save"])
 
       savedCalibration = LayerCalibration(layer="U")
-      savedCalibration.load(process._apaCalibrationDirectory, "U_Calibration.json")
+      savedCalibration.load(process._workspaceCalibrationDirectory, "U_Calibration.json")
       self.assertAlmostEqual(savedCalibration.offset.x, 0.0)
       self.assertAlmostEqual(savedCalibration.offset.y, 0.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6)
@@ -364,12 +364,12 @@ class ManualCalibrationTests(unittest.TestCase):
       service.setCameraOffset(12.5, -7.5)
       service.updateMeasuredPin(1, baselineBack.x + 4.0, baselineBack.y - 2.0)
 
-      draftDirectory = os.path.join(process.apa.getPath(), "ManualCalibration")
+      draftDirectory = os.path.join(process.workspace.getPath(), "ManualCalibration")
       self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_Draft.json")))
       self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_DraftBaseline.json")))
 
       liveCalibration = LayerCalibration(layer="U")
-      liveCalibration.load(process._apaCalibrationDirectory, "U_Calibration.json")
+      liveCalibration.load(process._workspaceCalibrationDirectory, "U_Calibration.json")
       self.assertAlmostEqual(liveCalibration.getPinLocation("B1").x, baselineBack.x, places=6)
       self.assertAlmostEqual(liveCalibration.getPinLocation("B1").y, baselineBack.y, places=6)
 
@@ -427,7 +427,7 @@ class ManualCalibrationTests(unittest.TestCase):
       calibration.zBack = 0.0
       calibration.setPinLocation("B960", SerializableLocation(612.5, 182.25, 0.0))
       calibration.setPinLocation("B1", SerializableLocation(7012.0, 184.75, 0.0))
-      process.apa._useCalibration(calibration, "X_Custom_Calibration.xml")
+      process.workspace._useCalibration(calibration, "X_Custom_Calibration.xml")
 
       service = ManualCalibration(process)
       state = service.getState()
@@ -474,7 +474,7 @@ class ManualCalibrationTests(unittest.TestCase):
   def test_xg_generate_writes_live_gcode_and_refreshes_active_recipe(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = _create_process("X", rootDirectory)
-      process.apa._recipeFile = "X-layer.gc"
+      process.workspace._recipeFile = "X-layer.gc"
       service = ManualCalibration(process)
 
       service.setCameraOffset(10.0, -5.0)
@@ -494,9 +494,9 @@ class ManualCalibrationTests(unittest.TestCase):
       generateResult = service.generateRecipeFile()
       self.assertTrue(generateResult["ok"])
 
-      outputPath = os.path.join(process.apa._recipeDirectory, "X-layer.gc")
+      outputPath = os.path.join(process.workspace._recipeDirectory, "X-layer.gc")
       self.assertTrue(os.path.isfile(outputPath))
-      self.assertEqual(process.apa.recipeRefreshCalls, 1)
+      self.assertEqual(process.workspace.recipeRefreshCalls, 1)
 
       with open(outputPath) as inputFile:
         lines = inputFile.readlines()
@@ -535,9 +535,9 @@ class ManualCalibrationTests(unittest.TestCase):
       service.setCornerOffset("footA", 0.3)
       service.setCornerOffset("footB", 0.4)
 
-      draftDirectory = os.path.join(process.apa.getPath(), "ManualCalibration")
+      draftDirectory = os.path.join(process.workspace.getPath(), "ManualCalibration")
       self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "G_Draft.json")))
-      self.assertFalse(os.path.isfile(os.path.join(process.apa._recipeDirectory, "G-layer.gc")))
+      self.assertFalse(os.path.isfile(os.path.join(process.workspace._recipeDirectory, "G-layer.gc")))
 
       reloadedService = ManualCalibration(process)
       state = reloadedService.getState()

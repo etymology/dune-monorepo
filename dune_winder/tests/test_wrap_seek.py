@@ -1,7 +1,7 @@
 import unittest
 
-from dune_winder.core.anode_plane_array import AnodePlaneArray
 from dune_winder.core.process import Process
+from dune_winder.core.winder_workspace import WinderWorkspace
 
 
 class FakeRecipe:
@@ -16,7 +16,7 @@ class FakeRecipe:
     return self._lines
 
 
-class FakeAPA:
+class FakeWorkspace:
   def __init__(self, line):
     self.line = line
     self.wraps = []
@@ -28,8 +28,8 @@ class FakeAPA:
 
 class WrapSeekTests(unittest.TestCase):
   def test_get_wrap_seek_line_uses_latest_prior_head_restart_before_wrap_start(self):
-    apa = object.__new__(AnodePlaneArray)
-    apa._recipe = FakeRecipe(
+    workspace = object.__new__(WinderWorkspace)
+    workspace._recipe = FakeRecipe(
       11,
       [
         "N1 setup\n",
@@ -41,7 +41,7 @@ class WrapSeekTests(unittest.TestCase):
       ],
     )
 
-    self.assertEqual(apa.getWrapSeekLine(2), 2)
+    self.assertEqual(workspace.getWrapSeekLine(2), 2)
 
   def test_get_wrap_seek_line_prefers_latest_prior_head_restart_marker(self):
     lines = [
@@ -53,10 +53,10 @@ class WrapSeekTests(unittest.TestCase):
       "N6 (2,1) start wrap 2\n",
     ]
 
-    apa = object.__new__(AnodePlaneArray)
-    apa._recipe = FakeRecipe(30, lines)
+    workspace = object.__new__(WinderWorkspace)
+    workspace._recipe = FakeRecipe(30, lines)
 
-    self.assertEqual(apa.getWrapSeekLine(2), 3)
+    self.assertEqual(workspace.getWrapSeekLine(2), 3)
 
   def test_get_wrap_seek_line_starts_first_wrap_at_beginning_even_with_restart_marker(self):
     lines = [
@@ -67,21 +67,21 @@ class WrapSeekTests(unittest.TestCase):
       "N5 (2,1) start wrap 2\n",
     ]
 
-    apa = object.__new__(AnodePlaneArray)
-    apa._recipe = FakeRecipe(9, lines)
+    workspace = object.__new__(WinderWorkspace)
+    workspace._recipe = FakeRecipe(9, lines)
 
-    self.assertEqual(apa.getWrapSeekLine(1), -1)
+    self.assertEqual(workspace.getWrapSeekLine(1), -1)
 
   def test_get_wrap_seek_line_rejects_invalid_wrap_numbers(self):
-    apa = object.__new__(AnodePlaneArray)
-    apa._recipe = FakeRecipe(46, ["N1\n"] * 100)
+    workspace = object.__new__(WinderWorkspace)
+    workspace._recipe = FakeRecipe(46, ["N1\n"] * 100)
 
-    self.assertIsNone(apa.getWrapSeekLine(0))
-    self.assertIsNone(apa.getWrapSeekLine("bad"))
+    self.assertIsNone(workspace.getWrapSeekLine(0))
+    self.assertIsNone(workspace.getWrapSeekLine("bad"))
 
   def test_get_wrap_seek_line_returns_none_when_wrap_start_marker_is_missing(self):
-    apa = object.__new__(AnodePlaneArray)
-    apa._recipe = FakeRecipe(
+    workspace = object.__new__(WinderWorkspace)
+    workspace._recipe = FakeRecipe(
       46,
       [
         "N1 preamble\n",
@@ -91,20 +91,20 @@ class WrapSeekTests(unittest.TestCase):
       ],
     )
 
-    self.assertIsNone(apa.getWrapSeekLine(2))
+    self.assertIsNone(workspace.getWrapSeekLine(2))
 
 
 class ProcessWrapSeekTests(unittest.TestCase):
-  def test_get_wrap_seek_line_proxies_to_loaded_apa(self):
+  def test_get_wrap_seek_line_proxies_to_loaded_workspace(self):
     process = object.__new__(Process)
-    process.apa = FakeAPA(79)
+    process.workspace = FakeWorkspace(79)
 
     self.assertEqual(process.getWrapSeekLine(2), 79)
-    self.assertEqual(process.apa.wraps, [2])
+    self.assertEqual(process.workspace.wraps, [2])
 
-  def test_get_wrap_seek_line_returns_none_without_loaded_apa(self):
+  def test_get_wrap_seek_line_returns_none_without_loaded_workspace(self):
     process = object.__new__(Process)
-    process.apa = None
+    process.workspace = None
 
     self.assertIsNone(process.getWrapSeekLine(2))
 

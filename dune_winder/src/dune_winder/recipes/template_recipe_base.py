@@ -102,17 +102,17 @@ class TemplateRecipeBase:
 
   # -------------------------------------------------------------------
   def _recipeDirectory(self):
-    if self._process.apa is not None and hasattr(self._process.apa, "_recipeDirectory"):
-      return self._process.apa._recipeDirectory
+    if self._process.workspace is not None and hasattr(self._process.workspace, "_recipeDirectory"):
+      return self._process.workspace._recipeDirectory
     return Settings.RECIPE_DIR
 
   # -------------------------------------------------------------------
   def _recipeArchiveDirectory(self):
-    if self._process.apa is not None and hasattr(
-      self._process.apa,
+    if self._process.workspace is not None and hasattr(
+      self._process.workspace,
       "_recipeArchiveDirectory",
     ):
-      return self._process.apa._recipeArchiveDirectory
+      return self._process.workspace._recipeArchiveDirectory
     return None
 
   # -------------------------------------------------------------------
@@ -125,9 +125,9 @@ class TemplateRecipeBase:
 
   # -------------------------------------------------------------------
   def _draftDirectory(self):
-    if self._process.apa is not None and hasattr(self._process.apa, "getPath"):
-      return os.path.join(self._process.apa.getPath(), "TemplateRecipe")
-    return os.path.join(self._process._apaCalibrationDirectory, "TemplateRecipe")
+    if self._process.workspace is not None and hasattr(self._process.workspace, "getPath"):
+      return os.path.join(self._process.workspace.getPath(), "TemplateRecipe")
+    return os.path.join(self._process._workspaceCalibrationDirectory, "TemplateRecipe")
 
   # -------------------------------------------------------------------
   def _draftFileName(self):
@@ -421,11 +421,11 @@ class TemplateRecipeBase:
 
     recipeWasRefreshed = False
     if (
-      self._process.apa is not None
-      and getattr(self._process.apa, "_recipeFile", None) == self._liveFileName()
-      and hasattr(self._process.apa, "refreshRecipeIfChanged")
+      self._process.workspace is not None
+      and getattr(self._process.workspace, "_recipeFile", None) == self._liveFileName()
+      and hasattr(self._process.workspace, "refreshRecipeIfChanged")
     ):
-      self._process.apa.refreshRecipeIfChanged()
+      self._process.workspace.refreshRecipeIfChanged()
       recipeWasRefreshed = True
 
     self._process._log.add(

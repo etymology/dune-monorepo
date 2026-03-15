@@ -167,24 +167,24 @@ class ProcessSnapshotTests(unittest.TestCase):
 
   def test_refresh_before_execution_checks_recipe_then_calibration(self):
     process = object.__new__(Process)
-    process.apa = FakeAPARefresh()
+    process.workspace = FakeAPARefresh()
     process._log = FakeLog()
 
     result = process._refreshCalibrationBeforeExecution()
 
     self.assertIsNone(result)
-    self.assertEqual(process.apa.calls, ["recipe", "calibration"])
+    self.assertEqual(process.workspace.calls, ["recipe", "calibration"])
     self.assertEqual(process._log.entries, [])
 
   def test_refresh_before_execution_returns_error_when_recipe_refresh_fails(self):
     process = object.__new__(Process)
-    process.apa = FakeAPARefresh(recipeError=RuntimeError("recipe changed badly"))
+    process.workspace = FakeAPARefresh(recipeError=RuntimeError("recipe changed badly"))
     process._log = FakeLog()
 
     result = process._refreshCalibrationBeforeExecution()
 
     self.assertEqual(result, "Failed to refresh G-Code or calibration from disk.")
-    self.assertEqual(process.apa.calls, ["recipe"])
+    self.assertEqual(process.workspace.calls, ["recipe"])
     self.assertEqual(len(process._log.entries), 1)
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
 

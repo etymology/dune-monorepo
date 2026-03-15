@@ -13,8 +13,6 @@ import sys
 import subprocess
 from dune_winder.library.Geometry.location import Location
 
-from dune_winder.core.anode_plane_array import AnodePlaneArray
-from dune_winder.core.apa_base import APA_Base
 from dune_winder.core.g_code_handler import G_CodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
 from dune_winder.core.control_events import (
@@ -27,6 +25,7 @@ from dune_winder.core.control_events import (
 )
 from dune_winder.core.camera_calibration import CameraCalibration
 from dune_winder.core.manual_calibration import ManualCalibration
+from dune_winder.core.winder_workspace import WinderWorkspace
 from dune_winder.recipes.v_template_recipe import VTemplateRecipe
 from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 
@@ -45,21 +44,6 @@ from dune_winder.io.Primitives.digital_input import DigitalInput
 
 
 class Process:
-  STAGE_TABLE = {
-    0: None,  # Uninitialized.
-    1: {"layer": "X", "recipe": "X-Layer_1.gc"},  # X-first.
-    2: {"layer": "X", "recipe": "X-Layer_2.gc"},  # X-second.
-    3: {"layer": "V", "recipe": "V-Layer_1.gc"},  # V-first.
-    4: {"layer": "V", "recipe": "V-Layer_2.gc"},  # V-second.
-    5: {"layer": "U", "recipe": "U-Layer_1.gc"},  # U-first.
-    6: {"layer": "U", "recipe": "U-Layer_2.gc"},  # U-second.
-    7: {"layer": "G", "recipe": "G-Layer_1.gc"},  # G-first.
-    8: {"layer": "G", "recipe": "G-Layer_2.gc"},  # G-second.
-    9: None,  # Sign-off.
-    10: None,  # Complete.
-  }
-  APA_NAME = "APA"
-
   # ---------------------------------------------------------------------
   def __init__(
     self,
@@ -87,9 +71,9 @@ class Process:
     self.controlStateMachine = ControlStateMachine(io, log, systemTime)
     self.headCompensation = HeadCompensation(machineCalibration)
 
-    self.apa = None
+    self.workspace = None
 
-    # path = self._configuration.get("APA_LogDirectory")
+    # path = self._configuration.get("workspaceLogDirectory")
     # if not os.path.exists(path):
     #   os.makedirs(path)
 
@@ -101,12 +85,11 @@ class Process:
     if not os.path.exists(path):
       raise Exception("Recipe directory (" + path + ") does not exist.")
 
-    self._apaLogDirectory = Settings.CACHE_DIR
-    self._apaCalibrationDirectory = Settings.APA_CALIBRATION_DIR
-    self._apaName = Process.APA_NAME
+    self._workspaceDirectory = Settings.CACHE_DIR
+    self._workspaceCalibrationDirectory = Settings.APA_CALIBRATION_DIR
 
-    if not os.path.isdir(self._apaLogDirectory):
-      os.makedirs(self._apaLogDirectory)
+    if not os.path.isdir(self._workspaceDirectory):
+      os.makedirs(self._workspaceDirectory)
 
     self.gCodeHandler = G_CodeHandler(
       io, machineCalibration, self.headCompensation
@@ -243,13 +226,13 @@ class Process:
 
     # Fetch all files in recipe directory.
     recipeList = os.listdir(Settings.RECIPE_DIR)
-    # if self.getLoadedAPA_Name() != "" and self.apa.getLayer() is not None:
-    #   # recipeList = os.listdir(self.apa.getPathLayer())
+    # if self.workspace is not None and self.workspace.getLayer() is not None:
+    #   # recipeList = os.listdir(self.workspace.getPathLayer())
     #   recipeList = [
     #     f
-    #     for f in os.listdir(self.apa.getPathLayer())
+    #     for f in os.listdir(self.workspace.getPathLayer())
     #     if (
-    #       os.path.isfile(self.apa.getPathLayer() + f) and self.apa.getLayer() + "_" in f
+    #       os.path.isfile(self.workspace.getPathLayer() + f) and self.workspace.getLayer() + "_" in f
     #     )
     #   ]
     # Filter just the G-Code file extension.
@@ -261,7 +244,7 @@ class Process:
   # ---------------------------------------------------------------------
   # def getTensionFiles(self):
   #   """
-  #   Return a list of available file names based on the files in the ../APA/APA_###/[X,V,U,G]/
+  #   Return a list of available file names based on the files in the workspace
   #   directory.
 
   #   Returns:
@@ -270,14 +253,14 @@ class Process:
 
   #   # Fetch all files in recipe directory.
   #   tensionList = os.listdir(self._configuration.get("recipeDirectory"))
-  #   if self.getLoadedAPA_Name() != "" and self.apa.getLayer() is not None:
-  #     # recipeList = os.listdir(self.apa.getPathLayer())
+  #   if self.workspace is not None and self.workspace.getLayer() is not None:
+  #     # recipeList = os.listdir(self.workspace.getPathLayer())
   #     tensionList = [
   #       f
-  #       for f in os.listdir(self.apa.getPathLayer())
+  #       for f in os.listdir(self.workspace.getPathLayer())
   #       if (
-  #         os.path.isfile(self.apa.getPathLayer() + f)
-  #         and self.apa.getLayer() + "_" in f
+  #         os.path.isfile(self.workspace.getPathLayer() + f)
+  #         and self.workspace.getLayer() + "_" in f
   #         and "ension" in f
   #       )
   #     ]
@@ -304,12 +287,12 @@ class Process:
     Returns:
       None on success, or an error message string on failure.
     """
-    if not self.apa:
+    if not self.workspace:
       return None
 
     try:
-      self.apa.refreshRecipeIfChanged()
-      self.apa.refreshCalibrationIfChanged()
+      self.workspace.refreshRecipeIfChanged()
+      self.workspace.refreshCalibrationIfChanged()
     except Exception as exception:
       self._log.add(
         self.__class__.__name__,
@@ -442,59 +425,6 @@ class Process:
       self.controlStateMachine.dispatch(ManualModeEvent(idleServos=True))
 
   # ---------------------------------------------------------------------
-  def createAPA(self):
-    """
-    Initialize the single APA workspace.
-
-    Returns:
-      False.
-    """
-    self.switchAPA()
-    return False
-
-  # ---------------------------------------------------------------------
-  def setStage(self, stage, message="<unspecified>"):
-    """
-    Set the APA progress stage.
-
-    Args:
-      stage: Integer number (table in APA_Base.Stages) of APA progress.
-      message: Message/reason for changing to new stage.
-    """
-    isError = False
-
-    if not self.apa:
-      isError = True
-      self._log.add(
-        self.__class__.__name__,
-        "STATE_SET",
-        "Unable to set state--no APA loaded.",
-        [stage, message],
-      )
-
-    if not isError:
-      if stage in Process.STAGE_TABLE:
-        settings = Process.STAGE_TABLE[stage]
-        self.apa.setStage(stage, message)
-        self.apa.closeLoadedRecipe()
-        if settings:
-          layer = settings["layer"]
-          recipe = settings["recipe"]
-          geometry = create_layer_geometry(layer)
-
-          self.apa.setupBlankCalibration(layer, geometry)
-          self.apa.loadRecipe(layer, recipe)
-      else:
-        isError = True
-
-        self._log.add(
-          self.__class__.__name__,
-          "STATE_SET",
-          "Unable to set state--unknown state " + str(stage),
-          [stage, message],
-        )
-
-  # ---------------------------------------------------------------------
   def getG_CodeList(self, center, delta):
     """
     Fetch a sub-set of the loaded G-Code self.lines.  Useful for showing what
@@ -574,8 +504,8 @@ class Process:
     """
     fileName = None
     if isEnabled:
-      if self.apa:
-        fileName = self.apa.getPath() + "positionLog.csv"
+      if self.workspace:
+        fileName = self.workspace.getPath() + "positionLog.csv"
         self._log.add(
           self.__class__.__name__,
           "POSITION_LOGGING",
@@ -586,7 +516,7 @@ class Process:
         self._log.add(
           self.__class__.__name__,
           "POSITION_LOGGING",
-          "Position logging request ignored.  No APA loaded.",
+          "Position logging request ignored.  No workspace loaded.",
           [-1],
         )
     else:
@@ -732,59 +662,11 @@ class Process:
     self.gCodeHandler.setVelocityScale(scaleFactor)
 
   # ---------------------------------------------------------------------
-  def getAPA_List(self):
-    """
-    Return the single configured APA name.
+  def getWorkspaceState(self):
+    if self.workspace is not None:
+      return self.workspace.toDictionary()
 
-    Returns:
-      List containing one APA name.
-    """
-    return [self._apaName]
-
-  # ---------------------------------------------------------------------
-  def getAPA_DetailedList(self):
-    """
-    Return a detailed list containing the single APA.
-
-    Returns:
-      Detailed list containing one APA.
-    """
-    apaList = []
-    for apaName in self.getAPA_List():
-      apaList.append(self.getAPA_Details(apaName))
-
-    return apaList
-
-  # ---------------------------------------------------------------------
-  def getAPA_Details(self, name):
-    """
-    Return details for the single APA.
-
-    Args:
-      name: Ignored.
-
-    Returns:
-      Dictionary with all APA details.
-    """
-    name = self._apaName
-    apa = APA_Base(self._apaLogDirectory, name)
-    apa.load("AnodePlaneArray")
-
-    return apa.toDictionary()
-
-  # ---------------------------------------------------------------------
-  def getLoadedAPA_Name(self):
-    """
-    Get the name of the loaded APA.
-
-    Returns:
-      Name of the loaded APA or an empty string if no APA is loaded.
-    """
-    result = ""
-    if self.apa:
-      result = self.apa.getName()
-
-    return result
+    return WinderWorkspace.readState(self._workspaceDirectory)
 
   # ---------------------------------------------------------------------
   def getRecipeName(self):
@@ -795,23 +677,23 @@ class Process:
       String name of the loaded recipe.  Empty string if no recipe loaded.
     """
     result = ""
-    if self.apa:
-      result = self.apa.getRecipe()
+    if self.workspace:
+      result = self.workspace.getRecipe()
 
     return result
 
   # ---------------------------------------------------------------------
   def getRecipeLayer(self):
     """
-    Return the current layer of the APA.
+    Return the current layer of the active workspace.
 
     Returns:
-      String name of the current layer of the APA.  None if no recipe
+      String name of the current layer.  None if no recipe
       loaded.
     """
     result = None
-    if self.apa:
-      result = self.apa.getLayer()
+    if self.workspace:
+      result = self.workspace.getLayer()
 
     return result
 
@@ -825,8 +707,8 @@ class Process:
       recipe does not have a detectable repeated body.
     """
     result = None
-    if self.apa:
-      result = self.apa.getRecipePeriod()
+    if self.workspace:
+      result = self.workspace.getRecipePeriod()
 
     return result
 
@@ -839,12 +721,12 @@ class Process:
       wrap: Requested wrap number (1-based).
 
     Returns:
-      Zero-based line index suitable for setG_CodeLine(), or None if no APA or
+      Zero-based line index suitable for setG_CodeLine(), or None if no workspace or
       recipe is loaded.
     """
     result = None
-    if self.apa:
-      result = self.apa.getWrapSeekLine(wrap)
+    if self.workspace:
+      result = self.workspace.getWrapSeekLine(wrap)
 
     return result
 
@@ -905,21 +787,21 @@ class Process:
   # ---------------------------------------------------------------------
   def openCalibrationInEditor(self):
     """
-    Open the current APA calibration file in a text editor.
+    Open the current calibration file in a text editor.
 
     Returns:
       True on success, otherwise a failure message.
     """
-    if not self.apa:
-      return "No APA loaded."
+    if not self.workspace:
+      return "No workspace loaded."
 
-    calibrationFile = self.apa.getCalibrationFile()
-    if not calibrationFile:
+    filePath = self.workspace.getCalibrationFullPath()
+    if not filePath:
       return "No calibration file available."
 
-    apaPath = os.path.abspath(self.apa.getPath())
-    filePath = os.path.abspath(os.path.join(apaPath, calibrationFile))
-    if not filePath.startswith(apaPath + os.sep):
+    calibrationDirectory = os.path.abspath(self._workspaceCalibrationDirectory)
+    filePath = os.path.abspath(filePath)
+    if not filePath.startswith(calibrationDirectory + os.sep):
       return "Invalid calibration path."
     if not os.path.isfile(filePath):
       return "Calibration file not found: " + filePath
@@ -929,21 +811,6 @@ class Process:
       return True
 
     return "Failed to open calibration file."
-
-  # ---------------------------------------------------------------------
-  def getApaSide(self):
-    """
-    Return the current layer of the APA.
-
-    Returns:
-      String name of the current layer of the APA.  None if no recipe
-      loaded.
-    """
-    result = None
-    if self.apa:
-      result = self.apa.getApaSide()
-
-    return result
 
   # ---------------------------------------------------------------------
   def getForecastWrap(self):
@@ -956,21 +823,6 @@ class Process:
     """
     return None
 
-  # ---------------------------------------------------------------------
-  def getStage(self):
-    """
-    Return the current stage of APA progress.
-
-    Returns:
-      Integer number (table in APA.Stages) of APA progress.
-    """
-    result = ""
-    if self.apa:
-      result = self.apa.getStage()
-
-    return result
-
-  
   # ---------------------------------------------------------------------
   def maxVelocity(self, maxVelocity=None):
     """
@@ -991,46 +843,31 @@ class Process:
     return self._maxVelocity
 
   # ---------------------------------------------------------------------
-  def switchAPA(self):
-    """
-    Load the single APA from disk (creating it if missing).
-    """
-    apaName = self._apaName
+  def loadWorkspace(self):
+    """Load the single runtime workspace from disk."""
     createNew = not os.path.isfile(
-      os.path.join(self._apaLogDirectory, APA_Base.FILE_NAME)
+      os.path.join(self._workspaceDirectory, WinderWorkspace.FILE_NAME)
     )
-
     self.controlStateMachine.resetWindTime()
-    self.apa = AnodePlaneArray(
+    self.workspace = WinderWorkspace(
       self.gCodeHandler,
-      self._apaLogDirectory,
-      self._apaCalibrationDirectory,
+      self._workspaceDirectory,
+      self._workspaceCalibrationDirectory,
       Settings.RECIPE_DIR,
       Settings.RECIPE_ARCHIVE_DIR,
-      apaName,
       self._log,
       self._systemTime,
       createNew,
     )
 
   # ---------------------------------------------------------------------
-  def loadLatestAPA(self):
-    """
-    Load the single APA.
-    """
-    self.switchAPA()
-
-  # ---------------------------------------------------------------------
-  def closeAPA(self):
-    """
-    Close APA and store on disk.  Call at program exit.  No additional uses.
-    """
-
-    if self.apa:
-      self.apa.addWindTime(self.controlStateMachine.getWindTime())
+  def closeWorkspace(self):
+    """Close the workspace and persist its state."""
+    if self.workspace:
+      self.workspace.addWindTime(self.controlStateMachine.getWindTime())
       self.controlStateMachine.resetWindTime()
-      self.apa.close()
-      self.apa = None
+      self.workspace.close()
+      self.workspace = None
 
   # ---------------------------------------------------------------------
   def jogXY(self, xVelocity, yVelocity, acceleration=None, deceleration=None):
@@ -1350,9 +1187,9 @@ class Process:
       True if there was an error, False if not.
     """
     isError = True
-    if self.apa:
+    if self.workspace:
       # Get the name of this layer.
-      layer = self.apa.getLayer()
+      layer = self.workspace.getLayer()
 
       # Get the default calibration for this layer.
       calibration = DefaultLayerCalibration(None, None, layer)
@@ -1384,7 +1221,7 @@ class Process:
       self._log.add(
         self.__class__.__name__,
         "SEEK_PIN_NOMINAL",
-        "Nominal pin seek request ignored--no APA loaded.",
+        "Nominal pin seek request ignored--no workspace loaded.",
         [pin, velocity],
       )
 
@@ -1711,23 +1548,6 @@ class Process:
     return isError
 
   # ---------------------------------------------------------------------
-  def getAPA_Side(self):
-    """
-    Get the front-facing side of the APA.
-
-    Returns:
-      0 for front side of APA facing front side of machine.
-      1 for back side of APA facing front side of machine.
-      None for either no loaded APA, or APA in an invalid state for such a query.
-    """
-    result = None
-    if self.apa is not None:
-      stage = self.apa.getStage()
-      result = self.apa.STAGE_SIDE[stage]
-
-    return result
-
-  # ---------------------------------------------------------------------
   def getLayerPinGeometry(self):
     """
     Get the pin geometry for current layer.
@@ -1735,13 +1555,11 @@ class Process:
     Returns:
       A array of two sides.  Each side is a dictionary of of what pin number is
       on each edge corner.  There are eight edge corners (4 edges, 2 sides to
-      each edge).  Returns None if no APA is loaded.
+      each edge).  Returns None if no workspace is loaded.
     """
     result = None
-    if self.apa is not None:
-      stage = self.apa.getStage()
-      self.apa.STAGE_SIDE[stage]
-      layer = self.apa.getLayer()
+    if self.workspace is not None:
+      layer = self.workspace.getLayer()
       assert layer is not None
       geometry = create_layer_geometry(layer)
 
@@ -1806,7 +1624,7 @@ class Process:
     Commit the scan data to the calibration file.
 
     Args:
-      side: Front facing side of APA (0=front, 1=back).
+      side: Front side is `0`, back side is `1`.
       offsetX: Offset in X from current side to other side.
       offsetY: Offset in Y from current side to other side.
 
@@ -1814,14 +1632,14 @@ class Process:
       True if there was an error, False if not.
     """
     isError = True
-    if self.apa is not None:
+    if self.workspace is not None:
       isError = False
-      layer = self.apa.getLayer()
+      layer = self.workspace.getLayer()
       assert layer is not None
       geometry = create_layer_geometry(layer)
       calibration = self.gCodeHandler.getLayerCalibration()
       calibrationFileName = calibration.getFileName()
-      cameraDataPath = self.apa.getPath() + "Scans"
+      cameraDataPath = self.workspace.getPath() + "Scans"
 
       # Create directory if it doesn't exist.
       if not os.path.exists(cameraDataPath):
@@ -1833,10 +1651,7 @@ class Process:
       )
       cameraDataFile += ".csv"
 
-      if self.apa.Side.FRONT == side:
-        isFrontSide = True
-      else:
-        isFrontSide = False
+      isFrontSide = side == 0
 
       self.cameraCalibration.commitCalibration(
         calibration, geometry, isFrontSide, offsetX, offsetY
@@ -1844,7 +1659,7 @@ class Process:
 
       cameraDataHash = self.cameraCalibration.save(cameraDataPath, cameraDataFile)
       calibration.save()
-      self.apa._useCalibration(calibration, calibrationFileName)
+      self.workspace._useCalibration(calibration, calibrationFileName)
 
       self._log.add(
         self.__class__.__name__,

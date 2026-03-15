@@ -16,3 +16,4 @@ cache/
 src/dune_winder.egg-info/
 .venv
 config/APA/*
+docs/.DS_Store

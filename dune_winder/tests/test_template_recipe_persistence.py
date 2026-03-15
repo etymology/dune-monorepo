@@ -33,7 +33,7 @@ class FakeControlStateMachine:
     return self.ready
 
 
-class FakeAPA:
+class FakeWorkspace:
   def __init__(self, layer, path, recipeDirectory, recipeArchiveDirectory):
     self._layer = layer
     self._path = path
@@ -51,22 +51,22 @@ class FakeAPA:
 class FakeProcess:
   def __init__(self, layer, rootDirectory):
     self._configuration = _build_configuration(rootDirectory)
-    self._apaCalibrationDirectory = os.path.join(rootDirectory, "config", "APA")
+    self._workspaceCalibrationDirectory = os.path.join(rootDirectory, "config", "APA")
     self._systemTime = FakeTimeSource()
     self._log = FakeLog()
     self.controlStateMachine = FakeControlStateMachine(True)
 
     recipeDirectory = os.path.join(rootDirectory, "gc_files")
     recipeArchiveDirectory = os.path.join(rootDirectory, "cache", "Recipes")
-    apaPath = os.path.join(rootDirectory, "cache", "APA")
-    os.makedirs(self._apaCalibrationDirectory, exist_ok=True)
+    workspacePath = os.path.join(rootDirectory, "cache", "APA")
+    os.makedirs(self._workspaceCalibrationDirectory, exist_ok=True)
     os.makedirs(recipeDirectory, exist_ok=True)
     os.makedirs(recipeArchiveDirectory, exist_ok=True)
-    os.makedirs(apaPath, exist_ok=True)
-    self.apa = FakeAPA(layer, apaPath, recipeDirectory, recipeArchiveDirectory)
+    os.makedirs(workspacePath, exist_ok=True)
+    self.workspace = FakeWorkspace(layer, workspacePath, recipeDirectory, recipeArchiveDirectory)
 
   def getRecipeLayer(self):
-    return self.apa.getLayer()
+    return self.workspace.getLayer()
 
 
 def _build_configuration(rootDirectory):
@@ -87,7 +87,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       result = service.setTransferPause(False)
       self.assertTrue(result["ok"])
 
-      draftPath = os.path.join(process.apa.getPath(), "TemplateRecipe", "U_Draft.json")
+      draftPath = os.path.join(process.workspace.getPath(), "TemplateRecipe", "U_Draft.json")
       self.assertTrue(os.path.isfile(draftPath))
 
       restarted = UTemplateRecipe(process)
@@ -106,7 +106,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       result = service.setTransferPause(False)
       self.assertTrue(result["ok"])
 
-      draftPath = os.path.join(process.apa.getPath(), "TemplateRecipe", "V_Draft.json")
+      draftPath = os.path.join(process.workspace.getPath(), "TemplateRecipe", "V_Draft.json")
       self.assertTrue(os.path.isfile(draftPath))
 
       restarted = VTemplateRecipe(process)
