@@ -309,8 +309,8 @@ def main():
     # Begin operation.
     PrimaryThread.startAllThreads()
 
-    # Load the single active APA.
-    process.loadLatestAPA()
+    # Load the single active workspace.
+    process.loadWorkspace()
 
     if isStartAPA:
       process.start()
@@ -331,7 +331,7 @@ def main():
       # Shutdown the current processes.  In a finally block so state is always
       # persisted regardless of how the loop exits (normal stop, exception,
       # or signal).
-      process.closeAPA()
+      process.closeWorkspace()
 
       # Save configuration.
       configuration.save()

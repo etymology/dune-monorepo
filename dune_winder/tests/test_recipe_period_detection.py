@@ -6,7 +6,7 @@ from dune_winder.core.process import Process
 from dune_winder.recipes.recipe import Recipe
 
 
-class FakeAPA:
+class FakeWorkspace:
   def __init__(self, period):
     self._period = period
 
@@ -120,15 +120,15 @@ class RecipePeriodDetectionTests(unittest.TestCase):
 
 
 class ProcessRecipePeriodTests(unittest.TestCase):
-  def test_get_recipe_period_proxies_to_loaded_apa(self):
+  def test_get_recipe_period_proxies_to_loaded_workspace(self):
     process = object.__new__(Process)
-    process.apa = FakeAPA(46)
+    process.workspace = FakeWorkspace(46)
 
     self.assertEqual(process.getRecipePeriod(), 46)
 
-  def test_get_recipe_period_returns_none_without_loaded_apa(self):
+  def test_get_recipe_period_returns_none_without_loaded_workspace(self):
     process = object.__new__(Process)
-    process.apa = None
+    process.workspace = None
 
     self.assertIsNone(process.getRecipePeriod())
 

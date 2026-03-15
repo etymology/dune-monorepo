@@ -91,7 +91,7 @@ class DummySpool:
     return False
 
 
-class DummyAPA:
+class DummyWorkspace:
   def __init__(self):
     self._gCodeHandler = type("GCodeVars", (), {"transferLeft": 100.0, "transferRight": 200.0})()
 
@@ -106,7 +106,6 @@ class DummyProcess:
     self.lastLine = None
     self.lastExecuted = None
     self.lastSeek = None
-    self.lastStage = None
     self.lastVelocityScale = None
     self.lastAnchor = None
     self.controlStateMachine = DummyControlState()
@@ -115,7 +114,7 @@ class DummyProcess:
     self.uTemplateRecipe = DummyTemplateRecipe()
     self.manualCalibration = DummyManualCalibration()
     self.spool = DummySpool()
-    self.apa = DummyAPA()
+    self.workspace = DummyWorkspace()
 
   def start(self):
     self.started = True
@@ -195,19 +194,15 @@ class DummyProcess:
   def openCalibrationInEditor(self):
     return "ok"
 
+  def getWorkspaceState(self):
+    return {"layer": "V", "recipe": "V-layer.gc"}
+
   def setG_CodeRunToLine(self, line):
     return line
-
-  def setStage(self, stage, message="<unspecified>"):
-    self.lastStage = (stage, message)
-    return False
 
   def setG_CodeVelocityScale(self, scaleFactor=1.0):
     self.lastVelocityScale = scaleFactor
     return scaleFactor
-
-  def getStage(self):
-    return 3
 
 
 class DummyPLCLogic:
@@ -321,5 +316,4 @@ def build_registry_fixture(sim_plc=False):
     machineCalibration,
   )
   return registry, process, io, configuration, log, machineCalibration
-
 

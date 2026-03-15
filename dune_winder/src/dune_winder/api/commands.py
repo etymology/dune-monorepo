@@ -153,10 +153,10 @@ def build_command_registry(
 
   def process_manual_seek_xy_named(args):
     _validateArgs(args, optional=("x_name", "y_name", "velocity"))
-    if process.apa is None or not hasattr(process.apa, "_gCodeHandler"):
-      raise ValueError("No APA G-code handler is available.")
+    if process.workspace is None or not hasattr(process.workspace, "_gCodeHandler"):
+      raise ValueError("No workspace G-code handler is available.")
 
-    gCodeHandler = process.apa._gCodeHandler
+    gCodeHandler = process.workspace._gCodeHandler
     xPosition = None
     yPosition = None
 
@@ -215,7 +215,7 @@ def build_command_registry(
 
   registry.register("process.set_anchor_point", process_set_anchor_point, True)
 
-  def process_snapshot_apa(args):
+  def process_snapshot_workspace(args):
     _validateArgs(args)
     currentLine = None
     totalLines = None
@@ -227,13 +227,13 @@ def build_command_registry(
       "recipes": process.getRecipes(),
       "recipeName": process.getRecipeName(),
       "recipeLayer": process.getRecipeLayer(),
-      "stage": process.getStage(),
+      "workspace": process.getWorkspaceState(),
       "gcodeLine": currentLine,
       "gcodeTotalLines": totalLines,
       "movementReady": process.controlStateMachine.isReadyForMovement(),
     }
 
-  registry.register("process.snapshot_apa", process_snapshot_apa, False)
+  registry.register("process.snapshot_workspace", process_snapshot_workspace, False)
 
   registry.register(
     "process.get_camera_image_url",
@@ -522,10 +522,10 @@ def build_command_registry(
 
   def process_load_recipe(args):
     _validateArgs(args, required=("layer", "recipe"), optional=("line",))
-    if process.apa is None:
-      raise ValueError("No APA is loaded.")
+    if process.workspace is None:
+      raise ValueError("No workspace is loaded.")
     line = args.get("line", -1)
-    return process.apa.loadRecipe(
+    return process.workspace.loadRecipe(
       _asString(args["layer"], "layer"),
       _asString(args["recipe"], "recipe"),
       _asInt(line, "line"),
@@ -554,16 +554,10 @@ def build_command_registry(
     False,
   )
   registry.register(
-    "process.get_apa_detailed_list",
-    lambda args: (_validateArgs(args), process.getAPA_DetailedList())[1],
+    "process.get_workspace_state",
+    lambda args: (_validateArgs(args), process.getWorkspaceState())[1],
     False,
   )
-
-  def process_get_apa_details(args):
-    _validateArgs(args, required=("name",))
-    return process.getAPA_Details(_asString(args["name"], "name"))
-
-  registry.register("process.get_apa_details", process_get_apa_details, False)
 
   def process_get_wrap_seek_line(args):
     _validateArgs(args, required=("wrap",))
@@ -591,13 +585,6 @@ def build_command_registry(
 
   registry.register("process.set_gcode_run_to_line", process_set_gcode_run_to_line, True)
 
-  def process_set_stage(args):
-    _validateArgs(args, required=("stage",), optional=("message",))
-    message = _asString(args.get("message", "<unspecified>"), "message")
-    return process.setStage(_asInt(args["stage"], "stage"), message=message)
-
-  registry.register("process.set_stage", process_set_stage, True)
-
   def process_set_gcode_velocity_scale(args):
     _validateArgs(args, required=("scale_factor",))
     return process.setG_CodeVelocityScale(_asFloat(args["scale_factor"], "scale_factor"))
@@ -618,11 +605,6 @@ def build_command_registry(
 
   registry.register("process.set_spool_wire", process_set_spool_wire, True)
 
-  registry.register(
-    "process.get_stage",
-    lambda args: (_validateArgs(args), process.getStage())[1],
-    False,
-  )
   registry.register(
     "process.get_gcode_line",
     lambda args: (_validateArgs(args), process.gCodeHandler.getLine())[1],

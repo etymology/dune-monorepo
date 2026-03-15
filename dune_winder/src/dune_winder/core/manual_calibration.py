@@ -533,10 +533,10 @@ class ManualCalibration:
 
   # -------------------------------------------------------------------
   def _draftDirectory(self):
-    if self._process.apa is not None:
-      return os.path.join(self._process.apa.getPath(), "ManualCalibration")
+    if self._process.workspace is not None:
+      return os.path.join(self._process.workspace.getPath(), "ManualCalibration")
 
-    return os.path.join(self._process._apaCalibrationDirectory, "ManualCalibration")
+    return os.path.join(self._process._workspaceCalibrationDirectory, "ManualCalibration")
 
   # -------------------------------------------------------------------
   def _draftFileName(self, layer):
@@ -896,31 +896,31 @@ class ManualCalibration:
   def _liveFilePath(self, layer):
     if _mode_for_layer(layer) == "gx":
       return os.path.join(self._recipeDirectory(), self._liveFileName(layer))
-    return os.path.join(self._process._apaCalibrationDirectory, self._liveFileName(layer))
+    return os.path.join(self._process._workspaceCalibrationDirectory, self._liveFileName(layer))
 
   # -------------------------------------------------------------------
   def _archivePath(self):
-    if self._process.apa is None:
+    if self._process.workspace is None:
       return None
-    return os.path.join(self._process.apa.getPath(), "Calibration")
+    return os.path.join(self._process.workspace.getPath(), "Calibration")
 
   # -------------------------------------------------------------------
   def _recipeDirectory(self):
-    if self._process.apa is not None and hasattr(self._process.apa, "_recipeDirectory"):
-      return self._process.apa._recipeDirectory
+    if self._process.workspace is not None and hasattr(self._process.workspace, "_recipeDirectory"):
+      return self._process.workspace._recipeDirectory
     return Settings.RECIPE_DIR
 
   # -------------------------------------------------------------------
   def _recipeArchiveDirectory(self):
-    if self._process.apa is not None and hasattr(self._process.apa, "_recipeArchiveDirectory"):
-      return self._process.apa._recipeArchiveDirectory
+    if self._process.workspace is not None and hasattr(self._process.workspace, "_recipeArchiveDirectory"):
+      return self._process.workspace._recipeArchiveDirectory
     return None
 
   # -------------------------------------------------------------------
   def _getLoadedCalibration(self, layer):
     calibration = None
-    if self._process.apa is not None:
-      calibration = getattr(self._process.apa, "_calibration", None)
+    if self._process.workspace is not None:
+      calibration = getattr(self._process.workspace, "_calibration", None)
 
     if calibration is None:
       gCodeHandler = getattr(self._process, "gCodeHandler", None)
@@ -1021,7 +1021,7 @@ class ManualCalibration:
     calibration = LayerCalibration(layer=session.layer)
     try:
       calibration.load(
-        self._process._apaCalibrationDirectory,
+        self._process._workspaceCalibrationDirectory,
         self._liveFileName(session.layer),
         exceptionForMismatch=False,
       )
@@ -1806,11 +1806,11 @@ class ManualCalibration:
 
     recipeWasRefreshed = False
     if (
-      self._process.apa is not None
-      and getattr(self._process.apa, "_recipeFile", None) == self._liveFileName(layer)
-      and hasattr(self._process.apa, "refreshRecipeIfChanged")
+      self._process.workspace is not None
+      and getattr(self._process.workspace, "_recipeFile", None) == self._liveFileName(layer)
+      and hasattr(self._process.workspace, "refreshRecipeIfChanged")
     ):
-      self._process.apa.refreshRecipeIfChanged()
+      self._process.workspace.refreshRecipeIfChanged()
       recipeWasRefreshed = True
 
     self._process._log.add(
@@ -2031,12 +2031,12 @@ class ManualCalibration:
     if blocked is not None:
       return blocked
 
-    if self._process.apa is None:
-      return self._errorResult("No APA is loaded.")
+    if self._process.workspace is None:
+      return self._errorResult("No workspace is loaded.")
 
     session = self._getSession(layer)
     context = self._buildPredictionContext(session)
-    calibrationDirectory = self._process._apaCalibrationDirectory
+    calibrationDirectory = self._process._workspaceCalibrationDirectory
     if not os.path.isdir(calibrationDirectory):
       os.makedirs(calibrationDirectory)
 
@@ -2068,9 +2068,9 @@ class ManualCalibration:
     configuration.set(_layer_offset_key(layer, "X"), session.cameraOffsetX)
     configuration.set(_layer_offset_key(layer, "Y"), session.cameraOffsetY)
 
-    self._process.apa._calibrationFile = fileName
-    self._process.apa._loadCalibrationFromDisk("manual calibration save")
-    calibration = self._process.apa._calibration
+    self._process.workspace._calibrationFile = fileName
+    self._process.workspace._loadCalibrationFromDisk("manual calibration save")
+    calibration = self._process.workspace._calibration
 
     session.baselineCalibration = normalize_calibration(calibration, layer)
     session.baselineSource = "live"
