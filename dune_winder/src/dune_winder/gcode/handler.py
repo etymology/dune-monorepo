@@ -7,7 +7,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
 from dune_winder.gcode.handler_base import GCodeHandlerBase
@@ -248,12 +248,12 @@ class GCodeHandler(GCodeHandlerBase):
     return preview
 
   # ---------------------------------------------------------------------
-  def _build_queued_block(self, line_index):
+  def _build_queued_block(self, line_index, *, single_step_queue: bool = False):
     if (
-      self.singleStep
-      or self._gCode is None
+      self._gCode is None
       or self._direction != 1
       or not hasattr(self._io.plcLogic, "queuedMotion")
+      or (self.singleStep and not single_step_queue)
     ):
       return None
 
@@ -301,23 +301,33 @@ class GCodeHandler(GCodeHandlerBase):
         min_arc_radius=self._queued_motion_min_turning_radius(),
         safety_limits=safety_limits,
       )
+      if not segments:
+        return None
+      resume_line = previews[-1].line_index + 1
+      stop_after_block = False
+      if single_step_queue:
+        segments = [replace(segments[0], term_type=0)]
+        resume_line = line_index + 1
+        stop_after_block = True
       self._queued_sequence_id += len(segments) + 1
       return {
         "start_line": line_index,
-        "resume_line": previews[-1].line_index + 1,
+        "resume_line": resume_line,
         "segments": segments,
+        "stop_after_block": stop_after_block,
       }
     finally:
       self._restore_interpreter_state(snapshot)
 
   # ---------------------------------------------------------------------
   def _start_queued_block(self, line_index):
-    block = self._build_queued_block(line_index)
+    block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
     if block is None:
       return False
 
     self._queued_block_start_line = int(block["start_line"])
     self._queued_block_resume_line = int(block["resume_line"])
+    self._queued_stop_mode = "single_step" if block.get("stop_after_block") else None
     self._queued_session = QueuedMotionSession(
       self._io.plcLogic.queuedMotion,
       list(block["segments"]),
@@ -345,6 +355,7 @@ class GCodeHandler(GCodeHandlerBase):
         self._gCode.lines[self._queued_block_start_line],
       ]
       self._queued_session = None
+      self._queued_stop_mode = None
       return True
 
     if self._queued_session.aborted:
@@ -356,6 +367,9 @@ class GCodeHandler(GCodeHandlerBase):
     if self._queued_session.done:
       self._queued_session = None
       self._nextLine = self._queued_block_resume_line - self._direction
+      if self._queued_stop_mode == "single_step":
+        self._stopNextMove = True
+      self._queued_stop_mode = None
       return False
 
     return False
