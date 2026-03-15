@@ -75,3 +75,15 @@ def break_point():
 
 def tension_testing(wire_index):
   return _function(Opcode.TENSION_TESTING, [wire_index])
+
+
+def queue_merge(mode):
+  return _function(Opcode.QUEUE_MERGE, [mode])
+
+
+def queue_merge_precise():
+  return queue_merge("PRECISE")
+
+
+def queue_merge_tolerant():
+  return queue_merge("TOLERANT")

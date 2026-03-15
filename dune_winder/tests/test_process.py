@@ -285,7 +285,7 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     error = process.executeG_CodeLine("X100 Y1400")
 
-    self.assertIn("Collision predicted", error)
+    self.assertIn("pivot keepout", error)
     self.assertEqual(process.gCodeHandler.lines, [])
 
   def test_manual_seek_xy_rejects_out_of_bounds_target(self):

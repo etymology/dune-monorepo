@@ -379,6 +379,10 @@ def render_v_template_lines(
       final_wrap=True,
     )
   )
+  lines = template_gcode_common.mark_precise_merge_lines(
+    lines,
+    normalize_line_text_fn=normalize_line_text,
+  )
   return _number_lines(lines)
 
 

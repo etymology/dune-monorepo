@@ -15,6 +15,7 @@
 from dune_winder.io.Devices.plc import PLC
 from dune_winder.io.Systems.multi_axis_motor import MultiAxisMotor
 from dune_winder.io.Types.plc_motor import PLC_Motor
+from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface
 
 
 class PLC_Logic:
@@ -429,6 +430,7 @@ class PLC_Logic:
     self._velocity = 0.0
     self._maxAcceleration = 0
     self._maxDeceleration = 0
+    self.queuedMotion = QueuedMotionPLCInterface(plc)
 
 
 # end class

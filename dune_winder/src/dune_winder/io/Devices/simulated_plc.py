@@ -65,6 +65,11 @@ class SimulatedPLC(PLC):
     self._cycle = 0
     self._pendingMoveType = None
     self._settleCyclesRemaining = 0
+    self._incomingQueueSegment = None
+    self._queuedSegments = []
+    self._queuedMotionActive = False
+    self._currentQueuedSegment = None
+    self._currentQueueCyclesRemaining = 0
 
     self._limits = {
       "parkX": 0.0,
@@ -254,6 +259,24 @@ class SimulatedPLC(PLC):
     self._tagValues["FIFO_Data[5]"] = 0.0
 
     self._tagValues["MORE_STATS_S[0]"] = 1
+    self._tagValues["IncomingSeg"] = {}
+    self._tagValues["IncomingSegReqID"] = 0
+    self._tagValues["LastIncomingSegReqID"] = 0
+    self._tagValues["IncomingSegAck"] = 0
+    self._tagValues["AbortQueue"] = 0
+    self._tagValues["StartQueuedPath"] = 0
+    self._tagValues["MotionFault"] = 0
+    self._tagValues["CurIssued"] = 0
+    self._tagValues["NextIssued"] = 0
+    self._tagValues["ActiveSeq"] = 0
+    self._tagValues["PendingSeq"] = 0
+    self._tagValues["QueueFault"] = 0
+    self._tagValues["MoveA.ER"] = 0
+    self._tagValues["MoveB.ER"] = 0
+    self._tagValues["QueueCount"] = 0
+    self._tagValues["UseAasCurrent"] = 1
+    self._tagValues["X_Y.MovePendingStatus"] = 0
+    self._tagValues["FaultCode"] = 0
 
   # ---------------------------------------------------------------------
   def _writeTag(self, tagName, value):
@@ -264,6 +287,31 @@ class SimulatedPLC(PLC):
 
     if tagName == "MOVE_TYPE":
       self._setMoveType(int(value))
+      return
+
+    if tagName == "IncomingSeg":
+      self._incomingQueueSegment = dict(value)
+      self._tagValues[tagName] = dict(value)
+      return
+
+    if tagName == "IncomingSegReqID":
+      reqId = int(value)
+      self._tagValues[tagName] = reqId
+      self._acceptIncomingQueueSegment(reqId)
+      return
+
+    if tagName == "AbortQueue":
+      enabled = self._coerceBit(value)
+      self._tagValues[tagName] = enabled
+      if enabled:
+        self._abortQueuedMotion()
+      return
+
+    if tagName == "StartQueuedPath":
+      enabled = self._coerceBit(value)
+      self._tagValues[tagName] = enabled
+      if enabled:
+        self._startQueuedMotion()
       return
 
     if tagName == "HEAD_POS":
@@ -309,6 +357,7 @@ class SimulatedPLC(PLC):
   # ---------------------------------------------------------------------
   def _advanceCycle(self):
     self._cycle += 1
+    self._advanceQueuedMotion()
 
     if self._settleCyclesRemaining <= 0:
       return
@@ -407,6 +456,7 @@ class SimulatedPLC(PLC):
     self._tagValues["STATE"] = self.STATE_READY
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
     self._setAxisMovement(False)
+    self._abortQueuedMotion()
 
   # ---------------------------------------------------------------------
   def _setError(self, code: int):
@@ -415,6 +465,97 @@ class SimulatedPLC(PLC):
     self._tagValues["ERROR_CODE"] = int(code)
     self._tagValues["STATE"] = self.STATE_ERROR
     self._setAxisMovement(False)
+    self._abortQueuedMotion()
+
+  # ---------------------------------------------------------------------
+  def _acceptIncomingQueueSegment(self, reqId: int):
+    if reqId == int(self._tagValues.get("LastIncomingSegReqID", 0)):
+      return
+    segment = dict(self._incomingQueueSegment or {})
+    if not segment.get("Valid"):
+      self._tagValues["LastIncomingSegReqID"] = reqId
+      return
+    self._queuedSegments.append(segment)
+    self._tagValues["IncomingSegAck"] = int(segment.get("Seq", 0))
+    self._tagValues["LastIncomingSegReqID"] = reqId
+    self._syncQueueTags()
+
+  # ---------------------------------------------------------------------
+  def _syncQueueTags(self):
+    self._tagValues["QueueCount"] = len(self._queuedSegments)
+    if self._queuedSegments:
+      self._tagValues["PendingSeq"] = int(self._queuedSegments[0].get("Seq", 0))
+      self._tagValues["NextIssued"] = 1 if len(self._queuedSegments) > 1 else 0
+    else:
+      self._tagValues["PendingSeq"] = 0
+      self._tagValues["NextIssued"] = 0
+
+  # ---------------------------------------------------------------------
+  def _abortQueuedMotion(self, clearFaults: bool = True):
+    self._queuedSegments = []
+    self._queuedMotionActive = False
+    self._currentQueuedSegment = None
+    self._currentQueueCyclesRemaining = 0
+    self._tagValues["CurIssued"] = 0
+    self._tagValues["NextIssued"] = 0
+    self._tagValues["ActiveSeq"] = 0
+    self._tagValues["PendingSeq"] = 0
+    self._tagValues["QueueCount"] = 0
+    if clearFaults:
+      self._tagValues["QueueFault"] = 0
+      self._tagValues["MotionFault"] = 0
+      self._tagValues["FaultCode"] = 0
+
+  # ---------------------------------------------------------------------
+  def _startQueuedMotion(self):
+    if self._queuedMotionActive or not self._queuedSegments:
+      return
+    self._queuedMotionActive = True
+    self._currentQueueCyclesRemaining = 0
+
+  # ---------------------------------------------------------------------
+  def _completeQueuedSegment(self, segment):
+    target = segment.get("XY") or (0.0, 0.0)
+    xTarget = float(target[0])
+    yTarget = float(target[1])
+    if self._isXYLimitViolation(xTarget, yTarget):
+      self._tagValues["MotionFault"] = 1
+      self._tagValues["FaultCode"] = 3003
+      self._abortQueuedMotion(clearFaults=False)
+      return
+    self._tagValues["X_axis.ActualPosition"] = xTarget
+    self._tagValues["Y_axis.ActualPosition"] = yTarget
+
+  # ---------------------------------------------------------------------
+  def _advanceQueuedMotion(self):
+    if not self._queuedMotionActive:
+      return
+    if self._currentQueuedSegment is None:
+      if not self._queuedSegments:
+        self._abortQueuedMotion()
+        return
+      self._currentQueuedSegment = self._queuedSegments.pop(0)
+      self._currentQueueCyclesRemaining = 1
+      self._tagValues["CurIssued"] = 1
+      self._tagValues["ActiveSeq"] = int(self._currentQueuedSegment.get("Seq", 0))
+      self._syncQueueTags()
+      return
+
+    if self._currentQueueCyclesRemaining > 0:
+      self._currentQueueCyclesRemaining -= 1
+      return
+
+    self._completeQueuedSegment(self._currentQueuedSegment)
+    self._currentQueuedSegment = None
+    if not self._queuedSegments:
+      self._queuedMotionActive = False
+      self._tagValues["CurIssued"] = 0
+      self._tagValues["ActiveSeq"] = 0
+      self._syncQueueTags()
+      return
+    self._tagValues["CurIssued"] = 0
+    self._tagValues["ActiveSeq"] = 0
+    self._syncQueueTags()
 
   # ---------------------------------------------------------------------
   def _signedSpeed(self, speedTag: str, directionTag: str) -> float:

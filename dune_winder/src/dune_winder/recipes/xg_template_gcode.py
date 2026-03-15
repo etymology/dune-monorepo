@@ -5,6 +5,7 @@
 ###############################################################################
 
 from dune_winder.recipes.recipe import Recipe
+from dune_winder.recipes import template_gcode_common
 from dune_winder.recipes.recipe_template_language import (
   compile_template_script,
   execute_template_script,
@@ -295,6 +296,10 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
     output_lines=lines,
     line_builder=_line,
     transfers={},
+  )
+  lines = template_gcode_common.mark_precise_merge_lines(
+    lines,
+    normalize_line_text_fn=normalize_line_text,
   )
   return _number_lines(lines)
 

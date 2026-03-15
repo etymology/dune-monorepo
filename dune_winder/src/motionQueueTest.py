@@ -5,7 +5,7 @@ import json
 import math
 from pathlib import Path
 
-from dune_winder.motion import (
+from dune_winder.queued_motion import (
   DEFAULT_CONSTANT_VELOCITY_MODE,
   DEFAULT_CURVATURE_SPEED_SAFETY,
   DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN,

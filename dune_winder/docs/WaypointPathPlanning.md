@@ -24,12 +24,12 @@ The waypoint workflow now supports:
 - `src/motionQueueTest_gui.py`
   - Interactive waypoint planning/execution UI.
   - Polls live X/Y actual position tags and draws them on the canvas.
-- `src/dune_winder/motion/segment_patterns.py`
+- `src/dune_winder/queued_motion/segment_patterns.py`
   - `waypoint_path_segments(...)`
   - waypoint ordering and tangent biarc tessellation.
-- `src/dune_winder/motion/safety.py`
+- `src/dune_winder/queued_motion/safety.py`
   - motion-space safety and keepout validation.
-- `src/dune_winder/motion/queue_client.py`
+- `src/dune_winder/queued_motion/queue_client.py`
   - queue streaming and execution against PLC.
 
 ## Planning Pipeline

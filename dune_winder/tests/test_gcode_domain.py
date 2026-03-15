@@ -51,10 +51,11 @@ class GCodeRuntimeTests(unittest.TestCase):
 
 class GCodeDomainTests(unittest.TestCase):
   def test_opcode_catalog_covers_all_runtime_opcodes(self):
-    expected = set(range(100, 113))
+    expected = set(range(100, 114))
     self.assertEqual(set(OPCODE_CATALOG.keys()), expected)
     self.assertEqual(int(Opcode.LATCH), 100)
     self.assertEqual(int(Opcode.TENSION_TESTING), 112)
+    self.assertEqual(int(Opcode.QUEUE_MERGE), 113)
 
   def test_recipe_function_helpers_build_canonical_calls(self):
     function = pin_center(["F1", "F2"], "XY")

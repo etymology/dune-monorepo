@@ -5,7 +5,8 @@ import time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
-from pycomm3 import LogixDriver
+from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
+from dune_winder.io.Devices.simulated_plc import SimulatedPLC
 
 
 SEG_TYPE_CIRCLE = 2
@@ -184,32 +185,74 @@ class MotionArc3DQueueClient:
     self.path = path
     self.ack_timeout_s = ack_timeout_s
     self.poll_s = poll_s
-    self.plc: Optional[LogixDriver] = None
+    self.plc = None
     self.req_id = 0
     self._last_point: Optional[tuple[float, float, float]] = None
 
   def __enter__(self) -> "MotionArc3DQueueClient":
-    self.plc = LogixDriver(self.path, init_tags=True, init_program_tags=False)
-    self.plc.open()
+    if str(self.path).strip().upper() == "SIM":
+      self.plc = SimulatedPLC("SIM")
+    else:
+      self.plc = ControllogixPLC(self.path)
     self._sync_req_id_from_plc()
     self._last_point = self._read_actual_xyz_if_available()
     return self
 
   def __exit__(self, exc_type, exc, tb) -> None:
-    if self.plc is not None:
-      self.plc.close()
-      self.plc = None
+    if getattr(self.plc, "_plcDriver", None) is not None:
+      try:
+        self.plc._plcDriver.close()
+      except Exception:
+        pass
+    self.plc = None
 
-  def _require_plc(self) -> LogixDriver:
+  def _require_plc(self):
     if self.plc is None:
       raise RuntimeError("PLC connection is not open")
     return self.plc
 
+  @staticmethod
+  def _extract_read_value(read_result, tag: str):
+    if read_result is None:
+      raise RuntimeError(f"Read failed for {tag}: no response")
+
+    if isinstance(read_result, list):
+      if not read_result:
+        raise RuntimeError(f"Read failed for {tag}: empty response")
+      first = read_result[0]
+      if hasattr(first, "error"):
+        if first.error:
+          raise RuntimeError(f"Read failed for {tag}: {first.error}")
+        return first.value
+      if isinstance(first, (list, tuple)):
+        if len(first) >= 2:
+          return first[1]
+        if len(first) == 1:
+          return first[0]
+      return first
+
+    if hasattr(read_result, "error"):
+      if read_result.error:
+        raise RuntimeError(f"Read failed for {tag}: {read_result.error}")
+      return read_result.value
+
+    return read_result
+
+  @staticmethod
+  def _assert_write_ok(write_result, tag: str) -> None:
+    if write_result is None:
+      raise RuntimeError(f"Write failed for {tag}: no response")
+    if isinstance(write_result, list):
+      for item in write_result:
+        if hasattr(item, "error") and item.error:
+          raise RuntimeError(f"Write failed for {tag}: {item.error}")
+      return
+    if hasattr(write_result, "error") and write_result.error:
+      raise RuntimeError(f"Write failed for {tag}: {write_result.error}")
+
   def _read_one(self, tag: str):
-    result = self._require_plc().read(tag)
-    if result.error:
-      raise RuntimeError(f"Read failed for {tag}: {result.error}")
-    return result.value
+    result = self._require_plc().read([tag])
+    return self._extract_read_value(result, tag)
 
   def _try_read_one(self, tag: Optional[str]):
     if not tag:
@@ -221,8 +264,7 @@ class MotionArc3DQueueClient:
 
   def _write_one(self, tag: str, value) -> None:
     result = self._require_plc().write((tag, value))
-    if result.error:
-      raise RuntimeError(f"Write failed for {tag}: {result.error}")
+    self._assert_write_ok(result, tag)
 
   def _sync_req_id_from_plc(self) -> None:
     last_req = self._try_read_one(TAG_LAST_REQ_ID)

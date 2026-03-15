@@ -6,6 +6,9 @@
 
 import re
 
+from dune_winder.gcode.model import CommandWord, FunctionCall, Opcode
+from dune_winder.gcode.parser import parse_line_text
+
 
 _PIN_TOKEN_RE = re.compile(r"\b(P[BF])(-?\d+)\b")
 
@@ -272,6 +275,51 @@ def annotate_wrap_lines(wrap_number, lines, *, line_builder):
 
 def number_lines(lines, *, line_builder):
   return [line_builder("N" + str(line_number), line) for line_number, line in enumerate(lines)]
+
+
+def line_emits_xy_target(text: str) -> bool:
+  line = parse_line_text(text)
+  for item in line.items:
+    if isinstance(item, CommandWord) and item.letter in ("X", "Y"):
+      return True
+    if not isinstance(item, FunctionCall):
+      continue
+    opcode = item.opcode_as_int()
+    if opcode == int(Opcode.QUEUE_MERGE):
+      continue
+    if opcode in (
+      int(Opcode.SEEK_TRANSFER),
+      int(Opcode.CLIP),
+      int(Opcode.ARM_CORRECT),
+    ):
+      return True
+    if opcode == int(Opcode.PIN_CENTER):
+      axes = str(item.parameters[-1]).upper() if item.parameters else ""
+      if "X" in axes or "Y" in axes:
+        return True
+    if opcode == int(Opcode.OFFSET):
+      for parameter in item.parameters:
+        axis = str(parameter)[:1].upper()
+        if axis in ("X", "Y"):
+          return True
+  return False
+
+
+def add_precise_merge_marker(line: str, *, normalize_line_text_fn):
+  parsed = parse_line_text(line)
+  for item in parsed.items:
+    if isinstance(item, FunctionCall) and item.opcode_as_int() == int(Opcode.QUEUE_MERGE):
+      return normalize_line_text_fn(line)
+  if not line_emits_xy_target(line):
+    return normalize_line_text_fn(line)
+  return normalize_line_text_fn("G113 PPRECISE " + line)
+
+
+def mark_precise_merge_lines(lines, *, normalize_line_text_fn):
+  return [
+    add_precise_merge_marker(line, normalize_line_text_fn=normalize_line_text_fn)
+    for line in lines
+  ]
 
 
 def coerce_cli_value(value, *, coerce_bool_fn, coerce_number_fn, input_error_type):

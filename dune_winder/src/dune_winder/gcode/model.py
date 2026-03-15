@@ -19,6 +19,7 @@ class Opcode(IntEnum):
   TRANSFER_CORRECT = 110
   BREAK_POINT = 111
   TENSION_TESTING = 112
+  QUEUE_MERGE = 113
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,12 @@ _OPCODE_SPECS = (
     "TENSION_TESTING",
     "wire_index",
     "Enable tension testing mode.",
+  ),
+  OpcodeSpec(
+    Opcode.QUEUE_MERGE,
+    "QUEUE_MERGE",
+    "mode",
+    "Mark the current XY waypoint as mergeable for queued motion.",
   ),
 )
 

@@ -16,6 +16,8 @@ from dune_winder.recipes.u_template_gcode import (
 
 
 class UTemplateGCodeTests(unittest.TestCase):
+  MERGE = "G113 PPRECISE "
+
   def test_pb_pf_tokens_wrap_back_into_valid_pin_range(self):
     self.assertEqual(
       _normalize_pin_tokens("G103 PB2401 PF2402 PB0 PF-1 PF-2 PF1 PBL PRT"),
@@ -30,20 +32,20 @@ class UTemplateGCodeTests(unittest.TestCase):
       lines[:6],
       [
         "N0 ( U Layer )",
-        "N1 X7174 Y60 F300 (load new calibration file)",
+        "N1 " + self.MERGE + "X7174 Y60 F300 (load new calibration file)",
         "N2 F300 G106 P3",
-        "N3 (0, ) F300 G103 PB1201 PB1200 PXY G105 PX-50",
+        "N3 " + self.MERGE + "(0, ) F300 G103 PB1201 PB1200 PXY G105 PX-50",
         "N4 (1,1) (------------------STARTING LOOP 1------------------)",
-        "N5 (1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G102 G108 (Top B corner - foot end)",
+        "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G102 G108 (Top B corner - foot end)",
       ],
     )
     self.assertEqual(
       lines[-4:],
       [
-        "N10077 (400,22) G109 PF2001 PRT G103 PF1201 PF1200 PXY G102 G108 (Foot A corner)",
+        "N10077 " + self.MERGE + "(400,22) G109 PF2001 PRT G103 PF1201 PF1200 PXY G102 G108 (Foot A corner)",
         "N10078 (400,23) G106 P3",
-        "N10079 (400,24) G109 PF1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
-        "N10080 (400,25) G103 PB1601 PB1600 PX G105 PX-70",
+        "N10079 " + self.MERGE + "(400,24) G109 PF1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
+        "N10080 " + self.MERGE + "(400,25) G103 PB1601 PB1600 PX G105 PX-70",
       ],
     )
 
@@ -62,13 +64,13 @@ class UTemplateGCodeTests(unittest.TestCase):
     )
     self.assertEqual(
       lines[5],
-      "N5 (1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX2 G102 G108 (Top B corner - foot end)",
+      "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX2 G102 G108 (Top B corner - foot end)",
     )
     self.assertEqual(lines[7], "N7 (1,4) G106 P0")
 
     special_lines = render_u_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
-      "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
+      "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
       special_lines,
     )
 
@@ -79,25 +81,25 @@ class UTemplateGCodeTests(unittest.TestCase):
     lines = generator.render_lines()
 
     expected_first_wrap = [
-      "N5 (1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
-      "N7 (1,4) G109 PB1201 PLT G103 PB2001 PB2002 PXY G105 PX14 (Top A corner - foot end)",
-      "N9 (1,6) G109 PF801 PLB G103 PF2401 PF1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
-      "N11 (1,8) G109 PF2401 PBR G103 PB401 PB402 PXY G105 PY4 (Bottom B corner - head end, rewind)",
-      "N13 (1,10) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
-      "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
-      "N17 (1,14) G109 PF2 PRT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
-      "N19 (1,16) G109 PF799 PRT G103 PB2003 PB2004 PXY G105 PX-4 (Top B corner - head end)",
-      "N21 (1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
-      "N23 (1,20) G109 PB1200 PBL G103 PF1602 PF1603 PXY G105 PY10 (Bottom A corner - foot end, rewind)",
-      "N25 (1,22) G109 PF1602 PRT G103 PF1600 PF1599 PXY G105 PY11 G102 G108 (Foot A corner)",
-      "N27 (1,24) G109 PF1600 PRT G103 PB1202 PB1201 PXY G105 PY13 (Foot B corner, rewind)",
+      "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
+      "N7 " + self.MERGE + "(1,4) G109 PB1201 PLT G103 PB2001 PB2002 PXY G105 PX14 (Top A corner - foot end)",
+      "N9 " + self.MERGE + "(1,6) G109 PF801 PLB G103 PF2401 PF1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
+      "N11 " + self.MERGE + "(1,8) G109 PF2401 PBR G103 PB401 PB402 PXY G105 PY4 (Bottom B corner - head end, rewind)",
+      "N13 " + self.MERGE + "(1,10) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
+      "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N17 " + self.MERGE + "(1,14) G109 PF2 PRT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
+      "N19 " + self.MERGE + "(1,16) G109 PF799 PRT G103 PB2003 PB2004 PXY G105 PX-4 (Top B corner - head end)",
+      "N21 " + self.MERGE + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
+      "N23 " + self.MERGE + "(1,20) G109 PB1200 PBL G103 PF1602 PF1603 PXY G105 PY10 (Bottom A corner - foot end, rewind)",
+      "N25 " + self.MERGE + "(1,22) G109 PF1602 PRT G103 PF1600 PF1599 PXY G105 PY11 G102 G108 (Foot A corner)",
+      "N27 " + self.MERGE + "(1,24) G109 PF1600 PRT G103 PB1202 PB1201 PXY G105 PY13 (Foot B corner, rewind)",
     ]
     for expected_line in expected_first_wrap:
       self.assertIn(expected_line, lines)
 
     self.assertEqual(
       generator.get_value("AC", 16),
-      "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
     )
 
   def test_transfer_pause_adds_all_optional_pause_lines(self):
@@ -121,7 +123,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       write_u_template_text_file(plain_output, special_inputs={"head_a_offset": 7})
       plain_lines = plain_output.read_text(encoding="utf-8").splitlines()
       self.assertIn(
-        "N15 (1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
+        "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
         plain_lines,
       )
 

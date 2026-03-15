@@ -1,8 +1,8 @@
 import math
 import unittest
 
-from dune_winder.motion.safety import MotionSafetyLimits, validate_segments_within_safety_limits
-from dune_winder.motion.segment_patterns import (
+from dune_winder.queued_motion.safety import MotionSafetyLimits, validate_segments_within_safety_limits
+from dune_winder.queued_motion.segment_patterns import (
   apply_merge_term_types,
   apsidal_precessing_orbit_segments,
   fibonacci_spiral_arc_segments,
@@ -10,7 +10,7 @@ from dune_winder.motion.segment_patterns import (
   simple_two_segment_test,
   tangent_line_arc_segments,
 )
-from dune_winder.motion.segment_types import (
+from dune_winder.queued_motion.segment_types import (
   MCCM_DIR_2D_CCW,
   MCCM_DIR_2D_CW,
   SEG_TYPE_CIRCLE,

@@ -6,9 +6,31 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
+import time
+from dataclasses import dataclass
+
 from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
 from dune_winder.machine.g_code_handler_base import G_CodeHandlerBase
 from dune_winder.io.Maps.base_io import BaseIO
+from dune_winder.queued_motion.merge_planner import MergeWaypoint, build_merge_path_segments
+from dune_winder.queued_motion.plc_interface import PLC_QUEUE_DEPTH
+from dune_winder.queued_motion.queue_session import QueuedMotionSession
+from dune_winder.queued_motion.safety import (
+  MotionSafetyLimits,
+  motion_safety_limits_from_calibration,
+  validate_xy_move_within_safety_limits,
+)
+from dune_winder.queued_motion.segment_patterns import DEFAULT_WAYPOINT_MIN_ARC_RADIUS
+
+
+@dataclass(frozen=True)
+class _PreviewedQueuedLine:
+  line_index: int
+  queueable: bool
+  x: float
+  y: float
+  velocity: float
+  merge_mode: str | None
 
 
 class G_CodeHandler(G_CodeHandlerBase):
@@ -165,12 +187,201 @@ class G_CodeHandler(G_CodeHandlerBase):
     return self._velocityScale
 
   # ---------------------------------------------------------------------
+  def _commanded_xy_velocity(self):
+    velocity = min(self._velocity, self._maxVelocity)
+    velocity *= self._velocityScale
+    return max(1.0, float(velocity))
+
+  # ---------------------------------------------------------------------
+  def _queued_motion_min_turning_radius(self):
+    try:
+      value = self._machineCalibration.get("queuedMotionMinTurningRadius")
+    except Exception:
+      value = None
+    if value is None:
+      return float(DEFAULT_WAYPOINT_MIN_ARC_RADIUS)
+    return max(0.0, float(value))
+
+  # ---------------------------------------------------------------------
+  def _motion_safety_limits(self):
+    return motion_safety_limits_from_calibration(self._machineCalibration)
+
+  # ---------------------------------------------------------------------
+  def _set_xy_safety_error(self, message: str):
+    self._isG_CodeError = True
+    self._isG_CodeErrorMessage = str(message)
+    if (
+      self._gCode is not None
+      and self._currentLine is not None
+      and 0 <= self._currentLine < self._gCode.getLineCount()
+    ):
+      self._isG_CodeErrorData = [self._currentLine, self._gCode.lines[self._currentLine]]
+    else:
+      self._isG_CodeErrorData = []
+    self._pending_actions = []
+    self._pending_stop_request = False
+
+  # ---------------------------------------------------------------------
+  def _preview_loaded_line(self, line_index):
+    self._line = None
+    self._functions = []
+    self._gCode.executeNextLine(line_index)
+
+    queueable = (
+      self._instruction_request_xy
+      and not self._instruction_request_z
+      and not self._instruction_request_head
+      and not self._instruction_request_latch
+      and not self._instruction_request_stop
+    )
+
+    preview = _PreviewedQueuedLine(
+      line_index=line_index,
+      queueable=queueable,
+      x=float(self._x),
+      y=float(self._y),
+      velocity=self._commanded_xy_velocity(),
+      merge_mode=self._instruction_queue_merge_mode,
+    )
+    self._pending_actions = []
+    self._pending_stop_request = False
+    return preview
+
+  # ---------------------------------------------------------------------
+  def _build_queued_block(self, line_index):
+    if (
+      self.singleStep
+      or self._gCode is None
+      or self._direction != 1
+      or not hasattr(self._io.plcLogic, "queuedMotion")
+    ):
+      return None
+
+    snapshot = self._snapshot_interpreter_state()
+    start_xy = (float(snapshot["_x"]), float(snapshot["_y"]))
+    previews: list[_PreviewedQueuedLine] = []
+    try:
+      current = self._preview_loaded_line(line_index)
+      if not current.queueable or current.merge_mode is None:
+        return None
+      previews.append(current)
+
+      cursor = line_index
+      while True:
+        cursor += 1
+        if cursor >= self._gCode.getLineCount():
+          if len(previews) < 2:
+            return None
+          break
+        next_preview = self._preview_loaded_line(cursor)
+        if not next_preview.queueable:
+          if len(previews) < 2:
+            return None
+          break
+        previews.append(next_preview)
+        if next_preview.merge_mode is None:
+          break
+
+      if len(previews) < 2:
+        return None
+
+      speed = min(preview.velocity for preview in previews)
+      accel = max(1.0, float(getattr(self._io.plcLogic, "_maxAcceleration", 0.0) or 0.0))
+      decel = max(1.0, float(getattr(self._io.plcLogic, "_maxDeceleration", 0.0) or 0.0))
+      safety_limits = self._motion_safety_limits()
+      waypoints = [
+        MergeWaypoint(
+          line_index=preview.line_index,
+          x=preview.x,
+          y=preview.y,
+          mode=preview.merge_mode,
+        )
+        for preview in previews
+      ]
+      segments = build_merge_path_segments(
+        start_xy=start_xy,
+        waypoints=waypoints,
+        start_seq=self._queued_sequence_id,
+        speed=speed,
+        accel=accel,
+        decel=decel,
+        min_arc_radius=self._queued_motion_min_turning_radius(),
+        safety_limits=safety_limits,
+      )
+      self._queued_sequence_id += len(segments) + 1
+      return {
+        "start_line": line_index,
+        "resume_line": previews[-1].line_index + 1,
+        "segments": segments,
+      }
+    finally:
+      self._restore_interpreter_state(snapshot)
+
+  # ---------------------------------------------------------------------
+  def _start_queued_block(self, line_index):
+    block = self._build_queued_block(line_index)
+    if block is None:
+      return False
+
+    self._queued_block_start_line = int(block["start_line"])
+    self._queued_block_resume_line = int(block["resume_line"])
+    self._queued_session = QueuedMotionSession(
+      self._io.plcLogic.queuedMotion,
+      list(block["segments"]),
+      queue_depth=PLC_QUEUE_DEPTH,
+    )
+    previous_line = self._currentLine
+    self._currentLine = self._queued_block_start_line
+    if self._currentLine != previous_line and self._lineChangeCallback:
+      self._lineChangeCallback()
+    self._queued_session.advance()
+    return True
+
+  # ---------------------------------------------------------------------
+  def _advance_queued_motion(self):
+    if self._queued_session is None:
+      return False
+
+    self._queued_session.advance()
+
+    if self._queued_session.error:
+      self._isG_CodeError = True
+      self._isG_CodeErrorMessage = self._queued_session.error
+      self._isG_CodeErrorData = [
+        self._queued_block_start_line,
+        self._gCode.lines[self._queued_block_start_line],
+      ]
+      self._queued_session = None
+      return True
+
+    if self._queued_session.aborted:
+      self._queued_session = None
+      self._nextLine = self._queued_block_start_line - self._direction
+      self._queued_stop_mode = None
+      return True
+
+    if self._queued_session.done:
+      self._queued_session = None
+      self._nextLine = self._queued_block_resume_line - self._direction
+      return False
+
+    return False
+
+  # ---------------------------------------------------------------------
   def stop(self):
     """
     Stop the running G-Code.  Call when interrupting G-Code sequence.
     """
 
     self._stopNextMove = False
+    if self._queued_session is not None:
+      self._io.plcLogic.queuedMotion.set_abort(True)
+      time.sleep(0.10)
+      self._io.plcLogic.queuedMotion.set_abort(False)
+      self._queued_session = None
+      self._queued_stop_mode = None
+      self._nextLine = self._queued_block_start_line - self._direction
+      return
 
     # If we are interrupting a running line, set it as the next line to run.
     if not self._io.plcLogic.isReady():
@@ -181,6 +392,15 @@ class G_CodeHandler(G_CodeHandlerBase):
     """
     Stop the G-Code after completing the current move.
     """
+    if self._queued_session is not None:
+      self._io.plcLogic.queuedMotion.set_abort(True)
+      time.sleep(0.10)
+      self._io.plcLogic.queuedMotion.set_abort(False)
+      self._queued_session = None
+      self._queued_stop_mode = None
+      self._nextLine = self._queued_block_start_line - self._direction
+      self._stopNextMove = True
+      return
     self._stopNextMove = True
 
   # ---------------------------------------------------------------------
@@ -194,6 +414,9 @@ class G_CodeHandler(G_CodeHandlerBase):
 
     isDone = False
 
+    if self._queued_session is not None:
+      return self._advance_queued_motion()
+
     if self._io.plcLogic.isReady() and self._io.head.isReady():
       moving = False
 
@@ -203,8 +426,23 @@ class G_CodeHandler(G_CodeHandlerBase):
       if not moving and self._pending_actions:
         action = self._pending_actions.pop(0)
         if action == "xy":
-          self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
-          moving = True
+          start_xy = (
+            float(self._io.xAxis.getPosition()),
+            float(self._io.yAxis.getPosition()),
+          )
+          try:
+            validate_xy_move_within_safety_limits(
+              start_xy,
+              (float(self._x), float(self._y)),
+              self._motion_safety_limits(),
+              seq=int(self._line or 0),
+              label="line",
+            )
+          except ValueError as exception:
+            self._set_xy_safety_error(str(exception))
+          else:
+            self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+            moving = True
         elif action == "z":
           self._io.plcLogic.setZ_Position(self._z, velocity)
           moving = True
@@ -266,7 +504,17 @@ class G_CodeHandler(G_CodeHandlerBase):
 
             self._isG_CodeError = False
             self._stopNextMove = self.singleStep
-            self.runNextLine()
+            queued_started = False
+            if self._beforeExecuteLineCallback:
+              error = self._beforeExecuteLineCallback()
+              if error:
+                self._isG_CodeErrorMessage = str(error)
+                self._isG_CodeErrorData = [self._nextLine, self._gCode.lines[self._nextLine]]
+                self._isG_CodeError = True
+                return True
+            queued_started = self._start_queued_block(self._nextLine)
+            if not queued_started:
+              self.runNextLine(skip_before_execute_callback=True)
             self.singleStep = False
 
     return isDone
@@ -335,13 +583,20 @@ class G_CodeHandler(G_CodeHandlerBase):
       # Interpret the next line.
       gCode.execute(line)
       self.poll()
+      if self._isG_CodeError:
+        errorData = {
+          "line": line,
+          "message": self._isG_CodeErrorMessage,
+          "data": list(self._isG_CodeErrorData),
+        }
+        self.clearCodeError()
     except GCodeExecutionError as exception:
       errorData = {"line": line, "message": str(exception), "data": exception.data}
 
     return errorData
 
   # ---------------------------------------------------------------------
-  def runNextLine(self):
+  def runNextLine(self, skip_before_execute_callback: bool = False):
     """
     Interpret and execute the next line of G-Code.
     """
@@ -355,7 +610,7 @@ class G_CodeHandler(G_CodeHandlerBase):
     self._functions = []
 
     try:
-      if self._beforeExecuteLineCallback:
+      if self._beforeExecuteLineCallback and not skip_before_execute_callback:
         error = self._beforeExecuteLineCallback()
         if error:
           self._isG_CodeErrorMessage = str(error)
@@ -419,6 +674,7 @@ class G_CodeHandler(G_CodeHandlerBase):
     self._currentLine = -1
     self._nextLine = -1
     self._firstMove = True
+    self._queued_session = None
     self.useLayerCalibration(None)
 
   # ---------------------------------------------------------------------
@@ -435,6 +691,7 @@ class G_CodeHandler(G_CodeHandlerBase):
     self._currentLine = -1
     self._nextLine = -1
     self._firstMove = True
+    self._queued_session = None
 
     # Setup the front and back head locations.
     # self._io.head.setFrontAndBack(calibration.zFront, calibration.zBack)
@@ -468,6 +725,7 @@ class G_CodeHandler(G_CodeHandlerBase):
       raise ValueError("Next G-Code line is outside the reloaded file.")
 
     self._gCode = gCode
+    self._queued_session = None
 
   # ---------------------------------------------------------------------
   def isG_CodeLoaded(self):
@@ -602,3 +860,8 @@ class G_CodeHandler(G_CodeHandlerBase):
     self._isG_CodeError = False
     self._isG_CodeErrorMessage = ""
     self._isG_CodeErrorData = []
+    self._queued_session = None
+    self._queued_block_start_line = None
+    self._queued_block_resume_line = None
+    self._queued_sequence_id = 1000
+    self._queued_stop_mode = None
