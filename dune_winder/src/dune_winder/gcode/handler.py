@@ -814,7 +814,7 @@ class GCodeHandler(GCodeHandlerBase):
     Args:
       io: Instance of I/O map.
       machineCalibration: Machine calibration instance.
-      headCompensation: Instance of HeadCompensation.
+      headCompensation: Instance of WirePathModel.
     """
     GCodeHandlerBase.__init__(self, machineCalibration, headCompensation)
 

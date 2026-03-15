@@ -29,7 +29,7 @@ from dune_winder.core.winder_workspace import WinderWorkspace
 from dune_winder.recipes.v_template_recipe import VTemplateRecipe
 from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 
-from dune_winder.machine.head_compensation import HeadCompensation
+from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.machine.geometry.factory import create_layer_geometry
 from dune_winder.machine.geometry.layer_functions import LayerFunctions
 from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
@@ -73,7 +73,7 @@ class Process:
     self._systemTime = systemTime
 
     self.controlStateMachine = ControlStateMachine(io, log, systemTime)
-    self.headCompensation = HeadCompensation(machineCalibration)
+    self.headCompensation = WirePathModel(machineCalibration)
 
     self.workspace = None
 
