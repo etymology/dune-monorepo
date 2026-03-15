@@ -703,7 +703,7 @@ class GCodeHandlerBase:
 
     Args:
       machineCalibration: Machine calibration instance.
-      headCompensation: Instance of HeadCompensation.
+      headCompensation: Instance of WirePathModel.
     """
     self._callbacks = GCodeCallbacks()
     self._callbacks.registerCallback("on_instruction", self.handle_instruction)
@@ -751,4 +751,3 @@ class GCodeHandlerBase:
     self._startLocationX = None
     self._startLocationY = None
     self._startHeadLocation = None
-

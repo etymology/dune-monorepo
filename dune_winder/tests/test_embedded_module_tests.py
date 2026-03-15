@@ -11,14 +11,14 @@ from dune_winder.machine.calibration.defaults import (
   DefaultMachineCalibration,
 )
 from dune_winder.machine.calibration.machine import MachineCalibration
-from dune_winder.machine.head_compensation import HeadCompensation
+from dune_winder.machine.head_compensation import WirePathModel
 
 
 class _GCodeHandlerBaseTestDouble(GCodeHandlerBase):
   def __init__(self):
     machineCalibration = DefaultMachineCalibration()
     layerCalibration = DefaultLayerCalibration(None, None, "V")
-    headCompensation = HeadCompensation(machineCalibration)
+    headCompensation = WirePathModel(machineCalibration)
 
     super().__init__(machineCalibration, headCompensation)
     self.useLayerCalibration(layerCalibration)
@@ -142,7 +142,7 @@ class EmbeddedModuleTests(unittest.TestCase):
     machineCalibration.headRollerGap = 1.27
     machineCalibration.pinDiameter = 2.43
 
-    headCompensation = HeadCompensation(machineCalibration)
+    headCompensation = WirePathModel(machineCalibration)
 
     anchorPoint = Location(6581.6559158273, 113.186368912, 174.15)
     machinePosition = Location(6363.6442868365, 4, 0)

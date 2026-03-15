@@ -1,5 +1,5 @@
 ###############################################################################
-# Name: HeadCompensation.py
+# Name: WirePathModel.py
 # Uses: Compensation calculations to account for arm and rollers on winder head.
 # Date: 2016-08-19
 # Author(s):
@@ -18,7 +18,7 @@ from dune_winder.library.Geometry.location import Location
 from dune_winder.library.Geometry.circle import Circle
 
 
-class HeadCompensation:
+class WirePathModel:
   # ---------------------------------------------------------------------
   def __init__(self, machineCalibration):
     """
