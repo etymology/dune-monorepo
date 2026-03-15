@@ -35,25 +35,25 @@ OFFSET_IDS = ("headA", "headB", "footA", "footB")
 
 XG_PREAMBLE_SCRIPT = compile_template_script(
   (
-    "emit X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_a_offset)}",
+    "emit G113 PPRECISE X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_a_offset)}",
     "emit ${g106(0)}",
   )
 )
 
 XG_WRAP_SCRIPT = compile_template_script(
   (
-    "emit X${r(HEAD_PULL_FLAT)} Y${r(head_a_value)}",
-    "emit X${r(FOOT_TRANSFER_ZONE)} Y${r(wire_foot_y + foot_a_offset + spacing_offset)}",
+    "emit G113 PPRECISE X${r(HEAD_PULL_FLAT)} Y${r(head_a_value)}",
+    "emit G113 PPRECISE X${r(FOOT_TRANSFER_ZONE)} Y${r(wire_foot_y + foot_a_offset + spacing_offset)}",
     "transfer a_to_b_transfer",
-    "emit X${r(FOOT_PULL_FLAT)} Y${r(wire_foot_y + foot_b_offset + spacing_offset)}",
-    "emit_head_restart X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_b_offset + spacing_offset)}",
+    "emit G113 PPRECISE X${r(FOOT_PULL_FLAT)} Y${r(wire_foot_y + foot_b_offset + spacing_offset)}",
+    "emit_head_restart G113 PPRECISE X${r(HEAD_TRANSFER_ZONE)} Y${r(wire_head_y + head_b_offset + spacing_offset)}",
     "transfer b_to_a_transfer",
   )
 )
 
 XG_POSTAMBLE_SCRIPT = compile_template_script(
   (
-    "emit X${r(HEAD_PULL_FLAT)} Y${r(wire_head_y + head_a_offset + 480.0 * WIRE_SPACING)}",
+    "emit G113 PPRECISE X${r(HEAD_PULL_FLAT)} Y${r(wire_head_y + head_a_offset + 480.0 * WIRE_SPACING)}",
   )
 )
 
@@ -142,10 +142,15 @@ def _wrap_step(*codes, head_restart=False):
 
 
 def _annotate_wrap_lines(wrap_number, wrap_steps):
-  return [
-    _line(_wrap_identifier(wrap_number, line_number, head_restart), line)
-    for line_number, (line, head_restart) in enumerate(wrap_steps, start=1)
-  ]
+  annotated = []
+  for line_number, (line, head_restart) in enumerate(wrap_steps, start=1):
+    identifier = _wrap_identifier(wrap_number, line_number, head_restart)
+    queue_merge_prefix, remainder = template_gcode_common.split_queue_merge_prefix(line)
+    if queue_merge_prefix is None:
+      annotated.append(_line(identifier, line))
+      continue
+    annotated.append(_line(queue_merge_prefix, identifier, remainder))
+  return annotated
 
 
 def _number_lines(lines):
@@ -296,10 +301,6 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
     output_lines=lines,
     line_builder=_line,
     transfers={},
-  )
-  lines = template_gcode_common.mark_precise_merge_lines(
-    lines,
-    normalize_line_text_fn=normalize_line_text,
   )
   return _number_lines(lines)
 
