@@ -80,35 +80,35 @@ V_WRAP_BASE_SCRIPT = compile_template_script(
     "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
     "transfer b_to_a_transfer",
     "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} PX ${offset('PX', offsets[1])} (Top A corner - foot end)",
-    "emit G113 PPRECISE G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(799 + wrap): emit G113 PPRECISE G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 ( BOARD GAP ) (Foot A corner)",
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PY ${offset('PY', offsets[3])} (Foot B corner)",
-    "emit G113 PPRECISE G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
     "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
     "transfer b_to_a_transfer",
     "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} PX ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
-    "emit G113 PPRECISE G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ( BOARD GAP )",
+    "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ( BOARD GAP )",
     "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
-    "emit G113 PPRECISE G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(1999 + wrap): emit G113 PPRECISE G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
 )
 
 V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
   (
-    "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 ( BOARD GAP )",
+    "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
     "transfer b_to_a_transfer",
-    "emit G113 PPRECISE G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PY ${offset('PY', offsets[9])} (Head A corner)",
-    "emit G113 PPRECISE G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)}",
+    "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PY ${offset('PY', offsets[9])} (Head A corner)",
+    "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)}",
     "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ${offset('PX', offsets[11])} PX12 (Bottom B corner - head end)",
-    "emit G113 PPRECISE G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-    "if near_comb(399 + wrap): emit G113 PPRECISE G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(399 + wrap): emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
 )
 
