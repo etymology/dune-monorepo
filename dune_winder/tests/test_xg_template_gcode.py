@@ -11,6 +11,8 @@ from dune_winder.recipes.xg_template_gcode import (
 
 
 class XGTemplateGCodeTests(unittest.TestCase):
+  MERGE = "G113 PPRECISE "
+
   def _special_inputs(self, transferPause=False):
     return {
       "references": {
@@ -35,32 +37,32 @@ class XGTemplateGCodeTests(unittest.TestCase):
   def test_render_x_layer_matches_programmatic_description(self):
     lines = render_xg_template_lines("X", self._special_inputs())
 
-    self.assertEqual(lines[0], "N0 X440.0 Y201.5\n")
+    self.assertEqual(lines[0], "N0 " + self.MERGE + "X440.0 Y201.5\n")
     self.assertEqual(lines[1], "N1 G106 P0\n")
-    self.assertEqual(lines[2], "N2 (1,1) X635.0 Y201.5\n")
-    self.assertEqual(lines[3], "N3 (1,2) X7165.0 Y399.5\n")
+    self.assertEqual(lines[2], "N2 " + self.MERGE + "(1,1) X635.0 Y201.5\n")
+    self.assertEqual(lines[3], "N3 " + self.MERGE + "(1,2) X7165.0 Y399.5\n")
     self.assertEqual(lines[4], "N4 (1,3) G106 P0\n")
     self.assertEqual(lines[5], "N5 (1,4) G106 P3\n")
-    self.assertEqual(lines[6], "N6 (1,5) X7016.0 Y398.5\n")
-    self.assertEqual(lines[7], "N7 (1,6 HEAD RESTART) X440.0 Y202.5\n")
+    self.assertEqual(lines[6], "N6 " + self.MERGE + "(1,5) X7016.0 Y398.5\n")
+    self.assertEqual(lines[7], "N7 " + self.MERGE + "(1,6 HEAD RESTART) X440.0 Y202.5\n")
     self.assertEqual(lines[8], "N8 (1,7) G106 P3\n")
     self.assertEqual(lines[9], "N9 (1,8) G106 P0\n")
-    self.assertEqual(lines[10], "N10 (2,1) X635.0 Y209.3\n")
-    self.assertEqual(lines[-1], "N3842 X635.0 Y2501.5\n")
+    self.assertEqual(lines[10], "N10 " + self.MERGE + "(2,1) X635.0 Y209.3\n")
+    self.assertEqual(lines[-1], "N3842 " + self.MERGE + "X635.0 Y2501.5\n")
     self.assertEqual(len(lines), 3843)
 
   def test_render_g_layer_uses_481_wraps_and_optional_transfer_pause(self):
     lines = render_xg_template_lines("G", self._special_inputs(transferPause=True))
 
-    self.assertEqual(lines[0], "N0 X440.0 Y201.5\n")
+    self.assertEqual(lines[0], "N0 " + self.MERGE + "X440.0 Y201.5\n")
     self.assertEqual(lines[1], "N1 G106 P0\n")
-    self.assertEqual(lines[2], "N2 (1,1) X635.0 Y201.5\n")
+    self.assertEqual(lines[2], "N2 " + self.MERGE + "(1,1) X635.0 Y201.5\n")
     self.assertEqual(lines[6], "N6 (1,5) G106 P3\n")
-    self.assertEqual(lines[7], "N7 (1,6) X7016.0 Y398.5\n")
+    self.assertEqual(lines[7], "N7 " + self.MERGE + "(1,6) X7016.0 Y398.5\n")
     self.assertEqual(lines[10], "N10 (1,9) G106 P2\n")
     self.assertEqual(lines[11], "N11 (1,10) G106 P0\n")
     self.assertEqual(lines[-2], "N4811 (481,10) G106 P0\n")
-    self.assertEqual(lines[-1], "N4812 X635.0 Y2501.5\n")
+    self.assertEqual(lines[-1], "N4812 " + self.MERGE + "X635.0 Y2501.5\n")
     self.assertEqual(len(lines), 4813)
 
   def test_write_xg_template_file_writes_recipe_header_and_body(self):
@@ -76,9 +78,9 @@ class XGTemplateGCodeTests(unittest.TestCase):
       self.assertEqual(result["wireSpacing"], WIRE_SPACING)
       self.assertEqual(recipe.getDescription(), "X-layer")
       self.assertEqual(recipe.getID(), result["hashValue"])
-      self.assertEqual(recipe.getLines()[0], "N0 X440.0 Y201.5\n")
+      self.assertEqual(recipe.getLines()[0], "N0 " + self.MERGE + "X440.0 Y201.5\n")
       self.assertEqual(recipe.getLines()[1], "N1 G106 P0\n")
-      self.assertEqual(recipe.getLines()[2], "N2 (1,1) X635.0 Y201.5\n")
+      self.assertEqual(recipe.getLines()[2], "N2 " + self.MERGE + "(1,1) X635.0 Y201.5\n")
 
   def test_write_xg_template_file_accepts_snake_case_aliases(self):
     with tempfile.TemporaryDirectory() as rootDirectory:

@@ -8,9 +8,10 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Optional
 
-from pycomm3 import LogixDriver
+from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
+from dune_winder.io.Devices.simulated_plc import SimulatedPLC
 
-from dune_winder.motion import (
+from dune_winder.queued_motion import (
   DEFAULT_CONSTANT_VELOCITY_MODE,
   DEFAULT_CURVATURE_SPEED_SAFETY,
   DEFAULT_MAX_SEGMENT_FACTOR,
@@ -35,7 +36,7 @@ from dune_winder.motion import (
   tune_segments_for_constant_velocity,
   validate_segments_within_safety_limits,
 )
-from dune_winder.motion.segment_types import (
+from dune_winder.queued_motion.segment_types import (
   SEG_TYPE_CIRCLE,
   SEG_TYPE_LINE,
   arc_sweep_rad,
@@ -50,6 +51,51 @@ TAG_Y_ACTUAL_POSITION = "Y_axis.ActualPosition"
 POSITION_POLL_S = 0.20
 POSITION_ERROR_RETRY_S = 1.00
 DEFAULT_COMMAND_SPEED = 1000.0
+
+
+def _open_plc_connection(path: str):
+  if str(path).strip().upper() == "SIM":
+    return SimulatedPLC("SIM")
+  return ControllogixPLC(path)
+
+
+def _close_plc_connection(plc) -> None:
+  if getattr(plc, "_plcDriver", None) is not None:
+    try:
+      plc._plcDriver.close()
+    except Exception:
+      pass
+
+
+def _extract_plc_read_value(read_result, tag: str):
+  if read_result is None:
+    raise RuntimeError(f"{tag}: no response")
+
+  if isinstance(read_result, list):
+    if not read_result:
+      raise RuntimeError(f"{tag}: empty response")
+    first = read_result[0]
+    if hasattr(first, "error"):
+      if first.error:
+        raise RuntimeError(f"{tag}: {first.error}")
+      return first.value
+    if isinstance(first, (list, tuple)):
+      if len(first) >= 2:
+        return first[1]
+      if len(first) == 1:
+        return first[0]
+    return first
+
+  if hasattr(read_result, "error"):
+    if read_result.error:
+      raise RuntimeError(f"{tag}: {read_result.error}")
+    return read_result.value
+
+  return read_result
+
+
+def _read_plc_tag_value(plc, tag: str):
+  return _extract_plc_read_value(plc.read([tag]), tag)
 
 
 class WaypointPlannerApp(tk.Tk):
@@ -714,7 +760,7 @@ class WaypointPlannerApp(tk.Tk):
     self._position_tracker_thread.start()
 
   def _position_tracker_loop(self) -> None:
-    plc: Optional[LogixDriver] = None
+    plc = None
     connected_path = ""
 
     try:
@@ -722,10 +768,7 @@ class WaypointPlannerApp(tk.Tk):
         current_path = self._plc_path
         if not current_path:
           if plc is not None:
-            try:
-              plc.close()
-            except Exception:
-              pass
+            _close_plc_connection(plc)
             plc = None
             connected_path = ""
           self.after(
@@ -740,23 +783,12 @@ class WaypointPlannerApp(tk.Tk):
         try:
           if plc is None or connected_path != current_path:
             if plc is not None:
-              try:
-                plc.close()
-              except Exception:
-                pass
-            plc = LogixDriver(current_path, init_tags=True, init_program_tags=False)
-            plc.open()
+              _close_plc_connection(plc)
+            plc = _open_plc_connection(current_path)
             connected_path = current_path
 
-          x_result = plc.read(TAG_X_ACTUAL_POSITION)
-          y_result = plc.read(TAG_Y_ACTUAL_POSITION)
-          if x_result.error:
-            raise RuntimeError(f"{TAG_X_ACTUAL_POSITION}: {x_result.error}")
-          if y_result.error:
-            raise RuntimeError(f"{TAG_Y_ACTUAL_POSITION}: {y_result.error}")
-
-          x_val = float(x_result.value)
-          y_val = float(y_result.value)
+          x_val = float(_read_plc_tag_value(plc, TAG_X_ACTUAL_POSITION))
+          y_val = float(_read_plc_tag_value(plc, TAG_Y_ACTUAL_POSITION))
           self.after(
             0,
             lambda x=x_val, y=y_val: self._update_live_position(x, y),
@@ -764,10 +796,7 @@ class WaypointPlannerApp(tk.Tk):
           self._position_tracker_stop.wait(POSITION_POLL_S)
         except Exception as exc:
           if plc is not None:
-            try:
-              plc.close()
-            except Exception:
-              pass
+            _close_plc_connection(plc)
           plc = None
           connected_path = ""
           self.after(
@@ -779,10 +808,7 @@ class WaypointPlannerApp(tk.Tk):
           self._position_tracker_stop.wait(POSITION_ERROR_RETRY_S)
     finally:
       if plc is not None:
-        try:
-          plc.close()
-        except Exception:
-          pass
+        _close_plc_connection(plc)
 
   def _update_live_position(self, x: float, y: float) -> None:
     self.live_position_xy = (x, y)

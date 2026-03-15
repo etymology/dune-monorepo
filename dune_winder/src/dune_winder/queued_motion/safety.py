@@ -30,6 +30,7 @@ class MotionSafetyLimits:
   limit_bottom: float
   limit_top: float
   transfer_left: float
+  transfer_right: float = 0.0
   transfer_left_margin: float = DEFAULT_TRANSFER_LEFT_MARGIN
   transfer_y_threshold: float = DEFAULT_TRANSFER_Y_THRESHOLD
   headward_pivot_x: float = 150.0
@@ -50,6 +51,35 @@ def _calibration_float(calibration, key: str, default: float) -> float:
   return float(value)
 
 
+def motion_safety_limits_from_calibration(calibration) -> MotionSafetyLimits:
+  return MotionSafetyLimits(
+    limit_left=_calibration_float(calibration, "limitLeft", 0.0),
+    limit_right=_calibration_float(calibration, "limitRight", 0.0),
+    limit_bottom=_calibration_float(calibration, "limitBottom", 0.0),
+    limit_top=_calibration_float(calibration, "limitTop", 0.0),
+    transfer_left=_calibration_float(calibration, "transferLeft", 0.0),
+    transfer_right=_calibration_float(calibration, "transferRight", 0.0),
+    transfer_left_margin=_calibration_float(
+      calibration,
+      "transferLeftMargin",
+      DEFAULT_TRANSFER_LEFT_MARGIN,
+    ),
+    transfer_y_threshold=_calibration_float(
+      calibration,
+      "transferYThreshold",
+      DEFAULT_TRANSFER_Y_THRESHOLD,
+    ),
+    headward_pivot_x=_calibration_float(calibration, "headwardPivotX", 150.0),
+    headward_pivot_y=_calibration_float(calibration, "headwardPivotY", 1400.0),
+    headward_pivot_x_tolerance=_calibration_float(
+      calibration, "headwardPivotXTolerance", 150.0
+    ),
+    headward_pivot_y_tolerance=_calibration_float(
+      calibration, "headwardPivotYTolerance", 300.0
+    ),
+  )
+
+
 def load_motion_safety_limits(calibration_path: Optional[str] = None) -> MotionSafetyLimits:
   if calibration_path:
     path = Path(calibration_path)
@@ -64,22 +94,7 @@ def load_motion_safety_limits(calibration_path: Optional[str] = None) -> MotionS
     output_name = Settings.MACHINE_CALIBRATION_FILE
 
   calibration = DefaultMachineCalibration(output_path, output_name)
-
-  return MotionSafetyLimits(
-    limit_left=_calibration_float(calibration, "limitLeft", 0.0),
-    limit_right=_calibration_float(calibration, "limitRight", 0.0),
-    limit_bottom=_calibration_float(calibration, "limitBottom", 0.0),
-    limit_top=_calibration_float(calibration, "limitTop", 0.0),
-    transfer_left=_calibration_float(calibration, "transferLeft", 0.0),
-    headward_pivot_x=_calibration_float(calibration, "headwardPivotX", 150.0),
-    headward_pivot_y=_calibration_float(calibration, "headwardPivotY", 1400.0),
-    headward_pivot_x_tolerance=_calibration_float(
-      calibration, "headwardPivotXTolerance", 150.0
-    ),
-    headward_pivot_y_tolerance=_calibration_float(
-      calibration, "headwardPivotYTolerance", 300.0
-    ),
-  )
+  return motion_safety_limits_from_calibration(calibration)
 
 
 def _line_intersects_rectangle(
@@ -253,3 +268,22 @@ def validate_segments_within_safety_limits(
 
     prev_x = float(seg.x)
     prev_y = float(seg.y)
+
+
+def validate_xy_move_within_safety_limits(
+  start_xy: tuple[float, float],
+  target_xy: tuple[float, float],
+  limits: MotionSafetyLimits,
+  *,
+  seq: int = 0,
+  label: str = "line",
+) -> None:
+  _validate_line_step(
+    float(start_xy[0]),
+    float(start_xy[1]),
+    float(target_xy[0]),
+    float(target_xy[1]),
+    limits,
+    int(seq),
+    str(label),
+  )

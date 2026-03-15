@@ -10,6 +10,8 @@
 # specific G-Code functions that modify X/Y or signal other functions.
 ###############################################################################
 
+import copy
+
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.gcode.model import CommandWord, Comment, FunctionCall, Opcode, ProgramLine
 from dune_winder.gcode.runtime import (
@@ -57,6 +59,40 @@ class G_CodeHandlerBase:
   # ---------------------------------------------------------------------
   def _request_stop(self):
     self._instruction_request_stop = True
+
+  # ---------------------------------------------------------------------
+  def _snapshot_interpreter_state(self):
+    return {
+      "_x": self._x,
+      "_y": self._y,
+      "_z": self._z,
+      "_headPosition": self._headPosition,
+      "_lastX": self._lastX,
+      "_lastY": self._lastY,
+      "_lastZ": self._lastZ,
+      "_pending_actions": list(self._pending_actions),
+      "_pending_stop_request": self._pending_stop_request,
+      "_instruction_request_xy": self._instruction_request_xy,
+      "_instruction_request_z": self._instruction_request_z,
+      "_instruction_request_head": self._instruction_request_head,
+      "_instruction_request_latch": self._instruction_request_latch,
+      "_instruction_request_stop": self._instruction_request_stop,
+      "_instruction_queue_merge_mode": self._instruction_queue_merge_mode,
+      "_line": self._line,
+      "_delay": self._delay,
+      "_wireTension": self._wireTension,
+      "_tensionTesting": self._tensionTesting,
+      "_wireLength": self._wireLength,
+      "_maxVelocity": self._maxVelocity,
+      "_velocity": self._velocity,
+      "_functions": list(self._functions),
+      "_headCompensation": copy.deepcopy(self._headCompensation),
+    }
+
+  # ---------------------------------------------------------------------
+  def _restore_interpreter_state(self, snapshot):
+    for key, value in snapshot.items():
+      setattr(self, key, value)
 
   # ---------------------------------------------------------------------
   def _consume_command_word(self, command: CommandWord):
@@ -110,6 +146,7 @@ class G_CodeHandlerBase:
     self._instruction_request_head = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
+    self._instruction_queue_merge_mode = None
 
     for item in line.items:
       if isinstance(item, Comment):
@@ -550,6 +587,14 @@ class G_CodeHandlerBase:
     self._request_stop()
 
   # ---------------------------------------------------------------------
+  def _queueMerge(self, function):
+    mode = self._parameterExtract(function, 1, None, str, "queue merge").upper()
+    if mode not in ("PRECISE", "TOLERANT"):
+      data = [str(mode)]
+      raise GCodeExecutionError("Unknown queue merge mode: " + str(mode) + ".", data)
+    self._instruction_queue_merge_mode = mode
+
+  # ---------------------------------------------------------------------
 
   # ------------------------------------
   # Look-up table of all G-Code functions.
@@ -568,6 +613,7 @@ class G_CodeHandlerBase:
     Opcode.TRANSFER_CORRECT: _transferCorrect,
     Opcode.BREAK_POINT: _break,
     Opcode.TENSION_TESTING: _tensionTesting,
+    Opcode.QUEUE_MERGE: _queueMerge,
   }
 
   # ---------------------------------------------------------------------
@@ -681,6 +727,7 @@ class G_CodeHandlerBase:
     self._instruction_request_head = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
+    self._instruction_queue_merge_mode = None
 
     # Current line number.
     self._line = 0
@@ -761,5 +808,4 @@ if __name__ == "__main__":
 
   # Create instance of test class, thereby running tests.
   tester = G_CodeTester()
-
 

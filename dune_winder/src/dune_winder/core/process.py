@@ -41,6 +41,10 @@ from dune_winder.library.time_source import TimeSource
 from dune_winder.machine.settings import Settings
 from dune_winder.machine.machine_calibration import MachineCalibration
 from dune_winder.io.Primitives.digital_input import DigitalInput
+from dune_winder.queued_motion.safety import (
+  MotionSafetyLimits,
+  validate_xy_move_within_safety_limits,
+)
 
 
 class Process:
@@ -158,60 +162,30 @@ class Process:
     return float(value)
 
   # ---------------------------------------------------------------------
-  def _point_in_headward_pivot_keepout(self, x, y):
-    return (
-      x < self._headwardPivotX + self._headwardPivotXTolerance
-      and x > self._headwardPivotX - self._headwardPivotXTolerance
-      and y < self._headwardPivotY + self._headwardPivotYTolerance
-      and y > self._headwardPivotY - self._headwardPivotYTolerance
+  def _current_motion_safety_limits(self):
+    return MotionSafetyLimits(
+      limit_left=float(self._limitLeft),
+      limit_right=float(self._limitRight),
+      limit_bottom=float(self._limitBottom),
+      limit_top=float(self._limitTop),
+      transfer_left=float(self._transferLeft),
+      transfer_right=float(self._transferRight),
+      headward_pivot_x=float(self._headwardPivotX),
+      headward_pivot_y=float(self._headwardPivotY),
+      headward_pivot_x_tolerance=float(self._headwardPivotXTolerance),
+      headward_pivot_y_tolerance=float(self._headwardPivotYTolerance),
     )
 
   # ---------------------------------------------------------------------
   def _validate_xy_move_target(self, startX, startY, targetX, targetY):
-    if targetX < self._limitLeft or targetX > self._limitRight:
-      return (
-        "Invalid X-axis Coordinates, exceeding limit ["
-        + str(self._limitLeft)
-        + " , "
-        + str(self._limitRight)
-        + "]"
+    try:
+      validate_xy_move_within_safety_limits(
+        (float(startX), float(startY)),
+        (float(targetX), float(targetY)),
+        self._current_motion_safety_limits(),
       )
-
-    if targetY < self._limitBottom or targetY > self._limitTop:
-      return (
-        "Invalid Y-axis Coordinates, exceeding limit ["
-        + str(self._limitBottom)
-        + " , "
-        + str(self._limitTop)
-        + "]"
-      )
-
-    if targetX < self._transferLeft - 10 and targetY > 1000:
-      return (
-        "Invalid XY-axis Coordinates, forbiden area due to safety of winder head "
-        + "[X="
-        + str(targetX)
-        + " < "
-        + str(self._transferLeft - 10)
-        + " , Y="
-        + str(targetY)
-        + " > "
-        + str(1000)
-        + "]"
-      )
-
-    if line_intersects_rectangle(
-      startX,
-      startY,
-      targetX,
-      targetY,
-      self._headwardPivotX,
-      self._headwardPivotXTolerance,
-      self._headwardPivotY,
-      self._headwardPivotYTolerance,
-    ) or self._point_in_headward_pivot_keepout(targetX, targetY):
-      return "Collision predicted between winding head and support arm pivot block"
-
+    except ValueError as exception:
+      return str(exception)
     return None
 
   # ---------------------------------------------------------------------
@@ -1713,37 +1687,3 @@ class Process:
 
 
 # end class
-
-
-def line_intersects_rectangle(
-  x1, y1, x2, y2, rect_x_center, rect_x_tolerance, rect_y_center, rect_y_tolerance
-):
-  # Calculate the rectangle's boundaries based on the center and offset
-  x_min, x_max = rect_x_center - rect_x_tolerance, rect_x_center + rect_x_tolerance
-  y_min, y_max = (
-    rect_y_center - rect_y_tolerance,
-    rect_y_center + rect_y_tolerance,
-  )
-
-  # Define a function to check if two line segments intersect
-  def line_intersect(p1, p2, q1, q2):
-    def ccw(A, B, C):
-      return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
-
-    return ccw(p1, q1, q2) != ccw(p2, q1, q2) and ccw(p1, p2, q1) != ccw(p1, p2, q2)
-
-  # Check intersection with each of the rectangle's sides
-  rect_lines = [
-    ((x_min, y_min), (x_max, y_min)),  # Bottom side
-    ((x_max, y_min), (x_max, y_max)),  # Right side
-    ((x_max, y_max), (x_min, y_max)),  # Top side
-    ((x_min, y_max), (x_min, y_min)),  # Left side
-  ]
-
-  # Check if the line intersects any of the sides of the rectangle
-  for rect_line in rect_lines:
-    if line_intersect((x1, y1), (x2, y2), rect_line[0], rect_line[1]):
-      return True
-
-  # If no intersection is found
-  return False

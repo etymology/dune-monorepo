@@ -17,6 +17,8 @@ from .queue_client_3d_arc import (
 from .safety import (
   MotionSafetyLimits,
   load_motion_safety_limits,
+  motion_safety_limits_from_calibration,
+  validate_xy_move_within_safety_limits,
   validate_segments_within_safety_limits,
 )
 from .segment_patterns import (
@@ -107,11 +109,13 @@ __all__ = [
   "cap_segments_speed_by_axis_velocity",
   "build_segments",
   "load_motion_safety_limits",
+  "motion_safety_limits_from_calibration",
   "print_pattern_summary",
   "run_queue_case",
   "run_arc3d_queue_case",
   "tune_segments_for_constant_velocity",
   "validate_arc3d_segment",
+  "validate_xy_move_within_safety_limits",
   "validate_segments_within_safety_limits",
   "write_segments_svg",
 ]

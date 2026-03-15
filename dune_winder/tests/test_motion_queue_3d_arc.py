@@ -1,6 +1,6 @@
 import unittest
 
-from dune_winder.motion.queue_client_3d_arc import (
+from dune_winder.queued_motion.queue_client_3d_arc import (
   DIR_3D_LONGEST,
   DIR_3D_SHORTEST,
   DIR_3D_SHORTEST_FULL,

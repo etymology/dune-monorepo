@@ -9,10 +9,10 @@ This document records the new mixed-segment queue implementation that supports:
 Primary implementation files:
 
 - `src/enqueueRoutine.txt`
-- `src/dune_winder/motion/queue_client.py`
-- `src/dune_winder/motion/segment_types.py`
-- `src/dune_winder/motion/segment_patterns.py`
-- `src/dune_winder/motion/safety.py`
+- `src/dune_winder/queued_motion/queue_client.py`
+- `src/dune_winder/queued_motion/segment_types.py`
+- `src/dune_winder/queued_motion/segment_patterns.py`
+- `src/dune_winder/queued_motion/safety.py`
 - `src/motionQueueTest.py`
 
 ## PLC Queue Routine Summary
