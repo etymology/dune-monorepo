@@ -17,8 +17,8 @@ from dune_winder.core.manual_mode import ManualMode
 from dune_winder.core.calibration_mode import CalibrationMode
 from dune_winder.library.time_source import TimeSource
 from dune_winder.library.log import Log
-from dune_winder.io.Maps.base_io import BaseIO
-from dune_winder.core.g_code_handler import G_CodeHandler
+from dune_winder.io.maps.base_io import BaseIO
+from dune_winder.gcode.handler import GCodeHandler
 from typing import Optional
 
 
@@ -168,7 +168,7 @@ class ControlStateMachine(LoggedStateMachine):
     self.systemTime = systemTime
 
     # Runtime wiring shared by modes.
-    self.gCodeHandler: Optional[G_CodeHandler] = None
+    self.gCodeHandler: Optional[GCodeHandler] = None
     self.cameraCalibration = None
     self.machineCalibration = None
 

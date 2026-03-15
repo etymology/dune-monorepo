@@ -1,5 +1,5 @@
 ###############################################################################
-# Name: G_CodeHandlerBase.py
+# Name: GCodeHandlerBase.py
 # Uses: Base class to handle G-Code execution.
 # Date: 2016-03-30
 # Author(s):
@@ -25,11 +25,11 @@ from dune_winder.library.Geometry.line import Line
 from dune_winder.library.Geometry.box import Box
 from dune_winder.library.Geometry.segment import Segment
 
-from .layer_calibration import LayerCalibration
-from .machine_calibration import MachineCalibration
+from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.machine.calibration.machine import MachineCalibration
 
 
-class G_CodeHandlerBase:
+class GCodeHandlerBase:
   DEBUG_UNIT = False
 
   # ---------------------------------------------------------------------
@@ -117,7 +117,7 @@ class G_CodeHandlerBase:
 
     if command.letter == "N":
       self._line = int(command.value)
-      if G_CodeHandlerBase.DEBUG_UNIT:
+      if GCodeHandlerBase.DEBUG_UNIT:
         print("Line", self._line)
       return
 
@@ -279,14 +279,14 @@ class G_CodeHandlerBase:
     # The position thus far.
     endLocation = Location(self._x, self._y, self._z)
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  SEEK_TRANSFER starting at", endLocation, end=" ")
 
     # Starting location based on anchor point.  Actual location has compensation
     # for pin diameter.
     startLocation = self._headCompensation.pinCompensation(endLocation)
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("Pin correction", startLocation, end=" ")
 
     if startLocation is None:
@@ -311,7 +311,7 @@ class G_CodeHandlerBase:
     )
 
     location = edges.intersectSegment(segment)
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("Finial location", location)
 
     if location is None:
@@ -335,7 +335,7 @@ class G_CodeHandlerBase:
     pinNumberB = self._parameterExtract(function, 2, None, str, "pin center")
     axies = self._parameterExtract(function, 3, None, str, "pin center")
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  PIN_CENTER", pinNumberA, pinNumberB, end=" ")
 
     if not self._layerCalibration:
@@ -347,7 +347,7 @@ class G_CodeHandlerBase:
     pinB = self._getPin(pinNumberB)
     center = pinA.center(pinB)
     center = center.add(self._layerCalibration.offset)
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print(pinA, pinB, center)
 
     if "X" in axies:
@@ -373,7 +373,7 @@ class G_CodeHandlerBase:
     self._x = max(self._x, self._machineCalibration.transferLeft)
     self._x = min(self._x, self._machineCalibration.transferRight)
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  CLIP", oldX, oldY, "->", self._x, self._y)
 
     if (oldX != self._x) or (oldY != self._y):
@@ -382,7 +382,7 @@ class G_CodeHandlerBase:
   def _offset(self, function):
     # Offset coordinates.
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  OFFSET", end=" ")
 
     parameters = function[1:]
@@ -391,20 +391,20 @@ class G_CodeHandlerBase:
       offset = self._parameterExtract(parameter, 1, 1, float, "offset")
 
       if "X" == axis:
-        if G_CodeHandlerBase.DEBUG_UNIT:
+        if GCodeHandlerBase.DEBUG_UNIT:
           print("x", offset, end=" ")
 
         self._x += offset
         self._request_xy_move()
 
       if "Y" == axis:
-        if G_CodeHandlerBase.DEBUG_UNIT:
+        if GCodeHandlerBase.DEBUG_UNIT:
           print("y", offset, end=" ")
 
         self._y += offset
         self._request_xy_move()
 
-      if G_CodeHandlerBase.DEBUG_UNIT:
+      if GCodeHandlerBase.DEBUG_UNIT:
         print()
 
   # ---------------------------------------------------------------------
@@ -416,7 +416,7 @@ class G_CodeHandlerBase:
     self._headPosition = self._parameterExtract(function, 1, None, int, "head location")
     self._request_head_move()
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  HEAD_LOCATION", self._headPosition)
 
   # ---------------------------------------------------------------------
@@ -424,7 +424,7 @@ class G_CodeHandlerBase:
     """
     Delay.
     """
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  DELAY", self._delay)
 
     self._delay = self._parameterExtract(function, 1, None, int, "delay")
@@ -438,7 +438,7 @@ class G_CodeHandlerBase:
     if self._wireTension > 0:
       self._tensionTesting = True
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print(f"  TENSION_TESTING {self._tensionTesting} on wire {self._wireTension}")
 
   # ---------------------------------------------------------------------
@@ -461,7 +461,7 @@ class G_CodeHandlerBase:
     self._headCompensation.anchorPoint(pin)
     self._headCompensation.orientation(orientation)
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  ANCHOR_POINT", pinNumber, pin, orientation)
 
   # ---------------------------------------------------------------------
@@ -473,14 +473,14 @@ class G_CodeHandlerBase:
     z = self._getHeadPosition(self._headPosition)
 
     currentLocation = Location(self._x, self._y, z)
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("  ARM_CORRECT", currentLocation, end=" ")
 
     if MathExtra.isclose(
       self._y, self._machineCalibration.transferTop, abs_tol=1e-3
     ) or MathExtra.isclose(self._y, self._machineCalibration.transferBottom, abs_tol=1e-3):
       self._x = self._headCompensation.correctX(currentLocation)
-      if G_CodeHandlerBase.DEBUG_UNIT:
+      if GCodeHandlerBase.DEBUG_UNIT:
         print("new X", self._x, end=" ")
 
       edge = None
@@ -505,14 +505,14 @@ class G_CodeHandlerBase:
         # Compensate for head's arm.
         self._y = self._headCompensation.correctY(location)
         self._x = location.x
-        if G_CodeHandlerBase.DEBUG_UNIT:
+        if GCodeHandlerBase.DEBUG_UNIT:
           print("Edge", self._x, self._y, end=" ")
     else:
       self._y = self._headCompensation.correctY(currentLocation)
-      if G_CodeHandlerBase.DEBUG_UNIT:
+      if GCodeHandlerBase.DEBUG_UNIT:
         print("new Y", self._y, end=" ")
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print()
 
     self._request_xy_move()
@@ -529,7 +529,7 @@ class G_CodeHandlerBase:
     # Current head position.
     zHead = self._getHeadPosition(self._headPosition)
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print(
         "  TRANSFER_CORRECT",
         self._headCompensation.anchorPoint(),
@@ -543,7 +543,7 @@ class G_CodeHandlerBase:
     correction = correction.upper()
 
     orientation = self._headCompensation.orientation()
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("correction", correction, "orientation", orientation, end=" ")
 
     if "X" == correction:
@@ -576,7 +576,7 @@ class G_CodeHandlerBase:
       data = [str(correction)]
       raise GCodeExecutionError("Unknown correction type: " + str(correction) + ".", data)
 
-    if G_CodeHandlerBase.DEBUG_UNIT:
+    if GCodeHandlerBase.DEBUG_UNIT:
       print("x", self._x, "y", self._y)
 
   # ---------------------------------------------------------------------
@@ -631,8 +631,8 @@ class G_CodeHandlerBase:
     self._functions.append(function)
 
     # Toggle spool latch.
-    if number in list(G_CodeHandlerBase.G_CODE_FUNCTION_TABLE.keys()):
-      G_CodeHandlerBase.G_CODE_FUNCTION_TABLE[number](self, function)
+    if number in list(GCodeHandlerBase.G_CODE_FUNCTION_TABLE.keys()):
+      GCodeHandlerBase.G_CODE_FUNCTION_TABLE[number](self, function)
     else:
       data = [str(number)]
       raise GCodeExecutionError("Unknown G-Code " + str(number), data)
@@ -756,14 +756,14 @@ class G_CodeHandlerBase:
 # Unit test code.
 if __name__ == "__main__":
   from dune_winder.library.math_extra import MathExtra
-  from dune_winder.machine.default_calibration import (
+  from dune_winder.machine.calibration.defaults import (
     DefaultMachineCalibration,
     DefaultLayerCalibration,
   )
   from dune_winder.machine.head_compensation import HeadCompensation
 
   # Child of G-Code handler to do testing.
-  class G_CodeTester(G_CodeHandlerBase):
+  class GCodeTester(GCodeHandlerBase):
     def __init__(self):
       # Create default calibrations and setup head compensation.
       machineCalibration = DefaultMachineCalibration()
@@ -778,7 +778,7 @@ if __name__ == "__main__":
       ]
 
       # Construct G-Code handler.
-      G_CodeHandlerBase.__init__(self, machineCalibration, headCompensation)
+      GCodeHandlerBase.__init__(self, machineCalibration, headCompensation)
       self.useLayerCalibration(layerCalibration)
 
       # Setup G-Code interpreter.
@@ -807,5 +807,5 @@ if __name__ == "__main__":
       assert MathExtra.isclose(self._y, 0)
 
   # Create instance of test class, thereby running tests.
-  tester = G_CodeTester()
+  tester = GCodeTester()
 

@@ -6,8 +6,8 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.io.Primitives.digital_input import DigitalInput
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.primitives.digital_input import DigitalInput
+from dune_winder.io.devices.plc import PLC
 
 
 class PLC_Input(DigitalInput):

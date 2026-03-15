@@ -10,7 +10,7 @@ import math
 
 from dune_winder.library.Geometry.location import Location
 
-from .layer_geometry import LayerGeometry
+from .layer import LayerGeometry
 
 
 class UV_LayerGeometry(LayerGeometry):

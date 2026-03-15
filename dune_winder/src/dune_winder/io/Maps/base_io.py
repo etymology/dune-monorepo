@@ -6,14 +6,14 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.io.Types.plc_input import PLC_Input
-from dune_winder.io.Types.plc_motor import PLC_Motor
+from dune_winder.io.primitives.plc_input import PLC_Input
+from dune_winder.io.primitives.plc_motor import PLC_Motor
 
-from dune_winder.io.Systems.multi_axis_motor import MultiAxisMotor
-from dune_winder.io.Systems.plc_logic import PLC_Logic
-from dune_winder.io.Systems.head import Head
-from dune_winder.io.Systems.camera import Camera
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.primitives.multi_axis_motor import MultiAxisMotor
+from dune_winder.io.controllers.plc_logic import PLC_Logic
+from dune_winder.io.controllers.head import Head
+from dune_winder.io.controllers.camera import Camera
+from dune_winder.io.devices.plc import PLC
 
 
 class BaseIO:

@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from .uv_layer_geometry import UV_LayerGeometry
+from .uv import UV_LayerGeometry
 
 
 class U_LayerGeometry(UV_LayerGeometry):

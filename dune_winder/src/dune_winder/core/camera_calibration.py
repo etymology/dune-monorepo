@@ -10,7 +10,7 @@
 from dune_winder.library.Geometry.location import Location
 from dune_winder.library.array_to_csv import ArrayToCSV
 
-from dune_winder.machine.layer_functions import LayerFunctions
+from dune_winder.machine.geometry.layer_functions import LayerFunctions
 
 
 class CameraCalibration:

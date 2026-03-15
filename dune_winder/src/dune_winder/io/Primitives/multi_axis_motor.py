@@ -8,7 +8,7 @@
 #   Motors can be grouped to act together.  This is most useful for an x/y
 #   set where to the motors act in unison.
 ###############################################################################
-from dune_winder.io.Primitives.motor import Motor
+from dune_winder.io.primitives.motor import Motor
 
 
 class MultiAxisMotor:

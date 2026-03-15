@@ -5,8 +5,8 @@ import time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
-from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
-from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+from dune_winder.io.devices.controllogix_plc import ControllogixPLC
+from dune_winder.io.devices.simulated_plc import SimulatedPLC
 
 
 SEG_TYPE_CIRCLE = 2

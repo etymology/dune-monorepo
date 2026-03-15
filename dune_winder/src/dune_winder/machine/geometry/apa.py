@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from .machine_geometry import MachineGeometry
+from .machine import MachineGeometry
 from dune_winder.library.Geometry.location import Location
 
 

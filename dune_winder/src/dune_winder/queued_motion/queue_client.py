@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from typing import Iterable
 
-from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
-from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+from dune_winder.io.devices.controllogix_plc import ControllogixPLC
+from dune_winder.io.devices.simulated_plc import SimulatedPLC
 
 from .plc_interface import (
   ACK_TIMEOUT_S,

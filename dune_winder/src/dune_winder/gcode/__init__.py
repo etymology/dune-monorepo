@@ -1,5 +1,7 @@
 """Canonical G-code domain model and helpers."""
 
+from .handler import GCodeHandler
+from .handler_base import GCodeHandlerBase
 from .model import (
   OPCODE_CATALOG,
   OPCODE_NAME_CATALOG,
@@ -27,6 +29,8 @@ __all__ = [
   "Comment",
   "FunctionCall",
   "GCodeCallbacks",
+  "GCodeHandler",
+  "GCodeHandlerBase",
   "GCodeExecutionError",
   "GCodeProgramExecutor",
   "GCodeParseError",

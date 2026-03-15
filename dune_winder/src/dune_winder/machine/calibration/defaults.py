@@ -10,10 +10,10 @@ import os
 from dune_winder.library.Geometry.location import Location
 from dune_winder.library.serializable_location import SerializableLocation
 
-from dune_winder.machine.geometry_selection import create_layer_geometry
-from dune_winder.machine.layer_calibration import LayerCalibration
-from dune_winder.machine.machine_calibration import MachineCalibration
-from dune_winder.machine.uv_layer_geometry import UV_LayerGeometry
+from dune_winder.machine.geometry.factory import create_layer_geometry
+from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.machine.calibration.machine import MachineCalibration
+from dune_winder.machine.geometry.uv import UV_LayerGeometry
 
 
 def _populate_nominal_locations(calibration, geometry):

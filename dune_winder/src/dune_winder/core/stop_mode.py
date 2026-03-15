@@ -8,7 +8,7 @@
 
 from dune_winder.library.state_machine_state import StateMachineState
 from dune_winder.library.logged_state_machine import LoggedStateMachine
-from dune_winder.io.Maps.base_io import BaseIO
+from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.core.control_events import (
   CalibrationModeEvent,
   ManualModeEvent,

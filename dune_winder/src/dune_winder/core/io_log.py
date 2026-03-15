@@ -6,8 +6,8 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.io.Primitives.io_point import IO_Point
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.primitives.io_point import IO_Point
+from dune_winder.io.devices.plc import PLC
 import os.path
 
 

@@ -5,7 +5,7 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
-from dune_winder.io.Systems.plc_logic import PLC_Logic
+from dune_winder.io.controllers.plc_logic import PLC_Logic
 
 
 class Head:

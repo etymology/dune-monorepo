@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.devices.plc import PLC
 
 from .segment_types import (
   MotionSegment,

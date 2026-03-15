@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from .apa_geometry import APA_Geometry
+from .apa import APA_Geometry
 
 
 class LayerGeometry(APA_Geometry):

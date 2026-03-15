@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-from dune_winder.io.Primitives.motor import Motor
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.primitives.motor import Motor
+from dune_winder.io.devices.plc import PLC
 from typing import List
 
 

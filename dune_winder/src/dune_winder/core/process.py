@@ -13,7 +13,7 @@ import sys
 import subprocess
 from dune_winder.library.Geometry.location import Location
 
-from dune_winder.core.g_code_handler import G_CodeHandler
+from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
 from dune_winder.core.control_events import (
   CalibrationModeEvent,
@@ -30,17 +30,17 @@ from dune_winder.recipes.v_template_recipe import VTemplateRecipe
 from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 
 from dune_winder.machine.head_compensation import HeadCompensation
-from dune_winder.machine.geometry_selection import create_layer_geometry
-from dune_winder.machine.layer_functions import LayerFunctions
-from dune_winder.machine.default_calibration import DefaultLayerCalibration
+from dune_winder.machine.geometry.factory import create_layer_geometry
+from dune_winder.machine.geometry.layer_functions import LayerFunctions
+from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
 
-from dune_winder.io.Maps.base_io import BaseIO
+from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.library.log import Log
 from dune_winder.library.app_config import AppConfig
 from dune_winder.library.time_source import TimeSource
 from dune_winder.machine.settings import Settings
-from dune_winder.machine.machine_calibration import MachineCalibration
-from dune_winder.io.Primitives.digital_input import DigitalInput
+from dune_winder.machine.calibration.machine import MachineCalibration
+from dune_winder.io.primitives.digital_input import DigitalInput
 from dune_winder.queued_motion.safety import (
   MotionSafetyLimits,
   validate_xy_move_within_safety_limits,
@@ -95,7 +95,7 @@ class Process:
     if not os.path.isdir(self._workspaceDirectory):
       os.makedirs(self._workspaceDirectory)
 
-    self.gCodeHandler = G_CodeHandler(
+    self.gCodeHandler = GCodeHandler(
       io, machineCalibration, self.headCompensation
     )
     self.gCodeHandler.setBeforeExecuteLineCallback(self._refreshCalibrationBeforeExecution)

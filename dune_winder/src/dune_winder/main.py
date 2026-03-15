@@ -32,10 +32,10 @@ from dune_winder.threads.control_thread import ControlThread
 from dune_winder.threads.web_server_thread import WebServerThread
 from dune_winder.threads.camera_thread import CameraThread
 
-from dune_winder.io.Maps.production_io import ProductionIO
+from dune_winder.io.maps.production_io import ProductionIO
 
 # $$$TEMPORARY - Temporary.
-from dune_winder.machine.default_calibration import DefaultMachineCalibration
+from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 
 # ==============================================================================
 # Debug settings.
