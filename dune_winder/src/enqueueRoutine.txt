@@ -31,7 +31,7 @@ XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 OTL QueueFault
 XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND MOV 8 FaultCode 
 XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND OTL QueueFault 
 XIC CheckNextSeg OTU CheckNextSeg 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 2 ONS StartCurONS OTL LoadCurReq 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
 XIC LoadCurReq OTU StartQueuedPath 
 XIC LoadCurReq FFU SegQueue[0] CurSeg QueueCtl ? ? 
 XIC LoadCurReq OTL CheckCurSeg 

@@ -25,10 +25,10 @@ class QueuedMotionSession:
     queue_depth: int = PLC_QUEUE_DEPTH,
     now_fn: Callable[[], float] = time.monotonic,
   ) -> None:
-    if queue_depth < 2:
-      raise ValueError("queue_depth must be >= 2")
-    if len(segments) < 2:
-      raise ValueError("At least 2 segments are required to start the queued path")
+    if queue_depth < 1:
+      raise ValueError("queue_depth must be >= 1")
+    if len(segments) < 1:
+      raise ValueError("At least 1 segment is required to start the queued path")
 
     self._port = port if isinstance(port, QueuedMotionPortAdapter) else QueuedMotionPortAdapter(port)
     self._segments = list(segments)
@@ -167,6 +167,13 @@ class QueuedMotionSession:
       if status.cur_issued:
         self._idle_deadline = now + IDLE_TIMEOUT_S
         self._state = "streaming" if self._next_to_enqueue < len(self._segments) else "wait_idle"
+        return
+      if (
+        self._next_to_enqueue >= len(self._segments)
+        and status.is_idle
+        and status.ack == int(self._segments[-1].seq)
+      ):
+        self._done = True
         return
       if self._start_deadline is not None and now > self._start_deadline:
         self._fail("Timed out waiting for queued motion to start")

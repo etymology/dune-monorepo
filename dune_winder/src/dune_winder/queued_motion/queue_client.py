@@ -162,10 +162,10 @@ def run_queue_case(
   segments: list[MotionSegment],
   queue_depth: int = PLC_QUEUE_DEPTH,
 ) -> None:
-  if queue_depth < 2:
-    raise ValueError("queue_depth must be >= 2")
-  if len(segments) < 2:
-    raise ValueError("At least 2 segments are required to start the queued path")
+  if queue_depth < 1:
+    raise ValueError("queue_depth must be >= 1")
+  if len(segments) < 1:
+    raise ValueError("At least 1 segment is required to start the queued path")
 
   total = len(segments)
   prefill_count = min(total, queue_depth)
