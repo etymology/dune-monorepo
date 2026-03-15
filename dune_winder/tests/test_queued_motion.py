@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from dune_winder.gcode.handler import GCodeHandler
@@ -20,16 +21,17 @@ class _Axis:
 
 
 class _QueuedMotionPLCLogic:
-  def __init__(self):
+  def __init__(self, queued_motion=None):
     self._maxAcceleration = 1000.0
     self._maxDeceleration = 1000.0
-    self.queuedMotion = object()
+    self.queuedMotion = object() if queued_motion is None else queued_motion
+    self.legacy_xy_moves = []
 
   def isReady(self):
     return True
 
   def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
-    raise AssertionError("Legacy XY motion should not be used during queued-block preview")
+    self.legacy_xy_moves.append((float(x), float(y), velocity, acceleration, deceleration))
 
   def setZ_Position(self, z, velocity=None):
     raise AssertionError("Unexpected Z move")
@@ -56,11 +58,30 @@ class _Head:
 
 
 class _IO:
-  def __init__(self, x, y, z=0.0):
+  def __init__(self, x, y, z=0.0, plc_logic=None):
     self.xAxis = _Axis(x)
     self.yAxis = _Axis(y)
     self.zAxis = _Axis(z)
-    self.plcLogic = _QueuedMotionPLCLogic()
+    self.plcLogic = _QueuedMotionPLCLogic() if plc_logic is None else plc_logic
+    self.head = _Head()
+
+
+class _PLCTagAxis:
+  def __init__(self, plc, tag_name):
+    self._plc = plc
+    self._tag_name = str(tag_name)
+
+  def getPosition(self):
+    return float(self._plc.get_tag(self._tag_name))
+
+
+class _RuntimeQueuedMotionIO:
+  def __init__(self, plc):
+    plc_logic = _QueuedMotionPLCLogic(queued_motion=QueuedMotionPLCInterface(plc))
+    self.xAxis = _PLCTagAxis(plc, "X_axis.ActualPosition")
+    self.yAxis = _PLCTagAxis(plc, "Y_axis.ActualPosition")
+    self.zAxis = _PLCTagAxis(plc, "Z_axis.ActualPosition")
+    self.plcLogic = plc_logic
     self.head = _Head()
 
 
@@ -133,6 +154,95 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(segment.seq, 1000)
     self.assertEqual(segment.x, 500.0)
     self.assertEqual(segment.y, 200.0)
+
+  def test_single_step_g113_queues_first_planned_segment_with_full_stop(self):
+    calibration = DefaultMachineCalibration()
+    merge_lines = [
+      "G113 PPRECISE X500.0 Y100.0",
+      "G113 PPRECISE X550.0 Y150.0",
+    ]
+    preview_handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    preview_handler._x = 400.0
+    preview_handler._y = 100.0
+    preview_handler._z = 0.0
+    preview_handler._gCode = GCodeProgramExecutor(
+      merge_lines,
+      preview_handler._callbacks,
+    )
+
+    full_block = preview_handler._build_queued_block(0)
+    self.assertIsNotNone(full_block)
+    full_first_segment = full_block["segments"][0]
+    self.assertEqual(full_first_segment.term_type, 4)
+    self.assertEqual(full_block["resume_line"], 2)
+
+    stepped_handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    stepped_handler._x = 400.0
+    stepped_handler._y = 100.0
+    stepped_handler._z = 0.0
+    stepped_handler._gCode = GCodeProgramExecutor(
+      merge_lines,
+      stepped_handler._callbacks,
+    )
+
+    stepped_block = stepped_handler._build_queued_block(0, single_step_queue=True)
+
+    self.assertIsNotNone(stepped_block)
+    self.assertEqual(stepped_block["resume_line"], 1)
+    self.assertTrue(stepped_block["stop_after_block"])
+    self.assertEqual(len(stepped_block["segments"]), 1)
+    stepped_segment = stepped_block["segments"][0]
+    self.assertEqual(stepped_segment.term_type, 0)
+    self.assertEqual(stepped_segment.seq, full_first_segment.seq)
+    self.assertEqual(stepped_segment.seg_type, full_first_segment.seg_type)
+    self.assertAlmostEqual(stepped_segment.x, full_first_segment.x, places=6)
+    self.assertAlmostEqual(stepped_segment.y, full_first_segment.y, places=6)
+    self.assertAlmostEqual(stepped_segment.via_center_x, full_first_segment.via_center_x, places=6)
+    self.assertAlmostEqual(stepped_segment.via_center_y, full_first_segment.via_center_y, places=6)
+    self.assertEqual(stepped_segment.direction, full_first_segment.direction)
+
+  def test_single_step_g113_executes_queue_and_stops_before_next_line(self):
+    plc = SimulatedPLC("SIM")
+    plc.set_tag("X_axis.ActualPosition", 400.0)
+    plc.set_tag("Y_axis.ActualPosition", 100.0)
+    calibration = DefaultMachineCalibration()
+    merge_lines = [
+      "G113 PPRECISE X500.0 Y100.0",
+      "G113 PPRECISE X550.0 Y150.0",
+    ]
+    handler = GCodeHandler(_RuntimeQueuedMotionIO(plc), calibration, WirePathModel(calibration))
+    handler.loadG_Code(
+      merge_lines,
+      None,
+    )
+    handler.singleStep = True
+
+    preview_handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    preview_handler._x = 400.0
+    preview_handler._y = 100.0
+    preview_handler._z = 0.0
+    preview_handler._gCode = GCodeProgramExecutor(
+      merge_lines,
+      preview_handler._callbacks,
+    )
+    expected_segment = preview_handler._build_queued_block(0, single_step_queue=True)["segments"][0]
+
+    stopped = False
+    for _ in range(12):
+      stopped = handler.poll()
+      if stopped and handler._queued_session is None:
+        break
+      time.sleep(0.12)
+
+    self.assertTrue(stopped)
+    self.assertIsNone(handler._queued_session)
+    self.assertEqual(handler._currentLine, 0)
+    self.assertEqual(handler._nextLine, 0)
+    self.assertEqual(handler._queued_stop_mode, None)
+    self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), expected_segment.x, places=6)
+    self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), expected_segment.y, places=6)
+    self.assertEqual(plc.get_tag("IncomingSeg")["TermType"], 0)
 
 
 if __name__ == "__main__":
