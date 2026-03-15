@@ -270,20 +270,13 @@ class GCodeHandler(GCodeHandlerBase):
       while True:
         cursor += 1
         if cursor >= self._gCode.getLineCount():
-          if len(previews) < 2:
-            return None
           break
         next_preview = self._preview_loaded_line(cursor)
         if not next_preview.queueable:
-          if len(previews) < 2:
-            return None
           break
         previews.append(next_preview)
         if next_preview.merge_mode is None:
           break
-
-      if len(previews) < 2:
-        return None
 
       speed = min(preview.velocity for preview in previews)
       accel = max(1.0, float(getattr(self._io.plcLogic, "_maxAcceleration", 0.0) or 0.0))
