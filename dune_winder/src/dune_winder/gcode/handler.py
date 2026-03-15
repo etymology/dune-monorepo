@@ -1,5 +1,5 @@
 ###############################################################################
-# Name: G_CodeHandler.py
+# Name: GCodeHandler.py
 # Uses: Hardware specific G-code handling.  Associates the G-code command to a
 #       actual hardware.
 # Date: 2016-02-11
@@ -10,8 +10,8 @@ import time
 from dataclasses import dataclass
 
 from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
-from dune_winder.machine.g_code_handler_base import G_CodeHandlerBase
-from dune_winder.io.Maps.base_io import BaseIO
+from dune_winder.gcode.handler_base import GCodeHandlerBase
+from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.queued_motion.merge_planner import MergeWaypoint, build_merge_path_segments
 from dune_winder.queued_motion.plc_interface import PLC_QUEUE_DEPTH
 from dune_winder.queued_motion.queue_session import QueuedMotionSession
@@ -33,7 +33,7 @@ class _PreviewedQueuedLine:
   merge_mode: str | None
 
 
-class G_CodeHandler(G_CodeHandlerBase):
+class GCodeHandler(GCodeHandlerBase):
   # ---------------------------------------------------------------------
   def _getHeadPosition(self, headPosition):
     """
@@ -42,7 +42,7 @@ class G_CodeHandler(G_CodeHandlerBase):
     if headPosition is None:
       headPosition = self._io.head.readCurrentPosition()
       self._headPosition = headPosition
-    return G_CodeHandlerBase._getHeadPosition(self, headPosition)
+    return GCodeHandlerBase._getHeadPosition(self, headPosition)
 
   # ---------------------------------------------------------------------
   def isDone(self):
@@ -816,7 +816,7 @@ class G_CodeHandler(G_CodeHandlerBase):
       machineCalibration: Machine calibration instance.
       headCompensation: Instance of HeadCompensation.
     """
-    G_CodeHandlerBase.__init__(self, machineCalibration, headCompensation)
+    GCodeHandlerBase.__init__(self, machineCalibration, headCompensation)
 
     self._gCode = None
 

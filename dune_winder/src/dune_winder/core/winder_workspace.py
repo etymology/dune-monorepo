@@ -11,11 +11,11 @@ import re
 import tempfile
 from typing import Optional
 
-from dune_winder.core.g_code_handler import G_CodeHandler
+from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.hash import Hash
 from dune_winder.library.log import Log
 from dune_winder.library.time_source import TimeSource
-from dune_winder.machine.layer_calibration import LayerCalibration
+from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.recipe import Recipe
 
@@ -116,7 +116,7 @@ class WinderWorkspace:
 
   def __init__(
     self,
-    gCodeHandler: G_CodeHandler,
+    gCodeHandler: GCodeHandler,
     workspaceDirectory: str,
     calibrationDirectory: str,
     recipeDirectory: str,

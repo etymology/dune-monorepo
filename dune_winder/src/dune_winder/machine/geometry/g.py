@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from .gx_layer_geometry import GX_LayerGeometry
+from .gx import GX_LayerGeometry
 
 
 class G_LayerGeometry(GX_LayerGeometry):

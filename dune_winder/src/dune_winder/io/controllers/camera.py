@@ -11,7 +11,7 @@
 # accumulates capture data.  These two systems must be implemented in the PLC
 # for maximum speed.
 ###############################################################################
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.devices.plc import PLC
 
 
 class Camera:

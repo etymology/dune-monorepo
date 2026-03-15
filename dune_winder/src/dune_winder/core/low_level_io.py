@@ -8,14 +8,14 @@
 #   Designed to provide access to all the low-level primitive I/O lists.
 ###############################################################################
 
-from dune_winder.io.Primitives.io_point import IO_Point
-from dune_winder.io.Primitives.digital_io import DigitalIO
-from dune_winder.io.Primitives.digital_input import DigitalInput
-from dune_winder.io.Primitives.digital_output import DigitalOutput
-from dune_winder.io.Primitives.motor import Motor
-from dune_winder.io.Primitives.analog_input import AnalogInput
-from dune_winder.io.Primitives.analog_output import AnalogOutput
-from dune_winder.io.Devices.plc import PLC
+from dune_winder.io.primitives.io_point import IO_Point
+from dune_winder.io.primitives.digital_io import DigitalIO
+from dune_winder.io.primitives.digital_input import DigitalInput
+from dune_winder.io.primitives.digital_output import DigitalOutput
+from dune_winder.io.primitives.motor import Motor
+from dune_winder.io.primitives.analog_input import AnalogInput
+from dune_winder.io.primitives.analog_output import AnalogOutput
+from dune_winder.io.devices.plc import PLC
 
 
 class LowLevelIO:

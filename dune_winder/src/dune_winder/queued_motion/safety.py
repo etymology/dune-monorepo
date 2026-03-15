@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from dune_winder.machine.default_calibration import DefaultMachineCalibration
+from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.settings import Settings
 
 from .segment_types import (

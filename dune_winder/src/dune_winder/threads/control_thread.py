@@ -12,7 +12,7 @@ from dune_winder.threads.primary_thread import PrimaryThread
 from dune_winder.library.system_time import SystemTime
 from dune_winder.library.log import Log
 from dune_winder.core.control_state_machine import ControlStateMachine
-from dune_winder.io.Maps.base_io import BaseIO
+from dune_winder.io.maps.base_io import BaseIO
 
 
 class ControlThread(PrimaryThread):

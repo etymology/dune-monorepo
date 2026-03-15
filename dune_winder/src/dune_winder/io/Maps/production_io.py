@@ -19,11 +19,11 @@ def normalize_plc_mode(plcMode):
 def create_plc_backend(plcAddress, plcMode="REAL"):
   mode = normalize_plc_mode(plcMode)
   if mode == "SIM":
-    from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+    from dune_winder.io.devices.simulated_plc import SimulatedPLC
 
     return SimulatedPLC(plcAddress)
 
-  from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
+  from dune_winder.io.devices.controllogix_plc import ControllogixPLC
 
   return ControllogixPLC(plcAddress)
 

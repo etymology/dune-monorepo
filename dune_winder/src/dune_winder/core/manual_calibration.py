@@ -16,9 +16,9 @@ from dune_winder.recipes.xg_template_gcode import (
   get_xg_recipe_file_name,
   write_xg_template_file,
 )
-from dune_winder.machine.geometry_selection import create_layer_geometry
-from dune_winder.machine.layer_calibration import LayerCalibration
-from dune_winder.machine.layer_functions import LayerFunctions
+from dune_winder.machine.geometry.factory import create_layer_geometry
+from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.machine.geometry.layer_functions import LayerFunctions
 from dune_winder.machine.settings import Settings
 
 

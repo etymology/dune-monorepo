@@ -8,7 +8,7 @@
 
 from dune_winder.library.Geometry.location import Location
 
-from .layer_geometry import LayerGeometry
+from .layer import LayerGeometry
 
 
 class GX_LayerGeometry(LayerGeometry):

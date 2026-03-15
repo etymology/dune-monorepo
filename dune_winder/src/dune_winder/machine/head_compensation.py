@@ -367,7 +367,7 @@ class HeadCompensation:
 
 
 if __name__ == "__main__":
-  from .machine_calibration import MachineCalibration
+  from .calibration.machine import MachineCalibration
 
   # Make up a calibration setup for all tests.
   machineCalibration = MachineCalibration()

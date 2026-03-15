@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.io.Devices.io_device import IO_Device
+from dune_winder.io.devices.io_device import IO_Device
 from abc import ABCMeta, abstractmethod
 
 

@@ -1,8 +1,8 @@
-from .layer_geometry import LayerGeometry
-from .x_layer_geometry import X_LayerGeometry
-from .v_layer_geometry import V_LayerGeometry
-from .u_layer_geometry import U_LayerGeometry
-from .g_layer_geometry import G_LayerGeometry
+from .layer import LayerGeometry
+from .x import X_LayerGeometry
+from .v import V_LayerGeometry
+from .u import U_LayerGeometry
+from .g import G_LayerGeometry
 
 _LAYERS: dict[str, type[LayerGeometry]] = {
   "X": X_LayerGeometry,

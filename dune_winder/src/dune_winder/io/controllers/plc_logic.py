@@ -12,9 +12,9 @@
 #   PLC.  No operation that isn't specific to the ladder logic should be in
 #   this unit.
 ###################################################>############################
-from dune_winder.io.Devices.plc import PLC
-from dune_winder.io.Systems.multi_axis_motor import MultiAxisMotor
-from dune_winder.io.Types.plc_motor import PLC_Motor
+from dune_winder.io.devices.plc import PLC
+from dune_winder.io.primitives.multi_axis_motor import MultiAxisMotor
+from dune_winder.io.primitives.plc_motor import PLC_Motor
 from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface
 
 

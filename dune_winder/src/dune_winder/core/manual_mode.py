@@ -14,7 +14,7 @@ from dune_winder.core.control_events import (
   StopMotionEvent,
 )
 from dune_winder.library.state_machine_state import StateMachineState
-from dune_winder.io.Maps.production_io import ProductionIO
+from dune_winder.io.maps.production_io import ProductionIO
 from dune_winder.library.log import Log
 
 
