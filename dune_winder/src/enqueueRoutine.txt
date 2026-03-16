@@ -62,10 +62,11 @@ XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Direction CmdB_Direction
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeq 
 XIC PrepCurMove OTL IssueCurPulse 
 XIC PrepCurMove OTU PrepCurMove 
-XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] MSO Z_axis AXIS_STAT[31] 
+XIC IssueCurPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIC UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIC UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueCurPulse OTL CurIssued 
 XIC IssueCurPulse OTU IssueCurPulse 
 XIC CurIssued XIC UseAasCurrent XIC MoveA.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextA_ONS OTL LoadNextReq 
@@ -99,10 +100,11 @@ XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Direction CmdA_Direction
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Seq PendingSeq 
 XIC PrepNextMove OTL IssueNextPulse 
 XIC PrepNextMove OTU PrepNextMove 
-XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] MSO Z_axis AXIS_STAT[31] 
+XIC IssueNextPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIC UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIC UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueNextPulse OTL NextIssued 
 XIC IssueNextPulse OTU IssueNextPulse 
 XIC CurIssued XIC NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.IP ONS RotateONS_AtoB OTL RotateMoves 
