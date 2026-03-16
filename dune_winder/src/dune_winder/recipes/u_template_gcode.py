@@ -312,13 +312,15 @@ def render_u_template_lines(
   special_inputs=None,
   cell_overrides=None,
 ):
-  resolved_offsets, transfer_pause_value, include_lead_mode_value = _resolve_render_state(
-    offsets=offsets,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-    named_inputs=named_inputs,
-    special_inputs=special_inputs,
-    cell_overrides=cell_overrides,
+  resolved_offsets, transfer_pause_value, include_lead_mode_value = (
+    _resolve_render_state(
+      offsets=offsets,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+      named_inputs=named_inputs,
+      special_inputs=special_inputs,
+      cell_overrides=cell_overrides,
+    )
   )
 
   lines = [
@@ -458,12 +460,14 @@ def write_u_template_file(
   archive_directory=None,
   parent_hash=None,
 ):
-  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = _resolve_render_state(
-    offsets=offsets,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-    named_inputs=named_inputs,
-    special_inputs=special_inputs,
+  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = (
+    _resolve_render_state(
+      offsets=offsets,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+      named_inputs=named_inputs,
+      special_inputs=special_inputs,
+    )
   )
   lines = render_u_template_lines(
     offsets=offsets,
@@ -624,7 +628,9 @@ def main(argv=None):
       "Cell overrides are not supported by the programmatic U generator."
     )
 
-  named_inputs = dict(_parse_assignment(assignment) for assignment in args.named_assignments)
+  named_inputs = dict(
+    _parse_assignment(assignment) for assignment in args.named_assignments
+  )
   special_inputs = dict(
     _parse_assignment(assignment) for assignment in args.special_assignments
   )
