@@ -8,7 +8,9 @@ from dune_winder.io.devices.simulated_plc import SimulatedPLC
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface
+from dune_winder.queued_motion.queue_client import MotionQueueClient
 from dune_winder.queued_motion.queue_session import QueuedMotionSession
+from dune_winder.queued_motion.safety import MotionSafetyLimits
 from dune_winder.queued_motion.segment_types import MotionSegment
 
 
@@ -18,6 +20,14 @@ class _Axis:
 
   def getPosition(self):
     return self._position
+
+
+class _Input:
+  def __init__(self, value=False):
+    self._value = bool(value)
+
+  def get(self):
+    return self._value
 
 
 class _QueuedMotionPLCLogic:
@@ -58,12 +68,18 @@ class _Head:
 
 
 class _IO:
-  def __init__(self, x, y, z=0.0, plc_logic=None):
+  def __init__(self, x, y, z=0.0, plc_logic=None, **locks):
     self.xAxis = _Axis(x)
     self.yAxis = _Axis(y)
     self.zAxis = _Axis(z)
     self.plcLogic = _QueuedMotionPLCLogic() if plc_logic is None else plc_logic
     self.head = _Head()
+    self.FrameLockHeadTop = _Input(locks.get("frame_lock_head_top", False))
+    self.FrameLockHeadMid = _Input(locks.get("frame_lock_head_mid", False))
+    self.FrameLockHeadBtm = _Input(locks.get("frame_lock_head_btm", False))
+    self.FrameLockFootTop = _Input(locks.get("frame_lock_foot_top", False))
+    self.FrameLockFootMid = _Input(locks.get("frame_lock_foot_mid", False))
+    self.FrameLockFootBtm = _Input(locks.get("frame_lock_foot_btm", False))
 
 
 class _PLCTagAxis:
@@ -83,6 +99,12 @@ class _RuntimeQueuedMotionIO:
     self.zAxis = _PLCTagAxis(plc, "Z_axis.ActualPosition")
     self.plcLogic = plc_logic
     self.head = _Head()
+    self.FrameLockHeadTop = _Input(bool(plc.get_tag("MACHINE_SW_STAT[26]")))
+    self.FrameLockHeadMid = _Input(bool(plc.get_tag("MACHINE_SW_STAT[27]")))
+    self.FrameLockHeadBtm = _Input(bool(plc.get_tag("MACHINE_SW_STAT[28]")))
+    self.FrameLockFootTop = _Input(bool(plc.get_tag("MACHINE_SW_STAT[29]")))
+    self.FrameLockFootMid = _Input(bool(plc.get_tag("MACHINE_SW_STAT[30]")))
+    self.FrameLockFootBtm = _Input(bool(plc.get_tag("MACHINE_SW_STAT[31]")))
 
 
 class _FakeClock:
@@ -97,6 +119,28 @@ class _FakeClock:
 
 
 class QueuedMotionTests(unittest.TestCase):
+  def _z_collision_calibration(self):
+    calibration = DefaultMachineCalibration()
+    calibration.queuedMotionZCollisionThreshold = 100.0
+    return calibration
+
+  def _z_collision_limits(self):
+    return MotionSafetyLimits(
+      limit_left=0.0,
+      limit_right=7360.0,
+      limit_bottom=0.0,
+      limit_top=3000.0,
+      transfer_left=0.0,
+      transfer_right=7360.0,
+      transfer_left_margin=0.0,
+      transfer_y_threshold=10000.0,
+      headward_pivot_x=9000.0,
+      headward_pivot_y=9000.0,
+      headward_pivot_x_tolerance=0.0,
+      headward_pivot_y_tolerance=0.0,
+      queued_motion_z_collision_threshold=100.0,
+    )
+
   def setUp(self):
     self._saved_tag_instances = list(PLC.Tag.instances)
     self._saved_tag_lookup = dict(PLC.Tag.tag_lookup_table)
@@ -243,6 +287,79 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), expected_segment.x, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), expected_segment.y, places=6)
     self.assertEqual(plc.get_tag("IncomingSeg")["TermType"], 0)
+
+  def test_gcode_builder_rejects_central_apa_motion_when_z_extended(self):
+    calibration = self._z_collision_calibration()
+    handler = GCodeHandler(_IO(1000.0, 25.0, z=200.0), calibration, WirePathModel(calibration))
+    handler._x = 1000.0
+    handler._y = 25.0
+    handler._z = 200.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X1000.0 Y150.0"],
+      handler._callbacks,
+    )
+
+    with self.assertRaisesRegex(ValueError, "Unable to build a valid queued path"):
+      handler._build_queued_block(0)
+
+  def test_gcode_builder_allows_head_transfer_motion_when_supports_clear(self):
+    calibration = self._z_collision_calibration()
+    handler = GCodeHandler(_IO(450.0, 25.0, z=200.0), calibration, WirePathModel(calibration))
+    handler._x = 450.0
+    handler._y = 25.0
+    handler._z = 200.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X450.0 Y2100.0"],
+      handler._callbacks,
+    )
+
+    block = handler._build_queued_block(0)
+
+    self.assertIsNotNone(block)
+    self.assertEqual(len(block["segments"]), 1)
+    self.assertEqual(block["segments"][0].x, 450.0)
+    self.assertEqual(block["segments"][0].y, 2100.0)
+
+  def test_gcode_builder_rejects_locked_head_support_window(self):
+    calibration = self._z_collision_calibration()
+    handler = GCodeHandler(
+      _IO(450.0, 25.0, z=200.0, frame_lock_head_btm=True),
+      calibration,
+      WirePathModel(calibration),
+    )
+    handler._x = 450.0
+    handler._y = 25.0
+    handler._z = 200.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X450.0 Y500.0"],
+      handler._callbacks,
+    )
+
+    with self.assertRaisesRegex(ValueError, "Unable to build a valid queued path"):
+      handler._build_queued_block(0)
+
+  def test_motion_queue_client_rejects_unsafe_segment_and_accepts_transfer_zone_segment(self):
+    with MotionQueueClient("SIM") as motion:
+      motion._safety_limits = self._z_collision_limits()
+      motion._plc.set_tag("X_axis.ActualPosition", 450.0)
+      motion._plc.set_tag("Y_axis.ActualPosition", 25.0)
+      motion._plc.set_tag("Z_axis.ActualPosition", 200.0)
+      motion._plc.set_tag("MACHINE_SW_STAT[26]", 0)
+      motion._plc.set_tag("MACHINE_SW_STAT[27]", 0)
+      motion._plc.set_tag("MACHINE_SW_STAT[28]", 0)
+      motion._plc.set_tag("MACHINE_SW_STAT[29]", 0)
+      motion._plc.set_tag("MACHINE_SW_STAT[30]", 0)
+      motion._plc.set_tag("MACHINE_SW_STAT[31]", 0)
+      motion.reset_queue()
+
+      with self.assertRaisesRegex(ValueError, "APA collision zone"):
+        motion.enqueue_segment(MotionSegment(seq=1, x=1000.0, y=150.0))
+
+      motion.enqueue_segment(MotionSegment(seq=2, x=450.0, y=2100.0))
+      motion._require_queue().poll()
+
+      self.assertEqual(motion._require_queue().status().ack, 2)
+      self.assertEqual(motion._last_point, (450.0, 2100.0))
 
 
 if __name__ == "__main__":
