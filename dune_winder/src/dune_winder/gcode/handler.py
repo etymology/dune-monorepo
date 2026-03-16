@@ -349,7 +349,11 @@ class GCodeHandler(GCodeHandlerBase):
 
   # ---------------------------------------------------------------------
   def _start_queued_block(self, line_index):
-    block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
+    try:
+      block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
+    except ValueError:
+      # If queued planning fails for this line, execute it through the legacy path.
+      return False
     if block is None:
       return False
 
