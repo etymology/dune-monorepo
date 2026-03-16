@@ -417,9 +417,10 @@ class GCodeHandler(GCodeHandlerBase):
 
     self._stopNextMove = False
     if self._queued_session is not None:
-      self._io.plcLogic.queuedMotion.set_abort(True)
-      time.sleep(0.10)
-      self._io.plcLogic.queuedMotion.set_abort(False)
+      if hasattr(self._io.plcLogic, "stopSeek"):
+        self._io.plcLogic.stopSeek()
+      else:
+        self._io.plcLogic.queuedMotion.set_stop_request(True)
       self._queued_session = None
       self._queued_stop_mode = None
       self._nextLine = self._queued_block_start_line - self._direction

@@ -19,6 +19,7 @@ TAG_LAST_REQ_ID = "LastIncomingSegReqID"
 TAG_ACK = "IncomingSegAck"
 TAG_ABORT = "AbortQueue"
 TAG_START = "StartQueuedPath"
+TAG_STOP_REQUEST = "QueueStopRequest"
 
 TAG_MOTION_FAULT = "MotionFault"
 TAG_CUR_ISSUED = "CurIssued"
@@ -101,6 +102,7 @@ class QueuedMotionPLCInterface:
     self._ack = PLC.Tag(plc, TAG_ACK, polled, tagType="DINT")
     self._abort = PLC.Tag(plc, TAG_ABORT, tagType="BOOL")
     self._start = PLC.Tag(plc, TAG_START, tagType="BOOL")
+    self._stop_request = PLC.Tag(plc, TAG_STOP_REQUEST, tagType="BOOL")
 
     self._motion_fault = PLC.Tag(plc, TAG_MOTION_FAULT, polled, tagType="BOOL")
     self._cur_issued = PLC.Tag(plc, TAG_CUR_ISSUED, polled, tagType="BOOL")
@@ -147,6 +149,9 @@ class QueuedMotionPLCInterface:
 
   def set_start(self, enabled: bool) -> None:
     self._start.set(bool(enabled))
+
+  def set_stop_request(self, enabled: bool) -> None:
+    self._stop_request.set(bool(enabled))
 
   def write_segment(self, seg: MotionSegment) -> None:
     validate_queue_segment(seg)
@@ -277,6 +282,9 @@ class QueuedMotionPortAdapter:
 
   def set_start(self, enabled: bool) -> None:
     self.port.set_start(enabled)
+
+  def set_stop_request(self, enabled: bool) -> None:
+    self.port.set_stop_request(enabled)
 
   def status(self) -> QueuedMotionStatus:
     return self.port.status()
