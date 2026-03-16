@@ -625,6 +625,21 @@ def build_command_registry(
     lambda args: (_validateArgs(args), process.getUiSnapshot())[1],
     False,
   )
+  registry.register(
+    "process.get_queued_motion_preview",
+    lambda args: (_validateArgs(args), process.getQueuedMotionPreview())[1],
+    False,
+  )
+  registry.register(
+    "process.continue_queued_motion_preview",
+    lambda args: (_validateArgs(args), process.continueQueuedMotionPreview())[1],
+    True,
+  )
+  registry.register(
+    "process.cancel_queued_motion_preview",
+    lambda args: (_validateArgs(args), process.cancelQueuedMotionPreview())[1],
+    True,
+  )
 
   def process_get_gcode_list(args):
     _validateArgs(args, required=("delta",), optional=("center",))
