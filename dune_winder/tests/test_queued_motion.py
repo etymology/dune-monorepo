@@ -1,5 +1,6 @@
 import time
 import unittest
+from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.gcode.runtime import GCodeProgramExecutor
@@ -139,6 +140,21 @@ class QueuedMotionTests(unittest.TestCase):
       headward_pivot_x_tolerance=0.0,
       headward_pivot_y_tolerance=0.0,
       queued_motion_z_collision_threshold=100.0,
+      arc_max_step_rad=0.05235987755982989,  # radians(3.0)
+      arc_max_chord=5.0,
+      apa_collision_bottom_y=50.0,
+      apa_collision_top_y=2250.0,
+      transfer_zone_head_min_x=400.0,
+      transfer_zone_head_max_x=500.0,
+      transfer_zone_foot_min_x=7100.0,
+      transfer_zone_foot_max_x=7200.0,
+      support_collision_bottom_min_y=80.0,
+      support_collision_bottom_max_y=450.0,
+      support_collision_middle_min_y=1050.0,
+      support_collision_middle_max_y=1550.0,
+      support_collision_top_min_y=2200.0,
+      support_collision_top_max_y=2650.0,
+      geometry_epsilon=1e-9,
     )
 
   def setUp(self):
@@ -288,6 +304,25 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), expected_segment.y, places=6)
     self.assertEqual(plc.get_tag("IncomingSeg")["TermType"], 0)
 
+  def test_start_queued_block_falls_back_when_queue_planner_rejects_path(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+
+    with patch.object(handler, "_build_queued_block", side_effect=ValueError("queued path invalid")):
+      started = handler._start_queued_block(0)
+
+    self.assertFalse(started)
+    self.assertIsNone(handler._queued_session)
+
+  def test_sub_resolution_xy_move_is_treated_as_noop(self):
+    calibration = self._z_collision_calibration()
+    handler = GCodeHandler(_IO(1000.0, 150.0, z=200.0), calibration, WirePathModel(calibration))
+
+    error = handler.executeG_CodeLine("G113 PPRECISE X1000.05 Y150.00")
+
+    self.assertIsNone(error)
+    self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+
   def test_gcode_builder_rejects_central_apa_motion_when_z_extended(self):
     calibration = self._z_collision_calibration()
     handler = GCodeHandler(_IO(1000.0, 25.0, z=200.0), calibration, WirePathModel(calibration))
@@ -364,3 +399,4 @@ class QueuedMotionTests(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+

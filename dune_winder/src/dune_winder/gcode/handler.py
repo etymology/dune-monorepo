@@ -7,6 +7,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 import time
+import math
 from dataclasses import dataclass, replace
 
 from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
@@ -22,6 +23,8 @@ from dune_winder.queued_motion.safety import (
   validate_xy_move_within_safety_limits,
 )
 from dune_winder.queued_motion.segment_patterns import DEFAULT_WAYPOINT_MIN_ARC_RADIUS
+
+_COMMAND_POSITION_RESOLUTION_MM = 0.1
 
 
 @dataclass(frozen=True)
@@ -349,7 +352,11 @@ class GCodeHandler(GCodeHandlerBase):
 
   # ---------------------------------------------------------------------
   def _start_queued_block(self, line_index):
-    block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
+    try:
+      block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
+    except ValueError:
+      # If queued planning fails for this line, execute it through the legacy path.
+      return False
     if block is None:
       return False
 
@@ -465,19 +472,28 @@ class GCodeHandler(GCodeHandlerBase):
             float(self._io.xAxis.getPosition()),
             float(self._io.yAxis.getPosition()),
           )
-          try:
-            validate_xy_move_within_safety_limits(
-              start_xy,
-              (float(self._x), float(self._y)),
-              self._motion_safety_limits(),
-              seq=int(self._line or 0),
-              label="line",
-            )
-          except ValueError as exception:
-            self._set_xy_safety_error(str(exception))
+          target_xy = (float(self._x), float(self._y))
+          is_noop_xy_move = (
+            math.hypot(target_xy[0] - start_xy[0], target_xy[1] - start_xy[1])
+            < _COMMAND_POSITION_RESOLUTION_MM
+          )
+          if is_noop_xy_move:
+            # Sub-resolution XY command: already at target.
+            moving = False
           else:
-            self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
-            moving = True
+            try:
+              validate_xy_move_within_safety_limits(
+                start_xy,
+                target_xy,
+                self._motion_safety_limits(),
+                seq=int(self._line or 0),
+                label="line",
+              )
+            except ValueError as exception:
+              self._set_xy_safety_error(str(exception))
+            else:
+              self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+              moving = True
         elif action == "z":
           self._io.plcLogic.setZ_Position(self._z, velocity)
           moving = True

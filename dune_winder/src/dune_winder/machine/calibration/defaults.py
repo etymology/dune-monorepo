@@ -6,6 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 import os
+import math
 
 from dune_winder.library.Geometry.location import Location
 from dune_winder.library.serializable_location import SerializableLocation
@@ -99,6 +100,8 @@ class DefaultMachineCalibration(MachineCalibration):
     self.transferRight = geometry.right
     self.transferRightTop = geometry.top / 2
     self.transferBottom = geometry.bottom
+    self.transferLeftMargin = 10.0
+    self.transferYThreshold = 1000.0
 
     self.limitLeft = geometry.limitLeft
     self.limitTop = geometry.limitTop
@@ -111,6 +114,21 @@ class DefaultMachineCalibration(MachineCalibration):
     self.zFront = 0
     self.zBack = geometry.zTravel
     self.queuedMotionZCollisionThreshold = self.zBack
+    self.arcMaxStepRad = math.radians(3.0)
+    self.arcMaxChord = 5.0
+    self.apaCollisionBottomY = 50.0
+    self.apaCollisionTopY = 2250.0
+    self.transferZoneHeadMinX = 400.0
+    self.transferZoneHeadMaxX = 500.0
+    self.transferZoneFootMinX = 7100.0
+    self.transferZoneFootMaxX = 7200.0
+    self.supportCollisionBottomMinY = 80.0
+    self.supportCollisionBottomMaxY = 450.0
+    self.supportCollisionMiddleMinY = 1050.0
+    self.supportCollisionMiddleMaxY = 1550.0
+    self.supportCollisionTopMinY = 2200.0
+    self.supportCollisionTopMaxY = 2650.0
+    self.geometryEpsilon = 1e-9
     self.zLimitFront = geometry.limitRetracted
     self.zLimitRear = geometry.limitExtended
     self.headArmLength = geometry.headArmLength

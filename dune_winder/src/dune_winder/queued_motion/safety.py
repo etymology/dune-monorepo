@@ -16,26 +16,6 @@ from .segment_types import (
   SEG_TYPE_LINE,
 )
 
-
-DEFAULT_TRANSFER_LEFT_MARGIN = 10.0
-DEFAULT_TRANSFER_Y_THRESHOLD = 1000.0
-DEFAULT_ARC_MAX_STEP_RAD = math.radians(3.0)
-DEFAULT_ARC_MAX_CHORD = 5.0
-APA_COLLISION_BOTTOM_Y = 50.0
-APA_COLLISION_TOP_Y = 2250.0
-TRANSFER_ZONE_HEAD_MIN_X = 400.0
-TRANSFER_ZONE_HEAD_MAX_X = 500.0
-TRANSFER_ZONE_FOOT_MIN_X = 7100.0
-TRANSFER_ZONE_FOOT_MAX_X = 7200.0
-SUPPORT_COLLISION_BOTTOM_MIN_Y = 80.0
-SUPPORT_COLLISION_BOTTOM_MAX_Y = 450.0
-SUPPORT_COLLISION_MIDDLE_MIN_Y = 1050.0
-SUPPORT_COLLISION_MIDDLE_MAX_Y = 1550.0
-SUPPORT_COLLISION_TOP_MIN_Y = 2200.0
-SUPPORT_COLLISION_TOP_MAX_Y = 2650.0
-_GEOMETRY_EPS = 1e-9
-
-
 @dataclass(frozen=True)
 class QueuedMotionCollisionState:
   z_actual_position: float = 0.0
@@ -55,13 +35,28 @@ class MotionSafetyLimits:
   limit_top: float
   transfer_left: float
   transfer_right: float = 0.0
-  transfer_left_margin: float = DEFAULT_TRANSFER_LEFT_MARGIN
-  transfer_y_threshold: float = DEFAULT_TRANSFER_Y_THRESHOLD
+  transfer_left_margin: float = 10.0
+  transfer_y_threshold: float = 1000.0
   headward_pivot_x: float = 150.0
   headward_pivot_y: float = 1400.0
   headward_pivot_x_tolerance: float = 150.0
   headward_pivot_y_tolerance: float = 300.0
   queued_motion_z_collision_threshold: float = 0.0
+  arc_max_step_rad: float = math.radians(3.0)
+  arc_max_chord: float = 5.0
+  apa_collision_bottom_y: float = 50.0
+  apa_collision_top_y: float = 2250.0
+  transfer_zone_head_min_x: float = 400.0
+  transfer_zone_head_max_x: float = 500.0
+  transfer_zone_foot_min_x: float = 7100.0
+  transfer_zone_foot_max_x: float = 7200.0
+  support_collision_bottom_min_y: float = 80.0
+  support_collision_bottom_max_y: float = 450.0
+  support_collision_middle_min_y: float = 1050.0
+  support_collision_middle_max_y: float = 1550.0
+  support_collision_top_min_y: float = 2200.0
+  support_collision_top_max_y: float = 2650.0
+  geometry_epsilon: float = 1e-9
 
 
 def _calibration_float(
@@ -88,6 +83,9 @@ def _calibration_float(
 
 
 def motion_safety_limits_from_calibration(calibration) -> MotionSafetyLimits:
+  def calibration_geometry_float(key: str, default: float) -> float:
+    return _calibration_float(calibration, key, default, persist_missing=True)
+
   z_extended_threshold = _calibration_float(
     calibration,
     "queuedMotionZCollisionThreshold",
@@ -101,16 +99,8 @@ def motion_safety_limits_from_calibration(calibration) -> MotionSafetyLimits:
     limit_top=_calibration_float(calibration, "limitTop", 0.0),
     transfer_left=_calibration_float(calibration, "transferLeft", 0.0),
     transfer_right=_calibration_float(calibration, "transferRight", 0.0),
-    transfer_left_margin=_calibration_float(
-      calibration,
-      "transferLeftMargin",
-      DEFAULT_TRANSFER_LEFT_MARGIN,
-    ),
-    transfer_y_threshold=_calibration_float(
-      calibration,
-      "transferYThreshold",
-      DEFAULT_TRANSFER_Y_THRESHOLD,
-    ),
+    transfer_left_margin=calibration_geometry_float("transferLeftMargin", 10.0),
+    transfer_y_threshold=calibration_geometry_float("transferYThreshold", 1000.0),
     headward_pivot_x=_calibration_float(calibration, "headwardPivotX", 150.0),
     headward_pivot_y=_calibration_float(calibration, "headwardPivotY", 1400.0),
     headward_pivot_x_tolerance=_calibration_float(
@@ -120,6 +110,33 @@ def motion_safety_limits_from_calibration(calibration) -> MotionSafetyLimits:
       calibration, "headwardPivotYTolerance", 300.0
     ),
     queued_motion_z_collision_threshold=z_extended_threshold,
+    arc_max_step_rad=calibration_geometry_float("arcMaxStepRad", math.radians(3.0)),
+    arc_max_chord=calibration_geometry_float("arcMaxChord", 5.0),
+    apa_collision_bottom_y=calibration_geometry_float("apaCollisionBottomY", 50.0),
+    apa_collision_top_y=calibration_geometry_float("apaCollisionTopY", 2250.0),
+    transfer_zone_head_min_x=calibration_geometry_float("transferZoneHeadMinX", 400.0),
+    transfer_zone_head_max_x=calibration_geometry_float("transferZoneHeadMaxX", 500.0),
+    transfer_zone_foot_min_x=calibration_geometry_float("transferZoneFootMinX", 7100.0),
+    transfer_zone_foot_max_x=calibration_geometry_float("transferZoneFootMaxX", 7200.0),
+    support_collision_bottom_min_y=calibration_geometry_float(
+      "supportCollisionBottomMinY", 80.0
+    ),
+    support_collision_bottom_max_y=calibration_geometry_float(
+      "supportCollisionBottomMaxY", 450.0
+    ),
+    support_collision_middle_min_y=calibration_geometry_float(
+      "supportCollisionMiddleMinY", 1050.0
+    ),
+    support_collision_middle_max_y=calibration_geometry_float(
+      "supportCollisionMiddleMaxY", 1550.0
+    ),
+    support_collision_top_min_y=calibration_geometry_float(
+      "supportCollisionTopMinY", 2200.0
+    ),
+    support_collision_top_max_y=calibration_geometry_float(
+      "supportCollisionTopMaxY", 2650.0
+    ),
+    geometry_epsilon=calibration_geometry_float("geometryEpsilon", 1e-9),
   )
 
 
@@ -144,9 +161,10 @@ def _orientation(
   a: tuple[float, float],
   b: tuple[float, float],
   c: tuple[float, float],
+  eps: float,
 ) -> int:
   value = ((b[1] - a[1]) * (c[0] - b[0])) - ((b[0] - a[0]) * (c[1] - b[1]))
-  if abs(value) <= _GEOMETRY_EPS:
+  if abs(value) <= eps:
     return 0
   return 1 if value > 0.0 else 2
 
@@ -155,10 +173,11 @@ def _point_on_segment(
   a: tuple[float, float],
   b: tuple[float, float],
   c: tuple[float, float],
+  eps: float,
 ) -> bool:
   return (
-    min(a[0], c[0]) - _GEOMETRY_EPS <= b[0] <= max(a[0], c[0]) + _GEOMETRY_EPS
-    and min(a[1], c[1]) - _GEOMETRY_EPS <= b[1] <= max(a[1], c[1]) + _GEOMETRY_EPS
+    min(a[0], c[0]) - eps <= b[0] <= max(a[0], c[0]) + eps
+    and min(a[1], c[1]) - eps <= b[1] <= max(a[1], c[1]) + eps
   )
 
 
@@ -167,22 +186,23 @@ def _segments_intersect(
   q1: tuple[float, float],
   p2: tuple[float, float],
   q2: tuple[float, float],
+  eps: float,
 ) -> bool:
-  o1 = _orientation(p1, q1, p2)
-  o2 = _orientation(p1, q1, q2)
-  o3 = _orientation(p2, q2, p1)
-  o4 = _orientation(p2, q2, q1)
+  o1 = _orientation(p1, q1, p2, eps)
+  o2 = _orientation(p1, q1, q2, eps)
+  o3 = _orientation(p2, q2, p1, eps)
+  o4 = _orientation(p2, q2, q1, eps)
 
   if o1 != o2 and o3 != o4:
     return True
 
-  if o1 == 0 and _point_on_segment(p1, p2, q1):
+  if o1 == 0 and _point_on_segment(p1, p2, q1, eps):
     return True
-  if o2 == 0 and _point_on_segment(p1, q2, q1):
+  if o2 == 0 and _point_on_segment(p1, q2, q1, eps):
     return True
-  if o3 == 0 and _point_on_segment(p2, p1, q2):
+  if o3 == 0 and _point_on_segment(p2, p1, q2, eps):
     return True
-  if o4 == 0 and _point_on_segment(p2, q1, q2):
+  if o4 == 0 and _point_on_segment(p2, q1, q2, eps):
     return True
 
   return False
@@ -195,10 +215,11 @@ def _point_in_box(
   x_max: float,
   y_min: float,
   y_max: float,
+  eps: float,
 ) -> bool:
   return (
-    x_min - _GEOMETRY_EPS <= x <= x_max + _GEOMETRY_EPS
-    and y_min - _GEOMETRY_EPS <= y <= y_max + _GEOMETRY_EPS
+    x_min - eps <= x <= x_max + eps
+    and y_min - eps <= y <= y_max + eps
   )
 
 
@@ -211,10 +232,11 @@ def _line_intersects_box(
   x_max: float,
   y_min: float,
   y_max: float,
+  eps: float,
 ) -> bool:
-  if _point_in_box(x1, y1, x_min, x_max, y_min, y_max):
+  if _point_in_box(x1, y1, x_min, x_max, y_min, y_max, eps):
     return True
-  if _point_in_box(x2, y2, x_min, x_max, y_min, y_max):
+  if _point_in_box(x2, y2, x_min, x_max, y_min, y_max, eps):
     return True
 
   edges = [
@@ -225,7 +247,7 @@ def _line_intersects_box(
   ]
 
   for edge in edges:
-    if _segments_intersect((x1, y1), (x2, y2), edge[0], edge[1]):
+    if _segments_intersect((x1, y1), (x2, y2), edge[0], edge[1], eps):
       return True
 
   return False
@@ -251,33 +273,33 @@ def _queued_motion_forbidden_boxes(
     return []
 
   boxes = []
-  if limits.limit_left < TRANSFER_ZONE_HEAD_MIN_X:
+  if limits.limit_left < limits.transfer_zone_head_min_x:
     boxes.append(
       (
         "APA collision zone",
         float(limits.limit_left),
-        TRANSFER_ZONE_HEAD_MIN_X - _GEOMETRY_EPS,
-        APA_COLLISION_BOTTOM_Y,
-        APA_COLLISION_TOP_Y,
+        limits.transfer_zone_head_min_x - limits.geometry_epsilon,
+        limits.apa_collision_bottom_y,
+        limits.apa_collision_top_y,
       )
     )
   boxes.append(
     (
       "APA collision zone",
-      TRANSFER_ZONE_HEAD_MAX_X + _GEOMETRY_EPS,
-      TRANSFER_ZONE_FOOT_MIN_X - _GEOMETRY_EPS,
-      APA_COLLISION_BOTTOM_Y,
-      APA_COLLISION_TOP_Y,
+      limits.transfer_zone_head_max_x + limits.geometry_epsilon,
+      limits.transfer_zone_foot_min_x - limits.geometry_epsilon,
+      limits.apa_collision_bottom_y,
+      limits.apa_collision_top_y,
     )
   )
-  if TRANSFER_ZONE_FOOT_MAX_X < limits.limit_right:
+  if limits.transfer_zone_foot_max_x < limits.limit_right:
     boxes.append(
       (
         "APA collision zone",
-        TRANSFER_ZONE_FOOT_MAX_X + _GEOMETRY_EPS,
+        limits.transfer_zone_foot_max_x + limits.geometry_epsilon,
         float(limits.limit_right),
-        APA_COLLISION_BOTTOM_Y,
-        APA_COLLISION_TOP_Y,
+        limits.apa_collision_bottom_y,
+        limits.apa_collision_top_y,
       )
     )
 
@@ -288,50 +310,50 @@ def _queued_motion_forbidden_boxes(
     (
       "head bottom frame-support keepout",
       collision_state.frame_lock_head_btm,
-      TRANSFER_ZONE_HEAD_MIN_X,
-      TRANSFER_ZONE_HEAD_MAX_X,
-      SUPPORT_COLLISION_BOTTOM_MIN_Y,
-      SUPPORT_COLLISION_BOTTOM_MAX_Y,
+      limits.transfer_zone_head_min_x,
+      limits.transfer_zone_head_max_x,
+      limits.support_collision_bottom_min_y,
+      limits.support_collision_bottom_max_y,
     ),
     (
       "head middle frame-support keepout",
       collision_state.frame_lock_head_mid,
-      TRANSFER_ZONE_HEAD_MIN_X,
-      TRANSFER_ZONE_HEAD_MAX_X,
-      SUPPORT_COLLISION_MIDDLE_MIN_Y,
-      SUPPORT_COLLISION_MIDDLE_MAX_Y,
+      limits.transfer_zone_head_min_x,
+      limits.transfer_zone_head_max_x,
+      limits.support_collision_middle_min_y,
+      limits.support_collision_middle_max_y,
     ),
     (
       "head top frame-support keepout",
       collision_state.frame_lock_head_top,
-      TRANSFER_ZONE_HEAD_MIN_X,
-      TRANSFER_ZONE_HEAD_MAX_X,
-      SUPPORT_COLLISION_TOP_MIN_Y,
-      SUPPORT_COLLISION_TOP_MAX_Y,
+      limits.transfer_zone_head_min_x,
+      limits.transfer_zone_head_max_x,
+      limits.support_collision_top_min_y,
+      limits.support_collision_top_max_y,
     ),
     (
       "foot bottom frame-support keepout",
       collision_state.frame_lock_foot_btm,
-      TRANSFER_ZONE_FOOT_MIN_X,
-      TRANSFER_ZONE_FOOT_MAX_X,
-      SUPPORT_COLLISION_BOTTOM_MIN_Y,
-      SUPPORT_COLLISION_BOTTOM_MAX_Y,
+      limits.transfer_zone_foot_min_x,
+      limits.transfer_zone_foot_max_x,
+      limits.support_collision_bottom_min_y,
+      limits.support_collision_bottom_max_y,
     ),
     (
       "foot middle frame-support keepout",
       collision_state.frame_lock_foot_mid,
-      TRANSFER_ZONE_FOOT_MIN_X,
-      TRANSFER_ZONE_FOOT_MAX_X,
-      SUPPORT_COLLISION_MIDDLE_MIN_Y,
-      SUPPORT_COLLISION_MIDDLE_MAX_Y,
+      limits.transfer_zone_foot_min_x,
+      limits.transfer_zone_foot_max_x,
+      limits.support_collision_middle_min_y,
+      limits.support_collision_middle_max_y,
     ),
     (
       "foot top frame-support keepout",
       collision_state.frame_lock_foot_top,
-      TRANSFER_ZONE_FOOT_MIN_X,
-      TRANSFER_ZONE_FOOT_MAX_X,
-      SUPPORT_COLLISION_TOP_MIN_Y,
-      SUPPORT_COLLISION_TOP_MAX_Y,
+      limits.transfer_zone_foot_min_x,
+      limits.transfer_zone_foot_max_x,
+      limits.support_collision_top_min_y,
+      limits.support_collision_top_max_y,
     ),
   )
 
@@ -353,7 +375,7 @@ def _validate_queued_motion_point(
   for region_label, x_min, x_max, y_min, y_max in _queued_motion_forbidden_boxes(
     limits, collision_state
   ):
-    if _point_in_box(x, y, x_min, x_max, y_min, y_max):
+    if _point_in_box(x, y, x_min, x_max, y_min, y_max, limits.geometry_epsilon):
       raise ValueError(
         f"{label} seq={seq} enters {region_label} with Z extended "
         f"(X={x:.3f}, Y={y:.3f})"
@@ -373,7 +395,17 @@ def _validate_queued_motion_line(
   for region_label, x_min, x_max, y_min, y_max in _queued_motion_forbidden_boxes(
     limits, collision_state
   ):
-    if _line_intersects_box(start_x, start_y, target_x, target_y, x_min, x_max, y_min, y_max):
+    if _line_intersects_box(
+      start_x,
+      start_y,
+      target_x,
+      target_y,
+      x_min,
+      x_max,
+      y_min,
+      y_max,
+      limits.geometry_epsilon,
+    ):
       raise ValueError(
         f"{label} seq={seq} intersects {region_label} with Z extended "
         f"from ({start_x:.3f}, {start_y:.3f}) to ({target_x:.3f}, {target_y:.3f})"
@@ -447,6 +479,7 @@ def _validate_line_step(
     limits.headward_pivot_x + limits.headward_pivot_x_tolerance,
     limits.headward_pivot_y - limits.headward_pivot_y_tolerance,
     limits.headward_pivot_y + limits.headward_pivot_y_tolerance,
+    limits.geometry_epsilon,
   ):
     raise ValueError(
       f"{label} seq={seq} intersects winding-head pivot keepout "
@@ -520,10 +553,12 @@ def _validate_arc_step(
 
   radius = 0.5 * (r0 + r1)
   arc_length = abs(radius * sweep)
+  step_radians = max(abs(limits.arc_max_step_rad), limits.geometry_epsilon)
+  chord_length = max(abs(limits.arc_max_chord), limits.geometry_epsilon)
   steps = max(
     1,
-    int(math.ceil(abs(sweep) / DEFAULT_ARC_MAX_STEP_RAD)),
-    int(math.ceil(arc_length / DEFAULT_ARC_MAX_CHORD)),
+    int(math.ceil(abs(sweep) / step_radians)),
+    int(math.ceil(arc_length / chord_length)),
   )
 
   prev_x = start_x

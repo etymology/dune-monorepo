@@ -24,6 +24,8 @@ _FIELDS = (
     "transferRight",
     "transferRightTop",
     "transferBottom",
+    "transferLeftMargin",
+    "transferYThreshold",
     "limitLeft",
     "limitTop",
     "limitRight",
@@ -35,6 +37,21 @@ _FIELDS = (
     "zFront",
     "zBack",
     "queuedMotionZCollisionThreshold",
+    "arcMaxStepRad",
+    "arcMaxChord",
+    "apaCollisionBottomY",
+    "apaCollisionTopY",
+    "transferZoneHeadMinX",
+    "transferZoneHeadMaxX",
+    "transferZoneFootMinX",
+    "transferZoneFootMaxX",
+    "supportCollisionBottomMinY",
+    "supportCollisionBottomMaxY",
+    "supportCollisionMiddleMinY",
+    "supportCollisionMiddleMaxY",
+    "supportCollisionTopMinY",
+    "supportCollisionTopMaxY",
+    "geometryEpsilon",
     "zLimitFront",
     "zLimitRear",
     "headArmLength",
@@ -72,6 +89,8 @@ class MachineCalibration:
     self.transferRight = None
     self.transferRightTop = None
     self.transferBottom = None
+    self.transferLeftMargin = None
+    self.transferYThreshold = None
 
     # Locations of the end-of-travels.
     self.limitLeft = None
@@ -89,6 +108,21 @@ class MachineCalibration:
     self.zFront = None
     self.zBack = None
     self.queuedMotionZCollisionThreshold = None
+    self.arcMaxStepRad = None
+    self.arcMaxChord = None
+    self.apaCollisionBottomY = None
+    self.apaCollisionTopY = None
+    self.transferZoneHeadMinX = None
+    self.transferZoneHeadMaxX = None
+    self.transferZoneFootMinX = None
+    self.transferZoneFootMaxX = None
+    self.supportCollisionBottomMinY = None
+    self.supportCollisionBottomMaxY = None
+    self.supportCollisionMiddleMinY = None
+    self.supportCollisionMiddleMaxY = None
+    self.supportCollisionTopMinY = None
+    self.supportCollisionTopMaxY = None
+    self.geometryEpsilon = None
 
     # End-of-travels for Z-axis.
     self.zLimitFront = None
