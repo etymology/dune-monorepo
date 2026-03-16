@@ -6,6 +6,7 @@ function QueuedMotionPreview(modules)
   var commands = window.CommandCatalog
 
   var preview = null
+  var previewPending = false
   var decisionPending = false
   var limits = null
 
@@ -105,8 +106,10 @@ function QueuedMotionPreview(modules)
 
       if ( decisionPending )
         statusText = "Submitting queued G113 preview decision..."
-      else
+      else if ( previewPending )
         statusText = "Queued G113 preview waiting for confirmation before execution."
+      else
+        statusText = "Last queued G113 path accepted."
 
       summaryText =
         "Lines " + firstLine + "-" + lastLine
@@ -156,8 +159,8 @@ function QueuedMotionPreview(modules)
 
     $( "#queuedMotionPreviewStatus" ).text( statusText )
     $( "#queuedMotionPreviewSummary" ).text( summaryText )
-    $( "#queuedMotionPreviewContinueButton" ).prop( "disabled", ! preview || decisionPending )
-    $( "#queuedMotionPreviewCancelButton" ).prop( "disabled", ! preview || decisionPending )
+    $( "#queuedMotionPreviewContinueButton" ).prop( "disabled", ! previewPending || decisionPending )
+    $( "#queuedMotionPreviewCancelButton" ).prop( "disabled", ! previewPending || decisionPending )
 
     setRows( "#queuedMotionPreviewSource", sourceRows, "No queued G113 lines are waiting." )
     setRows( "#queuedMotionPreviewSegments", segmentRows, "No queued segments are waiting." )
@@ -523,10 +526,19 @@ function QueuedMotionPreview(modules)
         commands.process.getQueuedMotionPreview,
         function( data )
         {
-          preview = data
-          decisionPending = false
-          if ( preview && preview.limits )
-            limits = buildLimits( preview.limits )
+          if ( data !== null && data !== undefined )
+          {
+            preview = data
+            previewPending = true
+            decisionPending = false
+            if ( preview.limits )
+              limits = buildLimits( preview.limits )
+          }
+          else
+          {
+            previewPending = false
+            decisionPending = false
+          }
           updateDetails()
           renderCanvas()
         }
