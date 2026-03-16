@@ -23,7 +23,12 @@ from dune_winder.queued_motion.safety import (
   QueuedMotionCollisionState,
   validate_xy_move_within_safety_limits,
 )
-from dune_winder.queued_motion.segment_patterns import DEFAULT_WAYPOINT_MIN_ARC_RADIUS
+from dune_winder.queued_motion.segment_patterns import (
+  cap_segments_speed_by_axis_velocity,
+  DEFAULT_V_X_MAX,
+  DEFAULT_V_Y_MAX,
+  DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+)
 
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
 
@@ -77,10 +82,13 @@ class GCodeHandler(GCodeHandlerBase):
   def _getHeadPosition(self, headPosition):
     """
     Resolve head position, polling the PLC if it is currently unknown (None).
+    Returns None if the head is not present (position -1).
     """
     if headPosition is None:
       headPosition = self._io.head.readCurrentPosition()
       self._headPosition = headPosition
+    if -1 == headPosition:
+      return None
     return GCodeHandlerBase._getHeadPosition(self, headPosition)
 
   # ---------------------------------------------------------------------
@@ -242,6 +250,21 @@ class GCodeHandler(GCodeHandlerBase):
     return max(0.0, float(value))
 
   # ---------------------------------------------------------------------
+  def _queued_motion_axis_velocity_limits(self) -> tuple[float, float]:
+    """Return (v_x_max, v_y_max) from machine calibration."""
+    try:
+      v_x = self._machineCalibration.get("v_x_max")
+    except Exception:
+      v_x = None
+    try:
+      v_y = self._machineCalibration.get("v_y_max")
+    except Exception:
+      v_y = None
+    v_x = float(v_x) if v_x is not None else DEFAULT_V_X_MAX
+    v_y = float(v_y) if v_y is not None else DEFAULT_V_Y_MAX
+    return (v_x, v_y)
+
+  # ---------------------------------------------------------------------
   def _motion_safety_limits(self):
     return motion_safety_limits_from_calibration(self._machineCalibration)
 
@@ -312,7 +335,7 @@ class GCodeHandler(GCodeHandlerBase):
       return None
 
     snapshot = self._snapshot_interpreter_state()
-    start_xy = (float(snapshot["_x"]), float(snapshot["_y"]))
+    start_xy = self._actual_xy()
     previews: list[_PreviewedQueuedLine] = []
     try:
       current = self._preview_loaded_line(line_index)
@@ -358,6 +381,13 @@ class GCodeHandler(GCodeHandlerBase):
       )
       if not segments:
         return None
+      v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
+      segments = cap_segments_speed_by_axis_velocity(
+        segments=segments,
+        v_x_max=v_x_max,
+        v_y_max=v_y_max,
+        start_xy=start_xy,
+      )
       resume_line = previews[-1].line_index + 1
       stop_after_block = False
       if single_step_queue:
@@ -384,6 +414,8 @@ class GCodeHandler(GCodeHandlerBase):
           for preview in previews
         ],
         "safety_limits": safety_limits,
+        "v_x_max": v_x_max,
+        "v_y_max": v_y_max,
         "stop_after_block": stop_after_block,
       }
     finally:
@@ -459,6 +491,9 @@ class GCodeHandler(GCodeHandlerBase):
       self._io.plcLogic.queuedMotion,
       list(block["segments"]),
       queue_depth=PLC_QUEUE_DEPTH,
+      v_x_max=block.get("v_x_max"),
+      v_y_max=block.get("v_y_max"),
+      start_xy=tuple(block["start_xy"]),
     )
     previous_line = self._currentLine
     self._currentLine = self._queued_block_start_line

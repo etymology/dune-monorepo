@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from typing import Callable, Optional
 
 from .plc_interface import (
@@ -13,6 +14,7 @@ from .plc_interface import (
   START_TIMEOUT_S,
   QueuedMotionPortAdapter,
 )
+from .segment_patterns import cap_segments_speed_by_axis_velocity
 from .segment_types import MotionSegment
 
 
@@ -24,6 +26,9 @@ class QueuedMotionSession:
     *,
     queue_depth: int = PLC_QUEUE_DEPTH,
     now_fn: Callable[[], float] = time.monotonic,
+    v_x_max: Optional[float] = None,
+    v_y_max: Optional[float] = None,
+    start_xy: Optional[tuple[float, float]] = None,
   ) -> None:
     if queue_depth < 1:
       raise ValueError("queue_depth must be >= 1")
@@ -34,6 +39,9 @@ class QueuedMotionSession:
     self._segments = list(segments)
     self._queue_depth = int(queue_depth)
     self._now_fn = now_fn
+    self._v_x_max = v_x_max
+    self._v_y_max = v_y_max
+    self._start_xy = start_xy
 
     self._req_id = 0
     self._next_to_enqueue = 0
@@ -76,6 +84,42 @@ class QueuedMotionSession:
 
   def _fail(self, message: str) -> None:
     self._error = message
+
+  def _validate_plc_seg_queue_speeds(self) -> bool:
+    """Read SegQueue[0..prefill_count-1] from the PLC and cap any speed whose
+    axis component exceeds the limits, writing the corrected value back before
+    the start pulse is issued.  Returns True if ready to start."""
+    if self._v_x_max is None or self._v_y_max is None or self._start_xy is None:
+      return True
+    segments = self._segments[:self._prefill_count]
+    try:
+      plc_speeds = self._port.read_seg_queue_speeds(self._prefill_count)
+    except Exception as exc:
+      self._fail(f"Failed to read PLC SegQueue speeds before start: {exc}")
+      return False
+
+    # Substitute PLC-read speeds into the known geometry so cap_segments can
+    # compute the correct per-direction bound for each segment.
+    segs_with_plc_speeds = [
+      replace(seg, speed=float(s)) for seg, s in zip(segments, plc_speeds)
+    ]
+    capped = cap_segments_speed_by_axis_velocity(
+      segments=segs_with_plc_speeds,
+      v_x_max=self._v_x_max,
+      v_y_max=self._v_y_max,
+      start_xy=self._start_xy,
+    )
+
+    for i, (plc_speed, capped_seg) in enumerate(zip(plc_speeds, capped)):
+      if capped_seg.speed < float(plc_speed) - 1e-6:
+        try:
+          self._port.write_seg_queue_speed(i, capped_seg.speed)
+        except Exception as exc:
+          self._fail(
+            f"Failed to write corrected speed to SegQueue[{i}] before start: {exc}"
+          )
+          return False
+    return True
 
   def _issue_enqueue(self, now: float) -> None:
     seg = self._segments[self._next_to_enqueue]
@@ -145,6 +189,8 @@ class QueuedMotionSession:
       self._state = "start_assert"
 
     if self._state == "start_assert":
+      if not self._validate_plc_seg_queue_speeds():
+        return
       self._port.set_start(True)
       self._pulse_release_at = now + START_PULSE_S
       self._start_deadline = now + START_TIMEOUT_S
