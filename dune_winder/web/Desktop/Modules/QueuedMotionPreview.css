@@ -1,0 +1,84 @@
+#queuedMotionPreviewPanel
+{
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#queuedMotionPreviewStatus
+{
+  margin-bottom: 6px;
+}
+
+.queuedMotionPreviewSummary
+{
+  min-height: 1.5em;
+  color: #cbd5f5;
+  font-size: 0.95rem;
+}
+
+.queuedMotionPreviewActions
+{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+#queuedMotionPreviewCanvas
+{
+  width: 100%;
+  min-height: 280px;
+  display: block;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+}
+
+.queuedMotionPreviewColumns
+{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.queuedMotionPreviewSection
+{
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.queuedMotionPreviewSection h4
+{
+  margin-bottom: 6px;
+}
+
+.queuedMotionPreviewList
+{
+  max-height: 220px;
+  overflow: auto;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.queuedMotionPreviewRow
+{
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.queuedMotionPreviewRow:last-child
+{
+  border-bottom: 0;
+}
+
+.queuedMotionPreviewEmpty
+{
+  color: #94a3b8;
+}
