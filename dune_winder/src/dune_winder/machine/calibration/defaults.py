@@ -110,6 +110,7 @@ class DefaultMachineCalibration(MachineCalibration):
     self.headwardPivotYTolerance = 300
     self.zFront = 0
     self.zBack = geometry.zTravel
+    self.queuedMotionZCollisionThreshold = self.zBack
     self.zLimitFront = geometry.limitRetracted
     self.zLimitRear = geometry.limitExtended
     self.headArmLength = geometry.headArmLength

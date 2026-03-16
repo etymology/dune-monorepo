@@ -34,6 +34,7 @@ _FIELDS = (
     "headwardPivotYTolerance",
     "zFront",
     "zBack",
+    "queuedMotionZCollisionThreshold",
     "zLimitFront",
     "zLimitRear",
     "headArmLength",
@@ -87,6 +88,7 @@ class MachineCalibration:
     # Location of Z-axis when fully extended, and fully retracted.
     self.zFront = None
     self.zBack = None
+    self.queuedMotionZCollisionThreshold = None
 
     # End-of-travels for Z-axis.
     self.zLimitFront = None

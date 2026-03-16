@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import math
 import time
-from typing import Iterable
+from typing import Iterable, Optional
 
 from dune_winder.io.devices.controllogix_plc import ControllogixPLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
@@ -14,6 +15,11 @@ from .plc_interface import (
 from .plc_interface import (
   QueuedMotionPLCInterface,
   START_TIMEOUT_S,
+)
+from .safety import (
+  QueuedMotionCollisionState,
+  load_motion_safety_limits,
+  validate_segments_within_safety_limits,
 )
 from .segment_types import MotionSegment, segment_kind
 
@@ -34,6 +40,9 @@ class MotionQueueClient:
     self._plc = None
     self._queue = None
     self.req_id = 0
+    self._last_point: Optional[tuple[float, float]] = None
+    self._safety_limits = None
+    self._collision_state: Optional[QueuedMotionCollisionState] = None
 
   def __enter__(self) -> "MotionQueueClient":
     if str(self.path).strip().upper() == "SIM":
@@ -43,6 +52,9 @@ class MotionQueueClient:
     self._queue = QueuedMotionPLCInterface(self._plc)
     self._queue.poll()
     self.req_id = self._queue.sync_req_id()
+    self._last_point = self._queue.read_actual_xy()
+    self._safety_limits = load_motion_safety_limits()
+    self._collision_state = None
     return self
 
   def __exit__(self, exc_type, exc, tb) -> None:
@@ -53,6 +65,9 @@ class MotionQueueClient:
         pass
     self._plc = None
     self._queue = None
+    self._last_point = None
+    self._safety_limits = None
+    self._collision_state = None
 
   def _require_queue(self) -> QueuedMotionPLCInterface:
     if self._queue is None:
@@ -67,7 +82,21 @@ class MotionQueueClient:
     queue.set_abort(False)
     queue.poll()
     self.req_id = queue.sync_req_id()
+    self._last_point = queue.read_actual_xy()
+    self._collision_state = None
     print(f"Reset complete. ReqID synchronized to {self.req_id}")
+
+  def set_start_point(self, x: float, y: float) -> None:
+    if not math.isfinite(float(x)) or not math.isfinite(float(y)):
+      raise ValueError("start point values must be finite")
+    self._last_point = (float(x), float(y))
+
+  def _collision_state_for_enqueue(self) -> QueuedMotionCollisionState:
+    queue = self._require_queue()
+    if self._collision_state is None:
+      queue.poll()
+      self._collision_state = queue.read_collision_state()
+    return self._collision_state
 
   def _wait_for_ack(self, seq: int) -> None:
     queue = self._require_queue()
@@ -90,10 +119,24 @@ class MotionQueueClient:
 
   def enqueue_segment(self, seg: MotionSegment) -> None:
     queue = self._require_queue()
+    if self._last_point is None:
+      self._last_point = queue.read_actual_xy()
+    if self._last_point is None:
+      raise RuntimeError(
+        "Cannot validate first queued segment: start point is unknown. "
+        "Call set_start_point(x, y) or ensure actual-position tags are readable."
+      )
+    validate_segments_within_safety_limits(
+      [seg],
+      self._safety_limits or load_motion_safety_limits(),
+      start_xy=self._last_point,
+      queued_motion_collision_state=self._collision_state_for_enqueue(),
+    )
     queue.write_segment(seg)
     self.req_id += 1
     queue.set_req_id(self.req_id)
     self._wait_for_ack(seg.seq)
+    self._last_point = (float(seg.x), float(seg.y))
 
     kind = segment_kind(seg.seg_type)
     arc_info = ""
