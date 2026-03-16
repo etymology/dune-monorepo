@@ -37,6 +37,7 @@ class _QueuedMotionPLCLogic:
     self._maxDeceleration = 1000.0
     self.queuedMotion = object() if queued_motion is None else queued_motion
     self.legacy_xy_moves = []
+    self.stop_seek_calls = 0
 
   def isReady(self):
     return True
@@ -49,6 +50,15 @@ class _QueuedMotionPLCLogic:
 
   def move_latch(self):
     raise AssertionError("Unexpected latch move")
+
+  def stopSeek(self):
+    self.stop_seek_calls += 1
+    if not hasattr(self.queuedMotion, "poll"):
+      return
+    self.queuedMotion.poll()
+    if self.queuedMotion.status().is_idle:
+      return
+    self.queuedMotion.set_stop_request(True)
 
 
 class _Head:
@@ -304,6 +314,24 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), expected_segment.y, places=6)
     self.assertEqual(plc.get_tag("IncomingSeg")["TermType"], 0)
 
+  def test_stop_requests_latched_queue_stop_instead_of_pulsing_abort(self):
+    plc = SimulatedPLC("SIM")
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_RuntimeQueuedMotionIO(plc), calibration, WirePathModel(calibration))
+    handler._queued_session = object()
+    handler._queued_block_start_line = 7
+    handler._nextLine = 9
+    plc.set_tag("CurIssued", 1)
+    plc.set_tag("QueueCount", 1)
+
+    handler.stop()
+
+    self.assertEqual(handler._io.plcLogic.stop_seek_calls, 1)
+    self.assertEqual(plc.get_tag("QueueStopRequest"), 1)
+    self.assertEqual(plc.get_tag("AbortQueue"), 0)
+    self.assertIsNone(handler._queued_session)
+    self.assertEqual(handler._nextLine, 6)
+
   def test_start_queued_block_falls_back_when_queue_planner_rejects_path(self):
     calibration = DefaultMachineCalibration()
     handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
@@ -395,6 +423,15 @@ class QueuedMotionTests(unittest.TestCase):
 
       self.assertEqual(motion._require_queue().status().ack, 2)
       self.assertEqual(motion._last_point, (450.0, 2100.0))
+
+  def test_motion_queue_reset_clears_latched_stop_request(self):
+    with MotionQueueClient("SIM") as motion:
+      motion._require_queue().set_stop_request(True)
+      self.assertEqual(motion._plc.get_tag("QueueStopRequest"), 1)
+
+      motion.reset_queue()
+
+      self.assertEqual(motion._plc.get_tag("QueueStopRequest"), 0)
 
 
 if __name__ == "__main__":
