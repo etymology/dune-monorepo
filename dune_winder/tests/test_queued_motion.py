@@ -298,12 +298,17 @@ class QueuedMotionTests(unittest.TestCase):
     expected_segment = preview_handler._build_queued_block(0, single_step_queue=True)["segments"][0]
 
     stopped = False
+    saw_preview = False
     for _ in range(12):
       stopped = handler.poll()
+      if handler.getQueuedMotionPreview() is not None:
+        saw_preview = True
+        handler.continueQueuedMotionPreview()
       if stopped and handler._queued_session is None:
         break
       time.sleep(0.12)
 
+    self.assertTrue(saw_preview)
     self.assertTrue(stopped)
     self.assertIsNone(handler._queued_session)
     self.assertEqual(handler._currentLine, 0)
@@ -341,6 +346,89 @@ class QueuedMotionTests(unittest.TestCase):
 
     self.assertFalse(started)
     self.assertIsNone(handler._queued_session)
+
+  def test_start_queued_block_creates_preview_pending_confirmation(self):
+    calibration = DefaultMachineCalibration()
+    merge_lines = [
+      "G113 PPRECISE X500.0 Y100.0",
+      "G113 PPRECISE X550.0 Y150.0",
+    ]
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      merge_lines,
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    self.assertIsNone(handler._queued_session)
+    preview = handler.getQueuedMotionPreview()
+    self.assertIsNotNone(preview)
+    self.assertEqual(preview["kind"], "block")
+    self.assertEqual(preview["summary"]["g113Count"], 2)
+    self.assertEqual(preview["sourceLines"][0]["text"], merge_lines[0])
+    self.assertEqual(preview["segments"][0]["start"]["x"], 400.0)
+    self.assertEqual(preview["segments"][0]["start"]["y"], 100.0)
+
+  def test_continued_queued_preview_starts_motion_on_next_poll(self):
+    plc = SimulatedPLC("SIM")
+    plc.set_tag("X_axis.ActualPosition", 400.0)
+    plc.set_tag("Y_axis.ActualPosition", 100.0)
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_RuntimeQueuedMotionIO(plc), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    self.assertTrue(handler.continueQueuedMotionPreview())
+
+    handler.poll()
+    self.assertIsNotNone(handler._queued_session)
+
+    for _ in range(20):
+      if handler._queued_session is None:
+        break
+      time.sleep(0.12)
+      handler.poll()
+
+    self.assertIsNone(handler._queued_session)
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 500.0, places=6)
+    self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 200.0, places=6)
+
+  def test_cancelled_queued_preview_stops_before_execution(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    self.assertTrue(handler.cancelQueuedMotionPreview())
+
+    stopped = handler.poll()
+
+    self.assertTrue(stopped)
+    self.assertIsNone(handler._queued_session)
+    self.assertIsNone(handler.getQueuedMotionPreview())
+    self.assertEqual(handler._currentLine, 0)
+    self.assertEqual(handler._nextLine, -1)
 
   def test_sub_resolution_xy_move_is_treated_as_noop(self):
     calibration = self._z_collision_calibration()

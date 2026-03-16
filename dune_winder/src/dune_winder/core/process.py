@@ -403,6 +403,32 @@ class Process:
     }
 
   # ---------------------------------------------------------------------
+  def getQueuedMotionPreview(self):
+    return self.gCodeHandler.getQueuedMotionPreview()
+
+  # ---------------------------------------------------------------------
+  def continueQueuedMotionPreview(self):
+    accepted = self.gCodeHandler.continueQueuedMotionPreview()
+    if accepted:
+      self._log.add(
+        self.__class__.__name__,
+        "QUEUED_PREVIEW_CONTINUE",
+        "Approved queued G113 path preview.",
+      )
+    return accepted
+
+  # ---------------------------------------------------------------------
+  def cancelQueuedMotionPreview(self):
+    cancelled = self.gCodeHandler.cancelQueuedMotionPreview()
+    if cancelled:
+      self._log.add(
+        self.__class__.__name__,
+        "QUEUED_PREVIEW_CANCEL",
+        "Cancelled queued G113 path preview before execution.",
+      )
+    return cancelled
+
+  # ---------------------------------------------------------------------
   def step(self):
     """
     Run just one line of G-Code, then stop.
