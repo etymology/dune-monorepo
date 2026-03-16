@@ -115,6 +115,7 @@ class QueuedMotionSession:
     status = self._port.status()
 
     if self._state == "reset_assert":
+      self._port.set_stop_request(False)
       self._port.set_abort(True)
       self._pulse_release_at = now + ABORT_PULSE_S
       self._state = "reset_release"

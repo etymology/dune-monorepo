@@ -80,6 +80,7 @@ class MotionQueueClient:
     queue.set_abort(True)
     time.sleep(0.10)
     queue.set_abort(False)
+    queue.set_stop_request(False)
     queue.poll()
     self.req_id = queue.sync_req_id()
     self._last_point = queue.read_actual_xy()
