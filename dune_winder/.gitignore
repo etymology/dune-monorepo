@@ -1,19 +1,13 @@
 *.pyc
 .mypy_cache
 .ruff_cache
-
 *.bak
-
 *.bat
-
 cache/
-/g_code_recipes
 /configuration.xml
 /version.xml
-
-# Leftover physical directory from Windows file-lock during reorganization
-/src/winder/
-src/dune_winder.egg-info/
 .venv
 config/APA/*
-docs/.DS_Store
+*.DS_Store
+src/dune_winder.egg-info/*
+
