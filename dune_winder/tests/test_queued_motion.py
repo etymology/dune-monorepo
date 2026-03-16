@@ -299,6 +299,15 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertFalse(started)
     self.assertIsNone(handler._queued_session)
 
+  def test_sub_resolution_xy_move_is_treated_as_noop(self):
+    calibration = self._z_collision_calibration()
+    handler = GCodeHandler(_IO(1000.0, 150.0, z=200.0), calibration, WirePathModel(calibration))
+
+    error = handler.executeG_CodeLine("G113 PPRECISE X1000.05 Y150.00")
+
+    self.assertIsNone(error)
+    self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+
   def test_gcode_builder_rejects_central_apa_motion_when_z_extended(self):
     calibration = self._z_collision_calibration()
     handler = GCodeHandler(_IO(1000.0, 25.0, z=200.0), calibration, WirePathModel(calibration))
