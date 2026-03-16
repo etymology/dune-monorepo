@@ -28,6 +28,7 @@ from .segment_types import (
 MERGE_MODE_PRECISE = "PRECISE"
 MERGE_MODE_TOLERANT = "TOLERANT"
 _EPS = 1e-6
+_COMMAND_POSITION_RESOLUTION_MM = 0.1
 
 
 @dataclass(frozen=True)
@@ -224,7 +225,20 @@ def build_merge_path_segments(
   if not waypoints:
     return []
 
-  exact = _exact_biarc_segments(start_xy=start_xy, waypoints=waypoints)
+  filtered_waypoints: list[MergeWaypoint] = []
+  cursor_xy = (float(start_xy[0]), float(start_xy[1]))
+  for waypoint in waypoints:
+    point_xy = (float(waypoint.x), float(waypoint.y))
+    if _distance(cursor_xy, point_xy) < _COMMAND_POSITION_RESOLUTION_MM:
+      # Skip sub-resolution waypoints (already at command position).
+      continue
+    filtered_waypoints.append(waypoint)
+    cursor_xy = point_xy
+
+  if not filtered_waypoints:
+    return []
+
+  exact = _exact_biarc_segments(start_xy=start_xy, waypoints=filtered_waypoints)
   if _segments_are_valid(
     exact,
     start_xy=start_xy,
@@ -248,9 +262,11 @@ def build_merge_path_segments(
   segments: list[MotionSegment] = []
   cursor = (float(start_xy[0]), float(start_xy[1]))
 
-  for index, waypoint in enumerate(waypoints):
+  for index, waypoint in enumerate(filtered_waypoints):
     point_xy = (float(waypoint.x), float(waypoint.y))
-    next_point = waypoints[index + 1] if index + 1 < len(waypoints) else None
+    next_point = (
+      filtered_waypoints[index + 1] if index + 1 < len(filtered_waypoints) else None
+    )
 
     if waypoint.mode == MERGE_MODE_TOLERANT and next_point is not None:
       fillet_segments = _build_fillet_segments(

@@ -123,12 +123,44 @@ class Process:
     self._machineCalibration = machineCalibration
     self._transferLeft = self._calibration_float("transferLeft", 0.0)
     self._transferRight = self._calibration_float("transferRight", 0.0)
+    self._transferLeftMargin = self._calibration_float("transferLeftMargin", 10.0)
+    self._transferYThreshold = self._calibration_float("transferYThreshold", 1000.0)
     self._limitLeft = self._calibration_float("limitLeft", 0.0)
     self._limitRight = self._calibration_float("limitRight", 0.0)
     self._limitTop = self._calibration_float("limitTop", 0.0)
     self._limitBottom = self._calibration_float("limitBottom", 0.0)
     self._zlimitFront = self._calibration_float("zLimitFront", 0.0)
     self._zlimitRear = self._calibration_float("zLimitRear", 0.0)
+    self._queuedMotionZCollisionThreshold = self._calibration_float(
+      "queuedMotionZCollisionThreshold", self._calibration_float("zBack", 0.0)
+    )
+    self._arcMaxStepRad = self._calibration_float("arcMaxStepRad", math.radians(3.0))
+    self._arcMaxChord = self._calibration_float("arcMaxChord", 5.0)
+    self._apaCollisionBottomY = self._calibration_float("apaCollisionBottomY", 50.0)
+    self._apaCollisionTopY = self._calibration_float("apaCollisionTopY", 2250.0)
+    self._transferZoneHeadMinX = self._calibration_float("transferZoneHeadMinX", 400.0)
+    self._transferZoneHeadMaxX = self._calibration_float("transferZoneHeadMaxX", 500.0)
+    self._transferZoneFootMinX = self._calibration_float("transferZoneFootMinX", 7100.0)
+    self._transferZoneFootMaxX = self._calibration_float("transferZoneFootMaxX", 7200.0)
+    self._supportCollisionBottomMinY = self._calibration_float(
+      "supportCollisionBottomMinY", 80.0
+    )
+    self._supportCollisionBottomMaxY = self._calibration_float(
+      "supportCollisionBottomMaxY", 450.0
+    )
+    self._supportCollisionMiddleMinY = self._calibration_float(
+      "supportCollisionMiddleMinY", 1050.0
+    )
+    self._supportCollisionMiddleMaxY = self._calibration_float(
+      "supportCollisionMiddleMaxY", 1550.0
+    )
+    self._supportCollisionTopMinY = self._calibration_float(
+      "supportCollisionTopMinY", 2200.0
+    )
+    self._supportCollisionTopMaxY = self._calibration_float(
+      "supportCollisionTopMaxY", 2650.0
+    )
+    self._geometryEpsilon = self._calibration_float("geometryEpsilon", 1e-9)
     self._headwardPivotX = self._calibration_float("headwardPivotX", 150.0)
     self._headwardPivotY = self._calibration_float("headwardPivotY", 1400.0)
     self._headwardPivotXTolerance = self._calibration_float(
@@ -170,10 +202,28 @@ class Process:
       limit_top=float(self._limitTop),
       transfer_left=float(self._transferLeft),
       transfer_right=float(self._transferRight),
+      transfer_left_margin=float(self._transferLeftMargin),
+      transfer_y_threshold=float(self._transferYThreshold),
       headward_pivot_x=float(self._headwardPivotX),
       headward_pivot_y=float(self._headwardPivotY),
       headward_pivot_x_tolerance=float(self._headwardPivotXTolerance),
       headward_pivot_y_tolerance=float(self._headwardPivotYTolerance),
+      queued_motion_z_collision_threshold=float(self._queuedMotionZCollisionThreshold),
+      arc_max_step_rad=float(self._arcMaxStepRad),
+      arc_max_chord=float(self._arcMaxChord),
+      apa_collision_bottom_y=float(self._apaCollisionBottomY),
+      apa_collision_top_y=float(self._apaCollisionTopY),
+      transfer_zone_head_min_x=float(self._transferZoneHeadMinX),
+      transfer_zone_head_max_x=float(self._transferZoneHeadMaxX),
+      transfer_zone_foot_min_x=float(self._transferZoneFootMinX),
+      transfer_zone_foot_max_x=float(self._transferZoneFootMaxX),
+      support_collision_bottom_min_y=float(self._supportCollisionBottomMinY),
+      support_collision_bottom_max_y=float(self._supportCollisionBottomMaxY),
+      support_collision_middle_min_y=float(self._supportCollisionMiddleMinY),
+      support_collision_middle_max_y=float(self._supportCollisionMiddleMaxY),
+      support_collision_top_min_y=float(self._supportCollisionTopMinY),
+      support_collision_top_max_y=float(self._supportCollisionTopMaxY),
+      geometry_epsilon=float(self._geometryEpsilon),
     )
 
   # ---------------------------------------------------------------------

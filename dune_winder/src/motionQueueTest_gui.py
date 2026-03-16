@@ -48,6 +48,7 @@ from dune_winder.queued_motion.segment_types import (
 DEFAULT_PLC_PATH = "192.168.140.13"
 TAG_X_ACTUAL_POSITION = "X_axis.ActualPosition"
 TAG_Y_ACTUAL_POSITION = "Y_axis.ActualPosition"
+TAG_SAFETY_TRIPPED = "Safety_Tripped_S"
 POSITION_POLL_S = 0.20
 POSITION_ERROR_RETRY_S = 1.00
 DEFAULT_COMMAND_SPEED = 1000.0
@@ -98,6 +99,16 @@ def _read_plc_tag_value(plc, tag: str):
   return _extract_plc_read_value(plc.read([tag]), tag)
 
 
+def _coerce_to_bool(value) -> bool:
+  if isinstance(value, str):
+    normalized = value.strip().lower()
+    if normalized in ("1", "true", "t", "yes", "y", "on"):
+      return True
+    if normalized in ("0", "false", "f", "no", "n", "off", ""):
+      return False
+  return bool(value)
+
+
 class WaypointPlannerApp(tk.Tk):
   def __init__(self, plc_path: str, machine_calibration: str) -> None:
     super().__init__()
@@ -137,6 +148,9 @@ class WaypointPlannerApp(tk.Tk):
     self.pointer_var = tk.StringVar(value="")
     self.live_position_var = tk.StringVar(
       value="Live position: unavailable (set PLC path to start tracking)."
+    )
+    self.safety_state_var = tk.StringVar(
+      value="Safety state: unavailable (set PLC path to start tracking)."
     )
 
     self._build_layout()
@@ -269,6 +283,18 @@ class WaypointPlannerApp(tk.Tk):
       textvariable=self.live_position_var,
       wraplength=320,
       justify="left",
+    ).grid(
+      row=row, column=0, columnspan=2, sticky="w", pady=(4, 0)
+    )
+    row += 1
+    tk.Label(
+      controls,
+      textvariable=self.safety_state_var,
+      wraplength=320,
+      justify="left",
+      fg="#b91c1c",
+      bg=self.cget("bg"),
+      anchor="w",
     ).grid(
       row=row, column=0, columnspan=2, sticky="w", pady=(4, 0)
     )
@@ -789,9 +815,14 @@ class WaypointPlannerApp(tk.Tk):
 
           x_val = float(_read_plc_tag_value(plc, TAG_X_ACTUAL_POSITION))
           y_val = float(_read_plc_tag_value(plc, TAG_Y_ACTUAL_POSITION))
+          safety_tripped = _coerce_to_bool(_read_plc_tag_value(plc, TAG_SAFETY_TRIPPED))
           self.after(
             0,
-            lambda x=x_val, y=y_val: self._update_live_position(x, y),
+            lambda x=x_val, y=y_val, tripped=safety_tripped: self._update_live_status(
+              x,
+              y,
+              tripped,
+            ),
           )
           self._position_tracker_stop.wait(POSITION_POLL_S)
         except Exception as exc:
@@ -810,14 +841,24 @@ class WaypointPlannerApp(tk.Tk):
       if plc is not None:
         _close_plc_connection(plc)
 
-  def _update_live_position(self, x: float, y: float) -> None:
+  def _update_live_status(self, x: float, y: float, safety_tripped: bool) -> None:
     self.live_position_xy = (x, y)
     self.live_position_var.set(f"Live position: X={x:.2f}, Y={y:.2f}")
+    if safety_tripped:
+      self.safety_state_var.set(
+        "Safety state: TRIPPED. Reset E-stop cords, then press the lighted Reset "
+        "button to re-enable the winder."
+      )
+    else:
+      self.safety_state_var.set("Safety state: OK (not tripped).")
     self._refresh_canvas()
 
   def _set_live_position_unavailable(self, message: str) -> None:
     self.live_position_xy = None
     self.live_position_var.set(message)
+    self.safety_state_var.set(
+      "Safety state: unavailable (PLC not connected or tag read failed)."
+    )
     self._refresh_canvas()
 
   def _on_close(self) -> None:
