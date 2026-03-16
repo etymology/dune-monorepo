@@ -36,6 +36,7 @@ TAG_FAULT_CODE = "FaultCode"
 TAG_X_ACTUAL_POSITION = "X_axis.ActualPosition"
 TAG_Y_ACTUAL_POSITION = "Y_axis.ActualPosition"
 TAG_Z_ACTUAL_POSITION = "Z_axis.ActualPosition"
+TAG_SEG_QUEUE = "SegQueue"
 TAG_FRAME_LOCK_HEAD_TOP = "MACHINE_SW_STAT[26]"
 TAG_FRAME_LOCK_HEAD_MID = "MACHINE_SW_STAT[27]"
 TAG_FRAME_LOCK_HEAD_BTM = "MACHINE_SW_STAT[28]"
@@ -199,6 +200,19 @@ class QueuedMotionPLCInterface:
   def _read_one(self, tag: str):
     return self._extract_read_value(self._plc.read([tag]), tag)
 
+  def read_seg_queue_speeds(self, count: int) -> list[float]:
+    """Read the Speed field from SegQueue[0..count-1]."""
+    return [
+      float(self._read_one(f"{TAG_SEG_QUEUE}[{i}].Speed"))
+      for i in range(count)
+    ]
+
+  def write_seg_queue_speed(self, index: int, speed: float) -> None:
+    """Write the Speed field of SegQueue[index]."""
+    result = self._plc.write((f"{TAG_SEG_QUEUE}[{index}].Speed", float(speed)))
+    if result is None:
+      raise RuntimeError(f"Write failed for {TAG_SEG_QUEUE}[{index}].Speed")
+
   def read_actual_xy(self) -> tuple[float, float]:
     return (
       float(self._read_one(TAG_X_ACTUAL_POSITION)),
@@ -285,6 +299,12 @@ class QueuedMotionPortAdapter:
 
   def set_stop_request(self, enabled: bool) -> None:
     self.port.set_stop_request(enabled)
+
+  def read_seg_queue_speeds(self, count: int) -> list[float]:
+    return self.port.read_seg_queue_speeds(count)
+
+  def write_seg_queue_speed(self, index: int, speed: float) -> None:
+    self.port.write_seg_queue_speed(index, speed)
 
   def status(self) -> QueuedMotionStatus:
     return self.port.status()

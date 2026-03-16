@@ -414,6 +414,8 @@ class GCodeHandlerBase:
     """
 
     self._headPosition = self._parameterExtract(function, 1, None, int, "head location")
+    if -1 == self._headPosition:
+      return
     self._request_head_move()
 
     if GCodeHandlerBase.DEBUG_UNIT:
@@ -471,6 +473,8 @@ class GCodeHandlerBase:
     """
 
     z = self._getHeadPosition(self._headPosition)
+    if z is None:
+      return
 
     currentLocation = Location(self._x, self._y, z)
     if GCodeHandlerBase.DEBUG_UNIT:
@@ -528,6 +532,8 @@ class GCodeHandlerBase:
 
     # Current head position.
     zHead = self._getHeadPosition(self._headPosition)
+    if zHead is None:
+      return
 
     if GCodeHandlerBase.DEBUG_UNIT:
       print(
