@@ -65,3 +65,35 @@ G106 P1 [this line only if transferpause]
 G106 P3
 G109 PF{1601-wrap} PBL G103 PB{1201+wrap} PB{1200+wrap} {if offsets[11]!=0, G105 PY{offsets[11]}, otherwise nothing} PX12 (foot b corner, rewind)
 G103 PB{1201+wrap} PB{1200+wrap} PY G105 PX-{xPullIn}
+
+
+
+"emit (------------------STARTING LOOP ${wrap}------------------)",
+"emit G113 PPRECISE G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
+"transfer b_to_a_transfer",
+"emit G113 PPRECISE G109 PB${1200 + wrap} PLT G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${conditional_offset('PX', offsets[1], 12 + offsets[1])} (Top A corner - foot end)",
+"emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+"if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+"emit G113 PPRECISE G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Bottom A corner - head end)",
+"transfer a_to_b_transfer",
+"emit G113 PPRECISE G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY ${offset('PY', offsets[3])} (Bottom B corner - head end, rewind)",
+"emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PY', Y_PULL_IN)}",
+"emit G113 PPRECISE (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
+"transfer b_to_a_transfer",
+"emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
+"emit G113 PTOLERANT G103 PF${1 + wrap} PF${wrap} PY G105 ${coord('PX', X_PULL_IN)} ( BOARD GAP )",
+"emit G113 PPRECISE G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+"transfer a_to_b_transfer",
+"emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY ${conditional_offset('PX', offsets[7], offsets[7] - 12)} (Top B corner - head end)",
+"emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+"if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+"emit G113 PPRECISE G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Bottom B corner - foot end)",
+"transfer b_to_a_transfer",
+"emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY ${offset('PY', offsets[9])} (Bottom A corner - foot end, rewind)",
+"emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+"if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
+"emit G113 PPRECISE G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
+"transfer a_to_b_transfer",
+"emit G113 PPRECISE G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
+"emit G113 PTOLERANT G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+
