@@ -1,5 +1,6 @@
 import time
 import unittest
+from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.gcode.runtime import GCodeProgramExecutor
@@ -288,6 +289,16 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), expected_segment.y, places=6)
     self.assertEqual(plc.get_tag("IncomingSeg")["TermType"], 0)
 
+  def test_start_queued_block_falls_back_when_queue_planner_rejects_path(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+
+    with patch.object(handler, "_build_queued_block", side_effect=ValueError("queued path invalid")):
+      started = handler._start_queued_block(0)
+
+    self.assertFalse(started)
+    self.assertIsNone(handler._queued_session)
+
   def test_gcode_builder_rejects_central_apa_motion_when_z_extended(self):
     calibration = self._z_collision_calibration()
     handler = GCodeHandler(_IO(1000.0, 25.0, z=200.0), calibration, WirePathModel(calibration))
@@ -364,3 +375,4 @@ class QueuedMotionTests(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
