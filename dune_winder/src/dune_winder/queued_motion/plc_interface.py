@@ -114,9 +114,6 @@ class QueuedMotionPLCInterface:
     self._use_a_as_current = PLC.Tag(plc, TAG_USE_A_AS_CURRENT, polled, tagType="BOOL")
     self._move_pending_status = PLC.Tag(plc, TAG_MOVE_PENDING_STATUS, polled, tagType="DINT")
     self._fault_code = PLC.Tag(plc, TAG_FAULT_CODE, polled, tagType="DINT")
-    self._x_actual_position = PLC.Tag(plc, TAG_X_ACTUAL_POSITION, polled, tagType="REAL")
-    self._y_actual_position = PLC.Tag(plc, TAG_Y_ACTUAL_POSITION, polled, tagType="REAL")
-    self._z_actual_position = PLC.Tag(plc, TAG_Z_ACTUAL_POSITION, polled, tagType="REAL")
     self._frame_lock_head_top = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_TOP, polled, tagType="BOOL")
     self._frame_lock_head_mid = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_MID, polled, tagType="BOOL")
     self._frame_lock_head_btm = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_BTM, polled, tagType="BOOL")
@@ -167,14 +164,44 @@ class QueuedMotionPLCInterface:
       return int(req)
     return 0
 
+  @staticmethod
+  def _extract_read_value(read_result, tag: str):
+    if read_result is None:
+      raise RuntimeError(f"Read failed for {tag}: no response")
+
+    if isinstance(read_result, list):
+      if not read_result:
+        raise RuntimeError(f"Read failed for {tag}: empty response")
+      first = read_result[0]
+      if hasattr(first, "error"):
+        if first.error:
+          raise RuntimeError(f"Read failed for {tag}: {first.error}")
+        return first.value
+      if isinstance(first, (list, tuple)):
+        if len(first) >= 2:
+          return first[1]
+        if len(first) == 1:
+          return first[0]
+      return first
+
+    if hasattr(read_result, "error"):
+      if read_result.error:
+        raise RuntimeError(f"Read failed for {tag}: {read_result.error}")
+      return read_result.value
+
+    return read_result
+
+  def _read_one(self, tag: str):
+    return self._extract_read_value(self._plc.read([tag]), tag)
+
   def read_actual_xy(self) -> tuple[float, float]:
     return (
-      float(self._x_actual_position.get() or 0.0),
-      float(self._y_actual_position.get() or 0.0),
+      float(self._read_one(TAG_X_ACTUAL_POSITION)),
+      float(self._read_one(TAG_Y_ACTUAL_POSITION)),
     )
 
   def read_actual_z(self) -> float:
-    return float(self._z_actual_position.get() or 0.0)
+    return float(self._read_one(TAG_Z_ACTUAL_POSITION))
 
   def read_collision_state(self) -> QueuedMotionCollisionState:
     return QueuedMotionCollisionState(
