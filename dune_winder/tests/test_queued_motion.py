@@ -140,6 +140,21 @@ class QueuedMotionTests(unittest.TestCase):
       headward_pivot_x_tolerance=0.0,
       headward_pivot_y_tolerance=0.0,
       queued_motion_z_collision_threshold=100.0,
+      arc_max_step_rad=0.05235987755982989,  # radians(3.0)
+      arc_max_chord=5.0,
+      apa_collision_bottom_y=50.0,
+      apa_collision_top_y=2250.0,
+      transfer_zone_head_min_x=400.0,
+      transfer_zone_head_max_x=500.0,
+      transfer_zone_foot_min_x=7100.0,
+      transfer_zone_foot_max_x=7200.0,
+      support_collision_bottom_min_y=80.0,
+      support_collision_bottom_max_y=450.0,
+      support_collision_middle_min_y=1050.0,
+      support_collision_middle_max_y=1550.0,
+      support_collision_top_min_y=2200.0,
+      support_collision_top_max_y=2650.0,
+      geometry_epsilon=1e-9,
     )
 
   def setUp(self):
