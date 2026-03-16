@@ -60,12 +60,16 @@ XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.CircleType CmdB_CircleType
 XIC PrepCurMove XIO UseAasCurrent COP CurSeg.ViaCenter[0] CmdB_ViaCenter[0] 2 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Direction CmdB_Direction 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeq 
-XIC PrepCurMove XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
-XIC PrepCurMove BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitCurAxisOn 
+XIC PrepCurMove XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitCurAxisOn 
 XIC PrepCurMove OTU PrepCurMove 
-XIC WaitCurAxisOn MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
-XIC WaitCurAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTL IssueCurPulse 
-XIC WaitCurAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTL IssueCurPulse 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTU WaitCurAxisOn 
 XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
@@ -101,12 +105,16 @@ XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.CircleType CmdA_CircleType
 XIC PrepNextMove XIO UseAasCurrent COP NextSeg.ViaCenter[0] CmdA_ViaCenter[0] 2 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Direction CmdA_Direction 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Seq PendingSeq 
-XIC PrepNextMove XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueNextPulse 
-XIC PrepNextMove BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitNextAxisOn 
+XIC PrepNextMove XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueNextPulse 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitNextAxisOn 
 XIC PrepNextMove OTU PrepNextMove 
-XIC WaitNextAxisOn MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
-XIC WaitNextAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTL IssueNextPulse 
-XIC WaitNextAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTL IssueNextPulse 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTU WaitNextAxisOn 
 XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "% of Time" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
