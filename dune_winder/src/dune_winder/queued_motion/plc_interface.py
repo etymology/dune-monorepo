@@ -5,6 +5,7 @@ from typing import Optional
 
 from dune_winder.io.devices.plc import PLC
 
+from .safety import QueuedMotionCollisionState
 from .segment_types import (
   MotionSegment,
   SEG_TYPE_CIRCLE,
@@ -31,6 +32,15 @@ TAG_QUEUE_COUNT = "QueueCount"
 TAG_USE_A_AS_CURRENT = "UseAasCurrent"
 TAG_MOVE_PENDING_STATUS = "X_Y.MovePendingStatus"
 TAG_FAULT_CODE = "FaultCode"
+TAG_X_ACTUAL_POSITION = "X_axis.ActualPosition"
+TAG_Y_ACTUAL_POSITION = "Y_axis.ActualPosition"
+TAG_Z_ACTUAL_POSITION = "Z_axis.ActualPosition"
+TAG_FRAME_LOCK_HEAD_TOP = "MACHINE_SW_STAT[26]"
+TAG_FRAME_LOCK_HEAD_MID = "MACHINE_SW_STAT[27]"
+TAG_FRAME_LOCK_HEAD_BTM = "MACHINE_SW_STAT[28]"
+TAG_FRAME_LOCK_FOOT_TOP = "MACHINE_SW_STAT[29]"
+TAG_FRAME_LOCK_FOOT_MID = "MACHINE_SW_STAT[30]"
+TAG_FRAME_LOCK_FOOT_BTM = "MACHINE_SW_STAT[31]"
 
 ACK_TIMEOUT_S = 5.0
 ABORT_PULSE_S = 0.10
@@ -104,6 +114,15 @@ class QueuedMotionPLCInterface:
     self._use_a_as_current = PLC.Tag(plc, TAG_USE_A_AS_CURRENT, polled, tagType="BOOL")
     self._move_pending_status = PLC.Tag(plc, TAG_MOVE_PENDING_STATUS, polled, tagType="DINT")
     self._fault_code = PLC.Tag(plc, TAG_FAULT_CODE, polled, tagType="DINT")
+    self._x_actual_position = PLC.Tag(plc, TAG_X_ACTUAL_POSITION, polled, tagType="REAL")
+    self._y_actual_position = PLC.Tag(plc, TAG_Y_ACTUAL_POSITION, polled, tagType="REAL")
+    self._z_actual_position = PLC.Tag(plc, TAG_Z_ACTUAL_POSITION, polled, tagType="REAL")
+    self._frame_lock_head_top = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_TOP, polled, tagType="BOOL")
+    self._frame_lock_head_mid = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_MID, polled, tagType="BOOL")
+    self._frame_lock_head_btm = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_BTM, polled, tagType="BOOL")
+    self._frame_lock_foot_top = PLC.Tag(plc, TAG_FRAME_LOCK_FOOT_TOP, polled, tagType="BOOL")
+    self._frame_lock_foot_mid = PLC.Tag(plc, TAG_FRAME_LOCK_FOOT_MID, polled, tagType="BOOL")
+    self._frame_lock_foot_btm = PLC.Tag(plc, TAG_FRAME_LOCK_FOOT_BTM, polled, tagType="BOOL")
 
   @staticmethod
   def segment_to_udt(seg: MotionSegment) -> dict:
@@ -147,6 +166,26 @@ class QueuedMotionPLCInterface:
     if req is not None:
       return int(req)
     return 0
+
+  def read_actual_xy(self) -> tuple[float, float]:
+    return (
+      float(self._x_actual_position.get() or 0.0),
+      float(self._y_actual_position.get() or 0.0),
+    )
+
+  def read_actual_z(self) -> float:
+    return float(self._z_actual_position.get() or 0.0)
+
+  def read_collision_state(self) -> QueuedMotionCollisionState:
+    return QueuedMotionCollisionState(
+      z_actual_position=self.read_actual_z(),
+      frame_lock_head_top=bool(self._frame_lock_head_top.get()),
+      frame_lock_head_mid=bool(self._frame_lock_head_mid.get()),
+      frame_lock_head_btm=bool(self._frame_lock_head_btm.get()),
+      frame_lock_foot_top=bool(self._frame_lock_foot_top.get()),
+      frame_lock_foot_mid=bool(self._frame_lock_foot_mid.get()),
+      frame_lock_foot_btm=bool(self._frame_lock_foot_btm.get()),
+    )
 
   def status(self) -> QueuedMotionStatus:
     return QueuedMotionStatus(
@@ -217,4 +256,3 @@ class QueuedMotionPortAdapter:
 
   def snapshot_lines(self) -> list[str]:
     return self.port.snapshot_lines()
-

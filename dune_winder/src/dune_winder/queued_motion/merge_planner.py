@@ -4,7 +4,11 @@ import math
 from dataclasses import dataclass, replace
 from typing import Optional
 
-from .safety import MotionSafetyLimits, validate_segments_within_safety_limits
+from .safety import (
+  MotionSafetyLimits,
+  QueuedMotionCollisionState,
+  validate_segments_within_safety_limits,
+)
 from .segment_patterns import (
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   _tangent_biarc_tessellation,
@@ -104,6 +108,7 @@ def _segments_are_valid(
   start_xy: tuple[float, float],
   min_arc_radius: float,
   safety_limits: MotionSafetyLimits,
+  queued_motion_collision_state: Optional[QueuedMotionCollisionState],
 ) -> bool:
   if not _min_radius_ok(segments, start_xy=start_xy, min_arc_radius=min_arc_radius):
     return False
@@ -112,6 +117,7 @@ def _segments_are_valid(
       segments,
       safety_limits,
       start_xy=start_xy,
+      queued_motion_collision_state=queued_motion_collision_state,
     )
   except ValueError:
     return False
@@ -213,6 +219,7 @@ def build_merge_path_segments(
   jerk_decel: float = 100.0,
   min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   safety_limits: MotionSafetyLimits,
+  queued_motion_collision_state: Optional[QueuedMotionCollisionState] = None,
 ) -> list[MotionSegment]:
   if not waypoints:
     return []
@@ -223,6 +230,7 @@ def build_merge_path_segments(
     start_xy=start_xy,
     min_arc_radius=min_arc_radius,
     safety_limits=safety_limits,
+    queued_motion_collision_state=queued_motion_collision_state,
   ):
     exact = _decorate_segments(
       exact,
@@ -266,6 +274,7 @@ def build_merge_path_segments(
           start_xy=start_xy,
           min_arc_radius=min_arc_radius,
           safety_limits=safety_limits,
+          queued_motion_collision_state=queued_motion_collision_state,
         ):
           if _distance(cursor, (decorated[0].x, decorated[0].y)) <= _EPS:
             decorated = decorated[1:]
@@ -294,6 +303,7 @@ def build_merge_path_segments(
       start_xy=start_xy,
       min_arc_radius=min_arc_radius,
       safety_limits=safety_limits,
+      queued_motion_collision_state=queued_motion_collision_state,
     ):
       raise ValueError(
         f"Unable to build a valid queued path through waypoint line {waypoint.line_index}"

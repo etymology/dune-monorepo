@@ -18,6 +18,7 @@ from dune_winder.queued_motion.queue_session import QueuedMotionSession
 from dune_winder.queued_motion.safety import (
   MotionSafetyLimits,
   motion_safety_limits_from_calibration,
+  QueuedMotionCollisionState,
   validate_xy_move_within_safety_limits,
 )
 from dune_winder.queued_motion.segment_patterns import DEFAULT_WAYPOINT_MIN_ARC_RADIUS
@@ -34,6 +35,32 @@ class _PreviewedQueuedLine:
 
 
 class GCodeHandler(GCodeHandlerBase):
+  # ---------------------------------------------------------------------
+  def _queued_motion_collision_state(self):
+    def _input_enabled(name):
+      io_point = getattr(self._io, name, None)
+      if io_point is None or not hasattr(io_point, "get"):
+        return False
+      try:
+        return bool(io_point.get())
+      except Exception:
+        return False
+
+    try:
+      z_actual = float(self._io.zAxis.getPosition())
+    except Exception:
+      z_actual = 0.0
+
+    return QueuedMotionCollisionState(
+      z_actual_position=z_actual,
+      frame_lock_head_top=_input_enabled("FrameLockHeadTop"),
+      frame_lock_head_mid=_input_enabled("FrameLockHeadMid"),
+      frame_lock_head_btm=_input_enabled("FrameLockHeadBtm"),
+      frame_lock_foot_top=_input_enabled("FrameLockFootTop"),
+      frame_lock_foot_mid=_input_enabled("FrameLockFootMid"),
+      frame_lock_foot_btm=_input_enabled("FrameLockFootBtm"),
+    )
+
   # ---------------------------------------------------------------------
   def _getHeadPosition(self, headPosition):
     """
@@ -300,6 +327,7 @@ class GCodeHandler(GCodeHandlerBase):
         decel=decel,
         min_arc_radius=self._queued_motion_min_turning_radius(),
         safety_limits=safety_limits,
+        queued_motion_collision_state=self._queued_motion_collision_state(),
       )
       if not segments:
         return None
