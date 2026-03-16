@@ -11,3 +11,4 @@ config/APA/*
 *.DS_Store
 src/dune_winder.egg-info/*
 
+gc_files/*
