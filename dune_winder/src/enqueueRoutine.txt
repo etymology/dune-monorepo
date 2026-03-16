@@ -1,6 +1,8 @@
 EQU QueueCtl.POS 0 OTE QueueEmpty 
 GEQ QueueCtl.POS 32 OTE QueueFull 
 MOV QueueCtl.POS QueueCount 
+XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC QueueStopRequest OTL AbortQueue 
 BST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 
 XIO ALL_EOT_GOOD MAS X_Y MoveA All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
 XIO ALL_EOT_GOOD MAS X_Y MoveB All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
@@ -147,6 +149,8 @@ XIC AbortActive OTU IssueCurPulse
 XIC AbortActive OTU IssueNextPulse 
 XIC AbortActive OTU WaitCurAxisOn 
 XIC AbortActive OTU WaitNextAxisOn 
+XIC AbortActive OTU QueueStopRequest 
+XIC AbortActive OTU AbortQueue 
 XIC AbortActive OTU EnqueueReq 
 XIC AbortActive OTU RotateMoves 
 XIC AbortActive OTU FlipToA 
