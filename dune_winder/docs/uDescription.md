@@ -69,31 +69,25 @@ G103 PB{1201+wrap} PB{1200+wrap} PY G105 PX-{xPullIn}
 
 
 "emit (------------------STARTING LOOP ${wrap}------------------)",
-"emit G113 PPRECISE G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
-"transfer b_to_a_transfer",
-"emit G113 PPRECISE G109 PB${1200 + wrap} PLT G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${conditional_offset('PX', offsets[1], 12 + offsets[1])} (Top A corner - foot end)",
-"emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-"if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
-"emit G113 PPRECISE G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Bottom A corner - head end)",
-"transfer a_to_b_transfer",
-"emit G113 PPRECISE G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY ${offset('PY', offsets[3])} (Bottom B corner - head end, rewind)",
-"emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PY', Y_PULL_IN)}",
-"emit G113 PPRECISE (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
-"transfer b_to_a_transfer",
-"emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
-"emit G113 PTOLERANT G103 PF${1 + wrap} PF${wrap} PY G105 ${coord('PX', X_PULL_IN)} ( BOARD GAP )",
-"emit G113 PPRECISE G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
-"transfer a_to_b_transfer",
-"emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY ${conditional_offset('PX', offsets[7], offsets[7] - 12)} (Top B corner - head end)",
-"emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-"if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
-"emit G113 PPRECISE G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Bottom B corner - foot end)",
-"transfer b_to_a_transfer",
-"emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY ${offset('PY', offsets[9])} (Bottom A corner - foot end, rewind)",
-"emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+PB${1200 + wrap} PBR PB${2002 - wrap} PB${2003 - wrap} (top b foot end)
+PB${1200 + wrap} PLT PB${2002 - wrap} PB${2003 - wrap} (top a foot end)
+G103 PF${800 + wrap} PF${801 + wrap}
+"if near_comb(799 + wrap): X+
+PF${800 + wrap} PLB PF${2402 - wrap} PF${2403 - wrap} (Bottom A corner - head end)",
+PF${2402 - wrap} PBR PB${400 + wrap} PB${401 + wrap} (Bottom B corner - head end, rewind)",
+PB${400 + wrap} PB${401 + wrap}
+PB${400 + wrap} PLT PB${401 - wrap} PB${400 - wrap} (Head B corner)",
+PB${401 - wrap} PLT PF${wrap} PF${2400 + wrap} (Head A corner, rewind)",
+PF${1 + wrap} PF${wrap} 
+PF${1 + wrap} PRT PF${800 - wrap} PF${799 - wrap} (Top A corner - head end)",
+PF${800 - wrap} PRT PB${2002 + wrap} PB${2003 + wrap} (Top B corner - head end)",
+PB${2002 + wrap} PB${2003 + wrap}
+"if near_comb(1999 + wrap): x+
+PB${2001 + wrap} PRB PB${1201 - wrap} PB${1202 - wrap} (Bottom B corner - foot end)",
+PB${1199 + wrap} PBL PF${1601 + wrap} PF${1602 + wrap} (Bottom A corner - foot end, rewind)",
+PF${1601 + wrap} PF${1602 + wrap}
 "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
 "emit G113 PPRECISE G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
 "transfer a_to_b_transfer",
 "emit G113 PPRECISE G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
 "emit G113 PTOLERANT G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
-
