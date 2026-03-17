@@ -53,6 +53,26 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertEqual(results["c"]["error"]["code"], "VALIDATION_ERROR")
     self.assertTrue(process.started)
 
+  def test_queued_motion_preview_commands_dispatch(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    preview_response = registry.executeRequest(
+      {"name": "process.get_queued_motion_preview", "args": {}},
+    )
+    continue_response = registry.executeRequest(
+      {"name": "process.continue_queued_motion_preview", "args": {}},
+    )
+    cancel_response = registry.executeRequest(
+      {"name": "process.cancel_queued_motion_preview", "args": {}},
+    )
+
+    self.assertTrue(preview_response["ok"])
+    self.assertEqual(preview_response["data"]["previewId"], 7)
+    self.assertTrue(continue_response["ok"])
+    self.assertTrue(cancel_response["ok"])
+    self.assertTrue(process.queuedPreviewContinued)
+    self.assertTrue(process.queuedPreviewCancelled)
+
 
 if __name__ == "__main__":
   unittest.main()

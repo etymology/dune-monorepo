@@ -4,7 +4,7 @@ function ManualMove(modules) {
   var page = modules.get("Page");
   var winder = modules.get("Winder");
   var commands = window.CommandCatalog;
-  var sliders = modules.get("Sliders");
+  var sliders = null;
   var incrementalJog = null;
   var isMotorStatusLoaded = false;
   var isPositionCopyEnabled = false;
@@ -228,6 +228,10 @@ function ManualMove(modules) {
   page.loadSubPage("/Desktop/Modules/IncrementalJog", "#increments", function () {
     incrementalJog = modules.get("IncrementalJog");
     applyVelocityCallback();
+  });
+
+  page.loadSubPage("/Desktop/Modules/Sliders", "#slidersDiv", function () {
+    sliders = modules.get("Sliders");
   });
 
   $("#manualMovePopoutButton").click(function () {

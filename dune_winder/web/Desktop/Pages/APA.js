@@ -506,6 +506,11 @@ function APA(modules) {
     }
   });
 
+  page.loadSubPage(
+    "/Desktop/Modules/QueuedMotionPreview",
+    "#queuedMotionPreviewDiv",
+  );
+
   page.loadSubPage("/Desktop/Modules/G_Code", "#gCodeDiv", function () {
     var gCode = modules.get("G_Code");
     gCode.create(G_CODE_ROWS);

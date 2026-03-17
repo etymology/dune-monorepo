@@ -121,6 +121,12 @@ class PLC_Logic:
     # self._moveType.set( self.MoveTypes.RESET )
     self._maxXY_Velocity.set(0)
     self._maxZ_Velocity.set(0)
+    try:
+      self.queuedMotion.poll()
+      if not self.queuedMotion.status().is_idle:
+        self.queuedMotion.set_stop_request(True)
+    except Exception:
+      pass
 
   # ---------------------------------------------------------------------
   def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):

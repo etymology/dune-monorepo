@@ -265,6 +265,7 @@ class SimulatedPLC(PLC):
     self._tagValues["IncomingSegAck"] = 0
     self._tagValues["AbortQueue"] = 0
     self._tagValues["StartQueuedPath"] = 0
+    self._tagValues["QueueStopRequest"] = 0
     self._tagValues["MotionFault"] = 0
     self._tagValues["CurIssued"] = 0
     self._tagValues["NextIssued"] = 0
@@ -312,6 +313,13 @@ class SimulatedPLC(PLC):
       self._tagValues[tagName] = enabled
       if enabled:
         self._startQueuedMotion()
+      return
+
+    if tagName == "QueueStopRequest":
+      enabled = self._coerceBit(value)
+      self._tagValues[tagName] = enabled
+      if enabled:
+        self._abortQueuedMotion()
       return
 
     if tagName == "HEAD_POS":

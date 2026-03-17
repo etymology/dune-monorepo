@@ -58,6 +58,8 @@ _FIELDS = (
     "headRollerRadius",
     "headRollerGap",
     "pinDiameter",
+    "v_x_max",
+    "v_y_max",
 )
 
 
@@ -135,6 +137,10 @@ class MachineCalibration:
 
     # Diameter of U/V layer pin.
     self.pinDiameter = None
+
+    # Maximum axis component velocities for queued motion (mm/min).
+    self.v_x_max = None
+    self.v_y_max = None
 
   # ---------------------------------------------------------------------
   def set(self, item, value):

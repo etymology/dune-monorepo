@@ -19,6 +19,7 @@ TAG_LAST_REQ_ID = "LastIncomingSegReqID"
 TAG_ACK = "IncomingSegAck"
 TAG_ABORT = "AbortQueue"
 TAG_START = "StartQueuedPath"
+TAG_STOP_REQUEST = "QueueStopRequest"
 
 TAG_MOTION_FAULT = "MotionFault"
 TAG_CUR_ISSUED = "CurIssued"
@@ -35,6 +36,7 @@ TAG_FAULT_CODE = "FaultCode"
 TAG_X_ACTUAL_POSITION = "X_axis.ActualPosition"
 TAG_Y_ACTUAL_POSITION = "Y_axis.ActualPosition"
 TAG_Z_ACTUAL_POSITION = "Z_axis.ActualPosition"
+TAG_SEG_QUEUE = "SegQueue"
 TAG_FRAME_LOCK_HEAD_TOP = "MACHINE_SW_STAT[26]"
 TAG_FRAME_LOCK_HEAD_MID = "MACHINE_SW_STAT[27]"
 TAG_FRAME_LOCK_HEAD_BTM = "MACHINE_SW_STAT[28]"
@@ -101,6 +103,7 @@ class QueuedMotionPLCInterface:
     self._ack = PLC.Tag(plc, TAG_ACK, polled, tagType="DINT")
     self._abort = PLC.Tag(plc, TAG_ABORT, tagType="BOOL")
     self._start = PLC.Tag(plc, TAG_START, tagType="BOOL")
+    self._stop_request = PLC.Tag(plc, TAG_STOP_REQUEST, tagType="BOOL")
 
     self._motion_fault = PLC.Tag(plc, TAG_MOTION_FAULT, polled, tagType="BOOL")
     self._cur_issued = PLC.Tag(plc, TAG_CUR_ISSUED, polled, tagType="BOOL")
@@ -148,6 +151,9 @@ class QueuedMotionPLCInterface:
   def set_start(self, enabled: bool) -> None:
     self._start.set(bool(enabled))
 
+  def set_stop_request(self, enabled: bool) -> None:
+    self._stop_request.set(bool(enabled))
+
   def write_segment(self, seg: MotionSegment) -> None:
     validate_queue_segment(seg)
     self._incoming_seg.set(self.segment_to_udt(seg))
@@ -193,6 +199,19 @@ class QueuedMotionPLCInterface:
 
   def _read_one(self, tag: str):
     return self._extract_read_value(self._plc.read([tag]), tag)
+
+  def read_seg_queue_speeds(self, count: int) -> list[float]:
+    """Read the Speed field from SegQueue[0..count-1]."""
+    return [
+      float(self._read_one(f"{TAG_SEG_QUEUE}[{i}].Speed"))
+      for i in range(count)
+    ]
+
+  def write_seg_queue_speed(self, index: int, speed: float) -> None:
+    """Write the Speed field of SegQueue[index]."""
+    result = self._plc.write((f"{TAG_SEG_QUEUE}[{index}].Speed", float(speed)))
+    if result is None:
+      raise RuntimeError(f"Write failed for {TAG_SEG_QUEUE}[{index}].Speed")
 
   def read_actual_xy(self) -> tuple[float, float]:
     return (
@@ -277,6 +296,15 @@ class QueuedMotionPortAdapter:
 
   def set_start(self, enabled: bool) -> None:
     self.port.set_start(enabled)
+
+  def set_stop_request(self, enabled: bool) -> None:
+    self.port.set_stop_request(enabled)
+
+  def read_seg_queue_speeds(self, count: int) -> list[float]:
+    return self.port.read_seg_queue_speeds(count)
+
+  def write_seg_queue_speed(self, index: int, speed: float) -> None:
+    self.port.write_seg_queue_speed(index, speed)
 
   def status(self) -> QueuedMotionStatus:
     return self.port.status()

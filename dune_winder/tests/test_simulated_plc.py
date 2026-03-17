@@ -86,6 +86,21 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.set_tag("FIFO_Data[2]", 1.0)
     self.assertEqual(plc.get_tag("FIFO_Data[2]"), 1.0)
 
+  def test_queue_stop_request_aborts_queue_and_stays_latched_until_cleared(self):
+    plc = SimulatedPLC()
+    plc.write(("IncomingSeg", {"Valid": True, "Seq": 101, "XY": [10.0, 20.0]}))
+    plc.write(("IncomingSegReqID", 1))
+    plc.write(("StartQueuedPath", 1))
+
+    self.assertEqual(plc.get_tag("QueueCount"), 1)
+
+    plc.write(("QueueStopRequest", 1))
+
+    self.assertEqual(plc.get_tag("QueueStopRequest"), 1)
+    self.assertEqual(plc.get_tag("QueueCount"), 0)
+    self.assertEqual(plc.get_tag("CurIssued"), 0)
+    self.assertEqual(plc.get_tag("NextIssued"), 0)
+
 
 if __name__ == "__main__":
   unittest.main()
