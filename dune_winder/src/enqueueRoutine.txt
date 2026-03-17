@@ -1,7 +1,9 @@
 EQU QueueCtl.POS 0 OTE QueueEmpty 
 GEQ QueueCtl.POS 32 OTE QueueFull 
 MOV QueueCtl.POS QueueCount 
-BST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 
+XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC QueueStopRequest OTL AbortQueue 
+NEQBST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 
 XIO ALL_EOT_GOOD MAS X_Y MoveA All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
 XIO ALL_EOT_GOOD MAS X_Y MoveB All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
 NEQ IncomingSegReqID LastIncomingSegReqID OTL EnqueueReq 
@@ -30,8 +32,8 @@ XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 MOV 5 FaultCode
 XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 OTL QueueFault 
 XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND MOV 8 FaultCode 
 XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND OTL QueueFault 
-XIC CheckNextSeg OTU CheckNextSeg 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
+XIC CheckNextSeg OTU CheckNextSegXIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
+ 
 XIC LoadCurReq OTU StartQueuedPath 
 XIC LoadCurReq FFU SegQueue[0] CurSeg QueueCtl ? ? 
 XIC LoadCurReq OTL CheckCurSeg 
@@ -59,8 +61,7 @@ XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.SegType CmdB_SegType
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.CircleType CmdB_CircleType 
 XIC PrepCurMove XIO UseAasCurrent COP CurSeg.ViaCenter[0] CmdB_ViaCenter[0] 2 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Direction CmdB_Direction 
-XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeq 
-XIC PrepCurMove XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeqXIC PrepCurMove XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
 XIC PrepCurMove BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitCurAxisOn 
 XIC PrepCurMove OTU PrepCurMove 
 XIC WaitCurAxisOn MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
@@ -139,6 +140,9 @@ XIC AbortActive OTU IssueCurPulse
 XIC AbortActive OTU IssueNextPulse 
 XIC AbortActive OTU WaitCurAxisOn 
 XIC AbortActive OTU WaitNextAxisOn 
+XIC AbortActive OTU QueueStopRequest 
+XIC AbortActive OTU AbortQueue 
+ 
 XIC AbortActive OTU EnqueueReq 
 XIC AbortActive OTU RotateMoves 
 XIC AbortActive OTU FlipToA 
@@ -157,4 +161,3 @@ XIC AbortActive MOV IncomingSegReqID LastIncomingSegReqID
 XIC AbortActive MOV 0 ActiveSeq 
 XIC AbortActive MOV 0 PendingSeq 
 XIC AbortActive FLL 0 SegQueue[0] 32 
- 

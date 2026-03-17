@@ -13,6 +13,7 @@ from dataclasses import dataclass, replace
 from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.io.maps.base_io import BaseIO
+from dune_winder.queued_motion.diagnostics import serialize_segment_diagnostics
 from dune_winder.queued_motion.merge_planner import MergeWaypoint, build_merge_path_segments
 from dune_winder.queued_motion.plc_interface import PLC_QUEUE_DEPTH
 from dune_winder.queued_motion.queue_session import QueuedMotionSession
@@ -22,7 +23,12 @@ from dune_winder.queued_motion.safety import (
   QueuedMotionCollisionState,
   validate_xy_move_within_safety_limits,
 )
-from dune_winder.queued_motion.segment_patterns import DEFAULT_WAYPOINT_MIN_ARC_RADIUS
+from dune_winder.queued_motion.segment_patterns import (
+  cap_segments_speed_by_axis_velocity,
+  DEFAULT_V_X_MAX,
+  DEFAULT_V_Y_MAX,
+  DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+)
 
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
 
@@ -30,11 +36,19 @@ _COMMAND_POSITION_RESOLUTION_MM = 0.1
 @dataclass(frozen=True)
 class _PreviewedQueuedLine:
   line_index: int
+  line_text: str
   queueable: bool
   x: float
   y: float
   velocity: float
   merge_mode: str | None
+
+
+@dataclass
+class _QueuedMotionPreviewState:
+  block: dict[str, object]
+  preview: dict[str, object]
+  decision: str | None = None
 
 
 class GCodeHandler(GCodeHandlerBase):
@@ -68,10 +82,13 @@ class GCodeHandler(GCodeHandlerBase):
   def _getHeadPosition(self, headPosition):
     """
     Resolve head position, polling the PLC if it is currently unknown (None).
+    Returns None if the head is not present (position -1).
     """
     if headPosition is None:
       headPosition = self._io.head.readCurrentPosition()
       self._headPosition = headPosition
+    if -1 == headPosition:
+      return None
     return GCodeHandlerBase._getHeadPosition(self, headPosition)
 
   # ---------------------------------------------------------------------
@@ -233,6 +250,21 @@ class GCodeHandler(GCodeHandlerBase):
     return max(0.0, float(value))
 
   # ---------------------------------------------------------------------
+  def _queued_motion_axis_velocity_limits(self) -> tuple[float, float]:
+    """Return (v_x_max, v_y_max) from machine calibration."""
+    try:
+      v_x = self._machineCalibration.get("v_x_max")
+    except Exception:
+      v_x = None
+    try:
+      v_y = self._machineCalibration.get("v_y_max")
+    except Exception:
+      v_y = None
+    v_x = float(v_x) if v_x is not None else DEFAULT_V_X_MAX
+    v_y = float(v_y) if v_y is not None else DEFAULT_V_Y_MAX
+    return (v_x, v_y)
+
+  # ---------------------------------------------------------------------
   def _motion_safety_limits(self):
     return motion_safety_limits_from_calibration(self._machineCalibration)
 
@@ -252,6 +284,20 @@ class GCodeHandler(GCodeHandlerBase):
     self._pending_stop_request = False
 
   # ---------------------------------------------------------------------
+  def _actual_xy(self):
+    try:
+      x = float(self._io.xAxis.getPosition())
+    except Exception:
+      x = float(self._x)
+
+    try:
+      y = float(self._io.yAxis.getPosition())
+    except Exception:
+      y = float(self._y)
+
+    return (x, y)
+
+  # ---------------------------------------------------------------------
   def _preview_loaded_line(self, line_index):
     self._line = None
     self._functions = []
@@ -267,6 +313,7 @@ class GCodeHandler(GCodeHandlerBase):
 
     preview = _PreviewedQueuedLine(
       line_index=line_index,
+      line_text=str(self._gCode.lines[line_index]),
       queueable=queueable,
       x=float(self._x),
       y=float(self._y),
@@ -288,7 +335,7 @@ class GCodeHandler(GCodeHandlerBase):
       return None
 
     snapshot = self._snapshot_interpreter_state()
-    start_xy = (float(snapshot["_x"]), float(snapshot["_y"]))
+    start_xy = self._actual_xy()
     previews: list[_PreviewedQueuedLine] = []
     try:
       current = self._preview_loaded_line(line_index)
@@ -334,6 +381,13 @@ class GCodeHandler(GCodeHandlerBase):
       )
       if not segments:
         return None
+      v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
+      segments = cap_segments_speed_by_axis_velocity(
+        segments=segments,
+        v_x_max=v_x_max,
+        v_y_max=v_y_max,
+        start_xy=start_xy,
+      )
       resume_line = previews[-1].line_index + 1
       stop_after_block = False
       if single_step_queue:
@@ -344,11 +398,130 @@ class GCodeHandler(GCodeHandlerBase):
       return {
         "start_line": line_index,
         "resume_line": resume_line,
+        "start_xy": start_xy,
         "segments": segments,
+        "source_lines": [
+          {
+            "lineIndex": int(preview.line_index),
+            "lineNumber": int(preview.line_index + 1),
+            "text": str(preview.line_text),
+            "mergeMode": preview.merge_mode,
+            "target": {
+              "x": float(preview.x),
+              "y": float(preview.y),
+            },
+          }
+          for preview in previews
+        ],
+        "safety_limits": safety_limits,
+        "v_x_max": v_x_max,
+        "v_y_max": v_y_max,
         "stop_after_block": stop_after_block,
       }
     finally:
       self._restore_interpreter_state(snapshot)
+
+  # ---------------------------------------------------------------------
+  def _build_queued_preview_payload(self, block):
+    start_xy = tuple(block["start_xy"])
+    segments = list(block["segments"])
+    safety_limits = block["safety_limits"]
+    segment_diagnostics, segment_summary = serialize_segment_diagnostics(
+      start_xy=start_xy,
+      segments=segments,
+    )
+    source_lines = list(block.get("source_lines", []))
+    start_line = int(block["start_line"])
+    resume_line = int(block["resume_line"])
+
+    summary = dict(segment_summary)
+    summary["g113Count"] = int(len(source_lines))
+    summary["startLineNumber"] = int(start_line + 1)
+    summary["resumeLineNumber"] = int(resume_line + 1)
+
+    return {
+      "previewId": int(self._queued_preview_id),
+      "kind": "single" if len(source_lines) == 1 else "block",
+      "startLine": int(start_line),
+      "resumeLine": int(resume_line),
+      "stopAfterBlock": bool(block.get("stop_after_block")),
+      "start": {
+        "x": float(start_xy[0]),
+        "y": float(start_xy[1]),
+      },
+      "actualHead": {
+        "x": float(self._actual_xy()[0]),
+        "y": float(self._actual_xy()[1]),
+      },
+      "sourceLines": source_lines,
+      "segments": segment_diagnostics,
+      "summary": summary,
+      "limits": {
+        "limitLeft": float(safety_limits.limit_left),
+        "limitRight": float(safety_limits.limit_right),
+        "limitBottom": float(safety_limits.limit_bottom),
+        "limitTop": float(safety_limits.limit_top),
+        "transferZoneHeadMinX": float(safety_limits.transfer_zone_head_min_x),
+        "transferZoneHeadMaxX": float(safety_limits.transfer_zone_head_max_x),
+        "transferZoneFootMinX": float(safety_limits.transfer_zone_foot_min_x),
+        "transferZoneFootMaxX": float(safety_limits.transfer_zone_foot_max_x),
+        "supportCollisionBottomMinY": float(safety_limits.support_collision_bottom_min_y),
+        "supportCollisionBottomMaxY": float(safety_limits.support_collision_bottom_max_y),
+        "supportCollisionMiddleMinY": float(safety_limits.support_collision_middle_min_y),
+        "supportCollisionMiddleMaxY": float(safety_limits.support_collision_middle_max_y),
+        "supportCollisionTopMinY": float(safety_limits.support_collision_top_min_y),
+        "supportCollisionTopMaxY": float(safety_limits.support_collision_top_max_y),
+      },
+    }
+
+  # ---------------------------------------------------------------------
+  def _set_queued_motion_preview(self, block):
+    self._queued_preview_id += 1
+    self._queued_preview = _QueuedMotionPreviewState(
+      block=block,
+      preview=self._build_queued_preview_payload(block),
+    )
+
+  # ---------------------------------------------------------------------
+  def _launch_queued_block(self, block):
+    self._queued_block_start_line = int(block["start_line"])
+    self._queued_block_resume_line = int(block["resume_line"])
+    self._queued_stop_mode = "single_step" if block.get("stop_after_block") else None
+    self._queued_session = QueuedMotionSession(
+      self._io.plcLogic.queuedMotion,
+      list(block["segments"]),
+      queue_depth=PLC_QUEUE_DEPTH,
+      v_x_max=block.get("v_x_max"),
+      v_y_max=block.get("v_y_max"),
+      start_xy=tuple(block["start_xy"]),
+    )
+    previous_line = self._currentLine
+    self._currentLine = self._queued_block_start_line
+    if self._currentLine != previous_line and self._lineChangeCallback:
+      self._lineChangeCallback()
+    self._queued_session.advance()
+
+  # ---------------------------------------------------------------------
+  def _advance_queued_preview(self):
+    if self._queued_preview is None:
+      return None
+
+    if self._queued_preview.decision == "continue":
+      block = self._queued_preview.block
+      self._queued_preview = None
+      self._launch_queued_block(block)
+      return False
+
+    if self._queued_preview.decision == "cancel":
+      block = self._queued_preview.block
+      self._queued_preview = None
+      self._queued_stop_mode = None
+      self._queued_block_start_line = int(block["start_line"])
+      self._queued_block_resume_line = int(block["resume_line"])
+      self._nextLine = self._queued_block_start_line - self._direction
+      return True
+
+    return False
 
   # ---------------------------------------------------------------------
   def _start_queued_block(self, line_index):
@@ -360,19 +533,11 @@ class GCodeHandler(GCodeHandlerBase):
     if block is None:
       return False
 
-    self._queued_block_start_line = int(block["start_line"])
-    self._queued_block_resume_line = int(block["resume_line"])
-    self._queued_stop_mode = "single_step" if block.get("stop_after_block") else None
-    self._queued_session = QueuedMotionSession(
-      self._io.plcLogic.queuedMotion,
-      list(block["segments"]),
-      queue_depth=PLC_QUEUE_DEPTH,
-    )
+    self._set_queued_motion_preview(block)
     previous_line = self._currentLine
-    self._currentLine = self._queued_block_start_line
+    self._currentLine = int(block["start_line"])
     if self._currentLine != previous_line and self._lineChangeCallback:
       self._lineChangeCallback()
-    self._queued_session.advance()
     return True
 
   # ---------------------------------------------------------------------
@@ -416,10 +581,19 @@ class GCodeHandler(GCodeHandlerBase):
     """
 
     self._stopNextMove = False
+    if self._queued_preview is not None:
+      self._queued_block_start_line = int(self._queued_preview.block["start_line"])
+      self._queued_block_resume_line = int(self._queued_preview.block["resume_line"])
+      self._queued_preview = None
+      self._queued_stop_mode = None
+      self._nextLine = self._queued_block_start_line - self._direction
+      return
+
     if self._queued_session is not None:
-      self._io.plcLogic.queuedMotion.set_abort(True)
-      time.sleep(0.10)
-      self._io.plcLogic.queuedMotion.set_abort(False)
+      if hasattr(self._io.plcLogic, "stopSeek"):
+        self._io.plcLogic.stopSeek()
+      else:
+        self._io.plcLogic.queuedMotion.set_stop_request(True)
       self._queued_session = None
       self._queued_stop_mode = None
       self._nextLine = self._queued_block_start_line - self._direction
@@ -434,6 +608,15 @@ class GCodeHandler(GCodeHandlerBase):
     """
     Stop the G-Code after completing the current move.
     """
+    if self._queued_preview is not None:
+      self._queued_block_start_line = int(self._queued_preview.block["start_line"])
+      self._queued_block_resume_line = int(self._queued_preview.block["resume_line"])
+      self._queued_preview = None
+      self._queued_stop_mode = None
+      self._nextLine = self._queued_block_start_line - self._direction
+      self._stopNextMove = True
+      return
+
     if self._queued_session is not None:
       self._io.plcLogic.queuedMotion.set_abort(True)
       time.sleep(0.10)
@@ -455,6 +638,10 @@ class GCodeHandler(GCodeHandlerBase):
     """
 
     isDone = False
+
+    preview_state = self._advance_queued_preview()
+    if preview_state is not None:
+      return preview_state
 
     if self._queued_session is not None:
       return self._advance_queued_motion()
@@ -611,6 +798,26 @@ class GCodeHandler(GCodeHandlerBase):
     """
     return self._isG_CodeErrorData
 
+  # ---------------------------------------------------------------------
+  def getQueuedMotionPreview(self):
+    if self._queued_preview is None:
+      return None
+    return self._queued_preview.preview
+
+  # ---------------------------------------------------------------------
+  def continueQueuedMotionPreview(self):
+    if self._queued_preview is None:
+      return False
+    self._queued_preview.decision = "continue"
+    return True
+
+  # ---------------------------------------------------------------------
+  def cancelQueuedMotionPreview(self):
+    if self._queued_preview is None:
+      return False
+    self._queued_preview.decision = "cancel"
+    return True
+
 
   # ---------------------------------------------------------------------
   def executeG_CodeLine(self, line: str):
@@ -726,6 +933,7 @@ class GCodeHandler(GCodeHandlerBase):
     self._nextLine = -1
     self._firstMove = True
     self._queued_session = None
+    self._queued_preview = None
     self.useLayerCalibration(None)
 
   # ---------------------------------------------------------------------
@@ -743,6 +951,7 @@ class GCodeHandler(GCodeHandlerBase):
     self._nextLine = -1
     self._firstMove = True
     self._queued_session = None
+    self._queued_preview = None
 
     # Setup the front and back head locations.
     # self._io.head.setFrontAndBack(calibration.zFront, calibration.zBack)
@@ -777,6 +986,7 @@ class GCodeHandler(GCodeHandlerBase):
 
     self._gCode = gCode
     self._queued_session = None
+    self._queued_preview = None
 
   # ---------------------------------------------------------------------
   def isG_CodeLoaded(self):
@@ -915,4 +1125,6 @@ class GCodeHandler(GCodeHandlerBase):
     self._queued_block_start_line = None
     self._queued_block_resume_line = None
     self._queued_sequence_id = 1000
+    self._queued_preview_id = 0
+    self._queued_preview = None
     self._queued_stop_mode = None

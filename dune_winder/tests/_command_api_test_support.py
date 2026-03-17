@@ -108,6 +108,9 @@ class DummyProcess:
     self.lastSeek = None
     self.lastVelocityScale = None
     self.lastAnchor = None
+    self.queuedPreview = {"previewId": 7, "kind": "single"}
+    self.queuedPreviewContinued = False
+    self.queuedPreviewCancelled = False
     self.controlStateMachine = DummyControlState()
     self.gCodeHandler = DummyGCodeHandler()
     self.vTemplateRecipe = DummyTemplateRecipe()
@@ -203,6 +206,17 @@ class DummyProcess:
   def setG_CodeVelocityScale(self, scaleFactor=1.0):
     self.lastVelocityScale = scaleFactor
     return scaleFactor
+
+  def getQueuedMotionPreview(self):
+    return self.queuedPreview
+
+  def continueQueuedMotionPreview(self):
+    self.queuedPreviewContinued = True
+    return True
+
+  def cancelQueuedMotionPreview(self):
+    self.queuedPreviewCancelled = True
+    return True
 
 
 class DummyPLCLogic:

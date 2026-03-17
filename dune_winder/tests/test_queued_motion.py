@@ -37,6 +37,7 @@ class _QueuedMotionPLCLogic:
     self._maxDeceleration = 1000.0
     self.queuedMotion = object() if queued_motion is None else queued_motion
     self.legacy_xy_moves = []
+    self.stop_seek_calls = 0
 
   def isReady(self):
     return True
@@ -49,6 +50,15 @@ class _QueuedMotionPLCLogic:
 
   def move_latch(self):
     raise AssertionError("Unexpected latch move")
+
+  def stopSeek(self):
+    self.stop_seek_calls += 1
+    if not hasattr(self.queuedMotion, "poll"):
+      return
+    self.queuedMotion.poll()
+    if self.queuedMotion.status().is_idle:
+      return
+    self.queuedMotion.set_stop_request(True)
 
 
 class _Head:
@@ -288,12 +298,17 @@ class QueuedMotionTests(unittest.TestCase):
     expected_segment = preview_handler._build_queued_block(0, single_step_queue=True)["segments"][0]
 
     stopped = False
+    saw_preview = False
     for _ in range(12):
       stopped = handler.poll()
+      if handler.getQueuedMotionPreview() is not None:
+        saw_preview = True
+        handler.continueQueuedMotionPreview()
       if stopped and handler._queued_session is None:
         break
       time.sleep(0.12)
 
+    self.assertTrue(saw_preview)
     self.assertTrue(stopped)
     self.assertIsNone(handler._queued_session)
     self.assertEqual(handler._currentLine, 0)
@@ -304,6 +319,24 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), expected_segment.y, places=6)
     self.assertEqual(plc.get_tag("IncomingSeg")["TermType"], 0)
 
+  def test_stop_requests_latched_queue_stop_instead_of_pulsing_abort(self):
+    plc = SimulatedPLC("SIM")
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_RuntimeQueuedMotionIO(plc), calibration, WirePathModel(calibration))
+    handler._queued_session = object()
+    handler._queued_block_start_line = 7
+    handler._nextLine = 9
+    plc.set_tag("CurIssued", 1)
+    plc.set_tag("QueueCount", 1)
+
+    handler.stop()
+
+    self.assertEqual(handler._io.plcLogic.stop_seek_calls, 1)
+    self.assertEqual(plc.get_tag("QueueStopRequest"), 1)
+    self.assertEqual(plc.get_tag("AbortQueue"), 0)
+    self.assertIsNone(handler._queued_session)
+    self.assertEqual(handler._nextLine, 6)
+
   def test_start_queued_block_falls_back_when_queue_planner_rejects_path(self):
     calibration = DefaultMachineCalibration()
     handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
@@ -313,6 +346,89 @@ class QueuedMotionTests(unittest.TestCase):
 
     self.assertFalse(started)
     self.assertIsNone(handler._queued_session)
+
+  def test_start_queued_block_creates_preview_pending_confirmation(self):
+    calibration = DefaultMachineCalibration()
+    merge_lines = [
+      "G113 PPRECISE X500.0 Y100.0",
+      "G113 PPRECISE X550.0 Y150.0",
+    ]
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      merge_lines,
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    self.assertIsNone(handler._queued_session)
+    preview = handler.getQueuedMotionPreview()
+    self.assertIsNotNone(preview)
+    self.assertEqual(preview["kind"], "block")
+    self.assertEqual(preview["summary"]["g113Count"], 2)
+    self.assertEqual(preview["sourceLines"][0]["text"], merge_lines[0])
+    self.assertEqual(preview["segments"][0]["start"]["x"], 400.0)
+    self.assertEqual(preview["segments"][0]["start"]["y"], 100.0)
+
+  def test_continued_queued_preview_starts_motion_on_next_poll(self):
+    plc = SimulatedPLC("SIM")
+    plc.set_tag("X_axis.ActualPosition", 400.0)
+    plc.set_tag("Y_axis.ActualPosition", 100.0)
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_RuntimeQueuedMotionIO(plc), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    self.assertTrue(handler.continueQueuedMotionPreview())
+
+    handler.poll()
+    self.assertIsNotNone(handler._queued_session)
+
+    for _ in range(20):
+      if handler._queued_session is None:
+        break
+      time.sleep(0.12)
+      handler.poll()
+
+    self.assertIsNone(handler._queued_session)
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 500.0, places=6)
+    self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 200.0, places=6)
+
+  def test_cancelled_queued_preview_stops_before_execution(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    self.assertTrue(handler.cancelQueuedMotionPreview())
+
+    stopped = handler.poll()
+
+    self.assertTrue(stopped)
+    self.assertIsNone(handler._queued_session)
+    self.assertIsNone(handler.getQueuedMotionPreview())
+    self.assertEqual(handler._currentLine, 0)
+    self.assertEqual(handler._nextLine, -1)
 
   def test_sub_resolution_xy_move_is_treated_as_noop(self):
     calibration = self._z_collision_calibration()
@@ -395,6 +511,15 @@ class QueuedMotionTests(unittest.TestCase):
 
       self.assertEqual(motion._require_queue().status().ack, 2)
       self.assertEqual(motion._last_point, (450.0, 2100.0))
+
+  def test_motion_queue_reset_clears_latched_stop_request(self):
+    with MotionQueueClient("SIM") as motion:
+      motion._require_queue().set_stop_request(True)
+      self.assertEqual(motion._plc.get_tag("QueueStopRequest"), 1)
+
+      motion.reset_queue()
+
+      self.assertEqual(motion._plc.get_tag("QueueStopRequest"), 0)
 
 
 if __name__ == "__main__":

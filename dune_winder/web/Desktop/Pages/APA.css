@@ -14,6 +14,12 @@
   width: 645px;
 }
 
+#queuedMotionPreviewDiv
+{
+  width: 100%;
+  margin-top: 8px;
+}
+
 #forecastWrapText
 {
   font-size: 20px;

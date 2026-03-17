@@ -24,6 +24,7 @@ from .safety import (
 from .segment_patterns import (
   apply_merge_term_types,
   cap_segments_speed_by_axis_velocity,
+  check_segments_axis_velocities,
   DEFAULT_CONSTANT_VELOCITY_MODE,
   DEFAULT_CURVATURE_SPEED_SAFETY,
   DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN,
@@ -107,6 +108,7 @@ __all__ = [
   "DIR_3D_LONGEST_FULL",
   "apply_merge_term_types",
   "cap_segments_speed_by_axis_velocity",
+  "check_segments_axis_velocities",
   "build_segments",
   "load_motion_safety_limits",
   "motion_safety_limits_from_calibration",

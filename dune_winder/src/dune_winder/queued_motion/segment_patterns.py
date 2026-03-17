@@ -1336,6 +1336,49 @@ def cap_segments_speed_by_axis_velocity(
   return out
 
 
+def check_segments_axis_velocities(
+  segments: list[MotionSegment],
+  speeds: list[float],
+  v_x_max: float,
+  v_y_max: float,
+  start_xy: tuple[float, float],
+) -> None:
+  """Raise ValueError if any speed would produce an axis component exceeding its limit.
+
+  Args:
+    segments: Segment geometry (used to compute worst-case tangent components).
+    speeds: Actual speed values to validate — e.g. read back from the PLC queue.
+    v_x_max: Maximum permitted X-axis component velocity (mm/min).
+    v_y_max: Maximum permitted Y-axis component velocity (mm/min).
+    start_xy: Machine position at the start of the first segment.
+  """
+  if len(speeds) != len(segments):
+    raise ValueError(
+      f"speeds length {len(speeds)} does not match segments length {len(segments)}"
+    )
+  if v_x_max <= 0.0 or v_y_max <= 0.0:
+    raise ValueError("v_x_max and v_y_max must be > 0")
+
+  tolerance = 1e-6
+  prev_x, prev_y = float(start_xy[0]), float(start_xy[1])
+  for seg, speed in zip(segments, speeds):
+    max_tx, max_ty = _segment_tangent_component_bounds(prev_x, prev_y, seg)
+    v_x = speed * max_tx
+    v_y = speed * max_ty
+    if v_x > v_x_max + tolerance:
+      raise ValueError(
+        f"Segment seq={seg.seq}: X component {v_x:.4f} mm/min exceeds limit "
+        f"{v_x_max:.4f} mm/min (speed={speed:.4f}, max_tx={max_tx:.6f})"
+      )
+    if v_y > v_y_max + tolerance:
+      raise ValueError(
+        f"Segment seq={seg.seq}: Y component {v_y:.4f} mm/min exceeds limit "
+        f"{v_y_max:.4f} mm/min (speed={speed:.4f}, max_ty={max_ty:.6f})"
+      )
+    prev_x = float(seg.x)
+    prev_y = float(seg.y)
+
+
 def _segment_tangent_vector(
   start_x: float,
   start_y: float,

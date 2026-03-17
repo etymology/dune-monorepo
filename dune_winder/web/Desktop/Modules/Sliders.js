@@ -1,7 +1,7 @@
 function Sliders( modules )
 {
   var MIN_VELOCITY = 1.0
-  var MIN_ACCELERATION = 1.0
+  var MIN_ACCELERATION = 500.0
 
   var self = this
   var winder = modules.get( "Winder" )

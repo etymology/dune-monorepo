@@ -129,6 +129,8 @@ class DefaultMachineCalibration(MachineCalibration):
     self.supportCollisionTopMinY = 2200.0
     self.supportCollisionTopMaxY = 2650.0
     self.geometryEpsilon = 1e-9
+    self.v_x_max = 825.0
+    self.v_y_max = 600.0
     self.zLimitFront = geometry.limitRetracted
     self.zLimitRear = geometry.limitExtended
     self.headArmLength = geometry.headArmLength

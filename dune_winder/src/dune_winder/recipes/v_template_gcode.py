@@ -92,7 +92,7 @@ V_WRAP_BASE_SCRIPT = compile_template_script(
     "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ( BOARD GAP )",
     "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
+    "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PXY ${offset('PX', offsets[7])} (Top B corner - head end)",
     "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
     "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
@@ -102,7 +102,7 @@ V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
   (
     "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
     "transfer b_to_a_transfer",
-    "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PY ${offset('PY', offsets[9])} (Head A corner)",
+    "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PXY ${offset('PY', offsets[9])} (Head A corner)",
     "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)}",
     "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
     "transfer a_to_b_transfer",
@@ -335,13 +335,15 @@ def render_v_template_lines(
   special_inputs=None,
   cell_overrides=None,
 ):
-  resolved_offsets, transfer_pause_value, include_lead_mode_value = _resolve_render_state(
-    offsets=offsets,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-    named_inputs=named_inputs,
-    special_inputs=special_inputs,
-    cell_overrides=cell_overrides,
+  resolved_offsets, transfer_pause_value, include_lead_mode_value = (
+    _resolve_render_state(
+      offsets=offsets,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+      named_inputs=named_inputs,
+      special_inputs=special_inputs,
+      cell_overrides=cell_overrides,
+    )
   )
 
   lines = [
@@ -485,12 +487,14 @@ def write_v_template_file(
   archive_directory=None,
   parent_hash=None,
 ):
-  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = _resolve_render_state(
-    offsets=offsets,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-    named_inputs=named_inputs,
-    special_inputs=special_inputs,
+  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = (
+    _resolve_render_state(
+      offsets=offsets,
+      transfer_pause=transfer_pause,
+      include_lead_mode=include_lead_mode,
+      named_inputs=named_inputs,
+      special_inputs=special_inputs,
+    )
   )
   lines = render_v_template_lines(
     offsets=offsets,
@@ -651,7 +655,9 @@ def main(argv=None):
       "Cell overrides are not supported by the programmatic V generator."
     )
 
-  named_inputs = dict(_parse_assignment(assignment) for assignment in args.named_assignments)
+  named_inputs = dict(
+    _parse_assignment(assignment) for assignment in args.named_assignments
+  )
   special_inputs = dict(
     _parse_assignment(assignment) for assignment in args.special_assignments
   )
