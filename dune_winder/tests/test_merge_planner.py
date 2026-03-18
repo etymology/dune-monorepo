@@ -77,23 +77,23 @@ class MergePlannerTests(unittest.TestCase):
       ) ** 0.5
       self.assertAlmostEqual(start_radius, waypoint_radius, places=6)
 
-  def test_uses_dynamic_radius_larger_than_machine_minimum(self):
+  def test_uses_jerk_limited_radius_larger_than_machine_minimum(self):
     segments = build_merge_path_segments(
       start_xy=(0.0, 0.0),
       waypoints=_waypoints([(500.0, 0.0), (1000.0, 500.0), (1000.0, 1000.0)]),
       start_seq=100,
       speed=200.0,
-      accel=200.0,
-      decel=200.0,
-      jerk_accel=100.0,
-      jerk_decel=100.0,
+      accel=5000.0,
+      decel=5000.0,
+      jerk_accel=1500.0,
+      jerk_decel=3000.0,
       min_arc_radius=10.0,
       safety_limits=_permissive_limits(),
     )
 
     first_arc = next(seg for seg in segments if seg.seg_type == SEG_TYPE_CIRCLE)
     radius = ((segments[0].x - first_arc.via_center_x) ** 2 + (segments[0].y - first_arc.via_center_y) ** 2) ** 0.5
-    self.assertGreater(radius, 150.0)
+    self.assertGreater(radius, 70.0)
 
   def test_falls_back_to_precise_stop_lines_when_filleted_path_is_impossible(self):
     segments = build_merge_path_segments(

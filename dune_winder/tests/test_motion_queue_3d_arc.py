@@ -24,7 +24,18 @@ class MotionQueue3DArcTests(unittest.TestCase):
     )
 
   def test_validate_arc_accepts_valid_segment(self):
-    seg = self._valid_segment()
+    seg = MotionArc3DSegment(
+      seq=100,
+      x=0.0,
+      y=100.0,
+      z=0.0,
+      via_center_x=0.0,
+      via_center_y=0.0,
+      via_center_z=0.0,
+      direction=DIR_3D_SHORTEST,
+      jerk_accel=5000.0,
+      jerk_decel=6000.0,
+    )
     validate_arc3d_segment(seg, start_xyz=(100.0, 0.0, 0.0))
 
   def test_validate_arc_rejects_full_direction_modes(self):
@@ -83,7 +94,7 @@ class MotionQueue3DArcTests(unittest.TestCase):
     with self.assertRaises(ValueError):
       validate_arc3d_segment(seg, start_xyz=(100.0, 0.0, 0.0))
 
-  def test_validate_arc_rejects_jerk_outside_percent_range(self):
+  def test_validate_arc_rejects_nonpositive_jerk(self):
     with self.subTest("jerk_accel"):
       seg = MotionArc3DSegment(
         seq=100,
@@ -109,7 +120,7 @@ class MotionQueue3DArcTests(unittest.TestCase):
         via_center_y=0.0,
         via_center_z=0.0,
         direction=DIR_3D_SHORTEST,
-        jerk_decel=101.0,
+        jerk_decel=-1.0,
       )
       with self.assertRaises(ValueError):
         validate_arc3d_segment(seg, start_xyz=(100.0, 0.0, 0.0))
