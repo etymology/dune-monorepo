@@ -328,20 +328,31 @@ class LDEmitter:
     # JSR
     # ------------------------------------------------------------------
 
+    def _emit_reg_copy(self, src: str, dest: Reg) -> None:
+        """Emit a register copy, using OTL/OTU for BOOL destinations."""
+        if dest.typ == PLCType.BOOL:
+            self._lines.append(f"XIC {src} OTL {dest}")
+            self._lines.append(f"XIO {src} OTU {dest}")
+        else:
+            self._lines.append(f"MOV {src} {dest}")
+
     def _emit_jsr(self, node: JSRCall) -> None:
         # Pre-load input args
         for dest_reg, val_expr in node.in_args:
             val_s = self._mat_str(val_expr)
-            self._lines.append(f"MOV {val_s} {dest_reg}")
+            if dest_reg.typ == PLCType.BOOL:
+                self._lines.append(f"XIC {val_s} OTL {dest_reg}")
+                self._lines.append(f"XIO {val_s} OTU {dest_reg}")
+            else:
+                self._lines.append(f"MOV {val_s} {dest_reg}")
         self._lines.append(f"JSR {node.routine}")
         # Read output args
         for src_reg, dest_reg in node.out_args:
             if src_reg.index >= 9000:
-                # Placeholder: callee ret reg not yet resolved — emit comment
                 self._lines.append(
-                    f"; TODO: MOV {node.routine}_ret_{src_reg.index - 9000} {dest_reg}")
+                    f"; TODO: copy {node.routine}_ret_{src_reg.index - 9000} {dest_reg}")
             else:
-                self._lines.append(f"MOV {src_reg} {dest_reg}")
+                self._emit_reg_copy(str(src_reg), dest_reg)
 
     # ------------------------------------------------------------------
     # Multi-rung expansions
