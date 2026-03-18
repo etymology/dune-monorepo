@@ -11,6 +11,7 @@ from .safety import (
 )
 from .segment_patterns import (
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
+  apply_merge_term_types,
   _tangent_biarc_tessellation,
   _waypoint_tangents,
 )
@@ -48,6 +49,108 @@ def _normalize(x: float, y: float) -> tuple[float, float]:
   if mag <= _EPS:
     return (1.0, 0.0)
   return (x / mag, y / mag)
+
+
+def _left_normal(direction: tuple[float, float]) -> tuple[float, float]:
+  return (-direction[1], direction[0])
+
+
+def _circle_from_start_tangent_to_point(
+  start_xy: tuple[float, float],
+  tangent_xy: tuple[float, float],
+  end_xy: tuple[float, float],
+) -> Optional[tuple[float, float, int]]:
+  sx, sy = start_xy
+  ex, ey = end_xy
+  tx, ty = _normalize(tangent_xy[0], tangent_xy[1])
+  dx = ex - sx
+  dy = ey - sy
+  chord2 = dx * dx + dy * dy
+  if chord2 <= 1e-12:
+    return None
+
+  nx, ny = _left_normal((tx, ty))
+  denom = dx * nx + dy * ny
+  if abs(denom) <= 1e-9:
+    return None
+
+  signed_radius = chord2 / (2.0 * denom)
+  if abs(signed_radius) > 1e9:
+    return None
+
+  cx = sx + nx * signed_radius
+  cy = sy + ny * signed_radius
+  direction = MCCM_DIR_2D_CCW if signed_radius > 0.0 else MCCM_DIR_2D_CW
+  return (cx, cy, direction)
+
+
+def _arc_tangent(
+  center_xy: tuple[float, float],
+  point_xy: tuple[float, float],
+  direction: int,
+) -> Optional[tuple[float, float]]:
+  radial_x = point_xy[0] - center_xy[0]
+  radial_y = point_xy[1] - center_xy[1]
+  radius = math.hypot(radial_x, radial_y)
+  if radius <= 1e-9:
+    return None
+
+  if direction == MCCM_DIR_2D_CCW:
+    return (-radial_y / radius, radial_x / radius)
+  if direction == MCCM_DIR_2D_CW:
+    return (radial_y / radius, -radial_x / radius)
+  return None
+
+
+def _unit_vector_between(
+  start_xy: tuple[float, float],
+  end_xy: tuple[float, float],
+) -> Optional[tuple[float, float]]:
+  dx = end_xy[0] - start_xy[0]
+  dy = end_xy[1] - start_xy[1]
+  mag = math.hypot(dx, dy)
+  if mag <= _EPS:
+    return None
+  return (dx / mag, dy / mag)
+
+
+def _single_tangent_arc_segment(
+  *,
+  start_xy: tuple[float, float],
+  end_xy: tuple[float, float],
+  start_tangent_xy: tuple[float, float],
+  end_tangent_xy: tuple[float, float],
+  tangent_tolerance_deg: float = 2.0,
+) -> Optional[MotionSegment]:
+  circle = _circle_from_start_tangent_to_point(start_xy, start_tangent_xy, end_xy)
+  if circle is None:
+    return None
+
+  cx, cy, direction = circle
+  actual_end_tangent = _arc_tangent((cx, cy), end_xy, direction)
+  if actual_end_tangent is None:
+    return None
+
+  expected_end_tangent = _normalize(end_tangent_xy[0], end_tangent_xy[1])
+  dot = (
+    actual_end_tangent[0] * expected_end_tangent[0]
+    + actual_end_tangent[1] * expected_end_tangent[1]
+  )
+  dot = max(-1.0, min(1.0, dot))
+  if math.degrees(math.acos(dot)) > tangent_tolerance_deg:
+    return None
+
+  return MotionSegment(
+    seq=0,
+    x=end_xy[0],
+    y=end_xy[1],
+    term_type=4,
+    seg_type=SEG_TYPE_CIRCLE,
+    circle_type=CIRCLE_TYPE_CENTER,
+    via_center_x=cx,
+    via_center_y=cy,
+    direction=direction,
+  )
 
 
 def _decorate_segments(
@@ -135,6 +238,67 @@ def _exact_biarc_segments(
   tangents = _waypoint_tangents(points)
   segments = _tangent_biarc_tessellation(points, tangents, start_seq=0, term_type=4)
   return segments[1:]
+
+
+def _alternating_line_arc_segments(
+  *,
+  start_xy: tuple[float, float],
+  waypoints: list[MergeWaypoint],
+) -> Optional[list[MotionSegment]]:
+  if len(waypoints) < 3:
+    return None
+
+  points = [(float(start_xy[0]), float(start_xy[1]))]
+  points.extend((float(waypoint.x), float(waypoint.y)) for waypoint in waypoints)
+
+  segments: list[MotionSegment] = []
+  edge_count = len(points) - 1
+  for edge_index in range(edge_count):
+    edge_start = points[edge_index]
+    edge_end = points[edge_index + 1]
+
+    if edge_index == 0 or edge_index % 2 == 0 or edge_index == edge_count - 1:
+      segments.append(
+        MotionSegment(
+          seq=0,
+          x=edge_end[0],
+          y=edge_end[1],
+          term_type=4,
+          seg_type=SEG_TYPE_LINE,
+        )
+      )
+      continue
+
+    next_edge_end = points[edge_index + 2]
+    start_tangent = _unit_vector_between(points[edge_index - 1], edge_start)
+    end_tangent = _unit_vector_between(edge_end, next_edge_end)
+    if start_tangent is None or end_tangent is None:
+      return None
+
+    arc_segment = _single_tangent_arc_segment(
+      start_xy=edge_start,
+      end_xy=edge_end,
+      start_tangent_xy=start_tangent,
+      end_tangent_xy=end_tangent,
+    )
+    if arc_segment is None:
+      return None
+    segments.append(arc_segment)
+
+  return segments
+
+
+def _precise_stop_segments(waypoints: list[MergeWaypoint]) -> list[MotionSegment]:
+  return [
+    MotionSegment(
+      seq=0,
+      x=float(waypoint.x),
+      y=float(waypoint.y),
+      term_type=0,
+      seg_type=SEG_TYPE_LINE,
+    )
+    for waypoint in waypoints
+  ]
 
 
 def _build_fillet_segments(
@@ -238,6 +402,32 @@ def build_merge_path_segments(
   if not filtered_waypoints:
     return []
 
+  alternating = _alternating_line_arc_segments(
+    start_xy=start_xy,
+    waypoints=filtered_waypoints,
+  )
+  if alternating is not None and _segments_are_valid(
+    alternating,
+    start_xy=start_xy,
+    min_arc_radius=min_arc_radius,
+    safety_limits=safety_limits,
+    queued_motion_collision_state=queued_motion_collision_state,
+  ):
+    alternating = _decorate_segments(
+      alternating,
+      start_seq=start_seq,
+      speed=speed,
+      accel=accel,
+      decel=decel,
+      jerk_accel=jerk_accel,
+      jerk_decel=jerk_decel,
+    )
+    return apply_merge_term_types(
+      alternating,
+      start_xy=start_xy,
+      final_term_type=0,
+    )
+
   exact = _exact_biarc_segments(start_xy=start_xy, waypoints=filtered_waypoints)
   if _segments_are_valid(
     exact,
@@ -255,78 +445,31 @@ def build_merge_path_segments(
       jerk_accel=jerk_accel,
       jerk_decel=jerk_decel,
     )
-    if exact:
-      exact[-1] = replace(exact[-1], term_type=0)
-    return exact
-
-  segments: list[MotionSegment] = []
-  cursor = (float(start_xy[0]), float(start_xy[1]))
-
-  for index, waypoint in enumerate(filtered_waypoints):
-    point_xy = (float(waypoint.x), float(waypoint.y))
-    next_point = (
-      filtered_waypoints[index + 1] if index + 1 < len(filtered_waypoints) else None
-    )
-
-    if waypoint.mode == MERGE_MODE_TOLERANT and next_point is not None:
-      fillet_segments = _build_fillet_segments(
-        cursor,
-        point_xy,
-        (float(next_point.x), float(next_point.y)),
-        min_arc_radius,
-      )
-      if fillet_segments is not None:
-        decorated = _decorate_segments(
-          fillet_segments,
-          start_seq=start_seq + len(segments),
-          speed=speed,
-          accel=accel,
-          decel=decel,
-          jerk_accel=jerk_accel,
-          jerk_decel=jerk_decel,
-        )
-        if _segments_are_valid(
-          segments + decorated,
-          start_xy=start_xy,
-          min_arc_radius=min_arc_radius,
-          safety_limits=safety_limits,
-          queued_motion_collision_state=queued_motion_collision_state,
-        ):
-          if _distance(cursor, (decorated[0].x, decorated[0].y)) <= _EPS:
-            decorated = decorated[1:]
-          segments.extend(decorated)
-          cursor = (
-            float(segments[-1].x),
-            float(segments[-1].y),
-          )
-          continue
-
-    line_segment = MotionSegment(
-      seq=start_seq + len(segments),
-      x=point_xy[0],
-      y=point_xy[1],
-      speed=speed,
-      accel=accel,
-      decel=decel,
-      jerk_accel=jerk_accel,
-      jerk_decel=jerk_decel,
-      term_type=0,
-      seg_type=SEG_TYPE_LINE,
-    )
-    candidate = segments + [line_segment]
-    if not _segments_are_valid(
-      candidate,
+    return apply_merge_term_types(
+      exact,
       start_xy=start_xy,
-      min_arc_radius=min_arc_radius,
-      safety_limits=safety_limits,
-      queued_motion_collision_state=queued_motion_collision_state,
-    ):
-      raise ValueError(
-        f"Unable to build a valid queued path through waypoint line {waypoint.line_index}"
-      )
-    segments = candidate
-    cursor = point_xy
+      final_term_type=0,
+    )
 
-  if segments:
-    segments[-1] = replace(segments[-1], term_type=0)
-  return segments
+  precise = _decorate_segments(
+    _precise_stop_segments(filtered_waypoints),
+    start_seq=start_seq,
+    speed=speed,
+    accel=accel,
+    decel=decel,
+    jerk_accel=jerk_accel,
+    jerk_decel=jerk_decel,
+  )
+  precise = [replace(seg, term_type=0) for seg in precise]
+  if _segments_are_valid(
+    precise,
+    start_xy=start_xy,
+    min_arc_radius=min_arc_radius,
+    safety_limits=safety_limits,
+    queued_motion_collision_state=queued_motion_collision_state,
+  ):
+    return precise
+
+  raise ValueError(
+    f"Unable to build a valid queued path through waypoint line {filtered_waypoints[-1].line_index}"
+  )

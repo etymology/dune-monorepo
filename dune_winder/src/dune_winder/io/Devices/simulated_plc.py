@@ -613,11 +613,24 @@ class SimulatedPLC(PLC):
     if tagName in self._overrides:
       return self._overrides[tagName]
 
+    if tagName in self._tagValues:
+      return self._tagValues[tagName]
+
+    if tagName.startswith("SegQueue[") and "]." in tagName:
+      index_text, field_name = tagName[len("SegQueue[") :].split("].", 1)
+      try:
+        index = int(index_text)
+      except ValueError:
+        index = -1
+      if 0 <= index < len(self._queuedSegments):
+        segment = self._queuedSegments[index]
+        return segment.get(field_name, 0)
+
     bitIndex = self._machineBitIndex(tagName)
     if bitIndex is not None:
       return self._deriveMachineSwitchBit(bitIndex)
 
-    return self._tagValues.get(tagName, 0)
+    return 0
 
   # ---------------------------------------------------------------------
   def _deriveMachineSwitchBit(self, bitIndex: int):
