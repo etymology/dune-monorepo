@@ -8,7 +8,7 @@ cache/
 /version.xml
 .venv
 config/APA/*
-*.DS_Store
+.DS_Store
 src/dune_winder.egg-info/*
 
 gc_files/*
