@@ -429,13 +429,13 @@ def _validate_point(
   label: str,
   collision_state: Optional[QueuedMotionCollisionState] = None,
 ) -> None:
-  if x < limits.limit_left or x > limits.limit_right:
+  if x < limits.limit_left-limits.geometry_epsilon or x > limits.limit_right+limits.geometry_epsilon:
     raise ValueError(
       f"{label} seq={seq} has X={x:.3f} outside "
       f"[{limits.limit_left:.3f}, {limits.limit_right:.3f}]"
     )
 
-  if y < limits.limit_bottom or y > limits.limit_top:
+  if y < limits.limit_bottom-limits.geometry_epsilon or y > limits.limit_top+limits.geometry_epsilon:
     raise ValueError(
       f"{label} seq={seq} has Y={y:.3f} outside "
       f"[{limits.limit_bottom:.3f}, {limits.limit_top:.3f}]"
