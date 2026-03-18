@@ -109,6 +109,7 @@ class DummyProcess:
     self.lastVelocityScale = None
     self.lastAnchor = None
     self.queuedPreview = {"previewId": 7, "kind": "single"}
+    self.queuedMotionUseMaxSpeed = False
     self.queuedPreviewContinued = False
     self.queuedPreviewCancelled = False
     self.controlStateMachine = DummyControlState()
@@ -209,6 +210,13 @@ class DummyProcess:
 
   def getQueuedMotionPreview(self):
     return self.queuedPreview
+
+  def getQueuedMotionUseMaxSpeed(self):
+    return self.queuedMotionUseMaxSpeed
+
+  def setQueuedMotionUseMaxSpeed(self, enabled):
+    self.queuedMotionUseMaxSpeed = bool(enabled)
+    return self.queuedMotionUseMaxSpeed
 
   def continueQueuedMotionPreview(self):
     self.queuedPreviewContinued = True

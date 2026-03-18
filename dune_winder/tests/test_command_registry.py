@@ -73,6 +73,22 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertTrue(process.queuedPreviewContinued)
     self.assertTrue(process.queuedPreviewCancelled)
 
+  def test_queued_motion_max_speed_commands_dispatch(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    get_response = registry.executeRequest(
+      {"name": "process.get_queued_motion_use_max_speed", "args": {}},
+    )
+    set_response = registry.executeRequest(
+      {"name": "process.set_queued_motion_use_max_speed", "args": {"enabled": True}},
+    )
+
+    self.assertTrue(get_response["ok"])
+    self.assertFalse(get_response["data"])
+    self.assertTrue(set_response["ok"])
+    self.assertTrue(set_response["data"])
+    self.assertTrue(process.queuedMotionUseMaxSpeed)
+
 
 if __name__ == "__main__":
   unittest.main()

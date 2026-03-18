@@ -478,6 +478,38 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(preview["segments"][0]["start"]["x"], 400.0)
     self.assertEqual(preview["segments"][0]["start"]["y"], 100.0)
 
+  def test_set_queued_motion_use_max_speed_refreshes_pending_preview_speed(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      [
+        "G113 PPRECISE X500.0 Y100.0",
+        "F300 X600.0 Y100.0",
+      ],
+      handler._callbacks,
+    )
+
+    started = handler._start_queued_block(0)
+
+    self.assertTrue(started)
+    preview = handler.getQueuedMotionPreview()
+    self.assertIsNotNone(preview)
+    self.assertFalse(preview["useMaxSpeed"])
+    initial_seq = preview["segments"][0]["seq"]
+    self.assertEqual(preview["segments"][0]["speed"], 300.0)
+
+    expected_speed = min(handler._queued_motion_axis_velocity_limits())
+    self.assertTrue(handler.setQueuedMotionUseMaxSpeed(True))
+
+    refreshed_preview = handler.getQueuedMotionPreview()
+    self.assertIsNotNone(refreshed_preview)
+    self.assertTrue(refreshed_preview["useMaxSpeed"])
+    self.assertEqual(refreshed_preview["segments"][0]["seq"], initial_seq)
+    self.assertEqual(refreshed_preview["segments"][0]["speed"], expected_speed)
+
   def test_continued_queued_preview_starts_motion_on_next_poll(self):
     plc = SimulatedPLC("SIM")
     plc.set_tag("X_axis.ActualPosition", 400.0)
