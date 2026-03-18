@@ -72,6 +72,10 @@ class BinOp:
     typ: PLCType = PLCType.REAL
 
     def __str__(self) -> str:
+        if self.op == "%":
+            return f"MOD({self.left},{self.right})"
+        if self.op == "**":
+            return f"XPY({self.left},{self.right})"
         return f"{self.left}{self.op}{self.right}"
 
 
