@@ -9,9 +9,11 @@ function QueuedMotionPreview(modules)
   var previewPending = false
   var decisionPending = false
   var limits = null
+  var autoContinue = false
 
   var CANVAS_HEIGHT = 320
   var PADDING = 18
+  var AUTO_CONTINUE_STORAGE_KEY = "queuedMotionPreview.autoContinue"
 
   function readNumber(source, key, fallback)
   {
@@ -105,7 +107,12 @@ function QueuedMotionPreview(modules)
         : preview.summary.startLineNumber
 
       if ( decisionPending )
-        statusText = "Submitting queued G113 preview decision..."
+      {
+        if ( autoContinue && previewPending )
+          statusText = "Auto-continue enabled; approving queued G113 preview..."
+        else
+          statusText = "Submitting queued G113 preview decision..."
+      }
       else if ( previewPending )
         statusText = "Queued G113 preview waiting for confirmation before execution."
       else
@@ -161,9 +168,34 @@ function QueuedMotionPreview(modules)
     $( "#queuedMotionPreviewSummary" ).text( summaryText )
     $( "#queuedMotionPreviewContinueButton" ).prop( "disabled", ! previewPending || decisionPending )
     $( "#queuedMotionPreviewCancelButton" ).prop( "disabled", ! previewPending || decisionPending )
+    $( "#queuedMotionPreviewAutoContinue" ).prop( "checked", autoContinue )
 
     setRows( "#queuedMotionPreviewSource", sourceRows, "No queued G113 lines are waiting." )
     setRows( "#queuedMotionPreviewSegments", segmentRows, "No queued segments are waiting." )
+  }
+
+  function loadAutoContinue()
+  {
+    try
+    {
+      autoContinue = "true" === window.localStorage.getItem( AUTO_CONTINUE_STORAGE_KEY )
+    }
+    catch ( error )
+    {
+      autoContinue = false
+    }
+  }
+
+  function saveAutoContinue()
+  {
+    try
+    {
+      window.localStorage.setItem( AUTO_CONTINUE_STORAGE_KEY, autoContinue ? "true" : "false" )
+    }
+    catch ( error )
+    {
+      // Ignore storage failures and keep the setting in-memory for this session.
+    }
   }
 
   function ensureCanvas()
@@ -477,6 +509,12 @@ function QueuedMotionPreview(modules)
     )
   }
 
+  function maybeAutoContinue()
+  {
+    if ( autoContinue && previewPending && ! decisionPending )
+      submitDecision( commands.process.continueQueuedMotionPreview )
+  }
+
   function loadGeometry()
   {
     uiServices.call(
@@ -503,6 +541,15 @@ function QueuedMotionPreview(modules)
       .on( "click.queuedPreview", function() {
         submitDecision( commands.process.cancelQueuedMotionPreview )
       } )
+
+    $( "#queuedMotionPreviewAutoContinue" )
+      .off( "change.queuedPreview" )
+      .on( "change.queuedPreview", function() {
+        autoContinue = $( this ).is( ":checked" )
+        saveAutoContinue()
+        updateDetails()
+        maybeAutoContinue()
+      } )
   }
 
   modules.load(
@@ -517,6 +564,7 @@ function QueuedMotionPreview(modules)
       motorStatus = modules.get( "MotorStatus" )
       uiServices = modules.get( "UiServices" )
       limits = buildLimits( {} )
+      loadAutoContinue()
 
       bindControls()
       updateDetails()
@@ -541,6 +589,7 @@ function QueuedMotionPreview(modules)
           }
           updateDetails()
           renderCanvas()
+          maybeAutoContinue()
         }
       )
 
