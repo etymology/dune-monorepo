@@ -1,28 +1,25 @@
 services:
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: dune_prometheus
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=7d"
+  influxdb:
+    image: influxdb:2
+    container_name: dune_influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: dune_winder
+      DOCKER_INFLUXDB_INIT_ORG: dune
+      DOCKER_INFLUXDB_INIT_BUCKET: winder
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: dune-winder-token
     ports:
-      - "9090:9090"
-    extra_hosts:
-      # Lets the container reach the Python metrics endpoint on the host.
-      # Works on macOS/Windows Docker Desktop automatically; on Linux this
-      # adds the necessary mapping.
-      - "host.docker.internal:host-gateway"
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:latest
     container_name: dune_grafana
     depends_on:
-      - prometheus
+      - influxdb
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -31,10 +28,11 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: "dune_winder"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/dune_winder.json
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: "200ms"
     ports:
       - "3000:3000"
     restart: unless-stopped
 
 volumes:
-  prometheus_data:
+  influxdb_data:
   grafana_data:
