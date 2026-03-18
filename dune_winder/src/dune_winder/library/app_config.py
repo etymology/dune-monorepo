@@ -15,7 +15,11 @@ import tempfile
 import tomllib
 import typing
 
-from dune_winder.queued_motion.jerk_limits import normalize_queued_motion_jerk_percent
+from dune_winder.queued_motion.jerk_limits import (
+  DEFAULT_QUEUED_MOTION_ACCEL_JERK,
+  DEFAULT_QUEUED_MOTION_DECEL_JERK,
+  normalize_queued_motion_jerk,
+)
 
 
 @dataclasses.dataclass
@@ -57,9 +61,10 @@ class AppConfig:
   # Velocity and acceleration limits.
   maxVelocity: int = 1020
   maxSlowVelocity: float = 25.4
-  maxAcceleration: int = 5000
-  maxDeceleration: int = 5000
-  maxJerk: float = 100.0
+  maxAcceleration: int = 2000
+  maxDeceleration: int = 2000
+  maxJerkAccel: float = DEFAULT_QUEUED_MOTION_ACCEL_JERK
+  maxJerkDecel: float = DEFAULT_QUEUED_MOTION_DECEL_JERK
 
   @classmethod
   def normalizePlcMode(cls, value: typing.Any) -> str:
@@ -72,9 +77,25 @@ class AppConfig:
 
   def __post_init__(self) -> None:
     self.plcMode = self.normalizePlcMode(self.plcMode)
-    self.maxJerk = normalize_queued_motion_jerk_percent(self.maxJerk)
+    self.maxJerkAccel = normalize_queued_motion_jerk(
+      self.maxJerkAccel,
+      default=DEFAULT_QUEUED_MOTION_ACCEL_JERK,
+    )
+    self.maxJerkDecel = normalize_queued_motion_jerk(
+      self.maxJerkDecel,
+      default=DEFAULT_QUEUED_MOTION_DECEL_JERK,
+    )
     # Not a dataclass field — stores the file path for save().
     self._path: typing.Optional[pathlib.Path] = None
+
+  @staticmethod
+  def _apply_legacy_max_jerk(raw: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    normalized = dict(raw)
+    legacy = normalized.pop("maxJerk", None)
+    if legacy is not None:
+      normalized.setdefault("maxJerkAccel", legacy)
+      normalized.setdefault("maxJerkDecel", legacy)
+    return normalized
 
   # ------------------------------------------------------------------
   @classmethod
@@ -102,6 +123,7 @@ class AppConfig:
 
     with path.open("rb") as f:
       raw = tomllib.load(f)
+    raw = cls._apply_legacy_max_jerk(raw)
 
     hints = typing.get_type_hints(cls)
     valid_fields = {field.name for field in dataclasses.fields(cls)}
@@ -140,6 +162,7 @@ class AppConfig:
     hints = typing.get_type_hints(cls)
     valid_fields = {field.name for field in dataclasses.fields(cls)}
     kwargs: dict = {}
+    legacy_max_jerk = None
     for name in valid_fields:
       nodes = doc.getElementsByTagName(name)
       if not nodes:
@@ -151,6 +174,12 @@ class AppConfig:
         kwargs[name] = expected(text)
       except (TypeError, ValueError):
         pass
+    legacy_nodes = doc.getElementsByTagName("maxJerk")
+    if legacy_nodes:
+      child = legacy_nodes[0].firstChild
+      legacy_max_jerk = (child.nodeValue or "").strip() if child is not None else ""
+    if legacy_max_jerk:
+      kwargs = cls._apply_legacy_max_jerk({"maxJerk": legacy_max_jerk, **kwargs})
     return cls(**kwargs)
 
   # ------------------------------------------------------------------
@@ -192,6 +221,8 @@ class AppConfig:
     Kept for compatibility with the remote API command handlers that
     perform dynamic key look-ups.
     """
+    if key == "maxJerk":
+      return self.maxJerkAccel
     return getattr(self, key, None)
 
   # ------------------------------------------------------------------
@@ -201,6 +232,12 @@ class AppConfig:
     Raises ``KeyError`` for unknown keys.
     """
     valid_fields = {field.name for field in dataclasses.fields(self)}
+    if key == "maxJerk":
+      value = normalize_queued_motion_jerk(value)
+      self.maxJerkAccel = value
+      self.maxJerkDecel = value
+      self.save()
+      return
     if key not in valid_fields:
       raise KeyError(f"Unknown configuration key: {key!r}")
 
@@ -220,8 +257,10 @@ class AppConfig:
 
     if key == "plcMode":
       value = self.normalizePlcMode(value)
-    elif key == "maxJerk":
-      value = normalize_queued_motion_jerk_percent(value)
+    elif key == "maxJerkAccel":
+      value = normalize_queued_motion_jerk(value, default=DEFAULT_QUEUED_MOTION_ACCEL_JERK)
+    elif key == "maxJerkDecel":
+      value = normalize_queued_motion_jerk(value, default=DEFAULT_QUEUED_MOTION_DECEL_JERK)
 
     setattr(self, key, value)
     self.save()

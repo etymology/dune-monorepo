@@ -8,7 +8,7 @@ from typing import Iterable, Optional
 from dune_winder.io.devices.controllogix_plc import ControllogixPLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
 
-from .jerk_limits import is_valid_queued_motion_jerk_percent
+from .jerk_limits import is_valid_queued_motion_jerk
 
 
 SEG_TYPE_CIRCLE = 2
@@ -75,8 +75,8 @@ class MotionArc3DSegment:
   speed: float = 1000.0
   accel: float = 2000.0
   decel: float = 2000.0
-  jerk_accel: float = 100.0
-  jerk_decel: float = 100.0
+  jerk_accel: float = 1500.0
+  jerk_decel: float = 3000.0
   term_type: int = 3
   seg_type: int = SEG_TYPE_CIRCLE
   circle_type: int = CIRCLE_TYPE_CENTER
@@ -121,10 +121,10 @@ def validate_arc3d_segment(
     raise ValueError("seq must be > 0")
   if seg.speed <= 0.0 or seg.accel <= 0.0 or seg.decel <= 0.0:
     raise ValueError("speed, accel, and decel must be > 0")
-  if not is_valid_queued_motion_jerk_percent(seg.jerk_accel):
-    raise ValueError("jerk_accel must be in (0, 100] for queued motion")
-  if not is_valid_queued_motion_jerk_percent(seg.jerk_decel):
-    raise ValueError("jerk_decel must be in (0, 100] for queued motion")
+  if not is_valid_queued_motion_jerk(seg.jerk_accel):
+    raise ValueError("jerk_accel must be finite and > 0 for queued motion")
+  if not is_valid_queued_motion_jerk(seg.jerk_decel):
+    raise ValueError("jerk_decel must be finite and > 0 for queued motion")
   if not (0 <= seg.term_type <= 6):
     raise ValueError("term_type must be in [0, 6]")
 
