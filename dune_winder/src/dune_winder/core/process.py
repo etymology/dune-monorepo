@@ -407,6 +407,27 @@ class Process:
     return self.gCodeHandler.getQueuedMotionPreview()
 
   # ---------------------------------------------------------------------
+  def getQueuedMotionUseMaxSpeed(self):
+    return self.gCodeHandler.getQueuedMotionUseMaxSpeed()
+
+  # ---------------------------------------------------------------------
+  def setQueuedMotionUseMaxSpeed(self, enabled):
+    enabled = bool(enabled)
+    current = self.gCodeHandler.getQueuedMotionUseMaxSpeed()
+    if current == enabled:
+      return current
+
+    current = self.gCodeHandler.setQueuedMotionUseMaxSpeed(enabled)
+    self._log.add(
+      self.__class__.__name__,
+      "QUEUED_PREVIEW_MAX_SPEED",
+      "Enabled queued-motion default maximum speed."
+      if current
+      else "Disabled queued-motion default maximum speed.",
+    )
+    return current
+
+  # ---------------------------------------------------------------------
   def continueQueuedMotionPreview(self):
     accepted = self.gCodeHandler.continueQueuedMotionPreview()
     if accepted:

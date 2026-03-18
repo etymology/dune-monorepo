@@ -271,6 +271,11 @@ class GCodeHandler(GCodeHandlerBase):
     return (v_x, v_y)
 
   # ---------------------------------------------------------------------
+  def _queued_motion_default_speed(self) -> float:
+    v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
+    return min(v_x_max, v_y_max)
+
+  # ---------------------------------------------------------------------
   def _queued_motion_accel_limits(self) -> tuple[float, float]:
     plc_logic = getattr(self._io, "plcLogic", None)
     configuration = getattr(self, "_configuration", None)
@@ -390,7 +395,14 @@ class GCodeHandler(GCodeHandlerBase):
     return preview
 
   # ---------------------------------------------------------------------
-  def _build_queued_block(self, line_index, *, single_step_queue: bool = False):
+  def _build_queued_block(
+    self,
+    line_index,
+    *,
+    single_step_queue: bool = False,
+    start_seq: int | None = None,
+    reserve_sequence: bool = True,
+  ):
     if (
       self._gCode is None
       or self._direction != 1
@@ -422,9 +434,12 @@ class GCodeHandler(GCodeHandlerBase):
         if next_preview.merge_mode is None:
           break
 
-      speed = min(preview.velocity for preview in previews)
-      if not math.isfinite(speed):
-        speed = min(self._queued_motion_axis_velocity_limits())
+      if self._queued_motion_use_max_speed:
+        speed = self._queued_motion_default_speed()
+      else:
+        speed = min(preview.velocity for preview in previews)
+        if not math.isfinite(speed):
+          speed = self._queued_motion_default_speed()
       accel, decel = self._queued_motion_accel_limits()
       jerk_accel, jerk_decel = self._queued_motion_jerk_limits()
       safety_limits = self._motion_safety_limits()
@@ -437,10 +452,11 @@ class GCodeHandler(GCodeHandlerBase):
         )
         for preview in previews
       ]
+      block_start_seq = self._queued_sequence_id if start_seq is None else int(start_seq)
       segments = build_merge_path_segments(
         start_xy=start_xy,
         waypoints=waypoints,
-        start_seq=self._queued_sequence_id,
+        start_seq=block_start_seq,
         speed=speed,
         accel=accel,
         decel=decel,
@@ -465,11 +481,15 @@ class GCodeHandler(GCodeHandlerBase):
         segments = [replace(segments[0], term_type=0)]
         resume_line = line_index + 1
         stop_after_block = True
-      self._queued_sequence_id += len(segments) + 1
+      next_sequence_id = block_start_seq + len(segments) + 1
+      if reserve_sequence:
+        self._queued_sequence_id = next_sequence_id
       return {
         "start_line": line_index,
         "resume_line": resume_line,
         "start_xy": start_xy,
+        "start_sequence_id": block_start_seq,
+        "next_sequence_id": next_sequence_id,
         "segments": segments,
         "source_lines": [
           {
@@ -513,6 +533,7 @@ class GCodeHandler(GCodeHandlerBase):
     return {
       "previewId": int(self._queued_preview_id),
       "kind": "single" if len(source_lines) == 1 else "block",
+      "useMaxSpeed": bool(self._queued_motion_use_max_speed),
       "startLine": int(start_line),
       "resumeLine": int(resume_line),
       "stopAfterBlock": bool(block.get("stop_after_block")),
@@ -552,6 +573,25 @@ class GCodeHandler(GCodeHandlerBase):
       block=block,
       preview=self._build_queued_preview_payload(block),
     )
+
+  # ---------------------------------------------------------------------
+  def _refresh_queued_motion_preview(self):
+    if self._queued_preview is None or self._queued_preview.decision is not None:
+      return
+
+    start_sequence_id = int(self._queued_preview.block.get("start_sequence_id", self._queued_sequence_id))
+    block = self._build_queued_block(
+      int(self._queued_preview.block["start_line"]),
+      single_step_queue=bool(self._queued_preview.block.get("stop_after_block")),
+      start_seq=start_sequence_id,
+      reserve_sequence=False,
+    )
+    if block is None:
+      self._queued_preview = None
+      self._queued_sequence_id = start_sequence_id
+      return
+    self._queued_sequence_id = int(block["next_sequence_id"])
+    self._set_queued_motion_preview(block)
 
   # ---------------------------------------------------------------------
   def _launch_queued_block(self, block):
@@ -875,6 +915,19 @@ class GCodeHandler(GCodeHandlerBase):
     if self._queued_preview is None:
       return None
     return self._queued_preview.preview
+
+  # ---------------------------------------------------------------------
+  def getQueuedMotionUseMaxSpeed(self):
+    return bool(self._queued_motion_use_max_speed)
+
+  # ---------------------------------------------------------------------
+  def setQueuedMotionUseMaxSpeed(self, enabled):
+    enabled = bool(enabled)
+    if enabled == self._queued_motion_use_max_speed:
+      return enabled
+    self._queued_motion_use_max_speed = enabled
+    self._refresh_queued_motion_preview()
+    return enabled
 
   # ---------------------------------------------------------------------
   def continueQueuedMotionPreview(self):
@@ -1201,3 +1254,4 @@ class GCodeHandler(GCodeHandlerBase):
     self._queued_preview_id = 0
     self._queued_preview = None
     self._queued_stop_mode = None
+    self._queued_motion_use_max_speed = False

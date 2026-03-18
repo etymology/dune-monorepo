@@ -656,6 +656,21 @@ def build_command_registry(
     lambda args: (_validateArgs(args), process.cancelQueuedMotionPreview())[1],
     True,
   )
+  registry.register(
+    "process.get_queued_motion_use_max_speed",
+    lambda args: (_validateArgs(args), process.getQueuedMotionUseMaxSpeed())[1],
+    False,
+  )
+
+  def process_set_queued_motion_use_max_speed(args):
+    _validateArgs(args, required=("enabled",))
+    return process.setQueuedMotionUseMaxSpeed(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.set_queued_motion_use_max_speed",
+    process_set_queued_motion_use_max_speed,
+    True,
+  )
 
   def process_get_gcode_list(args):
     _validateArgs(args, required=("delta",), optional=("center",))

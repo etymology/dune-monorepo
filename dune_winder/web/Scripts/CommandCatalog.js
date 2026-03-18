@@ -50,6 +50,8 @@
       getQueuedMotionPreview: "process.get_queued_motion_preview",
       continueQueuedMotionPreview: "process.continue_queued_motion_preview",
       cancelQueuedMotionPreview: "process.cancel_queued_motion_preview",
+      getQueuedMotionUseMaxSpeed: "process.get_queued_motion_use_max_speed",
+      setQueuedMotionUseMaxSpeed: "process.set_queued_motion_use_max_speed",
       getPositionLogging: "process.get_position_logging",
       setPositionLogging: "process.set_position_logging",
       getStage: "process.get_stage",
