@@ -31,6 +31,8 @@ from dune_winder.threads.ui_server_thread import UICommandServerThread
 from dune_winder.threads.control_thread import ControlThread
 from dune_winder.threads.web_server_thread import WebServerThread
 from dune_winder.threads.camera_thread import CameraThread
+from dune_winder.threads.metrics_thread import MetricsThread
+from dune_winder.core.metrics_collector import MetricsCollector
 
 from dune_winder.io.maps.production_io import ProductionIO
 
@@ -296,12 +298,16 @@ def main():
     # Initialize threads.
     #
 
+    metricsCollector = MetricsCollector(io)
+    io.pollCallbacks.append(metricsCollector.update)
+
     _ = UICommandServerThread(commandHandler, log)
     _ = WebServerThread(log, commandRegistry)
     _ = ControlThread(
       io, log, process.controlStateMachine, systemTime, isIO_Logged
     )
     _ = CameraThread(io.camera, log, systemTime)
+    _ = MetricsThread(metricsCollector, log)
 
     # Also stop on SIGTERM (e.g. `kill <pid>` or terminal close on Linux/Mac).
     signal.signal(signal.SIGTERM, signalHandler)

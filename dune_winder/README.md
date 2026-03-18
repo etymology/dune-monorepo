@@ -158,6 +158,63 @@ write_xg_template_file("X", "gc_files/X-layer.gc", specialInputs=special_inputs)
 write_xg_template_file("G", "gc_files/G-layer.gc", specialInputs=special_inputs)
 ```
 
+## Grafana Monitoring Dashboard
+
+The winder exposes a Prometheus-compatible metrics endpoint and includes a
+pre-configured Grafana dashboard for real-time monitoring of PLC tags.
+
+### Requirements
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (runs Grafana and Prometheus as containers — nothing else to install)
+
+### Monitored tags
+
+| Metric | Tag | Range |
+|---|---|---|
+| Tension | `tension` | 0–10 N |
+| XYZ velocity setpoint | `v_xyz` | 0–1100 mm/s |
+| Tension motor CV | `tension_motor_cv` | 0–10 |
+| X axis position / velocity | `X_axis.ActualPosition/Velocity` | −10–7200 mm |
+| Y axis position / velocity | `Y_axis.ActualPosition/Velocity` | −10–2700 mm |
+| Z axis position / velocity | `Z_axis.ActualPosition/Velocity` | −10–450 mm |
+
+### Usage
+
+**1.** Start the winder application (the metrics endpoint starts automatically on port 9101):
+
+```bash
+dune-winder
+```
+
+**2.** Start Grafana and Prometheus from the project root:
+
+```bash
+docker compose up -d
+```
+
+**3.** Open Grafana in your browser:
+
+```
+http://localhost:3000
+```
+
+Login: `admin` / `dune_winder`
+
+The "Dune Winder PLC Monitor" dashboard loads as the home page and auto-refreshes every 5 seconds.
+
+To verify the metrics endpoint independently:
+
+```bash
+curl http://localhost:9101/metrics
+```
+
+### Architecture
+
+The metrics endpoint adds no extra PLC network traffic. `MetricsCollector`
+registers a callback that runs immediately after each `PLC.Tag.pollAll()` call
+in the existing control loop — it reads from the already-cached tag values and
+serves the latest snapshot to Prometheus on demand.
+
 ## Key Paths
 
 - Configuration: `configuration.toml`
