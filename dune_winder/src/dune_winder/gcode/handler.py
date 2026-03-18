@@ -268,6 +268,7 @@ class GCodeHandler(GCodeHandlerBase):
   # ---------------------------------------------------------------------
   def _queued_motion_accel_limits(self) -> tuple[float, float]:
     plc_logic = getattr(self._io, "plcLogic", None)
+    configuration = getattr(self, "_configuration", None)
     accel = None
     decel = None
     if plc_logic is not None:
@@ -280,9 +281,25 @@ class GCodeHandler(GCodeHandlerBase):
       except Exception:
         decel = getattr(plc_logic, "_maxDeceleration", None)
 
-    accel = max(1.0, float(accel or 0.0))
-    decel = max(1.0, float(decel or 0.0))
+    if accel is None and configuration is not None:
+      accel = getattr(configuration, "maxAcceleration", None)
+    if decel is None and configuration is not None:
+      decel = getattr(configuration, "maxDeceleration", None)
+
+    accel = max(1.0, float(accel if accel is not None else 5000.0))
+    decel = max(1.0, float(decel if decel is not None else 5000.0))
     return (accel, decel)
+
+  # ---------------------------------------------------------------------
+  def _queued_motion_jerk_limit(self) -> float:
+    configuration = getattr(self, "_configuration", None)
+    if configuration is None:
+      return 50000.0
+    try:
+      jerk = float(configuration.maxJerk)
+    except Exception:
+      jerk = 50000.0
+    return max(1.0, jerk)
 
   # ---------------------------------------------------------------------
   def _motion_safety_limits(self):
@@ -390,7 +407,10 @@ class GCodeHandler(GCodeHandlerBase):
           break
 
       speed = min(preview.velocity for preview in previews)
+      if not math.isfinite(speed):
+        speed = min(self._queued_motion_axis_velocity_limits())
       accel, decel = self._queued_motion_accel_limits()
+      jerk_limit = self._queued_motion_jerk_limit()
       safety_limits = self._motion_safety_limits()
       waypoints = [
         MergeWaypoint(
@@ -408,6 +428,8 @@ class GCodeHandler(GCodeHandlerBase):
         speed=speed,
         accel=accel,
         decel=decel,
+        jerk_accel=jerk_limit,
+        jerk_decel=jerk_limit,
         min_arc_radius=self._queued_motion_min_turning_radius(),
         safety_limits=safety_limits,
         queued_motion_collision_state=self._queued_motion_collision_state(),
@@ -1102,7 +1124,7 @@ class GCodeHandler(GCodeHandlerBase):
 
   # ---------------------------------------------------------------------
 
-  def __init__(self, io: BaseIO, machineCalibration, headCompensation):
+  def __init__(self, io: BaseIO, machineCalibration, headCompensation, configuration=None):
     """
     Constructor.
 
@@ -1116,6 +1138,7 @@ class GCodeHandler(GCodeHandlerBase):
     self._gCode = None
 
     self._io = io
+    self._configuration = configuration
 
     self._direction = 1
     self.runToLine = -1

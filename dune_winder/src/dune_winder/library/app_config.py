@@ -57,6 +57,7 @@ class AppConfig:
   maxSlowVelocity: float = 25.4
   maxAcceleration: int = 5000
   maxDeceleration: int = 5000
+  maxJerk: float = 50000.0
 
   @classmethod
   def normalizePlcMode(cls, value: typing.Any) -> str:

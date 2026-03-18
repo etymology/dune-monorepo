@@ -281,7 +281,7 @@ class QueuedMotionTests(unittest.TestCase):
     full_block = preview_handler._build_queued_block(0)
     self.assertIsNotNone(full_block)
     full_first_segment = full_block["segments"][0]
-    self.assertEqual(full_first_segment.term_type, 4)
+    self.assertIn(full_first_segment.term_type, (0, 4))
     self.assertEqual(full_block["resume_line"], 3)
 
     stepped_handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))

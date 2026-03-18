@@ -96,7 +96,7 @@ class Process:
       os.makedirs(self._workspaceDirectory)
 
     self.gCodeHandler = GCodeHandler(
-      io, machineCalibration, self.headCompensation
+      io, machineCalibration, self.headCompensation, configuration=configuration
     )
     self.gCodeHandler.setBeforeExecuteLineCallback(self._refreshCalibrationBeforeExecution)
     self.controlStateMachine.gCodeHandler = self.gCodeHandler
