@@ -29,7 +29,16 @@ class Const:
             return "3.4028235E+38"
         if v == float("-inf"):
             return "-3.4028235E+38"
-        return repr(v)
+        # Rockwell does not accept scientific notation (e.g. 1e-09).
+        # Use repr first; if it contains 'e'/'E', reformat as fixed-point decimal.
+        s = repr(v)
+        if "e" in s or "E" in s:
+            # Format with enough precision to round-trip the float, no exponent.
+            s = f"{v:.17g}"
+            if "e" in s or "E" in s:
+                # Fall back to fixed-point with sufficient decimal places.
+                s = format(v, ".10f").rstrip("0").rstrip(".")
+        return s
 
 
 @dataclass
