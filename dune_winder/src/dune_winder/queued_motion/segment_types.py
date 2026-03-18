@@ -29,8 +29,8 @@ class MotionSegment:
   speed: float = 1000
   accel: float = 2000.0
   decel: float = 2000.0
-  jerk_accel: float = 100.0
-  jerk_decel: float = 100.0
+  jerk_accel: float = 1500.0
+  jerk_decel: float = 3000.0
   term_type: int = DEFAULT_TEST_TERM_TYPE
   seg_type: int = SEG_TYPE_LINE
   circle_type: int = CIRCLE_TYPE_CENTER

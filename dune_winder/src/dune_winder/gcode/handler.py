@@ -15,8 +15,9 @@ from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.queued_motion.diagnostics import serialize_segment_diagnostics
 from dune_winder.queued_motion.jerk_limits import (
-  DEFAULT_QUEUED_MOTION_JERK_PERCENT,
-  normalize_queued_motion_jerk_percent,
+  DEFAULT_QUEUED_MOTION_ACCEL_JERK,
+  DEFAULT_QUEUED_MOTION_DECEL_JERK,
+  normalize_queued_motion_jerk,
 )
 from dune_winder.queued_motion.merge_planner import MergeWaypoint, build_merge_path_segments
 from dune_winder.queued_motion.plc_interface import PLC_QUEUE_DEPTH
@@ -290,20 +291,31 @@ class GCodeHandler(GCodeHandlerBase):
     if decel is None and configuration is not None:
       decel = getattr(configuration, "maxDeceleration", None)
 
-    accel = max(1.0, float(accel if accel is not None else 5000.0))
-    decel = max(1.0, float(decel if decel is not None else 5000.0))
+    accel = max(1.0, float(accel if accel is not None else 2000.0))
+    decel = max(1.0, float(decel if decel is not None else 2000.0))
     return (accel, decel)
 
   # ---------------------------------------------------------------------
-  def _queued_motion_jerk_limit(self) -> float:
+  def _queued_motion_jerk_limits(self) -> tuple[float, float]:
     configuration = getattr(self, "_configuration", None)
     if configuration is None:
-      return DEFAULT_QUEUED_MOTION_JERK_PERCENT
+      return (
+        DEFAULT_QUEUED_MOTION_ACCEL_JERK,
+        DEFAULT_QUEUED_MOTION_DECEL_JERK,
+      )
+    legacy_jerk = getattr(configuration, "maxJerk", None)
     try:
-      jerk = configuration.maxJerk
+      jerk_accel = getattr(configuration, "maxJerkAccel")
     except Exception:
-      jerk = DEFAULT_QUEUED_MOTION_JERK_PERCENT
-    return normalize_queued_motion_jerk_percent(jerk)
+      jerk_accel = legacy_jerk if legacy_jerk is not None else DEFAULT_QUEUED_MOTION_ACCEL_JERK
+    try:
+      jerk_decel = getattr(configuration, "maxJerkDecel")
+    except Exception:
+      jerk_decel = legacy_jerk if legacy_jerk is not None else DEFAULT_QUEUED_MOTION_DECEL_JERK
+    return (
+      normalize_queued_motion_jerk(jerk_accel, default=DEFAULT_QUEUED_MOTION_ACCEL_JERK),
+      normalize_queued_motion_jerk(jerk_decel, default=DEFAULT_QUEUED_MOTION_DECEL_JERK),
+    )
 
   # ---------------------------------------------------------------------
   def _motion_safety_limits(self):
@@ -414,7 +426,7 @@ class GCodeHandler(GCodeHandlerBase):
       if not math.isfinite(speed):
         speed = min(self._queued_motion_axis_velocity_limits())
       accel, decel = self._queued_motion_accel_limits()
-      jerk_limit = self._queued_motion_jerk_limit()
+      jerk_accel, jerk_decel = self._queued_motion_jerk_limits()
       safety_limits = self._motion_safety_limits()
       waypoints = [
         MergeWaypoint(
@@ -432,8 +444,8 @@ class GCodeHandler(GCodeHandlerBase):
         speed=speed,
         accel=accel,
         decel=decel,
-        jerk_accel=jerk_limit,
-        jerk_decel=jerk_limit,
+        jerk_accel=jerk_accel,
+        jerk_decel=jerk_decel,
         min_arc_radius=self._queued_motion_min_turning_radius(),
         safety_limits=safety_limits,
         queued_motion_collision_state=self._queued_motion_collision_state(),
