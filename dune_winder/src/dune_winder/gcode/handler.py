@@ -575,14 +575,15 @@ class GCodeHandler(GCodeHandlerBase):
 
   # ---------------------------------------------------------------------
   def _advance_queued_motion(self):
-    if self._queued_session is None:
+    session = self._queued_session
+    if session is None:
       return False
 
-    self._queued_session.advance()
+    session.advance()
 
-    if self._queued_session.error:
+    if session.error:
       self._isG_CodeError = True
-      self._isG_CodeErrorMessage = self._queued_session.error
+      self._isG_CodeErrorMessage = session.error
       self._isG_CodeErrorData = [
         self._queued_block_start_line,
         self._gCode.lines[self._queued_block_start_line],
@@ -591,13 +592,13 @@ class GCodeHandler(GCodeHandlerBase):
       self._queued_stop_mode = None
       return True
 
-    if self._queued_session.aborted:
+    if session.aborted:
       self._queued_session = None
       self._nextLine = self._queued_block_start_line - self._direction
       self._queued_stop_mode = None
       return True
 
-    if self._queued_session.done:
+    if session.done:
       self._queued_session = None
       self._nextLine = self._queued_block_resume_line - self._direction
       if self._queued_stop_mode == "single_step":
