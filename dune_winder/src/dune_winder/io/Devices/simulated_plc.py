@@ -258,6 +258,10 @@ class SimulatedPLC(PLC):
     self._tagValues["FIFO_Data[4]"] = 0.0
     self._tagValues["FIFO_Data[5]"] = 0.0
 
+    self._tagValues["tension"] = 0.0
+    self._tagValues["v_xyz"] = 0.0
+    self._tagValues["tension_motor_cv"] = 0.0
+
     self._tagValues["MORE_STATS_S[0]"] = 1
     self._tagValues["IncomingSeg"] = {}
     self._tagValues["IncomingSegReqID"] = 0

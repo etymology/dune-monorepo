@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: dune_winder
+    # On macOS/Windows Docker Desktop, host.docker.internal resolves to the
+    # host machine.  On Linux, use the docker bridge IP (typically 172.17.0.1)
+    # or add --add-host=host.docker.internal:host-gateway to the compose file.
+    static_configs:
+      - targets: ["host.docker.internal:9101"]
+        labels:
+          instance: dune_winder
