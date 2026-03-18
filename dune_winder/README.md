@@ -265,12 +265,12 @@ print(ld_text)
 
 ## Grafana Monitoring Dashboard
 
-The winder exposes a Prometheus-compatible metrics endpoint and includes a
-pre-configured Grafana dashboard for real-time monitoring of PLC tags.
+The winder pushes PLC tag values directly into InfluxDB after each poll cycle
+(~10 Hz) and a pre-configured Grafana dashboard displays them in real time.
 
 ### Requirements
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (runs Grafana and Prometheus as containers — nothing else to install)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (runs Grafana and InfluxDB as containers — nothing else to install)
 
 ### Monitored tags
 
@@ -280,18 +280,18 @@ pre-configured Grafana dashboard for real-time monitoring of PLC tags.
 | XYZ velocity setpoint | `v_xyz` | 0–1100 mm/s |
 | Tension motor CV | `tension_motor_cv` | 0–10 |
 | X axis position / velocity | `X_axis.ActualPosition/Velocity` | −10–7200 mm |
-| Y axis position / velocity | `Y_axis.ActualPosition/Velocity` | −10–2700 mm |
-| Z axis position / velocity | `Z_axis.ActualPosition/Velocity` | −10–450 mm |
+| Y axis position / velocity | `Y_axis.ActualPosition/Velocity` | −10–2688 mm |
+| Z axis position / velocity | `Z_axis.ActualPosition/Velocity` | −5–420 mm |
 
 ### Usage
 
-**1.** Start the winder application (the metrics endpoint starts automatically on port 9101):
+**1.** Start the winder application:
 
 ```bash
 dune-winder
 ```
 
-**2.** Start Grafana and Prometheus from the project root:
+**2.** Start Grafana and InfluxDB from the project root:
 
 ```bash
 docker compose up -d
@@ -305,20 +305,19 @@ http://localhost:3000
 
 Login: `admin` / `dune_winder`
 
-The "Dune Winder PLC Monitor" dashboard loads as the home page and auto-refreshes every 5 seconds.
+The "Dune Winder PLC Monitor" dashboard loads as the home page and
+auto-refreshes every second. The default time window is the last 5 minutes.
 
-To verify the metrics endpoint independently:
-
-```bash
-curl http://localhost:9101/metrics
-```
+InfluxDB is also accessible directly at `http://localhost:8086`
+(login: `admin` / `dune_winder`, org: `dune`, bucket: `winder`).
 
 ### Architecture
 
-The metrics endpoint adds no extra PLC network traffic. `MetricsCollector`
-registers a callback that runs immediately after each `PLC.Tag.pollAll()` call
-in the existing control loop — it reads from the already-cached tag values and
-serves the latest snapshot to Prometheus on demand.
+No extra PLC network traffic is added. `MetricsCollector` registers a callback
+that runs immediately after each `PLC.Tag.pollAll()` call in the existing
+control loop — it reads from the already-cached tag values and pushes a data
+point to InfluxDB asynchronously (write queued to a background thread, so the
+control loop is never blocked). Grafana queries InfluxDB directly using Flux.
 
 ## Key Paths
 
