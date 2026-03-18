@@ -2,6 +2,7 @@ function Sliders( modules )
 {
   var MIN_VELOCITY = 1.0
   var MIN_ACCELERATION = 500.0
+  var MIN_JERK = 1.0
 
   var self = this
   var winder = modules.get( "Winder" )
@@ -11,14 +12,16 @@ function Sliders( modules )
   {
    "velocitySlider"     : 100,
    "accelerationSlider" : 100,
-   "decelerationSlider" : 100
+   "decelerationSlider" : 100,
+   "jerkSlider"         : 100
   }
 
   var isLoaded =
   {
     velocitySlider     : false,
     accelerationSlider : false,
-    decelerationSlider : false
+    decelerationSlider : false,
+    jerkSlider         : false
   }
 
   //-----------------------------------------------------------------------------
@@ -46,6 +49,15 @@ function Sliders( modules )
   this.getDeceleration = function()
   {
     return document.getElementById( "decelerationSlider" ).scaledValue()
+  }
+
+  //-----------------------------------------------------------------------------
+  // Uses:
+  //   Get the desired jerk limit.
+  //-----------------------------------------------------------------------------
+  this.getJerk = function()
+  {
+    return document.getElementById( "jerkSlider" ).scaledValue()
   }
 
   //-----------------------------------------------------------------------------
@@ -103,6 +115,17 @@ function Sliders( modules )
   this.setDeceleration= function( value )
   {
     setSlider( "decelerationSlider", value )
+  }
+
+  //-----------------------------------------------------------------------------
+  // Uses:
+  //   Set the jerk slider.
+  // Input:
+  //   value - New value of slider.
+  //-----------------------------------------------------------------------------
+  this.setJerk = function( value )
+  {
+    setSlider( "jerkSlider", value )
   }
 
   //-----------------------------------------------------------------------------
@@ -240,6 +263,22 @@ function Sliders( modules )
         buildArgs: function( value )
         {
           return { max_deceleration: value }
+        }
+      }
+    )
+
+    createSlider
+    (
+      { name: commands.configuration.get, args: { key: "maxJerk" } },
+      "jerkSlider",
+      "jerkValue",
+      "mm/s<sup>3</sup>",
+      MIN_JERK,
+      {
+        name: commands.configuration.set,
+        buildArgs: function( value )
+        {
+          return { key: "maxJerk", value: value }
         }
       }
     )
