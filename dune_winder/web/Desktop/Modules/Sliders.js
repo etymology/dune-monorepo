@@ -117,7 +117,7 @@ function Sliders( modules )
   // Notes:
   //   All sliders run from 0-100 internally.
   //-----------------------------------------------------------------------------
-  function createSlider( request, sliderTag, valueTag, valueUnits, minimum )
+  function createSlider( request, sliderTag, valueTag, valueUnits, minimum, writeRequest )
   {
     // Maximum value query.
     winder.call
@@ -140,6 +140,13 @@ function Sliders( modules )
             var value = ui.value / 100.0 * ( maximum - minimum ) + minimum
             value = Math.round( value * 10.0 ) / 10.0
             $( "#" + valueTag ).html( value + " " + valueUnits )
+
+            if ( event && writeRequest && writeRequest.name )
+              winder.call
+              (
+                writeRequest.name,
+                writeRequest.buildArgs( value )
+              )
           }
 
         ui = new function() { this.value = sliderValues[ sliderTag ] }
@@ -195,7 +202,14 @@ function Sliders( modules )
       "velocitySlider",
       "velocityValue",
       "mm/s",
-      MIN_VELOCITY
+      MIN_VELOCITY,
+      {
+        name: commands.process.maxVelocity,
+        buildArgs: function( value )
+        {
+          return { max_velocity: value }
+        }
+      }
     )
 
     createSlider
@@ -204,7 +218,14 @@ function Sliders( modules )
       "accelerationSlider",
       "accelerationValue",
       "mm/s<sup>2</sup>",
-      MIN_ACCELERATION
+      MIN_ACCELERATION,
+      {
+        name: commands.io.maxAcceleration,
+        buildArgs: function( value )
+        {
+          return { max_acceleration: value }
+        }
+      }
     )
 
     createSlider
@@ -213,7 +234,14 @@ function Sliders( modules )
       "decelerationSlider",
       "decelerationValue",
       "mm/s<sup>2</sup>",
-      MIN_ACCELERATION
+      MIN_ACCELERATION,
+      {
+        name: commands.io.maxDeceleration,
+        buildArgs: function( value )
+        {
+          return { max_deceleration: value }
+        }
+      }
     )
 
   }

@@ -35,6 +35,7 @@ class _QueuedMotionPLCLogic:
   def __init__(self, queued_motion=None):
     self._maxAcceleration = 1000.0
     self._maxDeceleration = 1000.0
+    self._velocity = 1000.0
     self.queuedMotion = object() if queued_motion is None else queued_motion
     self.legacy_xy_moves = []
     self.stop_seek_calls = 0
@@ -50,6 +51,21 @@ class _QueuedMotionPLCLogic:
 
   def move_latch(self):
     raise AssertionError("Unexpected latch move")
+
+  def maxVelocity(self, maxVelocity=None):
+    if maxVelocity is not None:
+      self._velocity = float(maxVelocity)
+    return self._velocity
+
+  def maxAcceleration(self, maxAcceleration=None):
+    if maxAcceleration is not None:
+      self._maxAcceleration = float(maxAcceleration)
+    return self._maxAcceleration
+
+  def maxDeceleration(self, maxDeceleration=None):
+    if maxDeceleration is not None:
+      self._maxDeceleration = float(maxDeceleration)
+    return self._maxDeceleration
 
   def stopSeek(self):
     self.stop_seek_calls += 1
@@ -224,6 +240,27 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(segment.seq, 1000)
     self.assertEqual(segment.x, 500.0)
     self.assertEqual(segment.y, 200.0)
+
+  def test_gcode_builder_uses_live_plc_accel_and_decel_limits_for_queued_segments(self):
+    calibration = DefaultMachineCalibration()
+    plc_logic = _QueuedMotionPLCLogic()
+    plc_logic.maxAcceleration(3210.0)
+    plc_logic.maxDeceleration(4321.0)
+    handler = GCodeHandler(_IO(400.0, 100.0, plc_logic=plc_logic), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    block = handler._build_queued_block(0)
+
+    self.assertIsNotNone(block)
+    segment = block["segments"][0]
+    self.assertEqual(segment.accel, 3210.0)
+    self.assertEqual(segment.decel, 4321.0)
 
   def test_single_step_g113_queues_first_planned_segment_with_full_stop(self):
     calibration = DefaultMachineCalibration()

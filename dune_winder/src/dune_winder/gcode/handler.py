@@ -38,6 +38,7 @@ class _PreviewedQueuedLine:
   line_index: int
   line_text: str
   queueable: bool
+  comment_only: bool
   x: float
   y: float
   velocity: float
@@ -265,6 +266,25 @@ class GCodeHandler(GCodeHandlerBase):
     return (v_x, v_y)
 
   # ---------------------------------------------------------------------
+  def _queued_motion_accel_limits(self) -> tuple[float, float]:
+    plc_logic = getattr(self._io, "plcLogic", None)
+    accel = None
+    decel = None
+    if plc_logic is not None:
+      try:
+        accel = plc_logic.maxAcceleration()
+      except Exception:
+        accel = getattr(plc_logic, "_maxAcceleration", None)
+      try:
+        decel = plc_logic.maxDeceleration()
+      except Exception:
+        decel = getattr(plc_logic, "_maxDeceleration", None)
+
+    accel = max(1.0, float(accel or 0.0))
+    decel = max(1.0, float(decel or 0.0))
+    return (accel, decel)
+
+  # ---------------------------------------------------------------------
   def _motion_safety_limits(self):
     return motion_safety_limits_from_calibration(self._machineCalibration)
 
@@ -303,21 +323,33 @@ class GCodeHandler(GCodeHandlerBase):
     self._functions = []
     self._gCode.executeNextLine(line_index)
 
-    queueable = (
-      self._instruction_request_xy
+    no_motion_requests = (
+      not self._instruction_request_xy
       and not self._instruction_request_z
       and not self._instruction_request_head
       and not self._instruction_request_latch
       and not self._instruction_request_stop
     )
+    queueable = self._instruction_request_xy and not (
+      self._instruction_request_z
+      or self._instruction_request_head
+      or self._instruction_request_latch
+      or self._instruction_request_stop
+    )
+    # G113 lines run at maximum speed; axis-velocity capping applied later.
+    if self._instruction_queue_merge_mode is not None:
+      velocity = float("inf")
+    else:
+      velocity = self._commanded_xy_velocity()
 
     preview = _PreviewedQueuedLine(
       line_index=line_index,
       line_text=str(self._gCode.lines[line_index]),
       queueable=queueable,
+      comment_only=no_motion_requests,
       x=float(self._x),
       y=float(self._y),
-      velocity=self._commanded_xy_velocity(),
+      velocity=velocity,
       merge_mode=self._instruction_queue_merge_mode,
     )
     self._pending_actions = []
@@ -350,14 +382,15 @@ class GCodeHandler(GCodeHandlerBase):
           break
         next_preview = self._preview_loaded_line(cursor)
         if not next_preview.queueable:
+          if next_preview.comment_only:
+            continue  # skip comment-only lines; they don't affect motion state
           break
         previews.append(next_preview)
         if next_preview.merge_mode is None:
           break
 
       speed = min(preview.velocity for preview in previews)
-      accel = max(1.0, float(getattr(self._io.plcLogic, "_maxAcceleration", 0.0) or 0.0))
-      decel = max(1.0, float(getattr(self._io.plcLogic, "_maxDeceleration", 0.0) or 0.0))
+      accel, decel = self._queued_motion_accel_limits()
       safety_limits = self._motion_safety_limits()
       waypoints = [
         MergeWaypoint(
