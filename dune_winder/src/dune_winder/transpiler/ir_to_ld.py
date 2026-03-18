@@ -157,9 +157,14 @@ class LDEmitter:
             l = self._expr_str(expr.left)
             r = self._expr_str(expr.right)
             if expr.op == "%":
-                return f"MOD({l},{r})"
+                # MOD and XPY require simple operands — materialise if needed
+                lm = self._mat_str(expr.left)
+                rm = self._mat_str(expr.right)
+                return f"MOD({lm},{rm})"
             if expr.op == "**":
-                return f"XPY({l},{r})"
+                lm = self._mat_str(expr.left)
+                rm = self._mat_str(expr.right)
+                return f"XPY({lm},{rm})"
             return f"{l}{expr.op}{r}"
         if isinstance(expr, CptCall):
             tag = expr.func
