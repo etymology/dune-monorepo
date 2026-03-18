@@ -85,8 +85,8 @@ class MergePlannerTests(unittest.TestCase):
       speed=200.0,
       accel=200.0,
       decel=200.0,
-      jerk_accel=5000.0,
-      jerk_decel=5000.0,
+      jerk_accel=100.0,
+      jerk_decel=100.0,
       min_arc_radius=10.0,
       safety_limits=_permissive_limits(),
     )
