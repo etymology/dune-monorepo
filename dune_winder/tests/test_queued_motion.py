@@ -501,7 +501,7 @@ class QueuedMotionTests(unittest.TestCase):
     initial_seq = preview["segments"][0]["seq"]
     self.assertEqual(preview["segments"][0]["speed"], 300.0)
 
-    expected_speed = min(handler._queued_motion_axis_velocity_limits())
+    expected_speed = handler._queued_motion_axis_velocity_limits()[0]
     self.assertTrue(handler.setQueuedMotionUseMaxSpeed(True))
 
     refreshed_preview = handler.getQueuedMotionPreview()
