@@ -6,7 +6,9 @@ Python 3 control software and web UI for the UChicago APA winder.
 
 - Runtime control process, state machine logic, and hardware I/O integration.
 - Desktop/mobile web UI served from `web/`.
-- Programmatic G-code generation for V/X/G templates.
+- Programmatic G-code generation for U/V/X/G templates.
+- Queued-motion planning, preview, and PLC queue execution utilities.
+- Python-to-Rockwell Ladder Logic transpilation helpers for selected motion code.
 - Unit tests for recipe generation, process behavior, and core utilities.
 
 ## Requirements
@@ -43,6 +45,9 @@ Optional spreadsheet tooling:
 ```bash
 python -m pip install -e ".[spreadsheets]"
 ```
+
+The base install already includes the runtime PLC and serial dependencies used by
+the main application.
 
 ## Run The Application
 
@@ -126,19 +131,19 @@ For architecture follow-up and remaining high-priority refactors, see:
 Write a recipe file with the standard header/hash:
 
 ```bash
-python -m dune_winder.library.VTemplateGCode gc_files/V-layer.gc --recipe
+python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe
 ```
 
 Apply special input overrides:
 
 ```bash
-python -m dune_winder.library.VTemplateGCode gc_files/V-layer.gc --recipe --special transferPause=true --special head_a_offset=7
+python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe --special transferPause=true --special head_a_offset=7
 ```
 
 ### X/G-layer generator (Python API)
 
 ```python
-from dune_winder.library.XGTemplateGCode import write_xg_template_file
+from dune_winder.recipes.xg_template_gcode import write_xg_template_file
 
 special_inputs = {
   "references": {
@@ -156,6 +161,67 @@ special_inputs = {
 
 write_xg_template_file("X", "gc_files/X-layer.gc", specialInputs=special_inputs)
 write_xg_template_file("G", "gc_files/G-layer.gc", specialInputs=special_inputs)
+```
+
+### Template generator state in the app/API
+
+The built-in U/V template generators now persist draft state and expose these
+toggles through the typed command API:
+
+- `transferPause`
+- `includeLeadMode`
+- `stripG113Params`
+
+`stripG113Params` removes parameter payloads from generated `G113` lines when a
+downstream consumer requires bare `G113` commands.
+
+## Queued Motion And Waypoint Planning
+
+Queued motion now supports live preview and smoother waypoint traversal through
+fillet/biarc planning, with safety validation against machine bounds and keepout
+regions.
+
+Primary references:
+
+- [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
+- [`docs/CircleLineQueue.md`](docs/CircleLineQueue.md)
+
+CLI/GUI test tooling lives in:
+
+- `src/motionQueueTest.py`
+- `src/motionQueueTest_gui.py`
+
+Example waypoint-planning invocation:
+
+```bash
+python src/motionQueueTest.py --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
+```
+
+The web/API layer also exposes queued-motion preview commands:
+
+- `process.get_queued_motion_preview`
+- `process.continue_queued_motion_preview`
+- `process.cancel_queued_motion_preview`
+
+## Python To Ladder Logic Transpiler
+
+The repository includes a small Python-to-Rockwell Ladder Logic transpiler for
+selected motion-planning functions under `src/dune_winder/transpiler/`.
+
+CLI usage:
+
+```bash
+python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_patterns.py cap_segments_speed_by_axis_velocity
+```
+
+Python API usage:
+
+```python
+from dune_winder.transpiler import transpile
+
+source = open("src/dune_winder/queued_motion/segment_patterns.py", encoding="utf-8").read()
+ld_text = transpile(source, function_names=["cap_segments_speed_by_axis_velocity"])
+print(ld_text)
 ```
 
 ## Grafana Monitoring Dashboard
