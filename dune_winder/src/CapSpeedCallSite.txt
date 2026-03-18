@@ -1,0 +1,25 @@
+; ============================================================
+; CapSegSpeed call site
+;
+; Insert these rungs immediately BEFORE the StartQueuedPath
+; trigger rung in enqueueRoutine (i.e. before the rung:
+;   XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq)
+;
+; CapSegSpeed inputs:
+;   DINTS[5]  = seg_count   <- QueueCtl.POS
+;   REALS[42] = v_x_max     <- replace AxisMaxVel_X with your actual tag
+;   REALS[43] = v_y_max     <- replace AxisMaxVel_Y with your actual tag
+;   REALS[44] = start_xy_x  <- optional: known start position X (only if BOOLS[6]=1)
+;   REALS[45] = start_xy_y  <- optional: known start position Y (only if BOOLS[6]=1)
+;   BOOLS[6]  = start_xy_valid
+;
+; The condition XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1
+; ensures capping only runs once per new path start, with at least 1 segment queued.
+; ============================================================
+
+; Load seg_count and axis velocity limits, then call CapSegSpeed
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV QueueCtl.POS DINTS[5]
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV AxisMaxVel_X REALS[42]
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV AxisMaxVel_Y REALS[43]
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 OTU BOOLS[6]
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 JSR CapSegSpeed
