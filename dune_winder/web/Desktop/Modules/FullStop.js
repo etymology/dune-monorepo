@@ -7,21 +7,10 @@ function FullStop( modules )
 
   modules.load
   (
-    [ "/Scripts/Winder", "/Desktop/Modules/RunStatus" ],
+    [ "/Scripts/Winder" ],
     function()
     {
       winder = modules.get( "Winder" )
-      var runStatus = modules.get( "RunStatus" )
-
-      // Button enable.
-      winder.addPeriodicEndCallback
-      (
-        function()
-        {
-          var isDisabled = ! runStatus.isInMotion()
-          $( "#fullStopButton" ).prop( "disabled", isDisabled )
-        }
-      )
     }
   )
 
