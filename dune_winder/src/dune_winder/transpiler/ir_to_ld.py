@@ -119,6 +119,17 @@ class LDEmitter:
                 self._lines.append(f"CPT {dest_s} ABS({x})")
                 return
 
+        # BOOL destinations must use coil instructions, not MOV
+        if isinstance(node.dest, Reg) and node.dest.typ == PLCType.BOOL:
+            if isinstance(expr, Const):
+                coil = "OTL" if expr.value else "OTU"
+                self._lines.append(f"{coil} {dest_s}")
+            else:
+                # Bool assigned from another bool register — use OTE (always energised)
+                self._lines.append(f"XIC {self._expr_str(expr)} OTL {dest_s}")
+                self._lines.append(f"XIO {self._expr_str(expr)} OTU {dest_s}")
+            return
+
         # Simple MOV if expr is a plain register or constant
         if isinstance(expr, (RegExpr, SegFieldExpr, Const)):
             self._lines.append(f"MOV {self._expr_str(expr)} {dest_s}")
