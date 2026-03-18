@@ -119,6 +119,14 @@ class LDEmitter:
                 self._lines.append(f"CPT {dest_s} ABS({x})")
                 return
 
+        # MOD / XPY are standalone instructions: MOD A B DEST
+        if isinstance(expr, BinOp) and expr.op in ("%", "**"):
+            op_name = "MOD" if expr.op == "%" else "XPY"
+            a = self._mat_str(expr.left)
+            b = self._mat_str(expr.right)
+            self._lines.append(f"{op_name} {a} {b} {dest_s}")
+            return
+
         # BOOL destinations must use coil instructions, not MOV
         if isinstance(node.dest, Reg) and node.dest.typ == PLCType.BOOL:
             if isinstance(expr, Const):
@@ -156,15 +164,6 @@ class LDEmitter:
         if isinstance(expr, BinOp):
             l = self._expr_str(expr.left)
             r = self._expr_str(expr.right)
-            if expr.op == "%":
-                # MOD and XPY require simple operands — materialise if needed
-                lm = self._mat_str(expr.left)
-                rm = self._mat_str(expr.right)
-                return f"MOD({lm},{rm})"
-            if expr.op == "**":
-                lm = self._mat_str(expr.left)
-                rm = self._mat_str(expr.right)
-                return f"XPY({lm},{rm})"
             return f"{l}{expr.op}{r}"
         if isinstance(expr, CptCall):
             tag = expr.func
@@ -206,6 +205,14 @@ class LDEmitter:
             inner_s = self._mat_str(expr.args[0])
             tmp = Reg(PLCType.DINT, self._alloc_dint())
             self._lines.append(f"TRN {inner_s} {tmp}")
+            return str(tmp)
+        if isinstance(expr, BinOp) and expr.op in ("%", "**"):
+            # MOD/XPY are standalone instructions — cannot appear inside CPT
+            op_name = "MOD" if expr.op == "%" else "XPY"
+            a = self._mat_str(expr.left)
+            b = self._mat_str(expr.right)
+            tmp = Reg(PLCType.REAL, self._alloc_real())
+            self._lines.append(f"{op_name} {a} {b} {tmp}")
             return str(tmp)
         tmp = Reg(PLCType.REAL, self._alloc_real())
         self._lines.append(f"CPT {tmp} {self._expr_str(expr)}")
