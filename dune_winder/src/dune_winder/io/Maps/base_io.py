@@ -177,8 +177,13 @@ class BaseIO:
 
     self.Gate_Key = PLC_Input("Gate_Key", self.plc, "MORE_STATS_S[0]", 0)  # Gate Key
 
-
-#    self.Tension_10N         = PLC_Input( "Tension_10N",         self.plc, "MORE_STATS",     2 ) # Tension_10N
+    # Process monitoring tags (polled for Grafana/Prometheus export).
+    _mon = PLC.Tag.Attributes()
+    _mon.isPolled = True
+    _mon.canWrite = False
+    self.tension_tag = PLC.Tag(plc, "tension", _mon, "REAL")
+    self.v_xyz_tag = PLC.Tag(plc, "v_xyz", _mon, "REAL")
+    self.tension_motor_cv_tag = PLC.Tag(plc, "tension_motor_cv", _mon, "REAL")
 
 
 # end class

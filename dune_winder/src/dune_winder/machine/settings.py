@@ -15,6 +15,7 @@ _ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 class Settings:
   SERVER_PORT = 6626  # Default TCP port number (plank's constant).
   WEB_SERVER_PORT = 8080  # Port for web server (80 is default).
+  METRICS_PORT = 9101   # Prometheus metrics endpoint (scraped by Prometheus).
   SERVER_MAX_DATA_SIZE = 1024  # Max data that can be read from server at once.
   SERVER_BACK_LOG = 5  # Default recommended by Python manual.
   CLIENT_MAX_DATA_SIZE = 1024  # Max data that can be read from client at once.
