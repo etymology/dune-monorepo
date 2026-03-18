@@ -32,6 +32,7 @@ class TemplateRecipeBase:
     offsets=None,
     transfer_pause=False,
     include_lead_mode=False,
+    strip_g113_params=False,
     named_inputs=None,
     special_inputs=None,
     archive_directory=None,
@@ -55,6 +56,7 @@ class TemplateRecipeBase:
     self._offsets = {}
     self._transferPause = True
     self._includeLeadMode = False
+    self._stripG113Params = False
     self._dirty = False
     self._generated = {"hashValue": None, "updatedAt": None}
     self._loadedDraftPath = None
@@ -192,6 +194,7 @@ class TemplateRecipeBase:
     self._offsets = {offsetId: 0.0 for offsetId in self.OFFSET_IDS}
     self._transferPause = True
     self._includeLeadMode = False
+    self._stripG113Params = False
     self._dirty = bool(markDirty)
 
   # -------------------------------------------------------------------
@@ -203,6 +206,7 @@ class TemplateRecipeBase:
 
     self._transferPause = bool(data.get("transferPause", self._transferPause))
     self._includeLeadMode = bool(data.get("includeLeadMode", self._includeLeadMode))
+    self._stripG113Params = bool(data.get("stripG113Params", self._stripG113Params))
     self._dirty = bool(data.get("dirty", self._dirty))
     generated = data.get("generated", {})
     if isinstance(generated, dict):
@@ -242,6 +246,7 @@ class TemplateRecipeBase:
         "offsets": dict(self._offsets),
         "transferPause": self._transferPause,
         "includeLeadMode": self._includeLeadMode,
+        "stripG113Params": self._stripG113Params,
         "dirty": self._dirty,
         "generated": dict(self._generated),
       }
@@ -298,6 +303,7 @@ class TemplateRecipeBase:
       "outputExists": os.path.isfile(liveFile),
       "transferPause": self._transferPause,
       "includeLeadMode": self._includeLeadMode,
+      "stripG113Params": self._stripG113Params,
       "offsets": dict(self._offsets),
       "offsetOrder": list(self.OFFSET_IDS),
       "offsetLabels": dict(self.OFFSET_LABELS),
@@ -365,6 +371,23 @@ class TemplateRecipeBase:
     return self._okResult({"includeLeadMode": self._includeLeadMode})
 
   # -------------------------------------------------------------------
+  def setStripG113Params(self, enabled):
+    self._ensureDraftStateLoaded()
+
+    _, error = self._getActiveLayer()
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    self._stripG113Params = bool(enabled)
+    self._dirty = True
+    self._persistState()
+    return self._okResult({"stripG113Params": self._stripG113Params})
+
+  # -------------------------------------------------------------------
   def resetDraft(self, markDirty=True):
     self._ensureDraftStateLoaded()
 
@@ -383,6 +406,7 @@ class TemplateRecipeBase:
         "offsets": dict(self._offsets),
         "transferPause": self._transferPause,
         "includeLeadMode": self._includeLeadMode,
+        "stripG113Params": self._stripG113Params,
       }
     )
 
@@ -408,6 +432,7 @@ class TemplateRecipeBase:
       offsets=[self._offsets[offsetId] for offsetId in self.OFFSET_IDS],
       transfer_pause=self._transferPause,
       include_lead_mode=self._includeLeadMode,
+      strip_g113_params=self._stripG113Params,
       archive_directory=self._recipeArchiveDirectory(),
     )
 
