@@ -1,14 +1,23 @@
 ###############################################################################
 # Name: metrics_collector.py
-# Uses: Collects PLC tag values for Prometheus/Grafana export.
+# Uses: Collects PLC tag values and pushes them to InfluxDB.
 #
 # Reads directly from already-polled PLC.Tag caches — zero additional PLC
 # network traffic.  Register update() as a BaseIO post_poll_callback so it
 # snapshots consistent values immediately after each poll cycle.
+#
+# Data is pushed to InfluxDB asynchronously on every poll cycle (~10 Hz).
+# Grafana queries InfluxDB directly using Flux, enabling sub-second display.
 ###############################################################################
 
-import threading
-import time
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import WriteOptions, WriteType
+
+# InfluxDB connection — must match docker-compose.yml
+_URL    = "http://localhost:8086"
+_TOKEN  = "dune-winder-token"
+_ORG    = "dune"
+_BUCKET = "winder"
 
 
 def _safe_float(value) -> float:
@@ -21,31 +30,15 @@ def _safe_float(value) -> float:
 
 class MetricsCollector:
   """
-  Thread-safe snapshot of monitored PLC tag values.
+  Pushes monitored PLC tag values to InfluxDB after each poll cycle.
 
-  All reads come from the PLC.Tag value cache, which is populated by the
-  existing PLC.Tag.pollAll() call inside PLC_Logic.poll().  No extra PLC
-  reads are performed.
+  All reads come from the PLC.Tag value cache populated by the existing
+  PLC.Tag.pollAll() call — no extra PLC reads are performed.
+
+  Writes are asynchronous (batch_size=1, flush_interval=200 ms) so the
+  control-loop thread is never blocked by InfluxDB network latency or
+  transient unavailability.
   """
-
-  # Metric metadata: (name, help_text, unit)
-  METRICS = [
-    ("plc_tension",          "Wire tension",              "N",     0,    10),
-    ("plc_v_xyz",            "XYZ velocity setpoint",     "mm/s",  0,  1100),
-    ("plc_tension_motor_cv", "Tension motor control var", "",      0,    10),
-  ]
-
-  AXIS_METRICS = [
-    ("plc_axis_position", "Axis actual position", "mm"),
-    ("plc_axis_velocity", "Axis actual velocity", "mm/s"),
-  ]
-
-  # Axis position/velocity ranges for info (min, max)
-  AXIS_RANGES = {
-    "X": {"position": (-10, 7200), "velocity": (-10, 7200)},
-    "Y": {"position": (-10, 2700), "velocity": (-10, 2700)},
-    "Z": {"position": (-10, 450),  "velocity": (-10, 450)},
-  }
 
   # -------------------------------------------------------------------------
   def __init__(self, io):
@@ -54,55 +47,37 @@ class MetricsCollector:
       io: BaseIO instance (already constructed with all tags registered).
     """
     self._io = io
-    self._lock = threading.Lock()
-    self._snapshot: dict = {}
-    self._timestamp: float = 0.0
+    self._client = InfluxDBClient(url=_URL, token=_TOKEN, org=_ORG)
+    self._write_api = self._client.write_api(
+      write_options=WriteOptions(
+        write_type=WriteType.batching,
+        batch_size=1,
+        flush_interval=200,
+      )
+    )
 
   # -------------------------------------------------------------------------
   def update(self):
     """
-    Snapshot the current tag values.  Call after each PLC poll cycle
-    (e.g. register as a BaseIO.pollCallbacks entry).
+    Build a data point from the current tag cache and queue it for InfluxDB.
+    Call after each PLC poll cycle (register as a BaseIO.pollCallbacks entry).
     """
-    snapshot = {
-      "plc_tension":          _safe_float(self._io.tension_tag.get()),
-      "plc_v_xyz":            _safe_float(self._io.v_xyz_tag.get()),
-      "plc_tension_motor_cv": _safe_float(self._io.tension_motor_cv_tag.get()),
-      "plc_axis_position_X":  _safe_float(self._io.xAxis.getPosition()),
-      "plc_axis_position_Y":  _safe_float(self._io.yAxis.getPosition()),
-      "plc_axis_position_Z":  _safe_float(self._io.zAxis.getPosition()),
-      "plc_axis_velocity_X":  _safe_float(self._io.xAxis.getVelocity()),
-      "plc_axis_velocity_Y":  _safe_float(self._io.yAxis.getVelocity()),
-      "plc_axis_velocity_Z":  _safe_float(self._io.zAxis.getVelocity()),
-    }
-    with self._lock:
-      self._snapshot = snapshot
-      self._timestamp = time.time()
+    point = (
+      Point("plc_tags")
+      .field("tension",          _safe_float(self._io.tension_tag.get()))
+      .field("v_xyz",            _safe_float(self._io.v_xyz_tag.get()))
+      .field("tension_motor_cv", _safe_float(self._io.tension_motor_cv_tag.get()))
+      .field("x_position",       _safe_float(self._io.xAxis.getPosition()))
+      .field("y_position",       _safe_float(self._io.yAxis.getPosition()))
+      .field("z_position",       _safe_float(self._io.zAxis.getPosition()))
+      .field("x_velocity",       _safe_float(self._io.xAxis.getVelocity()))
+      .field("y_velocity",       _safe_float(self._io.yAxis.getVelocity()))
+      .field("z_velocity",       _safe_float(self._io.zAxis.getVelocity()))
+    )
+    self._write_api.write(bucket=_BUCKET, record=point)
 
   # -------------------------------------------------------------------------
-  def render_prometheus(self) -> str:
-    """
-    Return a Prometheus text exposition (format 0.0.4) of the latest snapshot.
-    """
-    with self._lock:
-      snap = dict(self._snapshot)
-
-    lines: list[str] = []
-
-    # Scalar process metrics
-    for name, help_text, unit, _lo, _hi in self.METRICS:
-      label = f" ({unit})" if unit else ""
-      lines.append(f"# HELP {name} {help_text}{label}")
-      lines.append(f"# TYPE {name} gauge")
-      lines.append(f"{name} {snap.get(name, 0.0):.6g}")
-
-    # Axis metrics with labels
-    for base, help_text, unit in self.AXIS_METRICS:
-      lines.append(f"# HELP {base} {help_text} ({unit})")
-      lines.append(f"# TYPE {base} gauge")
-      for axis in ("X", "Y", "Z"):
-        key = f"{base}_{axis}"
-        lines.append(f'{base}{{axis="{axis}"}} {snap.get(key, 0.0):.6g}')
-
-    lines.append("")  # trailing newline
-    return "\n".join(lines)
+  def close(self):
+    """Flush pending writes and release InfluxDB resources."""
+    self._write_api.close()
+    self._client.close()

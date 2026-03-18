@@ -1,9 +1,9 @@
 {
   "__inputs": [],
   "__requires": [
-    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0" },
-    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
-    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" }
+    { "type": "grafana",    "id": "grafana",   "name": "Grafana",   "version": "9.0.0" },
+    { "type": "datasource", "id": "influxdb",  "name": "InfluxDB",  "version": "1.0.0" },
+    { "type": "panel",      "id": "timeseries","name": "Time series","version": "" }
   ],
   "annotations": { "list": [] },
   "editable": true,
@@ -19,18 +19,16 @@
       "title": "Tension",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "never",
-            "barAlignment": 0
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never"
           },
           "unit": "short",
           "min": 0,
@@ -51,9 +49,8 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_tension",
-          "legendFormat": "tension (N)",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"tension\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A"
         }
       ]
@@ -64,18 +61,16 @@
       "title": "XYZ Velocity Setpoint (v_xyz)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "never",
-            "barAlignment": 0
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never"
           },
           "unit": "velocityms",
           "min": 0,
@@ -89,9 +84,8 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_v_xyz",
-          "legendFormat": "v_xyz (mm/s)",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"v_xyz\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A"
         }
       ]
@@ -102,18 +96,16 @@
       "title": "Tension Motor CV",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "never",
-            "barAlignment": 0
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never"
           },
           "unit": "short",
           "min": 0,
@@ -127,9 +119,8 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_tension_motor_cv",
-          "legendFormat": "tension_motor_cv",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"tension_motor_cv\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A"
         }
       ]
@@ -140,18 +131,16 @@
       "title": "Axis Positions",
       "type": "timeseries",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 60,
-            "gradientMode": "none",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "never",
-            "barAlignment": 0
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never"
           },
           "unit": "lengthmm"
         },
@@ -172,20 +161,20 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_axis_position{axis=\"X\"}",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"x_position\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "legendFormat": "X position (mm)",
           "refId": "A"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_axis_position{axis=\"Y\"}",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"y_position\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "legendFormat": "Y position (mm)",
           "refId": "B"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_axis_position{axis=\"Z\"}",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"z_position\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "legendFormat": "Z position (mm)",
           "refId": "C"
         }
@@ -197,18 +186,16 @@
       "title": "Axis Velocities",
       "type": "timeseries",
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 60,
-            "gradientMode": "none",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "never",
-            "barAlignment": 0
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never"
           },
           "unit": "velocityms"
         },
@@ -220,20 +207,20 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_axis_velocity{axis=\"X\"}",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"x_velocity\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "legendFormat": "X velocity (mm/s)",
           "refId": "A"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_axis_velocity{axis=\"Y\"}",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"y_velocity\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "legendFormat": "Y velocity (mm/s)",
           "refId": "B"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "plc_axis_velocity{axis=\"Z\"}",
+          "datasource": { "type": "influxdb", "uid": "dune-influxdb" },
+          "query": "from(bucket: \"winder\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"plc_tags\")\n  |> filter(fn: (r) => r[\"_field\"] == \"z_velocity\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "legendFormat": "Z velocity (mm/s)",
           "refId": "C"
         }
@@ -241,24 +228,12 @@
     }
 
   ],
-  "refresh": "5s",
+  "refresh": "1s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": ["dune-winder", "plc"],
-  "templating": {
-    "list": [
-      {
-        "hide": 2,
-        "includeAll": false,
-        "name": "DS_PROMETHEUS",
-        "options": [],
-        "query": "prometheus",
-        "refresh": 1,
-        "type": "datasource"
-      }
-    ]
-  },
-  "time": { "from": "now-15m", "to": "now" },
+  "templating": { "list": [] },
+  "time": { "from": "now-5m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Dune Winder PLC Monitor",
