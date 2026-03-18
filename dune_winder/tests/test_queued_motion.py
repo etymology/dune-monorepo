@@ -228,8 +228,9 @@ class QueuedMotionTests(unittest.TestCase):
   def test_single_step_g113_queues_first_planned_segment_with_full_stop(self):
     calibration = DefaultMachineCalibration()
     merge_lines = [
-      "G113 PPRECISE X500.0 Y100.0",
-      "G113 PPRECISE X550.0 Y150.0",
+      "G113 PPRECISE X550.0 Y100.0",
+      "G113 PPRECISE X700.0 Y250.0",
+      "G113 PPRECISE X700.0 Y400.0",
     ]
     preview_handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
     preview_handler._x = 400.0
@@ -244,7 +245,7 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertIsNotNone(full_block)
     full_first_segment = full_block["segments"][0]
     self.assertEqual(full_first_segment.term_type, 4)
-    self.assertEqual(full_block["resume_line"], 2)
+    self.assertEqual(full_block["resume_line"], 3)
 
     stepped_handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
     stepped_handler._x = 400.0
