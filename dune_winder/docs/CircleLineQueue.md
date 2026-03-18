@@ -53,8 +53,8 @@ The incoming segment payload (`IncomingSeg`) must provide all fields below.
 | `Speed` | `REAL` | Must be `>0` |
 | `Accel` | `REAL` | Must be `>0` |
 | `Decel` | `REAL` | Must be `>0` |
-| `JerkAccel` | `REAL` | Jerk value (`% of Time` in routine) |
-| `JerkDecel` | `REAL` | Jerk value (`% of Time` in routine) |
+| `JerkAccel` | `REAL` | Accel jerk value (`Units per sec^3` in routine) |
+| `JerkDecel` | `REAL` | Decel jerk value (`Units per sec^3` in routine) |
 | `TermType` | `DINT` | `0..6` |
 | `Seq` | `DINT` | Segment sequence number |
 
@@ -100,8 +100,8 @@ The routine uses the corrected text instruction format for both command channels
 Examples:
 
 ```text
-MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0
-MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "% of Time" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0
+MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0
+MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0
 ```
 
 Equivalent `CmdB_*` calls are used for the alternate in-flight segment.
@@ -142,10 +142,10 @@ Default segment dynamics (`MotionSegment`):
 - `speed = 1000`
 - `accel = 2000 mm/s^2`
 - `decel = 2000 mm/s^2`
-- `jerk_accel = 100`
-- `jerk_decel = 100`
+- `jerk_accel = 1500`
+- `jerk_decel = 3000`
 
-Routine jerk units are configured as `"% of Time"`.
+Routine jerk units are configured as `"Units per sec^3"`.
 
 Component-wise velocity capping is applied in
 `cap_segments_speed_by_axis_velocity(...)`:
