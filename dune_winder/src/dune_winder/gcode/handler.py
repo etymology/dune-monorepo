@@ -14,6 +14,10 @@ from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.queued_motion.diagnostics import serialize_segment_diagnostics
+from dune_winder.queued_motion.jerk_limits import (
+  DEFAULT_QUEUED_MOTION_JERK_PERCENT,
+  normalize_queued_motion_jerk_percent,
+)
 from dune_winder.queued_motion.merge_planner import MergeWaypoint, build_merge_path_segments
 from dune_winder.queued_motion.plc_interface import PLC_QUEUE_DEPTH
 from dune_winder.queued_motion.queue_session import QueuedMotionSession
@@ -294,12 +298,12 @@ class GCodeHandler(GCodeHandlerBase):
   def _queued_motion_jerk_limit(self) -> float:
     configuration = getattr(self, "_configuration", None)
     if configuration is None:
-      return 50000.0
+      return DEFAULT_QUEUED_MOTION_JERK_PERCENT
     try:
-      jerk = float(configuration.maxJerk)
+      jerk = configuration.maxJerk
     except Exception:
-      jerk = 50000.0
-    return max(1.0, jerk)
+      jerk = DEFAULT_QUEUED_MOTION_JERK_PERCENT
+    return normalize_queued_motion_jerk_percent(jerk)
 
   # ---------------------------------------------------------------------
   def _motion_safety_limits(self):

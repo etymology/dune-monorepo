@@ -9,6 +9,10 @@ from .filleted_path import (
   dynamic_min_radius,
   filleted_polygon_segments,
 )
+from .jerk_limits import (
+  DEFAULT_QUEUED_MOTION_JERK_PERCENT,
+  normalize_queued_motion_jerk_percent,
+)
 from .safety import (
   MotionSafetyLimits,
   QueuedMotionCollisionState,
@@ -153,8 +157,8 @@ def build_merge_path_segments(
   speed: float,
   accel: float,
   decel: float,
-  jerk_accel: float = 50000.0,
-  jerk_decel: float = 50000.0,
+  jerk_accel: float = DEFAULT_QUEUED_MOTION_JERK_PERCENT,
+  jerk_decel: float = DEFAULT_QUEUED_MOTION_JERK_PERCENT,
   min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   safety_limits: MotionSafetyLimits,
   queued_motion_collision_state: Optional[QueuedMotionCollisionState] = None,
@@ -175,6 +179,9 @@ def build_merge_path_segments(
   if not filtered_waypoints:
     return []
 
+  jerk_accel = normalize_queued_motion_jerk_percent(jerk_accel)
+  jerk_decel = normalize_queued_motion_jerk_percent(jerk_decel)
+
   filleted = filleted_polygon_segments(
     start_xy=start_xy,
     waypoints=[(float(point.x), float(point.y)) for point in filtered_waypoints],
@@ -182,7 +189,9 @@ def build_merge_path_segments(
       speed=speed,
       min_arc_radius=min_arc_radius,
       accel_limit=max(1.0, min(float(accel), float(decel))),
-      jerk_limit=max(1.0, min(float(jerk_accel), float(jerk_decel))),
+      # PLC queued-motion jerk is configured as S-curve "% of Time", not a
+      # physical jerk limit, so fillet sizing only uses the accel constraint.
+      jerk_limit=0.0,
     ),
     line_term_type=4,
     arc_term_type=4,
