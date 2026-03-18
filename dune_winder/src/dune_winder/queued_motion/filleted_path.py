@@ -78,7 +78,7 @@ def build_waypoint_circles(
   prev_xy = (float(start_xy[0]), float(start_xy[1]))
   for index, point_xy in enumerate(waypoints[:-1]):
     next_xy = waypoints[index + 1]
-    incoming = unit_vector_between(prev_xy, point_xy)
+    incoming = unit_vector_between(point_xy, prev_xy)
     outgoing = unit_vector_between(point_xy, next_xy)
     if incoming is None or outgoing is None:
       return None
@@ -128,33 +128,60 @@ def circle_pair_tangent_pairs(
   first: WaypointCircle,
   second: WaypointCircle,
 ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
-  if abs(first.radius - second.radius) > 1e-9:
-    return []
-
-  center_dir = unit_vector_between(first.center_xy, second.center_xy)
-  if center_dir is None:
-    return []
-  normal = _left_normal(center_dir)
-
   tangent_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = []
-  for sign in (-1.0, 1.0):
-    offset = (normal[0] * first.radius * sign, normal[1] * first.radius * sign)
-    tangent_pairs.append(
-      (
-        (first.center_xy[0] + offset[0], first.center_xy[1] + offset[1]),
-        (second.center_xy[0] + offset[0], second.center_xy[1] + offset[1]),
+  dx = second.center_xy[0] - first.center_xy[0]
+  dy = second.center_xy[1] - first.center_xy[1]
+  z = dx * dx + dy * dy
+  if z <= _EPS:
+    return []
+
+  for radius_sign in (-1.0, 1.0):
+    r = second.radius * radius_sign - first.radius
+    h_sq = z - r * r
+    if h_sq < -1e-9:
+      continue
+    h = math.sqrt(max(0.0, h_sq))
+    for tangent_sign in (-1.0, 1.0):
+      nx = (dx * r - dy * h * tangent_sign) / z
+      ny = (dy * r + dx * h * tangent_sign) / z
+      first_xy = (
+        first.center_xy[0] + first.radius * nx,
+        first.center_xy[1] + first.radius * ny,
       )
-    )
+      second_xy = (
+        second.center_xy[0] + second.radius * radius_sign * nx,
+        second.center_xy[1] + second.radius * radius_sign * ny,
+      )
+      if not any(
+        distance_xy(first_xy, existing_first) <= 1e-6
+        and distance_xy(second_xy, existing_second) <= 1e-6
+        for existing_first, existing_second in tangent_pairs
+      ):
+        tangent_pairs.append((first_xy, second_xy))
   return tangent_pairs
 
 
-def arc_direction_through_waypoint(
+def _interior_angle(
+  prev_xy: tuple[float, float],
+  point_xy: tuple[float, float],
+  next_xy: tuple[float, float],
+) -> Optional[float]:
+  in_vec = unit_vector_between(point_xy, prev_xy)
+  out_vec = unit_vector_between(point_xy, next_xy)
+  if in_vec is None or out_vec is None:
+    return None
+  dot = max(-1.0, min(1.0, in_vec[0] * out_vec[0] + in_vec[1] * out_vec[1]))
+  return math.acos(dot)
+
+
+def arc_choice_through_waypoint(
   circle: WaypointCircle,
   line_start_xy: tuple[float, float],
   incoming_xy: tuple[float, float],
   outgoing_xy: tuple[float, float],
   line_end_xy: tuple[float, float],
-) -> Optional[int]:
+  target_sweep: float,
+) -> Optional[tuple[int, float]]:
   if (
     distance_xy(incoming_xy, circle.waypoint_xy) <= _COMMAND_POSITION_RESOLUTION_MM
     or distance_xy(outgoing_xy, circle.waypoint_xy) <= _COMMAND_POSITION_RESOLUTION_MM
@@ -214,8 +241,9 @@ def arc_direction_through_waypoint(
   if not valid_candidates:
     return None
 
-  valid_candidates.sort(key=lambda item: item[0])
-  return valid_candidates[0][1]
+  valid_candidates.sort(key=lambda item: (abs(item[0] - target_sweep), item[0]))
+  best_sweep, best_direction = valid_candidates[0]
+  return (best_direction, best_sweep)
 
 
 def filleted_polygon_segments(
@@ -270,44 +298,86 @@ def filleted_polygon_segments(
   if any(not options for options in pair_tangent_options):
     return None
 
-  chosen_arcs: list[tuple[tuple[float, float], tuple[float, float], int]] = []
+  points = [start_xy]
+  points.extend(waypoints)
+  target_sweeps: list[float] = []
+  for index in range(1, len(points) - 1):
+    interior_angle = _interior_angle(points[index - 1], points[index], points[index + 1])
+    if interior_angle is None:
+      return None
+    target_sweeps.append(max(0.0, math.pi - interior_angle))
 
-  def search(circle_index: int, incoming_xy: tuple[float, float]) -> bool:
+  def search(
+    circle_index: int,
+    line_start_xy: tuple[float, float],
+    incoming_xy: tuple[float, float],
+  ) -> Optional[tuple[tuple[float, float, float], list[tuple[tuple[float, float], tuple[float, float], int]]]]:
     circle = circles[circle_index]
-    line_start_xy = start_xy if circle_index == 0 else chosen_arcs[-1][1]
+    target_sweep = target_sweeps[circle_index]
     if circle_index == len(circles) - 1:
+      best_result = None
       for outgoing_xy in end_tangent_options:
-        direction = arc_direction_through_waypoint(
+        choice = arc_choice_through_waypoint(
           circle,
           line_start_xy,
           incoming_xy,
           outgoing_xy,
           end_xy,
+          target_sweep,
         )
-        if direction is None:
+        if choice is None:
           continue
-        chosen_arcs.append((incoming_xy, outgoing_xy, direction))
-        return True
-      return False
+        direction, sweep = choice
+        score = (
+          abs(sweep - target_sweep),
+          sweep,
+          distance_xy(line_start_xy, incoming_xy) + distance_xy(outgoing_xy, end_xy),
+        )
+        result = (score, [(incoming_xy, outgoing_xy, direction)])
+        if best_result is None or result[0] < best_result[0]:
+          best_result = result
+      return best_result
 
+    best_result = None
     for outgoing_xy, next_incoming_xy in pair_tangent_options[circle_index]:
-      direction = arc_direction_through_waypoint(
+      choice = arc_choice_through_waypoint(
         circle,
         line_start_xy,
         incoming_xy,
         outgoing_xy,
         next_incoming_xy,
+        target_sweep,
       )
-      if direction is None:
+      if choice is None:
         continue
-      chosen_arcs.append((incoming_xy, outgoing_xy, direction))
-      if search(circle_index + 1, next_incoming_xy):
-        return True
-      chosen_arcs.pop()
-    return False
+      direction, sweep = choice
+      child_result = search(circle_index + 1, outgoing_xy, next_incoming_xy)
+      if child_result is None:
+        continue
+      child_score, child_arcs = child_result
+      score = (
+        abs(sweep - target_sweep) + child_score[0],
+        sweep + child_score[1],
+        distance_xy(line_start_xy, incoming_xy)
+        + distance_xy(outgoing_xy, next_incoming_xy)
+        + child_score[2],
+      )
+      result = (score, [(incoming_xy, outgoing_xy, direction)] + child_arcs)
+      if best_result is None or result[0] < best_result[0]:
+        best_result = result
+    return best_result
 
-  if not any(search(0, incoming_xy) for incoming_xy in start_tangent_options):
+  best_path = None
+  for incoming_xy in start_tangent_options:
+    candidate = search(0, start_xy, incoming_xy)
+    if candidate is None:
+      continue
+    if best_path is None or candidate[0] < best_path[0]:
+      best_path = candidate
+
+  if best_path is None:
     return None
+  chosen_arcs = best_path[1]
 
   segments: list[MotionSegment] = []
   cursor_xy = (float(start_xy[0]), float(start_xy[1]))
