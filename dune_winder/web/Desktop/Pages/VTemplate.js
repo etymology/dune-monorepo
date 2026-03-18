@@ -282,6 +282,7 @@ function VTemplate( modules )
 
     $( "#gCodeGenerationVTransferPause" ).prop( "checked", !! state.transferPause )
     $( "#gCodeGenerationVIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
+    $( "#gCodeGenerationVStripG113Params" ).prop( "checked", !! state.stripG113Params )
     setControlsDisabled( "#gCodeGenerationVCard", ! state.enabled || ! state.movementReady )
 
     setStatus(
@@ -355,6 +356,7 @@ function VTemplate( modules )
 
     $( "#gCodeGenerationUTransferPause" ).prop( "checked", !! state.transferPause )
     $( "#gCodeGenerationUIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
+    $( "#gCodeGenerationUStripG113Params" ).prop( "checked", !! state.stripG113Params )
     setControlsDisabled( "#gCodeGenerationUCard", ! state.enabled || ! state.movementReady )
 
     setStatus(
@@ -816,6 +818,22 @@ function VTemplate( modules )
     )
   }
 
+  function applyVStripG113Params()
+  {
+    if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.vTemplateSetStripG113Params,
+      { enabled: $( "#gCodeGenerationVStripG113Params" ).is( ":checked" ) },
+      function()
+      {
+        refreshVStateOnce()
+      }
+    )
+  }
+
   function applyUOffsetInput( offsetId )
   {
     if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
@@ -864,6 +882,22 @@ function VTemplate( modules )
     (
       commands.process.uTemplateSetIncludeLeadMode,
       { enabled: $( "#gCodeGenerationUIncludeLeadMode" ).is( ":checked" ) },
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
+  function applyUStripG113Params()
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.uTemplateSetStripG113Params,
+      { enabled: $( "#gCodeGenerationUStripG113Params" ).is( ":checked" ) },
       function()
       {
         refreshUStateOnce()
@@ -979,6 +1013,15 @@ function VTemplate( modules )
       }
     )
 
+  $( "#gCodeGenerationVStripG113Params" )
+    .change
+    (
+      function()
+      {
+        applyVStripG113Params()
+      }
+    )
+
   $( "#gCodeGenerationGXTransferPause" )
     .change
     (
@@ -1003,6 +1046,15 @@ function VTemplate( modules )
       function()
       {
         applyUIncludeLeadMode()
+      }
+    )
+
+  $( "#gCodeGenerationUStripG113Params" )
+    .change
+    (
+      function()
+      {
+        applyUStripG113Params()
       }
     )
 

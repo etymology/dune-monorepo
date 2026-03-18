@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 from dune_winder.recipes.recipe_template_language import (
@@ -122,6 +123,13 @@ V_WRAP_FINAL_TAIL_SCRIPT = compile_template_script(
     "emit G113 PPRECISE X440 Y2335",
   )
 )
+
+
+_G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
+
+
+def _apply_strip_g113_params(lines):
+  return [re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines]
 
 
 class VTemplateInputError(ValueError):
@@ -331,6 +339,7 @@ def render_v_template_lines(
   offsets=None,
   transfer_pause=False,
   include_lead_mode=False,
+  strip_g113_params=False,
   named_inputs=None,
   special_inputs=None,
   cell_overrides=None,
@@ -382,7 +391,10 @@ def render_v_template_lines(
       final_wrap=True,
     )
   )
-  return _number_lines(lines)
+  lines = _number_lines(lines)
+  if strip_g113_params:
+    lines = _apply_strip_g113_params(lines)
+  return lines
 
 
 def render_v_template_text_lines(
@@ -482,6 +494,7 @@ def write_v_template_file(
   offsets=None,
   transfer_pause=False,
   include_lead_mode=False,
+  strip_g113_params=False,
   named_inputs=None,
   special_inputs=None,
   archive_directory=None,
@@ -500,6 +513,7 @@ def write_v_template_file(
     offsets=offsets,
     transfer_pause=transfer_pause,
     include_lead_mode=include_lead_mode,
+    strip_g113_params=strip_g113_params,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )

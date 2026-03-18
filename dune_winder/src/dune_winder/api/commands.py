@@ -458,6 +458,14 @@ def build_command_registry(
     "process.v_template.set_include_lead_mode", v_template_set_include_lead_mode, True
   )
 
+  def v_template_set_strip_g113_params(args):
+    _validateArgs(args, required=("enabled",))
+    return process.vTemplateRecipe.setStripG113Params(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.v_template.set_strip_g113_params", v_template_set_strip_g113_params, True
+  )
+
   def v_template_reset_draft(args):
     _validateArgs(args, optional=("mark_dirty",))
     markDirty = args.get("mark_dirty", True)
@@ -491,6 +499,14 @@ def build_command_registry(
 
   registry.register(
     "process.u_template.set_include_lead_mode", u_template_set_include_lead_mode, True
+  )
+
+  def u_template_set_strip_g113_params(args):
+    _validateArgs(args, required=("enabled",))
+    return process.uTemplateRecipe.setStripG113Params(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.u_template.set_strip_g113_params", u_template_set_strip_g113_params, True
   )
 
   def u_template_reset_draft(args):
