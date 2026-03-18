@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Optional
 
+from .filleted_path import filleted_polygon_segments
 from .segment_types import (
   CIRCLE_TYPE_CENTER,
   MCCM_DIR_2D_CCW,
@@ -51,7 +52,7 @@ DEFAULT_ARCHIMEDEAN_INITIAL_ANGLE_DEG = 0.0
 DEFAULT_ARCHIMEDEAN_BOUNDARY_MARGIN = 20.0
 DEFAULT_ARCHIMEDEAN_DIRECTION = "ccw"
 DEFAULT_WAYPOINT_MIN_ARC_RADIUS = 50.0
-DEFAULT_WAYPOINT_ORDER_MODE = "shortest"
+DEFAULT_WAYPOINT_ORDER_MODE = "input"
 DEFAULT_WAYPOINT_PLANNER_TIMEOUT_S = 3.0
 DEFAULT_WAYPOINT_ALLOW_STOPS = False
 DEFAULT_V_X_MAX = 825.0
@@ -1110,24 +1111,31 @@ def waypoint_path_segments(
       waypoint_planner_timeout_s=waypoint_planner_timeout_s,
     )
 
-  tangents = _waypoint_tangents(points)
-  segments = _tangent_biarc_tessellation(points, tangents, start_seq, term_type)
-  segments = _enforce_min_arc_radius(segments, min_arc_radius=min_arc_radius)
-  if (
-    waypoint_allow_stops
-    and waypoint_bounds is not None
-    and not _segments_within_bounds(segments, waypoint_bounds)
-  ):
-    segments = _build_waypoint_stoppable_segments(
-      points=points,
-      tangents=tangents,
-      start_seq=start_seq,
-      term_type=term_type,
-      min_arc_radius=min_arc_radius,
-      bounds=waypoint_bounds,
-    )
+  filleted = filleted_polygon_segments(
+    start_xy=points[0],
+    waypoints=points[1:],
+    radius=min_arc_radius,
+    line_term_type=term_type,
+    arc_term_type=term_type,
+    final_term_type=term_type,
+  )
+  if filleted is not None:
+    segments = [replace(seg, seq=start_seq + i) for i, seg in enumerate(filleted)]
+    if waypoint_bounds is None or _segments_within_bounds(segments, waypoint_bounds):
+      return segments
 
-  return [replace(seg, seq=start_seq + i) for i, seg in enumerate(segments)]
+  stop_term_type = 0 if waypoint_allow_stops or filleted is None else term_type
+  segments = [
+    MotionSegment(
+      seq=start_seq + index,
+      x=point[0],
+      y=point[1],
+      term_type=stop_term_type,
+      seg_type=SEG_TYPE_LINE,
+    )
+    for index, point in enumerate(points)
+  ]
+  return segments
 
 
 def enforce_min_segment_length(
