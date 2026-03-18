@@ -73,6 +73,8 @@ class ControllogixPLC(PLC):
     if self._isFunctional:
       try:
         result = self._plcDriver.read(*tag)
+        if result is not None and not isinstance(result, list):
+          result = [result]
       except Exception:
         # If tag reading threw an exception, the connection is dead.
         self._isFunctional = False
