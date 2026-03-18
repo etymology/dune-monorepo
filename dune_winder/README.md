@@ -51,6 +51,28 @@ the main application.
 
 ## Run The Application
 
+### Windows (PowerShell)
+
+From the project root:
+
+```powershell
+python -m dune_winder
+```
+
+The installed entrypoint also works:
+
+```powershell
+dune-winder
+```
+
+Example with runtime flags:
+
+```powershell
+python -m dune_winder START=TRUE LOG=TRUE LOG_IO=FALSE PLC_MODE=SIM
+```
+
+### Linux/macOS (bash/zsh)
+
 From the project root:
 
 ```bash
@@ -88,11 +110,28 @@ plcMode = "REAL" # or "SIM"
 
 ### Run tests
 
+Windows (PowerShell):
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Linux/macOS (bash/zsh):
+
 ```bash
 python -m unittest discover -s tests
 ```
 
 ### Format and lint
+
+Windows (PowerShell):
+
+```powershell
+python -m ruff format .
+python -m ruff check .
+```
+
+Linux/macOS (bash/zsh):
 
 ```bash
 python -m ruff format .
