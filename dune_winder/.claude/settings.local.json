@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.venv/Scripts/pip install:*)"
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_patterns.py)",
+      "Bash(python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_types.py src/dune_winder/queued_motion/segment_patterns.py)"
     ]
   }
 }

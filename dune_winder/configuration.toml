@@ -18,4 +18,4 @@ maxVelocity = 1020
 maxSlowVelocity = 25.4
 maxAcceleration = 800
 maxDeceleration = 800
-maxJerk = 50000.0
+maxJerk = 100.0
