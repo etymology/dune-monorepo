@@ -107,7 +107,7 @@ class PythonToIR(ast.NodeVisitor):
             ann = self._annotation_str(arg.annotation)
             # MotionSegment parameter → allocate a DINT as segment index
             if ann in ("MotionSegment",) or "MotionSegment" == ann:
-                reg = self.alloc.alloc(PLCType.DINT, f"{arg.arg}_idx")
+                reg = self.alloc.alloc(PLCType.IDX, f"{arg.arg}_idx")
                 scope.vars[arg.arg] = reg
                 # Use as the loop index for SegQueue access in this function
                 if scope.loop_idx is None:
@@ -418,7 +418,7 @@ class PythonToIR(ast.NodeVisitor):
                 if isinstance(t1, ast.Name):
                     seg_name = t1.id
 
-            counter = self.alloc.alloc(PLCType.DINT, idx_name or "_loop_i")
+            counter = self.alloc.alloc(PLCType.IDX, idx_name or "_loop_i")
             if idx_name:
                 scope.vars[idx_name] = counter
             scope.loop_idx = counter
@@ -439,7 +439,7 @@ class PythonToIR(ast.NodeVisitor):
                 and isinstance(node.iter.func, ast.Name)
                 and node.iter.func.id == "range"):
             var_name = node.target.id if isinstance(node.target, ast.Name) else "_i"
-            counter = self.alloc.alloc(PLCType.DINT, var_name)
+            counter = self.alloc.alloc(PLCType.IDX, var_name)
             scope.vars[var_name] = counter
             args = node.iter.args
             start_expr: Expr = Const(0, PLCType.DINT)

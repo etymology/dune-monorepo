@@ -180,14 +180,14 @@ LBL lbl_ArcSweepRad_end NOP
 ;   REALS[17] = tau
 ;   REALS[18] = ccw
 ;   REALS[19] = cw
-;   DINTS[5] = start_idx
-;   DINTS[6] = seg_idx
+;   idx_0 = start_idx
+;   idx_1 = seg_idx
 ;   BOOLS[4] = circle_center_for_segment_fault
-; Inputs:  DINTS[5]=start_idx  DINTS[6]=seg_idx
+; Inputs:  idx_0=start_idx  idx_1=seg_idx
 ; ============================================================
-NEQ SegQueue[DINTS[5]].CircleType 1 JMP lbl_else_26
+NEQ SegQueue[idx_0].CircleType 1 JMP lbl_else_26
 JMP lbl_CircleCenterForSeg_end
-LBL lbl_else_26 NEQ SegQueue[DINTS[5]].CircleType 3 JMP lbl_else_28
+LBL lbl_else_26 NEQ SegQueue[idx_0].CircleType 3 JMP lbl_else_28
 JMP lbl_CircleCenterForSeg_end
 LBL lbl_else_28 JMP lbl_CircleCenterForSeg_end
 LBL lbl_CircleCenterForSeg_end NOP
@@ -224,12 +224,12 @@ LBL lbl_CircleCenterForSeg_end NOP
 ;   REALS[17] = tau
 ;   REALS[18] = ccw
 ;   REALS[19] = cw
-;   DINTS[5] = start_idx
-;   DINTS[6] = seg_idx
+;   idx_0 = start_idx
+;   idx_1 = seg_idx
 ;   BOOLS[4] = circle_center_for_segment_fault
 ;   REALS[20] = start_x
 ;   REALS[21] = start_y
-;   DINTS[7] = seg_idx
+;   idx_2 = seg_idx
 ;   BOOLS[5] = _segment_tangent_component_bounds_fault
 ;   REALS[22] = _segment_tangent_component_bounds_ret_0
 ;   REALS[23] = _segment_tangent_component_bounds_ret_1
@@ -251,12 +251,12 @@ LBL lbl_CircleCenterForSeg_end NOP
 ;   REALS[39] = max_tx
 ;   REALS[40] = __max_abs_cos_over_sweep_ret
 ;   REALS[41] = max_ty
-; Inputs:  REALS[20]=start_x  REALS[21]=start_y  DINTS[7]=seg_idx
+; Inputs:  REALS[20]=start_x  REALS[21]=start_y  idx_2=seg_idx
 ; Outputs: REALS[22]=return_0  REALS[23]=return_1
 ; ============================================================
-NEQ SegQueue[DINTS[7]].SegType 1 JMP lbl_else_30
-CPT REALS[24] SegQueue[DINTS[7]].XY[0]-REALS[20]
-CPT REALS[25] SegQueue[DINTS[7]].XY[1]-REALS[21]
+NEQ SegQueue[idx_2].SegType 1 JMP lbl_else_30
+CPT REALS[24] SegQueue[idx_2].XY[0]-REALS[20]
+CPT REALS[25] SegQueue[idx_2].XY[1]-REALS[21]
 CPT REALS[26] SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25])
 GRT REALS[26] 1e-09 JMP lbl_else_32
 MOV 0.0 REALS[22]
@@ -265,10 +265,10 @@ JMP lbl_SegTangentBounds_end
 LBL lbl_else_32 CPT REALS[22] ABS(REALS[24]/REALS[26])
 CPT REALS[23] ABS(REALS[25]/REALS[26])
 JMP lbl_SegTangentBounds_end
-LBL lbl_else_30 NEQ SegQueue[DINTS[7]].SegType 2 JMP lbl_else_34
+LBL lbl_else_30 NEQ SegQueue[idx_2].SegType 2 JMP lbl_else_34
 NEQ REALS[29] 0 JMP lbl_else_36
 CPT REALS[32] SQR(REALS[20]-REALS[30]*REALS[20]-REALS[30]+REALS[21]-REALS[31]*REALS[21]-REALS[31])
-CPT REALS[33] SQR(SegQueue[DINTS[7]].XY[0]-REALS[30]*SegQueue[DINTS[7]].XY[0]-REALS[30]+SegQueue[DINTS[7]].XY[1]-REALS[31]*SegQueue[DINTS[7]].XY[1]-REALS[31])
+CPT REALS[33] SQR(SegQueue[idx_2].XY[0]-REALS[30]*SegQueue[idx_2].XY[0]-REALS[30]+SegQueue[idx_2].XY[1]-REALS[31]*SegQueue[idx_2].XY[1]-REALS[31])
 BST LEQ REALS[32] 1e-09 NXB LEQ REALS[33] 1e-09 BND OTL BOOLS[900]
 XIC BOOLS[900] JMP lbl_else_38
 CPT REALS[910] REALS[21]-REALS[31]
@@ -279,8 +279,8 @@ LES REALS[911] 0.0 LES REALS[910] 0.0 CPT REALS[34] ATN(REALS[910]/REALS[911])-3
 EQU REALS[911] 0.0 GRT REALS[910] 0.0 MOV 1.5707963267949 REALS[34] JMP lbl_atan2_done_40
 EQU REALS[911] 0.0 LES REALS[910] 0.0 MOV -1.5707963267949 REALS[34] JMP lbl_atan2_done_40
 MOV 0.0 REALS[34]
-LBL lbl_atan2_done_40 CPT REALS[912] SegQueue[DINTS[7]].XY[1]-REALS[31]
-CPT REALS[913] SegQueue[DINTS[7]].XY[0]-REALS[30]
+LBL lbl_atan2_done_40 CPT REALS[912] SegQueue[idx_2].XY[1]-REALS[31]
+CPT REALS[913] SegQueue[idx_2].XY[0]-REALS[30]
 GRT REALS[913] 0.0 CPT REALS[35] ATN(REALS[912]/REALS[913]) JMP lbl_atan2_done_41
 LES REALS[913] 0.0 GEQ REALS[912] 0.0 CPT REALS[35] ATN(REALS[912]/REALS[913])+3.14159265358979 JMP lbl_atan2_done_41
 LES REALS[913] 0.0 LES REALS[912] 0.0 CPT REALS[35] ATN(REALS[912]/REALS[913])-3.14159265358979 JMP lbl_atan2_done_41
@@ -297,8 +297,8 @@ JMP lbl_SegTangentBounds_end
 LBL lbl_else_42 NOP
 LBL lbl_else_38 NOP
 LBL lbl_else_36 NOP
-LBL lbl_else_34 CPT REALS[24] SegQueue[DINTS[7]].XY[0]-REALS[20]
-CPT REALS[25] SegQueue[DINTS[7]].XY[1]-REALS[21]
+LBL lbl_else_34 CPT REALS[24] SegQueue[idx_2].XY[0]-REALS[20]
+CPT REALS[25] SegQueue[idx_2].XY[1]-REALS[21]
 CPT REALS[26] SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25])
 GRT REALS[26] 1e-09 JMP lbl_else_44
 MOV 0.0 REALS[22]
@@ -341,12 +341,12 @@ LBL lbl_SegTangentBounds_end NOP
 ;   REALS[17] = tau
 ;   REALS[18] = ccw
 ;   REALS[19] = cw
-;   DINTS[5] = start_idx
-;   DINTS[6] = seg_idx
+;   idx_0 = start_idx
+;   idx_1 = seg_idx
 ;   BOOLS[4] = circle_center_for_segment_fault
 ;   REALS[20] = start_x
 ;   REALS[21] = start_y
-;   DINTS[7] = seg_idx
+;   idx_2 = seg_idx
 ;   BOOLS[5] = _segment_tangent_component_bounds_fault
 ;   REALS[22] = _segment_tangent_component_bounds_ret_0
 ;   REALS[23] = _segment_tangent_component_bounds_ret_1
@@ -370,7 +370,7 @@ LBL lbl_SegTangentBounds_end NOP
 ;   REALS[41] = max_ty
 ;   REALS[42] = v_x_max
 ;   REALS[43] = v_y_max
-;   DINTS[8] = seg_count
+;   DINTS[5] = seg_count
 ;   REALS[44] = start_xy_x
 ;   REALS[45] = start_xy_y
 ;   BOOLS[6] = start_xy_valid
@@ -378,17 +378,17 @@ LBL lbl_SegTangentBounds_end NOP
 ;   REALS[46] = prev_x
 ;   REALS[47] = prev_y
 ;   BOOLS[8] = first_segment_start_unknown
-;   DINTS[9] = idx
-;   DINTS[10] = seg_count
+;   idx_3 = idx
+;   DINTS[6] = seg_count
 ;   REALS[48] = speed_cap
 ;   REALS[49] = max_tx
 ;   REALS[50] = max_ty
 ;   REALS[51] = limit_x
 ;   REALS[52] = limit_y
 ;   REALS[53] = target_speed
-; Inputs:  DINTS[8]=seg_count  REALS[42]=v_x_max  REALS[43]=v_y_max  REALS[44]=start_xy_x  REALS[45]=start_xy_y  BOOLS[6]=start_xy_valid
+; Inputs:  DINTS[5]=seg_count  REALS[42]=v_x_max  REALS[43]=v_y_max  REALS[44]=start_xy_x  REALS[45]=start_xy_y  BOOLS[6]=start_xy_valid
 ; ============================================================
-NEQ DINTS[8] 0 JMP lbl_else_46
+NEQ DINTS[5] 0 JMP lbl_else_46
 JMP lbl_CapSegSpeed_end
 LBL lbl_else_46 BST LEQ REALS[42] 0.0 NXB LEQ REALS[43] 0.0 BND OTL BOOLS[901]
 GRT REALS[42] 0.0 GRT REALS[43] 0.0 JMP lbl_else_48
@@ -405,9 +405,9 @@ JMP lbl_end_53
 LBL lbl_else_52 MOV REALS[44] REALS[46]
 MOV REALS[45] REALS[47]
 MOV 0 BOOLS[8]
-LBL lbl_end_53 MOV 0 DINTS[9]
-LBL lbl_loop_54 GEQ DINTS[9] DINTS[8] JMP lbl_loop_end_55
-BST NEQ DINTS[9] 0 NXB XIO BOOLS[8] BND OTL BOOLS[903]
+LBL lbl_end_53 MOV 0 idx_3
+LBL lbl_loop_54 GEQ idx_3 DINTS[5] JMP lbl_loop_end_55
+BST NEQ idx_3 0 NXB XIO BOOLS[8] BND OTL BOOLS[903]
 XIC BOOLS[903] JMP lbl_else_56
 LES REALS[42] REALS[43] JMP lbl_min_a_58
 MOV REALS[43] REALS[48] JMP lbl_min_end_59
@@ -417,7 +417,7 @@ MOV 1.0 REALS[50]
 JMP lbl_end_57
 LBL lbl_else_56 MOV REALS[46] REALS[20]
 MOV REALS[47] REALS[21]
-MOV DINTS[9] DINTS[7]
+MOV idx_3 idx_2
 JSR SegTangentBounds
 MOV REALS[22] REALS[49]
 MOV REALS[23] REALS[50]
@@ -433,16 +433,16 @@ LBL lbl_end_63 LES REALS[51] REALS[52] JMP lbl_min_a_64
 MOV REALS[52] REALS[48] JMP lbl_min_end_65
 LBL lbl_min_a_64 MOV REALS[51] REALS[48]
 LBL lbl_min_end_65 NOP
-LBL lbl_end_57 LES SegQueue[DINTS[9]].Speed REALS[48] JMP lbl_min_a_66
+LBL lbl_end_57 LES SegQueue[idx_3].Speed REALS[48] JMP lbl_min_a_66
 MOV REALS[48] REALS[53] JMP lbl_min_end_67
-LBL lbl_min_a_66 MOV SegQueue[DINTS[9]].Speed REALS[53]
+LBL lbl_min_a_66 MOV SegQueue[idx_3].Speed REALS[53]
 LBL lbl_min_end_67 GRT REALS[53] 0.0 JMP lbl_else_68
 OTL BOOLS[7]
 JMP lbl_CapSegSpeed_end
-LBL lbl_else_68 MOV REALS[53] SegQueue[DINTS[9]].Speed
-MOV SegQueue[DINTS[9]].XY[0] REALS[46]
-MOV SegQueue[DINTS[9]].XY[1] REALS[47]
-ADD DINTS[9] 1 DINTS[9]
+LBL lbl_else_68 MOV REALS[53] SegQueue[idx_3].Speed
+MOV SegQueue[idx_3].XY[0] REALS[46]
+MOV SegQueue[idx_3].XY[1] REALS[47]
+ADD idx_3 1 idx_3
 JMP lbl_loop_54
 LBL lbl_loop_end_55 JMP lbl_CapSegSpeed_end
 LBL lbl_CapSegSpeed_end NOP

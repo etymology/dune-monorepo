@@ -13,6 +13,7 @@ class RegisterAllocator:
             PLCType.REAL: 0,
             PLCType.DINT: 0,
             PLCType.BOOL: 0,
+            PLCType.IDX:  0,
         }
         # name → Reg, for comment generation
         self._log: list[tuple[str, Reg]] = []

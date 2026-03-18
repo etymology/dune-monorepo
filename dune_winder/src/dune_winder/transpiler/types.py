@@ -8,11 +8,12 @@ class PLCType(Enum):
     BOOL = auto()
     REAL = auto()
     DINT = auto()
+    IDX  = auto()   # scalar DINT for array subscripts; renders as idx_N (not DINTS[N])
 
 
 @dataclass(frozen=True)
 class Reg:
-    """A reference to a numbered register slot: REALS[n], DINTS[n], BOOLS[n]."""
+    """A reference to a numbered register slot: REALS[n], DINTS[n], BOOLS[n], idx_n."""
     typ: PLCType
     index: int
 
@@ -21,6 +22,8 @@ class Reg:
             return f"REALS[{self.index}]"
         if self.typ == PLCType.DINT:
             return f"DINTS[{self.index}]"
+        if self.typ == PLCType.IDX:
+            return f"idx_{self.index}"
         return f"BOOLS[{self.index}]"
 
 
