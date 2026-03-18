@@ -239,20 +239,17 @@ LBL lbl_CircleCenterForSeg_end NOP
 ;   REALS[25] = dy
 ;   REALS[26] = dist
 ;   REALS[27] = _MotionSegment_ret
-;   REALS[28] = _circle_center_for_segment_ret
-;   REALS[29] = center
-;   REALS[30] = cx
-;   REALS[31] = cy
-;   REALS[32] = r0
-;   REALS[33] = r1
-;   REALS[34] = a0
-;   REALS[35] = a1
-;   REALS[36] = _arc_sweep_rad_ret
-;   REALS[37] = sweep
-;   REALS[38] = __max_abs_sin_over_sweep_ret
-;   REALS[39] = max_tx
-;   REALS[40] = __max_abs_cos_over_sweep_ret
-;   REALS[41] = max_ty
+;   REALS[28] = center
+;   REALS[29] = cx
+;   REALS[30] = cy
+;   REALS[31] = r0
+;   REALS[32] = r1
+;   REALS[33] = a0
+;   REALS[34] = a1
+;   REALS[35] = sweep
+;   BOOLS[6] = sweep_valid
+;   REALS[36] = max_tx
+;   REALS[37] = max_ty
 ; Inputs:  REALS[20]=start_x  REALS[21]=start_y  idx_2=seg_idx
 ; Outputs: REALS[22]=return_0  REALS[23]=return_1
 ; ============================================================
@@ -268,33 +265,47 @@ LBL lbl_else_32 CPT REALS[22] ABS(REALS[24]/REALS[26])
 CPT REALS[23] ABS(REALS[25]/REALS[26])
 JMP lbl_SegTangentBounds_end
 LBL lbl_else_30 NEQ SegQueue[idx_2].SegType 2 JMP lbl_else_34
-NEQ REALS[29] 0 JMP lbl_else_36
-CPT REALS[32] SQR(REALS[20]-REALS[30]*REALS[20]-REALS[30]+REALS[21]-REALS[31]*REALS[21]-REALS[31])
-CPT REALS[33] SQR(SegQueue[idx_2].XY[0]-REALS[30]*SegQueue[idx_2].XY[0]-REALS[30]+SegQueue[idx_2].XY[1]-REALS[31]*SegQueue[idx_2].XY[1]-REALS[31])
-BST LEQ REALS[32] 0.000000001 NXB LEQ REALS[33] 0.000000001 BND OTL BOOLS[900]
+MOV idx_2 idx_0
+MOV idx_2 idx_1
+JSR CircleCenterForSeg
+NEQ REALS[28] 0 JMP lbl_else_36
+CPT REALS[31] SQR(REALS[20]-REALS[29]*REALS[20]-REALS[29]+REALS[21]-REALS[30]*REALS[21]-REALS[30])
+CPT REALS[32] SQR(SegQueue[idx_2].XY[0]-REALS[29]*SegQueue[idx_2].XY[0]-REALS[29]+SegQueue[idx_2].XY[1]-REALS[30]*SegQueue[idx_2].XY[1]-REALS[30])
+BST LEQ REALS[31] 0.000000001 NXB LEQ REALS[32] 0.000000001 BND OTL BOOLS[900]
 XIC BOOLS[900] JMP lbl_else_38
-CPT REALS[912] REALS[21]-REALS[31]
-CPT REALS[913] REALS[20]-REALS[30]
-GRT REALS[913] 0.0 CPT REALS[34] ATN(REALS[912]/REALS[913]) JMP lbl_atan2_done_40
-LES REALS[913] 0.0 GEQ REALS[912] 0.0 CPT REALS[34] ATN(REALS[912]/REALS[913])+3.14159265358979 JMP lbl_atan2_done_40
-LES REALS[913] 0.0 LES REALS[912] 0.0 CPT REALS[34] ATN(REALS[912]/REALS[913])-3.14159265358979 JMP lbl_atan2_done_40
-EQU REALS[913] 0.0 GRT REALS[912] 0.0 MOV 1.5707963267949 REALS[34] JMP lbl_atan2_done_40
-EQU REALS[913] 0.0 LES REALS[912] 0.0 MOV -1.5707963267949 REALS[34] JMP lbl_atan2_done_40
+CPT REALS[912] REALS[21]-REALS[30]
+CPT REALS[913] REALS[20]-REALS[29]
+GRT REALS[913] 0.0 CPT REALS[33] ATN(REALS[912]/REALS[913]) JMP lbl_atan2_done_40
+LES REALS[913] 0.0 GEQ REALS[912] 0.0 CPT REALS[33] ATN(REALS[912]/REALS[913])+3.14159265358979 JMP lbl_atan2_done_40
+LES REALS[913] 0.0 LES REALS[912] 0.0 CPT REALS[33] ATN(REALS[912]/REALS[913])-3.14159265358979 JMP lbl_atan2_done_40
+EQU REALS[913] 0.0 GRT REALS[912] 0.0 MOV 1.5707963267949 REALS[33] JMP lbl_atan2_done_40
+EQU REALS[913] 0.0 LES REALS[912] 0.0 MOV -1.5707963267949 REALS[33] JMP lbl_atan2_done_40
+MOV 0.0 REALS[33]
+LBL lbl_atan2_done_40 CPT REALS[914] SegQueue[idx_2].XY[1]-REALS[30]
+CPT REALS[915] SegQueue[idx_2].XY[0]-REALS[29]
+GRT REALS[915] 0.0 CPT REALS[34] ATN(REALS[914]/REALS[915]) JMP lbl_atan2_done_41
+LES REALS[915] 0.0 GEQ REALS[914] 0.0 CPT REALS[34] ATN(REALS[914]/REALS[915])+3.14159265358979 JMP lbl_atan2_done_41
+LES REALS[915] 0.0 LES REALS[914] 0.0 CPT REALS[34] ATN(REALS[914]/REALS[915])-3.14159265358979 JMP lbl_atan2_done_41
+EQU REALS[915] 0.0 GRT REALS[914] 0.0 MOV 1.5707963267949 REALS[34] JMP lbl_atan2_done_41
+EQU REALS[915] 0.0 LES REALS[914] 0.0 MOV -1.5707963267949 REALS[34] JMP lbl_atan2_done_41
 MOV 0.0 REALS[34]
-LBL lbl_atan2_done_40 CPT REALS[914] SegQueue[idx_2].XY[1]-REALS[31]
-CPT REALS[915] SegQueue[idx_2].XY[0]-REALS[30]
-GRT REALS[915] 0.0 CPT REALS[35] ATN(REALS[914]/REALS[915]) JMP lbl_atan2_done_41
-LES REALS[915] 0.0 GEQ REALS[914] 0.0 CPT REALS[35] ATN(REALS[914]/REALS[915])+3.14159265358979 JMP lbl_atan2_done_41
-LES REALS[915] 0.0 LES REALS[914] 0.0 CPT REALS[35] ATN(REALS[914]/REALS[915])-3.14159265358979 JMP lbl_atan2_done_41
-EQU REALS[915] 0.0 GRT REALS[914] 0.0 MOV 1.5707963267949 REALS[35] JMP lbl_atan2_done_41
-EQU REALS[915] 0.0 LES REALS[914] 0.0 MOV -1.5707963267949 REALS[35] JMP lbl_atan2_done_41
-MOV 0.0 REALS[35]
-LBL lbl_atan2_done_41 MOV REALS[36] REALS[37]
-NEQ REALS[37] 0 JMP lbl_else_42
-MOV REALS[38] REALS[39]
-MOV REALS[40] REALS[41]
-MOV REALS[39] REALS[22]
-MOV REALS[41] REALS[23]
+LBL lbl_atan2_done_41 MOV REALS[33] REALS[14]
+MOV REALS[34] REALS[15]
+MOV SegQueue[idx_2].Direction DINTS[4]
+JSR ArcSweepRad
+MOV REALS[16] REALS[35]
+MOV BOOLS[3] BOOLS[6]
+XIO BOOLS[6] JMP lbl_else_42
+MOV REALS[33] REALS[0]
+MOV REALS[35] REALS[1]
+JSR MaxAbsSinSweep
+MOV REALS[2] REALS[36]
+MOV REALS[33] REALS[7]
+MOV REALS[35] REALS[8]
+JSR MaxAbsCosSweep
+MOV REALS[9] REALS[37]
+MOV REALS[36] REALS[22]
+MOV REALS[37] REALS[23]
 JMP lbl_SegTangentBounds_end
 LBL lbl_else_42 NOP
 LBL lbl_else_38 NOP
@@ -356,94 +367,91 @@ LBL lbl_SegTangentBounds_end NOP
 ;   REALS[25] = dy
 ;   REALS[26] = dist
 ;   REALS[27] = _MotionSegment_ret
-;   REALS[28] = _circle_center_for_segment_ret
-;   REALS[29] = center
-;   REALS[30] = cx
-;   REALS[31] = cy
-;   REALS[32] = r0
-;   REALS[33] = r1
-;   REALS[34] = a0
-;   REALS[35] = a1
-;   REALS[36] = _arc_sweep_rad_ret
-;   REALS[37] = sweep
-;   REALS[38] = __max_abs_sin_over_sweep_ret
-;   REALS[39] = max_tx
-;   REALS[40] = __max_abs_cos_over_sweep_ret
-;   REALS[41] = max_ty
-;   REALS[42] = v_x_max
-;   REALS[43] = v_y_max
+;   REALS[28] = center
+;   REALS[29] = cx
+;   REALS[30] = cy
+;   REALS[31] = r0
+;   REALS[32] = r1
+;   REALS[33] = a0
+;   REALS[34] = a1
+;   REALS[35] = sweep
+;   BOOLS[6] = sweep_valid
+;   REALS[36] = max_tx
+;   REALS[37] = max_ty
+;   REALS[38] = v_x_max
+;   REALS[39] = v_y_max
 ;   DINTS[5] = seg_count
-;   REALS[44] = start_xy_x
-;   REALS[45] = start_xy_y
-;   BOOLS[6] = start_xy_valid
-;   BOOLS[7] = cap_segments_speed_by_axis_velocity_fault
-;   REALS[46] = prev_x
-;   REALS[47] = prev_y
-;   BOOLS[8] = first_segment_start_unknown
+;   REALS[40] = start_xy_x
+;   REALS[41] = start_xy_y
+;   BOOLS[7] = start_xy_valid
+;   BOOLS[8] = cap_segments_speed_by_axis_velocity_fault
+;   REALS[42] = prev_x
+;   REALS[43] = prev_y
+;   BOOLS[9] = first_segment_start_unknown
 ;   idx_3 = idx
 ;   DINTS[6] = seg_count
-;   REALS[48] = speed_cap
-;   REALS[49] = max_tx
-;   REALS[50] = max_ty
-;   REALS[51] = limit_x
-;   REALS[52] = limit_y
-;   REALS[53] = target_speed
-; Inputs:  DINTS[5]=seg_count  REALS[42]=v_x_max  REALS[43]=v_y_max  REALS[44]=start_xy_x  REALS[45]=start_xy_y  BOOLS[6]=start_xy_valid
+;   REALS[44] = speed_cap
+;   REALS[45] = max_tx
+;   REALS[46] = max_ty
+;   REALS[47] = limit_x
+;   REALS[48] = limit_y
+;   REALS[49] = target_speed
+; Inputs:  DINTS[5]=seg_count  REALS[38]=v_x_max  REALS[39]=v_y_max  REALS[40]=start_xy_x  REALS[41]=start_xy_y  BOOLS[7]=start_xy_valid
 ; ============================================================
 NEQ DINTS[5] 0 JMP lbl_else_46
 JMP lbl_CapSegSpeed_end
-LBL lbl_else_46 BST LEQ REALS[42] 0.0 NXB LEQ REALS[43] 0.0 BND OTL BOOLS[901]
-GRT REALS[42] 0.0 GRT REALS[43] 0.0 JMP lbl_else_48
-OTL BOOLS[7]
+LBL lbl_else_46 BST LEQ REALS[38] 0.0 NXB LEQ REALS[39] 0.0 BND OTL BOOLS[901]
+GRT REALS[38] 0.0 GRT REALS[39] 0.0 JMP lbl_else_48
+OTL BOOLS[8]
 JMP lbl_CapSegSpeed_end
-LBL lbl_else_48 BST LES REALS[42] 3.4028235E+38 NXB LES REALS[43] 3.4028235E+38 BND OTL BOOLS[902]
+LBL lbl_else_48 BST LES REALS[38] 3.4028235E+38 NXB LES REALS[39] 3.4028235E+38 BND OTL BOOLS[902]
 XIC BOOLS[902] JMP lbl_else_50
 JMP lbl_CapSegSpeed_end
-LBL lbl_else_50 XIC BOOLS[6] JMP lbl_else_52
-MOV SegQueue[0].XY[0] REALS[46]
-MOV SegQueue[0].XY[1] REALS[47]
-OTL BOOLS[8]
+LBL lbl_else_50 XIC BOOLS[7] JMP lbl_else_52
+MOV SegQueue[0].XY[0] REALS[42]
+MOV SegQueue[0].XY[1] REALS[43]
+OTL BOOLS[9]
 JMP lbl_end_53
-LBL lbl_else_52 MOV REALS[44] REALS[46]
-MOV REALS[45] REALS[47]
-OTU BOOLS[8]
+LBL lbl_else_52 MOV REALS[40] REALS[42]
+MOV REALS[41] REALS[43]
+OTU BOOLS[9]
 LBL lbl_end_53 MOV 0 idx_3
 LBL lbl_loop_54 GEQ idx_3 DINTS[5] JMP lbl_loop_end_55
-BST NEQ idx_3 0 NXB XIO BOOLS[8] BND OTL BOOLS[903]
+BST NEQ idx_3 0 NXB XIO BOOLS[9] BND OTL BOOLS[903]
 XIC BOOLS[903] JMP lbl_else_56
-LES REALS[42] REALS[43] JMP lbl_min_a_58
-MOV REALS[43] REALS[48] JMP lbl_min_end_59
-LBL lbl_min_a_58 MOV REALS[42] REALS[48]
-LBL lbl_min_end_59 MOV 1.0 REALS[49]
-MOV 1.0 REALS[50]
+LES REALS[38] REALS[39] JMP lbl_min_a_58
+MOV REALS[39] REALS[44] JMP lbl_min_end_59
+LBL lbl_min_a_58 MOV REALS[38] REALS[44]
+LBL lbl_min_end_59 MOV 1.0 REALS[45]
+MOV 1.0 REALS[46]
 JMP lbl_end_57
-LBL lbl_else_56 MOV REALS[46] REALS[20]
-MOV REALS[47] REALS[21]
+LBL lbl_else_56 MOV REALS[42] REALS[20]
+MOV REALS[43] REALS[21]
 MOV idx_3 idx_2
 JSR SegTangentBounds
-MOV REALS[22] REALS[49]
-MOV REALS[23] REALS[50]
-GRT REALS[49] 0.000000001 JMP lbl_else_60
-MOV 3.4028235E+38 REALS[51]
+MOV REALS[22] REALS[45]
+MOV REALS[23] REALS[46]
+GRT REALS[45] 0.000000001 JMP lbl_else_60
+MOV 3.4028235E+38 REALS[47]
 JMP lbl_end_61
-LBL lbl_else_60 CPT REALS[51] REALS[42]/REALS[49]
-LBL lbl_end_61 GRT REALS[50] 0.000000001 JMP lbl_else_62
-MOV 3.4028235E+38 REALS[52]
+LBL lbl_else_60 CPT REALS[47] REALS[38]/REALS[45]
+LBL lbl_end_61 GRT REALS[46] 0.000000001 JMP lbl_else_62
+MOV 3.4028235E+38 REALS[48]
 JMP lbl_end_63
-LBL lbl_else_62 CPT REALS[52] REALS[43]/REALS[50]
-LBL lbl_end_63 LES REALS[51] REALS[52] JMP lbl_min_a_64
-MOV REALS[52] REALS[48] JMP lbl_min_end_65
-LBL lbl_min_a_64 MOV REALS[51] REALS[48]
+LBL lbl_else_62 CPT REALS[48] REALS[39]/REALS[46]
+LBL lbl_end_63 LES REALS[47] REALS[48] JMP lbl_min_a_64
+MOV REALS[48] REALS[44] JMP lbl_min_end_65
+LBL lbl_min_a_64 MOV REALS[47] REALS[44]
 LBL lbl_min_end_65 NOP
-LBL lbl_end_57 LES SegQueue[idx_3].Speed REALS[48] JMP lbl_min_a_66
-MOV REALS[48] REALS[53] JMP lbl_min_end_67
-LBL lbl_min_a_66 MOV SegQueue[idx_3].Speed REALS[53]
-LBL lbl_min_end_67 GRT REALS[53] 0.0 JMP lbl_else_68
-OTL BOOLS[7]
+LBL lbl_end_57 LES SegQueue[idx_3].Speed REALS[44] JMP lbl_min_a_66
+MOV REALS[44] REALS[49] JMP lbl_min_end_67
+LBL lbl_min_a_66 MOV SegQueue[idx_3].Speed REALS[49]
+LBL lbl_min_end_67 GRT REALS[49] 0.0 JMP lbl_else_68
+OTL BOOLS[8]
 JMP lbl_CapSegSpeed_end
-LBL lbl_else_68 MOV REALS[53] SegQueue[idx_3].Speed
-MOV SegQueue[idx_3].XY[0] REALS[46]
-MOV SegQueue[idx_3].XY[1] REALS[47]
+LBL lbl_else_68 MOV REALS[49] SegQueue[idx_3].Speed
+MOV SegQueue[idx_3].XY[0] REALS[42]
+MOV SegQueue[idx_3].XY[1] REALS[43]
 ADD idx_3 1 idx_3
 JMP lbl_loop_54
 LBL lbl_loop_end_55 JMP lbl_CapSegSpeed_end
