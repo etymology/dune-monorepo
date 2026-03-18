@@ -1,5 +1,6 @@
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
@@ -8,7 +9,7 @@ from dune_winder.io.devices.plc import PLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
-from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface
+from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface, validate_queue_segment
 from dune_winder.queued_motion.queue_client import MotionQueueClient
 from dune_winder.queued_motion.queue_session import QueuedMotionSession
 from dune_winder.queued_motion.safety import MotionSafetyLimits
@@ -261,6 +262,52 @@ class QueuedMotionTests(unittest.TestCase):
     segment = block["segments"][0]
     self.assertEqual(segment.accel, 3210.0)
     self.assertEqual(segment.decel, 4321.0)
+
+  def test_gcode_builder_defaults_queued_motion_jerk_to_full_percent(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    block = handler._build_queued_block(0)
+
+    self.assertIsNotNone(block)
+    segment = block["segments"][0]
+    self.assertEqual(segment.jerk_accel, 100.0)
+    self.assertEqual(segment.jerk_decel, 100.0)
+
+  def test_gcode_builder_clamps_configured_queued_motion_jerk_to_percent_range(self):
+    calibration = DefaultMachineCalibration()
+    configuration = SimpleNamespace(maxJerk=5000.0)
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration), configuration)
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    block = handler._build_queued_block(0)
+
+    self.assertIsNotNone(block)
+    segment = block["segments"][0]
+    self.assertEqual(segment.jerk_accel, 100.0)
+    self.assertEqual(segment.jerk_decel, 100.0)
+
+  def test_validate_queue_segment_rejects_jerk_outside_percent_range(self):
+    with self.subTest("jerk_accel"):
+      with self.assertRaises(ValueError):
+        validate_queue_segment(MotionSegment(seq=101, x=125.0, y=250.0, jerk_accel=0.0))
+
+    with self.subTest("jerk_decel"):
+      with self.assertRaises(ValueError):
+        validate_queue_segment(MotionSegment(seq=101, x=125.0, y=250.0, jerk_decel=101.0))
 
   def test_single_step_g113_queues_first_planned_segment_with_full_stop(self):
     calibration = DefaultMachineCalibration()
