@@ -10,6 +10,8 @@ function QueuedMotionPreview(modules)
   var decisionPending = false
   var limits = null
   var autoContinue = false
+  var useMaxSpeed = false
+  var useMaxSpeedPending = false
 
   var CANVAS_HEIGHT = 320
   var PADDING = 18
@@ -126,6 +128,8 @@ function QueuedMotionPreview(modules)
 
       if ( preview.stopAfterBlock )
         summaryText += " | single-step"
+      if ( preview.useMaxSpeed )
+        summaryText += " | max-speed default"
 
       for ( var sourceIndex = 0; sourceIndex < preview.sourceLines.length; sourceIndex += 1 )
       {
@@ -169,6 +173,9 @@ function QueuedMotionPreview(modules)
     $( "#queuedMotionPreviewContinueButton" ).prop( "disabled", ! previewPending || decisionPending )
     $( "#queuedMotionPreviewCancelButton" ).prop( "disabled", ! previewPending || decisionPending )
     $( "#queuedMotionPreviewAutoContinue" ).prop( "checked", autoContinue )
+    $( "#queuedMotionPreviewUseMaxSpeed" )
+      .prop( "checked", useMaxSpeed )
+      .prop( "disabled", decisionPending || useMaxSpeedPending )
 
     setRows( "#queuedMotionPreviewSource", sourceRows, "No queued G113 lines are waiting." )
     setRows( "#queuedMotionPreviewSegments", segmentRows, "No queued segments are waiting." )
@@ -196,6 +203,75 @@ function QueuedMotionPreview(modules)
     {
       // Ignore storage failures and keep the setting in-memory for this session.
     }
+  }
+
+  function applyPreviewData(data)
+  {
+    if ( data !== null && data !== undefined )
+    {
+      preview = data
+      previewPending = true
+      decisionPending = false
+      if ( preview.limits )
+        limits = buildLimits( preview.limits )
+      if ( preview.hasOwnProperty( "useMaxSpeed" ) )
+        useMaxSpeed = true === preview.useMaxSpeed
+      return
+    }
+
+    previewPending = false
+    decisionPending = false
+  }
+
+  function refreshPreview()
+  {
+    uiServices.call(
+      commands.process.getQueuedMotionPreview,
+      {},
+      function( data )
+      {
+        applyPreviewData( data )
+        updateDetails()
+        renderCanvas()
+        maybeAutoContinue()
+      }
+    )
+  }
+
+  function loadUseMaxSpeed()
+  {
+    uiServices.call(
+      commands.process.getQueuedMotionUseMaxSpeed,
+      {},
+      function( data )
+      {
+        useMaxSpeed = true === data
+        updateDetails()
+      }
+    )
+  }
+
+  function setUseMaxSpeed(enabled)
+  {
+    useMaxSpeedPending = true
+    updateDetails()
+
+    uiServices.call(
+      commands.process.setQueuedMotionUseMaxSpeed,
+      { enabled: enabled },
+      function( data )
+      {
+        useMaxSpeed = true === data
+        useMaxSpeedPending = false
+        updateDetails()
+        refreshPreview()
+      },
+      function()
+      {
+        useMaxSpeedPending = false
+        updateDetails()
+      }
+    )
   }
 
   function ensureCanvas()
@@ -550,6 +626,18 @@ function QueuedMotionPreview(modules)
         updateDetails()
         maybeAutoContinue()
       } )
+
+    $( "#queuedMotionPreviewUseMaxSpeed" )
+      .off( "change.queuedPreview" )
+      .on( "change.queuedPreview", function() {
+        var enabled = $( this ).is( ":checked" )
+        if ( enabled === useMaxSpeed || useMaxSpeedPending )
+        {
+          updateDetails()
+          return
+        }
+        setUseMaxSpeed( enabled )
+      } )
   }
 
   modules.load(
@@ -569,24 +657,13 @@ function QueuedMotionPreview(modules)
       bindControls()
       updateDetails()
       loadGeometry()
+      loadUseMaxSpeed()
 
       winder.addPeriodicCallback(
         commands.process.getQueuedMotionPreview,
         function( data )
         {
-          if ( data !== null && data !== undefined )
-          {
-            preview = data
-            previewPending = true
-            decisionPending = false
-            if ( preview.limits )
-              limits = buildLimits( preview.limits )
-          }
-          else
-          {
-            previewPending = false
-            decisionPending = false
-          }
+          applyPreviewData( data )
           updateDetails()
           renderCanvas()
           maybeAutoContinue()
