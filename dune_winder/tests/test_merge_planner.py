@@ -51,7 +51,7 @@ class MergePlannerTests(unittest.TestCase):
       start_xy=(0.0, 0.0),
       waypoints=_waypoints([(10.0, 0.0), (20.0, 10.0), (20.0, 20.0)]),
       start_seq=100,
-      speed=100.0,
+      speed=20.0,
       accel=200.0,
       decel=200.0,
       min_arc_radius=0.0,
@@ -77,24 +77,25 @@ class MergePlannerTests(unittest.TestCase):
       ) ** 0.5
       self.assertAlmostEqual(start_radius, waypoint_radius, places=6)
 
-  def test_falls_back_to_biarc_when_waypoint_fillets_cannot_fit_requested_radius(self):
+  def test_uses_dynamic_radius_larger_than_machine_minimum(self):
     segments = build_merge_path_segments(
-      start_xy=(400.0, 100.0),
-      waypoints=_waypoints([(550.0, 100.0), (700.0, 250.0)]),
+      start_xy=(0.0, 0.0),
+      waypoints=_waypoints([(500.0, 0.0), (1000.0, 500.0), (1000.0, 1000.0)]),
       start_seq=100,
-      speed=100.0,
+      speed=200.0,
       accel=200.0,
       decel=200.0,
-      min_arc_radius=100.0,
+      jerk_accel=5000.0,
+      jerk_decel=5000.0,
+      min_arc_radius=10.0,
       safety_limits=_permissive_limits(),
     )
 
-    self.assertGreater(len(segments), 3)
-    self.assertTrue(any(seg.seg_type == SEG_TYPE_CIRCLE for seg in segments))
-    self.assertTrue(any(seg.term_type == 4 for seg in segments[:-1]))
-    self.assertEqual(segments[-1].term_type, 0)
+    first_arc = next(seg for seg in segments if seg.seg_type == SEG_TYPE_CIRCLE)
+    radius = ((segments[0].x - first_arc.via_center_x) ** 2 + (segments[0].y - first_arc.via_center_y) ** 2) ** 0.5
+    self.assertGreater(radius, 150.0)
 
-  def test_falls_back_to_precise_stop_lines_when_arc_radius_rejects_smooth_paths(self):
+  def test_falls_back_to_precise_stop_lines_when_filleted_path_is_impossible(self):
     segments = build_merge_path_segments(
       start_xy=(0.0, 0.0),
       waypoints=_waypoints([(10.0, 0.0), (20.0, 10.0), (20.0, 20.0)]),
