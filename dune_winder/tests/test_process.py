@@ -272,6 +272,15 @@ class ProcessManualGCodeTests(unittest.TestCase):
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["F120"])
 
+  def test_execute_manual_gcode_accepts_four_digit_feed(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+    process._maxVelocity = 1200.0
+
+    error = process.executeG_CodeLine("F1200")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["F1200"])
+
   def test_execute_manual_gcode_rejects_feed_above_max_velocity(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
 
