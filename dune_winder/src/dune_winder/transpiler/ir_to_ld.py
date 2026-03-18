@@ -156,6 +156,10 @@ class LDEmitter:
         if isinstance(expr, BinOp):
             l = self._expr_str(expr.left)
             r = self._expr_str(expr.right)
+            if expr.op == "%":
+                return f"MOD({l},{r})"
+            if expr.op == "**":
+                return f"XPY({l},{r})"
             return f"{l}{expr.op}{r}"
         if isinstance(expr, CptCall):
             tag = expr.func
