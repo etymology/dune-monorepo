@@ -34,8 +34,8 @@ class _Input:
 
 class _QueuedMotionPLCLogic:
   def __init__(self, queued_motion=None):
-    self._maxAcceleration = 1000.0
-    self._maxDeceleration = 1000.0
+    self._maxAcceleration = 2000.0
+    self._maxDeceleration = 2000.0
     self._velocity = 1000.0
     self.queuedMotion = object() if queued_motion is None else queued_motion
     self.legacy_xy_moves = []
@@ -263,7 +263,7 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(segment.accel, 3210.0)
     self.assertEqual(segment.decel, 4321.0)
 
-  def test_gcode_builder_defaults_queued_motion_jerk_to_full_percent(self):
+  def test_gcode_builder_defaults_queued_motion_jerk_to_separate_physical_limits(self):
     calibration = DefaultMachineCalibration()
     handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
     handler._x = 400.0
@@ -278,10 +278,29 @@ class QueuedMotionTests(unittest.TestCase):
 
     self.assertIsNotNone(block)
     segment = block["segments"][0]
-    self.assertEqual(segment.jerk_accel, 100.0)
-    self.assertEqual(segment.jerk_decel, 100.0)
+    self.assertEqual(segment.jerk_accel, 1500.0)
+    self.assertEqual(segment.jerk_decel, 3000.0)
 
-  def test_gcode_builder_clamps_configured_queued_motion_jerk_to_percent_range(self):
+  def test_gcode_builder_uses_configured_separate_queued_motion_jerk_limits(self):
+    calibration = DefaultMachineCalibration()
+    configuration = SimpleNamespace(maxJerkAccel=5000.0, maxJerkDecel=6000.0)
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration), configuration)
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE X500.0 Y200.0"],
+      handler._callbacks,
+    )
+
+    block = handler._build_queued_block(0)
+
+    self.assertIsNotNone(block)
+    segment = block["segments"][0]
+    self.assertEqual(segment.jerk_accel, 5000.0)
+    self.assertEqual(segment.jerk_decel, 6000.0)
+
+  def test_gcode_builder_legacy_configured_queued_motion_jerk_sets_both_limits(self):
     calibration = DefaultMachineCalibration()
     configuration = SimpleNamespace(maxJerk=5000.0)
     handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration), configuration)
@@ -297,17 +316,17 @@ class QueuedMotionTests(unittest.TestCase):
 
     self.assertIsNotNone(block)
     segment = block["segments"][0]
-    self.assertEqual(segment.jerk_accel, 100.0)
-    self.assertEqual(segment.jerk_decel, 100.0)
+    self.assertEqual(segment.jerk_accel, 5000.0)
+    self.assertEqual(segment.jerk_decel, 5000.0)
 
-  def test_validate_queue_segment_rejects_jerk_outside_percent_range(self):
+  def test_validate_queue_segment_rejects_nonpositive_jerk(self):
     with self.subTest("jerk_accel"):
       with self.assertRaises(ValueError):
         validate_queue_segment(MotionSegment(seq=101, x=125.0, y=250.0, jerk_accel=0.0))
 
     with self.subTest("jerk_decel"):
       with self.assertRaises(ValueError):
-        validate_queue_segment(MotionSegment(seq=101, x=125.0, y=250.0, jerk_decel=101.0))
+        validate_queue_segment(MotionSegment(seq=101, x=125.0, y=250.0, jerk_decel=-1.0))
 
   def test_single_step_g113_queues_first_planned_segment_with_full_stop(self):
     calibration = DefaultMachineCalibration()
