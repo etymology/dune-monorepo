@@ -3,7 +3,6 @@ import unittest
 from dune_winder.queued_motion.merge_planner import MergeWaypoint, build_merge_path_segments
 from dune_winder.queued_motion.safety import MotionSafetyLimits
 from dune_winder.queued_motion.segment_types import (
-  MCCM_DIR_2D_CCW,
   SEG_TYPE_CIRCLE,
   SEG_TYPE_LINE,
 )
@@ -47,7 +46,7 @@ def _waypoints(points: list[tuple[float, float]]) -> list[MergeWaypoint]:
 
 
 class MergePlannerTests(unittest.TestCase):
-  def test_prefers_alternating_lines_and_tangent_arcs(self):
+  def test_prefers_filleted_polygon_with_waypoints_on_arcs(self):
     segments = build_merge_path_segments(
       start_xy=(0.0, 0.0),
       waypoints=_waypoints([(10.0, 0.0), (20.0, 10.0), (20.0, 20.0)]),
@@ -59,23 +58,34 @@ class MergePlannerTests(unittest.TestCase):
       safety_limits=_permissive_limits(),
     )
 
-    self.assertEqual([seg.seg_type for seg in segments], [SEG_TYPE_LINE, SEG_TYPE_CIRCLE, SEG_TYPE_LINE])
-    self.assertEqual(segments[0].term_type, 4)
-    self.assertEqual(segments[1].term_type, 4)
-    self.assertEqual(segments[2].term_type, 0)
-    self.assertAlmostEqual(segments[1].via_center_x, 10.0, places=6)
-    self.assertAlmostEqual(segments[1].via_center_y, 10.0, places=6)
-    self.assertEqual(segments[1].direction, MCCM_DIR_2D_CCW)
+    self.assertEqual(
+      [seg.seg_type for seg in segments],
+      [SEG_TYPE_LINE, SEG_TYPE_CIRCLE, SEG_TYPE_LINE, SEG_TYPE_CIRCLE, SEG_TYPE_LINE],
+    )
+    self.assertEqual([seg.term_type for seg in segments], [4, 4, 4, 4, 0])
+    self.assertNotAlmostEqual(segments[0].x, 10.0, places=3)
+    self.assertNotAlmostEqual(segments[2].x, 20.0, places=3)
+    self.assertNotAlmostEqual(segments[2].y, 10.0, places=3)
 
-  def test_falls_back_to_biarc_when_single_tangent_arc_chain_is_not_possible(self):
+    arc_starts = [(segments[0].x, segments[0].y), (segments[2].x, segments[2].y)]
+    arc_waypoints = [(10.0, 0.0), (20.0, 10.0)]
+    arc_segments = [segments[1], segments[3]]
+    for start_xy, waypoint_xy, arc in zip(arc_starts, arc_waypoints, arc_segments):
+      start_radius = ((start_xy[0] - arc.via_center_x) ** 2 + (start_xy[1] - arc.via_center_y) ** 2) ** 0.5
+      waypoint_radius = (
+        (waypoint_xy[0] - arc.via_center_x) ** 2 + (waypoint_xy[1] - arc.via_center_y) ** 2
+      ) ** 0.5
+      self.assertAlmostEqual(start_radius, waypoint_radius, places=6)
+
+  def test_falls_back_to_biarc_when_waypoint_fillets_cannot_fit_requested_radius(self):
     segments = build_merge_path_segments(
-      start_xy=(0.0, 0.0),
-      waypoints=_waypoints([(10.0, 0.0), (20.0, 0.0), (30.0, 10.0)]),
+      start_xy=(400.0, 100.0),
+      waypoints=_waypoints([(550.0, 100.0), (700.0, 250.0)]),
       start_seq=100,
       speed=100.0,
       accel=200.0,
       decel=200.0,
-      min_arc_radius=0.0,
+      min_arc_radius=100.0,
       safety_limits=_permissive_limits(),
     )
 
