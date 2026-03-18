@@ -15,6 +15,8 @@ import tempfile
 import tomllib
 import typing
 
+from dune_winder.queued_motion.jerk_limits import normalize_queued_motion_jerk_percent
+
 
 @dataclasses.dataclass
 class AppConfig:
@@ -57,7 +59,7 @@ class AppConfig:
   maxSlowVelocity: float = 25.4
   maxAcceleration: int = 5000
   maxDeceleration: int = 5000
-  maxJerk: float = 50000.0
+  maxJerk: float = 100.0
 
   @classmethod
   def normalizePlcMode(cls, value: typing.Any) -> str:
@@ -70,6 +72,7 @@ class AppConfig:
 
   def __post_init__(self) -> None:
     self.plcMode = self.normalizePlcMode(self.plcMode)
+    self.maxJerk = normalize_queued_motion_jerk_percent(self.maxJerk)
     # Not a dataclass field — stores the file path for save().
     self._path: typing.Optional[pathlib.Path] = None
 
@@ -217,6 +220,8 @@ class AppConfig:
 
     if key == "plcMode":
       value = self.normalizePlcMode(value)
+    elif key == "maxJerk":
+      value = normalize_queued_motion_jerk_percent(value)
 
     setattr(self, key, value)
     self.save()

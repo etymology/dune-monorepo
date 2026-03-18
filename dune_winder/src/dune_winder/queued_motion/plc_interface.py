@@ -5,6 +5,7 @@ from typing import Optional
 
 from dune_winder.io.devices.plc import PLC
 
+from .jerk_limits import is_valid_queued_motion_jerk_percent
 from .safety import QueuedMotionCollisionState
 from .segment_types import (
   MotionSegment,
@@ -81,6 +82,10 @@ def validate_queue_segment(seg: MotionSegment) -> None:
     raise ValueError("seg_type must be 1 (line) or 2 (circle)")
   if seg.speed <= 0 or seg.accel <= 0 or seg.decel <= 0:
     raise ValueError("speed, accel, and decel must be > 0")
+  if not is_valid_queued_motion_jerk_percent(seg.jerk_accel):
+    raise ValueError("jerk_accel must be in (0, 100] for queued motion")
+  if not is_valid_queued_motion_jerk_percent(seg.jerk_decel):
+    raise ValueError("jerk_decel must be in (0, 100] for queued motion")
   if not (0 <= seg.term_type <= 6):
     raise ValueError("term_type must be in [0, 6]")
   if seg.seg_type == SEG_TYPE_CIRCLE:
