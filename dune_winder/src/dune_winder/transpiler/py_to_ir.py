@@ -52,6 +52,8 @@ class _Scope:
         self.vars: dict[str, Reg] = {}
         # name → bool: is this var an Optional that needs a companion BOOL
         self.optional_valid: dict[str, Reg] = {}
+        # variables that hold tuple values returned from subroutines
+        self.tuple_vars: dict[str, list[Reg]] = {}
         # current loop index register (for SegQueue[idx] access)
         self.loop_idx: Reg | None = None
         # name of the 'seg' variable in a for-enumerate loop
@@ -319,11 +321,32 @@ class PythonToIR(ast.NodeVisitor):
                 and isinstance(node.value, ast.Call)):
             return self._conv_tuple_unpack(node.targets[0], node.value, scope)
 
+        # Tuple unpacking from a previously-returned tuple var: cx, cy = center
+        if (len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Tuple)
+                and isinstance(node.value, ast.Name)):
+            name = node.value.id
+            if name in scope.tuple_vars:
+                src_regs = scope.tuple_vars[name]
+                nodes: list[IRNode] = []
+                for i, elt in enumerate(node.targets[0].elts):
+                    if isinstance(elt, ast.Name) and i < len(src_regs):
+                        dest = scope.get_or_alloc(elt.id, src_regs[i].typ)
+                        nodes.append(Assign(dest, RegExpr(src_regs[i])))
+                return nodes
+
         # replace(seg, speed=x) special case
         if isinstance(node.value, ast.Call):
             call = node.value
             if isinstance(call.func, ast.Name) and call.func.id == "replace":
                 return self._conv_replace(call, scope)
+
+        # Single-return subroutine call: x = known_func(...)
+        if (len(node.targets) == 1
+                and isinstance(node.value, ast.Call)):
+            func_name = self._call_name(node.value)
+            if func_name in self.routine_name_map:
+                return self._conv_single_jsr(node.targets[0], node.value, scope)
 
         nodes: list[IRNode] = []
 
@@ -502,6 +525,54 @@ class PythonToIR(ast.NodeVisitor):
             else:
                 src_reg = Reg(PLCType.REAL, 9000 + i)  # sentinel placeholder
             out_args.append((src_reg, dest_reg))
+
+        jsr = JSRCall(routine=ld_name, in_args=in_args, out_args=out_args)
+        return [jsr]
+
+    def _conv_single_jsr(
+        self, target: ast.expr, call: ast.Call, scope: _Scope
+    ) -> list[IRNode]:
+        """x = known_func(args) → JSR + copy callee ret reg(s) to dest."""
+        func_name = self._call_name(call)
+        ld_name = self.routine_name_map.get(func_name, func_name)
+        in_args = self._build_jsr_in_args(func_name, call, scope)
+        _, callee_out_regs = self._routine_sigs.get(func_name, ([], []))
+
+        out_args: list[tuple[Reg, Reg]] = []
+
+        if not isinstance(target, ast.Name):
+            jsr = JSRCall(routine=ld_name, in_args=in_args, out_args=[])
+            return [jsr]
+
+        name = target.id
+
+        if not callee_out_regs:
+            jsr = JSRCall(routine=ld_name, in_args=in_args, out_args=[])
+            return [jsr]
+
+        # Separate value regs from any trailing valid BOOL
+        value_regs = [r for r in callee_out_regs if r.typ != PLCType.BOOL]
+        valid_regs = [r for r in callee_out_regs if r.typ == PLCType.BOOL]
+
+        if len(value_regs) == 1:
+            # Simple scalar return (float/int)
+            dest = scope.get_or_alloc(name, value_regs[0].typ)
+            out_args.append((value_regs[0], dest))
+        elif len(value_regs) >= 2:
+            # Tuple return — store each component under its own reg,
+            # record tuple_vars so cx, cy = name unpacking works later
+            comp_regs: list[Reg] = []
+            for i, vr in enumerate(value_regs):
+                comp = scope.get_or_alloc(f"{name}_{i}", vr.typ)
+                comp_regs.append(comp)
+                out_args.append((vr, comp))
+            scope.tuple_vars[name] = comp_regs
+
+        # Optional valid BOOL
+        if valid_regs:
+            valid_dest = scope.alloc.alloc(PLCType.BOOL, f"{name}_valid")
+            scope.optional_valid[name] = valid_dest
+            out_args.append((valid_regs[0], valid_dest))
 
         jsr = JSRCall(routine=ld_name, in_args=in_args, out_args=out_args)
         return [jsr]
