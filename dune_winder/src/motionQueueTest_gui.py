@@ -5,11 +5,14 @@ import math
 import threading
 from dataclasses import replace
 import tkinter as tk
+from tkinter import scrolledtext
 from tkinter import messagebox, ttk
 from typing import Optional
 
 from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
 from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
+from dune_winder.machine.settings import Settings
 
 from dune_winder.queued_motion import (
   DEFAULT_CONSTANT_VELOCITY_MODE,
@@ -36,6 +39,7 @@ from dune_winder.queued_motion import (
   tune_segments_for_constant_velocity,
   validate_segments_within_safety_limits,
 )
+from dune_winder.queued_motion.filleted_path import dynamic_min_radius
 from dune_winder.queued_motion.segment_types import (
   SEG_TYPE_CIRCLE,
   SEG_TYPE_LINE,
@@ -52,6 +56,9 @@ TAG_SAFETY_TRIPPED = "Safety_Tripped_S"
 POSITION_POLL_S = 0.20
 POSITION_ERROR_RETRY_S = 1.00
 DEFAULT_COMMAND_SPEED = 1000.0
+_START_POSITION_TOLERANCE_MM = 0.1
+_PLANNER_RADIUS_EPS = 1e-6
+_MAX_RADIUS_REPLAN_PASSES = 4
 
 
 def _open_plc_connection(path: str):
@@ -66,6 +73,111 @@ def _close_plc_connection(plc) -> None:
       plc._plcDriver.close()
     except Exception:
       pass
+
+
+def _planner_waypoints(
+  live_position_xy: Optional[tuple[float, float]],
+  waypoints: list[tuple[float, float]],
+) -> Optional[list[tuple[float, float]]]:
+  if live_position_xy is None:
+    return None
+
+  planner_waypoints = [(float(live_position_xy[0]), float(live_position_xy[1]))]
+  for x, y in waypoints:
+    point_xy = (float(x), float(y))
+    if math.hypot(
+      point_xy[0] - planner_waypoints[-1][0],
+      point_xy[1] - planner_waypoints[-1][1],
+    ) > 1e-9:
+      planner_waypoints.append(point_xy)
+  return planner_waypoints
+
+
+def _live_position_matches_plan_start(
+  live_position_xy: Optional[tuple[float, float]],
+  planned_start_xy: Optional[tuple[float, float]],
+  tolerance_mm: float = _START_POSITION_TOLERANCE_MM,
+) -> bool:
+  if live_position_xy is None or planned_start_xy is None:
+    return False
+  return math.hypot(
+    float(live_position_xy[0]) - float(planned_start_xy[0]),
+    float(live_position_xy[1]) - float(planned_start_xy[1]),
+  ) <= float(tolerance_mm)
+
+
+def _load_axis_velocity_limits(calibration_path: Optional[str]) -> tuple[float, float]:
+  if calibration_path:
+    path = calibration_path.strip()
+  else:
+    path = ""
+
+  if path:
+    from pathlib import Path
+
+    calibration_file = Path(path)
+    if calibration_file.is_dir():
+      output_path = str(calibration_file)
+      output_name = Settings.MACHINE_CALIBRATION_FILE
+    else:
+      output_path = str(calibration_file.parent)
+      output_name = calibration_file.name
+  else:
+    output_path = Settings.MACHINE_CALIBRATION_PATH
+    output_name = Settings.MACHINE_CALIBRATION_FILE
+
+  calibration = DefaultMachineCalibration(output_path, output_name)
+  v_x_max = calibration.get("v_x_max")
+  v_y_max = calibration.get("v_y_max")
+  return (
+    float(v_x_max if v_x_max is not None else DEFAULT_V_X_MAX),
+    float(v_y_max if v_y_max is not None else DEFAULT_V_Y_MAX),
+  )
+
+
+def _planned_speed_summary_text(
+  requested_speed: float,
+  segments: list[MotionSegment],
+) -> str:
+  if not segments:
+    return f"requested_speed={float(requested_speed):.1f}"
+
+  speeds = [float(seg.speed) for seg in segments]
+  min_speed = min(speeds)
+  max_speed = max(speeds)
+  requested_text = f"requested_speed={float(requested_speed):.1f}"
+  if math.isclose(min_speed, max_speed, rel_tol=0.0, abs_tol=1e-9):
+    return f"{requested_text} planned_speed={max_speed:.1f}"
+  return f"{requested_text} planned_speed[min/max]={min_speed:.1f}/{max_speed:.1f}"
+
+
+def _segment_dynamic_min_radius(
+  seg: MotionSegment,
+  requested_min_arc_radius: float,
+) -> float:
+  accel_limit = min(float(seg.accel), float(seg.decel))
+  jerk_limit = min(float(seg.jerk_accel), float(seg.jerk_decel))
+  return dynamic_min_radius(
+    speed=float(seg.speed),
+    base_min_radius=requested_min_arc_radius,
+    accel_limit=accel_limit,
+    jerk_limit=jerk_limit,
+  )
+
+
+def _required_waypoint_min_arc_radius(
+  segments: list[MotionSegment],
+  requested_min_arc_radius: float,
+) -> float:
+  required_radius = max(0.0, float(requested_min_arc_radius))
+  for seg in segments:
+    if seg.seg_type != SEG_TYPE_CIRCLE:
+      continue
+    required_radius = max(
+      required_radius,
+      _segment_dynamic_min_radius(seg, requested_min_arc_radius),
+    )
+  return required_radius
 
 
 def _extract_plc_read_value(read_result, tag: str):
@@ -117,6 +229,7 @@ class WaypointPlannerApp(tk.Tk):
     self.minsize(1120, 700)
 
     self.safety_limits = load_motion_safety_limits(machine_calibration or None)
+    self.v_x_max, self.v_y_max = _load_axis_velocity_limits(machine_calibration or None)
     self.machine_calibration = machine_calibration
     self._plc_path = plc_path.strip()
     self.waypoints: list[tuple[float, float]] = []
@@ -129,8 +242,6 @@ class WaypointPlannerApp(tk.Tk):
 
     self.plc_path_var = tk.StringVar(value=plc_path)
     self.plc_path_var.trace_add("write", self._on_plc_path_var_changed)
-    self.start_x_var = tk.StringVar(value="")
-    self.start_y_var = tk.StringVar(value="")
     self.order_mode_var = tk.StringVar(value=DEFAULT_WAYPOINT_ORDER_MODE)
     self.min_arc_radius_var = tk.StringVar(value=f"{DEFAULT_WAYPOINT_MIN_ARC_RADIUS:.1f}")
     self.allow_stops_var = tk.BooleanVar(value=DEFAULT_WAYPOINT_ALLOW_STOPS)
@@ -140,8 +251,8 @@ class WaypointPlannerApp(tk.Tk):
     self.constant_velocity_var = tk.BooleanVar(value=DEFAULT_CONSTANT_VELOCITY_MODE)
     self.status_var = tk.StringVar(
       value=(
-        "Left click to add waypoints. Right click to remove last waypoint. "
-        "Press Replan, then Execute Path."
+        "Waypoint 0 is always the current live position. "
+        "Left click to add destination waypoints, then press Replan."
       )
     )
     self.stats_var = tk.StringVar(value="No plan yet.")
@@ -154,6 +265,7 @@ class WaypointPlannerApp(tk.Tk):
     )
 
     self._build_layout()
+    self._set_segment_details("No planned segments.")
     self._refresh_canvas()
     self.protocol("WM_DELETE_WINDOW", self._on_close)
     self._start_position_tracker()
@@ -169,7 +281,8 @@ class WaypointPlannerApp(tk.Tk):
     plot = ttk.Frame(self, padding=(0, 10, 10, 10))
     plot.grid(row=0, column=1, sticky="nsew")
     plot.columnconfigure(0, weight=1)
-    plot.rowconfigure(0, weight=1)
+    plot.rowconfigure(0, weight=3)
+    plot.rowconfigure(1, weight=2)
 
     row = 0
     ttk.Label(controls, text="Planner Settings", font=("Segoe UI", 11, "bold")).grid(
@@ -178,9 +291,6 @@ class WaypointPlannerApp(tk.Tk):
     row += 1
 
     row = self._entry_row(controls, row, "PLC path", self.plc_path_var)
-    row = self._entry_row(controls, row, "Start X (optional)", self.start_x_var)
-    row = self._entry_row(controls, row, "Start Y (optional)", self.start_y_var)
-
     ttk.Label(controls, text="Waypoint order").grid(row=row, column=0, sticky="w", pady=(8, 0))
     order_combo = ttk.Combobox(
       controls,
@@ -233,7 +343,7 @@ class WaypointPlannerApp(tk.Tk):
         "Machine bounds: "
         f"X[{self.safety_limits.limit_left:.1f}, {self.safety_limits.limit_right:.1f}] "
         f"Y[{self.safety_limits.limit_bottom:.1f}, {self.safety_limits.limit_top:.1f}]\n"
-        f"Intrinsic caps: Vx={DEFAULT_V_X_MAX:.1f}, Vy={DEFAULT_V_Y_MAX:.1f}, "
+        f"Intrinsic caps: Vx={self.v_x_max:.1f}, Vy={self.v_y_max:.1f}, "
         f"QueueDepth={PLC_QUEUE_DEPTH}"
       ),
       wraplength=320,
@@ -312,6 +422,26 @@ class WaypointPlannerApp(tk.Tk):
     self.canvas.bind("<Motion>", self._on_canvas_motion)
     self.canvas.focus_set()
 
+    details_frame = ttk.Frame(plot, padding=(0, 10, 0, 0))
+    details_frame.grid(row=1, column=0, sticky="nsew")
+    details_frame.columnconfigure(0, weight=1)
+    details_frame.rowconfigure(1, weight=1)
+
+    ttk.Label(
+      details_frame,
+      text="Queued Segment Details",
+      font=("Segoe UI", 10, "bold"),
+    ).grid(row=0, column=0, sticky="w", pady=(0, 4))
+
+    self.segment_details_text = scrolledtext.ScrolledText(
+      details_frame,
+      height=14,
+      wrap=tk.NONE,
+      font=("Consolas", 9),
+      state="disabled",
+    )
+    self.segment_details_text.grid(row=1, column=0, sticky="nsew")
+
   def _entry_row(
     self,
     frame: ttk.Frame,
@@ -328,6 +458,70 @@ class WaypointPlannerApp(tk.Tk):
   def _set_status(self, message: str, is_error: bool = False) -> None:
     prefix = "Error" if is_error else "Status"
     self.status_var.set(f"{prefix}: {message}")
+
+  def _set_segment_details(self, text: str) -> None:
+    self.segment_details_text.configure(state="normal")
+    self.segment_details_text.delete("1.0", tk.END)
+    self.segment_details_text.insert("1.0", text)
+    self.segment_details_text.configure(state="disabled")
+
+  def _segment_details_report(
+    self,
+    segments: list[MotionSegment],
+    start_xy: Optional[tuple[float, float]],
+    requested_min_arc_radius: float,
+  ) -> str:
+    if not segments:
+      return "No planned segments."
+
+    if start_xy is None:
+      cursor_x = float(segments[0].x)
+      cursor_y = float(segments[0].y)
+      start_label = "unknown"
+    else:
+      cursor_x = float(start_xy[0])
+      cursor_y = float(start_xy[1])
+      start_label = f"({cursor_x:.2f}, {cursor_y:.2f})"
+
+    lines = [
+      f"start_xy={start_label}",
+      (
+        "idx seq kind            start_xy               end_xy                 "
+        "len     speed   accel   decel   jerk_a  jerk_d  r_min_dyn  r_arc"
+      ),
+    ]
+
+    for idx, seg in enumerate(segments, start=1):
+      start_seg = MotionSegment(seq=seg.seq - 1, x=cursor_x, y=cursor_y)
+      path_len = segment_path_length(start_seg, seg)
+      dynamic_radius = _segment_dynamic_min_radius(seg, requested_min_arc_radius)
+
+      arc_radius_text = "-"
+      if seg.seg_type == SEG_TYPE_CIRCLE:
+        center = circle_center_for_segment(start_seg, seg)
+        if center is not None:
+          arc_radius = math.hypot(cursor_x - center[0], cursor_y - center[1])
+          arc_radius_text = f"{arc_radius:8.2f}"
+
+      kind = "circle" if seg.seg_type == SEG_TYPE_CIRCLE else "line"
+      lines.append(
+        f"{idx:>3} {seg.seq:>3} {kind:<15}"
+        f"({cursor_x:>8.2f},{cursor_y:>8.2f}) "
+        f"({float(seg.x):>8.2f},{float(seg.y):>8.2f}) "
+        f"{path_len:>7.2f} {float(seg.speed):>7.2f} {float(seg.accel):>7.2f} "
+        f"{float(seg.decel):>7.2f} {float(seg.jerk_accel):>7.2f} "
+        f"{float(seg.jerk_decel):>7.2f} {dynamic_radius:>10.2f} "
+        f"{arc_radius_text}"
+      )
+      cursor_x = float(seg.x)
+      cursor_y = float(seg.y)
+
+    lines.append("")
+    lines.append(
+      "r_min_dyn is the conservative minimum radius from requested Min arc radius, "
+      "v^2/a, and sqrt(v^3/j) using min(accel,decel) and min(jerk_accel,jerk_decel)."
+    )
+    return "\n".join(lines)
 
   def _on_plc_path_var_changed(self, *_args) -> None:
     self._plc_path = self.plc_path_var.get().strip()
@@ -349,24 +543,6 @@ class WaypointPlannerApp(tk.Tk):
       return int(value)
     except ValueError as exc:
       raise ValueError(f"{label} must be an integer.") from exc
-
-  def _parse_optional_float(self, text: str, label: str) -> Optional[float]:
-    value = text.strip()
-    if not value:
-      return None
-    try:
-      return float(value)
-    except ValueError as exc:
-      raise ValueError(f"{label} must be numeric.") from exc
-
-  def _parse_start_xy(self) -> Optional[tuple[float, float]]:
-    sx = self._parse_optional_float(self.start_x_var.get(), "Start X")
-    sy = self._parse_optional_float(self.start_y_var.get(), "Start Y")
-    if (sx is None) != (sy is None):
-      raise ValueError("Specify both Start X and Start Y, or leave both empty.")
-    if sx is None:
-      return None
-    return (sx, sy)
 
   def _plot_transform(self) -> tuple[float, float, float, float, float]:
     width = max(2, self.canvas.winfo_width())
@@ -431,6 +607,7 @@ class WaypointPlannerApp(tk.Tk):
     self.segments = []
     self.start_xy = None
     self.stats_var.set("No plan yet.")
+    self._set_segment_details("No planned segments.")
     self._set_status("Waypoints cleared.")
     self.execute_button.configure(state="disabled")
     self._refresh_canvas()
@@ -589,9 +766,7 @@ class WaypointPlannerApp(tk.Tk):
     for i, (x, y) in enumerate(self.waypoints, start=1):
       px, py = self._world_to_canvas(x, y)
       color = "#60a5fa"
-      if i == 1:
-        color = "#22c55e"
-      elif i == len(self.waypoints):
+      if i == len(self.waypoints):
         color = "#ef4444"
       self.canvas.create_oval(px - 5, py - 5, px + 5, py + 5, fill=color, outline="#0f172a")
       self.canvas.create_text(px + 9, py - 10, text=str(i), fill="#dbeafe", anchor="w")
@@ -615,26 +790,41 @@ class WaypointPlannerApp(tk.Tk):
           outline="#164e63",
           width=1,
         )
+        self.canvas.create_oval(px - 6, py - 6, px + 6, py + 6, outline="#22c55e", width=2)
         self.canvas.create_text(
           px + 10,
           py + 10,
-          text=f"Live ({x:.1f}, {y:.1f})",
+          text=f"0 Live ({x:.1f}, {y:.1f})",
           fill="#67e8f9",
           anchor="nw",
         )
 
   def _replan(self) -> None:
-    if len(self.waypoints) < 2:
+    if self.live_position_xy is None:
       self.segments = []
       self.start_xy = None
-      self.stats_var.set("Add at least 2 waypoints to build a plan.")
-      self._set_status("Waiting for more waypoints.")
+      self.stats_var.set("Live position required before planning.")
+      self._set_segment_details("No planned segments.")
+      self._set_status("Waiting for current live position from the PLC.")
+      self.execute_button.configure(state="disabled")
+      self._refresh_canvas()
+      return
+
+    if len(self.waypoints) < 1:
+      self.segments = []
+      self.start_xy = None
+      self.stats_var.set("Add at least 1 destination waypoint to build a plan.")
+      self._set_segment_details("No planned segments.")
+      self._set_status("Waiting for destination waypoints.")
       self.execute_button.configure(state="disabled")
       self._refresh_canvas()
       return
 
     try:
-      start_xy = self._parse_start_xy()
+      planner_waypoints = _planner_waypoints(self.live_position_xy, self.waypoints)
+      if planner_waypoints is None or len(planner_waypoints) < 2:
+        raise ValueError("Planner requires the live position and at least one distinct destination.")
+      effective_start_xy = planner_waypoints[0]
       term_type = self._parse_int(self.term_type_var.get(), "Term type")
       if term_type not in TESTABLE_TERM_TYPES:
         raise ValueError("Term type must be one of 0..6.")
@@ -649,45 +839,68 @@ class WaypointPlannerApp(tk.Tk):
       if min_segment_length < 0.0:
         raise ValueError("Min segment length must be >= 0.")
 
-      segments = build_segments(
-        pattern="waypoint_path",
-        start_seq=100,
-        term_type=term_type,
-        lissajous_segments_count=LISSAJOUS_TESSELLATION_SEGMENTS,
-        min_segment_length=min_segment_length,
-        waypoint_points=list(self.waypoints),
-        waypoint_min_arc_radius=min_arc_radius,
-        waypoint_order_mode=self.order_mode_var.get(),
-        waypoint_start_xy=start_xy,
-        waypoint_bounds=(
-          self.safety_limits.limit_left,
-          self.safety_limits.limit_right,
-          self.safety_limits.limit_bottom,
-          self.safety_limits.limit_top,
-        ),
-        waypoint_allow_stops=self.allow_stops_var.get(),
-      )
-      segments = [replace(seg, speed=speed) for seg in segments]
-      effective_min_segment_length = min_segment_length
-
-      if self.constant_velocity_var.get():
-        segments, effective_min_segment_length, _, _ = tune_segments_for_constant_velocity(
-          segments=segments,
-          requested_min_segment_length=min_segment_length,
-          curvature_speed_safety=DEFAULT_CURVATURE_SPEED_SAFETY,
-          min_jerk_ratio=DEFAULT_MIN_JERK_RATIO,
-          max_segment_factor=DEFAULT_MAX_SEGMENT_FACTOR,
+      def build_planned_segments(
+        waypoint_min_arc_radius: float,
+      ) -> tuple[list[MotionSegment], float]:
+        planned_segments = build_segments(
+          pattern="waypoint_path",
+          start_seq=100,
+          term_type=term_type,
+          lissajous_segments_count=LISSAJOUS_TESSELLATION_SEGMENTS,
+          min_segment_length=min_segment_length,
+          waypoint_points=planner_waypoints,
+          waypoint_min_arc_radius=waypoint_min_arc_radius,
+          waypoint_order_mode=self.order_mode_var.get(),
+          waypoint_start_xy=effective_start_xy,
+          waypoint_bounds=(
+            self.safety_limits.limit_left,
+            self.safety_limits.limit_right,
+            self.safety_limits.limit_bottom,
+            self.safety_limits.limit_top,
+          ),
+          waypoint_allow_stops=self.allow_stops_var.get(),
         )
+        planned_segments = [replace(seg, speed=speed) for seg in planned_segments]
+        planned_min_segment_length = min_segment_length
 
-      segments = cap_segments_speed_by_axis_velocity(
-        segments=segments,
-        v_x_max=DEFAULT_V_X_MAX,
-        v_y_max=DEFAULT_V_Y_MAX,
-        start_xy=start_xy,
-      )
+        if self.constant_velocity_var.get():
+          planned_segments, planned_min_segment_length, _, _ = (
+            tune_segments_for_constant_velocity(
+              segments=planned_segments,
+              requested_min_segment_length=min_segment_length,
+              curvature_speed_safety=DEFAULT_CURVATURE_SPEED_SAFETY,
+              min_jerk_ratio=DEFAULT_MIN_JERK_RATIO,
+              max_segment_factor=DEFAULT_MAX_SEGMENT_FACTOR,
+            )
+          )
+
+        planned_segments = cap_segments_speed_by_axis_velocity(
+          segments=planned_segments,
+          v_x_max=self.v_x_max,
+          v_y_max=self.v_y_max,
+          start_xy=effective_start_xy,
+        )
+        return planned_segments, planned_min_segment_length
+
+      effective_waypoint_min_arc_radius = min_arc_radius
+      for _ in range(_MAX_RADIUS_REPLAN_PASSES):
+        segments, effective_min_segment_length = build_planned_segments(
+          effective_waypoint_min_arc_radius
+        )
+        required_waypoint_min_arc_radius = _required_waypoint_min_arc_radius(
+          segments,
+          min_arc_radius,
+        )
+        if (
+          required_waypoint_min_arc_radius
+          <= effective_waypoint_min_arc_radius + _PLANNER_RADIUS_EPS
+        ):
+          break
+        effective_waypoint_min_arc_radius = required_waypoint_min_arc_radius
+
       segments = apply_merge_term_types(
         segments=segments,
-        start_xy=start_xy,
+        start_xy=effective_start_xy,
         tangential_term_type=term_type,
         non_tangential_term_type=1 if self.allow_stops_var.get() else 0,
         final_term_type=None,
@@ -695,12 +908,13 @@ class WaypointPlannerApp(tk.Tk):
       validate_segments_within_safety_limits(
         segments,
         self.safety_limits,
-        start_xy=start_xy,
+        start_xy=effective_start_xy,
       )
     except Exception as exc:
       self.segments = []
       self.start_xy = None
       self.stats_var.set("Plan is invalid.")
+      self._set_segment_details("No planned segments.")
       self._set_status(str(exc), is_error=True)
       self.execute_button.configure(state="disabled")
       self._refresh_canvas()
@@ -708,18 +922,25 @@ class WaypointPlannerApp(tk.Tk):
 
     line_count = sum(1 for seg in segments if seg.seg_type == SEG_TYPE_LINE)
     circle_count = sum(1 for seg in segments if seg.seg_type == SEG_TYPE_CIRCLE)
-    total_length = self._path_length(segments, start_xy)
+    total_length = self._path_length(segments, effective_start_xy)
     self.stats_var.set(
       "Plan ready: "
       f"segments={len(segments)} "
       f"line/circle={line_count}/{circle_count} "
       f"path_length={total_length:.1f} "
-      f"speed={speed:.1f} "
+      f"{_planned_speed_summary_text(speed, segments)} "
       f"effective_min_segment_length={effective_min_segment_length:.2f}"
     )
 
     self.segments = segments
-    self.start_xy = start_xy
+    self.start_xy = effective_start_xy
+    self._set_segment_details(
+      self._segment_details_report(
+        segments=segments,
+        start_xy=effective_start_xy,
+        requested_min_arc_radius=min_arc_radius,
+      )
+    )
     self.execute_button.configure(state="normal")
     self._set_status("Plan valid and within motion safety limits.")
     self._refresh_canvas()
@@ -735,6 +956,16 @@ class WaypointPlannerApp(tk.Tk):
     plc_path = self.plc_path_var.get().strip()
     if not plc_path:
       self._set_status("PLC path is required.", is_error=True)
+      return
+    if self.live_position_xy is None or self.start_xy is None:
+      self._set_status("Live position is required before execution.", is_error=True)
+      return
+    if not _live_position_matches_plan_start(self.live_position_xy, self.start_xy):
+      self._set_status(
+        "Live position changed since planning. Replan before execution.",
+        is_error=True,
+      )
+      self.execute_button.configure(state="disabled")
       return
 
     if not messagebox.askyesno(

@@ -51,6 +51,27 @@ class TemplateRecipeBase:
     raise NotImplementedError("write_template_file() must be implemented.")
 
   # -------------------------------------------------------------------
+  def _resetExtraState(self):
+    return None
+
+  # -------------------------------------------------------------------
+  def _loadExtraStateData(self, data):
+    _ = data
+    return None
+
+  # -------------------------------------------------------------------
+  def _extraDraftState(self):
+    return {}
+
+  # -------------------------------------------------------------------
+  def _extraPublicState(self):
+    return {}
+
+  # -------------------------------------------------------------------
+  def _generationKwargs(self):
+    return {}
+
+  # -------------------------------------------------------------------
   def __init__(self, process):
     self._process = process
     self._offsets = {}
@@ -195,6 +216,7 @@ class TemplateRecipeBase:
     self._transferPause = True
     self._includeLeadMode = False
     self._stripG113Params = False
+    self._resetExtraState()
     self._dirty = bool(markDirty)
 
   # -------------------------------------------------------------------
@@ -214,6 +236,7 @@ class TemplateRecipeBase:
         "hashValue": generated.get("hashValue"),
         "updatedAt": generated.get("updatedAt"),
       }
+    self._loadExtraStateData(data)
 
   # -------------------------------------------------------------------
   def _loadPersistedState(self, draftPath):
@@ -250,6 +273,7 @@ class TemplateRecipeBase:
         "dirty": self._dirty,
         "generated": dict(self._generated),
       }
+      data.update(self._extraDraftState())
       temporaryPath = draftPath + ".tmp"
       with open(temporaryPath, "w", encoding="utf-8") as outputFile:
         json.dump(data, outputFile, indent=2, sort_keys=True)
@@ -293,7 +317,7 @@ class TemplateRecipeBase:
       )
 
     liveFile = self._liveFilePath()
-    return {
+    state = {
       "layer": layer,
       "enabled": enabled,
       "movementReady": self._process.controlStateMachine.isReadyForMovement(),
@@ -311,6 +335,8 @@ class TemplateRecipeBase:
       "lineCount": self.DEFAULT_ROW_COUNT,
       "generated": self._getGeneratedState(liveFile),
     }
+    state.update(self._extraPublicState())
+    return state
 
   # -------------------------------------------------------------------
   def setOffset(self, offsetId, value):
@@ -407,6 +433,7 @@ class TemplateRecipeBase:
         "transferPause": self._transferPause,
         "includeLeadMode": self._includeLeadMode,
         "stripG113Params": self._stripG113Params,
+        **self._extraPublicState(),
       }
     )
 
@@ -434,6 +461,7 @@ class TemplateRecipeBase:
       include_lead_mode=self._includeLeadMode,
       strip_g113_params=self._stripG113Params,
       archive_directory=self._recipeArchiveDirectory(),
+      **self._generationKwargs(),
     )
 
     updatedAt = str(self._process._systemTime.get())

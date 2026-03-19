@@ -6,6 +6,8 @@ from dune_winder.recipes.u_template_gcode import (
   DEFAULT_U_TEMPLATE_ROW_COUNT,
   WRAP_COUNT,
   UTemplateProgrammaticGenerator,
+  X_PULL_IN,
+  Y_PULL_IN,
   get_u_template_named_inputs_snapshot,
   _normalize_pin_tokens,
   render_default_u_template_text_lines,
@@ -17,6 +19,13 @@ from dune_winder.recipes.u_template_gcode import (
 
 class UTemplateGCodeTests(unittest.TestCase):
   MERGE = "G113 PPRECISE "
+  TOLERANT = "G113 PTOLERANT "
+
+  def _coord(self, axis, value):
+    text = "{0:.6f}".format(float(value)).rstrip("0").rstrip(".")
+    if text in ("", "-0"):
+      text = "0"
+    return axis + text
 
   def test_pb_pf_tokens_wrap_back_into_valid_pin_range(self):
     self.assertEqual(
@@ -45,7 +54,10 @@ class UTemplateGCodeTests(unittest.TestCase):
         "N10077 " + self.MERGE + "(400,22) G109 PF2001 PRT G103 PF1201 PF1200 PXY G102 G108 (Foot A corner)",
         "N10078 (400,23) G106 P3",
         "N10079 " + self.MERGE + "(400,24) G109 PF1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
-        "N10080 " + self.MERGE + "(400,25) G103 PB1601 PB1600 PX G105 PX-70",
+        "N10080 "
+        + self.TOLERANT
+        + "(400,25) G103 PB1601 PB1600 PXY G105 "
+        + self._coord("PX", -X_PULL_IN),
       ],
     )
 
@@ -70,8 +82,31 @@ class UTemplateGCodeTests(unittest.TestCase):
 
     special_lines = render_u_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
-      "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
+      "N15 "
+      + self.TOLERANT
+      + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
       special_lines,
+    )
+
+  def test_pull_in_overrides_update_generated_motion(self):
+    lines = render_u_template_text_lines(
+      special_inputs={
+        "Y_PULL_IN": 212.5,
+        "x_pull_in": 187.5,
+      }
+    )
+
+    self.assertIn(
+      "N8 " + self.TOLERANT + "(1,5) G103 PF801 PF802 PXY G105 " + self._coord("PY", -212.5),
+      lines,
+    )
+    self.assertIn(
+      "N16 "
+      + self.TOLERANT
+      + "(1,13) G103 PF2 PF1 PXY G105 "
+      + self._coord("PX", 187.5)
+      + " ( BOARD GAP )",
+      lines,
     )
 
   def test_offset_vector_maps_to_all_twelve_adjustment_sites(self):
@@ -86,7 +121,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       "N9 " + self.MERGE + "(1,6) G109 PF801 PLB G103 PF2401 PF1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
       "N11 " + self.MERGE + "(1,8) G109 PF2401 PBR G103 PB401 PB402 PXY G105 PY4 (Bottom B corner - head end, rewind)",
       "N13 " + self.MERGE + "(1,10) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
-      "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
       "N17 " + self.MERGE + "(1,14) G109 PF2 PRT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
       "N19 " + self.MERGE + "(1,16) G109 PF799 PRT G103 PB2003 PB2004 PXY G105 PX-4 (Top B corner - head end)",
       "N21 " + self.MERGE + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
@@ -99,7 +134,7 @@ class UTemplateGCodeTests(unittest.TestCase):
 
     self.assertEqual(
       generator.get_value("AC", 16),
-      "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
     )
 
   def test_transfer_pause_adds_all_optional_pause_lines(self):
@@ -115,6 +150,8 @@ class UTemplateGCodeTests(unittest.TestCase):
     named_inputs = get_u_template_named_inputs_snapshot()
     self.assertFalse(named_inputs["transferPause"])
     self.assertEqual(named_inputs["line 6 (Head A corner)"], 0.0)
+    self.assertEqual(named_inputs["Y_PULL_IN"], Y_PULL_IN)
+    self.assertEqual(named_inputs["X_PULL_IN"], X_PULL_IN)
 
     with tempfile.TemporaryDirectory() as directory:
       plain_output = Path(directory) / "U_template.txt"
@@ -123,13 +160,20 @@ class UTemplateGCodeTests(unittest.TestCase):
       write_u_template_text_file(plain_output, special_inputs={"head_a_offset": 7})
       plain_lines = plain_output.read_text(encoding="utf-8").splitlines()
       self.assertIn(
-        "N15 " + self.MERGE + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
+        "N15 "
+        + self.TOLERANT
+        + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
         plain_lines,
       )
 
       recipe = write_u_template_file(
         recipe_output,
-        special_inputs={"head_a_offset": 7, "transferPause": True},
+        special_inputs={
+          "head_a_offset": 7,
+          "transferPause": True,
+          "Y_PULL_IN": 212.5,
+          "X_PULL_IN": 187.5,
+        },
       )
       recipe_lines = recipe_output.read_text(encoding="utf-8").splitlines()
 
@@ -137,6 +181,8 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(recipe_lines[1], "N0 ( U Layer )")
     self.assertTrue(recipe["transferPause"])
     self.assertEqual(recipe["fileName"], "U-layer.gc")
+    self.assertEqual(recipe["pullIns"]["Y_PULL_IN"], 212.5)
+    self.assertEqual(recipe["pullIns"]["X_PULL_IN"], 187.5)
 
 
 if __name__ == "__main__":

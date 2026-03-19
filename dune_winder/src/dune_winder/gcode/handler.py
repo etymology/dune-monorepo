@@ -276,6 +276,11 @@ class GCodeHandler(GCodeHandlerBase):
     return min(v_x_max, v_y_max)
 
   # ---------------------------------------------------------------------
+  def _queued_motion_max_seed_speed(self) -> float:
+    v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
+    return math.hypot(v_x_max, v_y_max)
+
+  # ---------------------------------------------------------------------
   def _queued_motion_accel_limits(self) -> tuple[float, float]:
     plc_logic = getattr(self._io, "plcLogic", None)
     configuration = getattr(self, "_configuration", None)
@@ -435,7 +440,9 @@ class GCodeHandler(GCodeHandlerBase):
           break
 
       if self._queued_motion_use_max_speed:
-        speed = self._queued_motion_default_speed()
+        # Seed with the largest finite path speed the XY axis limits can admit,
+        # then let per-segment capping clamp each direction independently.
+        speed = self._queued_motion_max_seed_speed()
       else:
         speed = min(preview.velocity for preview in previews)
         if not math.isfinite(speed):
@@ -443,6 +450,7 @@ class GCodeHandler(GCodeHandlerBase):
       accel, decel = self._queued_motion_accel_limits()
       jerk_accel, jerk_decel = self._queued_motion_jerk_limits()
       safety_limits = self._motion_safety_limits()
+      v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
       waypoints = [
         MergeWaypoint(
           line_index=preview.line_index,
@@ -465,10 +473,11 @@ class GCodeHandler(GCodeHandlerBase):
         min_arc_radius=self._queued_motion_min_turning_radius(),
         safety_limits=safety_limits,
         queued_motion_collision_state=self._queued_motion_collision_state(),
+        v_x_max=v_x_max,
+        v_y_max=v_y_max,
       )
       if not segments:
         return None
-      v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
       segments = cap_segments_speed_by_axis_velocity(
         segments=segments,
         v_x_max=v_x_max,

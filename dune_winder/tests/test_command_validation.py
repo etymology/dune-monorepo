@@ -16,6 +16,32 @@ class CommandValidationTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertTrue(response["data"]["data"]["enabled"])
 
+  def test_v_template_pull_in_accepts_string_number(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.v_template.set_pull_in",
+        "args": {"pull_in_id": "X_PULL_IN", "value": "91.5"},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["data"]["pullInId"], "X_PULL_IN")
+    self.assertEqual(response["data"]["data"]["value"], 91.5)
+
+  def test_u_template_pull_in_accepts_string_number(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.u_template.set_pull_in",
+        "args": {"pull_in_id": "Y_PULL_IN", "value": "212.5"},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["data"]["pullInId"], "Y_PULL_IN")
+    self.assertEqual(response["data"]["data"]["value"], 212.5)
+
   def test_unknown_arguments_are_rejected(self):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(
