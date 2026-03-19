@@ -19,6 +19,7 @@ spreadsheets = [
 
 [project.scripts]
 dune-winder = "dune_winder.main:main"
+plc-rung-transform = "dune_winder.plc_rung_transform:main"
 
 [build-system]
 requires = ["setuptools>=68"]
