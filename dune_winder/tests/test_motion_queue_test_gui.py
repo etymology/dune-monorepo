@@ -1,31 +1,42 @@
 import unittest
 
 from motionQueueTest_gui import (
-  _effective_planner_start_xy,
+  _live_position_matches_plan_start,
+  _planner_waypoints,
   _planned_speed_summary_text,
 )
 from dune_winder.queued_motion.segment_types import MotionSegment
 
 
 class MotionQueueTestGuiTests(unittest.TestCase):
-  def test_effective_planner_start_xy_prefers_explicit_start(self):
-    start_xy = _effective_planner_start_xy(
-      [(1.0, 2.0), (3.0, 4.0)],
+  def test_planner_waypoints_prepends_live_position_as_waypoint_zero(self):
+    planner_waypoints = _planner_waypoints(
       (10.0, 20.0),
-    )
-
-    self.assertEqual(start_xy, (10.0, 20.0))
-
-  def test_effective_planner_start_xy_defaults_to_first_waypoint(self):
-    start_xy = _effective_planner_start_xy(
       [(1.0, 2.0), (3.0, 4.0)],
-      None,
     )
 
-    self.assertEqual(start_xy, (1.0, 2.0))
+    self.assertEqual(planner_waypoints, [(10.0, 20.0), (1.0, 2.0), (3.0, 4.0)])
 
-  def test_effective_planner_start_xy_returns_none_without_waypoints(self):
-    self.assertIsNone(_effective_planner_start_xy([], None))
+  def test_planner_waypoints_deduplicates_first_destination_matching_live_position(self):
+    planner_waypoints = _planner_waypoints(
+      (10.0, 20.0),
+      [(10.0, 20.0), (30.0, 40.0)],
+    )
+
+    self.assertEqual(planner_waypoints, [(10.0, 20.0), (30.0, 40.0)])
+
+  def test_planner_waypoints_requires_live_position(self):
+    self.assertIsNone(_planner_waypoints(None, [(1.0, 2.0)]))
+
+  def test_live_position_matches_plan_start_within_tolerance(self):
+    self.assertTrue(
+      _live_position_matches_plan_start((10.0, 20.0), (10.05, 20.05), tolerance_mm=0.1)
+    )
+
+  def test_live_position_rejects_plan_start_outside_tolerance(self):
+    self.assertFalse(
+      _live_position_matches_plan_start((10.0, 20.0), (10.2, 20.0), tolerance_mm=0.1)
+    )
 
   def test_planned_speed_summary_reports_uniform_planned_speed(self):
     text = _planned_speed_summary_text(

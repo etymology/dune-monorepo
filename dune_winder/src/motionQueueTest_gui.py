@@ -56,6 +56,7 @@ TAG_SAFETY_TRIPPED = "Safety_Tripped_S"
 POSITION_POLL_S = 0.20
 POSITION_ERROR_RETRY_S = 1.00
 DEFAULT_COMMAND_SPEED = 1000.0
+_START_POSITION_TOLERANCE_MM = 0.1
 
 
 def _open_plc_connection(path: str):
@@ -72,16 +73,35 @@ def _close_plc_connection(plc) -> None:
       pass
 
 
-def _effective_planner_start_xy(
+def _planner_waypoints(
+  live_position_xy: Optional[tuple[float, float]],
   waypoints: list[tuple[float, float]],
-  start_xy: Optional[tuple[float, float]],
-) -> Optional[tuple[float, float]]:
-  if start_xy is not None:
-    return (float(start_xy[0]), float(start_xy[1]))
-  if not waypoints:
+) -> Optional[list[tuple[float, float]]]:
+  if live_position_xy is None:
     return None
-  first_x, first_y = waypoints[0]
-  return (float(first_x), float(first_y))
+
+  planner_waypoints = [(float(live_position_xy[0]), float(live_position_xy[1]))]
+  for x, y in waypoints:
+    point_xy = (float(x), float(y))
+    if math.hypot(
+      point_xy[0] - planner_waypoints[-1][0],
+      point_xy[1] - planner_waypoints[-1][1],
+    ) > 1e-9:
+      planner_waypoints.append(point_xy)
+  return planner_waypoints
+
+
+def _live_position_matches_plan_start(
+  live_position_xy: Optional[tuple[float, float]],
+  planned_start_xy: Optional[tuple[float, float]],
+  tolerance_mm: float = _START_POSITION_TOLERANCE_MM,
+) -> bool:
+  if live_position_xy is None or planned_start_xy is None:
+    return False
+  return math.hypot(
+    float(live_position_xy[0]) - float(planned_start_xy[0]),
+    float(live_position_xy[1]) - float(planned_start_xy[1]),
+  ) <= float(tolerance_mm)
 
 
 def _load_axis_velocity_limits(calibration_path: Optional[str]) -> tuple[float, float]:
@@ -191,8 +211,6 @@ class WaypointPlannerApp(tk.Tk):
 
     self.plc_path_var = tk.StringVar(value=plc_path)
     self.plc_path_var.trace_add("write", self._on_plc_path_var_changed)
-    self.start_x_var = tk.StringVar(value="")
-    self.start_y_var = tk.StringVar(value="")
     self.order_mode_var = tk.StringVar(value=DEFAULT_WAYPOINT_ORDER_MODE)
     self.min_arc_radius_var = tk.StringVar(value=f"{DEFAULT_WAYPOINT_MIN_ARC_RADIUS:.1f}")
     self.allow_stops_var = tk.BooleanVar(value=DEFAULT_WAYPOINT_ALLOW_STOPS)
@@ -202,8 +220,8 @@ class WaypointPlannerApp(tk.Tk):
     self.constant_velocity_var = tk.BooleanVar(value=DEFAULT_CONSTANT_VELOCITY_MODE)
     self.status_var = tk.StringVar(
       value=(
-        "Left click to add waypoints. Right click to remove last waypoint. "
-        "Press Replan, then Execute Path."
+        "Waypoint 0 is always the current live position. "
+        "Left click to add destination waypoints, then press Replan."
       )
     )
     self.stats_var = tk.StringVar(value="No plan yet.")
@@ -242,9 +260,6 @@ class WaypointPlannerApp(tk.Tk):
     row += 1
 
     row = self._entry_row(controls, row, "PLC path", self.plc_path_var)
-    row = self._entry_row(controls, row, "Start X (optional)", self.start_x_var)
-    row = self._entry_row(controls, row, "Start Y (optional)", self.start_y_var)
-
     ttk.Label(controls, text="Waypoint order").grid(row=row, column=0, sticky="w", pady=(8, 0))
     order_combo = ttk.Combobox(
       controls,
@@ -505,24 +520,6 @@ class WaypointPlannerApp(tk.Tk):
     except ValueError as exc:
       raise ValueError(f"{label} must be an integer.") from exc
 
-  def _parse_optional_float(self, text: str, label: str) -> Optional[float]:
-    value = text.strip()
-    if not value:
-      return None
-    try:
-      return float(value)
-    except ValueError as exc:
-      raise ValueError(f"{label} must be numeric.") from exc
-
-  def _parse_start_xy(self) -> Optional[tuple[float, float]]:
-    sx = self._parse_optional_float(self.start_x_var.get(), "Start X")
-    sy = self._parse_optional_float(self.start_y_var.get(), "Start Y")
-    if (sx is None) != (sy is None):
-      raise ValueError("Specify both Start X and Start Y, or leave both empty.")
-    if sx is None:
-      return None
-    return (sx, sy)
-
   def _plot_transform(self) -> tuple[float, float, float, float, float]:
     width = max(2, self.canvas.winfo_width())
     height = max(2, self.canvas.winfo_height())
@@ -745,9 +742,7 @@ class WaypointPlannerApp(tk.Tk):
     for i, (x, y) in enumerate(self.waypoints, start=1):
       px, py = self._world_to_canvas(x, y)
       color = "#60a5fa"
-      if i == 1:
-        color = "#22c55e"
-      elif i == len(self.waypoints):
+      if i == len(self.waypoints):
         color = "#ef4444"
       self.canvas.create_oval(px - 5, py - 5, px + 5, py + 5, fill=color, outline="#0f172a")
       self.canvas.create_text(px + 9, py - 10, text=str(i), fill="#dbeafe", anchor="w")
@@ -771,28 +766,41 @@ class WaypointPlannerApp(tk.Tk):
           outline="#164e63",
           width=1,
         )
+        self.canvas.create_oval(px - 6, py - 6, px + 6, py + 6, outline="#22c55e", width=2)
         self.canvas.create_text(
           px + 10,
           py + 10,
-          text=f"Live ({x:.1f}, {y:.1f})",
+          text=f"0 Live ({x:.1f}, {y:.1f})",
           fill="#67e8f9",
           anchor="nw",
         )
 
   def _replan(self) -> None:
-    if len(self.waypoints) < 2:
+    if self.live_position_xy is None:
       self.segments = []
       self.start_xy = None
-      self.stats_var.set("Add at least 2 waypoints to build a plan.")
+      self.stats_var.set("Live position required before planning.")
       self._set_segment_details("No planned segments.")
-      self._set_status("Waiting for more waypoints.")
+      self._set_status("Waiting for current live position from the PLC.")
+      self.execute_button.configure(state="disabled")
+      self._refresh_canvas()
+      return
+
+    if len(self.waypoints) < 1:
+      self.segments = []
+      self.start_xy = None
+      self.stats_var.set("Add at least 1 destination waypoint to build a plan.")
+      self._set_segment_details("No planned segments.")
+      self._set_status("Waiting for destination waypoints.")
       self.execute_button.configure(state="disabled")
       self._refresh_canvas()
       return
 
     try:
-      start_xy = self._parse_start_xy()
-      effective_start_xy = _effective_planner_start_xy(self.waypoints, start_xy)
+      planner_waypoints = _planner_waypoints(self.live_position_xy, self.waypoints)
+      if planner_waypoints is None or len(planner_waypoints) < 2:
+        raise ValueError("Planner requires the live position and at least one distinct destination.")
+      effective_start_xy = planner_waypoints[0]
       term_type = self._parse_int(self.term_type_var.get(), "Term type")
       if term_type not in TESTABLE_TERM_TYPES:
         raise ValueError("Term type must be one of 0..6.")
@@ -813,10 +821,10 @@ class WaypointPlannerApp(tk.Tk):
         term_type=term_type,
         lissajous_segments_count=LISSAJOUS_TESSELLATION_SEGMENTS,
         min_segment_length=min_segment_length,
-        waypoint_points=list(self.waypoints),
+        waypoint_points=planner_waypoints,
         waypoint_min_arc_radius=min_arc_radius,
         waypoint_order_mode=self.order_mode_var.get(),
-        waypoint_start_xy=start_xy,
+        waypoint_start_xy=effective_start_xy,
         waypoint_bounds=(
           self.safety_limits.limit_left,
           self.safety_limits.limit_right,
@@ -901,6 +909,16 @@ class WaypointPlannerApp(tk.Tk):
     plc_path = self.plc_path_var.get().strip()
     if not plc_path:
       self._set_status("PLC path is required.", is_error=True)
+      return
+    if self.live_position_xy is None or self.start_xy is None:
+      self._set_status("Live position is required before execution.", is_error=True)
+      return
+    if not _live_position_matches_plan_start(self.live_position_xy, self.start_xy):
+      self._set_status(
+        "Live position changed since planning. Replan before execution.",
+        is_error=True,
+      )
+      self.execute_button.configure(state="disabled")
       return
 
     if not messagebox.askyesno(
