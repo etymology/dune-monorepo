@@ -5,6 +5,7 @@ from pathlib import Path
 
 BRACKETED_CONDITIONS_PATTERN = re.compile(r"\[([^\[\]]+)\]")
 INLINE_SEPARATOR_PATTERN = re.compile(r"[(),]")
+WHITESPACE_PATTERN = re.compile(r"[ \t]+")
 
 
 def _replace_bracketed_conditions(match):
@@ -18,7 +19,19 @@ def _replace_bracketed_conditions(match):
 def transform_text(text):
   transformed = BRACKETED_CONDITIONS_PATTERN.sub(_replace_bracketed_conditions, text)
   transformed = INLINE_SEPARATOR_PATTERN.sub(" ", transformed)
-  return transformed.replace(";", "\n")
+  transformed = transformed.replace(";", "\n")
+  trailing_newline = transformed.endswith("\n")
+  lines = transformed.split("\n")
+  if trailing_newline:
+    lines = lines[:-1]
+
+  normalized_lines = [WHITESPACE_PATTERN.sub(" ", line).lstrip() for line in lines]
+  normalized_text = "\n".join(normalized_lines)
+
+  if trailing_newline:
+    return normalized_text + "\n"
+
+  return normalized_text
 
 
 def transform_file(input_path, output_path=None):
