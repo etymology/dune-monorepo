@@ -7,15 +7,15 @@ from dune_winder.plc_rung_transform import transform_text
 
 
 class PlcRungTransformTests(unittest.TestCase):
-  def test_transform_text_converts_bracketed_conditions_and_line_separators(self):
-    source = "[XIC QueueFault,XIC MoveA.ER ,XIC MoveB.ER ];XIC (SomeTag,OtherTag)"
+  def test_transform_text_converts_bracketed_conditions_and_normalizes_spacing(self):
+    source = "   [XIC QueueFault,XIC MoveA.ER ,XIC MoveB.ER ];  XIC (SomeTag,OtherTag)"
 
     result = transform_text(source)
 
     self.assertEqual(
       result,
-      "BST XIC QueueFault  NXB XIC MoveA.ER  NXB XIC MoveB.ER  BND\n"
-      "XIC  SomeTag OtherTag ",
+      "BST XIC QueueFault NXB XIC MoveA.ER NXB XIC MoveB.ER BND\n"
+      "XIC SomeTag OtherTag ",
     )
 
   def test_transform_file_writes_output_file(self):
@@ -26,4 +26,4 @@ class PlcRungTransformTests(unittest.TestCase):
 
       transform_file(input_path, output_path)
 
-      self.assertEqual(output_path.read_text(), "BST XIC A  NXB XIC B  BND\n")
+      self.assertEqual(output_path.read_text(), "BST XIC A NXB XIC B BND\n")
