@@ -1,27 +1,28 @@
 XIO ALL_EOT_GOOD OTE STATE11_IND 
-XIC STATE11_IND OSR oneshotsb[0] oneshotob[0] 
-XIC oneshotob[0] MCS X_Y AXIS_STAT[28] All Yes 10000 Units per sec2 Yes 1000 Units per sec3 
-XIC STATE11_IND XIC AXIS_STAT[28].DN OSR oneshotsb[12] oneshotob[12] 
-XIC oneshotob[12] MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] MSO Z_axis AXIS_STAT[31] 
-XIC oneshotob[0] MAS X_axis AXIS_STAT[10] All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[0] MAS Y_axis AXIS_STAT[11] All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[0] MAS Z_axis AXIS_STAT[12] All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC STATE11_IND OSR oneshotsbBST 0 BND oneshotobBST 0 BND 
+XIC oneshotobBST 0 BND MCS X_Y AXIS_STATBST 28 BND All Yes 10000 Units per sec2 Yes 10000 Units per sec3 
+XIC STATE11_IND XIC AXIS_STATBST 28 BND.DN OSR oneshotsbBST 12 BND oneshotobBST 12 BND 
+XIC oneshotobBST 12 BND MSO X_axis AXIS_STATBST 29 BND MSO Y_axis AXIS_STATBST 30 BND MSO Z_axis AXIS_STATBST 31 BND 
+XIC oneshotobBST 0 BND MAS X_axis AXIS_STATBST 10 BND All Yes 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 0 BND MAS Y_axis AXIS_STATBST 11 BND All Yes 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 0 BND MAS Z_axis AXIS_STATBST 12 BND All Yes 1000 Units per sec2 Yes 1000 Units per sec3 
 XIC STATE11_IND OTE AbortQueue 
 XIC STATE11_IND CPT MOVE_TYPE 0 
-XIC STATE11_IND XIC AXIS_STAT[28].DN XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO PLUS_X_EOT XIC MINUS_X_EOT XIO AXIS_STAT[0].IP OSR oneshotsb[1] oneshotob[1] 
-XIC oneshotob[1] MAM X_axis AXIS_STAT[0] 1 -1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
-XIC STATE11_IND XIC AXIS_STAT[28].DN XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO MINUS_X_EOT XIC PLUS_X_EOT XIO AXIS_STAT[1].IP OSR oneshotsb[3] oneshotob[3] 
-XIC oneshotob[3] MAM X_axis AXIS_STAT[1] 1 1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
-XIC STATE11_IND XIC AXIS_STAT[28].DN XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO PLUS_Y_EOT XIC MINUS_Y_EOT XIO AXIS_STAT[2].IP OSR oneshotsb[5] oneshotob[5] 
-XIC oneshotob[5] MAM Y_axis AXIS_STAT[2] 1 -1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
-XIC STATE11_IND XIC AXIS_STAT[28].DN XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO MINUS_Y_EOT XIC PLUS_Y_EOT XIO AXIS_STAT[3].IP OSR oneshotsb[7] oneshotob[7] 
-XIC oneshotob[7] MAM Y_axis AXIS_STAT[3] 1 1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
-XIC STATE11_IND XIC AXIS_STAT[28].DN XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN XIC AXIS_STAT[31].DN XIO Z_EOT XIO AXIS_STAT[4].IP OSR oneshotsb[9] oneshotob[9] 
-XIC oneshotob[9] MAM Z_axis AXIS_STAT[4] 0 0 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
-XIC ALL_EOT_GOOD XIO AXIS_STAT[4].IP OSR oneshotsb[11] oneshotob[11] 
-XIC oneshotob[11] MAS X_axis AXIS_STAT[13] Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[11] MAS X_axis AXIS_STAT[14] Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[11] MAS Y_axis AXIS_STAT[15] Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[11] MAS Y_axis AXIS_STAT[16] Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[11] MAS Z_axis AXIS_STAT[17] Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIC oneshotob[11] CPT ERROR_CODE 0 CPT NEXTSTATE 1 
+XIC STATE11_IND XIC AXIS_STATBST 28 BND.DN XIC AXIS_STATBST 29 BND.DN XIC AXIS_STATBST 30 BND.DN XIC AXIS_STATBST 31 BND.DN XIO PLUS_X_EOT XIC MINUS_X_EOT XIO AXIS_STATBST 0 BND.IP OSR oneshotsbBST 1 BND oneshotobBST 1 BND 
+XIC oneshotobBST 1 BND MAM X_axis AXIS_STATBST 0 BND 1 -1 25 Units per sec 100 Units per sec2 100 Units per sec2 S-Curve 100 100 % of Time Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC AXIS_STATBST 28 BND.DN XIC AXIS_STATBST 29 BND.DN XIC AXIS_STATBST 30 BND.DN XIC AXIS_STATBST 31 BND.DN XIO MINUS_X_EOT XIC PLUS_X_EOT XIO AXIS_STATBST 1 BND.IP OSR oneshotsbBST 3 BND oneshotobBST 3 BND 
+XIC oneshotobBST 3 BND MAM X_axis AXIS_STATBST 1 BND 1 10 25 Units per sec 100 Units per sec2 100 Units per sec2 S-Curve 100 100 % of Time Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC AXIS_STATBST 28 BND.DN XIC AXIS_STATBST 29 BND.DN XIC AXIS_STATBST 30 BND.DN XIC AXIS_STATBST 31 BND.DN XIO PLUS_Y_EOT XIC MINUS_Y_EOT XIO AXIS_STATBST 2 BND.IP OSR oneshotsbBST 5 BND oneshotobBST 5 BND 
+XIC oneshotobBST 5 BND MAM Y_axis AXIS_STATBST 2 BND 1 -1 25 Units per sec 100 Units per sec2 100 Units per sec2 S-Curve 100 100 % of Time Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC AXIS_STATBST 28 BND.DN XIC AXIS_STATBST 29 BND.DN XIC AXIS_STATBST 30 BND.DN XIC AXIS_STATBST 31 BND.DN XIO MINUS_Y_EOT XIC PLUS_Y_EOT XIO AXIS_STATBST 3 BND.IP OSR oneshotsbBST 7 BND oneshotobBST 7 BND 
+XIC oneshotobBST 7 BND MAM Y_axis AXIS_STATBST 3 BND 1 1 25 Units per sec 100 Units per sec2 100 Units per sec2 S-Curve 100 100 % of Time Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC AXIS_STATBST 28 BND.DN XIC AXIS_STATBST 29 BND.DN XIC AXIS_STATBST 30 BND.DN XIC AXIS_STATBST 31 BND.DN XIO Z_EOT XIO AXIS_STATBST 4 BND.IP OSR oneshotsbBST 9 BND oneshotobBST 9 BND 
+XIC oneshotobBST 9 BND MAM Z_axis AXIS_STATBST 4 BND 0 0 25 Units per sec 100 Units per sec2 100 Units per sec2 S-Curve 100 100 % of Time Disabled 0 0 0 0 0 
+XIC ALL_EOT_GOOD XIO AXIS_STATBST 4 BND.IP OSR oneshotsbBST 11 BND oneshotobBST 11 BND 
+XIC oneshotobBST 11 BND MAS X_axis AXIS_STATBST 13 BND Move No 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 11 BND MAS X_axis AXIS_STATBST 14 BND Move No 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 11 BND MAS Y_axis AXIS_STATBST 15 BND Move No 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 11 BND MAS Y_axis AXIS_STATBST 16 BND Move No 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 11 BND MAS Z_axis AXIS_STATBST 17 BND Move No 1000 Units per sec2 Yes 1000 Units per sec3 
+XIC oneshotobBST 11 BND CPT ERROR_CODE 0 CPT NEXTSTATE 1 
+
