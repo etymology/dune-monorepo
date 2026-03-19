@@ -22,6 +22,9 @@ from .safety import (
 from .segment_patterns import (
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   apply_merge_term_types,
+  cap_segments_speed_by_axis_velocity,
+  _max_abs_cos_over_sweep,
+  _max_abs_sin_over_sweep,
 )
 from .segment_types import (
   MotionSegment,
@@ -34,6 +37,8 @@ from .segment_types import (
 MERGE_MODE_PRECISE = "PRECISE"
 MERGE_MODE_TOLERANT = "TOLERANT"
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
+_PLANNER_RADIUS_EPS = 1e-6
+_MAX_RADIUS_REFINEMENT_PASSES = 4
 
 
 @dataclass(frozen=True)
@@ -60,6 +65,92 @@ def _planner_radius(
     accel_limit=accel_limit,
     jerk_limit=jerk_limit,
   )
+
+
+def _shortest_signed_angle_delta(start_angle: float, end_angle: float) -> float:
+  delta = (end_angle - start_angle + math.pi) % (2.0 * math.pi) - math.pi
+  if delta <= -math.pi:
+    delta += 2.0 * math.pi
+  return delta
+
+
+def _axis_limited_speed(
+  requested_speed: float,
+  *,
+  max_tx: float,
+  max_ty: float,
+  v_x_max: Optional[float],
+  v_y_max: Optional[float],
+) -> float:
+  if v_x_max is None or v_y_max is None:
+    return float(requested_speed)
+
+  limit_x = float("inf") if max_tx <= _PLANNER_RADIUS_EPS else (float(v_x_max) / max_tx)
+  limit_y = float("inf") if max_ty <= _PLANNER_RADIUS_EPS else (float(v_y_max) / max_ty)
+  return min(float(requested_speed), limit_x, limit_y)
+
+
+def _planner_seed_speed(
+  *,
+  start_xy: tuple[float, float],
+  waypoints: list[MergeWaypoint],
+  requested_speed: float,
+  v_x_max: Optional[float],
+  v_y_max: Optional[float],
+) -> float:
+  if v_x_max is None or v_y_max is None or len(waypoints) < 2:
+    return float(requested_speed)
+
+  points = [start_xy]
+  points.extend((float(waypoint.x), float(waypoint.y)) for waypoint in waypoints)
+
+  capped_corner_speeds: list[float] = []
+  for index in range(1, len(points) - 1):
+    prev_xy = points[index - 1]
+    point_xy = points[index]
+    next_xy = points[index + 1]
+    incoming_angle = math.atan2(point_xy[1] - prev_xy[1], point_xy[0] - prev_xy[0])
+    outgoing_angle = math.atan2(next_xy[1] - point_xy[1], next_xy[0] - point_xy[0])
+    sweep = _shortest_signed_angle_delta(incoming_angle, outgoing_angle)
+    if abs(sweep) <= _PLANNER_RADIUS_EPS:
+      continue
+    capped_corner_speeds.append(
+      _axis_limited_speed(
+        requested_speed,
+        max_tx=_max_abs_cos_over_sweep(incoming_angle, sweep),
+        max_ty=_max_abs_sin_over_sweep(incoming_angle, sweep),
+        v_x_max=v_x_max,
+        v_y_max=v_y_max,
+      )
+    )
+
+  if not capped_corner_speeds:
+    return float(requested_speed)
+  return max(capped_corner_speeds)
+
+
+def _cap_planner_segments(
+  segments: list[MotionSegment],
+  *,
+  start_xy: tuple[float, float],
+  v_x_max: Optional[float],
+  v_y_max: Optional[float],
+) -> list[MotionSegment]:
+  if v_x_max is None or v_y_max is None:
+    return segments
+  return cap_segments_speed_by_axis_velocity(
+    segments=segments,
+    v_x_max=float(v_x_max),
+    v_y_max=float(v_y_max),
+    start_xy=start_xy,
+  )
+
+
+def _planner_radius_speed_from_segments(segments: list[MotionSegment]) -> float:
+  arc_speeds = [float(seg.speed) for seg in segments if seg.seg_type == SEG_TYPE_CIRCLE]
+  if not arc_speeds:
+    return 0.0
+  return max(arc_speeds)
 
 
 def _decorate_segments(
@@ -163,6 +254,8 @@ def build_merge_path_segments(
   min_arc_radius: float = DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
   safety_limits: MotionSafetyLimits,
   queued_motion_collision_state: Optional[QueuedMotionCollisionState] = None,
+  v_x_max: Optional[float] = None,
+  v_y_max: Optional[float] = None,
 ) -> list[MotionSegment]:
   if not waypoints:
     return []
@@ -189,49 +282,87 @@ def build_merge_path_segments(
     default=DEFAULT_QUEUED_MOTION_DECEL_JERK,
   )
 
-  filleted = filleted_polygon_segments(
+  accel_limit = max(1.0, min(float(accel), float(decel)))
+  jerk_limit = min(float(jerk_accel), float(jerk_decel))
+  planner_speed = _planner_seed_speed(
     start_xy=start_xy,
-    waypoints=[(float(point.x), float(point.y)) for point in filtered_waypoints],
-    radius=_planner_radius(
-      speed=speed,
-      min_arc_radius=min_arc_radius,
-      accel_limit=max(1.0, min(float(accel), float(decel))),
-      jerk_limit=min(float(jerk_accel), float(jerk_decel)),
-    ),
-    line_term_type=4,
-    arc_term_type=4,
-    final_term_type=0,
+    waypoints=filtered_waypoints,
+    requested_speed=speed,
+    v_x_max=v_x_max,
+    v_y_max=v_y_max,
   )
-  if filleted is not None and _segments_are_valid(
-    filleted,
-    start_xy=start_xy,
+  planner_radius = _planner_radius(
+    speed=planner_speed,
     min_arc_radius=min_arc_radius,
-    safety_limits=safety_limits,
-    queued_motion_collision_state=queued_motion_collision_state,
-  ):
-    filleted = _decorate_segments(
-      filleted,
-      start_seq=start_seq,
-      speed=speed,
-      accel=accel,
-      decel=decel,
-      jerk_accel=jerk_accel,
-      jerk_decel=jerk_decel,
+    accel_limit=accel_limit,
+    jerk_limit=jerk_limit,
+  )
+  waypoints_xy = [(float(point.x), float(point.y)) for point in filtered_waypoints]
+
+  filleted: Optional[list[MotionSegment]] = None
+  for _ in range(_MAX_RADIUS_REFINEMENT_PASSES):
+    candidate = filleted_polygon_segments(
+      start_xy=start_xy,
+      waypoints=waypoints_xy,
+      radius=planner_radius,
+      line_term_type=4,
+      arc_term_type=4,
+      final_term_type=0,
     )
+    if candidate is None or not _segments_are_valid(
+      candidate,
+      start_xy=start_xy,
+      min_arc_radius=min_arc_radius,
+      safety_limits=safety_limits,
+      queued_motion_collision_state=queued_motion_collision_state,
+    ):
+      filleted = None
+      break
+
+    filleted = _cap_planner_segments(
+      _decorate_segments(
+        candidate,
+        start_seq=start_seq,
+        speed=speed,
+        accel=accel,
+        decel=decel,
+        jerk_accel=jerk_accel,
+        jerk_decel=jerk_decel,
+      ),
+      start_xy=start_xy,
+      v_x_max=v_x_max,
+      v_y_max=v_y_max,
+    )
+    refined_radius = _planner_radius(
+      speed=_planner_radius_speed_from_segments(filleted),
+      min_arc_radius=min_arc_radius,
+      accel_limit=accel_limit,
+      jerk_limit=jerk_limit,
+    )
+    if abs(refined_radius - planner_radius) <= _PLANNER_RADIUS_EPS:
+      break
+    planner_radius = refined_radius
+
+  if filleted is not None:
     return apply_merge_term_types(
       filleted,
       start_xy=start_xy,
       final_term_type=0,
     )
 
-  precise = _decorate_segments(
-    _precise_stop_segments(filtered_waypoints),
-    start_seq=start_seq,
-    speed=speed,
-    accel=accel,
-    decel=decel,
-    jerk_accel=jerk_accel,
-    jerk_decel=jerk_decel,
+  precise = _cap_planner_segments(
+    _decorate_segments(
+      _precise_stop_segments(filtered_waypoints),
+      start_seq=start_seq,
+      speed=speed,
+      accel=accel,
+      decel=decel,
+      jerk_accel=jerk_accel,
+      jerk_decel=jerk_decel,
+    ),
+    start_xy=start_xy,
+    v_x_max=v_x_max,
+    v_y_max=v_y_max,
   )
   precise = [replace(seg, term_type=0) for seg in precise]
   if _segments_are_valid(
