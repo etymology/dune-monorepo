@@ -207,9 +207,9 @@ class PLC_Logic:
     if not bool(yTransferOk):
       raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
 
-    self._xzPositionTargetX.set(float(x))
-    self._xzPositionTargetZ.set(float(z))
-    self._xzTriggerMove.set(1)
+    self._writeTagNow(self._xzPositionTargetX.getName(), float(x))
+    self._writeTagNow(self._xzPositionTargetZ.getName(), float(z))
+    self._writeTagNow(self._xzTriggerMove.getName(), True)
 
   # ---------------------------------------------------------------------
   def _readTagNow(self, tag):
@@ -233,6 +233,16 @@ class PLC_Logic:
       return entry[1]
 
     return tag.get()
+
+  # ---------------------------------------------------------------------
+  def _writeTagNow(self, tagName, value):
+    """
+    Write a tag immediately and fail fast if the PLC rejects the write.
+    """
+    result = self._plc.write((str(tagName), value))
+    if result is None:
+      raise RuntimeError("Write failed for PLC tag " + str(tagName) + ".")
+    return result
 
   # ---------------------------------------------------------------------
   def jogZ(self, velocity):
