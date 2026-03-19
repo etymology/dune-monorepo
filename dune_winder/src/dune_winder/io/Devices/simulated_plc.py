@@ -37,6 +37,7 @@ class SimulatedPLC(PLC):
   MOVE_PLC_INIT = 9
 
   _MACHINE_SW_PATTERN = re.compile(r"^MACHINE_SW_STAT\[(\d+)\]$")
+  _XZ_TARGET_PATTERN = re.compile(r"^xz_position_target\[(\d+)\]$")
 
   _MACHINE_SW_ASSUMPTIONS = [
     "Z retract/extend sensors are derived from Z axis position and nominal front/back limits.",
@@ -348,6 +349,13 @@ class SimulatedPLC(PLC):
       if not isinstance(value, (list, tuple)) or len(value) != 2:
         raise ValueError("xz_position_target must be a two-element sequence.")
       self._tagValues[tagName] = [float(value[0]), float(value[1])]
+      return
+
+    xzTargetIndex = self._xzTargetIndex(tagName)
+    if xzTargetIndex is not None:
+      xzTarget = list(self._tagValues.get("xz_position_target", [0.0, 0.0]))
+      xzTarget[xzTargetIndex] = float(value)
+      self._tagValues["xz_position_target"] = xzTarget
       return
 
     if tagName == "xz_trigger_move":
@@ -681,11 +689,25 @@ class SimulatedPLC(PLC):
     if tagName == "Y_XFER_OK":
       return self._readTagValue("MACHINE_SW_STAT[17]")
 
+    xzTargetIndex = self._xzTargetIndex(tagName)
+    if xzTargetIndex is not None:
+      return self._tagValues.get("xz_position_target", [0.0, 0.0])[xzTargetIndex]
+
     bitIndex = self._machineBitIndex(tagName)
     if bitIndex is not None:
       return self._deriveMachineSwitchBit(bitIndex)
 
     return 0
+
+  # ---------------------------------------------------------------------
+  def _xzTargetIndex(self, tagName):
+    match = self._XZ_TARGET_PATTERN.match(tagName)
+    if match is None:
+      return None
+    index = int(match.group(1))
+    if index not in (0, 1):
+      raise ValueError("xz_position_target index must be 0 or 1.")
+    return index
 
   # ---------------------------------------------------------------------
   def _deriveMachineSwitchBit(self, bitIndex: int):
