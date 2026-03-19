@@ -111,6 +111,10 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertTrue(result["ok"])
       result = service.setTransferPause(False)
       self.assertTrue(result["ok"])
+      result = service.setPullIn("Y_PULL_IN", 82.5)
+      self.assertTrue(result["ok"])
+      result = service.setPullIn("X_PULL_IN", 91.5)
+      self.assertTrue(result["ok"])
 
       draftPath = os.path.join(process.workspace.getPath(), "TemplateRecipe", "V_Draft.json")
       self.assertTrue(os.path.isfile(draftPath))
@@ -119,6 +123,8 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       state = restarted.getState()
       self.assertAlmostEqual(state["offsets"]["head_a_corner"], -2.5, places=6)
       self.assertFalse(state["transferPause"])
+      self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 82.5, places=6)
+      self.assertAlmostEqual(state["pullIns"]["X_PULL_IN"], 91.5, places=6)
       self.assertTrue(state["dirty"])
 
   def test_u_and_v_drafts_use_separate_files(self):
