@@ -11,6 +11,8 @@ from .plc import PLC
 
 
 class SimulatedPLC(PLC):
+  MOVE_TRIGGER_XZ = "xz_trigger_move"
+
   STATE_INIT = 0
   STATE_READY = 1
   STATE_XY_JOG = 2
@@ -261,6 +263,8 @@ class SimulatedPLC(PLC):
     self._tagValues["tension"] = 0.0
     self._tagValues["v_xyz"] = 0.0
     self._tagValues["tension_motor_cv"] = 0.0
+    self._tagValues["xz_mclm_position"] = [0.0, 0.0]
+    self._tagValues["xz_trigger_move"] = 0
 
     self._tagValues["MORE_STATS_S[0]"] = 1
     self._tagValues["IncomingSeg"] = {}
@@ -340,6 +344,19 @@ class SimulatedPLC(PLC):
       self._tagValues[tagName] = intValue
       return
 
+    if tagName == "xz_mclm_position":
+      if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError("xz_mclm_position must be a two-element sequence.")
+      self._tagValues[tagName] = [float(value[0]), float(value[1])]
+      return
+
+    if tagName == "xz_trigger_move":
+      enabled = self._coerceBit(value)
+      self._tagValues[tagName] = enabled
+      if enabled:
+        self._startXzMove()
+      return
+
     if tagName in ("STATE", "ERROR_CODE"):
       self._tagValues[tagName] = int(value)
       return
@@ -367,6 +384,17 @@ class SimulatedPLC(PLC):
     self._setAxisMovement(True)
 
   # ---------------------------------------------------------------------
+  def _startXzMove(self):
+    if not bool(self._readTagValue("MACHINE_SW_STAT[17]")):
+      self._setError(5003)
+      return
+
+    self._tagValues["STATE"] = self.STATE_Z_SEEK
+    self._pendingMoveType = self.MOVE_TRIGGER_XZ
+    self._settleCyclesRemaining = 1
+    self._setAxisMovement(True)
+
+  # ---------------------------------------------------------------------
   def _advanceCycle(self):
     self._cycle += 1
     self._advanceQueuedMotion()
@@ -383,7 +411,23 @@ class SimulatedPLC(PLC):
     self._pendingMoveType = None
     self._setAxisMovement(False)
 
-    if moveType == self.MOVE_SEEK_XY:
+    if moveType == self.MOVE_TRIGGER_XZ:
+      xTarget, zTarget = self._tagValues.get("xz_mclm_position", [0.0, 0.0])
+      xTarget = float(xTarget)
+      zTarget = float(zTarget)
+      if self._isXYLimitViolation(xTarget, float(self._tagValues["Y_axis.ActualPosition"])):
+        self._setError(3003)
+        return
+      if self._isZLimitViolation(zTarget):
+        self._setError(5003)
+        return
+      if not bool(self._readTagValue("MACHINE_SW_STAT[17]")):
+        self._setError(5003)
+        return
+      self._tagValues["X_axis.ActualPosition"] = xTarget
+      self._tagValues["Z_axis.ActualPosition"] = zTarget
+
+    elif moveType == self.MOVE_SEEK_XY:
       xTarget = float(self._tagValues.get("X_POSITION", self._tagValues["X_axis.ActualPosition"]))
       yTarget = float(self._tagValues.get("Y_POSITION", self._tagValues["Y_axis.ActualPosition"]))
       if self._isXYLimitViolation(xTarget, yTarget):
@@ -451,6 +495,10 @@ class SimulatedPLC(PLC):
       self._tagValues["X_axis.ActualVelocity"] = self._signedSpeed("X_SPEED", "X_DIR")
       self._tagValues["Y_axis.ActualVelocity"] = self._signedSpeed("Y_SPEED", "Y_DIR")
       self._tagValues["Z_axis.ActualVelocity"] = 0.0
+    elif isMoving and self._pendingMoveType == self.MOVE_TRIGGER_XZ:
+      self._tagValues["X_axis.ActualVelocity"] = 1.0
+      self._tagValues["Y_axis.ActualVelocity"] = 0.0
+      self._tagValues["Z_axis.ActualVelocity"] = 1.0
     elif isMoving and self._pendingMoveType in (self.MOVE_JOG_Z, self.MOVE_SEEK_Z):
       self._tagValues["X_axis.ActualVelocity"] = 0.0
       self._tagValues["Y_axis.ActualVelocity"] = 0.0

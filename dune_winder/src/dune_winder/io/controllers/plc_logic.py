@@ -191,6 +191,27 @@ class PLC_Logic:
     self._moveType.set(self.MoveTypes.SEEK_Z)
 
   # ---------------------------------------------------------------------
+  def setXZ_Position(self, x, z, velocity=None):
+    """
+    Move in the X/Z plane using the PLC transfer-motion interface.
+
+    Args:
+      x: Position to seek in x-axis (in millimeters).
+      z: Position to seek in z-axis (in millimeters).
+      velocity: Reserved for interface compatibility. Ignored by the PLC
+        transfer-motion command.
+    """
+    del velocity
+
+    self._yTransferOk.poll()
+    if not bool(self._yTransferOk.get()):
+      raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
+
+    self._xzMclmPosition.set([float(x), float(z)])
+    self._xzTriggerMove.set(1)
+    self._xzTriggerMove.set(0)
+
+  # ---------------------------------------------------------------------
   def jogZ(self, velocity):
     """
     Jog the Z axis at a given velocity.
@@ -425,6 +446,7 @@ class PLC_Logic:
     self._headLatchState = PLC.Tag(plc, "HEAD_POS", attributes, tagType="DINT")
     self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS",attributes, tagType="DINT")
     self._moveType = PLC.Tag(plc, "MOVE_TYPE",attributes, tagType="INT")
+    self._yTransferOk = PLC.Tag(plc, "MACHINE_SW_STAT[17]", attributes, tagType="DINT")
 
     self._maxXY_Velocity = PLC.Tag(plc, "XY_SPEED", tagType="REAL")
     self._maxXY_Acceleration = PLC.Tag(plc, "XY_ACCELERATION", tagType="REAL")
@@ -432,6 +454,11 @@ class PLC_Logic:
     self._maxZ_Velocity = PLC.Tag(plc, "Z_SPEED", tagType="REAL")
     self._maxZ_Acceleration = PLC.Tag(plc, "Z_ACCELERATION", tagType="REAL")
     self._maxZ_Deceleration = PLC.Tag(plc, "Z_DECELLERATION", tagType="REAL")
+
+    writeOnly = PLC.Tag.Attributes()
+    writeOnly.canRead = False
+    self._xzMclmPosition = PLC.Tag(plc, "xz_mclm_position", writeOnly, tagType="REAL[2]")
+    self._xzTriggerMove = PLC.Tag(plc, "xz_trigger_move", writeOnly, tagType="BOOL")
 
     self._velocity = 0.0
     self._maxAcceleration = 0

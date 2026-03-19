@@ -77,6 +77,9 @@ class GCodeHandlerBase:
       "_instruction_request_head": self._instruction_request_head,
       "_instruction_request_latch": self._instruction_request_latch,
       "_instruction_request_stop": self._instruction_request_stop,
+      "_instruction_contains_x": self._instruction_contains_x,
+      "_instruction_contains_y": self._instruction_contains_y,
+      "_instruction_contains_z": self._instruction_contains_z,
       "_instruction_queue_merge_mode": self._instruction_queue_merge_mode,
       "_line": self._line,
       "_delay": self._delay,
@@ -97,16 +100,19 @@ class GCodeHandlerBase:
   # ---------------------------------------------------------------------
   def _consume_command_word(self, command: CommandWord):
     if command.letter == "X":
+      self._instruction_contains_x = True
       self._x = float(command.value)
       self._request_xy_move()
       return
 
     if command.letter == "Y":
+      self._instruction_contains_y = True
       self._y = float(command.value)
       self._request_xy_move()
       return
 
     if command.letter == "Z":
+      self._instruction_contains_z = True
       self._z = float(command.value)
       self._request_z_move()
       return
@@ -123,6 +129,16 @@ class GCodeHandlerBase:
 
   # ---------------------------------------------------------------------
   def _queue_instruction_actions(self):
+    if (
+      self._instruction_request_xy
+      and self._instruction_request_z
+      and self._instruction_contains_x
+      and not self._instruction_contains_y
+      and self._instruction_contains_z
+    ):
+      self._pending_actions.append("xz")
+      return
+
     if self._instruction_request_xy:
       self._pending_actions.append("xy")
 
@@ -146,6 +162,9 @@ class GCodeHandlerBase:
     self._instruction_request_head = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
+    self._instruction_contains_x = False
+    self._instruction_contains_y = False
+    self._instruction_contains_z = False
     self._instruction_queue_merge_mode = None
 
     for item in line.items:
@@ -733,6 +752,9 @@ class GCodeHandlerBase:
     self._instruction_request_head = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
+    self._instruction_contains_x = False
+    self._instruction_contains_y = False
+    self._instruction_contains_z = False
     self._instruction_queue_merge_mode = None
 
     # Current line number.
