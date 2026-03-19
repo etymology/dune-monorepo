@@ -450,6 +450,7 @@ class GCodeHandler(GCodeHandlerBase):
       accel, decel = self._queued_motion_accel_limits()
       jerk_accel, jerk_decel = self._queued_motion_jerk_limits()
       safety_limits = self._motion_safety_limits()
+      v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
       waypoints = [
         MergeWaypoint(
           line_index=preview.line_index,
@@ -472,10 +473,11 @@ class GCodeHandler(GCodeHandlerBase):
         min_arc_radius=self._queued_motion_min_turning_radius(),
         safety_limits=safety_limits,
         queued_motion_collision_state=self._queued_motion_collision_state(),
+        v_x_max=v_x_max,
+        v_y_max=v_y_max,
       )
       if not segments:
         return None
-      v_x_max, v_y_max = self._queued_motion_axis_velocity_limits()
       segments = cap_segments_speed_by_axis_velocity(
         segments=segments,
         v_x_max=v_x_max,

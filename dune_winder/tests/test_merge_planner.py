@@ -95,6 +95,35 @@ class MergePlannerTests(unittest.TestCase):
     radius = ((segments[0].x - first_arc.via_center_x) ** 2 + (segments[0].y - first_arc.via_center_y) ** 2) ** 0.5
     self.assertGreater(radius, 70.0)
 
+  def test_seeds_fillets_from_axis_limited_corner_speed(self):
+    segments = build_merge_path_segments(
+      start_xy=(0.0, 0.0),
+      waypoints=_waypoints([(600.0, 0.0), (600.0, 600.0)]),
+      start_seq=100,
+      speed=900.0,
+      accel=5000.0,
+      decel=5000.0,
+      jerk_accel=1000.0,
+      jerk_decel=1000.0,
+      min_arc_radius=10.0,
+      safety_limits=_permissive_limits(),
+      v_x_max=900.0,
+      v_y_max=400.0,
+    )
+
+    self.assertEqual(
+      [seg.seg_type for seg in segments],
+      [SEG_TYPE_LINE, SEG_TYPE_CIRCLE, SEG_TYPE_LINE],
+    )
+    self.assertAlmostEqual(segments[0].speed, 900.0, places=6)
+    self.assertAlmostEqual(segments[1].speed, 400.0, places=6)
+    self.assertGreater(segments[2].speed, segments[1].speed)
+
+    first_arc = segments[1]
+    radius = ((segments[0].x - first_arc.via_center_x) ** 2 + (segments[0].y - first_arc.via_center_y) ** 2) ** 0.5
+    self.assertGreater(radius, 250.0)
+    self.assertLess(radius, 300.0)
+
   def test_falls_back_to_precise_stop_lines_when_filleted_path_is_impossible(self):
     segments = build_merge_path_segments(
       start_xy=(0.0, 0.0),
