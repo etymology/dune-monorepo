@@ -44,6 +44,11 @@ function VTemplate( modules )
     { key: "bottom_b_head_end", label: "Bottom B / head end" }
   ]
 
+  var vPullInSpecs = [
+    { key: "Y_PULL_IN", label: "Y Pull-In" },
+    { key: "X_PULL_IN", label: "X Pull-In" }
+  ]
+
   var uFieldSpecs = [
     { key: "top_b_foot_end", label: "Top B / foot end" },
     { key: "top_a_foot_end", label: "Top A / foot end" },
@@ -269,7 +274,7 @@ function VTemplate( modules )
       setControlsDisabled( "#gCodeGenerationVCard", true )
       setNotes(
         [
-          "Edit the 12 V offsets and transition options after the V generator state finishes loading.",
+          "Edit the 12 V offsets, V pull-in distances, and transition options after the V generator state finishes loading.",
           "Generation writes the live V-layer.gc file for the active APA."
         ]
       )
@@ -282,6 +287,15 @@ function VTemplate( modules )
       setFieldValueIfIdle(
         "#gCodeGenerationV_" + field.key,
         formatInputNumber( state.offsets[ field.key ], 3 )
+      )
+    }
+
+    for ( var pullInIndex in vPullInSpecs )
+    {
+      var pullInField = vPullInSpecs[ pullInIndex ]
+      setFieldValueIfIdle(
+        "#gCodeGenerationVPullIn_" + pullInField.key,
+        formatInputNumber( state.pullIns[ pullInField.key ], 3 )
       )
     }
 
@@ -309,7 +323,7 @@ function VTemplate( modules )
 
     setNotes(
       [
-        "Adjust the 12 V offsets plus optional transfer pause and include-lead-mode, then generate the live V-layer.gc file.",
+        "Adjust the 12 V offsets, V pull-in distances, and optional transfer pause and include-lead-mode, then generate the live V-layer.gc file.",
         "The generated recipe includes N-line numbering and wrap-level identifiers on each emitted line.",
         "The header hash updates each time the file is regenerated."
       ]
@@ -800,6 +814,29 @@ function VTemplate( modules )
     )
   }
 
+  function applyVPullInInput( pullInId )
+  {
+    if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
+      return
+
+    var value = parseFloat( $( "#gCodeGenerationVPullIn_" + pullInId ).val() )
+    if ( isNaN( value ) )
+    {
+      refreshVStateOnce()
+      return
+    }
+
+    pageAction
+    (
+      commands.process.vTemplateSetPullIn,
+      { pull_in_id: pullInId, value: value },
+      function()
+      {
+        refreshVStateOnce()
+      }
+    )
+  }
+
   function applyVTransferPause()
   {
     if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
@@ -982,6 +1019,11 @@ function VTemplate( modules )
   }
 
   buildOffsetFields( "#gCodeGenerationVFieldGrid", vFieldSpecs, "gCodeGenerationV_" )
+  buildOffsetFields(
+    "#gCodeGenerationVPullInGrid",
+    vPullInSpecs,
+    "gCodeGenerationVPullIn_"
+  )
   buildOffsetFields( "#gCodeGenerationUFieldGrid", uFieldSpecs, "gCodeGenerationU_" )
   buildOffsetFields(
     "#gCodeGenerationUPullInGrid",
@@ -1003,6 +1045,22 @@ function VTemplate( modules )
           )
       }
     )( vFieldSpecs[ index ].key )
+  }
+
+  for ( var vPullInIndex in vPullInSpecs )
+  {
+    ( function( pullInId )
+      {
+        $( "#gCodeGenerationVPullIn_" + pullInId )
+          .change
+          (
+            function()
+            {
+              applyVPullInInput( pullInId )
+            }
+          )
+      }
+    )( vPullInSpecs[ vPullInIndex ].key )
   }
 
   for ( var gxIndex in gxOffsetSpecs )

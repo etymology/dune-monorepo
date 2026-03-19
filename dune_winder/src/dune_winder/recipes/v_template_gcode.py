@@ -37,6 +37,17 @@ PIN_SPAN = PIN_MAX - PIN_MIN + 1
 DEFAULT_OFFSETS = (0.0,) * 12
 DEFAULT_V_TEMPLATE_WORKBOOK = None
 DEFAULT_V_TEMPLATE_SHEET = None
+PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN")
+DEFAULT_PULL_INS = {
+  "Y_PULL_IN": Y_PULL_IN,
+  "X_PULL_IN": X_PULL_IN,
+}
+PULL_IN_NAME_ALIASES = {
+  "Y_PULL_IN": "Y_PULL_IN",
+  "X_PULL_IN": "X_PULL_IN",
+  "y_pull_in": "Y_PULL_IN",
+  "x_pull_in": "X_PULL_IN",
+}
 
 OFFSET_IDS = (
   "top_b_foot_end",
@@ -194,9 +205,22 @@ def _coerce_offsets(value):
   )
 
 
-def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode):
+def _apply_pull_in_input(key, value, pull_ins):
+  pull_in_id = PULL_IN_NAME_ALIASES.get(key)
+  if pull_in_id is None:
+    return False
+  pull_ins[pull_in_id] = _coerce_number(value)
+  return True
+
+
+def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode, pull_ins):
+  filtered_named_inputs = {}
+  for key, value in (named_inputs or {}).items():
+    if _apply_pull_in_input(key, value, pull_ins):
+      continue
+    filtered_named_inputs[key] = value
   return template_gcode_common.apply_named_input(
-    named_inputs,
+    filtered_named_inputs,
     offsets,
     transfer_pause,
     include_lead_mode,
@@ -209,9 +233,14 @@ def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode)
   )
 
 
-def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_mode):
+def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_mode, pull_ins):
+  filtered_special_inputs = {}
+  for key, value in (special_inputs or {}).items():
+    if _apply_pull_in_input(key, value, pull_ins):
+      continue
+    filtered_special_inputs[key] = value
   return template_gcode_common.apply_special_input(
-    special_inputs,
+    filtered_special_inputs,
     offsets,
     transfer_pause,
     include_lead_mode,
@@ -226,18 +255,30 @@ def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_m
 
 
 def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
-  return template_gcode_common.resolve_options(
-    named_inputs=named_inputs,
-    special_inputs=special_inputs,
-    cell_overrides=cell_overrides,
-    default_offsets=DEFAULT_OFFSETS,
-    apply_named_input_fn=_apply_named_input,
-    apply_special_input_fn=_apply_special_input,
-    error_type=VTemplateInputError,
-    cell_overrides_error_message=(
+  if cell_overrides:
+    raise VTemplateInputError(
       "Cell overrides are not supported by the programmatic V generator."
-    ),
+    )
+
+  offsets = list(DEFAULT_OFFSETS)
+  transfer_pause = False
+  include_lead_mode = False
+  pull_ins = dict(DEFAULT_PULL_INS)
+  transfer_pause, include_lead_mode = _apply_named_input(
+    named_inputs,
+    offsets,
+    transfer_pause,
+    include_lead_mode,
+    pull_ins,
   )
+  transfer_pause, include_lead_mode = _apply_special_input(
+    special_inputs,
+    offsets,
+    transfer_pause,
+    include_lead_mode,
+    pull_ins,
+  )
+  return offsets, transfer_pause, include_lead_mode, pull_ins
 
 
 def _resolve_render_state(
@@ -249,16 +290,21 @@ def _resolve_render_state(
   special_inputs=None,
   cell_overrides=None,
 ):
-  return template_gcode_common.resolve_render_state(
-    offsets=offsets,
-    transfer_pause=transfer_pause,
-    include_lead_mode=include_lead_mode,
-    named_inputs=named_inputs,
-    special_inputs=special_inputs,
-    cell_overrides=cell_overrides,
-    resolve_options_fn=_resolve_options,
-    coerce_offsets_fn=_coerce_offsets,
-    coerce_bool_fn=_coerce_bool,
+  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode, resolved_pull_ins = (
+    _resolve_options(
+      named_inputs=named_inputs,
+      special_inputs=special_inputs,
+      cell_overrides=cell_overrides,
+    )
+  )
+  if offsets is not None:
+    for index, value in enumerate(_coerce_offsets(offsets)):
+      resolved_offsets[index] = value
+  return (
+    resolved_offsets,
+    (_coerce_bool(transfer_pause) or resolved_transfer_pause),
+    (_coerce_bool(include_lead_mode) or resolved_include_lead_mode),
+    resolved_pull_ins,
   )
 
 
@@ -283,6 +329,7 @@ def _render_wrap_lines(
   offsets,
   transfer_pause,
   include_lead_mode,
+  pull_ins,
   final_wrap=False,
 ):
   lines = []
@@ -309,8 +356,8 @@ def _render_wrap_lines(
     "offset": _offset_fragment,
     "near_comb": _near_comb,
     "g106": _g106,
-    "Y_PULL_IN": Y_PULL_IN,
-    "X_PULL_IN": X_PULL_IN,
+    "Y_PULL_IN": pull_ins["Y_PULL_IN"],
+    "X_PULL_IN": pull_ins["X_PULL_IN"],
     "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
   }
 
@@ -344,7 +391,7 @@ def render_v_template_lines(
   special_inputs=None,
   cell_overrides=None,
 ):
-  resolved_offsets, transfer_pause_value, include_lead_mode_value = (
+  resolved_offsets, transfer_pause_value, include_lead_mode_value, pull_ins = (
     _resolve_render_state(
       offsets=offsets,
       transfer_pause=transfer_pause,
@@ -379,6 +426,7 @@ def render_v_template_lines(
         resolved_offsets,
         transfer_pause_value,
         include_lead_mode_value,
+        pull_ins,
       )
     )
 
@@ -388,6 +436,7 @@ def render_v_template_lines(
       resolved_offsets,
       transfer_pause_value,
       include_lead_mode_value,
+      pull_ins,
       final_wrap=True,
     )
   )
@@ -500,7 +549,7 @@ def write_v_template_file(
   archive_directory=None,
   parent_hash=None,
 ):
-  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode = (
+  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode, resolved_pull_ins = (
     _resolve_render_state(
       offsets=offsets,
       transfer_pause=transfer_pause,
@@ -532,6 +581,7 @@ def write_v_template_file(
     "offsets": list(resolved_offsets),
     "transferPause": resolved_transfer_pause,
     "includeLeadMode": resolved_include_lead_mode,
+    "pullIns": dict(resolved_pull_ins),
     "wrapCount": WRAP_COUNT,
   }
 
@@ -546,7 +596,7 @@ class VTemplateProgrammaticGenerator:
     special_inputs=None,
   ):
     _ = sheet_path
-    self.offsets, self.transfer_pause, self.include_lead_mode = _resolve_options(
+    self.offsets, self.transfer_pause, self.include_lead_mode, self.pull_ins = _resolve_options(
       named_inputs=named_inputs,
       special_inputs=special_inputs,
       cell_overrides=cell_overrides,
@@ -555,6 +605,7 @@ class VTemplateProgrammaticGenerator:
       offsets=self.offsets,
       transfer_pause=self.transfer_pause,
       include_lead_mode=self.include_lead_mode,
+      named_inputs=self.pull_ins,
     )
 
   def render_lines(self):
@@ -573,6 +624,10 @@ class VTemplateProgrammaticGenerator:
       "pause at combs": self.transfer_pause,
       "includeLeadMode": self.include_lead_mode,
       "include lead mode": self.include_lead_mode,
+      "Y_PULL_IN": self.pull_ins["Y_PULL_IN"],
+      "X_PULL_IN": self.pull_ins["X_PULL_IN"],
+      "y_pull_in": self.pull_ins["Y_PULL_IN"],
+      "x_pull_in": self.pull_ins["X_PULL_IN"],
     }
     for index, offset_id in enumerate(OFFSET_IDS):
       values[offset_id] = self.offsets[index]
