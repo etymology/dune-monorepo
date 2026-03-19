@@ -332,7 +332,7 @@ class GCodeHandler(GCodeHandlerBase):
     return motion_safety_limits_from_calibration(self._machineCalibration)
 
   # ---------------------------------------------------------------------
-  def _set_xy_safety_error(self, message: str):
+  def _set_gcode_error(self, message: str):
     self._isG_CodeError = True
     self._isG_CodeErrorMessage = str(message)
     if (
@@ -345,6 +345,29 @@ class GCodeHandler(GCodeHandlerBase):
       self._isG_CodeErrorData = []
     self._pending_actions = []
     self._pending_stop_request = False
+
+  # ---------------------------------------------------------------------
+  def _set_xy_safety_error(self, message: str):
+    self._set_gcode_error(message)
+
+  # ---------------------------------------------------------------------
+  def _z_motion_limits(self):
+    try:
+      z_front = self._machineCalibration.get("zLimitFront")
+    except Exception:
+      z_front = None
+
+    try:
+      z_rear = self._machineCalibration.get("zLimitRear")
+    except Exception:
+      z_rear = None
+
+    if z_front is None:
+      z_front = getattr(self._machineCalibration, "zLimitFront", 0.0)
+    if z_rear is None:
+      z_rear = getattr(self._machineCalibration, "zLimitRear", 0.0)
+
+    return (float(z_front), float(z_rear))
 
   # ---------------------------------------------------------------------
   def _actual_xy(self):
@@ -805,6 +828,34 @@ class GCodeHandler(GCodeHandlerBase):
         elif action == "z":
           self._io.plcLogic.setZ_Position(self._z, velocity)
           moving = True
+        elif action == "xz":
+          target_x = float(self._x)
+          target_z = float(self._z)
+          x_limits = self._motion_safety_limits()
+          z_front, z_rear = self._z_motion_limits()
+          if target_x < x_limits.limit_left or target_x > x_limits.limit_right:
+            self._set_gcode_error(
+              "XZ move target X out of bounds ["
+              + str(x_limits.limit_left)
+              + ", "
+              + str(x_limits.limit_right)
+              + "]."
+            )
+          elif target_z < z_front or target_z > z_rear:
+            self._set_gcode_error(
+              "XZ move target Z out of bounds ["
+              + str(z_front)
+              + ", "
+              + str(z_rear)
+              + "]."
+            )
+          else:
+            try:
+              self._io.plcLogic.setXZ_Position(target_x, target_z, velocity)
+            except ValueError as exception:
+              self._set_gcode_error(str(exception))
+            else:
+              moving = True
         elif action == "head":
           self._io.head.setHeadPosition(self._headPosition, velocity)
           moving = True

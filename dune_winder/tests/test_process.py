@@ -2,7 +2,7 @@ import unittest
 
 from dune_winder.core.control_events import ManualModeEvent
 from dune_winder.core.process import Process
-from dune_winder.io.Primitives.digital_input import DigitalInput
+from dune_winder.io.primitives.digital_input import DigitalInput
 
 
 class FakeAxis:
@@ -241,6 +241,24 @@ class ProcessManualGCodeTests(unittest.TestCase):
     process._headwardPivotY = 1400.0
     process._headwardPivotXTolerance = 150.0
     process._headwardPivotYTolerance = 300.0
+    process._transferLeftMargin = 10.0
+    process._transferYThreshold = 1000.0
+    process._queuedMotionZCollisionThreshold = 100.0
+    process._arcMaxStepRad = 0.05235987755982989
+    process._arcMaxChord = 5.0
+    process._apaCollisionBottomY = 50.0
+    process._apaCollisionTopY = 2250.0
+    process._transferZoneHeadMinX = 400.0
+    process._transferZoneHeadMaxX = 500.0
+    process._transferZoneFootMinX = 7100.0
+    process._transferZoneFootMaxX = 7200.0
+    process._supportCollisionBottomMinY = 80.0
+    process._supportCollisionBottomMaxY = 450.0
+    process._supportCollisionMiddleMinY = 1050.0
+    process._supportCollisionMiddleMaxY = 1550.0
+    process._supportCollisionTopMinY = 2200.0
+    process._supportCollisionTopMaxY = 2650.0
+    process._geometryEpsilon = 1e-9
     process._maxVelocity = 300.0
 
     return process
@@ -271,6 +289,14 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["F120"])
+
+  def test_execute_manual_gcode_accepts_xz_move(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("X4 Z6")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["X4 Z6"])
 
   def test_execute_manual_gcode_accepts_four_digit_feed(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)

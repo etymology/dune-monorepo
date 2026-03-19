@@ -64,6 +64,29 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)
 
+  def test_xz_trigger_move_updates_x_and_z_when_y_transfer_ok(self):
+    plc = SimulatedPLC()
+    plc.write(("xz_mclm_position", [321.0, 210.5]))
+    plc.write(("xz_trigger_move", 1))
+
+    self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_Z_SEEK)
+    self._settle_once(plc)
+
+    self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 321.0, places=6)
+    self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 210.5, places=6)
+
+  def test_xz_trigger_move_sets_error_when_y_transfer_not_ok(self):
+    plc = SimulatedPLC()
+    plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
+    plc.write(("xz_mclm_position", [321.0, 210.5]))
+    plc.write(("xz_trigger_move", 1))
+
+    self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
+    self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 0.0, places=6)
+    self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
+
   def test_derived_machine_bits_support_override_precedence(self):
     plc = SimulatedPLC()
     plc.set_tag("HEAD_POS", 3)

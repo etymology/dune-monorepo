@@ -33,12 +33,14 @@ class _Input:
 
 
 class _QueuedMotionPLCLogic:
-  def __init__(self, queued_motion=None):
+  def __init__(self, queued_motion=None, y_transfer_ok=True):
     self._maxAcceleration = 2000.0
     self._maxDeceleration = 2000.0
     self._velocity = 1000.0
+    self.y_transfer_ok = bool(y_transfer_ok)
     self.queuedMotion = object() if queued_motion is None else queued_motion
     self.legacy_xy_moves = []
+    self.xz_moves = []
     self.stop_seek_calls = 0
 
   def isReady(self):
@@ -49,6 +51,11 @@ class _QueuedMotionPLCLogic:
 
   def setZ_Position(self, z, velocity=None):
     raise AssertionError("Unexpected Z move")
+
+  def setXZ_Position(self, x, z, velocity=None):
+    if not self.y_transfer_ok:
+      raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
+    self.xz_moves.append((float(x), float(z), velocity))
 
   def move_latch(self):
     raise AssertionError("Unexpected latch move")
@@ -96,12 +103,15 @@ class _Head:
 
 
 class _IO:
-  def __init__(self, x, y, z=0.0, plc_logic=None, **locks):
+  def __init__(self, x, y, z=0.0, plc_logic=None, y_transfer_ok=True, **locks):
     self.xAxis = _Axis(x)
     self.yAxis = _Axis(y)
     self.zAxis = _Axis(z)
-    self.plcLogic = _QueuedMotionPLCLogic() if plc_logic is None else plc_logic
+    self.plcLogic = (
+      _QueuedMotionPLCLogic(y_transfer_ok=y_transfer_ok) if plc_logic is None else plc_logic
+    )
     self.head = _Head()
+    self.Y_Transfer_OK = _Input(y_transfer_ok)
     self.FrameLockHeadTop = _Input(locks.get("frame_lock_head_top", False))
     self.FrameLockHeadMid = _Input(locks.get("frame_lock_head_mid", False))
     self.FrameLockHeadBtm = _Input(locks.get("frame_lock_head_btm", False))
@@ -127,6 +137,7 @@ class _RuntimeQueuedMotionIO:
     self.zAxis = _PLCTagAxis(plc, "Z_axis.ActualPosition")
     self.plcLogic = plc_logic
     self.head = _Head()
+    self.Y_Transfer_OK = _Input(bool(plc.get_tag("MACHINE_SW_STAT[17]")))
     self.FrameLockHeadTop = _Input(bool(plc.get_tag("MACHINE_SW_STAT[26]")))
     self.FrameLockHeadMid = _Input(bool(plc.get_tag("MACHINE_SW_STAT[27]")))
     self.FrameLockHeadBtm = _Input(bool(plc.get_tag("MACHINE_SW_STAT[28]")))
@@ -565,6 +576,31 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertIsNone(handler.getQueuedMotionPreview())
     self.assertEqual(handler._currentLine, 0)
     self.assertEqual(handler._nextLine, -1)
+
+  def test_execute_manual_line_routes_xz_move_through_plc_logic(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0, z=50.0), calibration, WirePathModel(calibration))
+
+    error = handler.executeG_CodeLine("X500 Z200")
+
+    self.assertIsNone(error)
+    self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
+    self.assertEqual(handler._io.plcLogic.xz_moves[0][:2], (500.0, 200.0))
+    self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+
+  def test_execute_manual_line_rejects_xz_move_when_y_transfer_not_ok(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(
+      _IO(400.0, 100.0, z=50.0, y_transfer_ok=False),
+      calibration,
+      WirePathModel(calibration),
+    )
+
+    error = handler.executeG_CodeLine("X500 Z200")
+
+    self.assertIsNotNone(error)
+    self.assertIn("Y_Transfer_OK", error["message"])
+    self.assertEqual(handler._io.plcLogic.xz_moves, [])
 
   def test_sub_resolution_xy_move_is_treated_as_noop(self):
     calibration = self._z_collision_calibration()

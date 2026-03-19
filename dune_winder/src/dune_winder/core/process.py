@@ -1399,15 +1399,21 @@ class Process:
       fx = r"(\ *[F]\d{1,4}\ *[X]\d{1,4}(\.\d{1,2})?\ *$)"  # 'F1234 X1234'
       yf = r"(\ *[Y]\d{1,4}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"  # 'Y1234 F1234'
       fy = r"(\ *[F]\d{1,4}\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"  # 'F1234 Y1234'
+      xz = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"  # 'X1234 Z123'
+      xzf = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"  # 'X1234 Z123 F1234'
+      fxz = r"(\ *[F]\d{1,4}\ *[X]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"  # 'F1234 X1234 Z123'
       f_only = r"(\ *[F]\d{1,4}(\.\d{1,2})?\ *$)"  # 'F1234', 'F1234.45'
       gxyf = r"(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"  # 'G105 PX123 F1234','G105 PY123 F1234'
       gx_yf = r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"  # 'G105  PX123 PY123 F1234'
       gp = r"(\ *[G]106\ *P[0123]\ *$)"  # 'G106 P0', ..., 'G106 P4'
       z_move = r"(\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"  # 'Z123' , 'Z-123' , 'Z123.45'
       absoluteXYMovePattern = "|".join([xy, x_only, y_only, xyf, fxy, xf, fx, yf, fy])
+      absoluteXZMovePattern = "|".join([xz, xzf, fxz])
       relativeXYMovePattern = "|".join([gxy, gxyf, gx_y, gx_yf])
       if not re.match(
         absoluteXYMovePattern
+        + "|"
+        + absoluteXZMovePattern
         + "|"
         + relativeXYMovePattern
         + "|"
@@ -1432,10 +1438,11 @@ class Process:
       x = xPosition
       y = yPosition
       isXYMove = re.match(absoluteXYMovePattern + "|" + relativeXYMovePattern, line)
+      isXZMove = re.match(absoluteXZMovePattern, line)
       isRelativeXYMove = re.match(relativeXYMovePattern, line)
 
       for cmd in codeLineSplit:
-        if "X" in cmd and isXYMove:
+        if "X" in cmd and (isXYMove or isXZMove):
           xCmd = cmd.split("X")
           x = float(xCmd[1])
           if isRelativeXYMove:
@@ -1448,7 +1455,7 @@ class Process:
             y += yPosition
 
         if "F" in cmd and re.match(
-          "|".join([xyf, fxy, xf, fx, yf, fy, gxyf, gx_yf, f_only]),
+          "|".join([xyf, fxy, xf, fx, yf, fy, xzf, fxz, gxyf, gx_yf, f_only]),
           line,
         ):
           velocity = float(cmd.split("F")[1])
@@ -1459,7 +1466,7 @@ class Process:
               + "]"
             )
           
-        if "Z" in cmd and re.match(z_move, line) :
+        if "Z" in cmd and re.match("|".join([z_move, xz, xzf, fxz]), line):
           zCmd = cmd.split("Z")
           z_target = float(zCmd[1])
           if z_target < self._zlimitFront or z_target > self._zlimitRear:
@@ -1473,6 +1480,14 @@ class Process:
 
       if error is None and isXYMove:
         error = self._validate_xy_move_target(xPosition, yPosition, x, y)
+      elif error is None and isXZMove and (x < self._limitLeft or x > self._limitRight):
+        error = (
+          "Invalid X-axis Coordinates, exceeding limit ["
+          + str(self._limitLeft)
+          + " , "
+          + str(self._limitRight)
+          + "]"
+        )
 
       if error is not None:
         self._log.add(
