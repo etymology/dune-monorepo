@@ -52,7 +52,7 @@ class PLCLogicTests(unittest.TestCase):
       [
         ("xz_position_target[0]", 12.5),
         ("xz_position_target[1]", 34.5),
-        ("xz_trigger_move", 1),
+        ("xz_trigger_move", True),
       ],
     )
 
