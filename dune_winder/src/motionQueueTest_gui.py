@@ -57,6 +57,8 @@ POSITION_POLL_S = 0.20
 POSITION_ERROR_RETRY_S = 1.00
 DEFAULT_COMMAND_SPEED = 1000.0
 _START_POSITION_TOLERANCE_MM = 0.1
+_PLANNER_RADIUS_EPS = 1e-6
+_MAX_RADIUS_REPLAN_PASSES = 4
 
 
 def _open_plc_connection(path: str):
@@ -147,6 +149,35 @@ def _planned_speed_summary_text(
   if math.isclose(min_speed, max_speed, rel_tol=0.0, abs_tol=1e-9):
     return f"{requested_text} planned_speed={max_speed:.1f}"
   return f"{requested_text} planned_speed[min/max]={min_speed:.1f}/{max_speed:.1f}"
+
+
+def _segment_dynamic_min_radius(
+  seg: MotionSegment,
+  requested_min_arc_radius: float,
+) -> float:
+  accel_limit = min(float(seg.accel), float(seg.decel))
+  jerk_limit = min(float(seg.jerk_accel), float(seg.jerk_decel))
+  return dynamic_min_radius(
+    speed=float(seg.speed),
+    base_min_radius=requested_min_arc_radius,
+    accel_limit=accel_limit,
+    jerk_limit=jerk_limit,
+  )
+
+
+def _required_waypoint_min_arc_radius(
+  segments: list[MotionSegment],
+  requested_min_arc_radius: float,
+) -> float:
+  required_radius = max(0.0, float(requested_min_arc_radius))
+  for seg in segments:
+    if seg.seg_type != SEG_TYPE_CIRCLE:
+      continue
+    required_radius = max(
+      required_radius,
+      _segment_dynamic_min_radius(seg, requested_min_arc_radius),
+    )
+  return required_radius
 
 
 def _extract_plc_read_value(read_result, tag: str):
@@ -463,14 +494,7 @@ class WaypointPlannerApp(tk.Tk):
     for idx, seg in enumerate(segments, start=1):
       start_seg = MotionSegment(seq=seg.seq - 1, x=cursor_x, y=cursor_y)
       path_len = segment_path_length(start_seg, seg)
-      accel_limit = min(float(seg.accel), float(seg.decel))
-      jerk_limit = min(float(seg.jerk_accel), float(seg.jerk_decel))
-      dynamic_radius = dynamic_min_radius(
-        speed=float(seg.speed),
-        base_min_radius=requested_min_arc_radius,
-        accel_limit=accel_limit,
-        jerk_limit=jerk_limit,
-      )
+      dynamic_radius = _segment_dynamic_min_radius(seg, requested_min_arc_radius)
 
       arc_radius_text = "-"
       if seg.seg_type == SEG_TYPE_CIRCLE:
@@ -815,42 +839,65 @@ class WaypointPlannerApp(tk.Tk):
       if min_segment_length < 0.0:
         raise ValueError("Min segment length must be >= 0.")
 
-      segments = build_segments(
-        pattern="waypoint_path",
-        start_seq=100,
-        term_type=term_type,
-        lissajous_segments_count=LISSAJOUS_TESSELLATION_SEGMENTS,
-        min_segment_length=min_segment_length,
-        waypoint_points=planner_waypoints,
-        waypoint_min_arc_radius=min_arc_radius,
-        waypoint_order_mode=self.order_mode_var.get(),
-        waypoint_start_xy=effective_start_xy,
-        waypoint_bounds=(
-          self.safety_limits.limit_left,
-          self.safety_limits.limit_right,
-          self.safety_limits.limit_bottom,
-          self.safety_limits.limit_top,
-        ),
-        waypoint_allow_stops=self.allow_stops_var.get(),
-      )
-      segments = [replace(seg, speed=speed) for seg in segments]
-      effective_min_segment_length = min_segment_length
-
-      if self.constant_velocity_var.get():
-        segments, effective_min_segment_length, _, _ = tune_segments_for_constant_velocity(
-          segments=segments,
-          requested_min_segment_length=min_segment_length,
-          curvature_speed_safety=DEFAULT_CURVATURE_SPEED_SAFETY,
-          min_jerk_ratio=DEFAULT_MIN_JERK_RATIO,
-          max_segment_factor=DEFAULT_MAX_SEGMENT_FACTOR,
+      def build_planned_segments(
+        waypoint_min_arc_radius: float,
+      ) -> tuple[list[MotionSegment], float]:
+        planned_segments = build_segments(
+          pattern="waypoint_path",
+          start_seq=100,
+          term_type=term_type,
+          lissajous_segments_count=LISSAJOUS_TESSELLATION_SEGMENTS,
+          min_segment_length=min_segment_length,
+          waypoint_points=planner_waypoints,
+          waypoint_min_arc_radius=waypoint_min_arc_radius,
+          waypoint_order_mode=self.order_mode_var.get(),
+          waypoint_start_xy=effective_start_xy,
+          waypoint_bounds=(
+            self.safety_limits.limit_left,
+            self.safety_limits.limit_right,
+            self.safety_limits.limit_bottom,
+            self.safety_limits.limit_top,
+          ),
+          waypoint_allow_stops=self.allow_stops_var.get(),
         )
+        planned_segments = [replace(seg, speed=speed) for seg in planned_segments]
+        planned_min_segment_length = min_segment_length
 
-      segments = cap_segments_speed_by_axis_velocity(
-        segments=segments,
-        v_x_max=self.v_x_max,
-        v_y_max=self.v_y_max,
-        start_xy=effective_start_xy,
-      )
+        if self.constant_velocity_var.get():
+          planned_segments, planned_min_segment_length, _, _ = (
+            tune_segments_for_constant_velocity(
+              segments=planned_segments,
+              requested_min_segment_length=min_segment_length,
+              curvature_speed_safety=DEFAULT_CURVATURE_SPEED_SAFETY,
+              min_jerk_ratio=DEFAULT_MIN_JERK_RATIO,
+              max_segment_factor=DEFAULT_MAX_SEGMENT_FACTOR,
+            )
+          )
+
+        planned_segments = cap_segments_speed_by_axis_velocity(
+          segments=planned_segments,
+          v_x_max=self.v_x_max,
+          v_y_max=self.v_y_max,
+          start_xy=effective_start_xy,
+        )
+        return planned_segments, planned_min_segment_length
+
+      effective_waypoint_min_arc_radius = min_arc_radius
+      for _ in range(_MAX_RADIUS_REPLAN_PASSES):
+        segments, effective_min_segment_length = build_planned_segments(
+          effective_waypoint_min_arc_radius
+        )
+        required_waypoint_min_arc_radius = _required_waypoint_min_arc_radius(
+          segments,
+          min_arc_radius,
+        )
+        if (
+          required_waypoint_min_arc_radius
+          <= effective_waypoint_min_arc_radius + _PLANNER_RADIUS_EPS
+        ):
+          break
+        effective_waypoint_min_arc_radius = required_waypoint_min_arc_radius
+
       segments = apply_merge_term_types(
         segments=segments,
         start_xy=effective_start_xy,
