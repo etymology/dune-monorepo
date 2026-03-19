@@ -11,6 +11,8 @@ from typing import Optional
 
 from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
 from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
+from dune_winder.machine.settings import Settings
 
 from dune_winder.queued_motion import (
   DEFAULT_CONSTANT_VELOCITY_MODE,
@@ -82,6 +84,51 @@ def _effective_planner_start_xy(
   return (float(first_x), float(first_y))
 
 
+def _load_axis_velocity_limits(calibration_path: Optional[str]) -> tuple[float, float]:
+  if calibration_path:
+    path = calibration_path.strip()
+  else:
+    path = ""
+
+  if path:
+    from pathlib import Path
+
+    calibration_file = Path(path)
+    if calibration_file.is_dir():
+      output_path = str(calibration_file)
+      output_name = Settings.MACHINE_CALIBRATION_FILE
+    else:
+      output_path = str(calibration_file.parent)
+      output_name = calibration_file.name
+  else:
+    output_path = Settings.MACHINE_CALIBRATION_PATH
+    output_name = Settings.MACHINE_CALIBRATION_FILE
+
+  calibration = DefaultMachineCalibration(output_path, output_name)
+  v_x_max = calibration.get("v_x_max")
+  v_y_max = calibration.get("v_y_max")
+  return (
+    float(v_x_max if v_x_max is not None else DEFAULT_V_X_MAX),
+    float(v_y_max if v_y_max is not None else DEFAULT_V_Y_MAX),
+  )
+
+
+def _planned_speed_summary_text(
+  requested_speed: float,
+  segments: list[MotionSegment],
+) -> str:
+  if not segments:
+    return f"requested_speed={float(requested_speed):.1f}"
+
+  speeds = [float(seg.speed) for seg in segments]
+  min_speed = min(speeds)
+  max_speed = max(speeds)
+  requested_text = f"requested_speed={float(requested_speed):.1f}"
+  if math.isclose(min_speed, max_speed, rel_tol=0.0, abs_tol=1e-9):
+    return f"{requested_text} planned_speed={max_speed:.1f}"
+  return f"{requested_text} planned_speed[min/max]={min_speed:.1f}/{max_speed:.1f}"
+
+
 def _extract_plc_read_value(read_result, tag: str):
   if read_result is None:
     raise RuntimeError(f"{tag}: no response")
@@ -131,6 +178,7 @@ class WaypointPlannerApp(tk.Tk):
     self.minsize(1120, 700)
 
     self.safety_limits = load_motion_safety_limits(machine_calibration or None)
+    self.v_x_max, self.v_y_max = _load_axis_velocity_limits(machine_calibration or None)
     self.machine_calibration = machine_calibration
     self._plc_path = plc_path.strip()
     self.waypoints: list[tuple[float, float]] = []
@@ -249,7 +297,7 @@ class WaypointPlannerApp(tk.Tk):
         "Machine bounds: "
         f"X[{self.safety_limits.limit_left:.1f}, {self.safety_limits.limit_right:.1f}] "
         f"Y[{self.safety_limits.limit_bottom:.1f}, {self.safety_limits.limit_top:.1f}]\n"
-        f"Intrinsic caps: Vx={DEFAULT_V_X_MAX:.1f}, Vy={DEFAULT_V_Y_MAX:.1f}, "
+        f"Intrinsic caps: Vx={self.v_x_max:.1f}, Vy={self.v_y_max:.1f}, "
         f"QueueDepth={PLC_QUEUE_DEPTH}"
       ),
       wraplength=320,
@@ -791,8 +839,8 @@ class WaypointPlannerApp(tk.Tk):
 
       segments = cap_segments_speed_by_axis_velocity(
         segments=segments,
-        v_x_max=DEFAULT_V_X_MAX,
-        v_y_max=DEFAULT_V_Y_MAX,
+        v_x_max=self.v_x_max,
+        v_y_max=self.v_y_max,
         start_xy=effective_start_xy,
       )
       segments = apply_merge_term_types(
@@ -825,7 +873,7 @@ class WaypointPlannerApp(tk.Tk):
       f"segments={len(segments)} "
       f"line/circle={line_count}/{circle_count} "
       f"path_length={total_length:.1f} "
-      f"speed={speed:.1f} "
+      f"{_planned_speed_summary_text(speed, segments)} "
       f"effective_min_segment_length={effective_min_segment_length:.2f}"
     )
 
