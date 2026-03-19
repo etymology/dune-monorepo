@@ -210,7 +210,6 @@ class PLC_Logic:
     self._xzPositionTargetX.set(float(x))
     self._xzPositionTargetZ.set(float(z))
     self._xzTriggerMove.set(1)
-    self._xzTriggerMove.set(0)
 
   # ---------------------------------------------------------------------
   def _readTagNow(self, tag):
