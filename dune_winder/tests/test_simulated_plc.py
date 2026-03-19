@@ -66,7 +66,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
 
   def test_xz_trigger_move_updates_x_and_z_when_y_transfer_ok(self):
     plc = SimulatedPLC()
-    plc.write(("xz_mclm_position", [321.0, 210.5]))
+    plc.write(("xz_position_target", [321.0, 210.5]))
     plc.write(("xz_trigger_move", 1))
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_Z_SEEK)
@@ -79,7 +79,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
   def test_xz_trigger_move_sets_error_when_y_transfer_not_ok(self):
     plc = SimulatedPLC()
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
-    plc.write(("xz_mclm_position", [321.0, 210.5]))
+    plc.write(("xz_position_target", [321.0, 210.5]))
     plc.write(("xz_trigger_move", 1))
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
