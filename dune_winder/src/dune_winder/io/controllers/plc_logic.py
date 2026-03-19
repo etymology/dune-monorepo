@@ -203,13 +203,36 @@ class PLC_Logic:
     """
     del velocity
 
-    self._yTransferOk.poll()
-    if not bool(self._yTransferOk.get()):
+    yTransferOk = self._readTagNow(self._yTransferOk)
+    if not bool(yTransferOk):
       raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
 
     self._xzPositionTarget.set([float(x), float(z)])
     self._xzTriggerMove.set(1)
     self._xzTriggerMove.set(0)
+
+  # ---------------------------------------------------------------------
+  def _readTagNow(self, tag):
+    """
+    Read a tag immediately without relying on cached poll state.
+
+    Notes:
+      Uses the PLC multi-read shape (`read([tag])`) so it works with the real
+      PLC driver, whose single-tag path expects iterable tag names.
+    """
+    result = self._plc.read([tag.getName()])
+    if result is None or self._plc.isNotFunctional():
+      return tag.get()
+
+    for entry in result:
+      if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+        continue
+      if str(entry[0]) != tag.getName():
+        continue
+      tag.updateFromReadTag(entry[1])
+      return entry[1]
+
+    return tag.get()
 
   # ---------------------------------------------------------------------
   def jogZ(self, velocity):
