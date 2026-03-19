@@ -43,11 +43,18 @@ class DummyGCodeHandler:
 
 
 class DummyTemplateRecipe:
+  def __init__(self):
+    self.lastPullIn = None
+
   def getState(self):
     return {"layer": "V"}
 
   def setOffset(self, offsetId, value):
     return {"ok": True, "data": {"offsetId": offsetId, "value": value}}
+
+  def setPullIn(self, pullInId, value):
+    self.lastPullIn = (pullInId, value)
+    return {"ok": True, "data": {"pullInId": pullInId, "value": value}}
 
   def setTransferPause(self, enabled):
     return {"ok": True, "data": {"enabled": enabled}}
