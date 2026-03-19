@@ -32,6 +32,9 @@ class PLC_Logic:
     LATCH_RELEASE = 8
     UNSERVO = 9
     ERROR = 10
+    EOT = 11
+    XZ_SEEK = 12
+    QUEUED_MOTION = 13
 
   # end class
 
@@ -47,6 +50,7 @@ class PLC_Logic:
     LATCH_UNLOCK = 7
     UNSERVO = 8
     PLC_INIT = 9
+    SEEK_XZ = 10
 
   # end class
 
@@ -208,8 +212,7 @@ class PLC_Logic:
       raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
 
     self._xzPositionTarget.set([float(x), float(z)])
-    self._xzTriggerMove.set(1)
-    self._xzTriggerMove.set(0)
+    self._moveType.set(self.MoveTypes.SEEK_XZ)
 
   # ---------------------------------------------------------------------
   def _readTagNow(self, tag):
@@ -481,7 +484,6 @@ class PLC_Logic:
     writeOnly = PLC.Tag.Attributes()
     writeOnly.canRead = False
     self._xzPositionTarget = PLC.Tag(plc, "xz_position_target", writeOnly, tagType="REAL[2]")
-    self._xzTriggerMove = PLC.Tag(plc, "xz_trigger_move", writeOnly, tagType="BOOL")
 
     self._velocity = 0.0
     self._maxAcceleration = 0

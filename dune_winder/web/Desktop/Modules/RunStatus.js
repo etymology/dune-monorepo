@@ -110,7 +110,10 @@ function RunStatus( modules )
               "Latch homing",  // 7
               "Latch release", // 8
               "Unservo",       // 9
-              "Error"          // 10
+              "Error",         // 10
+              "EOT",           // 11
+              "XZ seek",       // 12
+              "Queued motion"  // 13
             ]
 
             var stringValue = stateTranslateTable[ value ]
