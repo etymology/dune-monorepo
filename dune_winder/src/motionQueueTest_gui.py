@@ -70,6 +70,18 @@ def _close_plc_connection(plc) -> None:
       pass
 
 
+def _effective_planner_start_xy(
+  waypoints: list[tuple[float, float]],
+  start_xy: Optional[tuple[float, float]],
+) -> Optional[tuple[float, float]]:
+  if start_xy is not None:
+    return (float(start_xy[0]), float(start_xy[1]))
+  if not waypoints:
+    return None
+  first_x, first_y = waypoints[0]
+  return (float(first_x), float(first_y))
+
+
 def _extract_plc_read_value(read_result, tag: str):
   if read_result is None:
     raise RuntimeError(f"{tag}: no response")
@@ -732,6 +744,7 @@ class WaypointPlannerApp(tk.Tk):
 
     try:
       start_xy = self._parse_start_xy()
+      effective_start_xy = _effective_planner_start_xy(self.waypoints, start_xy)
       term_type = self._parse_int(self.term_type_var.get(), "Term type")
       if term_type not in TESTABLE_TERM_TYPES:
         raise ValueError("Term type must be one of 0..6.")
@@ -780,11 +793,11 @@ class WaypointPlannerApp(tk.Tk):
         segments=segments,
         v_x_max=DEFAULT_V_X_MAX,
         v_y_max=DEFAULT_V_Y_MAX,
-        start_xy=start_xy,
+        start_xy=effective_start_xy,
       )
       segments = apply_merge_term_types(
         segments=segments,
-        start_xy=start_xy,
+        start_xy=effective_start_xy,
         tangential_term_type=term_type,
         non_tangential_term_type=1 if self.allow_stops_var.get() else 0,
         final_term_type=None,
@@ -792,7 +805,7 @@ class WaypointPlannerApp(tk.Tk):
       validate_segments_within_safety_limits(
         segments,
         self.safety_limits,
-        start_xy=start_xy,
+        start_xy=effective_start_xy,
       )
     except Exception as exc:
       self.segments = []
@@ -806,7 +819,7 @@ class WaypointPlannerApp(tk.Tk):
 
     line_count = sum(1 for seg in segments if seg.seg_type == SEG_TYPE_LINE)
     circle_count = sum(1 for seg in segments if seg.seg_type == SEG_TYPE_CIRCLE)
-    total_length = self._path_length(segments, start_xy)
+    total_length = self._path_length(segments, effective_start_xy)
     self.stats_var.set(
       "Plan ready: "
       f"segments={len(segments)} "
@@ -817,11 +830,11 @@ class WaypointPlannerApp(tk.Tk):
     )
 
     self.segments = segments
-    self.start_xy = start_xy
+    self.start_xy = effective_start_xy
     self._set_segment_details(
       self._segment_details_report(
         segments=segments,
-        start_xy=start_xy,
+        start_xy=effective_start_xy,
         requested_min_arc_radius=min_arc_radius,
       )
     )
