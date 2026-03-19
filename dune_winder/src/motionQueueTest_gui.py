@@ -5,6 +5,7 @@ import math
 import threading
 from dataclasses import replace
 import tkinter as tk
+from tkinter import scrolledtext
 from tkinter import messagebox, ttk
 from typing import Optional
 
@@ -36,6 +37,7 @@ from dune_winder.queued_motion import (
   tune_segments_for_constant_velocity,
   validate_segments_within_safety_limits,
 )
+from dune_winder.queued_motion.filleted_path import dynamic_min_radius
 from dune_winder.queued_motion.segment_types import (
   SEG_TYPE_CIRCLE,
   SEG_TYPE_LINE,
@@ -154,6 +156,7 @@ class WaypointPlannerApp(tk.Tk):
     )
 
     self._build_layout()
+    self._set_segment_details("No planned segments.")
     self._refresh_canvas()
     self.protocol("WM_DELETE_WINDOW", self._on_close)
     self._start_position_tracker()
@@ -169,7 +172,8 @@ class WaypointPlannerApp(tk.Tk):
     plot = ttk.Frame(self, padding=(0, 10, 10, 10))
     plot.grid(row=0, column=1, sticky="nsew")
     plot.columnconfigure(0, weight=1)
-    plot.rowconfigure(0, weight=1)
+    plot.rowconfigure(0, weight=3)
+    plot.rowconfigure(1, weight=2)
 
     row = 0
     ttk.Label(controls, text="Planner Settings", font=("Segoe UI", 11, "bold")).grid(
@@ -312,6 +316,26 @@ class WaypointPlannerApp(tk.Tk):
     self.canvas.bind("<Motion>", self._on_canvas_motion)
     self.canvas.focus_set()
 
+    details_frame = ttk.Frame(plot, padding=(0, 10, 0, 0))
+    details_frame.grid(row=1, column=0, sticky="nsew")
+    details_frame.columnconfigure(0, weight=1)
+    details_frame.rowconfigure(1, weight=1)
+
+    ttk.Label(
+      details_frame,
+      text="Queued Segment Details",
+      font=("Segoe UI", 10, "bold"),
+    ).grid(row=0, column=0, sticky="w", pady=(0, 4))
+
+    self.segment_details_text = scrolledtext.ScrolledText(
+      details_frame,
+      height=14,
+      wrap=tk.NONE,
+      font=("Consolas", 9),
+      state="disabled",
+    )
+    self.segment_details_text.grid(row=1, column=0, sticky="nsew")
+
   def _entry_row(
     self,
     frame: ttk.Frame,
@@ -328,6 +352,77 @@ class WaypointPlannerApp(tk.Tk):
   def _set_status(self, message: str, is_error: bool = False) -> None:
     prefix = "Error" if is_error else "Status"
     self.status_var.set(f"{prefix}: {message}")
+
+  def _set_segment_details(self, text: str) -> None:
+    self.segment_details_text.configure(state="normal")
+    self.segment_details_text.delete("1.0", tk.END)
+    self.segment_details_text.insert("1.0", text)
+    self.segment_details_text.configure(state="disabled")
+
+  def _segment_details_report(
+    self,
+    segments: list[MotionSegment],
+    start_xy: Optional[tuple[float, float]],
+    requested_min_arc_radius: float,
+  ) -> str:
+    if not segments:
+      return "No planned segments."
+
+    if start_xy is None:
+      cursor_x = float(segments[0].x)
+      cursor_y = float(segments[0].y)
+      start_label = "unknown"
+    else:
+      cursor_x = float(start_xy[0])
+      cursor_y = float(start_xy[1])
+      start_label = f"({cursor_x:.2f}, {cursor_y:.2f})"
+
+    lines = [
+      f"start_xy={start_label}",
+      (
+        "idx seq kind            start_xy               end_xy                 "
+        "len     speed   accel   decel   jerk_a  jerk_d  r_min_dyn  r_arc"
+      ),
+    ]
+
+    for idx, seg in enumerate(segments, start=1):
+      start_seg = MotionSegment(seq=seg.seq - 1, x=cursor_x, y=cursor_y)
+      path_len = segment_path_length(start_seg, seg)
+      accel_limit = min(float(seg.accel), float(seg.decel))
+      jerk_limit = min(float(seg.jerk_accel), float(seg.jerk_decel))
+      dynamic_radius = dynamic_min_radius(
+        speed=float(seg.speed),
+        base_min_radius=requested_min_arc_radius,
+        accel_limit=accel_limit,
+        jerk_limit=jerk_limit,
+      )
+
+      arc_radius_text = "-"
+      if seg.seg_type == SEG_TYPE_CIRCLE:
+        center = circle_center_for_segment(start_seg, seg)
+        if center is not None:
+          arc_radius = math.hypot(cursor_x - center[0], cursor_y - center[1])
+          arc_radius_text = f"{arc_radius:8.2f}"
+
+      kind = "circle" if seg.seg_type == SEG_TYPE_CIRCLE else "line"
+      lines.append(
+        f"{idx:>3} {seg.seq:>3} {kind:<15}"
+        f"({cursor_x:>8.2f},{cursor_y:>8.2f}) "
+        f"({float(seg.x):>8.2f},{float(seg.y):>8.2f}) "
+        f"{path_len:>7.2f} {float(seg.speed):>7.2f} {float(seg.accel):>7.2f} "
+        f"{float(seg.decel):>7.2f} {float(seg.jerk_accel):>7.2f} "
+        f"{float(seg.jerk_decel):>7.2f} {dynamic_radius:>10.2f} "
+        f"{arc_radius_text}"
+      )
+      cursor_x = float(seg.x)
+      cursor_y = float(seg.y)
+
+    lines.append("")
+    lines.append(
+      "r_min_dyn is the conservative minimum radius from requested Min arc radius, "
+      "v^2/a, and sqrt(v^3/j) using min(accel,decel) and min(jerk_accel,jerk_decel)."
+    )
+    return "\n".join(lines)
 
   def _on_plc_path_var_changed(self, *_args) -> None:
     self._plc_path = self.plc_path_var.get().strip()
@@ -431,6 +526,7 @@ class WaypointPlannerApp(tk.Tk):
     self.segments = []
     self.start_xy = None
     self.stats_var.set("No plan yet.")
+    self._set_segment_details("No planned segments.")
     self._set_status("Waypoints cleared.")
     self.execute_button.configure(state="disabled")
     self._refresh_canvas()
@@ -628,6 +724,7 @@ class WaypointPlannerApp(tk.Tk):
       self.segments = []
       self.start_xy = None
       self.stats_var.set("Add at least 2 waypoints to build a plan.")
+      self._set_segment_details("No planned segments.")
       self._set_status("Waiting for more waypoints.")
       self.execute_button.configure(state="disabled")
       self._refresh_canvas()
@@ -701,6 +798,7 @@ class WaypointPlannerApp(tk.Tk):
       self.segments = []
       self.start_xy = None
       self.stats_var.set("Plan is invalid.")
+      self._set_segment_details("No planned segments.")
       self._set_status(str(exc), is_error=True)
       self.execute_button.configure(state="disabled")
       self._refresh_canvas()
@@ -720,6 +818,13 @@ class WaypointPlannerApp(tk.Tk):
 
     self.segments = segments
     self.start_xy = start_xy
+    self._set_segment_details(
+      self._segment_details_report(
+        segments=segments,
+        start_xy=start_xy,
+        requested_min_arc_radius=min_arc_radius,
+      )
+    )
     self.execute_button.configure(state="normal")
     self._set_status("Plan valid and within motion safety limits.")
     self._refresh_canvas()

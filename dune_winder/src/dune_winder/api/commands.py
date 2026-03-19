@@ -487,6 +487,15 @@ def build_command_registry(
 
   registry.register("process.u_template.set_offset", u_template_set_offset, True)
 
+  def u_template_set_pull_in(args):
+    _validateArgs(args, required=("pull_in_id", "value"))
+    return process.uTemplateRecipe.setPullIn(
+      _asString(args["pull_in_id"], "pull_in_id"),
+      _asFloat(args["value"], "value"),
+    )
+
+  registry.register("process.u_template.set_pull_in", u_template_set_pull_in, True)
+
   def u_template_set_transfer_pause(args):
     _validateArgs(args, required=("enabled",))
     return process.uTemplateRecipe.setTransferPause(_asBool(args["enabled"], "enabled"))

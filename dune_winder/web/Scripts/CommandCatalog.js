@@ -65,6 +65,7 @@
       vTemplateGenerateRecipeFile: "process.v_template.generate_recipe_file",
       uTemplateGetState: "process.u_template.get_state",
       uTemplateSetOffset: "process.u_template.set_offset",
+      uTemplateSetPullIn: "process.u_template.set_pull_in",
       uTemplateSetTransferPause: "process.u_template.set_transfer_pause",
       uTemplateSetIncludeLeadMode: "process.u_template.set_include_lead_mode",
       uTemplateSetStripG113Params: "process.u_template.set_strip_g113_params",
