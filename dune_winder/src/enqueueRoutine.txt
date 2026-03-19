@@ -1,44 +1,54 @@
 EQU QueueCtl.POS 0 OTE QueueEmpty 
 GEQ QueueCtl.POS 32 OTE QueueFull 
 MOV QueueCtl.POS QueueCount 
-XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued NXB XIC X_Y.MovePendingStatus BNDONS QueueStopReqONS MCS X_Y gui_stop All Yes 2000 Units per sec2 Yes 1000 Units per sec3 
 XIC QueueStopRequest OTL AbortQueue 
-NEQBST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 
-XIO ALL_EOT_GOOD MAS X_Y MoveA All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
-XIO ALL_EOT_GOOD MAS X_Y MoveB All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" 
+BST XIC AbortQueue NXB XIO ALL_EOT_GOOD BNDOTE AbortActive 
 NEQ IncomingSegReqID LastIncomingSegReqID OTL EnqueueReq 
 XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 1 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 OTE SegValidLine 
 XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 2 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 GEQ IncomingSeg.CircleType 0 LEQ IncomingSeg.CircleType 3 GEQ IncomingSeg.Direction 0 LEQ IncomingSeg.Direction 3 OTE SegValidArc 
-BST XIC SegValidLine NXB XIC SegValidArc BND OTE SegValid 
-XIC EnqueueReq XIC SegValid XIO QueueFull FFL IncomingSeg SegQueue[0] QueueCtl ? ? 
+BST XIC SegValidLine NXB XIC SegValidArc BNDOTE SegValid 
+XIC EnqueueReq XIC SegValid XIO QueueFull FFL IncomingSeg SegQueueBST 0 BND QueueCtl ? ? 
 XIC EnqueueReq XIC SegValid XIO QueueFull MOV IncomingSeg.Seq IncomingSegAck 
 XIC EnqueueReq XIC SegValid XIO QueueFull MOV IncomingSegReqID LastIncomingSegReqID 
 XIC EnqueueReq OTU EnqueueReq 
-XIC MoveA.ER MOV 3 FaultCode OTU MoveA.ER 
-XIC MoveB.ER MOV 4 FaultCode OTU MoveB.ER 
-BST XIC QueueFault NXB XIC MoveA.ER NXB XIC MoveB.ER BND OTE MotionFault 
-XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST EQU CurSeg.SegType 1 NXB EQU CurSeg.SegType 2 BND OTL PrepCurMove 
+XIC MoveA.ER MOV 3 FaultCode 
+XIC MoveA.ER OTL QueueFault 
+XIC MoveA.ER OTL AbortQueue 
+XIC MoveA.ER OTU MoveA.ER 
+XIC MoveB.ER MOV 4 FaultCode 
+XIC MoveB.ER OTL QueueFault 
+XIC MoveB.ER OTL AbortQueue 
+XIC MoveB.ER OTU MoveB.ER 
+BST XIC QueueFault NXB XIC MoveA.ER NXB XIC MoveB.ER BNDOTE MotionFault 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST EQU CurSeg.SegType NXB 1 NXB EQU CurSeg.SegType NXB 2 BNDOTL PrepCurMove 
 XIC CheckCurSeg XIO CurSeg.Valid MOV 1 FaultCode 
 XIC CheckCurSeg XIO CurSeg.Valid OTL QueueFault 
 XIC CheckCurSeg XIC CurSeg.Valid LEQ CurSeg.Seq 0 MOV 6 FaultCode 
 XIC CheckCurSeg XIC CurSeg.Valid LEQ CurSeg.Seq 0 OTL QueueFault 
-XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST LES CurSeg.SegType 1 NXB GRT CurSeg.SegType 2 BND MOV 7 FaultCode 
-XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST LES CurSeg.SegType 1 NXB GRT CurSeg.SegType 2 BND OTL QueueFault 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST LES CurSeg.SegType NXB 1 NXB GRT CurSeg.SegType NXB 2 BNDMOV 7 FaultCode 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST LES CurSeg.SegType NXB 1 NXB GRT CurSeg.SegType NXB 2 BNDOTL QueueFault 
 XIC CheckCurSeg OTU CheckCurSeg 
-XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST EQU NextSeg.SegType 1 NXB EQU NextSeg.SegType 2 BND OTL PrepNextMove 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST EQU NextSeg.SegType NXB 1 NXB EQU NextSeg.SegType NXB 2 BNDOTL PrepNextMove 
 XIC CheckNextSeg XIO NextSeg.Valid MOV 2 FaultCode 
 XIC CheckNextSeg XIO NextSeg.Valid OTL QueueFault 
 XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 MOV 5 FaultCode 
 XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 OTL QueueFault 
-XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND MOV 8 FaultCode 
-XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND OTL QueueFault 
-XIC CheckNextSeg OTU CheckNextSegXIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
- 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType NXB 1 NXB GRT NextSeg.SegType NXB 2 BNDMOV 8 FaultCode 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType NXB 1 NXB GRT NextSeg.SegType NXB 2 BNDOTL QueueFault 
+XIC CheckNextSeg OTU CheckNextSeg 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV QueueCtl.POS DINTSBST 5 BND 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_x_max REALSBST 42 BND 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_y_max REALSBST 43 BND 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 OTU BOOLSBST 6 BND 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 JSR CapSegSpeed 0 
+XIC StartQueuedPath BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition NXB MAX_TOLERABLE_Z BNDCPT ERROR_CODE 3001 CPT NEXTSTATE 10 XIC Z_RETRACTED XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 BNDOTE AbortQueue OTU StartQueuedPath 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
 XIC LoadCurReq OTU StartQueuedPath 
-XIC LoadCurReq FFU SegQueue[0] CurSeg QueueCtl ? ? 
+XIC LoadCurReq FFU SegQueueBST 0 BND CurSeg QueueCtl ? ? 
 XIC LoadCurReq OTL CheckCurSeg 
 XIC LoadCurReq OTU LoadCurReq 
-XIC PrepCurMove XIC UseAasCurrent COP CurSeg.XY[0] CmdA_XY[0] 2 
+XIC PrepCurMove XIC UseAasCurrent COP CurSeg.XYBST 0 BND CmdA_XYBST 0 BND 2 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Speed CmdA_Speed 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Accel CmdA_Accel 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Decel CmdA_Decel 
@@ -47,10 +57,10 @@ XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.JerkDecel CmdA_JerkDecel
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.TermType CmdA_TermType 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.SegType CmdA_SegType 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.CircleType CmdA_CircleType 
-XIC PrepCurMove XIC UseAasCurrent COP CurSeg.ViaCenter[0] CmdA_ViaCenter[0] 2 
+XIC PrepCurMove XIC UseAasCurrent COP CurSeg.ViaCenterBST 0 BND CmdA_ViaCenterBST 0 BND 2 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Direction CmdA_Direction 
 XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Seq ActiveSeq 
-XIC PrepCurMove XIO UseAasCurrent COP CurSeg.XY[0] CmdB_XY[0] 2 
+XIC PrepCurMove XIO UseAasCurrent COP CurSeg.XYBST 0 BND CmdB_XYBST 0 BND 2 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Speed CmdB_Speed 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Accel CmdB_Accel 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Decel CmdB_Decel 
@@ -59,26 +69,32 @@ XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.JerkDecel CmdB_JerkDecel
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.TermType CmdB_TermType 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.SegType CmdB_SegType 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.CircleType CmdB_CircleType 
-XIC PrepCurMove XIO UseAasCurrent COP CurSeg.ViaCenter[0] CmdB_ViaCenter[0] 2 
+XIC PrepCurMove XIO UseAasCurrent COP CurSeg.ViaCenterBST 0 BND CmdB_ViaCenterBST 0 BND 2 
 XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Direction CmdB_Direction 
-XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeqXIC PrepCurMove XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
-XIC PrepCurMove BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitCurAxisOn 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeq 
+XIC PrepCurMove XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BNDOTL WaitCurAxisOn 
 XIC PrepCurMove OTU PrepCurMove 
-XIC WaitCurAxisOn MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
-XIC WaitCurAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTL IssueCurPulse 
-XIC WaitCurAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTU WaitCurAxisOn 
-XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC WaitCurAxisOn XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault MSO X_axis x_axis_mso MSO Y_axis y_axis_mso 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC x_axis_mso.DN XIC y_axis_mso.DN OTL IssueCurPulse 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC x_axis_mso.DN XIC y_axis_mso.DN OTU WaitCurAxisOn 
+XIC PrepCurMove OTU PrepCurMove 
+XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XYBST 0 BND CmdA_Speed Units per sec CmdA_Accel Units per sec2 CmdA_Decel Units per sec2 S-Curve CmdA_JerkAccel CmdA_JerkDecel Units per sec3 CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XYBST 0 BND CmdA_CircleType CmdA_ViaCenterBST 0 BND CmdA_Direction CmdA_Speed Units per sec CmdA_Accel Units per sec2 CmdA_Decel Units per sec2 S-Curve CmdA_JerkAccel CmdA_JerkDecel Units per sec3 CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XYBST 0 BND CmdB_Speed Units per sec CmdB_Accel Units per sec2 CmdB_Decel Units per sec2 S-Curve CmdB_JerkAccel CmdB_JerkDecel Units per sec3 CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XYBST 0 BND CmdB_CircleType CmdB_ViaCenterBST 0 BND CmdB_Direction CmdB_Speed Units per sec CmdB_Accel Units per sec2 CmdB_Decel Units per sec2 S-Curve CmdB_JerkAccel CmdB_JerkDecel Units per sec3 CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueCurPulse OTL CurIssued 
 XIC IssueCurPulse OTU IssueCurPulse 
 XIC CurIssued XIC UseAasCurrent XIC MoveA.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextA_ONS OTL LoadNextReq 
 XIC CurIssued XIO UseAasCurrent XIC MoveB.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextB_ONS OTL LoadNextReq 
-XIC LoadNextReq FFU SegQueue[0] NextSeg QueueCtl ? ? 
+XIC LoadNextReq FFU SegQueueBST 0 BND NextSeg QueueCtl ? ? 
 XIC LoadNextReq OTL CheckNextSeg 
 XIC LoadNextReq OTU LoadNextReq 
-XIC PrepNextMove XIC UseAasCurrent COP NextSeg.XY[0] CmdB_XY[0] 2 
+XIC PrepNextMove XIC UseAasCurrent COP NextSeg.XYBST 0 BND CmdB_XYBST 0 BND 2 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Speed CmdB_Speed 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Accel CmdB_Accel 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Decel CmdB_Decel 
@@ -87,10 +103,10 @@ XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.JerkDecel CmdB_JerkDecel
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.TermType CmdB_TermType 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.SegType CmdB_SegType 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.CircleType CmdB_CircleType 
-XIC PrepNextMove XIC UseAasCurrent COP NextSeg.ViaCenter[0] CmdB_ViaCenter[0] 2 
+XIC PrepNextMove XIC UseAasCurrent COP NextSeg.ViaCenterBST 0 BND CmdB_ViaCenterBST 0 BND 2 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Direction CmdB_Direction 
 XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Seq PendingSeq 
-XIC PrepNextMove XIO UseAasCurrent COP NextSeg.XY[0] CmdA_XY[0] 2 
+XIC PrepNextMove XIO UseAasCurrent COP NextSeg.XYBST 0 BND CmdA_XYBST 0 BND 2 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Speed CmdA_Speed 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Accel CmdA_Accel 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Decel CmdA_Decel 
@@ -99,19 +115,24 @@ XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.JerkDecel CmdA_JerkDecel
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.TermType CmdA_TermType 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.SegType CmdA_SegType 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.CircleType CmdA_CircleType 
-XIC PrepNextMove XIO UseAasCurrent COP NextSeg.ViaCenter[0] CmdA_ViaCenter[0] 2 
+XIC PrepNextMove XIO UseAasCurrent COP NextSeg.ViaCenterBST 0 BND CmdA_ViaCenterBST 0 BND 2 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Direction CmdA_Direction 
 XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Seq PendingSeq 
-XIC PrepNextMove XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueNextPulse 
-XIC PrepNextMove BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitNextAxisOn 
+XIC PrepNextMove XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueNextPulse 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BNDOTL WaitNextAxisOn 
 XIC PrepNextMove OTU PrepNextMove 
-XIC WaitNextAxisOn MSO X_axis AXIS_STAT[29] MSO Y_axis AXIS_STAT[30] 
-XIC WaitNextAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTL IssueNextPulse 
-XIC WaitNextAxisOn XIC AXIS_STAT[29].DN XIC AXIS_STAT[30].DN OTU WaitNextAxisOn 
-XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
-XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC WaitNextAxisOn XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault MSO X_axis x_axis_mso MSO Y_axis y_axis_mso 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC x_axis_mso.DN XIC y_axis_mso.DN OTL IssueNextPulse 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC x_axis_mso.DN XIC y_axis_mso.DN OTU WaitNextAxisOn 
+XIC PrepNextMove OTU PrepNextMove 
+XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XYBST 0 BND CmdB_Speed Units per sec CmdB_Accel Units per sec2 CmdB_Decel Units per sec2 S-Curve CmdB_JerkAccel CmdB_JerkDecel Units per sec3 CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XYBST 0 BND CmdB_CircleType CmdB_ViaCenterBST 0 BND CmdB_Direction CmdB_Speed Units per sec CmdB_Accel Units per sec2 CmdB_Decel Units per sec2 S-Curve CmdB_JerkAccel CmdB_JerkDecel Units per sec3 CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XYBST 0 BND CmdA_Speed Units per sec CmdA_Accel Units per sec2 CmdA_Decel Units per sec2 S-Curve CmdA_JerkAccel CmdA_JerkDecel Units per sec3 CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XYBST 0 BND CmdA_CircleType CmdA_ViaCenterBST 0 BND CmdA_Direction CmdA_Speed Units per sec CmdA_Accel Units per sec2 CmdA_Decel Units per sec2 S-Curve CmdA_JerkAccel CmdA_JerkDecel Units per sec3 CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
 XIC IssueNextPulse OTL NextIssued 
 XIC IssueNextPulse OTU IssueNextPulse 
 XIC CurIssued XIC NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.IP ONS RotateONS_AtoB OTL RotateMoves 
@@ -129,6 +150,8 @@ XIC FlipToA OTU FlipToA
 XIC FlipToB OTU FlipToB 
 XIC CurIssued XIO NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveA.PC ONS DoneONS_A OTU CurIssued 
 XIC CurIssued XIO NextIssued XIO UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.PC ONS DoneONS_B OTU CurIssued 
+XIC AbortActive RES CurIssueAckTON 
+XIC AbortActive RES NextIssueAckTON 
 XIC AbortActive RES QueueCtl 
 XIC AbortActive OTU CurIssued 
 XIC AbortActive OTU NextIssued 
@@ -142,7 +165,6 @@ XIC AbortActive OTU WaitCurAxisOn
 XIC AbortActive OTU WaitNextAxisOn 
 XIC AbortActive OTU QueueStopRequest 
 XIC AbortActive OTU AbortQueue 
- 
 XIC AbortActive OTU EnqueueReq 
 XIC AbortActive OTU RotateMoves 
 XIC AbortActive OTU FlipToA 
@@ -160,4 +182,92 @@ XIC AbortActive MOV 0 NextSeg.Seq
 XIC AbortActive MOV IncomingSegReqID LastIncomingSegReqID 
 XIC AbortActive MOV 0 ActiveSeq 
 XIC AbortActive MOV 0 PendingSeq 
-XIC AbortActive FLL 0 SegQueue[0] 32 
+XIC AbortActive FLL 0 SegQueueBST 0 BND 32 
+XIC UseAasCurrent OTL QueueDiag_UseAasCurrent 
+XIO UseAasCurrent OTU QueueDiag_UseAasCurrent 
+XIC LoadCurReq OTL QueueDiag_LoadCurReq 
+XIO LoadCurReq OTU QueueDiag_LoadCurReq 
+XIC LoadNextReq OTL QueueDiag_LoadNextReq 
+XIO LoadNextReq OTU QueueDiag_LoadNextReq 
+XIC CheckCurSeg OTL QueueDiag_CheckCurSeg 
+XIO CheckCurSeg OTU QueueDiag_CheckCurSeg 
+XIC CheckNextSeg OTL QueueDiag_CheckNextSeg 
+XIO CheckNextSeg OTU QueueDiag_CheckNextSeg 
+XIC PrepCurMove OTL QueueDiag_PrepCurMove 
+XIO PrepCurMove OTU QueueDiag_PrepCurMove 
+XIC PrepNextMove OTL QueueDiag_PrepNextMove 
+XIO PrepNextMove OTU QueueDiag_PrepNextMove 
+XIC IssueCurPulse OTL QueueDiag_IssueCurPulse 
+XIO IssueCurPulse OTU QueueDiag_IssueCurPulse 
+XIC IssueNextPulse OTL QueueDiag_IssueNextPulse 
+XIO IssueNextPulse OTU QueueDiag_IssueNextPulse 
+XIC WaitCurAxisOn OTL QueueDiag_WaitCurAxisOn 
+XIO WaitCurAxisOn OTU QueueDiag_WaitCurAxisOn 
+XIC WaitNextAxisOn OTL QueueDiag_WaitNextAxisOn 
+XIO WaitNextAxisOn OTU QueueDiag_WaitNextAxisOn 
+XIC RotateMoves OTL QueueDiag_RotateMoves 
+XIO RotateMoves OTU QueueDiag_RotateMoves 
+XIC FlipToA OTL QueueDiag_FlipToA 
+XIO FlipToA OTU QueueDiag_FlipToA 
+XIC FlipToB OTL QueueDiag_FlipToB 
+XIO FlipToB OTU QueueDiag_FlipToB 
+XIC AbortActive OTL QueueDiag_AbortActive 
+XIO AbortActive OTU QueueDiag_AbortActive 
+XIC MoveA.IP OTL QueueDiag_MoveA_IP 
+XIO MoveA.IP OTU QueueDiag_MoveA_IP 
+XIC MoveA.PC OTL QueueDiag_MoveA_PC 
+XIO MoveA.PC OTU QueueDiag_MoveA_PC 
+XIC MoveA.DN OTL QueueDiag_MoveA_DN 
+XIO MoveA.DN OTU QueueDiag_MoveA_DN 
+XIC MoveA.ER OTL QueueDiag_MoveA_ER 
+XIO MoveA.ER OTU QueueDiag_MoveA_ER 
+XIC MoveB.IP OTL QueueDiag_MoveB_IP 
+XIO MoveB.IP OTU QueueDiag_MoveB_IP 
+XIC MoveB.PC OTL QueueDiag_MoveB_PC 
+XIO MoveB.PC OTU QueueDiag_MoveB_PC 
+XIC MoveB.DN OTL QueueDiag_MoveB_DN 
+XIO MoveB.DN OTU QueueDiag_MoveB_DN 
+XIC MoveB.ER OTL QueueDiag_MoveB_ER 
+XIO MoveB.ER OTU QueueDiag_MoveB_ER 
+XIC CurSeg.Valid OTL QueueDiag_CurSeg_Valid 
+XIO CurSeg.Valid OTU QueueDiag_CurSeg_Valid 
+XIC NextSeg.Valid OTL QueueDiag_NextSeg_Valid 
+XIO NextSeg.Valid OTU QueueDiag_NextSeg_Valid 
+MOV CurSeg.Seq QueueDiag_CurSeg_Seq 
+MOV CurSeg.SegType QueueDiag_CurSeg_SegType 
+MOV CurSeg.TermType QueueDiag_CurSeg_TermType 
+MOV CurSeg.Speed QueueDiag_CurSeg_Speed 
+MOV CurSeg.XYBST 0 BND QueueDiag_CurSeg_X 
+MOV CurSeg.XYBST 1 BND QueueDiag_CurSeg_Y 
+MOV NextSeg.Seq QueueDiag_NextSeg_Seq 
+MOV NextSeg.SegType QueueDiag_NextSeg_SegType 
+MOV NextSeg.TermType QueueDiag_NextSeg_TermType 
+MOV NextSeg.Speed QueueDiag_NextSeg_Speed 
+MOV NextSeg.XYBST 0 BND QueueDiag_NextSeg_X 
+MOV NextSeg.XYBST 1 BND QueueDiag_NextSeg_Y 
+MOV CmdA_SegType QueueDiag_CmdA_SegType 
+MOV CmdB_SegType QueueDiag_CmdB_SegType 
+MOV ActiveSeq QueueDiag_ActiveSeq 
+MOV PendingSeq QueueDiag_PendingSeq 
+MOV FaultCode QueueDiag_FaultCode 
+XIC QueueCtl.EN OTL QueueDiag_QueueCtl_EN 
+XIO QueueCtl.EN OTU QueueDiag_QueueCtl_EN 
+XIC QueueCtl.DN OTL QueueDiag_QueueCtl_DN 
+XIO QueueCtl.DN OTU QueueDiag_QueueCtl_DN 
+XIC QueueCtl.EM OTL QueueDiag_QueueCtl_EM 
+XIO QueueCtl.EM OTU QueueDiag_QueueCtl_EM 
+XIC QueueCtl.ER OTL QueueDiag_QueueCtl_ER 
+XIO QueueCtl.ER OTU QueueDiag_QueueCtl_ER 
+XIC QueueCtl.EU OTL QueueDiag_QueueCtl_EU 
+XIO QueueCtl.EU OTU QueueDiag_QueueCtl_EU 
+XIC QueueCtl.UL OTL QueueDiag_QueueCtl_UL 
+XIO QueueCtl.UL OTU QueueDiag_QueueCtl_UL 
+XIC QueueCtl.IN OTL QueueDiag_QueueCtl_IN 
+XIO QueueCtl.IN OTU QueueDiag_QueueCtl_IN 
+MOV QueueCtl.POS QueueDiag_QueueCtl_POS 
+MOV QueueCtl.LEN QueueDiag_QueueCtl_LEN 
+MOV MoveA.ERR QueueDiag_MoveA_ERRID 
+MOV MoveA.EXERR QueueDiag_MoveA_EXERR 
+MOV MoveB.ERR QueueDiag_MoveB_ERRID 
+MOV MoveB.EXERR QueueDiag_MoveB_EXERR 
+
