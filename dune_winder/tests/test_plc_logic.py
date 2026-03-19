@@ -51,8 +51,7 @@ class PLCLogicTests(unittest.TestCase):
       plc.write_calls,
       [
         ("xz_position_target", [12.5, 34.5]),
-        ("xz_trigger_move", 1),
-        ("xz_trigger_move", 0),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.SEEK_XZ),
       ],
     )
 
