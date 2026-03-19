@@ -207,7 +207,7 @@ class PLC_Logic:
     if not bool(self._yTransferOk.get()):
       raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
 
-    self._xzMclmPosition.set([float(x), float(z)])
+    self._xzPositionTarget.set([float(x), float(z)])
     self._xzTriggerMove.set(1)
     self._xzTriggerMove.set(0)
 
@@ -457,7 +457,7 @@ class PLC_Logic:
 
     writeOnly = PLC.Tag.Attributes()
     writeOnly.canRead = False
-    self._xzMclmPosition = PLC.Tag(plc, "xz_mclm_position", writeOnly, tagType="REAL[2]")
+    self._xzPositionTarget = PLC.Tag(plc, "xz_position_target", writeOnly, tagType="REAL[2]")
     self._xzTriggerMove = PLC.Tag(plc, "xz_trigger_move", writeOnly, tagType="BOOL")
 
     self._velocity = 0.0

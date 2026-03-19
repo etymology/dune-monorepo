@@ -263,7 +263,7 @@ class SimulatedPLC(PLC):
     self._tagValues["tension"] = 0.0
     self._tagValues["v_xyz"] = 0.0
     self._tagValues["tension_motor_cv"] = 0.0
-    self._tagValues["xz_mclm_position"] = [0.0, 0.0]
+    self._tagValues["xz_position_target"] = [0.0, 0.0]
     self._tagValues["xz_trigger_move"] = 0
 
     self._tagValues["MORE_STATS_S[0]"] = 1
@@ -344,9 +344,9 @@ class SimulatedPLC(PLC):
       self._tagValues[tagName] = intValue
       return
 
-    if tagName == "xz_mclm_position":
+    if tagName == "xz_position_target":
       if not isinstance(value, (list, tuple)) or len(value) != 2:
-        raise ValueError("xz_mclm_position must be a two-element sequence.")
+        raise ValueError("xz_position_target must be a two-element sequence.")
       self._tagValues[tagName] = [float(value[0]), float(value[1])]
       return
 
@@ -412,7 +412,7 @@ class SimulatedPLC(PLC):
     self._setAxisMovement(False)
 
     if moveType == self.MOVE_TRIGGER_XZ:
-      xTarget, zTarget = self._tagValues.get("xz_mclm_position", [0.0, 0.0])
+      xTarget, zTarget = self._tagValues.get("xz_position_target", [0.0, 0.0])
       xTarget = float(xTarget)
       zTarget = float(zTarget)
       if self._isXYLimitViolation(xTarget, float(self._tagValues["Y_axis.ActualPosition"])):
