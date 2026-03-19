@@ -132,7 +132,7 @@ class BaseIO:
       "Y_Mount_Transfer_OK", self.plc, "MACHINE_SW_STAT[16]", 0
     )  # Y_MOUNT_XFER_OK
     self.Y_Transfer_OK = PLC_Input(
-      "Y_Transfer_OK", self.plc, "MACHINE_SW_STAT[17]", 0
+      "Y_Transfer_OK", self.plc, "Y_XFER_OK", 0
     )  # Y_XFER_OK
     self.endOfTravel_Yp = PLC_Input(
       "endOfTravel_Yp", self.plc, "MACHINE_SW_STAT[18]", 0

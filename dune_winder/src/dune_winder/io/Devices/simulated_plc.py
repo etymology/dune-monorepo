@@ -385,7 +385,7 @@ class SimulatedPLC(PLC):
 
   # ---------------------------------------------------------------------
   def _startXzMove(self):
-    if not bool(self._readTagValue("MACHINE_SW_STAT[17]")):
+    if not bool(self._readTagValue("Y_XFER_OK")):
       self._setError(5003)
       return
 
@@ -421,7 +421,7 @@ class SimulatedPLC(PLC):
       if self._isZLimitViolation(zTarget):
         self._setError(5003)
         return
-      if not bool(self._readTagValue("MACHINE_SW_STAT[17]")):
+      if not bool(self._readTagValue("Y_XFER_OK")):
         self._setError(5003)
         return
       self._tagValues["X_axis.ActualPosition"] = xTarget
@@ -677,6 +677,9 @@ class SimulatedPLC(PLC):
       if 0 <= index < len(self._queuedSegments):
         segment = self._queuedSegments[index]
         return segment.get(field_name, 0)
+
+    if tagName == "Y_XFER_OK":
+      return self._readTagValue("MACHINE_SW_STAT[17]")
 
     bitIndex = self._machineBitIndex(tagName)
     if bitIndex is not None:

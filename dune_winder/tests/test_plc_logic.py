@@ -46,7 +46,7 @@ class PLCLogicTests(unittest.TestCase):
 
     logic.setXZ_Position(12.5, 34.5)
 
-    self.assertEqual(plc.read_calls, [["MACHINE_SW_STAT[17]"]])
+    self.assertEqual(plc.read_calls, [["Y_XFER_OK"]])
     self.assertEqual(
       plc.write_calls,
       [

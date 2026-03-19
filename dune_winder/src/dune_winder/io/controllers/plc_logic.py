@@ -469,7 +469,7 @@ class PLC_Logic:
     self._headLatchState = PLC.Tag(plc, "HEAD_POS", attributes, tagType="DINT")
     self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS",attributes, tagType="DINT")
     self._moveType = PLC.Tag(plc, "MOVE_TYPE",attributes, tagType="INT")
-    self._yTransferOk = PLC.Tag(plc, "MACHINE_SW_STAT[17]", attributes, tagType="DINT")
+    self._yTransferOk = PLC.Tag(plc, "Y_XFER_OK", attributes, tagType="DINT")
 
     self._maxXY_Velocity = PLC.Tag(plc, "XY_SPEED", tagType="REAL")
     self._maxXY_Acceleration = PLC.Tag(plc, "XY_ACCELERATION", tagType="REAL")
