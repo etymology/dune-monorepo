@@ -63,6 +63,16 @@ class PlcRungTransformTests(unittest.TestCase):
       "NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS ",
     )
 
+  def test_transform_text_splits_bracket_lists_only_on_top_level_commas(self):
+    source = "[EQU(CurSeg.SegType,1),EQU(CurSeg.SegType,2)]"
+
+    result = transform_text(source)
+
+    self.assertEqual(
+      result,
+      "BST EQU CurSeg.SegType 1 NXB EQU CurSeg.SegType 2 BND ",
+    )
+
   def test_transform_file_writes_output_file(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       input_path = Path(temp_dir) / "input.txt"
