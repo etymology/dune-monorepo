@@ -283,6 +283,81 @@ ld_text = transpile(source, function_names=["cap_segments_speed_by_axis_velocity
 print(ld_text)
 ```
 
+## Haskell Utilities
+
+The repository also includes a separate Cabal package, `dune-winder-hs`, under
+`haskell/`. These tools are not required to run the main Python application;
+they exist to support PLC ladder-logic generation and Studio 5000 text
+transforms.
+
+Build from the repo root with:
+
+```bash
+cabal build
+```
+
+### Executables
+
+#### `plc-transpiler-hs`
+
+`plc-transpiler-hs` reads one or more Python source files, parses a restricted
+subset of Python, and emits Rockwell ladder-like text for selected functions.
+If you pass function names after the source files, only those functions are
+emitted.
+
+```bash
+cabal run plc-transpiler-hs -- src/dune_winder/queued_motion/segment_patterns.py cap_segments_speed_by_axis_velocity
+```
+
+With no function filter, the transpiler emits the supported routines it finds in
+its built-in order:
+
+- `_max_abs_sin_over_sweep` -> `MaxAbsSinSweep`
+- `_max_abs_cos_over_sweep` -> `MaxAbsCosSweep`
+- `arc_sweep_rad` -> `ArcSweepRad`
+- `circle_center_for_segment` -> `CircleCenterForSeg`
+- `_segment_tangent_component_bounds` -> `SegTangentBounds`
+- `cap_segments_speed_by_axis_velocity` -> `CapSegSpeed`
+
+Internally, the transpiler pipeline is split into these modules:
+
+- `haskell/src/DuneWinder/Transpiler/Syntax.hs`: parses a constrained Python
+  subset into an AST. Supported constructs include module-level numeric
+  constants, function definitions, assignments, `if`/`else`, `for` loops over
+  `range(...)` and `enumerate(...)`, arithmetic, comparisons, tuples/lists, and
+  a small set of calls.
+- `haskell/src/DuneWinder/Transpiler/Lower.hs`: lowers the parsed AST into a
+  PLC-oriented IR, allocates registers, maps supported builtins (`math.sin`,
+  `math.cos`, `math.sqrt`, `math.atan2`, `min`, `max`, `math.ceil`, and
+  similar), and turns known function calls into `JSR`-style routine calls.
+- `haskell/src/DuneWinder/Transpiler/Emit.hs`: renders the IR into ladder text,
+  including `MOV`, `CPT`, `XIC`/`XIO`, `JSR`, loop labels, and special-case
+  emission for operations such as `ATAN2`, `MIN`, `MAX`, `CEIL`, and `TRUNC`.
+- `haskell/src/DuneWinder/Transpiler/Builtins.hs`: defines the builtin function
+  and segment-field mappings used during lowering.
+- `haskell/src/DuneWinder/Transpiler/IR.hs`,
+  `haskell/src/DuneWinder/Transpiler/Types.hs`, and
+  `haskell/src/DuneWinder/Transpiler/RegisterAllocator.hs`: define the
+  intermediate representation, PLC/register types, and sequential register
+  allocation used by the generated routines.
+- `haskell/app/TranspileMain.hs`: CLI wrapper that concatenates `.py` inputs,
+  applies an optional function filter, and prints the generated text to stdout.
+
+#### `plc-rung-transform-hs`
+
+`plc-rung-transform-hs` is a stdin-to-stdout text transformer for Studio 5000
+ladder snippets:
+
+```bash
+cabal run plc-rung-transform-hs -- < input.rllscrap > output.rll
+```
+
+Its implementation lives in `haskell/src/PlcRungTransform.hs`. That module
+rewrites bracketed conditions into `BST`/`NXB`/`BND` form, preserves nested
+`CPT(...)` expressions while splitting top-level arguments, quotes command
+arguments that contain spaces, flattens delimiter layout, and normalizes the
+result into paste-friendly ladder text.
+
 ## Grafana Monitoring Dashboard
 
 The winder pushes PLC tag values directly into InfluxDB after each poll cycle
