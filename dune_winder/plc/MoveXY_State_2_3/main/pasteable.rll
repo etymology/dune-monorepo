@@ -16,7 +16,7 @@ CMP STATE=3 CPT stopping_ratio stopping_distance/xy_dist_to_target
 BST XIC TENSION_CONTROL_OK XIC speed_regulator_switch JSR xy_speed_regulator 0 NXB BST XIO TENSION_CONTROL_OK NXB XIC TENSION_CONTROL_OK XIO speed_regulator_switch BND XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION XY_SPEED_REQ "Units per sec" XY_ACCELERATION "Units per sec2" XY_DECELERATION "Units per sec2" S-Curve 500 500 "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 BND 
 XIO speed_regulator_switch XIC main_xy_move.IP OTE speed_regulator_off_during_move 
 XIC speed_regulator_off_during_move XIO near_ending MCCD X_Y MCCD_X_Y_Axis1 "Coordinated Move" Yes XY_SPEED_REQ "Units per sec" Yes XY_ACCELERATION "Units per sec2" Yes XY_DECELERATION "Units per sec2" No xy_regulated_accel_jerk No xy_regulated_decel_jerk "Units per sec3" "Active Motion" OTU speed_regulator_off_during_move 
-BST XIC main_xy_move.PC NXB XIC main_xy_move.ER BND BST CMP X_axis.ActualPosition< X_POSITION+0.1 CMP X_axis.ActualPosition> X_POSITION-0.1 CMP Y_axis.ActualPosition< Y_POSITION+0.1 CMP Y_axis.ActualPosition> Y_POSITION-0.1 OTE XY_POS_LOCK_STAT NXB XIC STATE3_IND CMP MOVE_TYPE=0 CPT ERROR_CODE 3003 BND OTE move_completed 
+BST XIC main_xy_move.PC NXB XIC main_xy_move.ER BND BST CMP X_axis.ActualPosition<(X_POSITION+0.1) NXB XIC STATE3_IND CMP MOVE_TYPE=0 CPT ERROR_CODE 3003 BND OTE move_completed 
 XIC main_xy_move.IP CMP XY_SPEED=0 OTE speed_set_to_zero 
 XIC main_xy_move.IP XIO ALL_EOT_GOOD OTE eot_triggered 
 XIC eot_triggered MCS X_Y eot_stop_instruction All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 OTU eot_triggered 

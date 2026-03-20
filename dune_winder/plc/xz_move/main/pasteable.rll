@@ -3,5 +3,5 @@ XIC STATE12_IND XIO Y_XFER_OK CPT ERROR_CODE 5003 CPT MOVE_TYPE 0 CPT NEXTSTATE 
 XIC STATE12_IND XIC Y_XFER_OK XIO xz_main_move.IP MCLM xz xz_main_move 0 xz_position_target 800 "Units per sec" 1000 "Units per sec2" 1000 "Units per sec2" S-Curve 1000 1000 "Units per sec3" 0 0 0 0 0 0 0 0 
 XIO Y_XFER_OK XIC xz_main_move.IP MCS X_Y xy_stop All Yes 4000 "Units per sec2" Yes 2000 "Units per sec3" MCS xz xz_stop All Yes 4000 "Units per sec2" Yes 200 "Units per sec3" CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
 XIC STATE12_IND XIC xz_main_move.ER CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
-XIC STATE12_IND CMP ABS X_axis.ActualPosition-xz_position_target[0] <0.1 CMP ABS Z_axis.ActualPosition-xz_position_target[1] <0.1 CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
+XIC STATE12_IND CMP ABS(X_axis.ActualPosition-xz_position_target[0])<0.1 CMP ABS(Z_axis.ActualPosition-xz_position_target[1])<0.1 CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
 
