@@ -35,6 +35,13 @@ class PlcRungTransformTests(unittest.TestCase):
 
     self.assertEqual(result, "Values[1 2 3]\nBST XIC A NXB XIC B BND ")
 
+  def test_transform_text_applies_bracketed_condition_rewrite_before_flattening(self):
+    source = "Prefix [XIC CurIssued,XIO QueueFault] Suffix"
+
+    result = transform_text(source)
+
+    self.assertEqual(result, "Prefix BST XIC CurIssued NXB XIO QueueFault BND Suffix")
+
   def test_transform_file_writes_output_file(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       input_path = Path(temp_dir) / "input.txt"
