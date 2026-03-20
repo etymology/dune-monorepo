@@ -13,6 +13,11 @@ between:
 The goal is to explain the current behavior of the repository as checked in,
 not an idealized target design.
 
+Related documents:
+
+- `docs/PlcLadderWorkflow.md` for the Studio 5000 storage/export workflow
+- `docs/PlcWinderArchitectureProposals.md` for suggested follow-on changes
+
 ## End-to-End Runtime Path
 
 ### Startup and backend selection

@@ -2,143 +2,197 @@
 
 ## Overview
 
-Our current Studio 5000 version restricts structured-text programming, so the
-PLC workflow in this repository is built around ladder-rung text.
+This repository uses Rockwell Studio 5000 ladder-rung text as the exchange
+format for PLC logic. The workflow is centered on copied rung text rather than
+full `.ACD` project files because rung text is easy to diff, review, transform,
+and paste back into Studio 5000.
 
-The practical workaround is:
+At a high level:
 
-1. Copy rung text out of an existing Studio 5000 routine.
-2. Save that copied text as `.rllscrap`.
-3. Transform or transpile source text into pasteable ladder text.
-4. Paste the resulting `.rll` text back into Studio 5000 as ladder logic.
+1. Copy routine text out of Studio 5000.
+2. Store the copied text as `.rllscrap`.
+3. Transform or generate ladder text as needed.
+4. Paste the resulting `.rll` text back into Studio 5000.
 
-`plc_routines/` at the repo root stores curated checked-in ladder artifacts.
-A separate generated `plc/` tree can be scaffolded from a live controller with
-`pycomm3`.
+This document describes the storage conventions used in the current `plc/`
+tree. For the runtime communication model between Python and the PLC, see
+`docs/PlcWinderCommunication.md`.
 
 ## Studio 5000 Text Formats
 
-Studio 5000 copy and paste use different text formats:
+Studio 5000 copy/paste uses two related but different text formats:
 
-- `.rllscrap` is the copied-from-Studio 5000 format.
-- `.rll` is the pasteable ladder-logic format that Studio 5000 accepts when
-  pasting into a routine.
+- `.rllscrap`
+  - copied out of Studio 5000
+- `.rll`
+  - pasteable ladder text accepted by Studio 5000
 
-The important limitation is that ladder-rung text only contains the rungs. It
-does not carry the required tag definitions. Users must create any required
-controller-level tags, program-level tags, and referenced UDTs in Studio 5000
-separately.
-
-## PLC Hierarchy
-
-The relevant Studio 5000 structure is:
-
-- controller
-- programs
-- one main routine per program
-- optional subroutines called within a program via `JSR`
-
-Not every subroutine from every program has been pasted into this repository, so
-the on-disk representation may be partial.
+The rung text itself only contains ladder instructions. It does not include all
+required controller tags, program tags, or UDT definitions, so those still
+need to exist in the PLC project.
 
 ## Repository Layout
 
-Each program lives in its own folder under `plc_routines/`:
+The checked-in PLC tree is `plc/`.
 
-- `program.json`: machine-readable program structure metadata.
-- `main/`: the checked-in entry routine for the program.
-- `subroutines/<routine>/`: any checked-in JSR target routines for the program.
+### Controller-level metadata
 
-Each checked-in routine folder uses these canonical files when available:
+- `plc/controller_level_tags.json`
 
-- `studio_copy.rllscrap`: copied source text taken from Studio 5000.
-- `pasteable.rll`: ladder text that can be pasted into Studio 5000.
-- `tags.md`: operator-facing notes about required tags and setup.
-- `tags.json`: machine-readable tag requirements for tooling and validation.
+This file is the exported inventory of controller-scoped tags and controller
+UDTs.
 
-Some routine folders also include extra checked-in support text for that
-program. This structure keeps each program's checked-in routine text and tag
-requirements together while making the main entry point distinct from
-subroutines.
+### Program folders
 
-For live PLC metadata export, `src/export_plc_metadata.py` scaffolds this
-separate structure under `plc/`:
+Each PLC program typically has:
+
+- `plc/<program>/programTags.json`
+- `plc/<program>/main/studio_copy.rllscrap`
+- `plc/<program>/main/pasteable.rll`
+- optional `plc/<program>/<subroutine>/studio_copy.rllscrap`
+- optional `plc/<program>/<subroutine>/pasteable.rll`
+
+Examples in this repository include:
+
+- `plc/MainProgram/`
+- `plc/Ready_State_1/`
+- `plc/MoveXY_State_2_3/`
+- `plc/MoveZ_State_4_5/`
+- `plc/Latch_UnLatch_State_6_7_8/`
+- `plc/Error_State_10/`
+- `plc/motionQueue/`
+- `plc/xz_move/`
+
+### Standalone helper artifacts
+
+The `plc/` tree also contains some checked-in files that are not organized as a
+full program folder, for example:
+
+- `plc/enqueueRoutineStateful`
+- `plc/enqueueRoutine_3d_arc.txt`
+
+These are still useful ladder references, but they are not laid out like the
+exported program directories.
+
+## Metadata Export Workflow
+
+The repository includes two maintenance tools for pulling live PLC metadata
+into the `plc/` tree.
+
+### Export structure and tags
+
+Use:
+
+```bash
+python src/export_plc_metadata.py 192.168.1.10
+```
+
+This connects with `pycomm3` and writes:
 
 - `plc/controller_level_tags.json`
 - `plc/<program>/programTags.json`
-- `plc/<program>/main/studio_copy.rllscrap`
-- `plc/<program>/<subroutine>/studio_copy.rllscrap`
+- empty `studio_copy.rllscrap` placeholders for each discovered main routine
+  and subroutine
 
-The JSON files are populated from `pycomm3`. The `.rllscrap` files are created
-as empty placeholders so the user can paste copied Studio 5000 routine text
-manually afterward.
+The exported JSON captures:
 
-## Tag Metadata
+- controller-level tags
+- program-level tags
+- UDT definitions reachable from those tags
+- inferred main routine names
+- discovered routine/subroutine lists
 
-There are two levels of tag scope in this workflow:
+### Export live values into the JSON files
 
-- Controller-level tags: shared PLC tags defined at controller scope.
-- Program-level tags: tags defined within a specific Studio 5000 program.
+Use:
 
-`tags.json` is the machine-readable source of truth and supports both scalar and
-UDT-backed tags.
-
-Recommended shape:
-
-```json
-{
-  "schema_version": 1,
-  "program_name": "exampleProgram",
-  "routine_name": "exampleRoutine",
-  "udts": [
-    {
-      "name": "ExampleStatus",
-      "fields": [
-        {"name": "Ready", "type": "BOOL"},
-        {"name": "ErrorCode", "type": "DINT"}
-      ]
-    }
-  ],
-  "controller_tags": [
-    {
-      "name": "QueueFault",
-      "type": "BOOL",
-      "description": "Shared fault flag used by multiple routines."
-    }
-  ],
-  "program_tags": [
-    {
-      "name": "LocalStatus",
-      "type": "ExampleStatus",
-      "program": "exampleProgram",
-      "description": "Program-scope state."
-    }
-  ]
-}
+```bash
+python src/export_plc_tag_values.py 192.168.1.10
 ```
 
-Notes:
+This reads every tag referenced by the existing metadata files in `plc/` and
+writes the current values back into those same JSON files.
 
-- Atomic types such as `BOOL`, `REAL`, and `DINT` are supported directly.
-- UDT fields may reference other UDT names when nested composition is needed.
-- Controller-level tags omit `program`.
-- Program-level tags include a `program` field naming the owning program.
+That is useful for:
 
-## Translation And Transpilation Tools
+- documenting the live controller contract
+- debugging which queue/state tags exist and how they are populated
+- comparing expected tag layouts with a real controller snapshot
 
-The translator from copied Studio 5000 rung text into pasteable ladder text is:
+## Tag Metadata Conventions
 
-- [`src/dune_winder/plc_rung_transform.py`](../src/dune_winder/plc_rung_transform.py)
-- [`haskell/src/PlcRungTransform.hs`](../haskell/src/PlcRungTransform.hs)
+### Controller-level tags
 
-These tools handle the copied `.rllscrap` form and rewrite it into pasteable
-`.rll` text.
+Controller tags live in `plc/controller_level_tags.json`.
 
-The Python-to-ladder transpiler lives under
-[`src/dune_winder/transpiler/`](../src/dune_winder/transpiler) with a future
-Haskell port under development. It transforms Python code into pasteable ladder
-logic while assuming PLC tags are available, including scalar registers such as
-`BOOL`, `REAL`, and `DINT`, plus UDT-backed tags where needed.
+Each tag entry records fields such as:
 
-The detailed grammar assumptions and format handling for `.rllscrap` and `.rll`
-are documented in the rung-transform and transpiler source.
+- `name`
+- `fully_qualified_name`
+- `tag_type`
+- `data_type_name`
+- `dimensions`
+- `array_dimensions`
+- optional `udt_name`
+- optional `value`
+- optional `read_error`
+
+### Program-level tags
+
+Program-scoped tags live in `plc/<program>/programTags.json`.
+
+Those files also include:
+
+- `program_name`
+- `main_routine_name`
+- `main_routine_name_source`
+- `routines`
+- `subroutines`
+- `udts`
+
+The JSON files are the machine-readable source of truth for the tag layout that
+the Python runtime, simulator, and ladder maintenance tooling all depend on.
+
+## Translation and Transpilation Tools
+
+### Copied-rung transformer
+
+The copied-text to pasteable-text transformer lives in:
+
+- `src/dune_winder/plc_rung_transform.py`
+- `haskell/src/PlcRungTransform.hs`
+
+These tools normalize `.rllscrap` text into `.rll` text that is easier to paste
+back into Studio 5000.
+
+### Python-to-ladder transpiler
+
+The Python-to-ladder transpiler lives under:
+
+- `src/dune_winder/transpiler/`
+- `haskell/src/DuneWinder/Transpiler/`
+
+It is used for selected motion-planning functions, especially around queued
+motion helpers such as:
+
+- `MaxAbsSinSweep`
+- `MaxAbsCosSweep`
+- `ArcSweepRad`
+- `CircleCenterForSeg`
+- `SegTangentBounds`
+- `CapSegSpeed`
+
+## Working Assumptions
+
+The current repository structure should be interpreted as:
+
+- `plc/` is the canonical checked-in PLC artifact tree
+- `programTags.json` and `controller_level_tags.json` are exported metadata
+  snapshots
+- `.rllscrap` and `.rll` files are the human-reviewed routine text artifacts
+- some ladder references exist outside the standard program-folder layout and
+  should be treated as special-case helper files
+
+If a future cleanup separates exported metadata from hand-maintained ladder
+artifacts, this document should be updated to reflect that new source-of-truth
+layout.

@@ -8,6 +8,7 @@ Python 3 control software and web UI for the UChicago APA winder.
 - Desktop/mobile web UI served from `web/`.
 - Programmatic G-code generation for U/V/X/G templates.
 - Queued-motion planning, preview, and PLC queue execution utilities.
+- Rockwell PLC ladder text and exported tag metadata under `plc/`.
 - Python-to-Rockwell Ladder Logic transpilation helpers for selected motion code.
 - Unit tests for recipe generation, process behavior, and core utilities.
 
@@ -161,6 +162,8 @@ Legacy expression/XML remote command shims have been removed.
 For architecture follow-up and remaining high-priority refactors, see:
 
 - [`docs/ArchitecturePriorityBacklog.md`](docs/ArchitecturePriorityBacklog.md)
+- [`docs/PlcWinderCommunication.md`](docs/PlcWinderCommunication.md)
+- [`docs/PlcWinderArchitectureProposals.md`](docs/PlcWinderArchitectureProposals.md)
 - [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
 
 ## Template G-Code Generation
@@ -242,6 +245,31 @@ The web/API layer also exposes queued-motion preview commands:
 - `process.continue_queued_motion_preview`
 - `process.cancel_queued_motion_preview`
 
+## PLC/Winder Communication
+
+The PLC link in this repository has two main paths:
+
+- Direct motion/state control: Python writes intent tags such as
+  `MOVE_TYPE`, `X_POSITION`, `Y_POSITION`, `Z_POSITION`, and speed/accel tags.
+  The PLC state routines in `plc/` validate interlocks, issue the Rockwell
+  motion instructions, and report completion through `STATE`, `ERROR_CODE`, and
+  axis status tags.
+- Queued motion: Python serializes `MotionSeg` UDT payloads into `IncomingSeg`
+  and drives the queue handshake tags (`IncomingSegReqID`, `IncomingSegAck`,
+  `StartQueuedPath`, `AbortQueue`, `QueueCount`, `CurIssued`, `NextIssued`,
+  and related fault tags). The checked-in standalone ladder counterpart is
+  `plc/motionQueue/main/pasteable.rll`.
+
+The runtime uses `pycomm3` in `REAL` mode and an in-memory `SimulatedPLC` in
+`SIM` mode. Most reads come from the shared `PLC.Tag` polling cache in the
+control loop; a few safety-sensitive checks use immediate reads instead.
+
+Primary references:
+
+- [`docs/PlcWinderCommunication.md`](docs/PlcWinderCommunication.md)
+- [`docs/PlcWinderArchitectureProposals.md`](docs/PlcWinderArchitectureProposals.md)
+- [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
+
 ## Python To Ladder Logic Transpiler
 
 The repository includes a small Python-to-Rockwell Ladder Logic transpiler for
@@ -249,21 +277,24 @@ selected motion-planning functions under `src/dune_winder/transpiler/`.
 
 Studio 5000 copy/paste uses two different text formats in this workflow:
 copied routine text is stored as `.rllscrap`, while pasteable ladder logic is
-stored as `.rll`. Checked-in routine artifacts now live under `plc_routines/`
-at the repo root, grouped by PLC program. Each program has a `main/` entry
-routine folder and may also include `subroutines/<routine>/` folders for
-checked-in JSR targets. Routine folders use these canonical files when
-available:
+stored as `.rll`. Checked-in PLC artifacts live under `plc/` at the repo root.
+The tree mixes exported metadata and manually maintained routine text:
+
+- `plc/controller_level_tags.json`
+- `plc/<program>/programTags.json`
+- `plc/<program>/main/studio_copy.rllscrap`
+- `plc/<program>/main/pasteable.rll`
+- `plc/<program>/<subroutine>/studio_copy.rllscrap`
+- `plc/<program>/<subroutine>/pasteable.rll`
+
+Routine folders use these canonical files when available:
 
 - `studio_copy.rllscrap`
 - `pasteable.rll`
-- `tags.md`
-- `tags.json`
 
-Some routine folders also carry extra support text that has been checked into
-the repo for that program. `tags.json` records machine-readable controller-level
-tags, program-level tags, and reusable UDT definitions, while `program.json`
-records the program layout. See
+Some PLC programs also include supporting exported metadata in `programTags.json`
+and the repository root includes controller-wide metadata in
+`plc/controller_level_tags.json`. See
 [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
 for the Studio 5000 workflow and storage conventions.
 
