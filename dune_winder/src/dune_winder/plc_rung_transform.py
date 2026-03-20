@@ -10,6 +10,28 @@ WHITESPACE_PATTERN = re.compile(r"[ \t]+")
 NUMERIC_TERM_PATTERN = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
 
 
+def _split_top_level_commas(text):
+  parts = []
+  current = []
+  depth = 0
+
+  for character in text:
+    if character == "," and depth == 0:
+      parts.append("".join(current))
+      current = []
+      continue
+
+    if character == "(":
+      depth += 1
+    elif character == ")" and depth > 0:
+      depth -= 1
+
+    current.append(character)
+
+  parts.append("".join(current))
+  return parts
+
+
 def _normalize_condition_term(term):
   stripped_term = term.strip()
   command_match = COMMAND_ARGUMENTS_PATTERN.fullmatch(stripped_term)
@@ -25,7 +47,11 @@ def _normalize_condition_term(term):
 
 
 def _replace_bracketed_conditions(match):
-  conditions = [_normalize_condition_term(part) for part in match.group(1).split(",") if part.strip()]
+  conditions = [
+    _normalize_condition_term(part)
+    for part in _split_top_level_commas(match.group(1))
+    if part.strip()
+  ]
   if not conditions:
     return match.group(0)
 
@@ -37,7 +63,7 @@ def _replace_bracketed_conditions(match):
 
 def _quote_spaced_command_arguments(match):
   command = match.group(1)
-  arguments = match.group(2).split(",")
+  arguments = _split_top_level_commas(match.group(2))
   normalized_arguments = []
 
   for argument in arguments:
