@@ -1,3 +1,6 @@
-XIC Y_XFER_OK XIC xz_trigger_move MCLM xz xz_main_move 0 xz_position_targetBST 0 BND 200 Units per sec 200 Units per sec2 200 Units per sec2 S-Curve 200 200 Units per sec3 0 0 0 0 0 0 0 0 
-XIO Y_XFER_OK XIC xz_main_move.IP MCS X_Y xy_stop All Yes 4000 Units per sec2 Yes 4000 Units per sec3 MCS xz xz_stop All Yes 4000 Units per sec2 Yes 4000 Units per sec3 
-
+CMP STATE=12 OTE STATE12_IND 
+XIC STATE12_IND XIO Y_XFER_OK CPT ERROR_CODE 5003 CPT MOVE_TYPE 0 CPT NEXTSTATE 10 
+XIC STATE12_IND XIC Y_XFER_OK XIO xz_main_move.IP MCLM xz xz_main_move 0 xz_position_targetBST 0 BND 200 Units per sec 200 Units per sec2 200 Units per sec2 S-Curve 200 200 Units per sec3 0 0 0 0 0 0 0 0 
+XIO Y_XFER_OK XIC xz_main_move.IP MCS X_Y xy_stop All Yes 4000 Units per sec2 Yes 4000 Units per sec3 MCS xz xz_stop All Yes 4000 Units per sec2 Yes 4000 Units per sec3 CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
+XIC STATE12_IND XIC xz_main_move.ER CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
+XIC STATE12_IND XIC xz_main_move.PC CPT MOVE_TYPE 0 CPT NEXTSTATE 1 

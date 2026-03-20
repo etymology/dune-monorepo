@@ -50,9 +50,8 @@ class PLCLogicTests(unittest.TestCase):
     self.assertEqual(
       plc.write_calls,
       [
-        ("xz_position_target[0]", 12.5),
-        ("xz_position_target[1]", 34.5),
-        ("xz_trigger_move", True),
+        ("xz_position_target", [12.5, 34.5]),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.SEEK_XZ),
       ],
     )
 
