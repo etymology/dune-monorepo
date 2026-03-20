@@ -55,6 +55,15 @@ class PLCLogicTests(unittest.TestCase):
       ],
     )
 
+  def test_get_state_reads_live_value_via_list_based_fresh_read(self):
+    plc = _FreshReadPLC()
+    logic = PLC_Logic(plc, object(), object())
+
+    state = logic.getState()
+
+    self.assertEqual(state, 1)
+    self.assertEqual(plc.read_calls, [["STATE"]])
+
 
 if __name__ == "__main__":
   unittest.main()

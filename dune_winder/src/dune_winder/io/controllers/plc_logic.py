@@ -311,7 +311,7 @@ class PLC_Logic:
     Returns:
       State tag value, number from PLC_Logic.States.
     """
-    return self._state.get()
+    return self._readTagNow(self._state)
 
   # ---------------------------------------------------------------------
   def reset(self):
