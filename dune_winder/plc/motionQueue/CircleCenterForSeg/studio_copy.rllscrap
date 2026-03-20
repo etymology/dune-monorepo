@@ -1,0 +1,1 @@
+NEQ(SegQueue[idx_0].CircleType,1)JMP(lbl_else_26);   JMP(lbl_CircleCenterForSeg_end);   LBL(lbl_else_26)NEQ(SegQueue[idx_0].CircleType,3)JMP(lbl_else_28);   JMP(lbl_CircleCenterForSeg_end);   LBL(lbl_else_28)JMP(lbl_CircleCenterForSeg_end);   LBL(lbl_CircleCenterForSeg_end)NOP();   ;   
