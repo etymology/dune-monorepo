@@ -75,6 +75,7 @@ Status: Partially implemented (2026-03-05) with centralized typed UI command
 service (`web/Scripts/UiServices.js`) and refactors for `APA`, `Jog`, and
 `Calibrate` page modules to remove direct global command catalog dependency and
 inline global page singletons.
+Details: [`docs/WebUIHardeningPlan.md`](docs/WebUIHardeningPlan.md)
 
 ### Impact
 - UI behavior is difficult to trace because modules rely on global mutable state and loosely structured callback chains.
