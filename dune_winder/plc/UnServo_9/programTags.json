@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-03-20T20:30:07.372318+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "UnServo_9",
+  "main_routine_name": "UnServo_All",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "UnServo_All"
+  ],
+  "subroutines": [],
+  "udts": [
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 2
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 0
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 0
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 0
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15
+        }
+      ]
+    }
+  ],
+  "program_tags": [
+    {
+      "name": "oneshotob",
+      "fully_qualified_name": "Program:UnServo_9.oneshotob",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        1,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "UnServo_9"
+    },
+    {
+      "name": "oneshotsb",
+      "fully_qualified_name": "Program:UnServo_9.oneshotsb",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        1,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "UnServo_9"
+    },
+    {
+      "name": "STATE9_IND",
+      "fully_qualified_name": "Program:UnServo_9.STATE9_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "UnServo_9",
+      "bit_position": 0
+    },
+    {
+      "name": "X_AXIS_STAT",
+      "fully_qualified_name": "Program:UnServo_9.X_AXIS_STAT",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        32,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "UnServo_9",
+      "udt_name": "MOTION_INSTRUCTION"
+    },
+    {
+      "name": "Y_AXIS_STAT",
+      "fully_qualified_name": "Program:UnServo_9.Y_AXIS_STAT",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        32,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "UnServo_9",
+      "udt_name": "MOTION_INSTRUCTION"
+    },
+    {
+      "name": "Z_AXIS_STAT",
+      "fully_qualified_name": "Program:UnServo_9.Z_AXIS_STAT",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        32,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "UnServo_9",
+      "udt_name": "MOTION_INSTRUCTION"
+    }
+  ]
+}

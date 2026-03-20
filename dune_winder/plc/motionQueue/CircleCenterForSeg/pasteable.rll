@@ -1,0 +1,7 @@
+NEQ "SegQueueBST idx_0 BND .CircleType" 1 JMP lbl_else_26 
+JMP lbl_CircleCenterForSeg_end 
+LBL lbl_else_26 NEQ "SegQueueBST idx_0 BND .CircleType" 3 JMP lbl_else_28 
+JMP lbl_CircleCenterForSeg_end 
+LBL lbl_else_28 JMP lbl_CircleCenterForSeg_end 
+LBL lbl_CircleCenterForSeg_end NOP 
+
