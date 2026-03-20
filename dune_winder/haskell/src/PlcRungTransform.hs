@@ -5,7 +5,7 @@ module PlcRungTransform
   ( transformText
   ) where
 
-import Data.Char (isDigit)
+import Data.Char (isDigit, isAsciiUpper, isAsciiLower)
 import qualified Data.Text as T
 import Data.Text (Text)
 
@@ -98,7 +98,7 @@ isSimpleNumber s =
   case break (== '.') s of
     ([], []) -> False
     (lhs, []) -> all isDigit lhs
-    (lhs, '.':[]) -> all isDigit lhs && not (null lhs)
+    (lhs, ['.']) -> all isDigit lhs && not (null lhs)
     (lhs, '.':rhs) ->
       ((not (null lhs) && all isDigit lhs) || null lhs)
         && all isDigit rhs
@@ -168,11 +168,7 @@ replaceBracketedConditions content =
         | part <- splitTopLevelCommas content
         , not (T.null (T.strip part))
         ]
-  in if null conditions
-       then "[" <> content <> "]"
-       else if all isNumericTerm conditions
-              then "[" <> content <> "]"
-              else "BST " <> T.intercalate " NXB " conditions <> " BND "
+  in (if null conditions || all isNumericTerm conditions then "[" <> content <> "]" else "BST " <> T.intercalate " NXB " conditions <> " BND ")
 
 transformBracketedConditions :: Text -> Text
 transformBracketedConditions txt = go 0
@@ -221,7 +217,7 @@ validCommand name =
     validRest c = isAsciiAlphaNum c || c == '_' || c == '.'
 
 isAsciiAlpha :: Char -> Bool
-isAsciiAlpha c = ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z')
+isAsciiAlpha c = isAsciiUpper c || isAsciiLower c
 
 isAsciiAlphaNum :: Char -> Bool
 isAsciiAlphaNum c = isAsciiAlpha c || isDigit c
