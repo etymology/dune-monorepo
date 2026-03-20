@@ -247,6 +247,21 @@ The web/API layer also exposes queued-motion preview commands:
 The repository includes a small Python-to-Rockwell Ladder Logic transpiler for
 selected motion-planning functions under `src/dune_winder/transpiler/`.
 
+Studio 5000 copy/paste uses two different text formats in this workflow:
+copied routine text is stored as `.rllscrap`, while pasteable ladder logic is
+stored as `.rll`. Checked-in routine artifacts now live under `plc_routines/`
+at the repo root, with one folder per routine containing:
+
+- `studio_copy.rllscrap`
+- `pasteable.rll`
+- `tags.md`
+- `tags.json`
+
+`tags.json` records machine-readable controller-level tags, routine-level tags,
+and reusable UDT definitions. See
+[`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
+for the Studio 5000 workflow and storage conventions.
+
 CLI usage:
 
 ```bash
