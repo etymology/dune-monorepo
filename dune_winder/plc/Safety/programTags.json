@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-03-20T20:30:07.372318+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "Safety",
+  "main_routine_name": "Safety",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "Safety"
+  ],
+  "subroutines": [],
+  "udts": [],
+  "program_tags": [
+    {
+      "name": "e",
+      "fully_qualified_name": "Program:Safety.e",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Safety",
+      "bit_position": 0
+    },
+    {
+      "name": "Machine_Reduced_Speed",
+      "fully_qualified_name": "Program:Safety.Machine_Reduced_Speed",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Safety",
+      "bit_position": 0
+    }
+  ]
+}

@@ -1,8 +1,0 @@
-{
-  "schema_version": 1,
-  "program_name": "eotRoutine",
-  "main_routine_name": "eotRoutine",
-  "present_subroutines": [],
-  "missing_subroutines": [],
-  "notes": "Only the checked-in main routine is currently represented in this program folder."
-}
