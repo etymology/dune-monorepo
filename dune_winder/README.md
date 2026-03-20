@@ -267,6 +267,17 @@ records the program layout. See
 [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
 for the Studio 5000 workflow and storage conventions.
 
+To scaffold a separate live-PLC metadata tree, use:
+
+```bash
+python3 src/export_plc_metadata.py 192.168.1.10
+```
+
+That command connects with `pycomm3`, writes controller/program tag metadata to
+`plc/`, and creates empty `studio_copy.rllscrap` placeholders for each
+discovered program entry point and subroutine. Users still need to copy actual
+rung text from Studio 5000 into those `.rllscrap` files manually.
+
 CLI usage:
 
 ```bash
