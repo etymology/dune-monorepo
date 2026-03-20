@@ -10,8 +10,22 @@ WHITESPACE_PATTERN = re.compile(r"[ \t]+")
 PLC_CONDITION_TERM_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.]*\s+\S")
 
 
+def _normalize_condition_term(term):
+  stripped_term = term.strip()
+  command_match = COMMAND_ARGUMENTS_PATTERN.fullmatch(stripped_term)
+  if command_match is None:
+    return stripped_term
+
+  command = command_match.group(1)
+  argument = WHITESPACE_PATTERN.sub(" ", command_match.group(2)).strip()
+  if not argument:
+    return stripped_term
+
+  return command + " " + argument
+
+
 def _replace_bracketed_conditions(match):
-  conditions = [part.strip() for part in match.group(1).split(",") if part.strip()]
+  conditions = [_normalize_condition_term(part) for part in match.group(1).split(",") if part.strip()]
   if not conditions:
     return match.group(0)
 
