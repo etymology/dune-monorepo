@@ -42,6 +42,20 @@ class PlcRungTransformTests(unittest.TestCase):
 
     self.assertEqual(result, "Prefix BST XIC CurIssued NXB XIO QueueFault BND Suffix")
 
+  def test_transform_text_converts_function_style_conditions_inside_brackets(self):
+    source = (
+      "   XIC(QueueStopRequest)[XIC(CurIssued),XIC(NextIssued),"
+      "XIC(X_Y.MovePendingStatus)]ONS(QueueStopReqONS)"
+    )
+
+    result = transform_text(source)
+
+    self.assertEqual(
+      result,
+      "XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued "
+      "NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS ",
+    )
+
   def test_transform_file_writes_output_file(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       input_path = Path(temp_dir) / "input.txt"
