@@ -70,6 +70,11 @@ def _read_single_tag(driver, tag_name):
   return _normalize_read_result(driver.read(tag_name), tag_name)
 
 
+def _should_skip_udt_field(field_name):
+  normalized = str(field_name).strip().lower()
+  return "dead_zone" in normalized or "pad" in normalized
+
+
 def _read_struct_fields(driver, base_tag_name, udt_name, udts_by_name):
   udt_definition = udts_by_name.get(udt_name)
   if udt_definition is None:
@@ -78,6 +83,8 @@ def _read_struct_fields(driver, base_tag_name, udt_name, udts_by_name):
   value = {}
   field_errors = []
   for field in udt_definition.get("fields", []):
+    if _should_skip_udt_field(field["name"]):
+      continue
     field_tag_name = f"{base_tag_name}.{field['name']}"
     field_value, field_error = _read_tag_value_with_fallback(
       driver,
