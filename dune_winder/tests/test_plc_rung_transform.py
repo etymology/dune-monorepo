@@ -73,6 +73,20 @@ class PlcRungTransformTests(unittest.TestCase):
       "BST EQU CurSeg.SegType 1 NXB EQU CurSeg.SegType 2 BND ",
     )
 
+  def test_transform_text_supports_nested_bracketed_conditions(self):
+    source = (
+      "[[XIO(Z_RETRACTED),GEQ(Z_axis.ActualPosition,MAX_TOLERABLE_Z)]"
+      "CPT(ERROR_CODE,3001),XIC(Z_RETRACTED)]NOP"
+    )
+
+    result = transform_text(source)
+
+    self.assertEqual(
+      result,
+      "BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z "
+      "BND CPT ERROR_CODE 3001 NXB XIC Z_RETRACTED BND NOP",
+    )
+
   def test_transform_file_writes_output_file(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       input_path = Path(temp_dir) / "input.txt"
