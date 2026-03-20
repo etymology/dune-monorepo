@@ -4,19 +4,26 @@ from pathlib import Path
 from dune_winder.plc_rung_transform import transform_file
 
 
+DEFAULT_ROUTINE_DIR = Path(__file__).resolve().parents[1] / "plc_routines"
+
+
 def build_argument_parser():
   parser = argparse.ArgumentParser(
     description=(
-      "Convert every .rllscrap file in a PLC routines directory into a "
-      "same-name .rll file using the standard PLC rung transformation."
+      "Convert every per-routine studio_copy.rllscrap file in a PLC routines "
+      "directory into a sibling pasteable.rll file using the standard PLC "
+      "rung transformation."
     )
   )
   parser.add_argument(
     "routine_dir",
     nargs="?",
-    default=Path(__file__).resolve().parent / "plc_routines",
+    default=DEFAULT_ROUTINE_DIR,
     type=Path,
-    help="Directory containing .rllscrap files. Defaults to src/plc_routines.",
+    help=(
+      "Directory containing per-routine studio_copy.rllscrap files. "
+      "Defaults to plc_routines/ at the repo root."
+    ),
   )
   parser.add_argument(
     "--dry-run",
@@ -27,7 +34,7 @@ def build_argument_parser():
 
 
 def iter_rllscrap_files(routine_dir: Path):
-  yield from sorted(routine_dir.glob("*.rllscrap"))
+  yield from sorted(routine_dir.rglob("studio_copy.rllscrap"))
 
 
 def convert_directory(routine_dir: Path, dry_run: bool = False) -> int:
@@ -37,12 +44,14 @@ def convert_directory(routine_dir: Path, dry_run: bool = False) -> int:
 
   converted = 0
   for input_path in iter_rllscrap_files(source_dir):
-    output_path = input_path.with_suffix(".rll")
+    output_path = input_path.with_name("pasteable.rll")
+    relative_input_path = input_path.relative_to(source_dir)
+    relative_output_path = output_path.relative_to(source_dir)
     if dry_run:
-      print(f"would convert {input_path.name} -> {output_path.name}")
+      print(f"would convert {relative_input_path} -> {relative_output_path}")
     else:
       transform_file(input_path, output_path)
-      print(f"converted {input_path.name} -> {output_path.name}")
+      print(f"converted {relative_input_path} -> {relative_output_path}")
     converted += 1
 
   return converted
