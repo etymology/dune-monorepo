@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 BRACKETED_CONDITIONS_PATTERN = re.compile(r"\[([^\[\]]+)\]")
+COMMAND_ARGUMENTS_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\(([^()\n]*)\)")
 INLINE_SEPARATOR_PATTERN = re.compile(r"[(),]")
 WHITESPACE_PATTERN = re.compile(r"[ \t]+")
 
@@ -13,11 +14,30 @@ def _replace_bracketed_conditions(match):
   if not conditions:
     return ""
 
-  return "BST " + "  NXB ".join(conditions) + "  BND"
+  return "BST " + "  NXB ".join(conditions) + "  BND "
+
+
+def _quote_spaced_command_arguments(match):
+  command = match.group(1)
+  arguments = match.group(2).split(",")
+  normalized_arguments = []
+
+  for argument in arguments:
+    normalized_argument = WHITESPACE_PATTERN.sub(" ", argument).strip()
+    if (
+      " " in normalized_argument
+      and not normalized_argument.startswith('"')
+      and not normalized_argument.endswith('"')
+    ):
+      normalized_argument = '"' + normalized_argument + '"'
+    normalized_arguments.append(normalized_argument)
+
+  return command + "(" + ",".join(normalized_arguments) + ")"
 
 
 def transform_text(text):
   transformed = BRACKETED_CONDITIONS_PATTERN.sub(_replace_bracketed_conditions, text)
+  transformed = COMMAND_ARGUMENTS_PATTERN.sub(_quote_spaced_command_arguments, transformed)
   transformed = INLINE_SEPARATOR_PATTERN.sub(" ", transformed)
   transformed = transformed.replace(";", "\n")
   trailing_newline = transformed.endswith("\n")
