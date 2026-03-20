@@ -9,13 +9,13 @@ from convert_plc_rllscrap import iter_rllscrap_files
 
 
 class ConvertPlcRllscrapTests(unittest.TestCase):
-  def test_default_argument_points_to_repo_root_plc_routines(self):
+  def test_default_argument_points_to_repo_root_plc_directory(self):
     parser = build_argument_parser()
 
     args = parser.parse_args([])
 
     self.assertEqual(args.routine_dir, DEFAULT_ROUTINE_DIR)
-    self.assertEqual(args.routine_dir.name, "plc_routines")
+    self.assertEqual(args.routine_dir.name, "plc")
 
   def test_iter_rllscrap_files_discovers_recursive_studio_copy_files_only(self):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -33,7 +33,7 @@ class ConvertPlcRllscrapTests(unittest.TestCase):
   def test_convert_directory_writes_pasteable_output_next_to_studio_copy(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       root = Path(temp_dir)
-      routine_dir = root / "mainRoutine" / "subroutines" / "speedHelper"
+      routine_dir = root / "mainRoutine" / "speedHelper"
       input_path = routine_dir / "studio_copy.rllscrap"
       output_path = routine_dir / "pasteable.rll"
       routine_dir.mkdir(parents=True)
