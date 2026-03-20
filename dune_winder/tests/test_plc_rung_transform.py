@@ -28,6 +28,13 @@ class PlcRungTransformTests(unittest.TestCase):
       'MCS X_Y gui_stop All Yes 2000 "Units per sec2" Yes 1000 "Units per sec3" ',
     )
 
+  def test_transform_text_preserves_parentheses_in_cpt_expression(self):
+    source = "CPT(ERROR_CODE,3000+(A*B))"
+
+    result = transform_text(source)
+
+    self.assertEqual(result, "CPT ERROR_CODE 3000+(A*B) ")
+
   def test_transform_text_leaves_numeric_bracket_lists_unchanged(self):
     source = "Values[1,2,3];[XIC A,XIC B]"
 
@@ -85,6 +92,17 @@ class PlcRungTransformTests(unittest.TestCase):
       result,
       "BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z "
       "BND CPT ERROR_CODE 3001 NXB XIC Z_RETRACTED BND NOP",
+    )
+
+  def test_transform_text_preserves_cpt_parentheses_inside_nested_branches(self):
+    source = "[[XIO(Z_RETRACTED)]CPT(ERROR_CODE,3000+(A*B)),XIC(Z_RETRACTED)]NOP"
+
+    result = transform_text(source)
+
+    self.assertEqual(
+      result,
+      "BST BST XIO Z_RETRACTED BND CPT ERROR_CODE 3000+(A*B) "
+      "NXB XIC Z_RETRACTED BND NOP",
     )
 
   def test_transform_file_writes_output_file(self):
