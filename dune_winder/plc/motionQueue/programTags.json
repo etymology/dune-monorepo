@@ -1,0 +1,1630 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-03-20T20:49:13.439132+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "motionQueue",
+  "main_routine_name": "main",
+  "main_routine_name_source": "casefold_name_match",
+  "routines": [
+    "ArcSweepRad",
+    "CapSegSpeed",
+    "CircleCenterForSeg",
+    "MaxAbsCosSweep",
+    "MaxAbsSinSweep",
+    "SegTangentBounds",
+    "main"
+  ],
+  "subroutines": [
+    "ArcSweepRad",
+    "CapSegSpeed",
+    "CircleCenterForSeg",
+    "MaxAbsCosSweep",
+    "MaxAbsSinSweep",
+    "SegTangentBounds"
+  ],
+  "udts": [
+    {
+      "name": "CONTROL",
+      "fields": [
+        {
+          "name": "LEN",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 4
+        },
+        {
+          "name": "POS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "EU",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 6,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "EM",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "UL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "IN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 3
+        },
+        {
+          "name": "FD",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 3
+        }
+      ]
+    },
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 2
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 0
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 0
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 0
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15
+        }
+      ]
+    },
+    {
+      "name": "MotionSeg",
+      "fields": [
+        {
+          "name": "Valid",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "SegType",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 1
+        },
+        {
+          "name": "XY",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "array_length": 2,
+          "offset": 4
+        },
+        {
+          "name": "Speed",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "offset": 12
+        },
+        {
+          "name": "Accel",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "offset": 16
+        },
+        {
+          "name": "Decel",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "offset": 20
+        },
+        {
+          "name": "JerkAccel",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "offset": 24
+        },
+        {
+          "name": "JerkDecel",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "offset": 28
+        },
+        {
+          "name": "TermType",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 32
+        },
+        {
+          "name": "Seq",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 36
+        },
+        {
+          "name": "CircleType",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 40
+        },
+        {
+          "name": "ViaCenter",
+          "tag_type": "atomic",
+          "data_type_name": "REAL",
+          "array_length": 2,
+          "offset": 44
+        },
+        {
+          "name": "Direction",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 52
+        }
+      ]
+    }
+  ],
+  "program_tags": [
+    {
+      "name": "StartNextA_ONS",
+      "fully_qualified_name": "Program:motionQueue.StartNextA_ONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "StartNextB_ONS",
+      "fully_qualified_name": "Program:motionQueue.StartNextB_ONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "CheckCurSeg",
+      "fully_qualified_name": "Program:motionQueue.CheckCurSeg",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "UseAasCurrent",
+      "fully_qualified_name": "Program:motionQueue.UseAasCurrent",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "QueueCtl",
+      "fully_qualified_name": "Program:motionQueue.QueueCtl",
+      "tag_type": "struct",
+      "data_type_name": "CONTROL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "CONTROL",
+      "value": {
+        "LEN": 32,
+        "POS": 0,
+        "EN": false,
+        "EU": false,
+        "DN": false,
+        "EM": true,
+        "ER": false,
+        "UL": false,
+        "IN": false,
+        "FD": false
+      }
+    },
+    {
+      "name": "FaultCode",
+      "fully_qualified_name": "Program:motionQueue.FaultCode",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "QueueEmpty",
+      "fully_qualified_name": "Program:motionQueue.QueueEmpty",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "CheckNextSeg",
+      "fully_qualified_name": "Program:motionQueue.CheckNextSeg",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "CurSeg",
+      "fully_qualified_name": "Program:motionQueue.CurSeg",
+      "tag_type": "struct",
+      "data_type_name": "MotionSeg",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "MotionSeg",
+      "value": {
+        "Valid": true,
+        "SegType": 1,
+        "XY": [
+          6381.9384765625,
+          0.0
+        ],
+        "Speed": 600.0,
+        "Accel": 2000.0,
+        "Decel": 2000.0,
+        "JerkAccel": 1500.0,
+        "JerkDecel": 1500.0,
+        "TermType": 0,
+        "Seq": 1012,
+        "CircleType": 1,
+        "ViaCenter": [
+          0.0,
+          0.0
+        ],
+        "Direction": 1
+      }
+    },
+    {
+      "name": "NextSeg",
+      "fully_qualified_name": "Program:motionQueue.NextSeg",
+      "tag_type": "struct",
+      "data_type_name": "MotionSeg",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "MotionSeg",
+      "value": {
+        "Valid": true,
+        "SegType": 1,
+        "XY": [
+          6381.9384765625,
+          0.0
+        ],
+        "Speed": 600.0,
+        "Accel": 2000.0,
+        "Decel": 2000.0,
+        "JerkAccel": 1500.0,
+        "JerkDecel": 1500.0,
+        "TermType": 0,
+        "Seq": 1012,
+        "CircleType": 1,
+        "ViaCenter": [
+          0.0,
+          0.0
+        ],
+        "Direction": 1
+      }
+    },
+    {
+      "name": "InSegONS",
+      "fully_qualified_name": "Program:motionQueue.InSegONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "StartCurONS",
+      "fully_qualified_name": "Program:motionQueue.StartCurONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "StartNextONS",
+      "fully_qualified_name": "Program:motionQueue.StartNextONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "RotateONS_AtoB",
+      "fully_qualified_name": "Program:motionQueue.RotateONS_AtoB",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "DoneONS",
+      "fully_qualified_name": "Program:motionQueue.DoneONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "EnqueueReq",
+      "fully_qualified_name": "Program:motionQueue.EnqueueReq",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "LoadCurReq",
+      "fully_qualified_name": "Program:motionQueue.LoadCurReq",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "LoadNextReq",
+      "fully_qualified_name": "Program:motionQueue.LoadNextReq",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "IssueCurPulse",
+      "fully_qualified_name": "Program:motionQueue.IssueCurPulse",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "PrepNextMove",
+      "fully_qualified_name": "Program:motionQueue.PrepNextMove",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "PrepCurMove",
+      "fully_qualified_name": "Program:motionQueue.PrepCurMove",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "IssueNextPulse",
+      "fully_qualified_name": "Program:motionQueue.IssueNextPulse",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "RotateMoves",
+      "fully_qualified_name": "Program:motionQueue.RotateMoves",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "eot_triggered",
+      "fully_qualified_name": "Program:motionQueue.eot_triggered",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "SegValidLine",
+      "fully_qualified_name": "Program:motionQueue.SegValidLine",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "SegValidArc",
+      "fully_qualified_name": "Program:motionQueue.SegValidArc",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "CmdA_SegType",
+      "fully_qualified_name": "Program:motionQueue.CmdA_SegType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1
+    },
+    {
+      "name": "SegValid",
+      "fully_qualified_name": "Program:motionQueue.SegValid",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "CmdA_XY",
+      "fully_qualified_name": "Program:motionQueue.CmdA_XY",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": 6381.9384765625
+    },
+    {
+      "name": "CmdTolerance",
+      "fully_qualified_name": "Program:motionQueue.CmdTolerance",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 100
+    },
+    {
+      "name": "CmdA_Speed",
+      "fully_qualified_name": "Program:motionQueue.CmdA_Speed",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 600.0
+    },
+    {
+      "name": "CmdA_Accel",
+      "fully_qualified_name": "Program:motionQueue.CmdA_Accel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdA_Decel",
+      "fully_qualified_name": "Program:motionQueue.CmdA_Decel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdA_JerkAccel",
+      "fully_qualified_name": "Program:motionQueue.CmdA_JerkAccel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdA_JerkDecel",
+      "fully_qualified_name": "Program:motionQueue.CmdA_JerkDecel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdA_TermType",
+      "fully_qualified_name": "Program:motionQueue.CmdA_TermType",
+      "tag_type": "atomic",
+      "data_type_name": "SINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "CmdB_XY",
+      "fully_qualified_name": "Program:motionQueue.CmdB_XY",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": 3027.677001953125
+    },
+    {
+      "name": "RotateONS_BtoA",
+      "fully_qualified_name": "Program:motionQueue.RotateONS_BtoA",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "CmdB_Speed",
+      "fully_qualified_name": "Program:motionQueue.CmdB_Speed",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 600.0
+    },
+    {
+      "name": "CmdB_Accel",
+      "fully_qualified_name": "Program:motionQueue.CmdB_Accel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdB_Decel",
+      "fully_qualified_name": "Program:motionQueue.CmdB_Decel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdB_JerkAccel",
+      "fully_qualified_name": "Program:motionQueue.CmdB_JerkAccel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdB_JerkDecel",
+      "fully_qualified_name": "Program:motionQueue.CmdB_JerkDecel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdB_TermType",
+      "fully_qualified_name": "Program:motionQueue.CmdB_TermType",
+      "tag_type": "atomic",
+      "data_type_name": "SINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 4
+    },
+    {
+      "name": "CmdB_SegType",
+      "fully_qualified_name": "Program:motionQueue.CmdB_SegType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 2
+    },
+    {
+      "name": "CmdA_CircleType",
+      "fully_qualified_name": "Program:motionQueue.CmdA_CircleType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1
+    },
+    {
+      "name": "UseAasCurrent_Next",
+      "fully_qualified_name": "Program:motionQueue.UseAasCurrent_Next",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "MoveA",
+      "fully_qualified_name": "Program:motionQueue.MoveA",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "MoveB",
+      "fully_qualified_name": "Program:motionQueue.MoveB",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "FlipToB",
+      "fully_qualified_name": "Program:motionQueue.FlipToB",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "FlipToA",
+      "fully_qualified_name": "Program:motionQueue.FlipToA",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "DoneONS_A",
+      "fully_qualified_name": "Program:motionQueue.DoneONS_A",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "DoneONS_B",
+      "fully_qualified_name": "Program:motionQueue.DoneONS_B",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "CmdB_CircleType",
+      "fully_qualified_name": "Program:motionQueue.CmdB_CircleType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1
+    },
+    {
+      "name": "CmdA_ViaCenter",
+      "fully_qualified_name": "Program:motionQueue.CmdA_ViaCenter",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": 0.0
+    },
+    {
+      "name": "CmdB_ViaCenter",
+      "fully_qualified_name": "Program:motionQueue.CmdB_ViaCenter",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": 3167.581298828125
+    },
+    {
+      "name": "CmdA_Direction",
+      "fully_qualified_name": "Program:motionQueue.CmdA_Direction",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1
+    },
+    {
+      "name": "CmdB_Direction",
+      "fully_qualified_name": "Program:motionQueue.CmdB_Direction",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 1
+    },
+    {
+      "name": "AbortActive",
+      "fully_qualified_name": "Program:motionQueue.AbortActive",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "WaitCurAxisOn",
+      "fully_qualified_name": "Program:motionQueue.WaitCurAxisOn",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "x_axis_mso",
+      "fully_qualified_name": "Program:motionQueue.x_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "y_axis_mso",
+      "fully_qualified_name": "Program:motionQueue.y_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "WaitNextAxisOn",
+      "fully_qualified_name": "Program:motionQueue.WaitNextAxisOn",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "QueueStopReqONS",
+      "fully_qualified_name": "Program:motionQueue.QueueStopReqONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "REALS",
+      "fully_qualified_name": "Program:motionQueue.REALS",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        1024,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": 0.0
+    },
+    {
+      "name": "DINTS",
+      "fully_qualified_name": "Program:motionQueue.DINTS",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        1024,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "BOOLS",
+      "fully_qualified_name": "Program:motionQueue.BOOLS",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        32,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "motionQueue",
+      "value": false
+    },
+    {
+      "name": "idx_0",
+      "fully_qualified_name": "Program:motionQueue.idx_0",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "idx_1",
+      "fully_qualified_name": "Program:motionQueue.idx_1",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "idx_2",
+      "fully_qualified_name": "Program:motionQueue.idx_2",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "idx_3",
+      "fully_qualified_name": "Program:motionQueue.idx_3",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "value": 0
+    },
+    {
+      "name": "STATE13_IND",
+      "fully_qualified_name": "Program:motionQueue.STATE13_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "motionQueue",
+      "bit_position": 0,
+      "value": false
+    }
+  ],
+  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
+}

@@ -1,0 +1,10 @@
+XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION v_max "Units per sec" xy_regulated_acceleration "Units per sec2" xy_regulated_deceleration "Units per sec2" S-Curve xy_regulated_accel_jerk xy_regulated_decel_jerk "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 
+XIC trigger_xy_move MOV xy_dt regulator_loop_timer.PRE MOV xy_d_dt xy_d_timer.PRE MOV 0 xy_i_term 
+XIO regulator_loop_timer.DN TON regulator_loop_timer ? ? 
+XIO xy_d_timer.DN TON xy_d_timer ? ? 
+XIC xy_d_timer.DN CPT d_raw xy_kd*(xy_error-xy_error_prev)/xy_d_dt*100 CPT xy_d_term xy_d_alpha*d_raw+(1-xy_d_alpha)*xy_d_term_prev MOV xy_error xy_error_prev MOV xy_d_term xy_d_term_prev 
+CPT xy_error speed_tension_setpoint-tension 
+XIC regulator_loop_timer.DN CPT xy_p_term xy_kp*xy_error 
+XIC regulator_loop_timer.DN BST LES regulated_speed v_max NXB LES xy_error 0 BND BST GRT regulated_speed min_regulated_speed NXB GRT xy_error 0 BND CPT xy_i_term xy_i_term+(xy_ki*xy_error*xy_dt/1000) BST LES xy_i_term min_integral MOV min_integral xy_i_term NXB GRT xy_i_term max_integral MOV max_integral xy_i_term BND 
+XIC regulator_loop_timer.DN CPT regulated_speed xy_default_speed+xy_p_term+xy_i_term+xy_d_term BST LES v_max regulated_speed MOV v_max regulated_speed NXB LES regulated_speed min_regulated_speed MOV min_regulated_speed regulated_speed BND 
+

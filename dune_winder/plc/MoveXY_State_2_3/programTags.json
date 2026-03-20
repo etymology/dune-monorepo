@@ -1,0 +1,1777 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-03-20T20:49:13.439132+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "MoveXY_State_2_3",
+  "main_routine_name": "main",
+  "main_routine_name_source": "casefold_name_match",
+  "routines": [
+    "main",
+    "xy_speed_regulator"
+  ],
+  "subroutines": [
+    "xy_speed_regulator"
+  ],
+  "udts": [
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 2
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 0
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 0
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 0
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15
+        }
+      ]
+    },
+    {
+      "name": "TIMER",
+      "fields": [
+        {
+          "name": "PRE",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 4
+        },
+        {
+          "name": "ACC",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "TT",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 6,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        }
+      ]
+    }
+  ],
+  "program_tags": [
+    {
+      "name": "main_xy_move",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.main_xy_move",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "eot_triggered",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.eot_triggered",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "prepare_to_move",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.prepare_to_move",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "wait_for_axes_mso",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.wait_for_axes_mso",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "IssueNextPulse",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.IssueNextPulse",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "x_axis_mso",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.x_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "y_axis_mso",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.y_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "eot_stop_instruction",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.eot_stop_instruction",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "gui_stop_instruction",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.gui_stop_instruction",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "move_completed",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.move_completed",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "regulated_speed",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.regulated_speed",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 869.6263427734375
+    },
+    {
+      "name": "speed_tension_setpoint",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.speed_tension_setpoint",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 8.5
+    },
+    {
+      "name": "oneshotob",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.oneshotob",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        1,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "MoveXY_State_2_3",
+      "value": false
+    },
+    {
+      "name": "oneshotsb",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.oneshotsb",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        1,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "MoveXY_State_2_3",
+      "value": false
+    },
+    {
+      "name": "regulator_loop_timer",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.regulator_loop_timer",
+      "tag_type": "struct",
+      "data_type_name": "TIMER",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 1,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
+    },
+    {
+      "name": "xy_regulated_accel_jerk",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_regulated_accel_jerk",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 1500
+    },
+    {
+      "name": "xy_regulated_decel_jerk",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_regulated_decel_jerk",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 3000
+    },
+    {
+      "name": "min_regulated_speed",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.min_regulated_speed",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 100
+    },
+    {
+      "name": "speed_set_to_zero",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.speed_set_to_zero",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "speed_regulator_off_during_move",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.speed_regulator_off_during_move",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "STATE3_IND",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.STATE3_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "xy_error",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_error",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 8.493781089782715
+    },
+    {
+      "name": "xy_p_term",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_p_term",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
+    },
+    {
+      "name": "XY_AXIS_STAT",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.XY_AXIS_STAT",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        32,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": [
+        {
+          "FLAGS": 536870912,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": -2147483648,
+          "EN": true,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 2,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 536870912,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 536870912,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 301989888,
+          "EN": false,
+          "DN": false,
+          "ER": true,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 3,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 33554432,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 33554432,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 671088640,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": true,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        }
+      ]
+    },
+    {
+      "name": "trigger_xy_move",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.trigger_xy_move",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "y_time",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.y_time",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 1200000.0
+    },
+    {
+      "name": "x_time",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.x_time",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 28248.275390625
+    },
+    {
+      "name": "xy_i_term",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_i_term",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 869.642333984375
+    },
+    {
+      "name": "xy_dt",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_dt",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 1
+    },
+    {
+      "name": "dx",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.dx",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.029205322265625
+    },
+    {
+      "name": "dy",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.dy",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0005000000237487257
+    },
+    {
+      "name": "k",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.k",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 28248.275390625
+    },
+    {
+      "name": "v_max",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.v_max",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 825.1209106445312
+    },
+    {
+      "name": "starting_x",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.starting_x",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 439.9707946777344
+    },
+    {
+      "name": "starting_y",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.starting_y",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0005000000237487257
+    },
+    {
+      "name": "d_raw",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.d_raw",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
+    },
+    {
+      "name": "min_integral",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.min_integral",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": -1000
+    },
+    {
+      "name": "max_integral",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.max_integral",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 1000
+    },
+    {
+      "name": "xy_error_prev",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_error_prev",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 8.493781089782715
+    },
+    {
+      "name": "x_dist_to_target",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.x_dist_to_target",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.00030517578125
+    },
+    {
+      "name": "y_dist_to_target",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.y_dist_to_target",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0006000000284984708
+    },
+    {
+      "name": "near_ending",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.near_ending",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "xy_d_term",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_d_term",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
+    },
+    {
+      "name": "xy_d_alpha",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_d_alpha",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 1.0
+    },
+    {
+      "name": "xy_d_term_prev",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_d_term_prev",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
+    },
+    {
+      "name": "xy_default_speed",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_default_speed",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0
+    },
+    {
+      "name": "xy_d_timer",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_d_timer",
+      "tag_type": "struct",
+      "data_type_name": "TIMER",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 50,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
+    },
+    {
+      "name": "xy_dist_to_target",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_dist_to_target",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.000729842169675976
+    },
+    {
+      "name": "stopping_distance",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.stopping_distance",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.004674515686929226
+    },
+    {
+      "name": "xy_d_dt",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_d_dt",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 50
+    },
+    {
+      "name": "stopping_ratio",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.stopping_ratio",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.290219783782959
+    },
+    {
+      "name": "near_ending_trigger",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.near_ending_trigger",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "xy_kd",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_kd",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
+    },
+    {
+      "name": "xy_ki",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_ki",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 300.0
+    },
+    {
+      "name": "xy_kp",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.xy_kp",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
+    },
+    {
+      "name": "XY_POS_LOCK_STAT",
+      "fully_qualified_name": "Program:MoveXY_State_2_3.XY_POS_LOCK_STAT",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MoveXY_State_2_3",
+      "bit_position": 0,
+      "value": true
+    }
+  ],
+  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
+}

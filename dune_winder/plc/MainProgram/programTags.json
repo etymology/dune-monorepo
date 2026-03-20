@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-03-20T20:49:13.439132+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "MainProgram",
+  "main_routine_name": "main",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "main"
+  ],
+  "subroutines": [],
+  "udts": [],
+  "program_tags": [
+    {
+      "name": "Z_RETRACTED_1A",
+      "fully_qualified_name": "Program:MainProgram.Z_RETRACTED_1A",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MainProgram",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "Z_RETRACTED_1B",
+      "fully_qualified_name": "Program:MainProgram.Z_RETRACTED_1B",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MainProgram",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "Z_RETRACTED_2A",
+      "fully_qualified_name": "Program:MainProgram.Z_RETRACTED_2A",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MainProgram",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "Z_RETRACTED_2B",
+      "fully_qualified_name": "Program:MainProgram.Z_RETRACTED_2B",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "MainProgram",
+      "bit_position": 0,
+      "value": true
+    }
+  ],
+  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
+}
