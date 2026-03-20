@@ -28,12 +28,19 @@ class PlcRungTransformTests(unittest.TestCase):
       'MCS X_Y gui_stop All Yes 2000 "Units per sec2" Yes 1000 "Units per sec3" ',
     )
 
-  def test_transform_text_leaves_non_condition_bracket_lists_unchanged(self):
+  def test_transform_text_leaves_numeric_bracket_lists_unchanged(self):
     source = "Values[1,2,3];[XIC A,XIC B]"
 
     result = transform_text(source)
 
     self.assertEqual(result, "Values[1 2 3]\nBST XIC A NXB XIC B BND ")
+
+  def test_transform_text_converts_non_numeric_bracket_lists(self):
+    source = "[Alpha,Beta,Gamma]"
+
+    result = transform_text(source)
+
+    self.assertEqual(result, "BST Alpha NXB Beta NXB Gamma BND ")
 
   def test_transform_text_applies_bracketed_condition_rewrite_before_flattening(self):
     source = "Prefix [XIC CurIssued,XIO QueueFault] Suffix"
