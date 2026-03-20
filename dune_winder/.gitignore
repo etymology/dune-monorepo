@@ -10,6 +10,9 @@ cache/
 config/APA/*
 .DS_Store
 src/dune_winder.egg-info/*
+dist-newstyle/
+*.hi
+*.o
+.ghc.environment.*
 
 gc_files/*
-
