@@ -28,6 +28,13 @@ class PlcRungTransformTests(unittest.TestCase):
       'MCS X_Y gui_stop All Yes 2000 "Units per sec2" Yes 1000 "Units per sec3" ',
     )
 
+  def test_transform_text_leaves_non_condition_bracket_lists_unchanged(self):
+    source = "Values[1,2,3];[XIC A,XIC B]"
+
+    result = transform_text(source)
+
+    self.assertEqual(result, "Values[1 2 3]\nBST XIC A NXB XIC B BND ")
+
   def test_transform_file_writes_output_file(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       input_path = Path(temp_dir) / "input.txt"
