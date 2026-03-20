@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 
 
-BRACKETED_CONDITIONS_PATTERN = re.compile(r"\[([^\[\]]+)\]")
 COMMAND_ARGUMENTS_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\(([^()\n]*)\)")
 INLINE_SEPARATOR_PATTERN = re.compile(r"[(),]")
 WHITESPACE_PATTERN = re.compile(r"[ \t]+")
@@ -13,18 +12,23 @@ NUMERIC_TERM_PATTERN = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
 def _split_top_level_commas(text):
   parts = []
   current = []
-  depth = 0
+  paren_depth = 0
+  bracket_depth = 0
 
   for character in text:
-    if character == "," and depth == 0:
+    if character == "," and paren_depth == 0 and bracket_depth == 0:
       parts.append("".join(current))
       current = []
       continue
 
     if character == "(":
-      depth += 1
-    elif character == ")" and depth > 0:
-      depth -= 1
+      paren_depth += 1
+    elif character == ")" and paren_depth > 0:
+      paren_depth -= 1
+    elif character == "[":
+      bracket_depth += 1
+    elif character == "]" and bracket_depth > 0:
+      bracket_depth -= 1
 
     current.append(character)
 
@@ -39,24 +43,24 @@ def _normalize_condition_term(term):
     return stripped_term
 
   command = command_match.group(1)
-  argument = WHITESPACE_PATTERN.sub(" ", command_match.group(2)).strip()
-  if not argument:
+  arguments = [
+    WHITESPACE_PATTERN.sub(" ", argument).strip()
+    for argument in _split_top_level_commas(command_match.group(2))
+    if argument.strip()
+  ]
+  if not arguments:
     return stripped_term
 
-  return command + " " + argument
+  return command + " " + " ".join(arguments)
 
 
-def _replace_bracketed_conditions(match):
-  conditions = [
-    _normalize_condition_term(part)
-    for part in _split_top_level_commas(match.group(1))
-    if part.strip()
-  ]
+def _replace_bracketed_conditions(content):
+  conditions = [_normalize_condition_term(part) for part in _split_top_level_commas(content) if part.strip()]
   if not conditions:
-    return match.group(0)
+    return "[" + content + "]"
 
   if all(NUMERIC_TERM_PATTERN.fullmatch(condition) for condition in conditions):
-    return match.group(0)
+    return "[" + content + "]"
 
   return "BST " + "  NXB ".join(conditions) + "  BND "
 
@@ -80,7 +84,36 @@ def _quote_spaced_command_arguments(match):
 
 
 def _transform_bracketed_conditions(text):
-  return BRACKETED_CONDITIONS_PATTERN.sub(_replace_bracketed_conditions, text)
+  transformed = []
+  index = 0
+
+  while index < len(text):
+    character = text[index]
+    if character != "[":
+      transformed.append(character)
+      index += 1
+      continue
+
+    bracket_depth = 1
+    end_index = index + 1
+    while end_index < len(text) and bracket_depth > 0:
+      if text[end_index] == "[":
+        bracket_depth += 1
+      elif text[end_index] == "]":
+        bracket_depth -= 1
+      end_index += 1
+
+    if bracket_depth != 0:
+      transformed.append(character)
+      index += 1
+      continue
+
+    inner_text = text[index + 1:end_index - 1]
+    transformed_inner = _transform_bracketed_conditions(inner_text)
+    transformed.append(_replace_bracketed_conditions(transformed_inner))
+    index = end_index
+
+  return "".join(transformed)
 
 
 def _quote_command_arguments(text):
