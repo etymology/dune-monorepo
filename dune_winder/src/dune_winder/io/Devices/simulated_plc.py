@@ -11,8 +11,6 @@ from .plc import PLC
 
 
 class SimulatedPLC(PLC):
-  MOVE_TRIGGER_XZ = "xz_trigger_move"
-
   STATE_INIT = 0
   STATE_READY = 1
   STATE_XY_JOG = 2
@@ -24,6 +22,9 @@ class SimulatedPLC(PLC):
   STATE_LATCH_RELEASE = 8
   STATE_UNSERVO = 9
   STATE_ERROR = 10
+  STATE_EOT = 11
+  STATE_XZ_SEEK = 12
+  STATE_QUEUED_MOTION = 13
 
   MOVE_RESET = 0
   MOVE_JOG_XY = 1
@@ -35,6 +36,7 @@ class SimulatedPLC(PLC):
   MOVE_LATCH_UNLOCK = 7
   MOVE_UNSERVO = 8
   MOVE_PLC_INIT = 9
+  MOVE_SEEK_XZ = 10
 
   _MACHINE_SW_PATTERN = re.compile(r"^MACHINE_SW_STAT\[(\d+)\]$")
   _XZ_TARGET_PATTERN = re.compile(r"^xz_position_target\[(\d+)\]$")
@@ -59,6 +61,7 @@ class SimulatedPLC(PLC):
     MOVE_LATCH_UNLOCK: STATE_LATCH_RELEASE,
     MOVE_UNSERVO: STATE_UNSERVO,
     MOVE_PLC_INIT: STATE_INIT,
+    MOVE_SEEK_XZ: STATE_XZ_SEEK,
   }
 
   def __init__(self, ipAddress="SIM"):
@@ -265,7 +268,6 @@ class SimulatedPLC(PLC):
     self._tagValues["v_xyz"] = 0.0
     self._tagValues["tension_motor_cv"] = 0.0
     self._tagValues["xz_position_target"] = [0.0, 0.0]
-    self._tagValues["xz_trigger_move"] = 0
 
     self._tagValues["MORE_STATS_S[0]"] = 1
     self._tagValues["IncomingSeg"] = {}
@@ -351,20 +353,6 @@ class SimulatedPLC(PLC):
       self._tagValues[tagName] = [float(value[0]), float(value[1])]
       return
 
-    xzTargetIndex = self._xzTargetIndex(tagName)
-    if xzTargetIndex is not None:
-      xzTarget = list(self._tagValues.get("xz_position_target", [0.0, 0.0]))
-      xzTarget[xzTargetIndex] = float(value)
-      self._tagValues["xz_position_target"] = xzTarget
-      return
-
-    if tagName == "xz_trigger_move":
-      enabled = self._coerceBit(value)
-      self._tagValues[tagName] = enabled
-      if enabled:
-        self._startXzMove()
-      return
-
     if tagName in ("STATE", "ERROR_CODE"):
       self._tagValues[tagName] = int(value)
       return
@@ -392,17 +380,6 @@ class SimulatedPLC(PLC):
     self._setAxisMovement(True)
 
   # ---------------------------------------------------------------------
-  def _startXzMove(self):
-    if not bool(self._readTagValue("Y_XFER_OK")):
-      self._setError(5003)
-      return
-
-    self._tagValues["STATE"] = self.STATE_Z_SEEK
-    self._pendingMoveType = self.MOVE_TRIGGER_XZ
-    self._settleCyclesRemaining = 1
-    self._setAxisMovement(True)
-
-  # ---------------------------------------------------------------------
   def _advanceCycle(self):
     self._cycle += 1
     self._advanceQueuedMotion()
@@ -419,7 +396,7 @@ class SimulatedPLC(PLC):
     self._pendingMoveType = None
     self._setAxisMovement(False)
 
-    if moveType == self.MOVE_TRIGGER_XZ:
+    if moveType == self.MOVE_SEEK_XZ:
       xTarget, zTarget = self._tagValues.get("xz_position_target", [0.0, 0.0])
       xTarget = float(xTarget)
       zTarget = float(zTarget)
@@ -503,7 +480,7 @@ class SimulatedPLC(PLC):
       self._tagValues["X_axis.ActualVelocity"] = self._signedSpeed("X_SPEED", "X_DIR")
       self._tagValues["Y_axis.ActualVelocity"] = self._signedSpeed("Y_SPEED", "Y_DIR")
       self._tagValues["Z_axis.ActualVelocity"] = 0.0
-    elif isMoving and self._pendingMoveType == self.MOVE_TRIGGER_XZ:
+    elif isMoving and self._pendingMoveType == self.MOVE_SEEK_XZ:
       self._tagValues["X_axis.ActualVelocity"] = 1.0
       self._tagValues["Y_axis.ActualVelocity"] = 0.0
       self._tagValues["Z_axis.ActualVelocity"] = 1.0
@@ -569,6 +546,8 @@ class SimulatedPLC(PLC):
     self._tagValues["ActiveSeq"] = 0
     self._tagValues["PendingSeq"] = 0
     self._tagValues["QueueCount"] = 0
+    if self._tagValues.get("STATE") == self.STATE_QUEUED_MOTION:
+      self._tagValues["STATE"] = self.STATE_READY
     if clearFaults:
       self._tagValues["QueueFault"] = 0
       self._tagValues["MotionFault"] = 0
@@ -580,6 +559,8 @@ class SimulatedPLC(PLC):
       return
     self._queuedMotionActive = True
     self._currentQueueCyclesRemaining = 0
+    if self._tagValues.get("STATE") != self.STATE_ERROR:
+      self._tagValues["STATE"] = self.STATE_QUEUED_MOTION
 
   # ---------------------------------------------------------------------
   def _completeQueuedSegment(self, segment):
@@ -619,6 +600,8 @@ class SimulatedPLC(PLC):
       self._queuedMotionActive = False
       self._tagValues["CurIssued"] = 0
       self._tagValues["ActiveSeq"] = 0
+      if self._tagValues.get("STATE") != self.STATE_ERROR:
+        self._tagValues["STATE"] = self.STATE_READY
       self._syncQueueTags()
       return
     self._tagValues["CurIssued"] = 0

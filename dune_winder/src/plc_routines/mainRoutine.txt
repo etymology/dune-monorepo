@@ -52,10 +52,11 @@ XIC INIT_DONE CMP NEXTSTATE=8 CPT STATE 8
 XIC INIT_DONE CMP NEXTSTATE=9 CPT STATE 9 
 XIC INIT_DONE CMP NEXTSTATE=10 CPT STATE 10 
 XIC INIT_DONE CMP NEXTSTATE=11 CPT STATE 11 
+XIC INIT_DONE CMP NEXTSTATE=12 CPT STATE 12 
+XIC INIT_DONE CMP NEXTSTATE=13 CPT STATE 13 
 XIC Local:2:I.Pt13.Data OTE ResetPB 
 CPT v_xyz SQR X_axis.ActualVelocity*X_axis.ActualVelocity+Y_axis.ActualVelocity*Y_axis.ActualVelocity +SQR Z_axis.ActualVelocity*Z_axis.ActualVelocity 
 CPT v_xy SQR X_axis.ActualVelocity*X_axis.ActualVelocity+Y_axis.ActualVelocity*Y_axis.ActualVelocity 
 NEQ v_xy 0 CPT accel_xy X_axis.ActualVelocity*X_axis.CommandAcceleration+Y_axis.ActualVelocity*Y_axis.CommandAcceleration /v_xy 
 XIO DUNEW2PLC2:1:I.Pt06Data OTE speed_regulator_switch 
 [BST XIC Z_STAGE_LATCHED NXB XIC Z_FIXED_LATCHED EQU ACTUATOR_POS NXB 3 BNDCPT HEAD_POS 0 XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 CPT HEAD_POS 3 XIO Z_STAGE_LATCHED XIO Z_FIXED_LATCHED CPT HEAD_POS -1 ]
-
