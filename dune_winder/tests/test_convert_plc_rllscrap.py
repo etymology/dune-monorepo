@@ -20,8 +20,8 @@ class ConvertPlcRllscrapTests(unittest.TestCase):
   def test_iter_rllscrap_files_discovers_recursive_studio_copy_files_only(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       root = Path(temp_dir)
-      target = root / "mainRoutine" / "studio_copy.rllscrap"
-      ignored = root / "mainRoutine" / "other_name.rllscrap"
+      target = root / "mainRoutine" / "main" / "studio_copy.rllscrap"
+      ignored = root / "mainRoutine" / "main" / "other_name.rllscrap"
       target.parent.mkdir(parents=True)
       target.write_text("[XIC A,XIC B];")
       ignored.write_text("[XIC C,XIC D];")
@@ -33,7 +33,7 @@ class ConvertPlcRllscrapTests(unittest.TestCase):
   def test_convert_directory_writes_pasteable_output_next_to_studio_copy(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       root = Path(temp_dir)
-      routine_dir = root / "mainRoutine"
+      routine_dir = root / "mainRoutine" / "subroutines" / "speedHelper"
       input_path = routine_dir / "studio_copy.rllscrap"
       output_path = routine_dir / "pasteable.rll"
       routine_dir.mkdir(parents=True)
