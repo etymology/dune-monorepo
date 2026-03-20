@@ -103,6 +103,7 @@ compileOne functions name =
 compileFunction :: Syn.FunctionDef -> Compile Routine
 compileFunction fn = do
   routineMap <- gets compilerRoutineMap
+  compilerBefore <- get
   let ldName = Map.findWithDefault (Syn.functionName fn) (Syn.functionName fn) routineMap
       baseScope =
         Scope
@@ -116,17 +117,16 @@ compileFunction fn = do
           , scopeEndLabel = "lbl_" <> ldName <> "_end"
           , scopeRetRegs = []
           }
-  allocBefore <- gets compilerAlloc
-  let ((inParams, outParams, body), allocAfter) =
-        runState (evalStateT (compileFunctionBody fn) baseScope) allocBefore
-  modify' (\s -> s {compilerAlloc = allocAfter})
+      (((inParams, outParams, body), _scopeAfter), compilerAfter) =
+        runState (runStateT (compileFunctionBody fn) baseScope) compilerBefore
+  put compilerAfter
   let routine =
         Routine
           { routineName = ldName
           , routineInputs = inParams
           , routineOutputs = outParams
           , routineBody = body
-          , routineAllocComments = summaryComments allocAfter
+          , routineAllocComments = summaryComments (compilerAlloc compilerAfter)
           }
   modify' (\s -> s {compilerRoutineSigs = Map.insert (Syn.functionName fn) (map snd inParams, map snd outParams) (compilerRoutineSigs s)})
   pure routine
@@ -672,7 +672,7 @@ callName :: Syn.Expr -> Text
 callName = \case
   Syn.Name name -> name
   Syn.Attr base attr -> callName base <> "." <> attr
-  _ -> renderSynExpr
+  expr -> renderSynExpr expr
 
 isKnownRoutine :: Syn.Expr -> Bool
 isKnownRoutine expr = callName expr `Map.member` defaultRoutineNameMap
