@@ -12,8 +12,8 @@ The practical workaround is:
 3. Transform or transpile source text into pasteable ladder text.
 4. Paste the resulting `.rll` text back into Studio 5000 as ladder logic.
 
-`plc_routines/` at the repo root is the canonical location for these routine
-artifacts.
+`plc_routines/` at the repo root is the canonical location for these PLC
+program artifacts.
 
 ## Studio 5000 Text Formats
 
@@ -25,27 +25,47 @@ Studio 5000 copy and paste use different text formats:
 
 The important limitation is that ladder-rung text only contains the rungs. It
 does not carry the required tag definitions. Users must create any required
-controller-level tags, routine-level tags, and referenced UDTs in Studio 5000
+controller-level tags, program-level tags, and referenced UDTs in Studio 5000
 separately.
+
+## PLC Hierarchy
+
+The relevant Studio 5000 structure is:
+
+- controller
+- programs
+- one main routine per program
+- optional subroutines called within a program via `JSR`
+
+Not every subroutine from every program has been pasted into this repository, so
+the on-disk representation may be partial.
 
 ## Repository Layout
 
-Each routine lives in its own folder under `plc_routines/`:
+Each program lives in its own folder under `plc_routines/`:
+
+- `program.json`: machine-readable program structure metadata.
+- `main/`: the checked-in entry routine for the program.
+- `subroutines/<routine>/`: any checked-in JSR target routines for the program.
+
+Each checked-in routine folder uses these canonical files when available:
 
 - `studio_copy.rllscrap`: copied source text taken from Studio 5000.
 - `pasteable.rll`: ladder text that can be pasted into Studio 5000.
 - `tags.md`: operator-facing notes about required tags and setup.
 - `tags.json`: machine-readable tag requirements for tooling and validation.
 
-This structure keeps the Studio 5000 source artifact, the generated/pasteable
-artifact, and the tag requirements together.
+Some routine folders also include extra checked-in support text for that
+program. This structure keeps each program's checked-in routine text and tag
+requirements together while making the main entry point distinct from
+subroutines.
 
 ## Tag Metadata
 
-There are two levels of tags in this workflow:
+There are two levels of tag scope in this workflow:
 
 - Controller-level tags: shared PLC tags defined at controller scope.
-- Routine-level tags: tags defined locally for a specific routine.
+- Program-level tags: tags defined within a specific Studio 5000 program.
 
 `tags.json` is the machine-readable source of truth and supports both scalar and
 UDT-backed tags.
@@ -55,6 +75,7 @@ Recommended shape:
 ```json
 {
   "schema_version": 1,
+  "program_name": "exampleProgram",
   "routine_name": "exampleRoutine",
   "udts": [
     {
@@ -72,12 +93,12 @@ Recommended shape:
       "description": "Shared fault flag used by multiple routines."
     }
   ],
-  "routine_tags": [
+  "program_tags": [
     {
       "name": "LocalStatus",
       "type": "ExampleStatus",
-      "routine": "exampleRoutine",
-      "description": "Routine-local state."
+      "program": "exampleProgram",
+      "description": "Program-scope state."
     }
   ]
 }
@@ -87,8 +108,8 @@ Notes:
 
 - Atomic types such as `BOOL`, `REAL`, and `DINT` are supported directly.
 - UDT fields may reference other UDT names when nested composition is needed.
-- Controller-level tags omit `routine`.
-- Routine-level tags include a `routine` field naming the owning routine.
+- Controller-level tags omit `program`.
+- Program-level tags include a `program` field naming the owning program.
 
 ## Translation And Transpilation Tools
 

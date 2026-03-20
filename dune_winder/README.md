@@ -250,15 +250,20 @@ selected motion-planning functions under `src/dune_winder/transpiler/`.
 Studio 5000 copy/paste uses two different text formats in this workflow:
 copied routine text is stored as `.rllscrap`, while pasteable ladder logic is
 stored as `.rll`. Checked-in routine artifacts now live under `plc_routines/`
-at the repo root, with one folder per routine containing:
+at the repo root, grouped by PLC program. Each program has a `main/` entry
+routine folder and may also include `subroutines/<routine>/` folders for
+checked-in JSR targets. Routine folders use these canonical files when
+available:
 
 - `studio_copy.rllscrap`
 - `pasteable.rll`
 - `tags.md`
 - `tags.json`
 
-`tags.json` records machine-readable controller-level tags, routine-level tags,
-and reusable UDT definitions. See
+Some routine folders also carry extra support text that has been checked into
+the repo for that program. `tags.json` records machine-readable controller-level
+tags, program-level tags, and reusable UDT definitions, while `program.json`
+records the program layout. See
 [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
 for the Studio 5000 workflow and storage conventions.
 
