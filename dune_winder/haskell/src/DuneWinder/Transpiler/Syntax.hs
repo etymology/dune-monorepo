@@ -20,6 +20,7 @@ module DuneWinder.Transpiler.Syntax
 
 import Control.Applicative (empty)
 import Control.Monad (void)
+import Data.Functor (($>))
 import Data.Foldable (asum)
 import Data.Char (isAlphaNum, isDigit, isSpace)
 import Data.Either (partitionEithers)
