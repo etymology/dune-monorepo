@@ -8,6 +8,7 @@ from dune_winder.plc_tag_values_export import apply_tag_values_to_payload
 from dune_winder.plc_tag_values_export import iter_plc_json_files
 from dune_winder.plc_tag_values_export import make_json_safe
 from dune_winder.plc_tag_values_export import _read_tag_value_with_fallback
+from dune_winder.plc_tag_values_export import _should_skip_udt_field
 
 
 class PlcTagValuesExportTests(unittest.TestCase):
@@ -203,3 +204,55 @@ class PlcTagValuesExportTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(value, [{"Value": 1}, {"Value": 2}])
+
+  def test_should_skip_udt_field_filters_padding_and_dead_zone_names(self):
+    self.assertTrue(_should_skip_udt_field("Pad"))
+    self.assertTrue(_should_skip_udt_field("Pad1"))
+    self.assertTrue(_should_skip_udt_field("DEAD_ZONE"))
+    self.assertTrue(_should_skip_udt_field("DEAD_ZONE123"))
+    self.assertFalse(_should_skip_udt_field("PRE"))
+
+  def test_read_tag_value_with_fallback_skips_padding_and_dead_zone_members(self):
+    class FakeResult:
+      def __init__(self, value=None, error=None):
+        self.value = value
+        self.error = error
+
+    class FakeDriver:
+      def __init__(self):
+        self.calls = []
+
+      def read(self, *tags):
+        self.calls.append(tags)
+        tag = tags[0]
+        responses = {
+          "Axis": FakeResult(error="Permission denied"),
+          "Axis.Status": FakeResult(7),
+        }
+        return responses[tag]
+
+    driver = FakeDriver()
+    value, error = _read_tag_value_with_fallback(
+      driver,
+      {
+        "fully_qualified_name": "Axis",
+        "tag_type": "struct",
+        "udt_name": "AXIS_UDT",
+        "dimensions": [0, 0, 0],
+        "array_dimensions": 0,
+      },
+      {
+        "AXIS_UDT": {
+          "name": "AXIS_UDT",
+          "fields": [
+            {"name": "Pad", "tag_type": "atomic", "data_type_name": "DINT"},
+            {"name": "DEAD_ZONE12", "tag_type": "atomic", "data_type_name": "DINT"},
+            {"name": "Status", "tag_type": "atomic", "data_type_name": "DINT"},
+          ],
+        }
+      },
+    )
+
+    self.assertIsNone(error)
+    self.assertEqual(value, {"Status": 7})
+    self.assertEqual(driver.calls, [("Axis",), ("Axis.Status",)])
