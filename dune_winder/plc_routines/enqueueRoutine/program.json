@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "program_name": "enqueueRoutine",
+  "main_routine_name": "enqueueRoutine",
+  "present_subroutines": [
+    "CapSegSpeed"
+  ],
+  "missing_subroutines": [
+    "ArcSweepRad",
+    "CircleCenterForSeg",
+    "MaxAbsCosSweep",
+    "MaxAbsSinSweep"
+  ],
+  "notes": "The checked-in CapSegSpeed folder also carries related support text such as CapSpeedCallSite.txt."
+}

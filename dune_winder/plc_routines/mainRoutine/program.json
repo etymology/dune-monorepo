@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "program_name": "mainRoutine",
+  "main_routine_name": "mainRoutine",
+  "present_subroutines": [],
+  "missing_subroutines": [],
+  "notes": "Only the checked-in main routine is currently represented in this program folder."
+}

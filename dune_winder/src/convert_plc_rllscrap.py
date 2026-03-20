@@ -10,7 +10,7 @@ DEFAULT_ROUTINE_DIR = Path(__file__).resolve().parents[1] / "plc_routines"
 def build_argument_parser():
   parser = argparse.ArgumentParser(
     description=(
-      "Convert every per-routine studio_copy.rllscrap file in a PLC routines "
+      "Convert every checked-in studio_copy.rllscrap file in a PLC program "
       "directory into a sibling pasteable.rll file using the standard PLC "
       "rung transformation."
     )
@@ -21,7 +21,8 @@ def build_argument_parser():
     default=DEFAULT_ROUTINE_DIR,
     type=Path,
     help=(
-      "Directory containing per-routine studio_copy.rllscrap files. "
+      "Directory containing PLC program folders with checked-in "
+      "studio_copy.rllscrap files. "
       "Defaults to plc_routines/ at the repo root."
     ),
   )
