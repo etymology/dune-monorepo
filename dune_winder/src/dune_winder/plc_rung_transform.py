@@ -10,6 +10,7 @@ NUMERIC_TERM_PATTERN = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
 PROTECTED_LPAREN = "\uFFF0"
 PROTECTED_RPAREN = "\uFFF1"
 PROTECTED_COMMA = "\uFFF2"
+SPECIAL_FORMULA_COMMANDS = {"CMP", "CPT"}
 
 
 def _split_top_level_commas(text):
@@ -39,7 +40,7 @@ def _split_top_level_commas(text):
   return parts
 
 
-def _protect_cpt_expression(text):
+def _protect_formula_expression(text):
   return (
     text.replace("(", PROTECTED_LPAREN)
     .replace(")", PROTECTED_RPAREN)
@@ -47,7 +48,7 @@ def _protect_cpt_expression(text):
   )
 
 
-def _restore_protected_cpt_expression(text):
+def _restore_protected_formula_expression(text):
   return (
     text.replace(PROTECTED_LPAREN, "(")
     .replace(PROTECTED_RPAREN, ")")
@@ -75,7 +76,23 @@ def _extract_balanced_call(text, start_index):
   return open_index, index, text[open_index + 1:index - 1]
 
 
-def _rewrite_cpt_call(command, arguments_text):
+def _extract_special_formula_call(text):
+  call = _extract_balanced_call(text, 0)
+  if call is None or call[0] != 3:
+    return None
+
+  command = text[:call[0]]
+  if command not in SPECIAL_FORMULA_COMMANDS:
+    return None
+
+  return command, call[2]
+
+
+def _rewrite_special_formula_call(command, arguments_text):
+  if command == "CMP":
+    protected_formula = _protect_formula_expression(arguments_text.strip())
+    return command + "(" + protected_formula + ")"
+
   arguments = _split_top_level_commas(arguments_text)
   if len(arguments) < 2:
     return command + "(" + arguments_text + ")"
@@ -84,7 +101,7 @@ def _rewrite_cpt_call(command, arguments_text):
   second_argument = arguments[1].strip()
   if len(arguments) > 2:
     second_argument = second_argument + "," + ",".join(arguments[2:])
-  protected_expression = _protect_cpt_expression(second_argument)
+  protected_expression = _protect_formula_expression(second_argument)
   return command + "(" + first_argument + "," + protected_expression + ")"
 
 
@@ -93,7 +110,11 @@ def _protect_special_command_arguments(text):
   index = 0
 
   while index < len(text):
-    if text[index:index + 4] != "CPT(":
+    command = next(
+      (candidate for candidate in SPECIAL_FORMULA_COMMANDS if text.startswith(candidate + "(", index)),
+      None,
+    )
+    if command is None:
       transformed.append(text[index])
       index += 1
       continue
@@ -106,7 +127,7 @@ def _protect_special_command_arguments(text):
 
     open_index, end_index, arguments_text = call
     command = text[index:open_index]
-    transformed.append(_rewrite_cpt_call(command, arguments_text))
+    transformed.append(_rewrite_special_formula_call(command, arguments_text))
     index = end_index
 
   return "".join(transformed)
@@ -114,15 +135,19 @@ def _protect_special_command_arguments(text):
 
 def _normalize_condition_term(term):
   stripped_term = term.strip()
-  cpt_call = _extract_balanced_call(stripped_term, 0)
-  if stripped_term.startswith("CPT(") and cpt_call is not None and cpt_call[0] == 3:
-    arguments = _split_top_level_commas(cpt_call[2])
+  special_call = _extract_special_formula_call(stripped_term)
+  if special_call is not None:
+    command, arguments_text = special_call
+    if command == "CMP":
+      return "CMP " + _protect_formula_expression(arguments_text.strip())
+
+    arguments = _split_top_level_commas(arguments_text)
     if len(arguments) >= 2:
       first_argument = WHITESPACE_PATTERN.sub(" ", arguments[0]).strip()
       second_argument = arguments[1].strip()
       if len(arguments) > 2:
         second_argument = second_argument + "," + ",".join(arguments[2:])
-      return "CPT " + first_argument + " " + _protect_cpt_expression(second_argument)
+      return "CPT " + first_argument + " " + _protect_formula_expression(second_argument)
 
   command_match = COMMAND_ARGUMENTS_PATTERN.fullmatch(stripped_term)
   if command_match is None:
@@ -153,6 +178,9 @@ def _replace_bracketed_conditions(content):
 
 def _quote_spaced_command_arguments(match):
   command = match.group(1)
+  if command in SPECIAL_FORMULA_COMMANDS:
+    return match.group(0)
+
   arguments = _split_top_level_commas(match.group(2))
   normalized_arguments = []
 
@@ -225,9 +253,9 @@ def transform_text(text):
   normalized_text = "\n".join(normalized_lines)
 
   if trailing_newline:
-    return _restore_protected_cpt_expression(normalized_text + "\n")
+    return _restore_protected_formula_expression(normalized_text + "\n")
 
-  return _restore_protected_cpt_expression(normalized_text)
+  return _restore_protected_formula_expression(normalized_text)
 
 
 def transform_file(input_path, output_path=None):

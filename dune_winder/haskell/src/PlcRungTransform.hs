@@ -16,7 +16,7 @@ protectedComma  = '\xFFF2'
 
 transformText :: Text -> Text
 transformText =
-    restoreProtectedCptExpression
+    restoreProtectedFormulaExpression
   . normalizeLines
   . flattenDelimiters
   . quoteCommandArguments
@@ -26,15 +26,15 @@ transformText =
 normalizeSpaces :: Text -> Text
 normalizeSpaces = T.unwords . T.words
 
-protectCptExpression :: Text -> Text
-protectCptExpression = T.map $ \case
+protectFormulaExpression :: Text -> Text
+protectFormulaExpression = T.map $ \case
   '(' -> protectedLParen
   ')' -> protectedRParen
   ',' -> protectedComma
   c   -> c
 
-restoreProtectedCptExpression :: Text -> Text
-restoreProtectedCptExpression = T.map $ \case
+restoreProtectedFormulaExpression :: Text -> Text
+restoreProtectedFormulaExpression = T.map $ \case
   c | c == protectedLParen -> '('
   c | c == protectedRParen -> ')'
   c | c == protectedComma  -> ','
@@ -66,7 +66,7 @@ extractBalancedCall txt startIndex =
            Just
              ( openIndex
              , endIndex
-             , T.take (endIndex - openIndex - 1) (T.drop (openIndex + 1) txt)
+             , T.take (endIndex - openIndex - 2) (T.drop (openIndex + 1) txt)
              )
   where
     len = T.length txt
@@ -105,8 +105,25 @@ isSimpleNumber s =
         && not (null rhs || (null lhs && null rhs))
     _ -> False
 
-rewriteCptCall :: Text -> Text -> Text
-rewriteCptCall command argumentsText =
+extractSpecialFormulaCall :: Text -> Maybe (Text, Text)
+extractSpecialFormulaCall stripped =
+  case extractBalancedCall stripped 0 of
+    Just (3, _, argsText) | "CPT(" `T.isPrefixOf` stripped -> Just ("CPT", argsText)
+    Just (3, _, argsText) | "CMP(" `T.isPrefixOf` stripped -> Just ("CMP", argsText)
+    _ -> Nothing
+
+matchSpecialFormulaCommandAt :: Text -> Int -> Maybe Text
+matchSpecialFormulaCommandAt txt i
+  | "CPT(" `T.isPrefixOf` remaining = Just "CPT"
+  | "CMP(" `T.isPrefixOf` remaining = Just "CMP"
+  | otherwise = Nothing
+  where
+    remaining = T.drop i txt
+
+rewriteSpecialFormulaCall :: Text -> Text -> Text
+rewriteSpecialFormulaCall "CMP" argumentsText =
+  "CMP(" <> protectFormulaExpression (T.strip argumentsText) <> ")"
+rewriteSpecialFormulaCall command argumentsText =
   case splitTopLevelCommas argumentsText of
     firstArg : secondArg : rest ->
       let firstArg' = normalizeSpaces firstArg
@@ -115,7 +132,7 @@ rewriteCptCall command argumentsText =
             if null rest
               then secondArg'
               else secondArg' <> "," <> T.intercalate "," rest
-      in command <> "(" <> firstArg' <> "," <> protectCptExpression combined <> ")"
+      in command <> "(" <> firstArg' <> "," <> protectFormulaExpression combined <> ")"
     _ -> command <> "(" <> argumentsText <> ")"
 
 protectSpecialCommandArguments :: Text -> Text
@@ -125,20 +142,24 @@ protectSpecialCommandArguments txt = go 0
 
     go i
       | i >= len = ""
-      | T.take 4 (T.drop i txt) /= "CPT(" = T.singleton (T.index txt i) <> go (i + 1)
       | otherwise =
-          case extractBalancedCall txt i of
+          case matchSpecialFormulaCommandAt txt i of
             Nothing -> T.singleton (T.index txt i) <> go (i + 1)
-            Just (openIndex, endIndex, argumentsText) ->
-              let command = T.take (openIndex - i) (T.drop i txt)
-              in rewriteCptCall command argumentsText <> go endIndex
+            Just _ ->
+              case extractBalancedCall txt i of
+                Nothing -> T.singleton (T.index txt i) <> go (i + 1)
+                Just (openIndex, endIndex, argumentsText) ->
+                  let command = T.take (openIndex - i) (T.drop i txt)
+                  in rewriteSpecialFormulaCall command argumentsText <> go endIndex
 
 normalizeConditionTerm :: Text -> Text
 normalizeConditionTerm term =
   let stripped = T.strip term
-      cptCase =
-        case extractBalancedCall stripped 0 of
-          Just (3, _, argsText) | "CPT(" `T.isPrefixOf` stripped ->
+      specialCase =
+        case extractSpecialFormulaCall stripped of
+          Just ("CMP", argsText) ->
+            Just ("CMP " <> protectFormulaExpression (T.strip argsText))
+          Just ("CPT", argsText) ->
             case splitTopLevelCommas argsText of
               firstArg : secondArg : rest ->
                 let firstArg' = normalizeSpaces firstArg
@@ -147,10 +168,10 @@ normalizeConditionTerm term =
                       if null rest
                         then secondArg'
                         else secondArg' <> "," <> T.intercalate "," rest
-                in Just ("CPT " <> firstArg' <> " " <> protectCptExpression combined)
+                in Just ("CPT " <> firstArg' <> " " <> protectFormulaExpression combined)
               _ -> Nothing
           _ -> Nothing
-  in case cptCase of
+  in case specialCase of
        Just x -> x
        Nothing ->
          case parseSimpleCommandCall stripped of
@@ -230,6 +251,7 @@ quoteSpacedCommandArguments :: Text -> Text
 quoteSpacedCommandArguments t =
   case parseSimpleCommandCall t of
     Nothing -> t
+    Just (command, _) | command == "CPT" || command == "CMP" -> t
     Just (command, argsText) ->
       let args = splitTopLevelCommas argsText
           normalizeArg a =
