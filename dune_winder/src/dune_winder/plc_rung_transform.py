@@ -39,11 +39,23 @@ def _quote_spaced_command_arguments(match):
   return command + "(" + ",".join(normalized_arguments) + ")"
 
 
+def _transform_bracketed_conditions(text):
+  return BRACKETED_CONDITIONS_PATTERN.sub(_replace_bracketed_conditions, text)
+
+
+def _quote_command_arguments(text):
+  return COMMAND_ARGUMENTS_PATTERN.sub(_quote_spaced_command_arguments, text)
+
+
+def _flatten_delimiters(text):
+  transformed = INLINE_SEPARATOR_PATTERN.sub(" ", text)
+  return transformed.replace(";", "\n")
+
+
 def transform_text(text):
-  transformed = BRACKETED_CONDITIONS_PATTERN.sub(_replace_bracketed_conditions, text)
-  transformed = COMMAND_ARGUMENTS_PATTERN.sub(_quote_spaced_command_arguments, transformed)
-  transformed = INLINE_SEPARATOR_PATTERN.sub(" ", transformed)
-  transformed = transformed.replace(";", "\n")
+  transformed = _transform_bracketed_conditions(text)
+  transformed = _quote_command_arguments(transformed)
+  transformed = _flatten_delimiters(transformed)
   trailing_newline = transformed.endswith("\n")
   lines = transformed.split("\n")
   if trailing_newline:
