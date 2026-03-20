@@ -1,7 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from dune_winder.plc_tag_values_export import fetch_and_write_tag_values
 from dune_winder.plc_tag_values_export import apply_tag_values_to_payload
 from dune_winder.plc_tag_values_export import iter_plc_json_files
 from dune_winder.plc_tag_values_export import make_json_safe
@@ -69,3 +71,46 @@ class PlcTagValuesExportTests(unittest.TestCase):
           root / "Camera" / "programTags.json",
         ],
       )
+
+  def test_fetch_and_write_tag_values_uses_default_driver_initialization(self):
+    class FakeResult:
+      def __init__(self, tag, value):
+        self.tag = tag
+        self.value = value
+        self.error = None
+
+    class FakeDriver:
+      init_args = None
+
+      def __init__(self, *args, **kwargs):
+        FakeDriver.init_args = (args, kwargs)
+
+      def open(self):
+        return True
+
+      def close(self):
+        return None
+
+      def read(self, *tags):
+        return [FakeResult(tag, f"value:{tag}") for tag in tags]
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir) / "plc"
+      root.mkdir()
+      (root / "controller_level_tags.json").write_text(
+        """
+{
+  "controller_level_tags": [
+    {
+      "fully_qualified_name": "TagA"
+    }
+  ]
+}
+""".strip() + "\n"
+      )
+
+      with patch("pycomm3.LogixDriver", FakeDriver):
+        result = fetch_and_write_tag_values("192.168.1.10", output_root=root)
+
+      self.assertEqual(FakeDriver.init_args, (("192.168.1.10",), {}))
+      self.assertEqual(result["tag_count"], 1)

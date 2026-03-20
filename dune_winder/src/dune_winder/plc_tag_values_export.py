@@ -128,7 +128,7 @@ def fetch_and_write_tag_values(plc_path, output_root=DEFAULT_OUTPUT_ROOT):
       seen_tags.add(tag_name)
       ordered_unique_tags.append(tag_name)
 
-  driver = LogixDriver(plc_path, init_tags=False, init_program_tags=False)
+  driver = LogixDriver(plc_path)
   try:
     if not driver.open():
       raise RuntimeError(f"Unable to open connection to PLC at {plc_path}.")
