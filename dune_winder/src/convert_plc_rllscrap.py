@@ -4,7 +4,7 @@ from pathlib import Path
 from dune_winder.plc_rung_transform import transform_file
 
 
-DEFAULT_ROUTINE_DIR = Path(__file__).resolve().parents[1] / "plc_routines"
+DEFAULT_ROUTINE_DIR = Path(__file__).resolve().parents[1] / "plc"
 
 
 def build_argument_parser():
@@ -23,7 +23,7 @@ def build_argument_parser():
     help=(
       "Directory containing PLC program folders with checked-in "
       "studio_copy.rllscrap files. "
-      "Defaults to plc_routines/ at the repo root."
+      "Defaults to plc/ at the repo root."
     ),
   )
   parser.add_argument(
