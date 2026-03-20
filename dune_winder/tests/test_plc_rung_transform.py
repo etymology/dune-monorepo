@@ -35,6 +35,23 @@ class PlcRungTransformTests(unittest.TestCase):
 
     self.assertEqual(result, "CPT ERROR_CODE 3000+(A*B) ")
 
+  def test_transform_text_preserves_parentheses_in_cmp_expression(self):
+    source = "CMP(ABS(X_axis.ActualPosition-xz_position_target[0])<0.1)"
+
+    result = transform_text(source)
+
+    self.assertEqual(result, "CMP ABS(X_axis.ActualPosition-xz_position_target[0])<0.1 ")
+
+  def test_transform_text_preserves_cmp_expression_spacing_without_quoting(self):
+    source = "XIC(STATE12_IND)CMP(Z_axis.ActualPosition > 415)OTE(MACHINE_SW_STAT[5])"
+
+    result = transform_text(source)
+
+    self.assertEqual(
+      result,
+      "XIC STATE12_IND CMP Z_axis.ActualPosition > 415 OTE MACHINE_SW_STAT[5] ",
+    )
+
   def test_transform_text_leaves_numeric_bracket_lists_unchanged(self):
     source = "Values[1,2,3];[XIC A,XIC B]"
 

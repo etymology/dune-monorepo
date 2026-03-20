@@ -12,7 +12,7 @@ def build_argument_parser():
     description=(
       "Convert every checked-in studio_copy.rllscrap file in a PLC program "
       "directory into a sibling pasteable.rll file using the standard PLC "
-      "rung transformation."
+      "rung transformation, including formula-aware handling for CPT and CMP."
     )
   )
   parser.add_argument(
