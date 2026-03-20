@@ -12,8 +12,9 @@ The practical workaround is:
 3. Transform or transpile source text into pasteable ladder text.
 4. Paste the resulting `.rll` text back into Studio 5000 as ladder logic.
 
-`plc_routines/` at the repo root is the canonical location for these PLC
-program artifacts.
+`plc_routines/` at the repo root stores curated checked-in ladder artifacts.
+A separate generated `plc/` tree can be scaffolded from a live controller with
+`pycomm3`.
 
 ## Studio 5000 Text Formats
 
@@ -59,6 +60,18 @@ Some routine folders also include extra checked-in support text for that
 program. This structure keeps each program's checked-in routine text and tag
 requirements together while making the main entry point distinct from
 subroutines.
+
+For live PLC metadata export, `src/export_plc_metadata.py` scaffolds this
+separate structure under `plc/`:
+
+- `plc/controller_level_tags.json`
+- `plc/<program>/programTags.json`
+- `plc/<program>/main/studio_copy.rllscrap`
+- `plc/<program>/<subroutine>/studio_copy.rllscrap`
+
+The JSON files are populated from `pycomm3`. The `.rllscrap` files are created
+as empty placeholders so the user can paste copied Studio 5000 routine text
+manually afterward.
 
 ## Tag Metadata
 
