@@ -7,12 +7,16 @@ BRACKETED_CONDITIONS_PATTERN = re.compile(r"\[([^\[\]]+)\]")
 COMMAND_ARGUMENTS_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\(([^()\n]*)\)")
 INLINE_SEPARATOR_PATTERN = re.compile(r"[(),]")
 WHITESPACE_PATTERN = re.compile(r"[ \t]+")
+PLC_CONDITION_TERM_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.]*\s+\S")
 
 
 def _replace_bracketed_conditions(match):
   conditions = [part.strip() for part in match.group(1).split(",") if part.strip()]
   if not conditions:
-    return ""
+    return match.group(0)
+
+  if not all(PLC_CONDITION_TERM_PATTERN.match(condition) for condition in conditions):
+    return match.group(0)
 
   return "BST " + "  NXB ".join(conditions) + "  BND "
 
