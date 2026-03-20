@@ -7,6 +7,9 @@ COMMAND_ARGUMENTS_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\(([^()\n]*)\)
 INLINE_SEPARATOR_PATTERN = re.compile(r"[(),]")
 WHITESPACE_PATTERN = re.compile(r"[ \t]+")
 NUMERIC_TERM_PATTERN = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
+PROTECTED_LPAREN = "\uFFF0"
+PROTECTED_RPAREN = "\uFFF1"
+PROTECTED_COMMA = "\uFFF2"
 
 
 def _split_top_level_commas(text):
@@ -36,8 +39,91 @@ def _split_top_level_commas(text):
   return parts
 
 
+def _protect_cpt_expression(text):
+  return (
+    text.replace("(", PROTECTED_LPAREN)
+    .replace(")", PROTECTED_RPAREN)
+    .replace(",", PROTECTED_COMMA)
+  )
+
+
+def _restore_protected_cpt_expression(text):
+  return (
+    text.replace(PROTECTED_LPAREN, "(")
+    .replace(PROTECTED_RPAREN, ")")
+    .replace(PROTECTED_COMMA, ",")
+  )
+
+
+def _extract_balanced_call(text, start_index):
+  open_index = text.find("(", start_index)
+  if open_index == -1:
+    return None
+
+  depth = 1
+  index = open_index + 1
+  while index < len(text) and depth > 0:
+    if text[index] == "(":
+      depth += 1
+    elif text[index] == ")":
+      depth -= 1
+    index += 1
+
+  if depth != 0:
+    return None
+
+  return open_index, index, text[open_index + 1:index - 1]
+
+
+def _rewrite_cpt_call(command, arguments_text):
+  arguments = _split_top_level_commas(arguments_text)
+  if len(arguments) < 2:
+    return command + "(" + arguments_text + ")"
+
+  first_argument = WHITESPACE_PATTERN.sub(" ", arguments[0]).strip()
+  second_argument = arguments[1].strip()
+  if len(arguments) > 2:
+    second_argument = second_argument + "," + ",".join(arguments[2:])
+  protected_expression = _protect_cpt_expression(second_argument)
+  return command + "(" + first_argument + "," + protected_expression + ")"
+
+
+def _protect_special_command_arguments(text):
+  transformed = []
+  index = 0
+
+  while index < len(text):
+    if text[index:index + 4] != "CPT(":
+      transformed.append(text[index])
+      index += 1
+      continue
+
+    call = _extract_balanced_call(text, index)
+    if call is None:
+      transformed.append(text[index])
+      index += 1
+      continue
+
+    open_index, end_index, arguments_text = call
+    command = text[index:open_index]
+    transformed.append(_rewrite_cpt_call(command, arguments_text))
+    index = end_index
+
+  return "".join(transformed)
+
+
 def _normalize_condition_term(term):
   stripped_term = term.strip()
+  cpt_call = _extract_balanced_call(stripped_term, 0)
+  if stripped_term.startswith("CPT(") and cpt_call is not None and cpt_call[0] == 3:
+    arguments = _split_top_level_commas(cpt_call[2])
+    if len(arguments) >= 2:
+      first_argument = WHITESPACE_PATTERN.sub(" ", arguments[0]).strip()
+      second_argument = arguments[1].strip()
+      if len(arguments) > 2:
+        second_argument = second_argument + "," + ",".join(arguments[2:])
+      return "CPT " + first_argument + " " + _protect_cpt_expression(second_argument)
+
   command_match = COMMAND_ARGUMENTS_PATTERN.fullmatch(stripped_term)
   if command_match is None:
     return stripped_term
@@ -127,6 +213,7 @@ def _flatten_delimiters(text):
 
 def transform_text(text):
   transformed = _transform_bracketed_conditions(text)
+  transformed = _protect_special_command_arguments(transformed)
   transformed = _quote_command_arguments(transformed)
   transformed = _flatten_delimiters(transformed)
   trailing_newline = transformed.endswith("\n")
@@ -138,9 +225,9 @@ def transform_text(text):
   normalized_text = "\n".join(normalized_lines)
 
   if trailing_newline:
-    return normalized_text + "\n"
+    return _restore_protected_cpt_expression(normalized_text + "\n")
 
-  return normalized_text
+  return _restore_protected_cpt_expression(normalized_text)
 
 
 def transform_file(input_path, output_path=None):
