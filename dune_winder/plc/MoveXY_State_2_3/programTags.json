@@ -1,16 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-20T20:30:07.372318+00:00",
+  "generated_at": "2026-03-20T20:49:13.439132+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "MoveXY_State_2_3",
-  "main_routine_name": null,
-  "main_routine_name_source": "unresolved",
+  "main_routine_name": "main",
+  "main_routine_name_source": "casefold_name_match",
   "routines": [
-    "MoveXY",
+    "main",
     "xy_speed_regulator"
   ],
   "subroutines": [
-    "MoveXY",
     "xy_speed_regulator"
   ],
   "udts": [
@@ -197,7 +196,25 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "eot_triggered",
@@ -213,7 +230,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "prepare_to_move",
@@ -229,7 +247,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "wait_for_axes_mso",
@@ -245,7 +264,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "IssueNextPulse",
@@ -261,7 +281,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     },
     {
       "name": "x_axis_mso",
@@ -277,7 +298,25 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "y_axis_mso",
@@ -293,7 +332,25 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "eot_stop_instruction",
@@ -309,7 +366,25 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "gui_stop_instruction",
@@ -325,7 +400,25 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "move_completed",
@@ -341,7 +434,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "regulated_speed",
@@ -356,7 +450,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 869.6263427734375
     },
     {
       "name": "speed_tension_setpoint",
@@ -371,7 +466,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 8.5
     },
     {
       "name": "oneshotob",
@@ -386,7 +482,8 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": false
     },
     {
       "name": "oneshotsb",
@@ -401,7 +498,8 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": false
     },
     {
       "name": "regulator_loop_timer",
@@ -417,7 +515,14 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 1,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "xy_regulated_accel_jerk",
@@ -432,7 +537,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 1500
     },
     {
       "name": "xy_regulated_decel_jerk",
@@ -447,7 +553,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 3000
     },
     {
       "name": "min_regulated_speed",
@@ -462,7 +569,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 100
     },
     {
       "name": "speed_set_to_zero",
@@ -478,7 +586,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "speed_regulator_off_during_move",
@@ -494,7 +603,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "STATE3_IND",
@@ -510,7 +620,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "xy_error",
@@ -525,7 +636,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 8.493781089782715
     },
     {
       "name": "xy_p_term",
@@ -540,7 +652,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
     },
     {
       "name": "XY_AXIS_STAT",
@@ -556,7 +669,585 @@
       ],
       "array_dimensions": 1,
       "program": "MoveXY_State_2_3",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": [
+        {
+          "FLAGS": 536870912,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": -2147483648,
+          "EN": true,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 2,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 536870912,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 536870912,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 301989888,
+          "EN": false,
+          "DN": false,
+          "ER": true,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 3,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 33554432,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 33554432,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 671088640,
+          "EN": false,
+          "DN": true,
+          "ER": false,
+          "PC": true,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        }
+      ]
     },
     {
       "name": "trigger_xy_move",
@@ -572,7 +1263,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "y_time",
@@ -587,7 +1279,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 1200000.0
     },
     {
       "name": "x_time",
@@ -602,7 +1295,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 28248.275390625
     },
     {
       "name": "xy_i_term",
@@ -617,7 +1311,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 869.642333984375
     },
     {
       "name": "xy_dt",
@@ -632,7 +1327,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 1
     },
     {
       "name": "dx",
@@ -647,7 +1343,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.029205322265625
     },
     {
       "name": "dy",
@@ -662,7 +1359,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0005000000237487257
     },
     {
       "name": "k",
@@ -677,7 +1375,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 28248.275390625
     },
     {
       "name": "v_max",
@@ -692,7 +1391,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 825.1209106445312
     },
     {
       "name": "starting_x",
@@ -707,7 +1407,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 439.9707946777344
     },
     {
       "name": "starting_y",
@@ -722,7 +1423,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0005000000237487257
     },
     {
       "name": "d_raw",
@@ -737,7 +1439,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
     },
     {
       "name": "min_integral",
@@ -752,7 +1455,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": -1000
     },
     {
       "name": "max_integral",
@@ -767,7 +1471,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 1000
     },
     {
       "name": "xy_error_prev",
@@ -782,7 +1487,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 8.493781089782715
     },
     {
       "name": "x_dist_to_target",
@@ -797,7 +1503,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.00030517578125
     },
     {
       "name": "y_dist_to_target",
@@ -812,7 +1519,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0006000000284984708
     },
     {
       "name": "near_ending",
@@ -828,7 +1536,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     },
     {
       "name": "xy_d_term",
@@ -843,7 +1552,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
     },
     {
       "name": "xy_d_alpha",
@@ -858,7 +1568,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 1.0
     },
     {
       "name": "xy_d_term_prev",
@@ -873,7 +1584,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
     },
     {
       "name": "xy_default_speed",
@@ -888,7 +1600,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0
     },
     {
       "name": "xy_d_timer",
@@ -904,7 +1617,14 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 50,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "xy_dist_to_target",
@@ -919,7 +1639,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.000729842169675976
     },
     {
       "name": "stopping_distance",
@@ -934,7 +1655,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.004674515686929226
     },
     {
       "name": "xy_d_dt",
@@ -949,7 +1671,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 50
     },
     {
       "name": "stopping_ratio",
@@ -964,7 +1687,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.290219783782959
     },
     {
       "name": "near_ending_trigger",
@@ -980,7 +1704,8 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "xy_kd",
@@ -995,7 +1720,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
     },
     {
       "name": "xy_ki",
@@ -1010,7 +1736,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 300.0
     },
     {
       "name": "xy_kp",
@@ -1025,7 +1752,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "MoveXY_State_2_3"
+      "program": "MoveXY_State_2_3",
+      "value": 0.0
     },
     {
       "name": "XY_POS_LOCK_STAT",
@@ -1041,7 +1769,9 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     }
-  ]
+  ],
+  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
 }

@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-20T20:30:07.372318+00:00",
+  "generated_at": "2026-03-20T20:49:13.439132+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Latch_UnLatch_State_6_7_8",
-  "main_routine_name": "Latch_Driver",
+  "main_routine_name": "main",
   "main_routine_name_source": "single_routine",
   "routines": [
-    "Latch_Driver"
+    "main"
   ],
   "subroutines": [],
   "udts": [
@@ -116,7 +116,8 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "ENABLE_ACTUATOR",
@@ -132,7 +133,8 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "HomeCounter",
@@ -148,7 +150,16 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER"
+      "udt_name": "COUNTER",
+      "value": {
+        "PRE": 99999,
+        "ACC": 386,
+        "CU": false,
+        "CD": false,
+        "DN": false,
+        "OV": false,
+        "UN": false
+      }
     },
     {
       "name": "HomeSignal",
@@ -164,7 +175,8 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "HomeTimer1",
@@ -180,7 +192,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 500,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "HomeTimer2",
@@ -196,7 +215,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 500,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "LatchCounter2",
@@ -212,7 +238,16 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER"
+      "udt_name": "COUNTER",
+      "value": {
+        "PRE": 2,
+        "ACC": 2,
+        "CU": false,
+        "CD": false,
+        "DN": true,
+        "OV": false,
+        "UN": false
+      }
     },
     {
       "name": "LatchCounter3",
@@ -228,7 +263,16 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER"
+      "udt_name": "COUNTER",
+      "value": {
+        "PRE": 2,
+        "ACC": 2,
+        "CU": false,
+        "CD": false,
+        "DN": true,
+        "OV": false,
+        "UN": false
+      }
     },
     {
       "name": "Latching_pulse_duration",
@@ -244,7 +288,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 25,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "LatchTimer3",
@@ -260,7 +311,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 250,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "LatchTimer4",
@@ -276,7 +334,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 250,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "LatchTimer5",
@@ -292,7 +357,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 250,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "LatchTimer6",
@@ -308,7 +380,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 250,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "oneshotob",
@@ -323,7 +402,8 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Latch_UnLatch_State_6_7_8"
+      "program": "Latch_UnLatch_State_6_7_8",
+      "value": false
     },
     {
       "name": "oneshotsb",
@@ -338,7 +418,8 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Latch_UnLatch_State_6_7_8"
+      "program": "Latch_UnLatch_State_6_7_8",
+      "value": false
     },
     {
       "name": "PREV_ACT_POS",
@@ -353,7 +434,8 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8"
+      "program": "Latch_UnLatch_State_6_7_8",
+      "value": 3
     },
     {
       "name": "STATE7_IND",
@@ -369,7 +451,8 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "UNLOCK_LATCH_MOTOR_SHAFT",
@@ -385,7 +468,8 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     },
     {
       "name": "Delay_Z_Latched",
@@ -401,7 +485,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 100,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "Delay_Fixed_Latched",
@@ -417,7 +508,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 100,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "Latching_pulse_interval",
@@ -433,7 +531,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 250,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "TimeoutTimer1",
@@ -449,7 +554,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 1000,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "TimeoutTimer2",
@@ -465,7 +577,14 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER"
+      "udt_name": "TIMER",
+      "value": {
+        "PRE": 1000,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "LatchingTimeoutCounter",
@@ -481,7 +600,17 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER"
+      "udt_name": "COUNTER",
+      "value": {
+        "PRE": 9999,
+        "ACC": 1,
+        "CU": false,
+        "CD": false,
+        "DN": false,
+        "OV": false,
+        "UN": false
+      }
     }
-  ]
+  ],
+  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
 }

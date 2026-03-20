@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-20T20:30:07.372318+00:00",
+  "generated_at": "2026-03-20T20:49:13.439132+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Ready_State_1",
-  "main_routine_name": "Ready",
+  "main_routine_name": "main",
   "main_routine_name_source": "single_routine",
   "routines": [
-    "Ready"
+    "main"
   ],
   "subroutines": [],
   "udts": [
@@ -155,7 +155,8 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     },
     {
       "name": "trigger_axes_ob",
@@ -171,7 +172,8 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": false
     },
     {
       "name": "OutBit",
@@ -186,7 +188,8 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Ready_State_1"
+      "program": "Ready_State_1",
+      "value": false
     },
     {
       "name": "x_on_mso",
@@ -202,7 +205,25 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "y_on_mso",
@@ -218,7 +239,25 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "z_on_mso",
@@ -234,7 +273,25 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "udt_name": "MOTION_INSTRUCTION"
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "SetBit",
@@ -249,7 +306,8 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Ready_State_1"
+      "program": "Ready_State_1",
+      "value": false
     },
     {
       "name": "STATE1_IND",
@@ -265,7 +323,8 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     },
     {
       "name": "dont_auto_trigger_axes_in_state_1",
@@ -281,7 +340,9 @@
       ],
       "array_dimensions": 0,
       "program": "Ready_State_1",
-      "bit_position": 0
+      "bit_position": 0,
+      "value": true
     }
-  ]
+  ],
+  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
 }
