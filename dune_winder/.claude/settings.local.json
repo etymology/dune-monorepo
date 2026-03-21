@@ -3,7 +3,27 @@
     "allow": [
       "Bash(.venv/Scripts/pip install:*)",
       "Bash(python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_patterns.py)",
-      "Bash(python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_types.py src/dune_winder/queued_motion/segment_patterns.py)"
+      "Bash(python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_types.py src/dune_winder/queued_motion/segment_patterns.py)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python -m pytest tests/test_xg_template_gcode.py -q)",
+      "Bash(python -m unittest tests/test_xg_template_gcode.py -v)",
+      "Bash(python -m unittest discover -s tests -p \"*.py\" -v)",
+      "Bash(python -m unittest tests/test_xg_template_gcode.py tests/test_v_template_gcode.py tests/test_u_template_gcode.py -v)",
+      "Bash(python -m pytest tests/ -x -q --tb=short)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip show:*)",
+      "Bash(python3 -m pytest tests/ -x -q --tb=short)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m pytest /Users/ben/dune_winder_p3/tests/ -x -q --tb=short)",
+      "Bash(python3.14 -m pytest tests/ -x -q --tb=short)",
+      "Bash(python3.14 -m pytest tests/ -q --tb=short --ignore=tests/test_g_code_handler_safety.py)",
+      "Bash(python3.14 -m pytest tests/ -q --tb=short --ignore=tests/test_g_code_handler_safety.py --ignore=tests/test_manual_calibration.py)",
+      "Bash(python3.14 -m pytest tests/test_winder_workspace.py tests/test_v_template_gcode.py tests/test_u_template_gcode.py tests/test_xg_template_gcode.py -q --tb=short)",
+      "Bash(python3.14 -m pytest tests/test_recipe.py tests/test_v_template_gcode.py tests/test_u_template_gcode.py tests/test_xg_template_gcode.py tests/test_template_recipe_persistence.py tests/test_process.py -q --tb=short)",
+      "Bash(python3.14 -m pytest tests/test_recipe.py tests/test_v_template_gcode.py tests/test_u_template_gcode.py tests/test_xg_template_gcode.py tests/test_process.py -q --tb=short)",
+      "Bash(python3.14 -m pytest tests/test_recipe.py -q --tb=short)",
+      "Bash(python3.14 -m pytest tests/test_process.py -q --tb=short)"
     ]
   }
 }
