@@ -4,6 +4,7 @@ import unittest
 from dune_winder.plc_ladder import PythonCodeGenerator
 from dune_winder.plc_ladder import RllEmitter
 from dune_winder.plc_ladder import RllParser
+from dune_winder.plc_ladder import load_generated_routine
 
 
 PLC_ROOT = Path(__file__).resolve().parents[1] / "plc"
@@ -47,6 +48,16 @@ class PlcLadderParserTests(unittest.TestCase):
         routine = self.parser.parse_routine_path(path, routine_name=path.parent.name)
         self.assertGreater(len(routine.rungs), 0)
 
+  def test_parses_all_checked_in_pasteable_routines(self):
+    for path in sorted(PLC_ROOT.rglob("pasteable.rll")):
+      with self.subTest(path=path):
+        routine = self.parser.parse_routine_path(path, routine_name=path.parent.name)
+        source = path.read_text(encoding="utf-8").strip()
+        if source:
+          self.assertGreater(len(routine.rungs), 0)
+        else:
+          self.assertEqual(len(routine.rungs), 0)
+
   def test_generates_python_with_rockwell_mnemonics(self):
     path = PLC_ROOT / "MoveXY_State_2_3" / "main" / "pasteable.rll"
     routine = self.parser.parse_routine_text(
@@ -58,9 +69,36 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("def MoveXY_State_2_3_main", generated)
+    self.assertIn("MoveXY_State_2_3_main = ROUTINE(", generated)
     self.assertIn("MCLM(", generated)
     self.assertIn("BRANCH(", generated)
+
+  def test_round_trips_motion_queue_helpers_through_python_dsl(self):
+    helper_paths = [
+      PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll",
+      PLC_ROOT / "motionQueue" / "CapSegSpeed" / "pasteable.rll",
+      PLC_ROOT / "motionQueue" / "CircleCenterForSeg" / "pasteable.rll",
+      PLC_ROOT / "motionQueue" / "MaxAbsCosSweep" / "pasteable.rll",
+      PLC_ROOT / "motionQueue" / "MaxAbsSinSweep" / "pasteable.rll",
+      PLC_ROOT / "motionQueue" / "SegTangentBounds" / "pasteable.rll",
+    ]
+
+    for path in helper_paths:
+      with self.subTest(path=path):
+        routine = self.parser.parse_routine_path(
+          path,
+          routine_name=path.parent.name,
+          program="motionQueue",
+        )
+        generated = self.codegen.generate_routine(routine)
+        restored = load_generated_routine(generated)
+
+        self.assertEqual(restored.name, routine.name)
+        self.assertEqual(restored.program, routine.program)
+        self.assertEqual(
+          self.emitter.emit_routine(restored).strip().splitlines(),
+          self.emitter.emit_routine(routine).strip().splitlines(),
+        )
 
 
 if __name__ == "__main__":
