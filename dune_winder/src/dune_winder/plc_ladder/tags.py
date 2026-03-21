@@ -170,13 +170,23 @@ class TagStore:
     return value
 
   def _seed_tag_value(self, definition: TagDefinition):
-    if self.use_exported_values and definition.value is not None:
-      return copy.deepcopy(definition.value)
-
     if definition.tag_type == "struct" and definition.udt_name is not None:
       value = self._seed_udt_value(self.metadata.udts[definition.udt_name])
     else:
       value = default_atomic_value(definition.data_type_name)
+
+    if self.use_exported_values and definition.value is not None:
+      exported = copy.deepcopy(definition.value)
+      if definition.array_dimensions > 0 and definition.dimensions:
+        length = int(definition.dimensions[0] or 0)
+        if isinstance(exported, list):
+          if len(exported) >= length:
+            return exported[:length]
+          padded = list(exported)
+          padded.extend(copy.deepcopy(value) for _ in range(length - len(padded)))
+          return padded
+        return [copy.deepcopy(exported) for _ in range(length)]
+      return exported
 
     if definition.array_dimensions > 0 and definition.dimensions:
       length = int(definition.dimensions[0] or 0)
