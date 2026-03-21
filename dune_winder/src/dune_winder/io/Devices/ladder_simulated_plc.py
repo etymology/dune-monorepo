@@ -49,6 +49,11 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.MOVE_PLC_INIT: SimulatedPLC.STATE_INIT,
     SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
   }
+  _LATCH_STUB_MOVE_TYPES = {
+    SimulatedPLC.MOVE_LATCH,
+    SimulatedPLC.MOVE_HOME_LATCH,
+    SimulatedPLC.MOVE_LATCH_UNLOCK,
+  }
 
   _MACHINE_BIT_ALIASES = {
     1: ("Z_RETRACTED_1A",),
@@ -263,6 +268,8 @@ class LadderSimulatedPLC(SimulatedPLC):
     self._ctx.set_value("INIT_DONE", True)
     self._ctx.set_value("HEAD_POS", 0)
     self._ctx.set_value("ACTUATOR_POS", 0)
+    self._ctx.set_value("LATCH_ACTUATOR_HOMED", True)
+    self._ctx.set_value("MACHINE_SW_STAT[0]", True)
     self._ctx.set_value("UseAasCurrent", True)
     self._ctx.set_value("QueueCtl.POS", 0, program="motionQueue")
     self._ctx.set_value("QueueCtl.EM", True, program="motionQueue")
@@ -345,6 +352,10 @@ class LadderSimulatedPLC(SimulatedPLC):
     for programName, routineName in self._SCAN_ORDER[1:]:
       self._execute_loaded_routine(programName, routineName)
     self._apply_logic_overrides()
+    if self._apply_latch_stub():
+      self._sync_builtin_inputs()
+      self._execute_loaded_routine("MainProgram", "main")
+      self._apply_logic_overrides()
     self._apply_compatibility_state()
 
   # ---------------------------------------------------------------------
@@ -463,6 +474,54 @@ class LadderSimulatedPLC(SimulatedPLC):
     if state == self.STATE_QUEUED_MOTION and not queueActive:
       self._ctx.set_value("STATE", self.STATE_READY)
       self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+
+  # ---------------------------------------------------------------------
+  def _apply_latch_stub(self) -> bool:
+    moveType = int(self._ctx.get_value("MOVE_TYPE"))
+    state = int(self._ctx.get_value("STATE"))
+    if moveType not in self._LATCH_STUB_MOVE_TYPES and state not in {
+      self.STATE_LATCHING,
+      self.STATE_LATCH_HOMEING,
+      self.STATE_LATCH_RELEASE,
+    }:
+      return False
+
+    if moveType == self.MOVE_RESET and state not in {
+      self.STATE_LATCHING,
+      self.STATE_LATCH_HOMEING,
+      self.STATE_LATCH_RELEASE,
+    }:
+      return False
+
+    if moveType == self.MOVE_HOME_LATCH or state == self.STATE_LATCH_HOMEING:
+      self._ctx.set_value("ACTUATOR_POS", 0)
+      if int(self._ctx.get_value("HEAD_POS")) == -1:
+        self._ctx.set_value("HEAD_POS", 0)
+      self._ctx.set_value("LATCH_ACTUATOR_HOMED", True)
+      self._ctx.set_value("MACHINE_SW_STAT[0]", True)
+    elif moveType == self.MOVE_LATCH_UNLOCK or state == self.STATE_LATCH_RELEASE:
+      self._ctx.set_value("ACTUATOR_POS", 2)
+      self._ctx.set_value("LATCH_ACTUATOR_HOMED", False)
+      self._ctx.set_value("MACHINE_SW_STAT[0]", False)
+    else:
+      self._advance_latch_stub()
+      self._ctx.set_value("MACHINE_SW_STAT[0]", bool(self._ctx.get_value("LATCH_ACTUATOR_HOMED")))
+
+    self._ctx.set_value("ERROR_CODE", 0)
+    self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+    self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+    self._ctx.set_value("STATE", self.STATE_READY)
+    return True
+
+  # ---------------------------------------------------------------------
+  def _advance_latch_stub(self):
+    actuator = int(self._ctx.get_value("ACTUATOR_POS"))
+    actuator = (actuator + 1) % 3
+    self._ctx.set_value("ACTUATOR_POS", actuator)
+
+    headPos = int(self._ctx.get_value("HEAD_POS"))
+    if actuator == 2 and headPos in (0, 3):
+      self._ctx.set_value("HEAD_POS", 3 if headPos == 0 else 0)
 
   # ---------------------------------------------------------------------
   def _cap_seg_speed_jsr(self, ctx: ScanContext):
