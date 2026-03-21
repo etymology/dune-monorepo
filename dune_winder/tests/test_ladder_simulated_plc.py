@@ -48,6 +48,44 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
     self.assertTrue(plc.get_tag("main_xy_move.PC"))
 
+  def test_latch_stub_cycles_positions_without_stalling_state_machine(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.set_tag("HEAD_POS", 0)
+    plc.set_tag("ACTUATOR_POS", 0)
+
+    plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
+
+    plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 3)
+
+    plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 3)
+
+  def test_latch_home_and_unlock_stub_update_homed_status(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.set_tag("HEAD_POS", 3)
+    plc.set_tag("ACTUATOR_POS", 2)
+    plc.set_tag("LATCH_ACTUATOR_HOMED", False)
+
+    plc.write(("MOVE_TYPE", plc.MOVE_LATCH_UNLOCK))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
+    self.assertFalse(plc.get_tag("LATCH_ACTUATOR_HOMED"))
+    self.assertFalse(plc.get_tag("MACHINE_SW_STAT[0]"))
+
+    plc.write(("MOVE_TYPE", plc.MOVE_HOME_LATCH))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
+    self.assertTrue(plc.get_tag("LATCH_ACTUATOR_HOMED"))
+    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[0]"))
+
   def test_xz_seek_respects_transfer_override(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
