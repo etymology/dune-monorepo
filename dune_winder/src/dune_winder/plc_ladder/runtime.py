@@ -387,10 +387,14 @@ class RoutineExecutor:
     if opcode == "MAM":
       if condition_in:
         self._start_axis_move(operands, ctx)
+      else:
+        self._disarm_motion_control(operands[1], ctx)
       return bool(condition_in)
     if opcode in {"MCLM", "MCCM"}:
       if condition_in:
         self._start_coordinate_move(opcode, operands, ctx)
+      else:
+        self._disarm_motion_control(operands[1], ctx)
       return bool(condition_in)
     if opcode == "MCCD":
       if condition_in:
@@ -661,6 +665,12 @@ class RoutineExecutor:
   def _start_axis_move(self, operands, ctx: ScanContext):
     axis_path = operands[0]
     control_path = operands[1]
+    control = _deep_copy(ctx.get_value(control_path))
+    if control.get("EN"):
+      return
+    existing = ctx.runtime_state.axis_moves.get(axis_path)
+    if existing is not None and existing.control_path == control_path:
+      return
     target = _coerce_float(ctx.resolve_operand(operands[3]))
     speed = max(_coerce_float(ctx.resolve_operand(operands[4])), 1e-6)
     acceleration = _coerce_float(ctx.resolve_operand(operands[6]))
@@ -668,7 +678,6 @@ class RoutineExecutor:
     start_position = _coerce_float(ctx.get_value(component_path))
     scans = self._motion_scan_count(abs(target - start_position), speed, ctx)
 
-    control = _deep_copy(ctx.get_value(control_path))
     control["EN"] = True
     control["DN"] = False
     control["ER"] = False
@@ -698,6 +707,15 @@ class RoutineExecutor:
   def _start_coordinate_move(self, opcode: str, operands, ctx: ScanContext):
     coordinate_path = operands[0]
     control_path = operands[1]
+    control = _deep_copy(ctx.get_value(control_path))
+    if control.get("EN"):
+      return
+    active_motion = ctx.runtime_state.coordinate_moves.get(coordinate_path)
+    if active_motion is not None and active_motion.control_path == control_path:
+      return
+    pending_motion = ctx.runtime_state.coordinate_pending_moves.get(coordinate_path)
+    if pending_motion is not None and pending_motion.control_path == control_path:
+      return
     target_paths = self._coordinate_component_paths(coordinate_path)
     target_positions = self._resolve_coordinate_target(coordinate_path, operands[3], ctx)
     speed_index = 6 if opcode == "MCCM" else 4
@@ -710,7 +728,6 @@ class RoutineExecutor:
     )
     scans = self._motion_scan_count(distance, speed, ctx)
 
-    control = _deep_copy(ctx.get_value(control_path))
     control["EN"] = True
     control["DN"] = False
     control["ER"] = False
@@ -759,6 +776,11 @@ class RoutineExecutor:
     motion.speed = max(speed, 1e-6)
     motion.acceleration = acceleration
     self._apply_motion_velocities(motion, ctx)
+
+  def _disarm_motion_control(self, control_path: str, ctx: ScanContext):
+    control = _deep_copy(ctx.get_value(control_path))
+    control["EN"] = False
+    ctx.set_value(control_path, control)
 
   def _motion_scan_count(self, distance: float, speed: float, ctx: ScanContext) -> int:
     travel_time = distance / max(speed, 1e-6)
