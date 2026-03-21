@@ -263,6 +263,9 @@ def main():
   # Persist on first run so the file exists for operators to inspect.
   configuration.save()
 
+  # Ensure runtime directories exist on first run.
+  os.makedirs(Settings.RECIPE_DIR, exist_ok=True)
+
   # Setup log file.
   log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
   log.add("Main", "START", "Control system starts.")
