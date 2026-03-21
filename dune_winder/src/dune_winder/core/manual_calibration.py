@@ -1047,7 +1047,7 @@ class ManualCalibration:
 
     session.offsets = {}
     for offsetId in GX_OFFSET_IDS:
-      session.offsets[offsetId] = None
+      session.offsets[offsetId] = 0.0
 
     session.transferPause = True
     session.includeLeadMode = True
@@ -1277,10 +1277,6 @@ class ManualCalibration:
   def _gxReadyToGenerate(self, session):
     if self._gxReferenceCount(session) != len(GX_REFERENCE_IDS):
       return False
-
-    for offsetId in GX_OFFSET_IDS:
-      if session.offsets[offsetId] is None:
-        return False
 
     return True
 
@@ -1772,10 +1768,6 @@ class ManualCalibration:
     session = self._getSession(layer)
     if self._gxReferenceCount(session) != len(GX_REFERENCE_IDS):
       return self._errorResult("Record both the head and foot reference points first.")
-
-    for offsetId in GX_OFFSET_IDS:
-      if session.offsets[offsetId] is None:
-        return self._errorResult("Enter all four corner offsets before generating the recipe.")
 
     outputDirectory = self._recipeDirectory()
     if not os.path.isdir(outputDirectory):
