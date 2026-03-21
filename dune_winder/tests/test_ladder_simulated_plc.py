@@ -3,6 +3,9 @@ from __future__ import annotations
 import unittest
 
 from dune_winder.io.devices.ladder_simulated_plc import LadderSimulatedPLC
+from dune_winder.queued_motion.segment_types import CIRCLE_TYPE_CENTER
+from dune_winder.queued_motion.segment_types import MCCM_DIR_2D_CCW
+from dune_winder.queued_motion.segment_types import SEG_TYPE_CIRCLE
 
 
 class LadderSimulatedPlcTests(unittest.TestCase):
@@ -100,6 +103,46 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertFalse(plc.get_tag("CurIssued"))
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 125.0, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 250.0, places=6)
+
+  def test_queue_circle_segment_executes_via_motion_queue_routine(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.set_tag(
+      "IncomingSeg",
+      {
+        "Valid": True,
+        "SegType": SEG_TYPE_CIRCLE,
+        "XY": [100.0, 100.0],
+        "Speed": 800.0,
+        "Accel": 1600.0,
+        "Decel": 1600.0,
+        "JerkAccel": 1500.0,
+        "JerkDecel": 3000.0,
+        "TermType": 3,
+        "Seq": 2,
+        "CircleType": CIRCLE_TYPE_CENTER,
+        "ViaCenter": [0.0, 100.0],
+        "Direction": MCCM_DIR_2D_CCW,
+      },
+    )
+    plc.set_tag("IncomingSegReqID", 2)
+
+    self._advance_until(plc, lambda: plc.get_tag("QueueCount") == 1)
+
+    plc.set_tag("StartQueuedPath", 1)
+    self._advance_until(
+      plc,
+      lambda: (
+        plc.get_tag("STATE") == plc.STATE_READY
+        and not plc.get_tag("CurIssued")
+        and plc.get_tag("QueueCount") == 0
+      ),
+      limit=100,
+    )
+
+    self.assertEqual(plc.get_tag("IncomingSegAck"), 2)
+    self.assertEqual(plc.get_tag("QueueCount"), 0)
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 100.0, places=6)
+    self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 100.0, places=6)
 
 
 if __name__ == "__main__":

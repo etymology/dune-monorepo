@@ -151,6 +151,40 @@ class PlcLadderRuntimeTests(unittest.TestCase):
     self.assertAlmostEqual(self.ctx.get_value("Y_axis.ActualPosition"), 75.0, places=6)
     self.assertTrue(self.ctx.get_value("MoveB.PC"))
 
+  def test_mccm_uses_arc_speed_and_accel_operands(self):
+    routine = self.parser.parse_routine_text(
+      "main",
+      "\n".join(
+        [
+          "XIC issue MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed \"Units per sec\" CmdA_Accel \"Units per sec2\" CmdA_Decel \"Units per sec2\" S-Curve CmdA_JerkAccel CmdA_JerkDecel \"Units per sec3\" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0",
+        ]
+      ),
+      program="motionQueue",
+    )
+
+    self.ctx.set_value("CmdA_XY[0]", 100.0)
+    self.ctx.set_value("CmdA_XY[1]", 100.0)
+    self.ctx.set_value("CmdA_CircleType", 1)
+    self.ctx.set_value("CmdA_ViaCenter[0]", 0.0)
+    self.ctx.set_value("CmdA_ViaCenter[1]", 100.0)
+    self.ctx.set_value("CmdA_Direction", 1)
+    self.ctx.set_value("CmdA_Speed", 321.0)
+    self.ctx.set_value("CmdA_Accel", 654.0)
+    self.ctx.set_value("CmdA_Decel", 654.0)
+    self.ctx.set_value("CmdA_JerkAccel", 1000.0)
+    self.ctx.set_value("CmdA_JerkDecel", 1000.0)
+    self.ctx.set_value("CmdA_TermType", 3)
+    self.ctx.set_value("issue", True)
+
+    self.executor.execute_routine(routine, self.ctx)
+
+    motion = self.ctx.runtime_state.coordinate_moves["X_Y"]
+    self.assertEqual(motion.command_name, "MCCM")
+    self.assertEqual(motion.direction, 1)
+    self.assertAlmostEqual(motion.speed, 321.0, places=6)
+    self.assertAlmostEqual(motion.acceleration, 654.0, places=6)
+    self.assertTrue(self.ctx.get_value("MoveA.IP"))
+
 
 class PlcPollHookTests(unittest.TestCase):
   def test_poll_all_wraps_reads_in_scan_cycle_hooks(self):
