@@ -121,22 +121,32 @@ class PLC(IO_Device, metaclass=ABCMeta):
         for tag in range(0, len(tagList), PLC.MAX_TAG_READS)
       ]
 
-      # For each tag subset...
-      for tagList in tagSubset:
-        # Read all the tags in this subset.
-        results = plc.read(tagList)
+      beginScan = getattr(plc, "begin_scan_cycle", None)
+      endScan = getattr(plc, "end_scan_cycle", None)
 
-        if results is not None:
-          # Distribute the results to the tag objects.
-          for result in results:
-            # For each object that uses this tag name...
-            for tag in PLC.Tag.tag_lookup_table[result[0]]:
-              # Send it the result.
-              tag.updateFromReadTag(result[1])
-        else:
-          for tagName in tagList:
-            for tag in PLC.Tag.tag_lookup_table[tagName]:
-              tag._value = tag._attributes.defaultValue
+      if callable(beginScan):
+        beginScan()
+
+      try:
+        # For each tag subset...
+        for tagList in tagSubset:
+          # Read all the tags in this subset.
+          results = plc.read(tagList)
+
+          if results is not None:
+            # Distribute the results to the tag objects.
+            for result in results:
+              # For each object that uses this tag name...
+              for tag in PLC.Tag.tag_lookup_table[result[0]]:
+                # Send it the result.
+                tag.updateFromReadTag(result[1])
+          else:
+            for tagName in tagList:
+              for tag in PLC.Tag.tag_lookup_table[tagName]:
+                tag._value = tag._attributes.defaultValue
+      finally:
+        if callable(endScan):
+          endScan()
 
     # ---------------------------------------------------------------------
     def getReadTag(self):
