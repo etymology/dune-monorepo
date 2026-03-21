@@ -718,8 +718,8 @@ class RoutineExecutor:
       return
     target_paths = self._coordinate_component_paths(coordinate_path)
     target_positions = self._resolve_coordinate_target(coordinate_path, operands[3], ctx)
-    speed_index = 6 if opcode == "MCCM" else 4
-    accel_index = 8 if opcode == "MCCM" else 6
+    speed_index = 7 if opcode == "MCCM" else 4
+    accel_index = 9 if opcode == "MCCM" else 6
     speed = max(_coerce_float(ctx.resolve_operand(operands[speed_index])), 1e-6)
     acceleration = _coerce_float(ctx.resolve_operand(operands[accel_index]))
     start_positions = tuple(_coerce_float(ctx.get_value(path)) for path in target_paths)
