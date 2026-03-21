@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import math
+import os
 import time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
-from dune_winder.io.devices.controllogix_plc import ControllogixPLC
-from dune_winder.io.devices.simulated_plc import SimulatedPLC
+from dune_winder.io.devices.plc_backend import create_plc_backend_for_path
+from dune_winder.io.devices.plc_backend import resolve_plc_sim_engine
 
 from .jerk_limits import is_valid_queued_motion_jerk
 
@@ -187,19 +188,25 @@ class MotionArc3DQueueClient:
     path: str,
     ack_timeout_s: float = ACK_TIMEOUT_S,
     poll_s: float = POLL_S,
+    plc_sim_engine: Optional[str] = None,
   ) -> None:
     self.path = path
     self.ack_timeout_s = ack_timeout_s
     self.poll_s = poll_s
+    self.plc_sim_engine = plc_sim_engine
     self.plc = None
     self.req_id = 0
     self._last_point: Optional[tuple[float, float, float]] = None
 
   def __enter__(self) -> "MotionArc3DQueueClient":
-    if str(self.path).strip().upper() == "SIM":
-      self.plc = SimulatedPLC("SIM")
-    else:
-      self.plc = ControllogixPLC(self.path)
+    simEngine = resolve_plc_sim_engine(
+      self.plc_sim_engine or "LEGACY",
+      envOverride=os.environ.get("PLC_SIM_ENGINE"),
+    )
+    self.plc = create_plc_backend_for_path(
+      self.path,
+      plcSimEngine=simEngine,
+    )
     self._sync_req_id_from_plc()
     self._last_point = self._read_actual_xyz_if_available()
     return self

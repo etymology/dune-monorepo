@@ -34,6 +34,7 @@ from dune_winder.threads.camera_thread import CameraThread
 from dune_winder.core.metrics_collector import MetricsCollector
 
 from dune_winder.io.maps.production_io import ProductionIO
+from dune_winder.io.devices.plc_backend import resolve_plc_sim_engine
 
 # $$$TEMPORARY - Temporary.
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
@@ -87,6 +88,11 @@ def _parseOption(argument):
 def _resolvePlcMode(configuredMode, cliOverride):
   source = cliOverride if cliOverride is not None else configuredMode
   return AppConfig.normalizePlcMode(source)
+
+
+# -----------------------------------------------------------------------
+def _resolvePlcSimEngine(configuredEngine, cliOverride):
+  return resolve_plc_sim_engine(configuredEngine, envOverride=cliOverride)
 
 
 # -----------------------------------------------------------------------
@@ -219,6 +225,7 @@ def main():
 
   # Handle command line.
   plcModeOverride = None
+  plcSimEngineOverride = None
   for argument in sys.argv[1:]:
     option, value = _parseOption(argument)
 
@@ -230,6 +237,8 @@ def main():
       isIO_Logged = str(value).upper() == "TRUE"
     elif "PLC_MODE" == option:
       plcModeOverride = value
+    elif "PLC_SIM_ENGINE" == option:
+      plcSimEngineOverride = value
 
   # Install signal handler for Ctrl-C shutdown.
   signal.signal(signal.SIGINT, signalHandler)
@@ -246,6 +255,10 @@ def main():
   import pathlib
   configuration = AppConfig.load(pathlib.Path(Settings.CONFIG_FILE))
   plcMode = _resolvePlcMode(configuration.plcMode, plcModeOverride)
+  plcSimEngine = _resolvePlcSimEngine(
+    configuration.plcSimEngine,
+    plcSimEngineOverride,
+  )
 
   # Persist on first run so the file exists for operators to inspect.
   configuration.save()
@@ -254,9 +267,14 @@ def main():
   log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
   log.add("Main", "START", "Control system starts.")
   log.add("Main", "PLC_MODE", "PLC backend mode selected.", [plcMode])
+  log.add("Main", "PLC_SIM_ENGINE", "PLC simulator engine selected.", [plcSimEngine])
 
   try:
-    io = ProductionIO(configuration.plcAddress, plcMode=plcMode)
+    io = ProductionIO(
+      configuration.plcAddress,
+      plcMode=plcMode,
+      plcSimEngine=plcSimEngine,
+    )
 
     # Use low-level I/O to avoid warning.
     # (Low-level I/O is needed by remote commands.)

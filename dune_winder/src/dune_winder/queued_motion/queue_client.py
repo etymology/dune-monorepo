@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import math
+import os
 import time
 from typing import Iterable, Optional
 
-from dune_winder.io.devices.controllogix_plc import ControllogixPLC
-from dune_winder.io.devices.simulated_plc import SimulatedPLC
+from dune_winder.io.devices.plc_backend import create_plc_backend_for_path
+from dune_winder.io.devices.plc_backend import resolve_plc_sim_engine
 
 from .plc_interface import (
   ACK_TIMEOUT_S,
@@ -33,10 +34,12 @@ class MotionQueueClient:
     path: str,
     ack_timeout_s: float = ACK_TIMEOUT_S,
     poll_s: float = POLL_S,
+    plc_sim_engine: Optional[str] = None,
   ) -> None:
     self.path = path
     self.ack_timeout_s = ack_timeout_s
     self.poll_s = poll_s
+    self.plc_sim_engine = plc_sim_engine
     self._plc = None
     self._queue = None
     self.req_id = 0
@@ -45,10 +48,14 @@ class MotionQueueClient:
     self._collision_state: Optional[QueuedMotionCollisionState] = None
 
   def __enter__(self) -> "MotionQueueClient":
-    if str(self.path).strip().upper() == "SIM":
-      self._plc = SimulatedPLC("SIM")
-    else:
-      self._plc = ControllogixPLC(self.path)
+    simEngine = resolve_plc_sim_engine(
+      self.plc_sim_engine or "LEGACY",
+      envOverride=os.environ.get("PLC_SIM_ENGINE"),
+    )
+    self._plc = create_plc_backend_for_path(
+      self.path,
+      plcSimEngine=simEngine,
+    )
     self._queue = QueuedMotionPLCInterface(self._plc)
     self._queue.poll()
     self.req_id = self._queue.sync_req_id()
