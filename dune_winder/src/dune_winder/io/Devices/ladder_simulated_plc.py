@@ -22,6 +22,7 @@ from .simulated_plc import SimulatedPLC
 
 class LadderSimulatedPLC(SimulatedPLC):
   _PLC_ROOT = Path(__file__).resolve().parents[4] / "plc"
+  _LATCH_PROGRAM = "Latch_UnLatch_State_6_7_8"
 
   _SCAN_ORDER = (
     ("MainProgram", "main"),
@@ -352,10 +353,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     for programName, routineName in self._SCAN_ORDER[1:]:
       self._execute_loaded_routine(programName, routineName)
     self._apply_logic_overrides()
-    if self._apply_latch_stub():
-      self._sync_builtin_inputs()
-      self._execute_loaded_routine("MainProgram", "main")
-      self._apply_logic_overrides()
+    self._apply_latch_stub()
     self._apply_compatibility_state()
 
   # ---------------------------------------------------------------------
@@ -492,6 +490,8 @@ class LadderSimulatedPLC(SimulatedPLC):
       self.STATE_LATCH_RELEASE,
     }:
       return False
+    if moveType == self.MOVE_RESET and int(self._ctx.get_value("NEXTSTATE")) == self.STATE_READY:
+      return False
 
     if moveType == self.MOVE_HOME_LATCH or state == self.STATE_LATCH_HOMEING:
       self._ctx.set_value("ACTUATOR_POS", 0)
@@ -504,13 +504,17 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._ctx.set_value("LATCH_ACTUATOR_HOMED", False)
       self._ctx.set_value("MACHINE_SW_STAT[0]", False)
     else:
+      self._ctx.set_value(
+        "PREV_ACT_POS",
+        int(self._ctx.get_value("ACTUATOR_POS")),
+        program=self._LATCH_PROGRAM,
+      )
       self._advance_latch_stub()
       self._ctx.set_value("MACHINE_SW_STAT[0]", bool(self._ctx.get_value("LATCH_ACTUATOR_HOMED")))
 
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
-    self._ctx.set_value("STATE", self.STATE_READY)
     return True
 
   # ---------------------------------------------------------------------
