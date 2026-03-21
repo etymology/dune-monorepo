@@ -52,3 +52,6 @@ This plan assumes P7 is already merged and focuses on simulator behavior, backen
 - P7 migration is already implemented and is the canonical baseline.
 - XML support remains fallback-only for legacy file migration, not primary runtime format.
 - Default simulator pose remains stage-side machine-ready.
+
+See also: `docs/PlcLadderSimulatorAssumptions.md` for the current
+implementation-level assumptions used by the ladder-backed simulator.
