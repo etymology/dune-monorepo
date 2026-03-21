@@ -3,6 +3,8 @@ from .ast import InstructionCall
 from .ast import Routine
 from .ast import Rung
 from .codegen import PythonCodeGenerator
+from .codegen import load_generated_routine
+from .codegen import transpile_routine_to_python
 from .emitter import RllEmitter
 from .jsr_registry import JSRRegistry
 from .metadata import PlcMetadata
@@ -28,6 +30,7 @@ __all__ = [
   "ExpressionEvaluator",
   "InstructionCall",
   "JSRRegistry",
+  "load_generated_routine",
   "MotionInstruction",
   "MotionSeg",
   "ActiveMotion",
@@ -43,5 +46,6 @@ __all__ = [
   "ScanContext",
   "TagStore",
   "Timer",
+  "transpile_routine_to_python",
   "load_plc_metadata",
 ]
