@@ -151,7 +151,10 @@ class TagStore:
     for index in indexes:
       if not isinstance(index, int):
         raise KeyError(index)
-      current = current[index]
+      if isinstance(current, list):
+        current = current[index]
+        continue
+      current = bool((int(current) >> index) & 1)
     return current
 
   def _set_with_indexes(self, value, indexes: tuple[int | str, ...], new_value):
@@ -162,11 +165,22 @@ class TagStore:
     for index in indexes[:-1]:
       if not isinstance(index, int):
         raise KeyError(index)
-      current = current[index]
+      if isinstance(current, list):
+        current = current[index]
+        continue
+      current = bool((int(current) >> index) & 1)
     final_index = indexes[-1]
     if not isinstance(final_index, int):
       raise KeyError(final_index)
-    current[final_index] = copy.deepcopy(new_value)
+    if isinstance(current, list):
+      current[final_index] = copy.deepcopy(new_value)
+      return value
+
+    bit_value = 1 if bool(new_value) else 0
+    raw_value = int(value)
+    if bit_value:
+      return raw_value | (1 << final_index)
+    return raw_value & ~(1 << final_index)
     return value
 
   def _seed_tag_value(self, definition: TagDefinition):
@@ -179,6 +193,8 @@ class TagStore:
       exported = copy.deepcopy(definition.value)
       if definition.array_dimensions > 0 and definition.dimensions:
         length = int(definition.dimensions[0] or 0)
+        if definition.data_type_name == "DWORD" and length == 1:
+          return int(bool(exported)) if isinstance(exported, bool) else copy.deepcopy(exported)
         if isinstance(exported, list):
           if len(exported) >= length:
             return exported[:length]
@@ -190,6 +206,8 @@ class TagStore:
 
     if definition.array_dimensions > 0 and definition.dimensions:
       length = int(definition.dimensions[0] or 0)
+      if definition.data_type_name == "DWORD" and length == 1:
+        return copy.deepcopy(value)
       return [copy.deepcopy(value) for _ in range(length)]
 
     return value
