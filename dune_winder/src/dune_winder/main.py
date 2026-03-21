@@ -316,7 +316,15 @@ def main():
     #
 
     metricsCollector = MetricsCollector(io)
-    io.pollCallbacks.append(metricsCollector.update)
+    if metricsCollector.isEnabled():
+      io.pollCallbacks.append(metricsCollector.update)
+    else:
+      log.add(
+        "Main",
+        "METRICS_DISABLED",
+        "PLC metrics streaming disabled.",
+        [metricsCollector.disableReason()],
+      )
 
     _ = UICommandServerThread(commandHandler, log)
     _ = WebServerThread(log, commandRegistry)

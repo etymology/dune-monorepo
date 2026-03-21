@@ -10,8 +10,16 @@
 # Grafana queries InfluxDB directly using Flux, enabling sub-second display.
 ###############################################################################
 
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import WriteOptions, WriteType
+try:
+  from influxdb_client import InfluxDBClient, Point
+  from influxdb_client.client.write_api import WriteOptions, WriteType
+  _IMPORT_ERROR = None
+except ModuleNotFoundError as importError:
+  InfluxDBClient = None
+  Point = None
+  WriteOptions = None
+  WriteType = None
+  _IMPORT_ERROR = importError
 
 # InfluxDB connection — must match docker-compose.yml
 _URL    = "http://localhost:8086"
@@ -47,6 +55,16 @@ class MetricsCollector:
       io: BaseIO instance (already constructed with all tags registered).
     """
     self._io = io
+    self._disabledReason = None
+    self._client = None
+    self._write_api = None
+
+    if _IMPORT_ERROR is not None:
+      self._disabledReason = (
+        "Optional dependency 'influxdb-client' is not installed."
+      )
+      return
+
     self._client = InfluxDBClient(url=_URL, token=_TOKEN, org=_ORG)
     self._write_api = self._client.write_api(
       write_options=WriteOptions(
@@ -57,11 +75,22 @@ class MetricsCollector:
     )
 
   # -------------------------------------------------------------------------
+  def isEnabled(self):
+    return self._write_api is not None
+
+  # -------------------------------------------------------------------------
+  def disableReason(self):
+    return self._disabledReason
+
+  # -------------------------------------------------------------------------
   def update(self):
     """
     Build a data point from the current tag cache and queue it for InfluxDB.
     Call after each PLC poll cycle (register as a BaseIO.pollCallbacks entry).
     """
+    if self._write_api is None:
+      return
+
     point = (
       Point("plc_tags")
       .field("tension",          _safe_float(self._io.tension_tag.get()))
@@ -79,5 +108,7 @@ class MetricsCollector:
   # -------------------------------------------------------------------------
   def close(self):
     """Flush pending writes and release InfluxDB resources."""
-    self._write_api.close()
-    self._client.close()
+    if self._write_api is not None:
+      self._write_api.close()
+    if self._client is not None:
+      self._client.close()
