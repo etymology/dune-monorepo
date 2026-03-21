@@ -18,6 +18,9 @@ from dune_winder.library.time_source import TimeSource
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.recipe import Recipe
+from dune_winder.recipes.u_template_gcode import write_u_template_file
+from dune_winder.recipes.v_template_gcode import write_v_template_file
+from dune_winder.recipes.xg_template_gcode import write_xg_template_file
 
 
 class WinderWorkspace:
@@ -247,6 +250,37 @@ class WinderWorkspace:
     self._layer = None
     self._lineNumber = None
 
+  _LAYER_FILE_WRITERS = {
+    "V": lambda path, archive: write_v_template_file(path, archive_directory=archive),
+    "U": lambda path, archive: write_u_template_file(path, archive_directory=archive),
+    "X": lambda path, archive: write_xg_template_file("X", output_path=path, archive_directory=archive),
+    "G": lambda path, archive: write_xg_template_file("G", output_path=path, archive_directory=archive),
+  }
+
+  def _generateDefaultRecipeIfMissing(self, recipeFile):
+    """Generate a default recipe file with zero offsets if it doesn't exist."""
+    filePath = self._recipeDirectory + "/" + recipeFile
+    if os.path.isfile(filePath):
+      return
+
+    match = re.match(r"^([A-Za-z])-layer\.gc$", recipeFile, re.IGNORECASE)
+    if not match:
+      return
+
+    layer = match.group(1).upper()
+    writer = self._LAYER_FILE_WRITERS.get(layer)
+    if writer is None:
+      return
+
+    os.makedirs(self._recipeDirectory, exist_ok=True)
+    writer(filePath, self._recipeArchiveDirectory)
+    self._log.add(
+      self.__class__.__name__,
+      "GCODE",
+      "Generated default recipe file " + filePath,
+      [layer, filePath],
+    )
+
   def loadRecipe(self, layer=None, recipeFile=None, startingLine=-1):
     isError = False
 
@@ -273,6 +307,7 @@ class WinderWorkspace:
       self._lineNumber = -1
 
     if not isError and self._recipeFile is not None:
+      self._generateDefaultRecipeIfMissing(self._recipeFile)
       self._recipe = Recipe(
         self._recipeDirectory + "/" + self._recipeFile, self._recipeArchiveDirectory
       )
