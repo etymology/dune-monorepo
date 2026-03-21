@@ -25,12 +25,16 @@ from dune_winder.queued_motion.jerk_limits import (
 @dataclasses.dataclass
 class AppConfig:
   VALID_PLC_MODES = ("REAL", "SIM")
+  VALID_PLC_SIM_ENGINES = ("LEGACY", "LADDER")
 
   # PLC network address.
   plcAddress: str = "192.168.140.13"
 
   # PLC backend mode.
   plcMode: str = "REAL"
+
+  # PLC simulator engine to use when plcMode == "SIM".
+  plcSimEngine: str = "LEGACY"
 
   # Camera FTP URL for last captured image.
   cameraURL: str = "ftp://admin@192.168.140.19/image.bmp"
@@ -75,8 +79,19 @@ class AppConfig:
       )
     return mode
 
+  @classmethod
+  def normalizePlcSimEngine(cls, value: typing.Any) -> str:
+    engine = str(value).strip().upper()
+    if engine not in cls.VALID_PLC_SIM_ENGINES:
+      raise ValueError(
+        "configuration.toml: 'plcSimEngine' must be one of "
+        + ", ".join(cls.VALID_PLC_SIM_ENGINES)
+      )
+    return engine
+
   def __post_init__(self) -> None:
     self.plcMode = self.normalizePlcMode(self.plcMode)
+    self.plcSimEngine = self.normalizePlcSimEngine(self.plcSimEngine)
     self.maxJerkAccel = normalize_queued_motion_jerk(
       self.maxJerkAccel,
       default=DEFAULT_QUEUED_MOTION_ACCEL_JERK,
@@ -257,6 +272,8 @@ class AppConfig:
 
     if key == "plcMode":
       value = self.normalizePlcMode(value)
+    elif key == "plcSimEngine":
+      value = self.normalizePlcSimEngine(value)
     elif key == "maxJerkAccel":
       value = normalize_queued_motion_jerk(value, default=DEFAULT_QUEUED_MOTION_ACCEL_JERK)
     elif key == "maxJerkDecel":

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import threading
 from dataclasses import replace
 import tkinter as tk
@@ -9,8 +10,8 @@ from tkinter import scrolledtext
 from tkinter import messagebox, ttk
 from typing import Optional
 
-from dune_winder.io.Devices.controllogix_plc import ControllogixPLC
-from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+from dune_winder.io.Devices.plc_backend import create_plc_backend_for_path
+from dune_winder.io.Devices.plc_backend import resolve_plc_sim_engine
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.settings import Settings
 
@@ -62,9 +63,11 @@ _MAX_RADIUS_REPLAN_PASSES = 4
 
 
 def _open_plc_connection(path: str):
-  if str(path).strip().upper() == "SIM":
-    return SimulatedPLC("SIM")
-  return ControllogixPLC(path)
+  simEngine = resolve_plc_sim_engine(
+    "LEGACY",
+    envOverride=os.environ.get("PLC_SIM_ENGINE"),
+  )
+  return create_plc_backend_for_path(path, plcSimEngine=simEngine)
 
 
 def _close_plc_connection(plc) -> None:

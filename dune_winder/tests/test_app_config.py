@@ -41,6 +41,19 @@ class AppConfigTests(unittest.TestCase):
       self.assertEqual(configuration.maxJerkAccel, 1750.0)
       self.assertEqual(configuration.maxJerkDecel, 3250.0)
 
+  def test_plc_sim_engine_defaults_and_persists(self):
+    with tempfile.TemporaryDirectory() as tempDirectory:
+      configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+
+      configuration = AppConfig.load(configPath)
+      self.assertEqual(configuration.plcSimEngine, "LEGACY")
+
+      configuration.set("plcSimEngine", "ladder")
+      self.assertEqual(configuration.plcSimEngine, "LADDER")
+
+      reloaded = AppConfig.load(configPath)
+      self.assertEqual(reloaded.plcSimEngine, "LADDER")
+
 
 if __name__ == "__main__":
   unittest.main()
