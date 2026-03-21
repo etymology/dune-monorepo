@@ -115,8 +115,10 @@ def _require_wire_y(special_inputs, referenceId):
 def _require_offset(special_inputs, offsetId):
   try:
     value = special_inputs["offsets"][offsetId]
+    if value is None:
+      return 0.0
   except (KeyError, TypeError):
-    raise ValueError("Missing offset " + offsetId + ".")
+    return 0.0
   return float(value)
 
 
