@@ -11,14 +11,23 @@ from .ast import Routine
 
 
 TOKEN_PATTERN = re.compile(r'"[^"]*"|\S+')
+PROTECTED_SPACE = "\uFFF0"
+SEGQUEUE_PATH_PATTERN = re.compile(
+  r"SegQueueBST\s+"
+  r"([A-Za-z_][A-Za-z0-9_]*)\s+"
+  r"BND\s+"
+  r"(\.[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])*(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])*)*)"
+)
 
 OPERAND_COUNTS = {
   "ADD": 3,
+  "AFI": 0,
   "BND": 0,
   "BST": 0,
   "CMP": 1,
   "COP": 3,
   "CPT": 2,
+  "CTU": 3,
   "EQU": 2,
   "FFL": 5,
   "FFU": 5,
@@ -38,6 +47,7 @@ OPERAND_COUNTS = {
   "MCCD": 18,
   "MCLM": 22,
   "MCS": 9,
+  "MOD": 3,
   "MOV": 2,
   "MSF": 2,
   "MSO": 2,
@@ -45,12 +55,17 @@ OPERAND_COUNTS = {
   "NOP": 0,
   "NXB": 0,
   "ONS": 1,
+  "OSF": 2,
   "OSR": 2,
   "OTE": 1,
   "OTL": 1,
   "OTU": 1,
+  "PID": 7,
   "RES": 1,
+  "SFX": 14,
+  "SLS": 11,
   "TON": 3,
+  "TRN": 2,
   "XIC": 1,
   "XIO": 1,
 }
@@ -95,7 +110,7 @@ class RllParser:
     )
 
   def parse_rung(self, line: str) -> Rung:
-    tokens = tuple(TOKEN_PATTERN.findall(line))
+    tokens = tuple(TOKEN_PATTERN.findall(self._protect_special_operands(line)))
     nodes, index = self._parse_nodes(tokens, 0, stop_tokens=frozenset())
     if index != len(tokens):
       raise ValueError(f"Unexpected trailing tokens in rung: {tokens[index:]!r}")
@@ -141,13 +156,16 @@ class RllParser:
     operand_count = OPERAND_COUNTS[opcode]
     start = index + 1
     end = start + operand_count
-    operands = tokens[start:end]
+    operands = tuple(self._restore_token(token) for token in tokens[start:end])
     if len(operands) != operand_count:
       raise ValueError(f"Opcode {opcode!r} expects {operand_count} operands")
-    return InstructionCall(opcode=opcode, operands=tuple(operands)), end
+    return InstructionCall(opcode=opcode, operands=operands), end
 
   def _collect_formula_operands(self, tokens, index: int, required_prefix: int):
-    prefix = list(tokens[index:index + required_prefix])
+    prefix = [
+      self._restore_token(token)
+      for token in tokens[index:index + required_prefix]
+    ]
     if len(prefix) != required_prefix:
       raise ValueError("Missing formula operands")
 
@@ -160,7 +178,22 @@ class RllParser:
     if not formula_tokens:
       raise ValueError("Missing formula expression")
 
-    return tuple(prefix + [" ".join(formula_tokens)]), cursor
+    return tuple(prefix + [self._restore_token(" ".join(formula_tokens))]), cursor
 
   def _is_boundary_token(self, token: str) -> bool:
     return token in OPERAND_COUNTS or token in {"BST", "NXB", "BND"}
+
+  def _protect_special_operands(self, line: str) -> str:
+    return SEGQUEUE_PATH_PATTERN.sub(self._replace_segqueue_path, line)
+
+  def _replace_segqueue_path(self, match: re.Match[str]) -> str:
+    protected = [
+      "SegQueueBST",
+      match.group(1),
+      "BND",
+      match.group(2),
+    ]
+    return PROTECTED_SPACE.join(protected)
+
+  def _restore_token(self, token: str) -> str:
+    return str(token).replace(PROTECTED_SPACE, " ")
