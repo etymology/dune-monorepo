@@ -4,6 +4,7 @@ import unittest
 from dune_winder.plc_ladder import PythonCodeGenerator
 from dune_winder.plc_ladder import RllEmitter
 from dune_winder.plc_ladder import RllParser
+from dune_winder.plc_ladder import StructuredPythonCodeGenerator
 from dune_winder.plc_ladder import load_generated_routine
 
 
@@ -15,6 +16,7 @@ class PlcLadderParserTests(unittest.TestCase):
     self.parser = RllParser()
     self.emitter = RllEmitter()
     self.codegen = PythonCodeGenerator()
+    self.structured_codegen = StructuredPythonCodeGenerator()
 
   def test_round_trips_movez_main_routine(self):
     path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
@@ -69,11 +71,25 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("MoveXY_State_2_3_main = ROUTINE(", generated)
+    self.assertIn("# rung 0", generated)
+    self.assertIn("if STATE==2:", generated)
+    self.assertIn("if not main_xy_move.IP:", generated)
     self.assertIn("MCLM(", generated)
-    self.assertIn("BRANCH(", generated)
+    self.assertNotIn("BRANCH(", generated)
+    compile(generated, str(path), "exec")
 
-  def test_round_trips_motion_queue_helpers_through_python_dsl(self):
+  def test_imperative_codegen_rejects_jump_label_routines(self):
+    path = PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll"
+    routine = self.parser.parse_routine_path(
+      path,
+      routine_name=path.parent.name,
+      program="motionQueue",
+    )
+
+    with self.assertRaises(NotImplementedError):
+      self.codegen.generate_routine(routine)
+
+  def test_round_trips_motion_queue_helpers_through_structured_python(self):
     helper_paths = [
       PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll",
       PLC_ROOT / "motionQueue" / "CapSegSpeed" / "pasteable.rll",
@@ -90,7 +106,7 @@ class PlcLadderParserTests(unittest.TestCase):
           routine_name=path.parent.name,
           program="motionQueue",
         )
-        generated = self.codegen.generate_routine(routine)
+        generated = self.structured_codegen.generate_routine(routine)
         restored = load_generated_routine(generated)
 
         self.assertEqual(restored.name, routine.name)
@@ -99,6 +115,20 @@ class PlcLadderParserTests(unittest.TestCase):
           self.emitter.emit_routine(restored).strip().splitlines(),
           self.emitter.emit_routine(routine).strip().splitlines(),
         )
+
+  def test_imperative_codegen_compiles_for_movez_main(self):
+    path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
+    routine = self.parser.parse_routine_path(
+      path,
+      routine_name="main",
+      program="MoveZ_State_4_5",
+    )
+
+    generated = self.codegen.generate_routine(routine)
+
+    self.assertIn("if trigger_z_move:", generated)
+    self.assertIn("MAM(", generated)
+    compile(generated, str(path), "exec")
 
 
 if __name__ == "__main__":
