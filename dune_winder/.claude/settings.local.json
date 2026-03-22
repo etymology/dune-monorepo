@@ -23,7 +23,12 @@
       "Bash(python3.14 -m pytest tests/test_recipe.py tests/test_v_template_gcode.py tests/test_u_template_gcode.py tests/test_xg_template_gcode.py tests/test_template_recipe_persistence.py tests/test_process.py -q --tb=short)",
       "Bash(python3.14 -m pytest tests/test_recipe.py tests/test_v_template_gcode.py tests/test_u_template_gcode.py tests/test_xg_template_gcode.py tests/test_process.py -q --tb=short)",
       "Bash(python3.14 -m pytest tests/test_recipe.py -q --tb=short)",
-      "Bash(python3.14 -m pytest tests/test_process.py -q --tb=short)"
+      "Bash(python3.14 -m pytest tests/test_process.py -q --tb=short)",
+      "Bash(code --locate-extension rll-syntax)",
+      "Bash(code --uninstall-extension undefined_publisher.rll-syntax)",
+      "Bash(rm -rf ~/.vscode/extensions/rll-syntax-0.0.1)",
+      "Bash(rm -f ~/rll-syntax-0.0.1.vsix)",
+      "Bash(rm -rf /tmp/rll-vsix-build)"
     ]
   }
 }
