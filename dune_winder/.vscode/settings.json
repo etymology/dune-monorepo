@@ -1,4 +1,7 @@
 {
+    "files.associations": {
+        "*.rll": "plc-rll"
+    },
     "files.watcherExclude": {
         "**/target": true
     }
