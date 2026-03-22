@@ -1,0 +1,36 @@
+{
+  "name": "dune-winder-plc-rll",
+  "displayName": "Dune Winder PLC RLL",
+  "description": "Syntax highlighting for normalized PLC pasteable .rll files.",
+  "version": "0.0.1",
+  "publisher": "dune-winder",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "plc-rll",
+        "aliases": [
+          "PLC RLL",
+          "RLL"
+        ],
+        "extensions": [
+          ".rll"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "plc-rll",
+        "scopeName": "source.plc-rll",
+        "path": "./syntaxes/plc-rll.tmGrammar.json"
+      }
+    ]
+  }
+}
