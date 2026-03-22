@@ -1,0 +1,123 @@
+{
+  "name": "PLC RLL",
+  "scopeName": "source.plc-rll",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#branchOpcodes"
+    },
+    {
+      "include": "#instructions"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#controlValues"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#placeholders"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#tags"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.semicolon.plc-rll",
+          "match": ";.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.plc-rll",
+          "begin": "\"",
+          "end": "\""
+        }
+      ]
+    },
+    "branchOpcodes": {
+      "patterns": [
+        {
+          "name": "keyword.control.branch.plc-rll",
+          "match": "\\b(?:BST|BND|NXB)\\b"
+        }
+      ]
+    },
+    "instructions": {
+      "patterns": [
+        {
+          "name": "support.function.instruction.plc-rll",
+          "match": "\\b(?:ADD|AFI|CMP|COP|CPT|CTU|EQU|FFL|FFU|FLL|GEQ|GRT|JMP|JSR|LBL|LEQ|LES|LIM|MAFR|MAM|MAS|MCCD|MCCM|MCLM|MCS|MOD|MOV|MSF|MSO|NEQ|NOP|ONS|OSF|OSR|OTE|OTL|OTU|PID|RES|SFX|SLS|TON|TRN|XIC|XIO)\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "support.function.math.plc-rll",
+          "match": "\\b(?:ABS|ATN|COS|MOD|SIN|SQR)\\b(?=\\()"
+        }
+      ]
+    },
+    "controlValues": {
+      "patterns": [
+        {
+          "name": "constant.language.option.plc-rll",
+          "match": "\\b(?:All|Disabled|No|None|Programmed|S-Curve|Yes)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.plc-rll",
+          "match": "(?<![\\w.])[-+]?(?:\\d+\\.\\d+|\\d+|\\.\\d+)(?:[eE][-+]?\\d+)?\\b"
+        }
+      ]
+    },
+    "placeholders": {
+      "patterns": [
+        {
+          "name": "invalid.deprecated.placeholder.plc-rll",
+          "match": "\\?"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.plc-rll",
+          "match": "<=|>=|<>|<|>|="
+        },
+        {
+          "name": "keyword.operator.arithmetic.plc-rll",
+          "match": "[+\\-*/]"
+        }
+      ]
+    },
+    "tags": {
+      "patterns": [
+        {
+          "name": "variable.other.tag.plc-rll",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:(?::[A-Za-z0-9_]+)+)?(?:\\.[A-Za-z_][A-Za-z0-9_]*|\\[[^\\]\\s]+\\])*"
+        }
+      ]
+    }
+  }
+}

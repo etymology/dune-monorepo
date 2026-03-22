@@ -2,6 +2,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "PLC RLL syntax",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/tools/vscode-plc-rll"
+            ]
+        },
+        {
             "name": "dune-winder (simulated PLC)",
             "type": "debugpy",
             "request": "launch",
