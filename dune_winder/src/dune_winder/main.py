@@ -13,6 +13,7 @@ import time
 import json
 import threading
 import os
+import re
 
 from dune_winder.library.system_time import SystemTime
 from dune_winder.library.log import Log
@@ -103,6 +104,23 @@ def _normalizeCommand(command):
 
 
 # -----------------------------------------------------------------------
+def _normalizeLegacyManualGCode(command):
+  return " ".join(_normalizeCommand(command).strip().split()).upper()
+
+
+# -----------------------------------------------------------------------
+def _looksLikeLegacyManualGCode(command):
+  commandText = _normalizeCommand(command).strip()
+  if not commandText:
+    return False
+
+  return re.match(
+    r"^(?:[Gg]\d|[Xx]-?\d|[Yy]-?\d|[Zz]-?\d|[Ff]-?\d)",
+    commandText,
+  ) is not None
+
+
+# -----------------------------------------------------------------------
 def _describeCaller(source):
   if source is None:
     return {"type": "ui-socket", "address": None, "port": None}
@@ -142,7 +160,8 @@ def _describeFrame(frame):
 def commandHandler(source, command):
   """
   Handle a remote command payload.
-  This path now only accepts JSON API request envelopes.
+  Prefer JSON API request envelopes, but still accept legacy raw manual
+  G-Code lines over the TCP socket.
 
   Args:
     command: JSON request payload (single command or batch envelope).
@@ -167,6 +186,14 @@ def commandHandler(source, command):
     payload = None
 
   if payload is None:
+    if commandRegistry is not None and _looksLikeLegacyManualGCode(commandText):
+      legacyCommand = _normalizeLegacyManualGCode(commandText)
+      response = commandRegistry.execute(
+        "process.execute_gcode_line",
+        {"line": legacyCommand},
+      )
+      return jsonDumps(response)
+
     response = {
       "ok": False,
       "data": None,

@@ -67,28 +67,24 @@ class _CommandClientThread(threading.Thread):
         isRunning = False
 
       # Did we get anything?
-      if isRunning and not "" == requestData:
+      if isRunning and requestData:
         # Process the request.
         responseText = str(self._callback(None, requestData))
+        responseBytes = responseText.encode("utf-8")
 
         # Break sting into chunks that are no larger than
         # Settings.SERVER_MAX_DATA_SIZE characters.
         chunks = [
-          responseText[index : index + Settings.SERVER_MAX_DATA_SIZE]
-          for index in range(0, len(responseText), Settings.SERVER_MAX_DATA_SIZE)
+          responseBytes[index : index + Settings.SERVER_MAX_DATA_SIZE]
+          for index in range(0, len(responseBytes), Settings.SERVER_MAX_DATA_SIZE)
         ]
 
         # Send each chunk of data.
         chunkSize = 0
         for responseChunk in chunks:
           # Send the results back to client.
-          self._socket.send(responseChunk)
+          self._socket.sendall(responseChunk)
           chunkSize = len(responseChunk)
-
-        # If the last chunk was either empty or exactly the max data size, send
-        # a blank line as the client will expect at least/one more packet.
-        if Settings.SERVER_MAX_DATA_SIZE == chunkSize or 0 == chunkSize:
-          self._socket.send("")
 
       else:
         # If there is no data, it is also an indication the socket was closed.
