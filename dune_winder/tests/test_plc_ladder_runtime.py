@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
 import unittest
 
 from dune_winder.io.devices.plc import PLC
 from dune_winder.plc_ladder import JSRRegistry
+from dune_winder.plc_ladder import PythonCodeGenerator
 from dune_winder.plc_ladder import RllParser
 from dune_winder.plc_ladder import RoutineExecutor
 from dune_winder.plc_ladder import RuntimeState
 from dune_winder.plc_ladder import ScanContext
 from dune_winder.plc_ladder import TagStore
+from dune_winder.plc_ladder import load_imperative_routine_from_source
 from dune_winder.plc_ladder import load_plc_metadata
 
 
@@ -184,6 +187,53 @@ class PlcLadderRuntimeTests(unittest.TestCase):
     self.assertAlmostEqual(motion.speed, 321.0, places=6)
     self.assertAlmostEqual(motion.acceleration, 654.0, places=6)
     self.assertTrue(self.ctx.get_value("MoveA.IP"))
+
+  def test_generated_python_matches_ast_execution_for_movexy_main(self):
+    path = Path("plc/MoveXY_State_2_3/main/pasteable.rll")
+    routine = self.parser.parse_routine_path(
+      path,
+      routine_name="main",
+      program="MoveXY_State_2_3",
+    )
+    source = PythonCodeGenerator().generate_routine(routine)
+    generated = load_imperative_routine_from_source(source)
+
+    ast_ctx = ScanContext(
+      tag_store=TagStore(self.metadata, use_exported_values=True),
+      jsr_registry=JSRRegistry(),
+      runtime_state=RuntimeState(scan_time_ms=100),
+    )
+    py_ctx = ScanContext(
+      tag_store=TagStore(self.metadata, use_exported_values=True),
+      jsr_registry=JSRRegistry(),
+      runtime_state=RuntimeState(scan_time_ms=100),
+    )
+
+    for ctx in (ast_ctx, py_ctx):
+      ctx.set_value("STATE", 3)
+      ctx.set_value("APA_IS_VERTICAL", True)
+      ctx.set_value("Z_RETRACTED", True)
+      ctx.set_value("X_axis.DriveEnableStatus", True)
+      ctx.set_value("Y_axis.DriveEnableStatus", True)
+      ctx.set_value("X_POSITION", 100.0)
+      ctx.set_value("Y_POSITION", 50.0)
+      ctx.set_value("XY_SPEED", 500.0)
+      ctx.set_value("XY_ACCELERATION", 1000.0)
+      ctx.set_value("XY_DECELERATION", 1000.0)
+      ctx.set_value("v_x_max", 1000.0)
+      ctx.set_value("v_y_max", 1000.0)
+      ctx.set_value("speed_regulator_switch", False)
+      ctx.set_value("TENSION_CONTROL_OK", False)
+
+    self.executor.execute_routine(routine, ast_ctx)
+    generated(py_ctx)
+
+    self.assertEqual(
+      ast_ctx.tag_store.snapshot("MoveXY_State_2_3"),
+      py_ctx.tag_store.snapshot("MoveXY_State_2_3"),
+    )
+    self.assertEqual(ast_ctx.runtime_state.coordinate_moves, py_ctx.runtime_state.coordinate_moves)
+    self.assertEqual(ast_ctx.runtime_state.coordinate_pending_moves, py_ctx.runtime_state.coordinate_pending_moves)
 
 
 class PlcPollHookTests(unittest.TestCase):

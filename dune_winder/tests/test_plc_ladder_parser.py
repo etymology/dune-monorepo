@@ -71,12 +71,18 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("# rung 0", generated)
-    self.assertIn("if STATE==2:", generated)
-    self.assertIn("if not main_xy_move.IP:", generated)
+    self.assertIn("def MoveXY_State_2_3_main(ctx):", generated)
+    self.assertIn("formula('STATE=2')", generated)
+    self.assertIn("if not tag('main_xy_move.IP'):", generated)
     self.assertIn("MCLM(", generated)
-    self.assertNotIn("BRANCH(", generated)
+    self.assertIn("__ladder_routine__ = ROUTINE(", generated)
     compile(generated, str(path), "exec")
+
+    restored = load_generated_routine(generated)
+    self.assertEqual(
+      self.emitter.emit_routine(restored).strip().splitlines(),
+      self.emitter.emit_routine(routine).strip().splitlines(),
+    )
 
   def test_imperative_codegen_rejects_jump_label_routines(self):
     path = PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll"
@@ -126,7 +132,7 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("if trigger_z_move:", generated)
+    self.assertIn("if tag('trigger_z_move'):", generated)
     self.assertIn("MAM(", generated)
     compile(generated, str(path), "exec")
 
