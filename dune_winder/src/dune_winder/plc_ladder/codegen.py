@@ -264,6 +264,41 @@ LITERAL_ARGUMENT_NAMES = {
   "time_units",
 }
 
+RUNG_IN_ARGUMENT_NAMES = {
+  "FFL",
+  "FFU",
+  "MAM",
+  "MCCM",
+  "MCLM",
+}
+
+CANONICAL_LITERAL_ARGUMENT_VALUES = {
+  "calculated_data": 0,
+  "event_distance": 0,
+  "lock_direction": "None",
+  "lock_position": 0,
+  "merge": None,
+  "profile": None,
+  "speed_units": "Units per sec",
+  "accel_units": "Units per sec2",
+  "decel_units": "Units per sec2",
+  "jerk_units": "Units per sec3",
+}
+
+CANONICAL_PROFILE_VALUES = {
+  "s-curve": "S-Curve",
+  "scurve": "S-Curve",
+  "trapezoidal": "Trapezoidal",
+}
+
+CANONICAL_MERGE_VALUES = {
+  "disabled": "Disabled",
+  "all": "All",
+  "coordinated motion": "Coordinated motion",
+}
+
+VALID_TERMINATION_TYPES = frozenset(range(7))
+
 
 class StructuredPythonCodeGenerator:
   def generate_routine(self, routine: Routine) -> str:
@@ -553,6 +588,10 @@ class PythonCodeGenerator:
       )
       return [self._indent(indent) + line for line in call_lines], clauses
 
+    if opcode in RUNG_IN_ARGUMENT_NAMES:
+      body_lines = self._render_instruction_body(opcode, operands, rung_in=self._clauses_to_expr(clauses))
+      return [self._indent(indent) + line for line in body_lines], clauses
+
     body_lines = self._render_instruction_body(opcode, operands)
     return self._guard_block(clauses, body_lines, indent), clauses
 
@@ -575,7 +614,7 @@ class PythonCodeGenerator:
     right = self._render_value(operands[1])
     return f"{left} {operator} {right}"
 
-  def _render_instruction_body(self, opcode: str, operands: tuple[str, ...]):
+  def _render_instruction_body(self, opcode: str, operands: tuple[str, ...], rung_in: str | None = None):
     if opcode == "ADD":
       return [self._render_assignment(operands[2], f"{self._render_value(operands[0])} + {self._render_value(operands[1])}")]
     if opcode == "CPT":
@@ -593,11 +632,13 @@ class PythonCodeGenerator:
     if opcode == "JSR":
       return self._render_jsr(operands)
     if opcode in NAMED_ARGUMENTS:
-      keyword_items = tuple(
+      keyword_items = [
         (name, self._render_named_argument(name, value))
         for name, value in zip(NAMED_ARGUMENTS[opcode], operands)
-      )
-      return self._render_call_lines(opcode, keyword_items=keyword_items)
+      ]
+      if rung_in is not None and opcode in RUNG_IN_ARGUMENT_NAMES:
+        keyword_items.append(("rung_in", rung_in))
+      return self._render_call_lines(opcode, keyword_items=tuple(keyword_items))
     if opcode == "RES":
       return self._render_call_lines(opcode, positional=(self._render_path_argument(operands[0]),))
     if opcode == "COP":
@@ -619,26 +660,32 @@ class PythonCodeGenerator:
         ),
       )
     if opcode == "FFL":
+      keyword_items = [
+        ("source", self._render_path_argument(operands[0])),
+        ("array", self._render_path_argument(operands[1])),
+        ("control", self._render_path_argument(operands[2])),
+        ("length", self._render_literal(operands[3])),
+        ("position", self._render_literal(operands[4])),
+      ]
+      if rung_in is not None:
+        keyword_items.append(("rung_in", rung_in))
       return self._render_call_lines(
         opcode,
-        keyword_items=(
-          ("source", self._render_path_argument(operands[0])),
-          ("array", self._render_path_argument(operands[1])),
-          ("control", self._render_path_argument(operands[2])),
-          ("length", self._render_literal(operands[3])),
-          ("position", self._render_literal(operands[4])),
-        ),
+        keyword_items=tuple(keyword_items),
       )
     if opcode == "FFU":
+      keyword_items = [
+        ("array", self._render_path_argument(operands[0])),
+        ("dest", self._render_path_argument(operands[1])),
+        ("control", self._render_path_argument(operands[2])),
+        ("length", self._render_literal(operands[3])),
+        ("position", self._render_literal(operands[4])),
+      ]
+      if rung_in is not None:
+        keyword_items.append(("rung_in", rung_in))
       return self._render_call_lines(
         opcode,
-        keyword_items=(
-          ("array", self._render_path_argument(operands[0])),
-          ("dest", self._render_path_argument(operands[1])),
-          ("control", self._render_path_argument(operands[2])),
-          ("length", self._render_literal(operands[3])),
-          ("position", self._render_literal(operands[4])),
-        ),
+        keyword_items=tuple(keyword_items),
       )
     if opcode in {"PID", "SFX", "SLS"}:
       return self._render_call_lines(opcode, positional=tuple(self._render_literal(operand) for operand in operands))
@@ -741,6 +788,14 @@ class PythonCodeGenerator:
   def _render_named_argument(self, name: str, value: str) -> str:
     if name in REFERENCE_ARGUMENT_NAMES:
       return self._render_path_argument(value)
+    if name == "profile":
+      return repr(self._canonicalize_profile(value))
+    if name == "merge":
+      return repr(self._canonicalize_merge(value))
+    if name == "termination_type":
+      return self._render_termination_type(value)
+    if name in CANONICAL_LITERAL_ARGUMENT_VALUES:
+      return repr(CANONICAL_LITERAL_ARGUMENT_VALUES[name]) if isinstance(CANONICAL_LITERAL_ARGUMENT_VALUES[name], str) else str(CANONICAL_LITERAL_ARGUMENT_VALUES[name])
     if name in LITERAL_ARGUMENT_NAMES:
       return self._render_literal(value)
     return self._render_runtime_token(value)
@@ -750,6 +805,28 @@ class PythonCodeGenerator:
 
   def _render_runtime_token(self, token: str) -> str:
     return self._render_literal(token)
+
+  def _canonicalize_profile(self, token: str) -> str:
+    text = str(token).strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+      text = text[1:-1]
+    normalized = text.lower()
+    return CANONICAL_PROFILE_VALUES.get(normalized, text)
+
+  def _canonicalize_merge(self, token: str) -> str:
+    text = str(token).strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+      text = text[1:-1]
+    normalized = text.lower()
+    return CANONICAL_MERGE_VALUES.get(normalized, text)
+
+  def _render_termination_type(self, token: str) -> str:
+    text = str(token).strip()
+    if NUMERIC_PATTERN.fullmatch(text):
+      value = int(float(text))
+      if value in VALID_TERMINATION_TYPES:
+        return str(value)
+    return self._render_runtime_token(token)
 
   def _render_literal(self, token: str) -> str:
     text = str(token)
