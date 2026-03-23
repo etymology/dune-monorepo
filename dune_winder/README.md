@@ -14,76 +14,45 @@ Python 3 control software and web UI for the UChicago APA winder.
 
 ## Requirements
 
-- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (manages Python and dependencies)
 - Network access to the production PLC and camera for live hardware operation
 
 ## Setup
 
-### Windows (PowerShell)
+Install uv if you don't have it:
 
-```powershell
-git clone <repo-url>
-cd dune_winder
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e .
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Linux/macOS (bash/zsh)
+Then clone and sync dependencies:
 
 ```bash
 git clone <repo-url>
 cd dune_winder
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .
+uv sync
 ```
 
 Optional spreadsheet tooling:
 
 ```bash
-python -m pip install -e ".[spreadsheets]"
+uv sync --extra spreadsheets
 ```
 
-The base install already includes the runtime PLC and serial dependencies used by
-the main application.
+uv automatically installs the required Python version and creates a `.venv`.
 
 ## Run The Application
 
-### Windows (PowerShell)
-
-From the project root:
-
-```powershell
-python -m dune_winder
-```
-
-The installed entrypoint also works:
-
-```powershell
-dune-winder
-```
-
-Example with runtime flags:
-
-```powershell
-python -m dune_winder START=TRUE LOG=TRUE LOG_IO=FALSE PLC_MODE=SIM
-```
-
-### Linux/macOS (bash/zsh)
-
 From the project root:
 
 ```bash
-python -m dune_winder
+uv run python -m dune_winder
 ```
 
 The installed entrypoint also works:
 
 ```bash
-dune-winder
+uv run dune-winder
 ```
 
 ### Runtime flags
@@ -98,7 +67,7 @@ The main process supports command-line flags in `KEY=VALUE` form:
 Example:
 
 ```bash
-python -m dune_winder START=TRUE LOG=TRUE LOG_IO=FALSE PLC_MODE=SIM
+uv run python -m dune_winder START=TRUE LOG=TRUE LOG_IO=FALSE PLC_MODE=SIM
 ```
 
 Runtime default PLC mode is configured in `configuration.toml` with:
@@ -111,32 +80,15 @@ plcMode = "REAL" # or "SIM"
 
 ### Run tests
 
-Windows (PowerShell):
-
-```powershell
-python -m unittest discover -s tests
-```
-
-Linux/macOS (bash/zsh):
-
 ```bash
-python -m unittest discover -s tests
+uv run python -m unittest discover -s tests
 ```
 
 ### Format and lint
 
-Windows (PowerShell):
-
-```powershell
-python -m ruff format .
-python -m ruff check .
-```
-
-Linux/macOS (bash/zsh):
-
 ```bash
-python -m ruff format .
-python -m ruff check .
+uv run ruff format .
+uv run ruff check .
 ```
 
 ## Remote Command API v2
@@ -173,13 +125,13 @@ For architecture follow-up and remaining high-priority refactors, see:
 Write a recipe file with the standard header/hash:
 
 ```bash
-python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe
+uv run python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe
 ```
 
 Apply special input overrides:
 
 ```bash
-python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe --special transferPause=true --special head_a_offset=7
+uv run uv run python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe --special transferPause=true --special head_a_offset=7
 ```
 
 ### X/G-layer generator (Python API)
@@ -236,7 +188,7 @@ CLI/GUI test tooling lives in:
 Example waypoint-planning invocation:
 
 ```bash
-python src/motionQueueTest.py --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
+uv run python src/motionQueueTest.py --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
 ```
 
 The web/API layer also exposes queued-motion preview commands:
@@ -301,7 +253,7 @@ for the Studio 5000 workflow and storage conventions.
 To scaffold a separate live-PLC metadata tree, use:
 
 ```bash
-python3 src/export_plc_metadata.py 192.168.1.10
+uv run python src/export_plc_metadata.py 192.168.1.10
 ```
 
 That command connects with `pycomm3`, writes controller/program tag metadata to
@@ -312,7 +264,7 @@ rung text from Studio 5000 into those `.rllscrap` files manually.
 CLI usage:
 
 ```bash
-python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_patterns.py cap_segments_speed_by_axis_velocity
+uv run python -m dune_winder.transpiler src/dune_winder/queued_motion/segment_patterns.py cap_segments_speed_by_axis_velocity
 ```
 
 Python API usage:
