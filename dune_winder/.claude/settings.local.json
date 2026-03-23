@@ -28,7 +28,8 @@
       "Bash(code --uninstall-extension undefined_publisher.rll-syntax)",
       "Bash(rm -rf ~/.vscode/extensions/rll-syntax-0.0.1)",
       "Bash(rm -f ~/rll-syntax-0.0.1.vsix)",
-      "Bash(rm -rf /tmp/rll-vsix-build)"
+      "Bash(rm -rf /tmp/rll-vsix-build)",
+      "Bash(uv sync:*)"
     ]
   }
 }
