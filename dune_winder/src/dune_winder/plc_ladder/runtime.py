@@ -334,6 +334,10 @@ class RoutineExecutor:
     if opcode == "TON":
       self._execute_ton(operands[0], bool(condition_in), ctx)
       return bool(condition_in)
+    if opcode == "PID":
+      if condition_in:
+        self._execute_pid(operands, ctx)
+      return bool(condition_in)
     if opcode == "RES":
       if condition_in:
         self._reset_structure(operands[0], ctx)
@@ -487,6 +491,42 @@ class RoutineExecutor:
       timer["TT"] = False
       timer["DN"] = False
     ctx.set_value(timer_path, timer)
+
+  def _execute_pid(self, operands, ctx: ScanContext):
+    control_path = operands[0]
+    process_variable = _coerce_float(ctx.resolve_operand(operands[1]))
+    tieback = _coerce_float(ctx.resolve_operand(operands[2]))
+    control_variable_path = operands[3]
+
+    control = _deep_copy(ctx.get_value(control_path))
+    setpoint = _coerce_float(control.get("SP", 0.0))
+    error = setpoint - process_variable
+
+    # Approximate the Logix PID block closely enough for ladder-side gating.
+    if _coerce_bool(control.get("SWM", False)):
+      output = _coerce_float(control.get("SO", control.get("OUT", 0.0)))
+    elif _coerce_bool(control.get("MO", False)):
+      output = tieback
+    else:
+      proportional = _coerce_float(control.get("KP", 0.0)) * error
+      integral = _coerce_float(control.get("KI", 0.0)) * error
+      derivative = 0.0
+      previous_pv = _coerce_float(control.get("PV", process_variable))
+      if _coerce_float(control.get("UPD", 0.0)) > 0.0:
+        derivative = _coerce_float(control.get("KD", 0.0)) * (previous_pv - process_variable)
+      output = _coerce_float(control.get("BIAS", 0.0)) + proportional + integral + derivative
+
+    min_cv = _coerce_float(control.get("MINCV", control.get("MINO", 0.0)))
+    max_cv = _coerce_float(control.get("MAXCV", control.get("MAXO", 100.0)))
+    output = max(min_cv, min(max_cv, output))
+
+    control["EN"] = True
+    control["PV"] = process_variable
+    control["ERR"] = error
+    control["TIE"] = tieback
+    control["OUT"] = output
+    ctx.set_value(control_path, control)
+    ctx.set_value(control_variable_path, output)
 
   def _reset_structure(self, path: str, ctx: ScanContext):
     value = _deep_copy(ctx.get_value(path))
@@ -1033,6 +1073,7 @@ class InstructionRuntime:
   _execute_osr = RoutineExecutor._execute_osr
   _execute_osf = RoutineExecutor._execute_osf
   _execute_ton = RoutineExecutor._execute_ton
+  _execute_pid = RoutineExecutor._execute_pid
   _reset_structure = RoutineExecutor._reset_structure
   _read_block = RoutineExecutor._read_block
   _write_block = RoutineExecutor._write_block

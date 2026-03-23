@@ -28,6 +28,7 @@ class LadderSimulatedPLC(SimulatedPLC):
 
   _SCAN_ORDER = (
     ("MainProgram", "main"),
+    ("PID_Tension_Servo", "main"),
     ("Initialize", "main"),
     ("Ready_State_1", "main"),
     ("MoveXY_State_2_3", "main"),

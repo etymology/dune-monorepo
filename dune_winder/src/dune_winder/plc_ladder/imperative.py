@@ -374,8 +374,27 @@ class BoundRoutineAPI:
   def OSR(self, *, storage_bit, output_bit, rung_in):
     return self._execute("OSR", storage_bit, output_bit, rung_in=rung_in)
 
-  def PID(self, *operands):
-    return self._execute("PID", *operands)
+  def PID(
+    self,
+    *,
+    control_block,
+    process_variable,
+    tieback,
+    control_variable,
+    feedforward,
+    alarm_disable,
+    hold,
+  ):
+    return self._execute(
+      "PID",
+      control_block,
+      process_variable,
+      tieback,
+      control_variable,
+      feedforward,
+      alarm_disable,
+      hold,
+    )
 
   def RES(self, path):
     return self._execute("RES", path)
