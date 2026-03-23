@@ -41,7 +41,7 @@ XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV QueueCtl
 XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_x_max REALS[42] 
 XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_y_max REALS[43] 
 XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 OTU BOOLS[6] 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 JSR CapSegSpeed 0 
+JSR CapSegSpeed 0 
 XIC StartQueuedPath BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z BND CPT ERROR_CODE 3001 CPT NEXTSTATE 10 NXB XIC Z_RETRACTED XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 BND OTE AbortQueue OTU StartQueuedPath 
 XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
 XIC LoadCurReq OTU StartQueuedPath 
