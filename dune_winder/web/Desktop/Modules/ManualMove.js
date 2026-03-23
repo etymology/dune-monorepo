@@ -116,10 +116,28 @@ function ManualMove(modules) {
     $("#manualMoveStatus").text(text);
   };
 
+  var handleGCodeExecutionResponse = function (response) {
+    if (response && response.ok) {
+      setStatus("Executed with no errors.");
+      return;
+    }
+
+    if (response && response.error && response.error.message) {
+      setStatus("Error interpreting line: " + response.error.message);
+      return;
+    }
+
+    setStatus("Manual G-code execution failed.");
+  };
+
   var executeActionGCode = function (gCode) {
+    setStatus("Request G-Code execution...");
     winder.call(
       commands.process.executeGCodeLine,
       { line: gCode },
+      function (response) {
+        handleGCodeExecutionResponse(response);
+      },
     );
   };
 
@@ -191,16 +209,7 @@ function ManualMove(modules) {
       commands.process.executeGCodeLine,
       { line: gCode },
       function (response) {
-        if (!response || response.ok) {
-          setStatus("Executed with no errors.");
-          return;
-        }
-
-        if (response.error && response.error.message) {
-          setStatus("Error interpreting line: " + response.error.message);
-        } else {
-          setStatus("Manual G-code execution failed.");
-        }
+        handleGCodeExecutionResponse(response);
       },
     );
   };

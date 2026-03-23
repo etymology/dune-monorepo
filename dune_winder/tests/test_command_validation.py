@@ -87,6 +87,21 @@ class CommandValidationTests(unittest.TestCase):
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
 
+  def test_execute_gcode_line_returns_validation_error_when_process_reports_failure(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+    process.executeG_CodeLine = lambda line: "Machine not ready: " + str(line)
+
+    response = registry.executeRequest(
+      {
+        "name": "process.execute_gcode_line",
+        "args": {"line": "G106 P0"},
+      },
+    )
+
+    self.assertFalse(response["ok"])
+    self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
+    self.assertIn("Machine not ready", response["error"]["message"])
+
 
 if __name__ == "__main__":
   unittest.main()

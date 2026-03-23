@@ -90,7 +90,10 @@ def build_command_registry(
 
   def process_execute_gcode_line(args):
     _validateArgs(args, required=("line",))
-    return process.executeG_CodeLine(_asString(args["line"], "line"))
+    error = process.executeG_CodeLine(_asString(args["line"], "line"))
+    if error is not None:
+      raise ValueError(str(error))
+    return None
 
   registry.register("process.execute_gcode_line", process_execute_gcode_line, True)
 
