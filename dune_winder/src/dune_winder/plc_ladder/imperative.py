@@ -60,11 +60,11 @@ class BoundRoutineAPI:
   def CPT(self, *, dest, value):
     return self.set_tag(dest, value)
 
-  def FFL(self, *, source, array, control, length=None, position=None):
-    return self._execute("FFL", source, array, control, length, position)
+  def FFL(self, *, source, array, control, length=None, position=None, rung_in=True):
+    return self._execute("FFL", source, array, control, length, position, rung_in=rung_in)
 
-  def FFU(self, *, array, dest, control, length=None, position=None):
-    return self._execute("FFU", array, dest, control, length, position)
+  def FFU(self, *, array, dest, control, length=None, position=None, rung_in=True):
+    return self._execute("FFU", array, dest, control, length, position, rung_in=rung_in)
 
   def FLL(self, *, value, dest, length):
     return self._execute("FLL", value, dest, length)
@@ -98,6 +98,7 @@ class BoundRoutineAPI:
     lock_direction,
     event_distance,
     calculated_data,
+    rung_in=True,
   ):
     return self._execute(
       "MAM",
@@ -121,6 +122,7 @@ class BoundRoutineAPI:
       lock_direction,
       event_distance,
       calculated_data,
+      rung_in=rung_in,
     )
 
   def MAS(
@@ -177,6 +179,7 @@ class BoundRoutineAPI:
     lock_direction,
     event_distance,
     calculated_data,
+    rung_in=True,
   ):
     return self._execute(
       "MCCM",
@@ -205,6 +208,7 @@ class BoundRoutineAPI:
       lock_direction,
       event_distance,
       calculated_data,
+      rung_in=rung_in,
     )
 
   def MCCD(
@@ -276,6 +280,7 @@ class BoundRoutineAPI:
     lock_direction,
     event_distance,
     calculated_data,
+    rung_in=True,
   ):
     return self._execute(
       "MCLM",
@@ -301,6 +306,7 @@ class BoundRoutineAPI:
       lock_direction,
       event_distance,
       calculated_data,
+      rung_in=rung_in,
     )
 
   def MCS(
