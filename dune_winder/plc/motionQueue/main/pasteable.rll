@@ -273,3 +273,4 @@ MOV MoveA.ERR QueueDiag_MoveA_ERRID
 MOV MoveA.EXERR QueueDiag_MoveA_EXERR 
 MOV MoveB.ERR QueueDiag_MoveB_ERRID 
 MOV MoveB.EXERR QueueDiag_MoveB_EXERR 
+

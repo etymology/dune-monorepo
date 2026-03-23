@@ -2,6 +2,7 @@ import unittest
 
 from dune_winder.io.controllers.plc_logic import PLC_Logic
 from dune_winder.io.devices.plc import PLC
+from dune_winder.io.primitives.plc_motor import PLC_Motor
 
 
 class _FreshReadPLC(PLC):
@@ -52,6 +53,41 @@ class PLCLogicTests(unittest.TestCase):
       [
         ("xz_position_target", [12.5, 34.5]),
         ("MOVE_TYPE", PLC_Logic.MoveTypes.SEEK_XZ),
+      ],
+    )
+
+  def test_z_seek_pulses_move_type_after_updating_target(self):
+    plc = _FreshReadPLC()
+    zAxis = PLC_Motor("zAxis", plc, "Z")
+    logic = PLC_Logic(plc, object(), zAxis)
+
+    logic.setZ_Position(43.0, velocity=250.0)
+
+    self.assertEqual(
+      plc.write_calls,
+      [
+        ("Z_SPEED", 250.0),
+        ("Z_DIR", 0),
+        ("Z_POSITION", 43.0),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.RESET),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.SEEK_Z),
+      ],
+    )
+
+  def test_z_jog_pulses_move_type_for_reverse_direction(self):
+    plc = _FreshReadPLC()
+    zAxis = PLC_Motor("zAxis", plc, "Z")
+    logic = PLC_Logic(plc, object(), zAxis)
+
+    logic.jogZ(-125.0)
+
+    self.assertEqual(
+      plc.write_calls,
+      [
+        ("Z_SPEED", 125.0),
+        ("Z_DIR", 1),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.RESET),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.JOG_Z),
       ],
     )
 

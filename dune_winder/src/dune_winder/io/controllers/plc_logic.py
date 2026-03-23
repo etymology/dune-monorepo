@@ -192,7 +192,7 @@ class PLC_Logic:
 
     self._zAxis.setVelocity(self._velocity)
     self._zAxis.setDesiredPosition(position)
-    self._moveType.set(self.MoveTypes.SEEK_Z)
+    self._pulseMoveType(self.MoveTypes.SEEK_Z)
 
   # ---------------------------------------------------------------------
   def setXZ_Position(self, x, z, velocity=None):
@@ -248,6 +248,22 @@ class PLC_Logic:
     return result
 
   # ---------------------------------------------------------------------
+  def _pulseMoveType(self, moveType):
+    """
+    Force a clean MOVE_TYPE edge for ladder transitions out of READY.
+
+    The PLC READY-state ladder uses one-shots on comparisons like
+    `MOVE_TYPE = 4`; rewriting the same value does not retrigger those rungs.
+    Pulsing through RESET guarantees a fresh false->true transition for each
+    Z move request.
+    """
+    requested = int(moveType)
+    self._writeTagNow(self._moveType.getName(), self.MoveTypes.RESET)
+    self._moveType.updateFromReadTag(self.MoveTypes.RESET)
+    self._writeTagNow(self._moveType.getName(), requested)
+    self._moveType.updateFromReadTag(requested)
+
+  # ---------------------------------------------------------------------
   def jogZ(self, velocity):
     """
     Jog the Z axis at a given velocity.
@@ -258,7 +274,7 @@ class PLC_Logic:
     """
 
     self._zAxis.setVelocity(velocity)
-    self._moveType.set(self.MoveTypes.JOG_Z)
+    self._pulseMoveType(self.MoveTypes.JOG_Z)
 
   # ---------------------------------------------------------------------
   def getLatchPosition(self):
