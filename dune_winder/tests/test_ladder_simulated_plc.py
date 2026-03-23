@@ -320,6 +320,43 @@ class LadderSimulatedPlcTests(unittest.TestCase):
       v_y_max,
     )
 
+  def test_queue_circle_segment_is_capped_before_start_pulse(self):
+    plc = LadderSimulatedPLC("SIM")
+    v_x_max = 250.0
+    v_y_max = 250.0
+    start_xy = (200.0, 0.0)
+    segment = MotionSegment(
+      seq=1,
+      x=0.0,
+      y=200.0,
+      speed=9999.0,
+      seg_type=SEG_TYPE_CIRCLE,
+      circle_type=CIRCLE_TYPE_CENTER,
+      via_center_x=0.0,
+      via_center_y=0.0,
+      direction=MCCM_DIR_2D_CCW,
+    )
+
+    plc.set_tag("X_axis.ActualPosition", start_xy[0])
+    plc.set_tag("Y_axis.ActualPosition", start_xy[1])
+    plc.set_tag("v_x_max", v_x_max)
+    plc.set_tag("v_y_max", v_y_max)
+    self._enqueue_segment(plc, 1, segment)
+    self._advance(plc, 2)
+
+    expected_speed = self._expected_capped_speed(start_xy, segment, v_x_max, v_y_max)
+    self.assertFalse(plc.get_tag("StartQueuedPath"))
+    self.assertFalse(plc.get_tag("CurIssued"))
+    self.assertEqual(plc.get_tag("QueueCount"), 1)
+    self.assertAlmostEqual(plc.get_tag("SegQueue[0].Speed"), expected_speed, places=6)
+    self._assert_capped_to_axis_components(
+      plc.get_tag("SegQueue[0].Speed"),
+      start_xy,
+      segment,
+      v_x_max,
+      v_y_max,
+    )
+
   def test_queue_start_caps_pending_segment_before_cmd_b_issue(self):
     plc = LadderSimulatedPLC("SIM")
     v_x_max = 300.0

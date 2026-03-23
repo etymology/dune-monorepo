@@ -697,11 +697,22 @@ class RoutineExecutor:
     if existing is not None and existing.control_path == control_path:
       return
     target = _coerce_float(ctx.resolve_operand(operands[3]))
-    speed = max(_coerce_float(ctx.resolve_operand(operands[4])), 1e-6)
+    speed = self._normalize_motion_speed(_coerce_float(ctx.resolve_operand(operands[4])))
     acceleration = _coerce_float(ctx.resolve_operand(operands[6]))
     component_path = f"{axis_path}.ActualPosition"
     start_position = _coerce_float(ctx.get_value(component_path))
-    scans = self._motion_scan_count(abs(target - start_position), speed, ctx)
+    distance = abs(target - start_position)
+    if distance <= 1e-9:
+      self._complete_zero_distance_motion(
+        control_path=control_path,
+        component_paths=(component_path,),
+        target_positions=(target,),
+        axis_paths=(axis_path,),
+        coordinate_path=None,
+        ctx=ctx,
+      )
+      return
+    scans = self._motion_scan_count(distance, speed, ctx)
 
     control["EN"] = True
     control["DN"] = False
@@ -745,12 +756,22 @@ class RoutineExecutor:
     target_positions = self._resolve_coordinate_target(coordinate_path, operands[3], ctx)
     speed_index = 7 if opcode == "MCCM" else 4
     accel_index = 9 if opcode == "MCCM" else 6
-    speed = max(_coerce_float(ctx.resolve_operand(operands[speed_index])), 1e-6)
+    speed = self._normalize_motion_speed(_coerce_float(ctx.resolve_operand(operands[speed_index])))
     acceleration = _coerce_float(ctx.resolve_operand(operands[accel_index]))
     start_positions = tuple(_coerce_float(ctx.get_value(path)) for path in target_paths)
     distance = math.sqrt(
       sum((target - start) * (target - start) for start, target in zip(start_positions, target_positions))
     )
+    if distance <= 1e-9:
+      self._complete_zero_distance_motion(
+        control_path=control_path,
+        component_paths=target_paths,
+        target_positions=target_positions,
+        axis_paths=self._coordinate_axis_paths(coordinate_path),
+        coordinate_path=coordinate_path,
+        ctx=ctx,
+      )
+      return
     scans = self._motion_scan_count(distance, speed, ctx)
 
     control["EN"] = True
@@ -798,7 +819,7 @@ class RoutineExecutor:
     motion = ctx.runtime_state.coordinate_moves.get(coordinate_path)
     if motion is None:
       return
-    motion.speed = max(speed, 1e-6)
+    motion.speed = self._normalize_motion_speed(speed)
     motion.acceleration = acceleration
     self._apply_motion_velocities(motion, ctx)
 
@@ -808,8 +829,53 @@ class RoutineExecutor:
     ctx.set_value(control_path, control)
 
   def _motion_scan_count(self, distance: float, speed: float, ctx: ScanContext) -> int:
-    travel_time = distance / max(speed, 1e-6)
+    speed = self._normalize_motion_speed(speed)
+    if not math.isfinite(distance) or distance <= 1e-9:
+      return 1
+    travel_time = distance / speed
     return max(1, int(math.ceil(travel_time / max(ctx.scan_dt_seconds, 1e-6))))
+
+  def _normalize_motion_speed(self, speed: float) -> float:
+    if not math.isfinite(speed) or speed <= 1e-6:
+      return 1e-6
+    return float(speed)
+
+  def _complete_zero_distance_motion(
+    self,
+    *,
+    control_path: str,
+    component_paths: tuple[str, ...],
+    target_positions: tuple[float, ...],
+    axis_paths: tuple[str, ...],
+    coordinate_path: str | None,
+    ctx: ScanContext,
+  ) -> None:
+    for component_path, target in zip(component_paths, target_positions):
+      ctx.set_value(component_path, target)
+
+    control = _deep_copy(ctx.get_value(control_path))
+    control["EN"] = True
+    control["DN"] = True
+    control["ER"] = False
+    control["PC"] = True
+    control["IP"] = False
+    ctx.set_value(control_path, control)
+
+    self._clear_component_velocities(component_paths, ctx)
+    for axis_path in axis_paths:
+      axis = _deep_copy(ctx.get_value(axis_path))
+      axis["ActualPosition"] = ctx.get_value(f"{axis_path}.ActualPosition")
+      axis["MoveStatus"] = False
+      ctx.set_value(axis_path, axis)
+
+    if coordinate_path is not None:
+      coordinate = _deep_copy(ctx.get_value(coordinate_path))
+      coordinate["MovePendingStatus"] = False
+      coordinate["MovePendingQueueFullStatus"] = False
+      coordinate["MoveStatus"] = False
+      coordinate["MotionStatus"] = False
+      coordinate["StoppingStatus"] = False
+      ctx.set_value(coordinate_path, coordinate)
 
   def _coordinate_component_paths(self, coordinate_path: str) -> tuple[str, ...]:
     if coordinate_path == "X_Y":
@@ -985,6 +1051,8 @@ class InstructionRuntime:
   _change_coordinate_dynamics = RoutineExecutor._change_coordinate_dynamics
   _disarm_motion_control = RoutineExecutor._disarm_motion_control
   _motion_scan_count = RoutineExecutor._motion_scan_count
+  _normalize_motion_speed = RoutineExecutor._normalize_motion_speed
+  _complete_zero_distance_motion = RoutineExecutor._complete_zero_distance_motion
   _coordinate_component_paths = RoutineExecutor._coordinate_component_paths
   _coordinate_axis_paths = RoutineExecutor._coordinate_axis_paths
   _resolve_coordinate_target = RoutineExecutor._resolve_coordinate_target
