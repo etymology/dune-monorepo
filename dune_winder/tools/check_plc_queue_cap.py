@@ -24,6 +24,7 @@ from dune_winder.queued_motion.segment_types import (
 DEFAULT_PLC_PATH = "192.168.140.13"
 DEFAULT_TOLERANCE = 0.05
 DEFAULT_POLL_DELAY_S = 0.25
+DEFAULT_RESET_TIMEOUT_S = 5.0
 _STEP_CANDIDATES = (100.0, 75.0, 50.0, 25.0)
 
 
@@ -59,6 +60,53 @@ def _expected_capped_speed(
   limit_x = math.inf if max_tx <= 1e-9 else (v_x_max / max_tx)
   limit_y = math.inf if max_ty <= 1e-9 else (v_y_max / max_ty)
   return min(float(segment.speed), limit_x, limit_y)
+
+
+def _read_start_flag(queue) -> bool:
+  return bool(queue._read_one("StartQueuedPath"))
+
+
+def _is_idle_queue(status, start_flag: bool) -> bool:
+  return (
+    status.queue_count == 0
+    and (not status.cur_issued)
+    and (not status.next_issued)
+    and (not status.queue_fault)
+    and (not status.motion_fault)
+    and (not start_flag)
+  )
+
+
+def _ensure_idle_queue(
+  motion: MotionQueueClient,
+  *,
+  timeout_s: float = DEFAULT_RESET_TIMEOUT_S,
+  attempts: int = 3,
+) -> tuple[object, tuple[float, float]]:
+  queue = motion._require_queue()
+  last_status = None
+  last_start_flag = None
+  for _ in range(attempts):
+    motion.reset_queue()
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+      queue.poll()
+      status = queue.status()
+      start_flag = _read_start_flag(queue)
+      if _is_idle_queue(status, start_flag):
+        return status, queue.read_actual_xy()
+      last_status = status
+      last_start_flag = start_flag
+      time.sleep(0.10)
+  raise RuntimeError(
+    "Queue did not return to an idle, fault-free state after reset. "
+    f"Last status: queue_count={getattr(last_status, 'queue_count', None)!r}, "
+    f"cur_issued={getattr(last_status, 'cur_issued', None)!r}, "
+    f"next_issued={getattr(last_status, 'next_issued', None)!r}, "
+    f"queue_fault={getattr(last_status, 'queue_fault', None)!r}, "
+    f"motion_fault={getattr(last_status, 'motion_fault', None)!r}, "
+    f"start_flag={last_start_flag!r}"
+  )
 
 
 def _build_line_case(
@@ -157,9 +205,7 @@ def _run_case(
   tolerance: float,
 ) -> dict[str, object]:
   queue = motion._require_queue()
-  motion.reset_queue()
-  queue.poll()
-  actual_start_xy = queue.read_actual_xy()
+  _, actual_start_xy = _ensure_idle_queue(motion)
   motion.set_start_point(*actual_start_xy)
 
   for segment in case.segments:
@@ -253,7 +299,7 @@ def run_check(
     queue = motion._require_queue()
     queue.poll()
     initial_status = queue.status()
-    initial_start_flag = bool(queue._read_one("StartQueuedPath"))
+    initial_start_flag = _read_start_flag(queue)
     initial_actual_xy = queue.read_actual_xy()
     v_x_max = float(queue._read_one("v_x_max"))
     v_y_max = float(queue._read_one("v_y_max"))
@@ -307,9 +353,7 @@ def run_check(
         )
       )
     finally:
-      motion.reset_queue()
-      queue.poll()
-      final_status = queue.status()
+      final_status, _ = _ensure_idle_queue(motion)
       report["cleanup"] = {
         "queue_count": final_status.queue_count,
         "cur_issued": final_status.cur_issued,
