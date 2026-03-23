@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-20T20:49:13.439132+00:00",
+  "generated_at": "2026-03-23T20:52:31.849236+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Latch_UnLatch_State_6_7_8",
   "main_routine_name": "main",
@@ -511,10 +511,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 100,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 100,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -612,5 +612,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
+  "values_generated_at": "2026-03-23T20:53:04.029898+00:00"
 }

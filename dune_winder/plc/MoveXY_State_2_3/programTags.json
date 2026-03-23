@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-20T20:49:13.439132+00:00",
+  "generated_at": "2026-03-23T20:52:31.849236+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "MoveXY_State_2_3",
   "main_routine_name": "main",
@@ -198,10 +198,10 @@
       "program": "MoveXY_State_2_3",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 973078528,
         "EN": false,
         "DN": true,
-        "ER": false,
+        "ER": true,
         "PC": true,
         "IP": false,
         "AC": false,
@@ -209,7 +209,7 @@
         "DECEL": false,
         "TrackingMaster": false,
         "CalculatedDataAvailable": false,
-        "ERR": 0,
+        "ERR": 3,
         "STATUS": 0,
         "STATE": 0,
         "SEGMENT": 0,
@@ -300,9 +300,9 @@
       "program": "MoveXY_State_2_3",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 570425344,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -313,7 +313,7 @@
         "CalculatedDataAvailable": false,
         "ERR": 0,
         "STATUS": 0,
-        "STATE": 0,
+        "STATE": 1,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -334,9 +334,9 @@
       "program": "MoveXY_State_2_3",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 570425344,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -347,7 +347,7 @@
         "CalculatedDataAvailable": false,
         "ERR": 0,
         "STATUS": 0,
-        "STATE": 0,
+        "STATE": 1,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -402,9 +402,9 @@
       "program": "MoveXY_State_2_3",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 570425344,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -451,7 +451,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 869.6263427734375
+      "value": 825.0004272460938
     },
     {
       "name": "speed_tension_setpoint",
@@ -519,8 +519,8 @@
       "value": {
         "PRE": 1,
         "ACC": 0,
-        "EN": false,
-        "TT": false,
+        "EN": true,
+        "TT": true,
         "DN": false
       }
     },
@@ -637,7 +637,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 8.493781089782715
+      "value": 2.990488052368164
     },
     {
       "name": "xy_p_term",
@@ -1280,7 +1280,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 1200000.0
+      "value": 6000000.0
     },
     {
       "name": "x_time",
@@ -1296,7 +1296,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 28248.275390625
+      "value": 8620.408203125
     },
     {
       "name": "xy_i_term",
@@ -1312,7 +1312,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 869.642333984375
+      "value": 825.2592163085938
     },
     {
       "name": "xy_dt",
@@ -1344,7 +1344,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.029205322265625
+      "value": 0.095703125
     },
     {
       "name": "dy",
@@ -1360,7 +1360,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.0005000000237487257
+      "value": 9.999999747378752e-05
     },
     {
       "name": "k",
@@ -1376,7 +1376,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 28248.275390625
+      "value": 8620.408203125
     },
     {
       "name": "v_max",
@@ -1392,7 +1392,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 825.1209106445312
+      "value": 825.0004272460938
     },
     {
       "name": "starting_x",
@@ -1408,7 +1408,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 439.9707946777344
+      "value": 440.095703125
     },
     {
       "name": "starting_y",
@@ -1424,7 +1424,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.0005000000237487257
+      "value": -9.999999747378752e-05
     },
     {
       "name": "d_raw",
@@ -1488,7 +1488,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 8.493781089782715
+      "value": 3.0260658264160156
     },
     {
       "name": "x_dist_to_target",
@@ -1504,7 +1504,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.00030517578125
+      "value": 9.1552734375e-05
     },
     {
       "name": "y_dist_to_target",
@@ -1520,7 +1520,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.0006000000284984708
+      "value": -9.999999747378752e-05
     },
     {
       "name": "near_ending",
@@ -1620,9 +1620,9 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 50,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
+        "ACC": 45,
+        "EN": true,
+        "TT": true,
         "DN": false
       }
     },
@@ -1640,7 +1640,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.000729842169675976
+      "value": 0.00013557987404055893
     },
     {
       "name": "stopping_distance",
@@ -1656,7 +1656,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.004674515686929226
+      "value": 0.0014142135623842478
     },
     {
       "name": "xy_d_dt",
@@ -1688,7 +1688,7 @@
       ],
       "array_dimensions": 0,
       "program": "MoveXY_State_2_3",
-      "value": 0.290219783782959
+      "value": 0.33799001574516296
     },
     {
       "name": "near_ending_trigger",
@@ -1773,5 +1773,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-03-20T21:01:54.308572+00:00"
+  "values_generated_at": "2026-03-23T20:53:04.029898+00:00"
 }

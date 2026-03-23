@@ -1,9 +1,9 @@
 """I/O package compatibility helpers.
 
-Historically this project used capitalized subpackage directories (for example
-``Devices``), while the checked-in package layout is now lowercase
-(``devices``). Register aliases for both spellings so legacy imports and newer
-imports resolve to the same module objects.
+The project currently contains a mix of legacy capitalized package directories
+(``Devices``/``Maps``/``Primitives``) and newer lowercase imports
+(``devices``/``maps``/``primitives``). Import whichever spelling exists on
+disk, then register both spellings to the same module object.
 """
 
 from importlib import import_module
@@ -11,12 +11,28 @@ import sys
 
 
 _ALIASES = {
-  "Devices": "devices",
-  "Maps": "maps",
-  "Primitives": "primitives",
+  "devices": ("devices", "Devices"),
+  "maps": ("maps", "Maps"),
+  "primitives": ("primitives", "Primitives"),
 }
 
-for legacy_name, package_name in _ALIASES.items():
-  module = import_module(f".{package_name}", __name__)
-  sys.modules[f"{__name__}.{package_name}"] = module
-  sys.modules[f"{__name__}.{legacy_name}"] = module
+
+def _import_first_available(*names: str):
+  last_error: ModuleNotFoundError | None = None
+  for name in names:
+    try:
+      return import_module(f".{name}", __name__)
+    except ModuleNotFoundError as exc:
+      if exc.name != f"{__name__}.{name}":
+        raise
+      last_error = exc
+  if last_error is not None:
+    raise last_error
+  raise ModuleNotFoundError(f"No package variants found under {__name__}")
+
+
+for canonical_name, variants in _ALIASES.items():
+  module = _import_first_available(*variants)
+  for variant in variants:
+    sys.modules[f"{__name__}.{variant}"] = module
+  sys.modules[f"{__name__}.{canonical_name}"] = module

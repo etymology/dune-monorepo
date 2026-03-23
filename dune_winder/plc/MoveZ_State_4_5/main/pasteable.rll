@@ -13,7 +13,7 @@ XIC prepare_to_move XIC APA_IS_VERTICAL XIO Z_axis.PhysicalAxisFault XIO Z_axis.
 XIC wait_for_mso MSO Z_axis z_axis_mso 
 XIC wait_for_mso XIO Z_axis.PhysicalAxisFault XIC z_axis_mso.DN OTL trigger_z_move 
 XIC wait_for_mso XIO Z_axis.PhysicalAxisFault XIC z_axis_mso.DN OTU wait_for_mso 
-XIC trigger_z_move XIC STATE5_IND BST XIO Z_FIXED_LATCHED MAM Z_axis z_axis_main_move 0 Z_POSITION Z_SPEED "Units per sec" Z_ACCELERATION "Units per sec2" Z_DECELLERATION "Units per sec2" S-Curve z_accel_jerk z_decel_jerk "Units per sec3" Disabled Programmed 0 None 0 0 NXB XIC Z_FIXED_LATCHED MAM Z_axis z_axis_main_move 0 Z_POSITION 1000 "Units per sec" 10000 "Units per sec2" 10000 "Units per sec2" S-Curve 10000 10000 "Units per sec3" Disabled Programmed 0 None 0 0 BND OTU trigger_z_move 
+XIC trigger_z_move BST XIO Z_FIXED_LATCHED MAM Z_axis z_axis_main_move 0 Z_POSITION Z_SPEED "Units per sec" Z_ACCELERATION "Units per sec2" Z_DECELLERATION "Units per sec2" S-Curve z_accel_jerk z_decel_jerk "Units per sec3" Disabled Programmed 0 None 0 0 NXB XIC Z_FIXED_LATCHED MAM Z_axis z_axis_main_move 0 Z_POSITION 1000 "Units per sec" 10000 "Units per sec2" 10000 "Units per sec2" S-Curve 10000 10000 "Units per sec3" Disabled Programmed 0 None 0 0 BND OTU trigger_z_move 
 XIC STATE5_IND CMP ABS(Z_axis.ActualPosition-Z_POSITION)<0.1 OTL z_move_success OTU z_axis_main_move.PC 
 XIC z_axis_main_move.IP CMP Z_SPEED=0 MAS Z_axis z_axis_gui_stop All Yes Z_DECELLERATION "Units per sec2" No 100 "% of Time" OTU z_axis_main_move.IP 
 XIO ALL_EOT_GOOD XIC z_axis_main_move.IP MAS Z_axis eot_stop Jog Yes 2000 "Units per sec2" No 100 "% of Time" 
