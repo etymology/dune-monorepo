@@ -37,10 +37,13 @@ XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 OTL QueueFault
 XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND MOV 8 FaultCode 
 XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND OTL QueueFault 
 XIC CheckNextSeg OTU CheckNextSeg 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV QueueCtl.POS DINTS[5] 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_x_max REALS[42] 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_y_max REALS[43] 
-XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 OTU BOOLS[6] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV QueueCtl.POS DINTS[5] 
+BST XIC CurIssued NXB XIC NextIssued NXB XIC QueueFault NXB LEQ QueueCtl.POS 0 BND MOV 0 DINTS[5] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_x_max REALS[38] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_y_max REALS[39] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV X_axis.ActualPosition REALS[40] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV Y_axis.ActualPosition REALS[41] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 OTL BOOLS[7] 
 JSR CapSegSpeed 0 
 XIC StartQueuedPath BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z BND CPT ERROR_CODE 3001 CPT NEXTSTATE 10 NXB XIC Z_RETRACTED XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 BND OTE AbortQueue OTU StartQueuedPath 
 XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
@@ -270,4 +273,3 @@ MOV MoveA.ERR QueueDiag_MoveA_ERRID
 MOV MoveA.EXERR QueueDiag_MoveA_EXERR 
 MOV MoveB.ERR QueueDiag_MoveB_ERRID 
 MOV MoveB.EXERR QueueDiag_MoveB_EXERR 
-
