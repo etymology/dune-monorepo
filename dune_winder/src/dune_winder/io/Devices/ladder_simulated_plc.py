@@ -13,7 +13,9 @@ from dune_winder.plc_ladder import RoutineExecutor
 from dune_winder.plc_ladder import RuntimeState
 from dune_winder.plc_ladder import ScanContext
 from dune_winder.plc_ladder import TagStore
+from dune_winder.plc_ladder import load_imperative_routine_from_source
 from dune_winder.plc_ladder import load_plc_metadata
+from dune_winder.plc_ladder import transpile_routine_to_python
 from dune_winder.queued_motion.segment_patterns import cap_segments_speed_by_axis_velocity
 from dune_winder.queued_motion.segment_types import MotionSegment
 
@@ -91,13 +93,14 @@ class LadderSimulatedPLC(SimulatedPLC):
     for alias in aliases
   }
 
-  def __init__(self, ipAddress="SIM"):
+  def __init__(self, ipAddress="SIM", routine_backend: str = "ast"):
     super().__init__(ipAddress)
 
     self._metadata = load_plc_metadata(self._PLC_ROOT)
     self._tag_store = TagStore(self._metadata, use_exported_values=True)
     self._jsr_registry = JSRRegistry()
     self._executor = RoutineExecutor()
+    self._routine_backend = str(routine_backend)
     self._ctx = ScanContext(
       tag_store=self._tag_store,
       jsr_registry=self._jsr_registry,
@@ -239,7 +242,10 @@ class LadderSimulatedPLC(SimulatedPLC):
         program=programName,
         source_path=routine_path,
       )
-      self._routines[(programName, routineName)] = routine
+      loaded = routine
+      if self._routine_backend == "imperative":
+        loaded = load_imperative_routine_from_source(transpile_routine_to_python(routine))
+      self._routines[(programName, routineName)] = loaded
 
   # ---------------------------------------------------------------------
   def _register_jsr_targets(self):
@@ -248,12 +254,12 @@ class LadderSimulatedPLC(SimulatedPLC):
         continue
       self._jsr_registry.register(
         f"{programName}:{routineName}",
-        lambda ctx, loaded=routine: self._executor.execute_routine(loaded, ctx),
+        lambda ctx, loaded=routine: self._execute_loaded_callable(loaded, ctx),
       )
       if routineName not in {"CapSegSpeed"}:
         self._jsr_registry.register(
           routineName,
-          lambda ctx, loaded=routine: self._executor.execute_routine(loaded, ctx),
+          lambda ctx, loaded=routine: self._execute_loaded_callable(loaded, ctx),
         )
 
     self._jsr_registry.register("motionQueue:CapSegSpeed", self._cap_seg_speed_jsr)
@@ -373,7 +379,14 @@ class LadderSimulatedPLC(SimulatedPLC):
         return
     routine = self._routines.get((programName, routineName))
     if routine is not None:
-      self._executor.execute_routine(routine, self._ctx)
+      self._execute_loaded_callable(routine, self._ctx)
+
+  # ---------------------------------------------------------------------
+  def _execute_loaded_callable(self, routine, ctx: ScanContext):
+    if callable(routine):
+      routine(ctx)
+      return
+    self._executor.execute_routine(routine, ctx)
 
   # ---------------------------------------------------------------------
   def _sync_builtin_inputs(self):

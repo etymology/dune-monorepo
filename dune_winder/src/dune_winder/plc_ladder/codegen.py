@@ -9,6 +9,7 @@ from .ast import Rung
 from .ast import Routine
 from .codegen_support import load_routine_from_source
 from .emitter import RllEmitter
+from .imperative import load_imperative_routine_from_source
 
 
 NUMERIC_PATTERN = re.compile(
@@ -203,6 +204,66 @@ NAMED_ARGUMENTS = {
   "TON": ("timer_tag", "preset", "accum", "rung_in"),
 }
 
+REFERENCE_ARGUMENT_NAMES = {
+  "accum",
+  "active_limit",
+  "active_status",
+  "alarm_disable",
+  "array",
+  "axis",
+  "control_block",
+  "control_tag",
+  "control_variable",
+  "coordinate_system",
+  "dest",
+  "fault_bit",
+  "fault_status",
+  "feedback_position",
+  "feedback_tag",
+  "feedback_velocity",
+  "feedforward",
+  "hold",
+  "home_trigger",
+  "homed_status",
+  "limit_status",
+  "mode_a",
+  "mode_b",
+  "motion_control",
+  "output_bit",
+  "process_variable",
+  "request_bit",
+  "reset",
+  "reset_bit",
+  "source",
+  "speed_limit",
+  "storage_bit",
+  "tieback",
+  "timer_tag",
+  "valid_bit",
+}
+
+LITERAL_ARGUMENT_NAMES = {
+  "accel_enable",
+  "accel_jerk_enable",
+  "accel_units",
+  "apply_to",
+  "change_decel",
+  "change_jerk",
+  "decel_enable",
+  "decel_jerk_enable",
+  "decel_units",
+  "jerk_units",
+  "lock_direction",
+  "merge",
+  "merge_speed",
+  "profile",
+  "scope",
+  "speed_enable",
+  "speed_units",
+  "stop_type",
+  "time_units",
+}
+
 
 class StructuredPythonCodeGenerator:
   def generate_routine(self, routine: Routine) -> str:
@@ -280,28 +341,45 @@ class StructuredPythonCodeGenerator:
 class PythonCodeGenerator:
   def __init__(self):
     self._emitter = RllEmitter()
+    self._structured = StructuredPythonCodeGenerator()
     self._temp_counter = 0
 
   def generate_routine(self, routine: Routine) -> str:
     self._assert_supported(routine)
     self._temp_counter = 0
 
-    lines = []
+    lines = [
+      "from dune_winder.plc_ladder.imperative import bind_scan_context",
+    ]
     imports = self._math_imports_for(routine)
     if imports:
+      lines.append("")
       lines.append(f"from math import {', '.join(imports)}")
+    lines.append("")
+    lines.extend(self._render_routine_metadata(routine))
+    lines.append("")
+
+    routine_name = self._structured._python_name(routine)
+    lines.append(f"def {routine_name}(ctx):")
+    lines.append("  api = bind_scan_context(ctx)")
+    lines.append("  tag = api.tag")
+    lines.append("  set_tag = api.set_tag")
+    lines.append("  formula = api.formula")
+    for helper_name in self._runtime_helpers_for(routine):
+      lines.append(f"  {helper_name} = api.{helper_name}")
+    if len(lines) > 0 and lines[-1] != "":
       lines.append("")
 
     for index, rung in enumerate(routine.rungs):
-      if index:
-        lines.append("")
-      lines.append(f"# rung {index}")
-      lines.append(f"# {self._emitter.emit_rung(rung).strip()}")
-      rung_lines, _ = self._lower_nodes(rung.nodes, [], 0)
+      lines.append(f"  # rung {index}")
+      lines.append(f"  # {self._emitter.emit_rung(rung).strip()}")
+      rung_lines, _ = self._lower_nodes(rung.nodes, [], 1)
       if rung_lines:
         lines.extend(rung_lines)
       else:
-        lines.append("pass")
+        lines.append("  pass")
+      if index != len(routine.rungs) - 1:
+        lines.append("")
 
     return "\n".join(lines) + "\n"
 
@@ -352,6 +430,32 @@ class PythonCodeGenerator:
           imports.add("sin")
         if "SQR(" in text:
           imports.add("sqrt")
+
+  def _render_routine_metadata(self, routine: Routine) -> list[str]:
+    structured_name = self._structured._python_name(routine)
+    metadata_source = self._structured.generate_routine(routine)
+    metadata_source = metadata_source.replace(
+      f"{structured_name} = ROUTINE(",
+      "__ladder_routine__ = ROUTINE(",
+      1,
+    )
+    return metadata_source.rstrip().splitlines()
+
+  def _runtime_helpers_for(self, routine: Routine) -> tuple[str, ...]:
+    helpers = set()
+    for rung in routine.rungs:
+      self._collect_runtime_helpers(rung.nodes, helpers)
+    return tuple(sorted(helpers))
+
+  def _collect_runtime_helpers(self, nodes: tuple[Node, ...], helpers: set[str]):
+    for node in nodes:
+      if isinstance(node, Branch):
+        for branch in node.branches:
+          self._collect_runtime_helpers(branch, helpers)
+        continue
+      if node.opcode in {"AFI", "CMP", "EQU", "GEQ", "GRT", "LEQ", "LES", "LIM", "NEQ", "OTE", "XIC", "XIO"}:
+        continue
+      helpers.add(node.opcode)
 
   def _lower_nodes(self, nodes: tuple[Node, ...], clauses: list[str], indent: int):
     lines = []
@@ -428,8 +532,8 @@ class PythonCodeGenerator:
       call_lines = self._render_call_lines(
         opcode,
         keyword_items=(
-          ("storage_bit", self._render_value(operands[0])),
-          *((("output_bit", self._render_value(operands[1])),) if len(operands) > 1 else ()),
+          ("storage_bit", self._render_path_argument(operands[0])),
+          *((("output_bit", self._render_path_argument(operands[1])),) if len(operands) > 1 else ()),
           ("rung_in", self._clauses_to_expr(clauses)),
         ),
       )
@@ -441,9 +545,9 @@ class PythonCodeGenerator:
       call_lines = self._render_call_lines(
         opcode,
         keyword_items=(
-          ("timer_tag", self._render_value(operands[0])),
-          ("preset", self._render_value(operands[1])),
-          ("accum", self._render_value(operands[2])),
+          ("timer_tag", self._render_path_argument(operands[0])),
+          ("preset", self._render_literal(operands[1])),
+          ("accum", self._render_literal(operands[2])),
           ("rung_in", self._clauses_to_expr(clauses)),
         ),
       )
@@ -460,7 +564,7 @@ class PythonCodeGenerator:
     if opcode == "XIO":
       return f"not {self._render_value(operands[0])}"
     if opcode == "CMP":
-      return self._render_formula(operands[0])
+      return f"formula({operands[0]!r})"
     if opcode == "LIM":
       low = self._render_value(operands[0])
       test = self._render_value(operands[1])
@@ -475,7 +579,7 @@ class PythonCodeGenerator:
     if opcode == "ADD":
       return [self._render_assignment(operands[2], f"{self._render_value(operands[0])} + {self._render_value(operands[1])}")]
     if opcode == "CPT":
-      return [self._render_assignment(operands[0], self._render_formula(operands[1]))]
+      return [self._render_assignment(operands[0], f"formula({operands[1]!r})")]
     if opcode == "MOD":
       return [self._render_assignment(operands[2], f"fmod({self._render_value(operands[0])}, {self._render_value(operands[1])})")]
     if opcode == "MOV":
@@ -490,35 +594,70 @@ class PythonCodeGenerator:
       return self._render_jsr(operands)
     if opcode in NAMED_ARGUMENTS:
       keyword_items = tuple(
-        (name, self._render_value(value))
+        (name, self._render_named_argument(name, value))
         for name, value in zip(NAMED_ARGUMENTS[opcode], operands)
       )
       return self._render_call_lines(opcode, keyword_items=keyword_items)
-    if opcode in {"COP", "FFL", "FFU", "FLL", "PID", "RES", "SFX", "SLS"}:
-      return self._render_call_lines(opcode, positional=tuple(self._render_value(operand) for operand in operands))
+    if opcode == "RES":
+      return self._render_call_lines(opcode, positional=(self._render_path_argument(operands[0]),))
+    if opcode == "COP":
+      return self._render_call_lines(
+        opcode,
+        keyword_items=(
+          ("source", self._render_path_argument(operands[0])),
+          ("dest", self._render_path_argument(operands[1])),
+          ("length", self._render_runtime_token(operands[2])),
+        ),
+      )
+    if opcode == "FLL":
+      return self._render_call_lines(
+        opcode,
+        keyword_items=(
+          ("value", self._render_runtime_token(operands[0])),
+          ("dest", self._render_path_argument(operands[1])),
+          ("length", self._render_runtime_token(operands[2])),
+        ),
+      )
+    if opcode == "FFL":
+      return self._render_call_lines(
+        opcode,
+        keyword_items=(
+          ("source", self._render_path_argument(operands[0])),
+          ("array", self._render_path_argument(operands[1])),
+          ("control", self._render_path_argument(operands[2])),
+          ("length", self._render_literal(operands[3])),
+          ("position", self._render_literal(operands[4])),
+        ),
+      )
+    if opcode == "FFU":
+      return self._render_call_lines(
+        opcode,
+        keyword_items=(
+          ("array", self._render_path_argument(operands[0])),
+          ("dest", self._render_path_argument(operands[1])),
+          ("control", self._render_path_argument(operands[2])),
+          ("length", self._render_literal(operands[3])),
+          ("position", self._render_literal(operands[4])),
+        ),
+      )
+    if opcode in {"PID", "SFX", "SLS"}:
+      return self._render_call_lines(opcode, positional=tuple(self._render_literal(operand) for operand in operands))
     if not operands:
       return [f"{opcode}()"]
     return self._render_call_lines(opcode, positional=tuple(self._render_value(operand) for operand in operands))
 
   def _render_jsr(self, operands: tuple[str, ...]):
     routine_name = str(operands[0])
+    keyword_items: list[tuple[str, str]] = [("routine", self._render_literal(routine_name))]
     if len(operands) > 1 and operands[1] != "0":
-      return self._render_call_lines(
-        "JSR",
-        keyword_items=(
-          ("routine", self._render_value(routine_name)),
-          ("parameter_block", self._render_value(operands[1])),
-        ),
-      )
-    if self._is_valid_python_identifier(routine_name):
-      return [f"{routine_name}()"]
-    return self._render_call_lines("JSR", keyword_items=(("routine", self._render_value(routine_name)),))
+      keyword_items.append(("parameter_block", self._render_runtime_token(operands[1])))
+    return self._render_call_lines("JSR", keyword_items=tuple(keyword_items))
 
   def _render_output_energize(self, target: str, clauses: list[str]) -> str:
     return self._render_assignment(target, f"bool({self._clauses_to_expr(clauses)})")
 
   def _render_assignment(self, target: str, value: str) -> str:
-    if self._is_valid_python_path(target):
+    if str(target).startswith("_"):
       return f"{target} = {value}"
     return f"set_tag({target!r}, {value})"
 
@@ -585,17 +724,44 @@ class PythonCodeGenerator:
 
   def _render_value(self, token: str) -> str:
     text = str(token)
+    if text == "?":
+      return "None"
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
       return repr(text[1:-1])
     if NUMERIC_PATTERN.fullmatch(text):
       return text
     if text.lower() in {"true", "false"}:
       return "True" if text.lower() == "true" else "False"
+    if text.startswith("_"):
+      return text
     if ":" not in text and any(character in text for character in {" ", "-", "%"}):
       return repr(text)
-    if self._is_valid_python_path(text):
-      return text
     return f"tag({text!r})"
+
+  def _render_named_argument(self, name: str, value: str) -> str:
+    if name in REFERENCE_ARGUMENT_NAMES:
+      return self._render_path_argument(value)
+    if name in LITERAL_ARGUMENT_NAMES:
+      return self._render_literal(value)
+    return self._render_runtime_token(value)
+
+  def _render_path_argument(self, token: str) -> str:
+    return repr(str(token))
+
+  def _render_runtime_token(self, token: str) -> str:
+    return self._render_literal(token)
+
+  def _render_literal(self, token: str) -> str:
+    text = str(token)
+    if text == "?":
+      return "None"
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+      return repr(text[1:-1])
+    if NUMERIC_PATTERN.fullmatch(text):
+      return text
+    if text.lower() in {"true", "false"}:
+      return "True" if text.lower() == "true" else "False"
+    return repr(text)
 
   def _render_call_lines(
     self,
@@ -649,3 +815,11 @@ def transpile_routine_to_structured_python(routine: Routine) -> str:
 
 def load_generated_routine(source: str, *, symbol_name: str | None = None) -> Routine:
   return load_routine_from_source(source, symbol_name=symbol_name)
+
+
+def load_executable_generated_routine(
+  source: str,
+  *,
+  symbol_name: str | None = None,
+):
+  return load_imperative_routine_from_source(source, symbol_name=symbol_name)

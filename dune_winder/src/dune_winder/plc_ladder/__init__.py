@@ -5,15 +5,19 @@ from .ast import Rung
 from .codegen import PythonCodeGenerator
 from .codegen import StructuredPythonCodeGenerator
 from .codegen import load_generated_routine
+from .codegen import load_executable_generated_routine
 from .codegen import transpile_routine_to_python
 from .codegen import transpile_routine_to_structured_python
 from .emitter import RllEmitter
+from .imperative import bind_scan_context
+from .imperative import load_imperative_routine_from_source
 from .jsr_registry import JSRRegistry
 from .metadata import PlcMetadata
 from .metadata import load_plc_metadata
 from .parser import RllParser
 from .runtime import ActiveMotion
 from .runtime import ExpressionEvaluator
+from .runtime import InstructionRuntime
 from .runtime import RoutineExecutor
 from .runtime import RuntimeState
 from .runtime import ScanContext
@@ -27,12 +31,16 @@ from .types import Timer
 
 __all__ = [
   "Branch",
+  "bind_scan_context",
   "Control",
   "CoordinateSystem",
   "ExpressionEvaluator",
+  "InstructionRuntime",
   "InstructionCall",
   "JSRRegistry",
+  "load_imperative_routine_from_source",
   "load_generated_routine",
+  "load_executable_generated_routine",
   "MotionInstruction",
   "MotionSeg",
   "ActiveMotion",
