@@ -48,6 +48,22 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
     self.assertTrue(plc.get_tag("main_xy_move.PC"))
 
+  def test_xy_seek_move_reaches_target_with_imperative_backend(self):
+    plc = LadderSimulatedPLC("SIM", routine_backend="imperative")
+    plc.write(("X_POSITION", 123.4))
+    plc.write(("Y_POSITION", 456.7))
+    plc.write(("XY_SPEED", 1000.0))
+    plc.write(("XY_ACCELERATION", 1000.0))
+    plc.write(("XY_DECELERATION", 1000.0))
+    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+
+    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
+    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 123.4, places=6)
+    self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
+    self.assertTrue(plc.get_tag("main_xy_move.PC"))
+
   def test_latch_stub_cycles_positions_without_stalling_state_machine(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("HEAD_POS", 0)
