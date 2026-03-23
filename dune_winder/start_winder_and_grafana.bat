@@ -5,6 +5,7 @@ set "REPO_DIR=C:\DUNE\py3-ex-UK\dune_winder"
 set "WINDER_EXE=%REPO_DIR%\.venv\Scripts\dune-winder.exe"
 set "COMPOSE_FILE=%REPO_DIR%\docker-compose.yml"
 set "GRAFANA_URL=http://localhost:3000"
+set "WINDER_UI_URL=http://localhost:8080/Desktop/index.html"
 
 if not exist "%REPO_DIR%" (
   echo Repo directory not found:
@@ -46,6 +47,9 @@ start "DUNE Winder" "%WINDER_EXE%"
 
 echo Opening Grafana...
 start "" "%GRAFANA_URL%"
+
+echo Opening Winder interface...
+start "" "%WINDER_UI_URL%"
 
 popd
 exit /b 0
