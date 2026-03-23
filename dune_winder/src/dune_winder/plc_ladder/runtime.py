@@ -280,6 +280,8 @@ class RoutineExecutor:
     opcode = instruction.opcode
     operands = instruction.operands
 
+    if opcode == "AFI":
+      return False
     if opcode == "XIC":
       return bool(condition_in) and _coerce_bool(ctx.get_value(operands[0]))
     if opcode == "XIO":
@@ -294,6 +296,8 @@ class RoutineExecutor:
       return self._execute_ons(operands, condition_in, ctx)
     if opcode == "OSR":
       return self._execute_osr(operands, condition_in, ctx)
+    if opcode == "OSF":
+      return self._execute_osf(operands, condition_in, ctx)
     if opcode == "OTE":
       ctx.set_value(operands[0], bool(condition_in))
       return bool(condition_in)
@@ -315,6 +319,13 @@ class RoutineExecutor:
         right = ctx.resolve_operand(operands[1])
         ctx.set_value(operands[2], left + right)
       return bool(condition_in)
+    if opcode == "MOD":
+      if condition_in:
+        left = _coerce_float(ctx.resolve_operand(operands[0]))
+        right = _coerce_float(ctx.resolve_operand(operands[1]))
+        result = math.fmod(left, right) if right != 0.0 else 0.0
+        ctx.set_value(operands[2], result)
+      return bool(condition_in)
     if opcode == "CPT":
       if condition_in:
         result = self.expression_evaluator.evaluate(operands[1], ctx)
@@ -326,6 +337,11 @@ class RoutineExecutor:
     if opcode == "RES":
       if condition_in:
         self._reset_structure(operands[0], ctx)
+      return bool(condition_in)
+    if opcode == "TRN":
+      if condition_in:
+        value = _coerce_float(ctx.resolve_operand(operands[0]))
+        ctx.set_value(operands[1], math.trunc(value))
       return bool(condition_in)
     if opcode == "COP":
       if condition_in:
@@ -444,6 +460,15 @@ class RoutineExecutor:
     output_path = operands[1]
     previous = _coerce_bool(ctx.get_value(storage_path))
     pulse = bool(condition_in) and not previous
+    ctx.set_value(storage_path, bool(condition_in))
+    ctx.set_value(output_path, pulse)
+    return pulse
+
+  def _execute_osf(self, operands, condition_in: bool, ctx: ScanContext) -> bool:
+    storage_path = operands[0]
+    output_path = operands[1]
+    previous = _coerce_bool(ctx.get_value(storage_path))
+    pulse = (not bool(condition_in)) and previous
     ctx.set_value(storage_path, bool(condition_in))
     ctx.set_value(output_path, pulse)
     return pulse
@@ -928,3 +953,43 @@ class RoutineExecutor:
       axis = _deep_copy(ctx.get_value(axis_path))
       axis["ActualPosition"] = ctx.get_value(f"{axis_path}.ActualPosition")
       ctx.set_value(axis_path, axis)
+
+
+class InstructionRuntime:
+  def __init__(self, expression_evaluator: ExpressionEvaluator | None = None):
+    self.expression_evaluator = expression_evaluator or ExpressionEvaluator()
+
+  advance_runtime = RoutineExecutor.advance_runtime
+  execute_instruction = RoutineExecutor._execute_instruction
+  _execute_compare = RoutineExecutor._execute_compare
+  _execute_limit = RoutineExecutor._execute_limit
+  _execute_ons = RoutineExecutor._execute_ons
+  _execute_osr = RoutineExecutor._execute_osr
+  _execute_osf = RoutineExecutor._execute_osf
+  _execute_ton = RoutineExecutor._execute_ton
+  _reset_structure = RoutineExecutor._reset_structure
+  _read_block = RoutineExecutor._read_block
+  _write_block = RoutineExecutor._write_block
+  _array_parent = RoutineExecutor._array_parent
+  _execute_ffl = RoutineExecutor._execute_ffl
+  _execute_ffu = RoutineExecutor._execute_ffu
+  _set_control_enabled = RoutineExecutor._set_control_enabled
+  _resolve_jsr_target = RoutineExecutor._resolve_jsr_target
+  _servo_on = RoutineExecutor._servo_on
+  _servo_off = RoutineExecutor._servo_off
+  _fault_reset = RoutineExecutor._fault_reset
+  _stop_axis = RoutineExecutor._stop_axis
+  _stop_coordinate = RoutineExecutor._stop_coordinate
+  _start_axis_move = RoutineExecutor._start_axis_move
+  _start_coordinate_move = RoutineExecutor._start_coordinate_move
+  _change_coordinate_dynamics = RoutineExecutor._change_coordinate_dynamics
+  _disarm_motion_control = RoutineExecutor._disarm_motion_control
+  _motion_scan_count = RoutineExecutor._motion_scan_count
+  _coordinate_component_paths = RoutineExecutor._coordinate_component_paths
+  _coordinate_axis_paths = RoutineExecutor._coordinate_axis_paths
+  _resolve_coordinate_target = RoutineExecutor._resolve_coordinate_target
+  _apply_motion_velocities = RoutineExecutor._apply_motion_velocities
+  _clear_component_velocities = RoutineExecutor._clear_component_velocities
+  _advance_axis_moves = RoutineExecutor._advance_axis_moves
+  _advance_coordinate_moves = RoutineExecutor._advance_coordinate_moves
+  _finish_motion = RoutineExecutor._finish_motion
