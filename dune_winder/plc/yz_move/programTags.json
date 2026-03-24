@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_at": "2026-03-24T21:24:22.703798+00:00",
   "plc_path": "192.168.140.13",
-  "program_name": "xz_move",
+  "program_name": "yz_move",
   "main_routine_name": "main",
   "main_routine_name_source": "single_routine",
   "routines": [
@@ -142,8 +142,25 @@
   ],
   "program_tags": [
     {
-      "name": "xz_main_move",
-      "fully_qualified_name": "Program:xz_move.xz_main_move",
+      "name": "STATE13_IND",
+      "fully_qualified_name": "Program:yz_move.STATE13_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "yz_move",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "yz_main_move",
+      "fully_qualified_name": "Program:yz_move.yz_main_move",
       "tag_type": "struct",
       "data_type_name": "MOTION_INSTRUCTION",
       "alias": false,
@@ -154,10 +171,10 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "xz_move",
+      "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -176,41 +193,8 @@
       }
     },
     {
-      "name": "xz_mclm_position",
-      "fully_qualified_name": "Program:xz_move.xz_mclm_position",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        2,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "xz_move",
-      "value": 5000.0
-    },
-    {
-      "name": "STATE12_IND",
-      "fully_qualified_name": "Program:xz_move.STATE12_IND",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "xz_move",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "xz_stop",
-      "fully_qualified_name": "Program:xz_move.xz_stop",
+      "name": "yz_stop",
+      "fully_qualified_name": "Program:yz_move.yz_stop",
       "tag_type": "struct",
       "data_type_name": "MOTION_INSTRUCTION",
       "alias": false,
@@ -221,10 +205,10 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "xz_move",
+      "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -244,7 +228,7 @@
     },
     {
       "name": "xy_stop",
-      "fully_qualified_name": "Program:xz_move.xy_stop",
+      "fully_qualified_name": "Program:yz_move.xy_stop",
       "tag_type": "struct",
       "data_type_name": "MOTION_INSTRUCTION",
       "alias": false,
@@ -255,10 +239,10 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "xz_move",
+      "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -277,8 +261,8 @@
       }
     },
     {
-      "name": "y_axis_stop",
-      "fully_qualified_name": "Program:xz_move.y_axis_stop",
+      "name": "x_axis_stop",
+      "fully_qualified_name": "Program:yz_move.x_axis_stop",
       "tag_type": "struct",
       "data_type_name": "MOTION_INSTRUCTION",
       "alias": false,
@@ -289,10 +273,10 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "xz_move",
+      "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,

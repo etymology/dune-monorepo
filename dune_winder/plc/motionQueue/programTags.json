@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-23T20:52:31.849236+00:00",
+  "generated_at": "2026-03-24T21:24:22.703798+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "motionQueue",
   "main_routine_name": "main",
@@ -478,10 +478,10 @@
         "Valid": false,
         "SegType": 1,
         "XY": [
-          6381.9384765625,
-          0.0
+          7165.0,
+          82.0
         ],
-        "Speed": 600.0,
+        "Speed": 825.0001220703125,
         "Accel": 2000.0,
         "Decel": 2000.0,
         "JerkAccel": 1500.0,
@@ -515,10 +515,10 @@
         "Valid": false,
         "SegType": 1,
         "XY": [
-          6381.9384765625,
-          0.0
+          7165.0,
+          82.0
         ],
-        "Speed": 600.0,
+        "Speed": 825.0001220703125,
         "Accel": 2000.0,
         "Decel": 2000.0,
         "JerkAccel": 1500.0,
@@ -819,7 +819,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 1
+      "value": 2
     },
     {
       "name": "SegValid",
@@ -852,7 +852,7 @@
       ],
       "array_dimensions": 1,
       "program": "motionQueue",
-      "value": 6381.9384765625
+      "value": 647.4292602539062
     },
     {
       "name": "CmdTolerance",
@@ -884,7 +884,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 600.0
+      "value": 825.0
     },
     {
       "name": "CmdA_Accel",
@@ -964,7 +964,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 0
+      "value": 4
     },
     {
       "name": "CmdB_XY",
@@ -980,7 +980,7 @@
       ],
       "array_dimensions": 1,
       "program": "motionQueue",
-      "value": 3027.677001953125
+      "value": 7165.0
     },
     {
       "name": "RotateONS_BtoA",
@@ -1013,7 +1013,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 600.0
+      "value": 825.0001220703125
     },
     {
       "name": "CmdB_Accel",
@@ -1093,7 +1093,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 4
+      "value": 0
     },
     {
       "name": "CmdB_SegType",
@@ -1109,7 +1109,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 2
+      "value": 1
     },
     {
       "name": "CmdA_CircleType",
@@ -1160,11 +1160,11 @@
       "program": "motionQueue",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1194,11 +1194,11 @@
       "program": "motionQueue",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1310,7 +1310,7 @@
       ],
       "array_dimensions": 1,
       "program": "motionQueue",
-      "value": 0.0
+      "value": 647.0426635742188
     },
     {
       "name": "CmdB_ViaCenter",
@@ -1326,7 +1326,7 @@
       ],
       "array_dimensions": 1,
       "program": "motionQueue",
-      "value": 3167.581298828125
+      "value": 0.0
     },
     {
       "name": "CmdA_Direction",
@@ -1342,7 +1342,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 1
+      "value": 0
     },
     {
       "name": "CmdB_Direction",
@@ -1590,7 +1590,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 0
+      "value": 1
     },
     {
       "name": "idx_3",
@@ -1606,7 +1606,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 0
+      "value": 2
     },
     {
       "name": "STATE13_IND",
@@ -1626,5 +1626,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-03-23T20:53:04.029898+00:00"
+  "values_generated_at": "2026-03-24T21:24:37.355711+00:00"
 }
