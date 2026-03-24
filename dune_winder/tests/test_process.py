@@ -290,6 +290,22 @@ class ProcessManualGCodeTests(unittest.TestCase):
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["F120"])
 
+  def test_execute_manual_gcode_accepts_z_move_with_feed(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("Z42 F1")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["Z42 F1"])
+
+  def test_execute_manual_gcode_accepts_feed_before_z_move(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+    error = process.executeG_CodeLine("F1 Z42")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["F1 Z42"])
+
   def test_execute_manual_gcode_accepts_xz_move(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
 
