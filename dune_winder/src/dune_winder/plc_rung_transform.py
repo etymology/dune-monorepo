@@ -2,6 +2,8 @@ import argparse
 import re
 from pathlib import Path
 
+from dune_winder.plc_manifest import _try_update_rllscrap_manifest
+
 
 COMMAND_ARGUMENTS_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\(([^()\n]*)\)")
 INLINE_SEPARATOR_PATTERN = re.compile(r"[(),]")
@@ -266,6 +268,7 @@ def transform_file(input_path, output_path=None):
     return transformed
 
   Path(output_path).write_text(transformed)
+  _try_update_rllscrap_manifest(source_path)
   return transformed
 
 
