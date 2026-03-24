@@ -1,3 +1,5 @@
+# X/G Layer Recipe Description
+
 Let B960 calibration be cameraHead and B1 calibration camreaFoot (cartesian)
 
 Then let the wire locations be defined as wireHead = cameraHead + cameraOfffset and wireFoot = cameraFoot + cameraOffset
@@ -14,7 +16,7 @@ let diagonalCorrect = 3
 let there be 4 configurable parameters headBoffset, footBoffset, headAoffset, footAoffset
 let another configurable parameter be transferPause in {True, False}
 
-let the preamble be 
+let the preamble be
 X{headTransferZone} Y{wireHead+headAoffset}
 G106 P0
 

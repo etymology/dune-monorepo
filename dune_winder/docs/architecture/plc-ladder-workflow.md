@@ -16,7 +16,7 @@ At a high level:
 
 This document describes the storage conventions used in the current `plc/`
 tree. For the runtime communication model between Python and the PLC, see
-`docs/PlcWinderCommunication.md`.
+[plc-communication.md](plc-communication.md).
 
 ## Studio 5000 Text Formats
 

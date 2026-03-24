@@ -60,8 +60,8 @@ and the first implementation milestone, not the current implementation status.
 The following checked-in artifacts are the reference inputs for this work:
 
 - `plc/instruction_set.md`
-- `docs/PlcLadderWorkflow.md`
-- `docs/PlcWinderCommunication.md`
+- `docs/architecture/plc-ladder-workflow.md`
+- `docs/architecture/plc-communication.md`
 - `src/dune_winder/transpiler/`
 - `src/dune_winder/plc_rung_transform.py`
 - `docs/rockwell/1756-rm003_-en-p.pdf`
@@ -523,24 +523,24 @@ the new ladder-backed path against it to catch regressions or spec drift.
 
 ## Phased Implementation Plan
 
-### Phase 1: object model and instruction skeletons
+### Phase 1: object model and instruction skeletons (complete)
 
 - add runtime structures and tag access model
 - add mnemonic instruction function signatures
 - fully implement `TON`, `RES`, `MOV`, one-shots, and `CONTROL`-based queue ops
 
-### Phase 2: parser/emitter/codegen
+### Phase 2: parser/emitter/codegen (complete)
 
 - add normalized `.rll` parser
 - add AST and `.rll` emitter
 - add Python code generation for editable ladder-like source
 
-### Phase 3: motion semantics
+### Phase 3: motion semantics (outstanding)
 
 - implement `MSO`, `MSF`, `MAFR`, `MAM`, `MAS`, `MCS`, `MCLM`, `MCCM`, `MCCD`
 - connect motion objects to simulator axis state and coordinate-system state
 
-### Phase 4: routine coverage and acceptance
+### Phase 4: routine coverage and acceptance (outstanding)
 
 - import and run the targeted direct-motion routines
 - import and run the standalone queue routine
@@ -573,4 +573,3 @@ The current decisions captured by this spec are:
   converter conventions
 - the first milestone is queue-inclusive, not direct-motion-only
 - the existing helper transpiler remains part of the architecture
-

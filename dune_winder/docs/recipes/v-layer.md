@@ -1,6 +1,6 @@
-# recipe description
+# V Layer Recipe Description
 
-let the constants be 
+let the constants be
 transferPause in {true, false}
 yPullIn = 60
 xPullIn = 70

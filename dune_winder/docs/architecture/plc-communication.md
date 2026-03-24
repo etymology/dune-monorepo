@@ -15,8 +15,8 @@ not an idealized target design.
 
 Related documents:
 
-- `docs/PlcLadderWorkflow.md` for the Studio 5000 storage/export workflow
-- `docs/PlcWinderArchitectureProposals.md` for suggested follow-on changes
+- [plc-ladder-workflow.md](plc-ladder-workflow.md) for the Studio 5000 storage/export workflow
+- [../planning/plc-architecture-proposals.md](../planning/plc-architecture-proposals.md) for suggested follow-on changes
 
 ## End-to-End Runtime Path
 
