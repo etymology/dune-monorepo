@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-23T20:52:31.849236+00:00",
+  "generated_at": "2026-03-24T21:24:22.703798+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Latch_UnLatch_State_6_7_8",
   "main_routine_name": "main",
@@ -105,6 +105,57 @@
     {
       "name": "latching_signal",
       "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.latching_signal",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Latch_UnLatch_State_6_7_8",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "auto_main_branch_001",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.auto_main_branch_001",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Latch_UnLatch_State_6_7_8",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "auto_main_branch_002",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.auto_main_branch_002",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Latch_UnLatch_State_6_7_8",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "auto_main_branch_003",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.auto_main_branch_003",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "alias": false,
@@ -435,7 +486,7 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "value": 3
+      "value": 2
     },
     {
       "name": "STATE7_IND",
@@ -488,10 +539,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 100,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 100,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -511,10 +562,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 100,
-        "ACC": 100,
-        "EN": true,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     },
     {
@@ -612,5 +663,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-03-23T20:53:04.029898+00:00"
+  "values_generated_at": "2026-03-24T21:24:37.355711+00:00"
 }

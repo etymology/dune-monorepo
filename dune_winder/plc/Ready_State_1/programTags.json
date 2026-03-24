@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-23T20:52:31.849236+00:00",
+  "generated_at": "2026-03-24T21:24:22.703798+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Ready_State_1",
   "main_routine_name": "main",
@@ -156,7 +156,7 @@
       "array_dimensions": 0,
       "program": "Ready_State_1",
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "trigger_axes_ob",
@@ -324,7 +324,7 @@
       "array_dimensions": 0,
       "program": "Ready_State_1",
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "dont_auto_trigger_axes_in_state_1",
@@ -344,5 +344,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-03-23T20:53:04.029898+00:00"
+  "values_generated_at": "2026-03-24T21:24:37.355711+00:00"
 }
