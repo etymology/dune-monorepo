@@ -43,7 +43,12 @@
       "Bash(powershell.exe -Command \"cd ''C:\\\\DUNE\\\\py3-ex-UK\\\\dune_winder''; uv run python -m unittest discover -s tests 2>&1\")",
       "Bash(powershell.exe -Command \"Get-Command uv -ErrorAction SilentlyContinue; \\(Get-Item ''C:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\uv\\\\bin\\\\uv.exe'' -ErrorAction SilentlyContinue\\) | Select FullName\")",
       "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\Dune Admin\\\\'' -Recurse -Name ''uv.exe'' -ErrorAction SilentlyContinue | Select-Object -First 5\")",
-      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\'' -Recurse -Name ''uv.exe'' -ErrorAction SilentlyContinue | Select-Object -First 5\")"
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\'' -Recurse -Name ''uv.exe'' -ErrorAction SilentlyContinue | Select-Object -First 5\")",
+      "Bash(xargs wc:*)",
+      "Bash(grep -r \"dispatch.*event\\\\|def handle\" /c/DUNE/py3-ex-UK/dune_winder/src/dune_winder/library/state_machine*.py --include=\"*.py\")",
+      "Bash(find /c/DUNE/py3-ex-UK/dune_winder -type f -name *.toml -o -name configuration.xml -o -name *Calibration.xml)",
+      "Bash(grep -E \"\\\\.json$\")",
+      "Bash(grep -l \"Grafana\\\\|grafana\\\\|influx\" /c/DUNE/py3-ex-UK/dune_winder/src/dune_winder/**/*.py)"
     ]
   }
 }
