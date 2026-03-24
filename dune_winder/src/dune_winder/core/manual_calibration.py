@@ -518,6 +518,7 @@ class _ManualCalibrationGXSession:
     self.offsets = {}
     self.transferPause = True
     self.includeLeadMode = True
+    self.stripG113Params = False
     self.generated = {}
     self.dirty = False
 
@@ -639,6 +640,7 @@ class ManualCalibration:
 
     session.transferPause = bool(data.get("transferPause", True))
     session.includeLeadMode = bool(data.get("includeLeadMode", True))
+    session.stripG113Params = bool(data.get("stripG113Params", False))
     session.generated = self._emptyGXGenerated(session)
     generated = data.get("generated", {})
     if generated is not None:
@@ -668,6 +670,7 @@ class ManualCalibration:
         "dirty": session.dirty,
         "transferPause": session.transferPause,
         "includeLeadMode": session.includeLeadMode,
+        "stripG113Params": session.stripG113Params,
         "references": {},
         "offsets": {},
         "generated": dict(session.generated),
@@ -1051,6 +1054,7 @@ class ManualCalibration:
 
     session.transferPause = True
     session.includeLeadMode = True
+    session.stripG113Params = False
     session.generated = self._emptyGXGenerated(session)
     session.dirty = False
     session.initialized = True
@@ -1361,6 +1365,7 @@ class ManualCalibration:
         "offsets": offsets,
         "transferPause": session.transferPause,
         "includeLeadMode": session.includeLeadMode,
+        "stripG113Params": session.stripG113Params,
         "wrapCount": GX_WRAP_COUNTS[layer],
         "wireSpacing": GX_WIRE_SPACING,
         "counts": {
@@ -1734,6 +1739,22 @@ class ManualCalibration:
     return self._okResult({"includeLeadMode": session.includeLeadMode})
 
   # -------------------------------------------------------------------
+  def setStripG113Params(self, enabled):
+    layer, error = self._getActiveLayerForMode("gx")
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    session = self._getSession(layer)
+    session.stripG113Params = bool(enabled)
+    session.dirty = True
+    self._persistSession(session)
+    return self._okResult({"stripG113Params": session.stripG113Params})
+
+  # -------------------------------------------------------------------
   def clearGXDraft(self):
     layer, error = self._getActiveLayerForMode("gx")
     if error is not None:
@@ -1783,6 +1804,7 @@ class ManualCalibration:
         "transferPause": session.transferPause,
         "includeLeadMode": session.includeLeadMode,
       },
+      strip_g113_params=session.stripG113Params,
       archive_directory=self._recipeArchiveDirectory(),
     )
 
@@ -1816,6 +1838,7 @@ class ManualCalibration:
         generation["wrapCount"],
         session.transferPause,
         session.includeLeadMode,
+        session.stripG113Params,
       ],
     )
     return self._okResult(
