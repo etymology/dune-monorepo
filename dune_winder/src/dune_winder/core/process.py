@@ -1407,6 +1407,8 @@ class Process:
       gx_yf = r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"  # 'G105  PX123 PY123 F1234'
       gp = r"(\ *[G]106\ *P[0123]\ *$)"  # 'G106 P0', ..., 'G106 P4'
       z_move = r"(\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"  # 'Z123' , 'Z-123' , 'Z123.45'
+      zf = r"(\ *[Z]\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"  # 'Z123 F1234'
+      fz = r"(\ *[F]\d{1,4}\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"  # 'F1234 Z123'
       absoluteXYMovePattern = "|".join([xy, x_only, y_only, xyf, fxy, xf, fx, yf, fy])
       absoluteXZMovePattern = "|".join([xz, xzf, fxz])
       relativeXYMovePattern = "|".join([gxy, gxyf, gx_y, gx_yf])
@@ -1421,7 +1423,11 @@ class Process:
         + "|"
         + f_only
         + "|"
-        + z_move,
+        + z_move
+        + "|"
+        + zf
+        + "|"
+        + fz,
         line,
       ):
         error = (
@@ -1455,7 +1461,7 @@ class Process:
             y += yPosition
 
         if "F" in cmd and re.match(
-          "|".join([xyf, fxy, xf, fx, yf, fy, xzf, fxz, gxyf, gx_yf, f_only]),
+          "|".join([xyf, fxy, xf, fx, yf, fy, xzf, fxz, zf, fz, gxyf, gx_yf, f_only]),
           line,
         ):
           velocity = float(cmd.split("F")[1])
@@ -1466,7 +1472,7 @@ class Process:
               + "]"
             )
           
-        if "Z" in cmd and re.match("|".join([z_move, xz, xzf, fxz]), line):
+        if "Z" in cmd and re.match("|".join([z_move, xz, xzf, fxz, zf, fz]), line):
           zCmd = cmd.split("Z")
           z_target = float(zCmd[1])
           if z_target < self._zlimitFront or z_target > self._zlimitRear:

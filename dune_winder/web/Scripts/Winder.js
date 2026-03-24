@@ -133,6 +133,35 @@ var Winder = function( modules )
     )
   }
 
+  var buildAjaxErrorResponse = function( jqXHR )
+  {
+    if ( jqXHR && jqXHR.responseJSON && "object" == typeof jqXHR.responseJSON )
+      return jqXHR.responseJSON
+
+    if ( jqXHR && jqXHR.responseText )
+    {
+      try
+      {
+        var parsed = JSON.parse( jqXHR.responseText )
+        if ( parsed && "object" == typeof parsed )
+          return parsed
+      }
+      catch ( error )
+      {
+      }
+    }
+
+    return {
+      ok: false,
+      data: null,
+      error:
+      {
+        code: "NETWORK_ERROR",
+        message: "Unable to reach command API."
+      }
+    }
+  }
+
   //---------------------------------------------------------------------------
   // Uses:
   //   Populate a combobox was elements from a remote query.
@@ -475,21 +504,10 @@ var Winder = function( modules )
     )
     .error
     (
-      function()
+      function( jqXHR )
       {
         if ( callback )
-          callback
-          (
-            {
-              ok: false,
-              data: null,
-              error:
-              {
-                code: "NETWORK_ERROR",
-                message: "Unable to reach command API."
-              }
-            }
-          )
+          callback( buildAjaxErrorResponse( jqXHR ) )
       }
     )
     .done
@@ -526,21 +544,10 @@ var Winder = function( modules )
     )
     .error
     (
-      function()
+      function( jqXHR )
       {
         if ( callback )
-          callback
-          (
-            {
-              ok: false,
-              data: null,
-              error:
-              {
-                code: "NETWORK_ERROR",
-                message: "Unable to reach command API."
-              }
-            }
-          )
+          callback( buildAjaxErrorResponse( jqXHR ) )
       }
     )
     .done
