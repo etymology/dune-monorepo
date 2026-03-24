@@ -773,6 +773,96 @@ class GCodeHandler(GCodeHandlerBase):
     self._stopNextMove = True
 
   # ---------------------------------------------------------------------
+  def _command_velocity(self):
+    velocity = min(self._velocity, self._maxVelocity)
+    velocity *= self._velocityScale
+    return velocity
+
+  # ---------------------------------------------------------------------
+  def _dispatch_pending_action(self, action, velocity, *, safety_label="line"):
+    moving = False
+    if action == "xy":
+      start_xy = (
+        float(self._io.xAxis.getPosition()),
+        float(self._io.yAxis.getPosition()),
+      )
+      target_xy = (float(self._x), float(self._y))
+      is_noop_xy_move = (
+        math.hypot(target_xy[0] - start_xy[0], target_xy[1] - start_xy[1])
+        < _COMMAND_POSITION_RESOLUTION_MM
+      )
+      if is_noop_xy_move:
+        return False
+
+      try:
+        validate_xy_move_within_safety_limits(
+          start_xy,
+          target_xy,
+          self._motion_safety_limits(),
+          seq=int(self._line or 0),
+          label=safety_label,
+        )
+      except ValueError as exception:
+        self._set_xy_safety_error(str(exception))
+      else:
+        self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+        moving = True
+    elif action == "z":
+      self._io.plcLogic.setZ_Position(self._z, velocity)
+      moving = True
+    elif action == "xz":
+      target_x = float(self._x)
+      target_z = float(self._z)
+      x_limits = self._motion_safety_limits()
+      z_front, z_rear = self._z_motion_limits()
+      if target_x < x_limits.limit_left or target_x > x_limits.limit_right:
+        self._set_gcode_error(
+          "XZ move target X out of bounds ["
+          + str(x_limits.limit_left)
+          + ", "
+          + str(x_limits.limit_right)
+          + "]."
+        )
+      elif target_z < z_front or target_z > z_rear:
+        self._set_gcode_error(
+          "XZ move target Z out of bounds ["
+          + str(z_front)
+          + ", "
+          + str(z_rear)
+          + "]."
+        )
+      else:
+        try:
+          self._io.plcLogic.setXZ_Position(target_x, target_z, velocity)
+        except ValueError as exception:
+          self._set_gcode_error(str(exception))
+        else:
+          moving = True
+    elif action == "head":
+      self._io.head.setHeadPosition(self._headPosition, velocity)
+      moving = True
+    elif action == "latch":
+      self._io.plcLogic.move_latch()
+      moving = True
+
+    return moving
+
+  # ---------------------------------------------------------------------
+  def _dispatch_pending_actions(self, *, safety_label="line"):
+    moving = False
+    velocity = self._command_velocity()
+
+    while not moving and self._pending_actions:
+      action = self._pending_actions.pop(0)
+      moving = self._dispatch_pending_action(action, velocity, safety_label=safety_label)
+
+    if self._pending_stop_request:
+      self._pending_stop_request = False
+      self._stopNextMove = True
+
+    return moving
+
+  # ---------------------------------------------------------------------
   def poll(self):
     """
     Update the logic for executing this line of G-Code.
@@ -793,79 +883,8 @@ class GCodeHandler(GCodeHandlerBase):
     if self._io.plcLogic.isReady() and self._io.head.isReady():
       moving = False
 
-      velocity = min(self._velocity, self._maxVelocity)
-      velocity *= self._velocityScale
-
-      if not moving and self._pending_actions:
-        action = self._pending_actions.pop(0)
-        if action == "xy":
-          start_xy = (
-            float(self._io.xAxis.getPosition()),
-            float(self._io.yAxis.getPosition()),
-          )
-          target_xy = (float(self._x), float(self._y))
-          is_noop_xy_move = (
-            math.hypot(target_xy[0] - start_xy[0], target_xy[1] - start_xy[1])
-            < _COMMAND_POSITION_RESOLUTION_MM
-          )
-          if is_noop_xy_move:
-            # Sub-resolution XY command: already at target.
-            moving = False
-          else:
-            try:
-              validate_xy_move_within_safety_limits(
-                start_xy,
-                target_xy,
-                self._motion_safety_limits(),
-                seq=int(self._line or 0),
-                label="line",
-              )
-            except ValueError as exception:
-              self._set_xy_safety_error(str(exception))
-            else:
-              self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
-              moving = True
-        elif action == "z":
-          self._io.plcLogic.setZ_Position(self._z, velocity)
-          moving = True
-        elif action == "xz":
-          target_x = float(self._x)
-          target_z = float(self._z)
-          x_limits = self._motion_safety_limits()
-          z_front, z_rear = self._z_motion_limits()
-          if target_x < x_limits.limit_left or target_x > x_limits.limit_right:
-            self._set_gcode_error(
-              "XZ move target X out of bounds ["
-              + str(x_limits.limit_left)
-              + ", "
-              + str(x_limits.limit_right)
-              + "]."
-            )
-          elif target_z < z_front or target_z > z_rear:
-            self._set_gcode_error(
-              "XZ move target Z out of bounds ["
-              + str(z_front)
-              + ", "
-              + str(z_rear)
-              + "]."
-            )
-          else:
-            try:
-              self._io.plcLogic.setXZ_Position(target_x, target_z, velocity)
-            except ValueError as exception:
-              self._set_gcode_error(str(exception))
-            else:
-              moving = True
-        elif action == "head":
-          self._io.head.setHeadPosition(self._headPosition, velocity)
-          moving = True
-        elif action == "latch":
-          self._io.plcLogic.move_latch()
-          moving = True
-
-      if self._pending_stop_request:
-        self._pending_stop_request = False
-        self._stopNextMove = True
+      if not moving:
+        moving = self._dispatch_pending_actions()
 
       # If there are no more moves, run the next line of G-Code.
       if not moving:
@@ -1017,24 +1036,52 @@ class GCodeHandler(GCodeHandlerBase):
     """
     errorData = None
     gCode = GCodeProgramExecutor([], self._callbacks)
+    interpreter_snapshot = self._snapshot_interpreter_state()
+    execution_snapshot = {
+      "line": self._line,
+      "functions": list(self._functions),
+      "stopNextMove": self._stopNextMove,
+      "isG_CodeError": self._isG_CodeError,
+      "isG_CodeErrorMessage": self._isG_CodeErrorMessage,
+      "isG_CodeErrorData": list(self._isG_CodeErrorData),
+    }
     try:
       if self._beforeExecuteLineCallback:
         error = self._beforeExecuteLineCallback()
         if error:
           return {"line": line, "message": str(error), "data": []}
 
+      self._pending_actions = []
+      self._pending_stop_request = False
+      self._line = None
+      self._functions = []
+      self._stopNextMove = False
+      self.clearCodeError()
+
       # Interpret the next line.
       gCode.execute(line)
-      self.poll()
+      if self._io.plcLogic.isReady() and self._io.head.isReady():
+        self._dispatch_pending_actions(safety_label="manual")
       if self._isG_CodeError:
         errorData = {
           "line": line,
           "message": self._isG_CodeErrorMessage,
           "data": list(self._isG_CodeErrorData),
         }
-        self.clearCodeError()
     except GCodeExecutionError as exception:
       errorData = {"line": line, "message": str(exception), "data": exception.data}
+    finally:
+      if errorData is not None:
+        self._restore_interpreter_state(interpreter_snapshot)
+      else:
+        self._pending_actions = []
+        self._pending_stop_request = False
+      self._line = execution_snapshot["line"]
+      self._functions = execution_snapshot["functions"]
+      self._stopNextMove = execution_snapshot["stopNextMove"]
+      self._isG_CodeError = execution_snapshot["isG_CodeError"]
+      self._isG_CodeErrorMessage = execution_snapshot["isG_CodeErrorMessage"]
+      self._isG_CodeErrorData = execution_snapshot["isG_CodeErrorData"]
 
     return errorData
 
