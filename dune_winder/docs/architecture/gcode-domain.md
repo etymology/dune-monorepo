@@ -1,15 +1,15 @@
 # G-code Domain Architecture
 
-This document defines the canonical G-code domain introduced for P1.
-
 ## Canonical Package
 
-All G-code domain logic now lives in:
+All G-code domain logic lives in `src/dune_winder/gcode/`:
 
-- `src/dune_winder/gcode/model.py`
-- `src/dune_winder/gcode/parser.py`
-- `src/dune_winder/gcode/renderer.py`
-- `src/dune_winder/gcode/runtime.py`
+- `model.py`
+- `parser.py`
+- `renderer.py`
+- `runtime.py`
+- `handler.py`
+- `handler_base.py`
 
 ### `model`
 
@@ -37,12 +37,23 @@ Renders canonical model objects back to normalized text:
 
 ### `runtime`
 
-Executes `ProgramLine` objects against callback tables used by legacy runtime:
+Executes `ProgramLine` objects via a single `on_instruction(line: ProgramLine)`
+callback per parsed line. Handlers receive the complete instruction atomically
+and extract parameters directly — no per-letter dispatch, no dirty flags.
 
-- `X/Y/Z/F/N` callback payloads are typed to match historical behavior
-- `G` callback payload remains list-shaped (`[opcode, *params]`)
+### `handler_base`
 
-## Legacy Removal
+`GCodeHandlerBase` consumes complete instructions via `handle_instruction(line:
+ProgramLine)`. Per-letter setter callbacks and dirty-flag fields are absent;
+all parameters are read from the `ProgramLine` in one place.
+
+### `handler`
+
+`GCodeHandler` in `core/g_code_handler.py` implements queued instruction actions
+(`xy`, `z`, `head`, `latch`) and deferred stop requests, building on
+`handler_base`.
+
+## Removed Legacy Paths
 
 Legacy wrapper paths were removed after parity validation:
 

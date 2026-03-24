@@ -1,6 +1,6 @@
-# recipe description
+# U Layer Recipe Description
 
-let the constants be 
+let the constants be
 transferPause in {true, false}
 yPullIn = 60
 xPullIn = 70
@@ -78,7 +78,7 @@ PF${2402 - wrap} PBR PB${400 + wrap} PB${401 + wrap} (Bottom B corner - head end
 PB${400 + wrap} PB${401 + wrap}
 PB${400 + wrap} PLT PB${401 - wrap} PB${400 - wrap} (Head B corner)",
 PB${401 - wrap} PLT PF${wrap} PF${2400 + wrap} (Head A corner, rewind)",
-PF${1 + wrap} PF${wrap} 
+PF${1 + wrap} PF${wrap}
 PF${1 + wrap} PRT PF${800 - wrap} PF${799 - wrap} (Top A corner - head end)",
 PF${800 - wrap} PRT PB${2002 + wrap} PB${2003 + wrap} (Top B corner - head end)",
 PB${2002 + wrap} PB${2003 + wrap}

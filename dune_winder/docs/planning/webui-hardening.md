@@ -1,6 +1,6 @@
 # Web UI Hardening Plan
 
-Status: Draft  
+Status: Draft
 Date: 2026-03-20
 
 This document captures a practical improvement plan for the `web/` UI with the
