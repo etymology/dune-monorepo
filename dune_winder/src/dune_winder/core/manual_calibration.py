@@ -518,7 +518,7 @@ class _ManualCalibrationGXSession:
     self.offsets = {}
     self.transferPause = True
     self.includeLeadMode = True
-    self.stripG113Params = False
+    self.stripG113Params = True
     self.generated = {}
     self.dirty = False
 
@@ -640,7 +640,7 @@ class ManualCalibration:
 
     session.transferPause = bool(data.get("transferPause", True))
     session.includeLeadMode = bool(data.get("includeLeadMode", True))
-    session.stripG113Params = bool(data.get("stripG113Params", False))
+    session.stripG113Params = bool(data.get("stripG113Params", True))
     session.generated = self._emptyGXGenerated(session)
     generated = data.get("generated", {})
     if generated is not None:
@@ -1054,7 +1054,7 @@ class ManualCalibration:
 
     session.transferPause = True
     session.includeLeadMode = True
-    session.stripG113Params = False
+    session.stripG113Params = True
     session.generated = self._emptyGXGenerated(session)
     session.dirty = False
     session.initialized = True

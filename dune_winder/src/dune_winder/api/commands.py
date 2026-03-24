@@ -296,6 +296,16 @@ def build_command_registry(
     True,
   )
 
+  def manual_calibration_set_strip_g113_params(args):
+    _validateArgs(args, required=("enabled",))
+    return process.manualCalibration.setStripG113Params(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.manual_calibration.set_strip_g113_params",
+    manual_calibration_set_strip_g113_params,
+    True,
+  )
+
   registry.register(
     "process.manual_calibration.clear_gx_draft",
     lambda args: (_validateArgs(args), process.manualCalibration.clearGXDraft())[1],
