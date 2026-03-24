@@ -4,6 +4,8 @@
 # Date: 2026-03-03
 ###############################################################################
 
+import re
+
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes import template_gcode_common
 from dune_winder.recipes.recipe_template_language import (
@@ -56,6 +58,15 @@ XG_POSTAMBLE_SCRIPT = compile_template_script(
     "emit G113 PPRECISE X${r(HEAD_PULL_FLAT)} Y${r(wire_head_y + head_a_offset + 480.0 * WIRE_SPACING)}",
   )
 )
+
+
+_G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
+
+
+def _apply_strip_g113_params(lines):
+  return [
+    re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
+  ]
 
 
 def _normalize_layer(layer):
@@ -242,7 +253,7 @@ def get_xg_recipe_file_name(layer):
   return layer + "-layer.gc"
 
 
-def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
+def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None, strip_g113_params=False):
   layer = _normalize_layer(layer)
   special_inputs = _resolve_special_inputs(
     special_inputs=special_inputs,
@@ -304,6 +315,8 @@ def render_xg_template_lines(layer, specialInputs=None, *, special_inputs=None):
     line_builder=_line,
     transfers={},
   )
+  if strip_g113_params:
+    lines = _apply_strip_g113_params(lines)
   return _number_lines(lines)
 
 
@@ -318,6 +331,7 @@ def write_xg_template_file(
   special_inputs=None,
   archive_directory=None,
   parent_hash=None,
+  strip_g113_params=False,
 ):
   layer = _normalize_layer(layer)
   output_path = _resolve_alias_value(
@@ -345,7 +359,7 @@ def write_xg_template_file(
     special_inputs=special_inputs,
     legacy_special_inputs=specialInputs,
   )
-  lines = render_xg_template_lines(layer, special_inputs=resolved_special_inputs)
+  lines = render_xg_template_lines(layer, special_inputs=resolved_special_inputs, strip_g113_params=strip_g113_params)
   hashValue = Recipe.writeGeneratedFile(
     output_path,
     get_xg_recipe_description(layer),
