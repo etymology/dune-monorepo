@@ -6,6 +6,8 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+import time
+
 from dune_winder.library.state_machine_state import StateMachineState
 from dune_winder.library.logged_state_machine import LoggedStateMachine
 from dune_winder.io.maps.base_io import BaseIO
@@ -172,6 +174,28 @@ class StopMode(StateMachineState):
     self.io = io
     self.stateMachine = stateMachine
     self.stopStateMachine = self.StopStateMachine(stateMachine, io, log)
+
+  # ---------------------------------------------------------------------
+  def enter(self):
+    """
+    Function called when entering StopMode for any reason.
+    Clears any in-flight abort signal and empties the movement queue so the
+    machine starts stop-mode in a clean state.
+
+    Returns:
+      True if there was an error, False if not.
+    """
+
+    gcode = self.stateMachine.gCodeHandler
+    if gcode is not None:
+      gcode.stop()
+
+    if hasattr(self.io.plcLogic, "queuedMotion"):
+      self.io.plcLogic.queuedMotion.set_abort(True)
+      time.sleep(0.10)
+      self.io.plcLogic.queuedMotion.set_abort(False)
+
+    return False
 
   # ---------------------------------------------------------------------
   def update(self):
