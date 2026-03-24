@@ -85,6 +85,15 @@ class _QueuedMotionPLCLogic:
     self.queuedMotion.set_stop_request(True)
 
 
+class _ManualLinePLCLogic(_QueuedMotionPLCLogic):
+  def __init__(self, queued_motion=None, y_transfer_ok=True):
+    super().__init__(queued_motion=queued_motion, y_transfer_ok=y_transfer_ok)
+    self.z_moves = []
+
+  def setZ_Position(self, z, velocity=None):
+    self.z_moves.append((float(z), velocity))
+
+
 class _Head:
   def isReady(self):
     return True
@@ -601,6 +610,46 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertIsNotNone(error)
     self.assertIn("Y_Transfer_OK", error["message"])
     self.assertEqual(handler._io.plcLogic.xz_moves, [])
+
+  def test_execute_manual_line_does_not_run_stale_pending_xy_action(self):
+    calibration = DefaultMachineCalibration()
+    plc_logic = _ManualLinePLCLogic()
+    handler = GCodeHandler(
+      _IO(400.0, 100.0, z=50.0, plc_logic=plc_logic),
+      calibration,
+      WirePathModel(calibration),
+    )
+    handler._x = 500.0
+    handler._y = 200.0
+    handler._pending_actions = ["xy"]
+
+    error = handler.executeG_CodeLine("Z60")
+
+    self.assertIsNone(error)
+    self.assertEqual(handler._pending_actions, [])
+    self.assertEqual(plc_logic.legacy_xy_moves, [])
+    self.assertEqual(len(plc_logic.z_moves), 1)
+    self.assertEqual(plc_logic.z_moves[0][0], 60.0)
+
+  def test_execute_manual_feed_only_does_not_stage_loaded_program_line(self):
+    calibration = DefaultMachineCalibration()
+    plc_logic = _ManualLinePLCLogic()
+    handler = GCodeHandler(
+      _IO(400.0, 100.0, z=50.0, plc_logic=plc_logic),
+      calibration,
+      WirePathModel(calibration),
+    )
+    handler._delay = 0
+    handler.loadG_Code(["X500 Y200"], calibration)
+
+    error = handler.executeG_CodeLine("F120")
+
+    self.assertIsNone(error)
+    self.assertEqual(handler._currentLine, -1)
+    self.assertEqual(handler._nextLine, -1)
+    self.assertEqual(handler._pending_actions, [])
+    self.assertEqual(plc_logic.legacy_xy_moves, [])
+    self.assertEqual(plc_logic.z_moves, [])
 
   def test_sub_resolution_xy_move_is_treated_as_noop(self):
     calibration = self._z_collision_calibration()

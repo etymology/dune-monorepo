@@ -1,32 +1,24 @@
 CMP STATE=2 CPT NEXTSTATE 1 
-CMP STATE=3 BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z BND CPT ERROR_CODE 3001 CPT NEXTSTATE 10 
-CMP STATE=3 XIO Z_RETRACTED CPT ERROR_CODE 3001 CPT NEXTSTATE 10 
-CMP STATE=3 GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z CPT ERROR_CODE 3001 CPT NEXTSTATE 10 
-CMP STATE=3 XIC Z_RETRACTED XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 
-CMP STATE=3 XIC X_Y.PhysicalAxisFault CPT ERROR_CODE 3002 CPT NEXTSTATE 10 
-CMP STATE=3 BST XIC X_axis.SafeTorqueOffInhibit NXB XIC Y_axis.SafeTorqueOffInhibit BND CPT ERROR_CODE 3004 CPT NEXTSTATE 10 
-CMP STATE=3 BST XIC tension_stable_timer.DN NXB XIO check_tension_stable NXB XIO TENSION_CONTROL_OK BND XIC APA_IS_VERTICAL XIO main_xy_move.IP XIO X_Y.PhysicalAxisFault XIO X_axis.SafeTorqueOffInhibit XIO Y_axis.SafeTorqueOffInhibit XIC Z_RETRACTED OTE prepare_to_move 
-XIC prepare_to_move XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus XIC x_axis_mso.DN XIC y_axis_mso.DN OTE trigger_xy_move 
-XIC prepare_to_move BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL wait_for_axes_mso 
-XIC wait_for_axes_mso MSO X_axis x_axis_mso MSO Y_axis y_axis_mso 
-XIC wait_for_axes_mso XIO X_Y.PhysicalAxisFault XIC x_axis_mso.DN XIC y_axis_mso.DN OTL trigger_xy_move 
-XIC wait_for_axes_mso XIO X_Y.PhysicalAxisFault XIC x_axis_mso.DN XIC y_axis_mso.DN OTU wait_for_axes_mso 
+XIO XY_AXIS_STAT[4].IP CMP STATE=3 BST XIC tension_stable_timer.DN NXB XIO check_tension_stable NXB XIO TENSION_CONTROL_OK BND BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z BND CPT ERROR_CODE 3001 CPT NEXTSTATE 10 NXB XIC Z_RETRACTED BST XIC APA_IS_VERTICAL NXB XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 BND OTE STATE3_IND BND 
+XIC STATE3_IND BST OSR oneshotsb[0] oneshotob[0] NXB BST XIC X_Y.PhysicalAxisFault CPT ERROR_CODE 3002 NXB BST XIC X_axis.SafeTorqueOffInhibit NXB XIC Y_axis.SafeTorqueOffInhibit BND CPT ERROR_CODE 3004 BND CPT NEXTSTATE 10 BND 
+XIC oneshotob[0] BST MSO X_axis XY_AXIS_STAT[0] NXB MSO Y_axis XY_AXIS_STAT[1] BND 
+XIC XY_AXIS_STAT[0].DN XIC XY_AXIS_STAT[1].DN OSR oneshotsb[1] oneshotob[1] 
+BST XIC oneshotob[1] NXB XIC XY_AXIS_STAT[0].DN XIC XY_AXIS_STAT[1].DN XIC oneshotob[0] BND OSR oneshotsb[3] trigger_xy_move 
 XIC trigger_xy_move MOV X_axis.ActualPosition starting_x MOV Y_axis.ActualPosition starting_y 
 XIC trigger_xy_move CPT dx ABS(starting_x-X_POSITION) CPT dy ABS(starting_y-Y_POSITION) CPT x_time v_x_max/dx CPT y_time v_y_max/dy BST LES x_time y_time CPT k x_time NXB LEQ y_time x_time CPT k y_time BND CPT v_max k*SQR(dx*dx+dy*dy) BST LES v_max XY_SPEED CPT XY_SPEED_REQ v_max NXB LEQ XY_SPEED v_max CPT XY_SPEED_REQ XY_SPEED BND 
 CPT x_dist_to_target X_axis.ActualPosition-X_POSITION CPT y_dist_to_target Y_axis.ActualPosition-Y_POSITION CPT xy_dist_to_target SQR(x_dist_to_target*x_dist_to_target+y_dist_to_target*y_dist_to_target) 
-MOV xy_regulated_decel_jerk J MOV v_xyz v_0 CPT gamma SQR(accel_xy*accel_xy+4*J*v_0) CPT stopping_distance (accel_xy+gamma)*(accel_xy+gamma)*(accel_xy+gamma)/(6*J*J) 
+MOV xy_decel_jerk J MOV v_xyz v_0 CPT gamma SQR(accel_xy*accel_xy+4*J*v_0) CPT stopping_distance (accel_xy+gamma)*(accel_xy+gamma)*(accel_xy+gamma)/(6*J*J) 
 CMP xy_dist_to_target<stopping_distance*1 OTE near_ending 
 CMP STATE=3 CPT stopping_ratio stopping_distance/xy_dist_to_target 
-XIC TENSION_CONTROL_OK XIC speed_regulator_switch JSR xy_speed_regulator 0 
-BST XIO TENSION_CONTROL_OK NXB XIO speed_regulator_switch BND XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION XY_SPEED_REQ "Units per sec" XY_ACCELERATION "Units per sec2" XY_DECELERATION "Units per sec2" S-Curve 500 500 "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 
-XIO speed_regulator_switch XIC main_xy_move.IP OTE speed_regulator_off_during_move 
-XIC speed_regulator_off_during_move XIO near_ending MCCD X_Y MCCD_X_Y_Axis1 "Coordinated Move" Yes XY_SPEED_REQ "Units per sec" Yes XY_ACCELERATION "Units per sec2" Yes XY_DECELERATION "Units per sec2" No xy_regulated_accel_jerk No xy_regulated_decel_jerk "Units per sec3" "Active Motion" OTU speed_regulator_off_during_move 
-CMP STATE=3 CMP ABS(X_POSITION-X_axis.ActualPosition)<0.1 CMP ABS(Y_POSITION-Y_axis.ActualPosition)<0.1 OTE move_completed 
-XIC main_xy_move.ER CMP STATE=3 CPT ERROR_CODE 3003 CPT NEXTSTATE 10 CPT MOVE_TYPE 0 OTU main_xy_move.ER 
-XIC X_Y.MotionStatus CMP XY_SPEED=0 OTE speed_set_to_zero 
-XIC X_Y.MotionStatus XIO ALL_EOT_GOOD OTE eot_triggered 
-XIC eot_triggered MCS X_Y eot_stop_instruction All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 OTU eot_triggered 
-XIC speed_set_to_zero MCS X_Y gui_stop_instruction All Yes 1000 "Units per sec2" No 1000 "Units per sec3" OTU speed_set_to_zero 
-BST XIC move_completed NXB XIC gui_stop_instruction.PC BND CPT MOVE_TYPE 0 CPT NEXTSTATE 1 OTU move_completed MOV 0 main_xy_move.FLAGS MOV 0 gui_stop_instruction.FLAGS 
-XIC trigger_xy_move OTU trigger_xy_move 
+BST XIC TENSION_CONTROL_OK XIC speed_regulator_switch JSR xy_speed_regulator 0 NXB BST XIO TENSION_CONTROL_OK NXB XIC TENSION_CONTROL_OK XIO speed_regulator_switch BND XIC trigger_xy_move MCLM X_Y XY_AXIS_STAT[4] 0 X_POSITION XY_SPEED_REQ "Units per sec" XY_ACCELERATION "Units per sec2" XY_DECELERATION "Units per sec2" S-Curve 100 100 "% of Time" 0 Disabled Programmed 50 0 None 0 0 BND 
+XIC speed_regulator_switch OSF oneshotsb[13] oneshotob[13] 
+XIC oneshotob[13] XIO near_ending MCCD X_Y MCCD_X_Y_Axis1 "Coordinated Move" Yes XY_SPEED_REQ "Units per sec" Yes XY_ACCELERATION "Units per sec2" Yes XY_DECELERATION "Units per sec2" No xy_accel_jerk No xy_decel_jerk "Units per sec3" "Active Motion" 
+BST XIC XY_AXIS_STAT[4].PC NXB XIC XY_AXIS_STAT[4].ER BND BST CMP X_axis.ActualPosition<(X_POSITION+0.1) NXB XIC STATE3_IND CMP MOVE_TYPE=0 CPT ERROR_CODE 3003 BND OSR oneshotsb[5] oneshotob[5] 
+XIC XY_AXIS_STAT[4].IP CMP XY_SPEED=0 OSR oneshotsb[6] speed_set_to_zero 
+XIC XY_AXIS_STAT[4].IP XIO ALL_EOT_GOOD OSR oneshotsb[8] eot_triggered 
+XIC eot_triggered MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 
+XIC eot_triggered MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 
+XIC speed_set_to_zero MCS X_Y XY_AXIS_STAT[5] All Yes 1000 "Units per sec2" No 1000 "Units per sec3" 
+XIC XY_AXIS_STAT[5].PC OSR oneshotsb[7] oneshotob[7] 
+BST XIC oneshotob[5] NXB XIC oneshotob[7] BND CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
 

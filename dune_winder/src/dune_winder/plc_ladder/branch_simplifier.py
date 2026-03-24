@@ -61,6 +61,7 @@ class RoutineSimplificationResult:
   changed: bool
   original_rung_count: int
   emitted_rung_count: int
+  helper_tags: tuple[str, ...]
   issues: tuple[SimplificationIssue, ...]
 
 
@@ -70,7 +71,15 @@ class FileSimplificationResult:
   changed: bool
   original_rung_count: int
   emitted_rung_count: int
+  helper_tags: tuple[str, ...]
   issues: tuple[SimplificationIssue, ...]
+
+
+@dataclass(frozen=True)
+class HelperLoweringPlan:
+  prefix: tuple[InstructionCall, ...]
+  branch_paths: tuple[tuple[InstructionCall, ...], ...]
+  suffix: tuple[InstructionCall, ...]
 
 
 def iter_pasteable_files(root: Path):
@@ -102,29 +111,52 @@ def simplify_text(
 def simplify_routine(routine: Routine) -> RoutineSimplificationResult:
   emitter = RllEmitter()
   issues: list[SimplificationIssue] = []
+  helper_tags: list[str] = []
   new_rungs: list[Rung] = []
   changed = False
+  helper_index = 1
 
   for rung_number, rung in enumerate(routine.rungs, start=1):
     if not _contains_branch(rung.nodes):
       new_rungs.append(rung)
       continue
 
-    reason = _rung_blocker_reason(rung.nodes)
-    if reason is not None:
+    branch_side_effect_opcode = _first_branch_side_effect_opcode(rung.nodes)
+    if branch_side_effect_opcode is not None:
       new_rungs.append(rung)
       issues.append(
         SimplificationIssue(
           rung_number=rung_number,
-          reason=reason,
+          reason=f"branch path contains side-effect opcode {branch_side_effect_opcode}",
           source_rung=emitter.emit_rung(rung).strip(),
         )
       )
       continue
 
-    expanded = _expand_nodes(rung.nodes)
-    changed = changed or len(expanded) != 1 or expanded[0] != rung.nodes
-    new_rungs.extend(Rung(nodes=nodes) for nodes in expanded)
+    duplicate_reason = _duplicate_blocker_reason(rung.nodes)
+    if duplicate_reason is None:
+      expanded = _expand_nodes(rung.nodes)
+      changed = changed or len(expanded) != 1 or expanded[0] != rung.nodes
+      new_rungs.extend(Rung(nodes=nodes) for nodes in expanded)
+      continue
+
+    helper_plan = _helper_lowering_plan(rung.nodes)
+    if helper_plan is not None:
+      helper_name = _make_helper_name(routine.name, helper_index)
+      helper_index += 1
+      helper_tags.append(helper_name)
+      new_rungs.extend(_lower_with_helper(helper_plan, helper_name))
+      changed = True
+      continue
+
+    new_rungs.append(rung)
+    issues.append(
+      SimplificationIssue(
+        rung_number=rung_number,
+        reason=duplicate_reason,
+        source_rung=emitter.emit_rung(rung).strip(),
+      )
+    )
 
   return RoutineSimplificationResult(
     routine=Routine(
@@ -136,6 +168,7 @@ def simplify_routine(routine: Routine) -> RoutineSimplificationResult:
     changed=changed,
     original_rung_count=len(routine.rungs),
     emitted_rung_count=len(new_rungs),
+    helper_tags=tuple(helper_tags),
     issues=tuple(issues),
   )
 
@@ -157,6 +190,7 @@ def simplify_file(path: str | Path, *, write_changes: bool = False) -> FileSimpl
     changed=result.changed,
     original_rung_count=result.original_rung_count,
     emitted_rung_count=result.emitted_rung_count,
+    helper_tags=result.helper_tags,
     issues=result.issues,
   )
 
@@ -168,11 +202,7 @@ def _contains_branch(nodes: tuple[Node, ...]) -> bool:
   return False
 
 
-def _rung_blocker_reason(nodes: tuple[Node, ...]) -> str | None:
-  branch_side_effect_opcode = _first_branch_side_effect_opcode(nodes)
-  if branch_side_effect_opcode is not None:
-    return f"branch path contains side-effect opcode {branch_side_effect_opcode}"
-
+def _duplicate_blocker_reason(nodes: tuple[Node, ...]) -> str | None:
   unsupported_opcode = _first_unsupported_opcode(nodes)
   if unsupported_opcode is not None:
     return f"rung contains opcode {unsupported_opcode} that is not safe to duplicate"
@@ -194,6 +224,65 @@ def _first_branch_side_effect_opcode(nodes: tuple[Node, ...]) -> str | None:
       if opcode is not None:
         return opcode
   return None
+
+
+def _helper_lowering_plan(nodes: tuple[Node, ...]) -> HelperLoweringPlan | None:
+  branch_indexes = [index for index, node in enumerate(nodes) if isinstance(node, Branch)]
+  if len(branch_indexes) != 1:
+    return None
+
+  branch_index = branch_indexes[0]
+  prefix_nodes = nodes[:branch_index]
+  branch_node = nodes[branch_index]
+  suffix_nodes = nodes[branch_index + 1:]
+
+  if not isinstance(branch_node, Branch):
+    return None
+  if not suffix_nodes:
+    return None
+  if any(not isinstance(node, InstructionCall) or node.opcode not in CONDITION_OPCODES for node in prefix_nodes):
+    return None
+  if any(not isinstance(node, InstructionCall) for node in suffix_nodes):
+    return None
+
+  branch_paths: list[tuple[InstructionCall, ...]] = []
+  for branch_nodes in branch_node.branches:
+    for expanded_path in _expand_nodes(branch_nodes):
+      if any(not isinstance(node, InstructionCall) or node.opcode not in CONDITION_OPCODES for node in expanded_path):
+        return None
+      branch_paths.append(tuple(expanded_path))
+
+  if not branch_paths:
+    return None
+
+  return HelperLoweringPlan(
+    prefix=tuple(prefix_nodes),
+    branch_paths=tuple(branch_paths),
+    suffix=tuple(suffix_nodes),
+  )
+
+
+def _make_helper_name(routine_name: str, index: int) -> str:
+  sanitized = re.sub(r"[^A-Za-z0-9_]+", "_", routine_name).strip("_")
+  if not sanitized:
+    sanitized = "routine"
+  return f"auto_{sanitized}_branch_{index:03d}"
+
+
+def _lower_with_helper(plan: HelperLoweringPlan, helper_name: str) -> list[Rung]:
+  lowered = [Rung(nodes=(InstructionCall(opcode="OTU", operands=(helper_name,)),))]
+  for branch_path in plan.branch_paths:
+    lowered.append(
+      Rung(
+        nodes=tuple(plan.prefix + branch_path + (InstructionCall(opcode="OTL", operands=(helper_name,)),))
+      )
+    )
+  lowered.append(
+    Rung(
+      nodes=(InstructionCall(opcode="XIC", operands=(helper_name,)),) + plan.suffix
+    )
+  )
+  return lowered
 
 
 def _first_non_condition_opcode(nodes: tuple[Node, ...]) -> str | None:

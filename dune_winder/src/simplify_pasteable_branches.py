@@ -14,8 +14,10 @@ def build_argument_parser():
   parser = argparse.ArgumentParser(
     description=(
       "Expand condition-only BST/NXB/BND branches in pasteable.rll files into "
-      "plain ladder rungs. Branches that would need JMP/LBL lowering are "
-      "reported and left unchanged."
+      "plain ladder rungs. When a shared suffix should not be duplicated, "
+      "the simplifier emits generated helper BOOL tags and rewrites the rung "
+      "through OTU/OTL/XIC helper logic. Branches that still need JMP/LBL "
+      "lowering are reported and left unchanged."
     )
   )
   parser.add_argument(
@@ -55,6 +57,7 @@ def main(argv=None):
 
   changed_files = 0
   flagged_rungs = 0
+  helper_tags = 0
   processed_files = 0
 
   for path in _iter_targets(target):
@@ -69,6 +72,10 @@ def main(argv=None):
       )
       changed_files += 1
 
+    if report.helper_tags:
+      print(f"helper BOOL tags needed for {path}: {', '.join(report.helper_tags)}")
+      helper_tags += len(report.helper_tags)
+
     for issue in report.issues:
       print(f"flagged {path}:{issue.rung_number}: {issue.reason}")
       print(f"  {issue.source_rung}")
@@ -81,6 +88,7 @@ def main(argv=None):
   print(
     f"processed {processed_files} file(s), "
     f"{changed_files} changed, "
+    f"{helper_tags} helper tag(s), "
     f"{flagged_rungs} rung(s) flagged"
   )
 
