@@ -14,6 +14,7 @@ dependencies = [
 dune-winder = "dune_winder.main:main"
 plc-rung-transform = "dune_winder.plc_rung_transform:main"
 plc-import = "dune_winder.plc_import:main"
+plc-manifest = "dune_winder.plc_manifest:main"
 
 [build-system]
 requires = ["setuptools>=68"]
