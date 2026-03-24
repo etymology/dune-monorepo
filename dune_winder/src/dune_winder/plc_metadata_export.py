@@ -268,6 +268,14 @@ def write_plc_snapshot(snapshot, output_root):
         program_root / subroutine_name / "studio_copy.rllscrap"
       )
 
+  from dune_winder.plc_manifest import PlcManifest
+  manifest = PlcManifest(root)
+  manifest.load()
+  manifest.update_tag_metadata(None)
+  for program_name in snapshot["programs"]:
+    manifest.update_tag_metadata(program_name)
+  manifest.save()
+
 
 def build_argument_parser():
   parser = argparse.ArgumentParser(
