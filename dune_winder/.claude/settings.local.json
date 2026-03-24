@@ -31,7 +31,19 @@
       "Bash(rm -rf /tmp/rll-vsix-build)",
       "Bash(uv sync:*)",
       "Bash(cmd /c \"uv sync 2>&1\")",
-      "Bash(python -c \"from dune_winder.plc_import import build_argument_parser; p = build_argument_parser\\(\\); p.print_help\\(\\)\")"
+      "Bash(python -c \"from dune_winder.plc_import import build_argument_parser; p = build_argument_parser\\(\\); p.print_help\\(\\)\")",
+      "Bash(xargs grep:*)",
+      "Bash(uv run:*)",
+      "Read(//c/Users/DuneAdmin/AppData/Roaming/uv/**)",
+      "Read(//c/Users/Dune Admin/AppData/Roaming/uv/**)",
+      "Read(//c/Users/Dune Admin/.local/**)",
+      "Bash(cmd.exe /c \"uv run python -m unittest discover -s tests -k plc_ladder 2>&1\")",
+      "Bash(cmd.exe /c \"where uv\")",
+      "Bash(cmd.exe /c \"cd C:\\\\DUNE\\\\py3-ex-UK\\\\dune_winder && uv run python -m unittest discover -s tests 2>&1\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\DUNE\\\\py3-ex-UK\\\\dune_winder''; uv run python -m unittest discover -s tests 2>&1\")",
+      "Bash(powershell.exe -Command \"Get-Command uv -ErrorAction SilentlyContinue; \\(Get-Item ''C:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\uv\\\\bin\\\\uv.exe'' -ErrorAction SilentlyContinue\\) | Select FullName\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\Dune Admin\\\\'' -Recurse -Name ''uv.exe'' -ErrorAction SilentlyContinue | Select-Object -First 5\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\'' -Recurse -Name ''uv.exe'' -ErrorAction SilentlyContinue | Select-Object -First 5\")"
     ]
   }
 }

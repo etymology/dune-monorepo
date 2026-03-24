@@ -5,4 +5,8 @@
     "files.watcherExclude": {
         "**/target": true
     }
+    {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+        "python.usePythonEnvironmentsExtension": true
+    }
 }
