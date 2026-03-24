@@ -76,6 +76,7 @@
       manualCalibrationSetCornerOffset: "process.manual_calibration.set_corner_offset",
       manualCalibrationSetTransferPause: "process.manual_calibration.set_transfer_pause",
       manualCalibrationSetIncludeLeadMode: "process.manual_calibration.set_include_lead_mode",
+      manualCalibrationSetStripG113Params: "process.manual_calibration.set_strip_g113_params",
       manualCalibrationClearGXDraft: "process.manual_calibration.clear_gx_draft",
       manualCalibrationGenerateRecipeFile: "process.manual_calibration.generate_recipe_file",
       manualCalibrationStartNew: "process.manual_calibration.start_new",
