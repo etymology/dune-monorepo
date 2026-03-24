@@ -13,6 +13,7 @@ dependencies = [
 [project.scripts]
 dune-winder = "dune_winder.main:main"
 plc-rung-transform = "dune_winder.plc_rung_transform:main"
+plc-import = "dune_winder.plc_import:main"
 
 [build-system]
 requires = ["setuptools>=68"]

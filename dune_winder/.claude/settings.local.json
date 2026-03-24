@@ -29,7 +29,9 @@
       "Bash(rm -rf ~/.vscode/extensions/rll-syntax-0.0.1)",
       "Bash(rm -f ~/rll-syntax-0.0.1.vsix)",
       "Bash(rm -rf /tmp/rll-vsix-build)",
-      "Bash(uv sync:*)"
+      "Bash(uv sync:*)",
+      "Bash(cmd /c \"uv sync 2>&1\")",
+      "Bash(python -c \"from dune_winder.plc_import import build_argument_parser; p = build_argument_parser\\(\\); p.print_help\\(\\)\")"
     ]
   }
 }
