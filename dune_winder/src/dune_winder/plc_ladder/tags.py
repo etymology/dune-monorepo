@@ -177,11 +177,10 @@ class TagStore:
       return value
 
     bit_value = 1 if bool(new_value) else 0
-    raw_value = int(value)
+    raw_value = int(current)
     if bit_value:
       return raw_value | (1 << final_index)
     return raw_value & ~(1 << final_index)
-    return value
 
   def _seed_tag_value(self, definition: TagDefinition):
     if definition.tag_type == "struct" and definition.udt_name is not None:
