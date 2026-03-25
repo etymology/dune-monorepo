@@ -85,6 +85,8 @@ class PLC_Logic:
     7001: "Homing Latch State, Z Stage Not Present",
     7002: "Homing Latch State, Latch did not move to home position",
     8000: "Unlock Latch Motor Successful",
+    8001: "Wire broke",
+    8002: "Wire over-tensioned",
   }
 
   # ---------------------------------------------------------------------
@@ -496,9 +498,17 @@ class PLC_Logic:
     self._state = PLC.Tag(plc, "STATE", attributes, tagType="DINT")
     self._errorCode = PLC.Tag(plc, "ERROR_CODE", attributes, tagType="DINT")
     self._headLatchState = PLC.Tag(plc, "HEAD_POS", attributes, tagType="DINT")
-    self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS",attributes, tagType="DINT")
-    self._moveType = PLC.Tag(plc, "MOVE_TYPE",attributes, tagType="INT")
+    self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS", attributes, tagType="DINT")
+    self._moveType = PLC.Tag(plc, "MOVE_TYPE", attributes, tagType="INT")
     self._yTransferOk = PLC.Tag(plc, "Y_XFER_OK", attributes, tagType="DINT")
+
+    machineStatus = PLC.Tag.Attributes()
+    machineStatus.canWrite = False
+    machineStatus.defaultValue = 0
+    self._zStageLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[6]", machineStatus)
+    self._zFixedLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[7]", machineStatus)
+    self._zStagePresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[9]", machineStatus)
+    self._zFixedPresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[10]", machineStatus)
 
     self._maxXY_Velocity = PLC.Tag(plc, "XY_SPEED", tagType="REAL")
     self._maxXY_Acceleration = PLC.Tag(plc, "XY_ACCELERATION", tagType="REAL")
@@ -509,7 +519,9 @@ class PLC_Logic:
 
     writeOnly = PLC.Tag.Attributes()
     writeOnly.canRead = False
-    self._xzPositionTarget = PLC.Tag(plc, "xz_position_target", writeOnly, tagType="REAL[2]")
+    self._xzPositionTarget = PLC.Tag(
+      plc, "xz_position_target", writeOnly, tagType="REAL[2]"
+    )
 
     self._velocity = 0.0
     self._maxAcceleration = 0
