@@ -41,10 +41,27 @@ def create_sim_plc_backend(plcAddress="SIM", plcSimEngine="LEGACY"):
   return SimulatedPLC(plcAddress)
 
 
-def create_plc_backend(plcAddress, plcMode="REAL", plcSimEngine="LEGACY"):
+def create_shadow_plc_backend(plcAddress):
+  """Wrap a real ControllogixPLC with two shadow LadderSimulatedPLC backends."""
+  from dune_winder.io.devices.controllogix_plc import ControllogixPLC
+  from dune_winder.io.devices.ladder_simulated_plc import LadderSimulatedPLC
+  from dune_winder.io.devices.shadow_plc import ShadowPLC
+
+  real = ControllogixPLC(plcAddress)
+  shadow_ast = LadderSimulatedPLC("SHADOW_AST", routine_backend="ast")
+  shadow_imp = LadderSimulatedPLC("SHADOW_IMP", routine_backend="imperative")
+  return ShadowPLC(plcAddress, real, shadow_ast, shadow_imp)
+
+
+def create_plc_backend(
+  plcAddress, plcMode="REAL", plcSimEngine="LEGACY", plcShadowMode=False
+):
   mode = normalize_plc_mode(plcMode)
   if mode == "SIM":
     return create_sim_plc_backend(plcAddress, plcSimEngine=plcSimEngine)
+
+  if plcShadowMode:
+    return create_shadow_plc_backend(plcAddress)
 
   from dune_winder.io.devices.controllogix_plc import ControllogixPLC
 
