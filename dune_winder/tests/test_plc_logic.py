@@ -76,6 +76,42 @@ class PLCLogicTests(unittest.TestCase):
       ],
     )
 
+  def test_high_z_seek_pre_latches_fixed_side_before_move(self):
+    plc = _FreshReadPLC()
+    plc.read_values["MACHINE_SW_STAT[7]"] = 1
+    plc.read_values["ACTUATOR_POS"] = 0
+    zAxis = PLC_Motor("zAxis", plc, "Z")
+    logic = PLC_Logic(plc, object(), zAxis)
+    clock = {"now": 0.0}
+    logic._clock = lambda: clock["now"]
+    logic.setSafeZLatchTiming(0.25, 1.0)
+
+    logic.setZ_Position(415.0, velocity=250.0)
+
+    self.assertFalse(logic.isReady())
+    self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
+
+    plc.write_calls.clear()
+    plc.read_values["ACTUATOR_POS"] = 1
+    clock["now"] = 0.05
+    logic.poll()
+    self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
+
+    plc.write_calls.clear()
+    plc.read_values["ACTUATOR_POS"] = 2
+    clock["now"] = 0.10
+    logic.poll()
+    self.assertEqual(
+      plc.write_calls,
+      [
+        ("Z_SPEED", 250.0),
+        ("Z_DIR", 0),
+        ("Z_POSITION", 415.0),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.RESET),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.SEEK_Z),
+      ],
+    )
+
   def test_z_jog_pulses_move_type_for_reverse_direction(self):
     plc = _FreshReadPLC()
     zAxis = PLC_Motor("zAxis", plc, "Z")
