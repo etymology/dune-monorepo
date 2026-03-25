@@ -50,5 +50,4 @@ XIC oneshotsb[12] XIO LatchingTimeoutCounter.DN XIO TimeoutTimer1.TT TON Timeout
 XIC oneshotsb[12] XIO LatchingTimeoutCounter.DN XIC TimeoutTimer1.TT CTU LatchingTimeoutCounter ? ? 
 XIC LatchingTimeoutCounter.DN OSR oneshotsb[3] oneshotob[3] 
 XIC oneshotob[3] CMP STATE=6 CPT ERROR_CODE 6002 CPT NEXTSTATE 10 
-XIO Local:1:I.Pt08.Data OTE MACHINE_SW_STAT[12] OTE LATCH_ACTUATOR_TOP 
 
