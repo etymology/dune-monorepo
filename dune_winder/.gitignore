@@ -16,3 +16,4 @@ dist-newstyle/
 .ghc.environment.*
 
 gc_files/*
+shadow_plc_errors.log
