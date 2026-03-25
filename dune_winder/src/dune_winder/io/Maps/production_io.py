@@ -14,7 +14,9 @@ from dune_winder.io.devices.plc_backend import normalize_plc_sim_engine
 
 class ProductionIO(BaseIO):
   # ---------------------------------------------------------------------
-  def __init__(self, plcAddress, plcMode="REAL", plcSimEngine="LEGACY"):
+  def __init__(
+    self, plcAddress, plcMode="REAL", plcSimEngine="LEGACY", plcShadowMode=False
+  ):
     """
     Constructor.
     Only need to create the correct type of PLC and call the base I/O
@@ -26,6 +28,7 @@ class ProductionIO(BaseIO):
       plcAddress,
       self.plcMode,
       plcSimEngine=self.plcSimEngine,
+      plcShadowMode=bool(plcShadowMode),
     )
     BaseIO.__init__(self, plc)
 

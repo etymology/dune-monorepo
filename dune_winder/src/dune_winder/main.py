@@ -296,14 +296,17 @@ def main():
   # Setup log file.
   log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
   log.add("Main", "START", "Control system starts.")
+  plcShadowMode = bool(configuration.plcShadowMode)
   log.add("Main", "PLC_MODE", "PLC backend mode selected.", [plcMode])
   log.add("Main", "PLC_SIM_ENGINE", "PLC simulator engine selected.", [plcSimEngine])
+  log.add("Main", "PLC_SHADOW_MODE", "PLC shadow mode.", [plcShadowMode])
 
   try:
     io = ProductionIO(
       configuration.plcAddress,
       plcMode=plcMode,
       plcSimEngine=plcSimEngine,
+      plcShadowMode=plcShadowMode,
     )
 
     # Use low-level I/O to avoid warning.
