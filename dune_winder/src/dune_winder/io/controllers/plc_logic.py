@@ -94,6 +94,16 @@ class PLC_Logic:
   }
 
   # ---------------------------------------------------------------------
+  @staticmethod
+  def _enumName(enumClass, value):
+    for name, enumValue in vars(enumClass).items():
+      if name.startswith("_"):
+        continue
+      if enumValue == value:
+        return name
+    return "UNKNOWN(" + str(value) + ")"
+
+  # ---------------------------------------------------------------------
   def isReady(self):
     """
     Check to see if the PLC is in a ready state.  This can be used to determine
@@ -124,6 +134,42 @@ class PLC_Logic:
       True if in error, False if not.
     """
     return self._localErrorCode != 0 or self.States.ERROR == self._state.get()
+
+  # ---------------------------------------------------------------------
+  def getStateName(self):
+    """
+    Return the PLC state name.
+    """
+    return self._enumName(self.States, self.getState())
+
+  # ---------------------------------------------------------------------
+  def getMoveTypeName(self):
+    """
+    Return the PLC move-type name.
+    """
+    return self._enumName(self.MoveTypes, self.getMoveType())
+
+  # ---------------------------------------------------------------------
+  def getReadinessBlocker(self):
+    """
+    Return structured detail describing why the PLC controller is not ready.
+    """
+    if self.isReady():
+      return None
+
+    blocker = {
+      "state": self.getStateName(),
+      "moveType": self.getMoveTypeName(),
+      "errorCode": int(self.getErrorCode()),
+    }
+
+    if blocker["errorCode"] != 0:
+      blocker["errorMessage"] = self.getErrorCodeString()
+
+    if self._queuedSafeZMove is not None:
+      blocker["queuedSafeZMove"] = dict(self._queuedSafeZMove)
+
+    return blocker
 
   # ---------------------------------------------------------------------
   def stopSeek(self):

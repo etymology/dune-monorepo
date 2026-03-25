@@ -31,10 +31,20 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 123.4, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
 
-  def test_latch_move_sets_busy_then_updates_actuator_and_head(self):
+  def test_latch_move_uses_stage_to_fixed_transient_position_three(self):
     plc = SimulatedPLC()
     plc.set_tag("HEAD_POS", 0)
     plc.set_tag("ACTUATOR_POS", 1)
+
+    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_LATCH))
+    self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_LATCHING)
+    self._settle_once(plc)
+
+    self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
+    self.assertEqual(plc.get_tag("MACHINE_SW_STAT[6]"), 0)
+    self.assertEqual(plc.get_tag("MACHINE_SW_STAT[7]"), 1)
 
     plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_LATCH))
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_LATCHING)
@@ -52,7 +62,8 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.write(("gui_latch_pulse", 1))
 
     self.assertEqual(plc.get_tag("gui_latch_pulse"), 0)
-    self.assertNotEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
+    self.assertEqual(plc.get_tag("MACHINE_SW_STAT[7]"), 1)
 
   def test_limit_violations_set_error_and_reset_clears(self):
     plc = SimulatedPLC()
@@ -91,6 +102,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
     plc.write(("xz_position_target", [321.0, 210.5]))
     plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_XZ))
+    self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)

@@ -113,7 +113,7 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
     self.assertTrue(plc.get_tag("main_xy_move.PC"))
 
-  def test_latch_stub_cycles_positions_without_stalling_state_machine(self):
+  def test_latch_stub_uses_stage_to_fixed_transient_position_three(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("HEAD_POS", 0)
     plc.set_tag("ACTUATOR_POS", 0)
@@ -127,19 +127,23 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
+    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[6]"))
+    self.assertFalse(plc.get_tag("MACHINE_SW_STAT[7]"))
 
     plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
     self._advance(plc)
     self.assertEqual(plc.get_tag("PREV_ACT_POS"), 1)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
-    self.assertEqual(plc.get_tag("HEAD_POS"), 3)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
+    self.assertFalse(plc.get_tag("MACHINE_SW_STAT[6]"))
+    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[7]"))
 
     plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
     self._advance(plc)
-    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 2)
+    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 3)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
 
   def test_gui_latch_pulse_advances_stub_and_auto_clears(self):
@@ -150,7 +154,8 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc.write(("gui_latch_pulse", 1))
 
     self.assertFalse(plc.get_tag("gui_latch_pulse"))
-    self.assertNotEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
+    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[7]"))
 
   def test_latch_home_and_unlock_stub_update_homed_status(self):
     plc = LadderSimulatedPLC("SIM")
