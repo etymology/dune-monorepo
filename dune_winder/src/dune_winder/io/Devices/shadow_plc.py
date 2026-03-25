@@ -112,6 +112,21 @@ class ShadowPLC(PLC):
   # per Python cycle.  15 gives a small headroom for transient bursts.
   _MAX_CATCHUP_SCANS = 15
 
+  # States where rung-logic comparison is meaningful.  During active
+  # motion (XY_MOVE, XY_MOVING, Z_MOVE, Z_MOVING, LATCHING, etc.) the
+  # shadow's software motion simulation runs at a different speed than
+  # real hardware, so STATE and MOVE_TYPE will diverge purely due to
+  # timing — not logic bugs.  Restricting comparison to quiescent states
+  # eliminates that noise while still catching genuine rung errors that
+  # manifest at rest (wrong steady state, spurious transitions, bad
+  # error codes, incorrect queue tags).
+  _QUIESCENT_STATES = frozenset({
+    0,   # INIT
+    1,   # READY
+    10,  # ERROR
+    11,  # EOT
+  })
+
   # ------------------------------------------------------------------
   def __init__(self, ipAddress: str, real, shadow_ast, shadow_imp):
     """
@@ -247,7 +262,21 @@ class ShadowPLC(PLC):
             pass  # unknown tag in this shadow instance — skip silently
 
   def _compare_and_log(self, snapshot: dict[str, Any]):
-    """Read both shadows' post-scan values and log any mismatches."""
+    """Read both shadows' post-scan values and log any mismatches.
+
+    Comparison is gated on the real PLC being in a quiescent state
+    (_QUIESCENT_STATES).  During active motion the shadow's software
+    physics simulation runs at a different speed than real hardware, so
+    STATE and MOVE_TYPE diverge purely due to timing, not logic errors.
+    Only comparing at rest ensures every logged mismatch is actionable.
+    """
+    real_state = snapshot.get("STATE")
+    if real_state is not None and int(real_state) not in self._QUIESCENT_STATES:
+      _logger.debug(
+        "Shadow: skipping comparison — real STATE=%s (active motion)", real_state
+      )
+      return
+
     ast_vals: dict[str, Any] = {}
     imp_vals: dict[str, Any] = {}
 
