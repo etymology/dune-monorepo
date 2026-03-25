@@ -1,4 +1,4 @@
-XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION v_max "Units per sec" xy_regulated_acceleration "Units per sec2" xy_regulated_deceleration "Units per sec2" S-Curve xy_regulated_accel_jerk xy_regulated_decel_jerk "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 
+XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION v_max "Units per sec" xy_regulated_acceleration "Units per sec2" xy_regulated_deceleration "Units per sec2" S-Curve xy_regulated_accel_jerk xy_decel_jerk "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 
 XIC trigger_xy_move MOV xy_dt regulator_loop_timer.PRE MOV xy_d_dt xy_d_timer.PRE MOV 0 xy_i_term 
 XIO regulator_loop_timer.DN TON regulator_loop_timer ? ? 
 XIO xy_d_timer.DN TON xy_d_timer ? ? 
