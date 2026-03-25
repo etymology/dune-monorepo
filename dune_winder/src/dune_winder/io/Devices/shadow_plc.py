@@ -217,49 +217,60 @@ class ShadowPLC(PLC):
   def _shadow_compare(self, snapshot: dict[str, Any]):
     try:
       for shadow in (self._shadow_ast, self._shadow_imp):
-        self._sync_physics(shadow, snapshot)
         with shadow._lock:
-          self._run_to_stable(shadow)
+          self._run_to_stable(shadow, snapshot)
       self._compare_and_log(snapshot)
     except Exception:
       _logger.exception("Shadow scan failed; skipping this cycle")
 
-  def _run_to_stable(self, shadow) -> None:
-    """Run shadow scans until MOVE_TYPE clears and STATE stops changing.
+  def _run_to_stable(self, shadow, snapshot: dict[str, Any]) -> None:
+    """Run shadow scans with physics anchored to the real-PLC snapshot.
 
-    The real PLC may process a command write and complete a state
-    transition within a single ~10 ms scan.  Running multiple shadow
-    scans per Python poll cycle lets the shadow catch up with those
-    rapid real-PLC transitions, reducing timing-window false positives.
+    Physics are re-injected before EVERY scan so that the shadow's
+    motion state stays pinned to what real hardware actually observed,
+    rather than to the simulator's own physics engine.  This prevents
+    both failure modes seen in practice:
+
+    Over-advance (sim finishes motion before hardware):
+      advance_runtime() would move the virtual axis to its target and
+      set CoordinatedMotionStatus=False, causing early STATE→READY.
+      With advance_runtime=False the axis position never drifts, and
+      CoordinatedMotionStatus stays at the injected real-PLC value
+      (True while hardware is still moving, False when it finishes).
+
+    Under-advance (hardware finishes before sim completes):
+      X_Y.MovePendingStatus / Z_axis.CoordinatedMotionStatus are
+      re-injected as False (move done), so the ladder logic sees
+      motion-complete on every scan and transitions STATE→READY
+      within 1–2 iterations.
 
     Caller must already hold shadow._lock.
     """
     prev_state = None
     for _ in range(self._MAX_CATCHUP_SCANS):
-      shadow._apply_scan(advance_runtime=True)
-      move_type = int(shadow._ctx.get_value("MOVE_TYPE"))
+      self._inject_physics_into_ctx(shadow._ctx, snapshot)
+      shadow._apply_scan(advance_runtime=False)
       state = int(shadow._ctx.get_value("STATE"))
-      if move_type == 0 and state == prev_state:
+      if state == prev_state:
         break
       prev_state = state
 
-  def _sync_physics(self, shadow, snapshot: dict[str, Any]):
-    """Inject hardware-driven tag values directly into the shadow tag store.
+  def _inject_physics_into_ctx(self, ctx, snapshot: dict[str, Any]) -> None:
+    """Write physics tags from the snapshot directly into a tag-store context.
 
-    Uses _ctx.set_value() rather than shadow.write() to bypass write
-    side-effects (e.g. writing MOVE_TYPE triggers state transitions;
-    writing HEAD_POS runs actuator validation).  MACHINE_SW_STAT bits
-    are synced here rather than being approximated by
-    _sync_builtin_inputs(), which removes the largest class of false
-    positives from the comparison.
+    Does NOT acquire any lock — callers must hold the relevant shadow._lock.
     """
+    for tag_name in self._PHYSICS_TAGS:
+      if tag_name in snapshot:
+        try:
+          ctx.set_value(tag_name, snapshot[tag_name])
+        except Exception:
+          pass  # unknown tag in this shadow instance — skip silently
+
+  def _sync_physics(self, shadow, snapshot: dict[str, Any]):
+    """Inject physics under the shadow lock (kept for external callers)."""
     with shadow._lock:
-      for tag_name in self._PHYSICS_TAGS:
-        if tag_name in snapshot:
-          try:
-            shadow._ctx.set_value(tag_name, snapshot[tag_name])
-          except Exception:
-            pass  # unknown tag in this shadow instance — skip silently
+      self._inject_physics_into_ctx(shadow._ctx, snapshot)
 
   def _compare_and_log(self, snapshot: dict[str, Any]):
     """Read both shadows' post-scan values and log any mismatches.
