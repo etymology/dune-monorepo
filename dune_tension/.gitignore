@@ -1,0 +1,17 @@
+frequency_log_*
+__pycache__/
+.mypy_cache/
+settings.json
+audio/*
+venv/*
+images/*
+data/renamed_audio/*
+.venv/*
+data/tension_data/tension_data.db
+build
+src/dune_tension.egg-info/
+data/2025*
+rust/harmonic_comb/target/*
+src/data/2025*
+gui_state.json
+data/noise_filters/noise_filter.npz
