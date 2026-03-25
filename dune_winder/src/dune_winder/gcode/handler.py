@@ -744,7 +744,7 @@ class GCodeHandler(GCodeHandlerBase):
       return
 
     # If we are interrupting a running line, set it as the next line to run.
-    if not self._io.plcLogic.isReady():
+    if not self._io.plcLogic.isReady() and self._nextLine is not None:
       self._nextLine -= self._direction
 
   # ---------------------------------------------------------------------
