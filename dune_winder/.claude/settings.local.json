@@ -48,7 +48,13 @@
       "Bash(grep -r \"dispatch.*event\\\\|def handle\" /c/DUNE/py3-ex-UK/dune_winder/src/dune_winder/library/state_machine*.py --include=\"*.py\")",
       "Bash(find /c/DUNE/py3-ex-UK/dune_winder -type f -name *.toml -o -name configuration.xml -o -name *Calibration.xml)",
       "Bash(grep -E \"\\\\.json$\")",
-      "Bash(grep -l \"Grafana\\\\|grafana\\\\|influx\" /c/DUNE/py3-ex-UK/dune_winder/src/dune_winder/**/*.py)"
+      "Bash(grep -l \"Grafana\\\\|grafana\\\\|influx\" /c/DUNE/py3-ex-UK/dune_winder/src/dune_winder/**/*.py)",
+      "Bash(grep -r \"plc_rung_transform\\\\|plc_manifest\" c:/DUNE/py3-ex-UK/dune_winder --include=*.py)",
+      "Bash(python -c \"from src.dune_winder.library.app_config import AppConfig; c = AppConfig\\(\\); print\\(''plcShadowMode:'', c.plcShadowMode\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/ --ignore=tests/test_g_code_handler_safety.py -x -q)",
+      "Bash(python -m pytest tests/test_ladder_simulated_plc.py tests/test_plc_manifest.py tests/test_app_config.py -x -q)",
+      "Bash(/c/DUNE/bin/Python313/Scripts/uv run:*)"
     ]
   }
 }
