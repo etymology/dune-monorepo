@@ -36,6 +36,11 @@ class AppConfig:
   # PLC simulator engine to use when plcMode == "SIM".
   plcSimEngine: str = "LEGACY"
 
+  # Enable shadow PLC mode: runs both LadderSimulatedPLC backends (ast and
+  # imperative) alongside the real PLC and logs logic tag mismatches to
+  # shadow_plc_errors.log.  Has no effect when plcMode == "SIM".
+  plcShadowMode: bool = False
+
   # Camera FTP URL for last captured image.
   cameraURL: str = "ftp://admin@192.168.140.19/image.bmp"
 
