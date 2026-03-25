@@ -44,64 +44,73 @@ class ShadowPLC(PLC):
 
   # ------------------------------------------------------------------ #
   # Physics tags that are driven by hardware, not by ladder logic.
-  # These are synced FROM the real PLC INTO both shadow sims before each
-  # shadow scan so that _sync_builtin_inputs() can derive MACHINE_SW_STAT.
+  # Synced FROM the real PLC INTO both shadow sims before each shadow
+  # scan loop.  MACHINE_SW_STAT bits are included here because they come
+  # from physical sensors in MainProgram/main — the shadow's
+  # _sync_builtin_inputs() can only approximate them from positions.
+  # Injecting them directly is more accurate and removes false positives.
   # ------------------------------------------------------------------ #
-  _PHYSICS_TAGS = [
-    "X_axis.ActualPosition",
-    "X_axis.ActualVelocity",
-    "X_axis.CommandAcceleration",
-    "X_axis.CoordinatedMotionStatus",
-    "X_axis.DriveEnableStatus",
-    "X_axis.ModuleFault",
-    "X_axis.PhysicalAxisFault",
-    "Y_axis.ActualPosition",
-    "Y_axis.ActualVelocity",
-    "Y_axis.CommandAcceleration",
-    "Y_axis.CoordinatedMotionStatus",
-    "Y_axis.DriveEnableStatus",
-    "Y_axis.ModuleFault",
-    "Y_axis.PhysicalAxisFault",
-    "Z_axis.ActualPosition",
-    "Z_axis.ActualVelocity",
-    "Z_axis.CommandAcceleration",
-    "Z_axis.CoordinatedMotionStatus",
-    "Z_axis.DriveEnableStatus",
-    "Z_axis.ModuleFault",
-    "Z_axis.PhysicalAxisFault",
-    "X_Y.MovePendingStatus",
-    "X_Y.MovePendingQueueFullStatus",
-    "X_Y.PhysicalAxisFault",
-    "xz.MovePendingStatus",
-    "xz.MovePendingQueueFullStatus",
-    "xz.PhysicalAxisFault",
-    "HEAD_POS",
-    "ACTUATOR_POS",
-    "tension",
-    "v_xyz",
-    "tension_motor_cv",
-  ]
-
-  # ------------------------------------------------------------------ #
-  # Logic tags compared after each shadow scan.
-  # Motion instruction outputs and axis-drive fields are deliberately
-  # excluded — those are hardware-driven and never comparable.
-  # ------------------------------------------------------------------ #
-  _COMPARE_TAGS = (
+  _PHYSICS_TAGS = (
     [
-      "STATE",
-      "NEXTSTATE",
-      "ERROR_CODE",
-      "MOVE_TYPE",
-      "QueueCount",
-      "CurIssued",
-      "NextIssued",
-      "QueueFault",
-      "FaultCode",
-      "MotionFault",
+      "X_axis.ActualPosition",
+      "X_axis.ActualVelocity",
+      "X_axis.CommandAcceleration",
+      "X_axis.CoordinatedMotionStatus",
+      "X_axis.DriveEnableStatus",
+      "X_axis.ModuleFault",
+      "X_axis.PhysicalAxisFault",
+      "Y_axis.ActualPosition",
+      "Y_axis.ActualVelocity",
+      "Y_axis.CommandAcceleration",
+      "Y_axis.CoordinatedMotionStatus",
+      "Y_axis.DriveEnableStatus",
+      "Y_axis.ModuleFault",
+      "Y_axis.PhysicalAxisFault",
+      "Z_axis.ActualPosition",
+      "Z_axis.ActualVelocity",
+      "Z_axis.CommandAcceleration",
+      "Z_axis.CoordinatedMotionStatus",
+      "Z_axis.DriveEnableStatus",
+      "Z_axis.ModuleFault",
+      "Z_axis.PhysicalAxisFault",
+      "X_Y.MovePendingStatus",
+      "X_Y.MovePendingQueueFullStatus",
+      "X_Y.PhysicalAxisFault",
+      "xz.MovePendingStatus",
+      "xz.MovePendingQueueFullStatus",
+      "xz.PhysicalAxisFault",
+      "HEAD_POS",
+      "ACTUATOR_POS",
+      "tension",
+      "v_xyz",
+      "tension_motor_cv",
     ]
     + [f"MACHINE_SW_STAT[{i}]" for i in range(32)]
   )
+
+  # ------------------------------------------------------------------ #
+  # Logic tags compared after each shadow scan loop.
+  # Motion instruction outputs, axis-drive fields, and MACHINE_SW_STAT
+  # are deliberately excluded — those are hardware inputs, not outputs
+  # of the ladder logic being validated.
+  # ------------------------------------------------------------------ #
+  _COMPARE_TAGS = [
+    "STATE",
+    "NEXTSTATE",
+    "ERROR_CODE",
+    "MOVE_TYPE",
+    "QueueCount",
+    "CurIssued",
+    "NextIssued",
+    "QueueFault",
+    "FaultCode",
+    "MotionFault",
+  ]
+
+  # Maximum number of shadow scan iterations per poll cycle.  The real
+  # PLC runs at ~10 ms; Python polls at ~100 ms → up to ~10 real scans
+  # per Python cycle.  15 gives a small headroom for transient bursts.
+  _MAX_CATCHUP_SCANS = 15
 
   # ------------------------------------------------------------------
   def __init__(self, ipAddress: str, real, shadow_ast, shadow_imp):
@@ -195,17 +204,39 @@ class ShadowPLC(PLC):
       for shadow in (self._shadow_ast, self._shadow_imp):
         self._sync_physics(shadow, snapshot)
         with shadow._lock:
-          shadow._apply_scan(advance_runtime=True)
+          self._run_to_stable(shadow)
       self._compare_and_log(snapshot)
     except Exception:
       _logger.exception("Shadow scan failed; skipping this cycle")
 
+  def _run_to_stable(self, shadow) -> None:
+    """Run shadow scans until MOVE_TYPE clears and STATE stops changing.
+
+    The real PLC may process a command write and complete a state
+    transition within a single ~10 ms scan.  Running multiple shadow
+    scans per Python poll cycle lets the shadow catch up with those
+    rapid real-PLC transitions, reducing timing-window false positives.
+
+    Caller must already hold shadow._lock.
+    """
+    prev_state = None
+    for _ in range(self._MAX_CATCHUP_SCANS):
+      shadow._apply_scan(advance_runtime=True)
+      move_type = int(shadow._ctx.get_value("MOVE_TYPE"))
+      state = int(shadow._ctx.get_value("STATE"))
+      if move_type == 0 and state == prev_state:
+        break
+      prev_state = state
+
   def _sync_physics(self, shadow, snapshot: dict[str, Any]):
     """Inject hardware-driven tag values directly into the shadow tag store.
 
-    Uses _ctx.set_value() rather than shadow.write() to bypass the
-    _writeTag() side-effects (e.g. writing MOVE_TYPE triggers state
-    transitions; writing HEAD_POS runs actuator validation).
+    Uses _ctx.set_value() rather than shadow.write() to bypass write
+    side-effects (e.g. writing MOVE_TYPE triggers state transitions;
+    writing HEAD_POS runs actuator validation).  MACHINE_SW_STAT bits
+    are synced here rather than being approximated by
+    _sync_builtin_inputs(), which removes the largest class of false
+    positives from the comparison.
     """
     with shadow._lock:
       for tag_name in self._PHYSICS_TAGS:
