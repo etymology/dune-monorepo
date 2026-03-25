@@ -272,6 +272,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     self._ctx.set_value("STATE", self.STATE_READY)
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+    self._ctx.set_value("gui_latch_pulse", False)
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("INIT_DONE", True)
     self._ctx.set_value("HEAD_POS", 0)
@@ -416,14 +417,14 @@ class LadderSimulatedPLC(SimulatedPLC):
       "Local:1:I.Pt04.Data": zExtended,
       "Local:1:I.Pt06.Data": plusYEot,
       "Local:1:I.Pt07.Data": zEot,
-      "Local:1:I.Pt10.Data": not (headPos == 0),
+      "Local:1:I.Pt10.Data": False,
       "Local:1:I.Pt11.Data": headPos == 0,
       "Local:1:I.Pt12.Data": yTransfer,
       "Local:1:I.Pt13.Data": yTransfer,
       "Local:1:I.Pt15.Data": False,
       "Local:2:I.Pt00.Data": xTransfer,
       "Local:2:I.Pt01.Data": headPos == 3,
-      "Local:2:I.Pt02.Data": not (headPos == 3),
+      "Local:2:I.Pt02.Data": False,
       "Local:2:I.Pt04.Data": xPark,
       "Local:2:I.Pt06.Data": False,
       "Local:2:I.Pt08.Data": plusXEot,
@@ -619,6 +620,17 @@ class LadderSimulatedPLC(SimulatedPLC):
         self._ctx.set_value("STATE", nextState)
       elif moveType == self.MOVE_RESET and int(self._ctx.get_value("STATE")) == self.STATE_ERROR:
         self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+      return
+
+    if tagName == "gui_latch_pulse":
+      enabled = bool(self._coerceBit(value))
+      self._ctx.set_value(tagName, enabled)
+      if enabled:
+        if bool(self._readTagValue("MACHINE_SW_STAT[9]")) and bool(
+          self._readTagValue("MACHINE_SW_STAT[10]")
+        ):
+          self._advance_latch_stub()
+        self._ctx.set_value(tagName, False)
       return
 
     if tagName in ("STATE", "NEXTSTATE", "ERROR_CODE", "HEAD_POS", "ACTUATOR_POS"):

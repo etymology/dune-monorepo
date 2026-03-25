@@ -44,6 +44,16 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
 
+  def test_gui_latch_pulse_advances_latch_and_auto_clears(self):
+    plc = SimulatedPLC()
+    plc.set_tag("HEAD_POS", 0)
+    plc.set_tag("ACTUATOR_POS", 1)
+
+    plc.write(("gui_latch_pulse", 1))
+
+    self.assertEqual(plc.get_tag("gui_latch_pulse"), 0)
+    self.assertNotEqual(plc.get_tag("ACTUATOR_POS"), 1)
+
   def test_limit_violations_set_error_and_reset_clears(self):
     plc = SimulatedPLC()
     plc.write(("X_POSITION", 9000.0))

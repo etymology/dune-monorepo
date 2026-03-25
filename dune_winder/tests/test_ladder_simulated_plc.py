@@ -142,6 +142,16 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
 
+  def test_gui_latch_pulse_advances_stub_and_auto_clears(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.set_tag("HEAD_POS", 0)
+    plc.set_tag("ACTUATOR_POS", 1)
+
+    plc.write(("gui_latch_pulse", 1))
+
+    self.assertFalse(plc.get_tag("gui_latch_pulse"))
+    self.assertNotEqual(plc.get_tag("ACTUATOR_POS"), 1)
+
   def test_latch_home_and_unlock_stub_update_homed_status(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("HEAD_POS", 3)

@@ -5,6 +5,8 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
+import time
+
 from dune_winder.io.controllers.plc_logic import PLC_Logic
 
 
@@ -13,8 +15,10 @@ class Head:
     # Continuous states.
     IDLE = 0  # head is latched on one side, z retracted, done with moves
     SEEKING_TO_FINAL_POSITION = 1  # moving to final z position
-    EXTENDING_TO_TRANSFER = 2  # latching to transfer
-    LATCHING = 3  # latching to transfer
+    PRE_LATCHING = 2  # pulsing latch until actuator reaches transfer-safe 2
+    EXTENDING_TO_TRANSFER = 3  # waiting for z extension before transfer latch
+    LATCHING = 4  # waiting for latch pulses / actuator movement
+    ERROR = 5  # local latch timeout or other head-only failure
 
   # end class
 
@@ -36,13 +40,26 @@ class Head:
     self._retracted_z_position = 0
     self._front_z_position = 150
     self._back_z_position = 250
-    self._headLatchStateTag = self._plcLogic._headLatchState
+    self._stageLatchedTag = self._plcLogic._zStageLatchedBit
+    self._fixedLatchedTag = self._plcLogic._zFixedLatchedBit
+    self._stagePresentTag = self._plcLogic._zStagePresentBit
+    self._fixedPresentTag = self._plcLogic._zFixedPresentBit
+    self._actuatorPosTag = self._plcLogic._actuatorPosition
     self._zPosTag = self._plcLogic._zAxis._position
     self._velocity = 300
     self._headState = self.States.IDLE
     self._headPositionTarget = -1  # STAGE_SIDE/LEVEL_A_SIDE/LEVEL_B_SIDE/EXTENDED
     self._headZTarget = -1  # position in mm
-    self._headLatchTarget = -1  # 0 or 3
+    self._headLatchTarget = -1  # STAGE_SIDE or FIXED_SIDE
+    self._latchRetryIntervalSeconds = 1
+    self._latchTimeoutSeconds = 10.0
+    self._latchSafeExtendedZThreshold = 400.0
+    self._latchStateStartedAt = None
+    self._nextLatchPulseAt = None
+    self._latchWaitActuatorPos = None
+    self._preLatchZTarget = None
+    self._preLatchNextState = None
+    self._clock = time.monotonic
 
   def isReady(self):
     """
@@ -65,6 +82,280 @@ class Head:
     additional PLC commands.
     """
     self._headState = self.States.IDLE
+    self._resetLatchRetryState()
+
+  def setLatchTiming(self, retry_interval_seconds, timeout_seconds):
+    """
+    Configure local latch retry timing.
+    """
+    retryInterval = float(retry_interval_seconds)
+    timeout = float(timeout_seconds)
+    if retryInterval <= 0:
+      raise ValueError("Latch retry interval must be positive.")
+    if timeout <= 0:
+      raise ValueError("Latch timeout must be positive.")
+    self._latchRetryIntervalSeconds = retryInterval
+    self._latchTimeoutSeconds = timeout
+
+  def _resetLatchRetryState(self):
+    """
+    Clear local latch retry bookkeeping.
+    """
+    self._latchStateStartedAt = None
+    self._nextLatchPulseAt = None
+    self._latchWaitActuatorPos = None
+    self._preLatchZTarget = None
+    self._preLatchNextState = None
+
+  def _startLatchingState(self):
+    """
+    Initialize local latch retry bookkeeping.
+    """
+    now = self._clock()
+    self._latchStateStartedAt = now
+    self._nextLatchPulseAt = now
+    self._latchWaitActuatorPos = int(self._actuatorPosTag.get())
+
+  def _setLatchError(self, message):
+    """
+    Put the head controller into a local error state.
+    """
+    print("DEBUG: " + str(message))
+    self._resetLatchRetryState()
+    self._headState = self.States.ERROR
+
+  def _readTransferState(self):
+    """
+    Read the raw PLC tags that define head transfer state.
+    """
+    return {
+      "stagePresent": bool(self._stagePresentTag.get()),
+      "fixedPresent": bool(self._fixedPresentTag.get()),
+      "stageLatched": bool(self._stageLatchedTag.get()),
+      "fixedLatched": bool(self._fixedLatchedTag.get()),
+      "actuatorPos": int(self._actuatorPosTag.get()),
+    }
+
+  def _getCurrentSide(self):
+    """
+    Resolve which side the head is logically on from the raw PLC tags.
+
+    Returns:
+      STAGE_SIDE, FIXED_SIDE, or HEAD_ABSENT when neither final-side state is
+      currently satisfied.
+    """
+    state = self._readTransferState()
+
+    if not state["stagePresent"] and not state["fixedPresent"]:
+      return self.HEAD_ABSENT
+
+    if self._getCurrentTransferSide(
+      state
+    ) == self.FIXED_SIDE and self._isFixedFinalState(state):
+      return self.FIXED_SIDE
+
+    if self._getCurrentTransferSide(
+      state
+    ) == self.STAGE_SIDE and self._isStageFinalState(state):
+      return self.STAGE_SIDE
+
+    return self.HEAD_ABSENT
+
+  def _getCurrentTransferSide(self, state):
+    """
+    Resolve which side currently holds the head, even if the latch is not yet
+    in its final command-complete actuator position.
+    """
+    if not state["stagePresent"] and not state["fixedPresent"]:
+      return self.HEAD_ABSENT
+
+    if state["fixedPresent"] and state["fixedLatched"] and not state["stageLatched"]:
+      return self.FIXED_SIDE
+
+    if state["stagePresent"] and state["stageLatched"] and not state["fixedLatched"]:
+      return self.STAGE_SIDE
+
+    return self.HEAD_ABSENT
+
+  def _isStageFinalState(self, state):
+    """
+    Final stable state for P0 / P1 / P2.
+    """
+    return (
+      state["stagePresent"]
+      and state["stageLatched"]
+      and not state["fixedLatched"]
+      and state["actuatorPos"] == 1
+    )
+
+  def _isFixedFinalState(self, state):
+    """
+    Final stable state for P3.
+    """
+    return (
+      state["fixedPresent"]
+      and state["fixedLatched"]
+      and not state["stageLatched"]
+      and state["actuatorPos"] == 2
+    )
+
+  def _isTransferLatchTargetReached(self):
+    """
+    Check whether the transfer latch phase has reached the requested side.
+    """
+    state = self._readTransferState()
+
+    if self._headLatchTarget == self.FIXED_SIDE:
+      return self._isFixedFinalState(state)
+
+    if self._headLatchTarget == self.STAGE_SIDE:
+      return (
+        state["stagePresent"]
+        and state["stageLatched"]
+        and not state["fixedLatched"]
+        and state["actuatorPos"] == 2
+      )
+
+    raise ValueError("Unknown head latch target: " + str(self._headLatchTarget))
+
+  def _isFinalTargetStateReached(self):
+    """
+    Check whether the requested G106 target has reached its final state.
+    """
+    state = self._readTransferState()
+
+    if self._headPositionTarget in (
+      self.STAGE_SIDE,
+      self.LEVEL_A_SIDE,
+      self.LEVEL_B_SIDE,
+    ):
+      return self._isStageFinalState(state)
+
+    if self._headPositionTarget == self.FIXED_SIDE:
+      return self._isFixedFinalState(state)
+
+    raise ValueError("Unknown head position target: " + str(self._headPositionTarget))
+
+  def _isPreLatchTransferPositionReached(self, state):
+    """
+    Check whether the latch is in actuator position 2, which is required before
+    extending Z for transfer when the stage is not present.
+    """
+    return int(state["actuatorPos"]) == 2
+
+  def _requiresActuatorTwoBeforeZMove(self, target_z, state):
+    """
+    Any head-controlled Z move above the extension threshold must be issued
+    with the fixed latch already sitting in actuator position 2.
+    """
+    return (
+      float(target_z) > self._latchSafeExtendedZThreshold
+      and state["fixedLatched"]
+      and int(state["actuatorPos"]) != 2
+    )
+
+  def _startPreLatchingForZMove(self, target_z, next_state):
+    """
+    Enter the local pre-latch loop before a high-extension Z move.
+    """
+    self._preLatchZTarget = float(target_z)
+    self._preLatchNextState = next_state
+    self._startLatchingState()
+    self._headState = self.States.PRE_LATCHING
+    self._updatePreLatchingState()
+
+  def _commandZMove(self, target_z, next_state):
+    """
+    Issue a Z move immediately, or pre-latch first if that is required.
+    """
+    state = self._readTransferState()
+    if self._requiresActuatorTwoBeforeZMove(target_z, state):
+      self._startPreLatchingForZMove(target_z, next_state)
+      return
+
+    self._plcLogic.setZ_Position(target_z, self._velocity)
+    self._headState = next_state
+
+  def _updatePreLatchingState(self):
+    """
+    Pulse the latch until actuator position 2 is reached, then issue the
+    queued high-extension Z move.
+    """
+    state = self._readTransferState()
+
+    if self._isPreLatchTransferPositionReached(state):
+      targetZ = self._preLatchZTarget
+      nextState = self._preLatchNextState
+      self._resetLatchRetryState()
+      self._plcLogic.setZ_Position(targetZ, self._velocity)
+      self._headState = nextState
+      return
+
+    if self._latchStateStartedAt is None:
+      self._startLatchingState()
+
+    now = self._clock()
+    if now - self._latchStateStartedAt >= self._latchTimeoutSeconds:
+      self._setLatchError("Pre-latch transfer positioning timed out")
+      return
+
+    if state["actuatorPos"] != self._latchWaitActuatorPos:
+      self._latchWaitActuatorPos = state["actuatorPos"]
+      self._nextLatchPulseAt = now
+      if self._isPreLatchTransferPositionReached(state):
+        targetZ = self._preLatchZTarget
+        nextState = self._preLatchNextState
+        self._resetLatchRetryState()
+        self._plcLogic.setZ_Position(targetZ, self._velocity)
+        self._headState = nextState
+        return
+
+    if self._nextLatchPulseAt is not None and now < self._nextLatchPulseAt:
+      return
+
+    pulseSent = self._plcLogic.move_latch()
+    self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
+    if pulseSent:
+      return
+
+  def _updateLatchingState(self):
+    """
+    Drive the pulse-and-wait latch loop until the transfer target is reached.
+    """
+    state = self._readTransferState()
+
+    if self._isTransferLatchTargetReached():
+      self._resetLatchRetryState()
+      self._plcLogic.setZ_Position(self._headZTarget, self._velocity)
+      self._headState = self.States.SEEKING_TO_FINAL_POSITION
+      return
+
+    if self._latchStateStartedAt is None:
+      self._startLatchingState()
+
+    now = self._clock()
+    if now - self._latchStateStartedAt >= self._latchTimeoutSeconds:
+      self._setLatchError("Latch transfer timed out")
+      return
+
+    if state["actuatorPos"] != self._latchWaitActuatorPos:
+      self._latchWaitActuatorPos = state["actuatorPos"]
+      self._nextLatchPulseAt = now
+      if self._isTransferLatchTargetReached():
+        self._resetLatchRetryState()
+        self._plcLogic.setZ_Position(self._headZTarget, self._velocity)
+        self._headState = self.States.SEEKING_TO_FINAL_POSITION
+        return
+
+    if self._nextLatchPulseAt is not None and now < self._nextLatchPulseAt:
+      return
+
+    pulseSent = self._plcLogic.move_latch()
+    if pulseSent:
+      self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
+    else:
+      # Retry later, but never pulse while the transfer-present interlock is false.
+      self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
 
   def update(self):
     """
@@ -74,28 +365,27 @@ class Head:
     if self._headState == self.States.IDLE:
       # Do nothing.
       pass
+    elif self._headState == self.States.ERROR:
+      # Wait for an explicit clear/reset via stop() or a new command.
+      pass
     elif self._plcLogic.isError():
       # PLC hit an error mid-transfer; abort the queued sequence so that the
       # next command doesn't try to continue (e.g. latch before extending).
       self.clearQueuedTransfer()
     elif self._headState == self.States.SEEKING_TO_FINAL_POSITION:
       # This is the final seek to the target position.
-      if self._plcLogic.isReady():
+      if self._plcLogic.isReady() and self._isFinalTargetStateReached():
         self._headState = self.States.IDLE
+    elif self._headState == self.States.PRE_LATCHING:
+      self._updatePreLatchingState()
     elif self._headState == self.States.EXTENDING_TO_TRANSFER:
       if self._plcLogic.isReady():
-        # we are in a position to latch now
-        self._plcLogic.move_latch()
+        # We are in position to start the pulse-and-wait latch loop now.
+        self._startLatchingState()
         self._headState = self.States.LATCHING
+        self._updateLatchingState()
     elif self._headState == self.States.LATCHING:
-      if self._plcLogic.isReady():
-        # we completed a latching move
-        if self._headLatchStateTag.get() != self._headLatchTarget:
-          self._plcLogic.move_latch()
-          self._headState = self.States.LATCHING
-        else:
-          self._plcLogic.setZ_Position(self._headZTarget, self._velocity) # finished latching
-          self._headState = self.States.SEEKING_TO_FINAL_POSITION
+      self._updateLatchingState()
     else:
       raise ValueError("Unknown head state: " + str(self._headState))
 
@@ -113,18 +403,27 @@ class Head:
     self._velocity = velocity
     self.clearQueuedTransfer()
 
-    currentHeadLatchState = self._plcLogic._headLatchState.get()  # 0, 3 or -1
+    currentTransferState = self._readTransferState()
+    currentHeadSide = self._getCurrentTransferSide(currentTransferState)
 
-    # if the head is not latched to either side, do nothing
-    if currentHeadLatchState == -1:
+    # If neither side reports head present, there is nothing to move.
+    if (
+      not currentTransferState["stagePresent"]
+      and not currentTransferState["fixedPresent"]
+    ):
       print("DEBUG: Head not present, skipping G106 command")
       return False
 
+    # Ignore commands while the raw tags do not resolve to a stable side.
+    if currentHeadSide == self.HEAD_ABSENT:
+      print("DEBUG: Head state unresolved, skipping G106 command")
+      return False
+
     target_lookup = {
-      self.STAGE_SIDE: (self._retracted_z_position, 0),
-      self.LEVEL_A_SIDE: (self._front_z_position, 0),
-      self.LEVEL_B_SIDE: (self._back_z_position, 0),
-      self.FIXED_SIDE: (self._retracted_z_position, 3),
+      self.STAGE_SIDE: (self._retracted_z_position, self.STAGE_SIDE),
+      self.LEVEL_A_SIDE: (self._front_z_position, self.STAGE_SIDE),
+      self.LEVEL_B_SIDE: (self._back_z_position, self.STAGE_SIDE),
+      self.FIXED_SIDE: (self._retracted_z_position, self.FIXED_SIDE),
     }
     # set the target z position and latch side
     if head_position_target not in target_lookup:
@@ -135,15 +434,12 @@ class Head:
     if self._headZTarget is None:
       raise ValueError("Unknown head position request: " + str(head_position_target))
 
-    if self._headLatchTarget != currentHeadLatchState:
+    if self._headLatchTarget != currentHeadSide:
       # head is not latched to the side we want
-      self._plcLogic.setZ_Position(self._extended_z_position, self._velocity)
-      # extend the head to transfer
-      self._headState = self.States.EXTENDING_TO_TRANSFER
+      self._commandZMove(self._extended_z_position, self.States.EXTENDING_TO_TRANSFER)
     else:
       # otherwise just move the z axis to the target position
-      self._plcLogic.setZ_Position(self._headZTarget, self._velocity)
-      self._headState = self.States.SEEKING_TO_FINAL_POSITION
+      self._commandZMove(self._headZTarget, self.States.SEEKING_TO_FINAL_POSITION)
 
     return False
 
@@ -177,13 +473,13 @@ class Head:
     Returns:
       STAGE_SIDE/LEVEL_A_SIDE/LEVEL_B_SIDE/EXTENDED.
     """
-    return self._headLatchStateTag.get()
+    return self.readCurrentPosition()
 
   def readCurrentPosition(self):
     """
     Poll the PLC to determine the current logical head position.
 
-    Reads the latch state and, when on the stage side (latch=0), uses the
+    Reads the raw transfer tags directly and, when on the stage side, uses the
     current Z axis position to distinguish STAGE_SIDE / LEVEL_A_SIDE /
     LEVEL_B_SIDE.
 
@@ -191,12 +487,12 @@ class Head:
       STAGE_SIDE / LEVEL_A_SIDE / LEVEL_B_SIDE / FIXED_SIDE, or HEAD_ABSENT
       if the head is not latched to either side.
     """
-    latch = self._headLatchStateTag.get()
-    if latch == self.HEAD_ABSENT:
+    side = self._getCurrentSide()
+    if side == self.HEAD_ABSENT:
       return self.HEAD_ABSENT
-    if latch == 3:
+    if side == self.FIXED_SIDE:
       return self.FIXED_SIDE
-    # latch == 0: on the stage side; use Z to distinguish 0 / 1 / 2
+    # On the stage side; use Z to distinguish 0 / 1 / 2.
     z = self._zPosTag.get()
     candidates = {
       self.STAGE_SIDE: self._retracted_z_position,

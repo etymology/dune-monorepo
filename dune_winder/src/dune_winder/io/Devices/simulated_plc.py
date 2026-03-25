@@ -43,7 +43,7 @@ class SimulatedPLC(PLC):
 
   _MACHINE_SW_ASSUMPTIONS = [
     "Z retract/extend sensors are derived from Z axis position and nominal front/back limits.",
-    "Stage/fixed present and latched sensors are derived from HEAD_POS (-1/0/3).",
+    "Stage/fixed present sensors default true unless overridden; latched sensors are derived from HEAD_POS (-1/0/3).",
     "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2).",
     "Transfer and end-of-travel sensors are derived from current X/Y positions and configured limits.",
     "Safety bits (Rotation_Lock_key, Light_Curtain) default to permissive values unless overridden.",
@@ -215,6 +215,7 @@ class SimulatedPLC(PLC):
     self._tagValues["STATE"] = self.STATE_READY
     self._tagValues["ERROR_CODE"] = 0
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
+    self._tagValues["gui_latch_pulse"] = 0
     self._tagValues["HEAD_POS"] = 0
     self._tagValues["ACTUATOR_POS"] = 0
 
@@ -331,6 +332,17 @@ class SimulatedPLC(PLC):
       self._tagValues[tagName] = enabled
       if enabled:
         self._abortQueuedMotion()
+      return
+
+    if tagName == "gui_latch_pulse":
+      enabled = self._coerceBit(value)
+      self._tagValues[tagName] = enabled
+      if enabled:
+        if bool(self._readTagValue("MACHINE_SW_STAT[9]")) and bool(
+          self._readTagValue("MACHINE_SW_STAT[10]")
+        ):
+          self._advanceLatch()
+        self._tagValues[tagName] = 0
       return
 
     if tagName == "HEAD_POS":
@@ -716,8 +728,8 @@ class SimulatedPLC(PLC):
       6: headPos == 0,
       7: headPos == 3,
       8: z <= self._limits["zLimitFront"] or z >= self._limits["zLimitRear"],
-      9: headPos == 0,
-      10: headPos == 3,
+      9: True,
+      10: True,
       11: zExtended,
       12: actuatorPos == 0,
       13: actuatorPos == 1,
