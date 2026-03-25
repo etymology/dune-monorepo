@@ -43,6 +43,8 @@ XIC oneshotsb[10] XIO LatchCounter2.DN XIO LatchTimer3.TT TON LatchTimer4 ? ?
 XIC oneshotsb[10] XIO LatchCounter2.DN XIC LatchTimer3.TT CTU LatchCounter2 ? ? 
 XIC STATE8_IND XIC LatchCounter2.DN CMP MOVE_TYPE=0 CPT NEXTSTATE 1 
 BST XIC Latching_pulse_duration.TT NXB XIC LatchTimer4.TT NXB XIC HomeTimer2.TT NXB XIC LatchTimer6.TT BND OTE Local:3:O.Pt01.Data OTE latching_signal 
+XIC gui_latch_pulse XIC ENABLE_ACTUATOR OTE Local:3:O.Pt01.Data TON gui_latch_pulse_timer ? ? 
+XIC gui_latch_pulse_timer.DN RES gui_latch_pulse_timer OTU gui_latch_pulse 
 BST CMP STATE=6 NXB CMP STATE=7 BND OSR oneshotsb[12] oneshotob[12] 
 XIC oneshotob[12] RES LatchingTimeoutCounter 
 XIC oneshotsb[12] XIO LatchingTimeoutCounter.DN XIO TimeoutTimer2.TT TON TimeoutTimer1 ? ? 
