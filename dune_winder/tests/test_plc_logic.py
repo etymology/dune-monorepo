@@ -10,6 +10,7 @@ class _FreshReadPLC(PLC):
     self.read_calls = []
     self.write_calls = []
     self._functional = True
+    self.read_values = {}
 
   def initialize(self):
     return True
@@ -21,7 +22,8 @@ class _FreshReadPLC(PLC):
     self.read_calls.append(tag)
     if isinstance(tag, str):
       return None
-    return [[str(tag[0]), 1]]
+    tagName = str(tag[0])
+    return [[tagName, self.read_values.get(tagName, 1)]]
 
   def write(self, tag, data=None, typeName=None):
     del data
@@ -99,6 +101,49 @@ class PLCLogicTests(unittest.TestCase):
 
     self.assertEqual(state, 1)
     self.assertEqual(plc.read_calls, [["STATE"]])
+
+  def test_move_latch_pulses_gui_tag_when_both_present_bits_are_true(self):
+    plc = _FreshReadPLC()
+    logic = PLC_Logic(plc, object(), object())
+
+    sent = logic.move_latch()
+
+    self.assertTrue(sent)
+    self.assertEqual(
+      plc.read_calls,
+      [["MACHINE_SW_STAT[9]"], ["MACHINE_SW_STAT[10]"]],
+    )
+    self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
+
+  def test_move_latch_skips_pulse_when_present_interlock_is_false(self):
+    plc = _FreshReadPLC()
+    plc.read_values["MACHINE_SW_STAT[9]"] = 1
+    plc.read_values["MACHINE_SW_STAT[10]"] = 0
+    logic = PLC_Logic(plc, object(), object())
+
+    sent = logic.move_latch()
+
+    self.assertFalse(sent)
+    self.assertEqual(
+      plc.read_calls,
+      [["MACHINE_SW_STAT[9]"], ["MACHINE_SW_STAT[10]"]],
+    )
+    self.assertEqual(plc.write_calls, [])
+
+  def test_move_latch_pulses_when_stage_present_is_false(self):
+    plc = _FreshReadPLC()
+    plc.read_values["MACHINE_SW_STAT[9]"] = 0
+    plc.read_values["MACHINE_SW_STAT[10]"] = 0
+    logic = PLC_Logic(plc, object(), object())
+
+    sent = logic.move_latch()
+
+    self.assertTrue(sent)
+    self.assertEqual(
+      plc.read_calls,
+      [["MACHINE_SW_STAT[9]"], ["MACHINE_SW_STAT[10]"]],
+    )
+    self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
 
 
 if __name__ == "__main__":

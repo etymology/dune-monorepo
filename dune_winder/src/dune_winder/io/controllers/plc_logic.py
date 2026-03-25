@@ -298,11 +298,32 @@ class PLC_Logic:
     return self._actuatorPosition.get()
 
   # ---------------------------------------------------------------------
+  def canMoveLatch(self):
+    """
+    Check whether the latch pulse interlock is currently satisfied.
+
+    Returns:
+      True if both stage and fixed present bits are set, False otherwise.
+    """
+    stagePresent = bool(self._readTagNow(self._zStagePresentBit))
+    fixedPresent = bool(self._readTagNow(self._zFixedPresentBit))
+    return (stagePresent and fixedPresent) or (not stagePresent)
+
+  # ---------------------------------------------------------------------
   def move_latch(self):
     """
-    Start a latching operation.
+    Pulse the GUI latch command.
+
+    Returns:
+      True if the pulse was sent, False if the transfer-present interlock is
+      not satisfied.
     """
-    self._moveType.set(self.MoveTypes.LATCH)
+    if not self.canMoveLatch():
+      return False
+
+    self._writeTagNow(self._guiLatchPulse.getName(), 1)
+    self._guiLatchPulse.updateFromReadTag(1)
+    return True
 
   # ---------------------------------------------------------------------
   def poll(self):
@@ -509,6 +530,10 @@ class PLC_Logic:
     self._zFixedLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[7]", machineStatus)
     self._zStagePresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[9]", machineStatus)
     self._zFixedPresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[10]", machineStatus)
+
+    pulseAttributes = PLC.Tag.Attributes()
+    pulseAttributes.defaultValue = 0
+    self._guiLatchPulse = PLC.Tag(plc, "gui_latch_pulse", pulseAttributes, tagType="BOOL")
 
     self._maxXY_Velocity = PLC.Tag(plc, "XY_SPEED", tagType="REAL")
     self._maxXY_Acceleration = PLC.Tag(plc, "XY_ACCELERATION", tagType="REAL")
