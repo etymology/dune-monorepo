@@ -28,6 +28,16 @@ class Head:
   LEVEL_B_SIDE = 2
   FIXED_SIDE = 3
 
+  # ---------------------------------------------------------------------
+  @staticmethod
+  def _enumName(enumClass, value):
+    for name, enumValue in vars(enumClass).items():
+      if name.startswith("_"):
+        continue
+      if enumValue == value:
+        return name
+    return "UNKNOWN(" + str(value) + ")"
+
   def __init__(self, plcLogic: PLC_Logic):
     """
     Constructor.
@@ -60,6 +70,7 @@ class Head:
     self._preLatchZTarget = None
     self._preLatchNextState = None
     self._clock = time.monotonic
+    self._headErrorMessage = ""
 
   def isReady(self):
     """
@@ -82,6 +93,7 @@ class Head:
     additional PLC commands.
     """
     self._headState = self.States.IDLE
+    self._headErrorMessage = ""
     self._resetLatchRetryState()
 
   def setLatchTiming(self, retry_interval_seconds, timeout_seconds):
@@ -122,7 +134,47 @@ class Head:
     """
     print("DEBUG: " + str(message))
     self._resetLatchRetryState()
+    self._headErrorMessage = str(message)
     self._headState = self.States.ERROR
+
+  # ---------------------------------------------------------------------
+  def getState(self):
+    """
+    Return the current local head-controller state value.
+    """
+    return self._headState
+
+  # ---------------------------------------------------------------------
+  def getStateName(self):
+    """
+    Return the current local head-controller state name.
+    """
+    return self._enumName(self.States, self._headState)
+
+  # ---------------------------------------------------------------------
+  def getReadinessBlocker(self):
+    """
+    Return structured detail describing why the head controller is not ready.
+    """
+    self.update()
+    if self._headState == self.States.IDLE:
+      return None
+
+    blocker = {
+      "state": self.getStateName(),
+      "transfer": self._readTransferState(),
+    }
+
+    if self._headPositionTarget != -1:
+      blocker["positionTarget"] = int(self._headPositionTarget)
+    if self._headLatchTarget != -1:
+      blocker["latchTarget"] = int(self._headLatchTarget)
+    if self._headZTarget != -1:
+      blocker["zTarget"] = float(self._headZTarget)
+    if self._headErrorMessage:
+      blocker["errorMessage"] = self._headErrorMessage
+
+    return blocker
 
   def _readTransferState(self):
     """

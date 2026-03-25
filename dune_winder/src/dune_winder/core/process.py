@@ -1366,6 +1366,107 @@ class Process:
     return result
 
   # ---------------------------------------------------------------------
+  @staticmethod
+  def _stateObjectName(stateObject):
+    if stateObject is None:
+      return "<None>"
+    return stateObject.__class__.__name__
+
+  # ---------------------------------------------------------------------
+  @staticmethod
+  def _formatBlockerDict(blocker):
+    parts = []
+
+    state = blocker.get("state")
+    if state:
+      parts.append(str(state))
+
+    moveType = blocker.get("moveType")
+    if moveType:
+      parts.append("move=" + str(moveType))
+
+    errorCode = blocker.get("errorCode")
+    if errorCode:
+      message = blocker.get("errorMessage")
+      if message:
+        parts.append("error=" + str(errorCode) + ":" + str(message))
+      else:
+        parts.append("error=" + str(errorCode))
+
+    if blocker.get("queuedSafeZMove") is not None:
+      parts.append("queued_safe_z")
+
+    positionTarget = blocker.get("positionTarget")
+    if positionTarget is not None:
+      parts.append("target=" + str(positionTarget))
+
+    latchTarget = blocker.get("latchTarget")
+    if latchTarget is not None:
+      parts.append("latch_target=" + str(latchTarget))
+
+    zTarget = blocker.get("zTarget")
+    if zTarget is not None:
+      parts.append("z_target=" + str(zTarget))
+
+    transfer = blocker.get("transfer")
+    if isinstance(transfer, dict):
+      parts.append(
+        "transfer="
+        + ",".join(
+          [
+            "stagePresent=" + str(bool(transfer.get("stagePresent"))),
+            "fixedPresent=" + str(bool(transfer.get("fixedPresent"))),
+            "stageLatched=" + str(bool(transfer.get("stageLatched"))),
+            "fixedLatched=" + str(bool(transfer.get("fixedLatched"))),
+            "actuatorPos=" + str(transfer.get("actuatorPos")),
+          ]
+        )
+      )
+
+    errorMessage = blocker.get("errorMessage")
+    if errorMessage and not errorCode:
+      parts.append("error=" + str(errorMessage))
+
+    return ",".join(parts)
+
+  # ---------------------------------------------------------------------
+  def _manualMovementBlockerMessage(self):
+    blockers = []
+
+    blockers.append(
+      "control="
+      + self._stateObjectName(getattr(self.controlStateMachine, "state", None))
+    )
+
+    stopMode = getattr(self.controlStateMachine, "stopMode", None)
+    stopStateMachine = getattr(stopMode, "stopStateMachine", None)
+    stopStateName = self._stateObjectName(getattr(stopStateMachine, "state", None))
+    if stopStateName != "<None>":
+      blockers.append("stop=" + stopStateName)
+
+    plcLogic = getattr(self._io, "plcLogic", None)
+    if plcLogic is not None:
+      plcBlocker = None
+      if hasattr(plcLogic, "getReadinessBlocker"):
+        plcBlocker = plcLogic.getReadinessBlocker()
+      elif hasattr(plcLogic, "isReady") and not plcLogic.isReady():
+        plcBlocker = {"state": "not-ready"}
+      if plcBlocker is not None:
+        blockers.append("plc=" + self._formatBlockerDict(plcBlocker))
+
+    head = getattr(self._io, "head", None)
+    if head is not None:
+      headBlocker = None
+      if hasattr(head, "getReadinessBlocker"):
+        headBlocker = head.getReadinessBlocker()
+      elif hasattr(head, "isReady") and not head.isReady():
+        headBlocker = {"state": "not-ready"}
+      if headBlocker is not None:
+        blockers.append("head=" + self._formatBlockerDict(headBlocker))
+
+    return "Machine not ready: " + "; ".join(blockers) + "."
+
+  # ---------------------------------------------------------------------
   def executeG_CodeLine(self, line: str):
     """
     Run a line of G-code.
@@ -1378,12 +1479,12 @@ class Process:
     """
     error = None
     if not self.controlStateMachine.isReadyForMovement():
-      error = "Machine not ready."
+      error = self._manualMovementBlockerMessage()
       self._log.add(
         self.__class__.__name__,
         "MANUAL_GCODE",
         "Failed to execute manual G-Code line as machine was not ready.",
-        [line],
+        [line, error],
       )
 
     else:

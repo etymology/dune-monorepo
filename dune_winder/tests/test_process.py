@@ -218,6 +218,48 @@ class _GCodeHandlerForManualGCode:
     return None
 
 
+class _ManualModeState:
+  pass
+
+
+class _IdleStopState:
+  pass
+
+
+class _PLCLogicBlocker:
+  def getReadinessBlocker(self):
+    return {
+      "state": "READY",
+      "moveType": "RESET",
+      "queuedSafeZMove": {"kind": "z", "position": 418.0},
+    }
+
+
+class _HeadBlocker:
+  def getReadinessBlocker(self):
+    return {
+      "state": "LATCHING",
+      "transfer": {
+        "stagePresent": True,
+        "fixedPresent": True,
+        "stageLatched": False,
+        "fixedLatched": True,
+        "actuatorPos": 3,
+      },
+    }
+
+
+class _ControlStateMachineNotReady:
+  def __init__(self):
+    self.state = _ManualModeState()
+    self.stopMode = type("StopMode", (), {})()
+    self.stopMode.stopStateMachine = type("StopStateMachine", (), {})()
+    self.stopMode.stopStateMachine.state = _IdleStopState()
+
+  def isReadyForMovement(self):
+    return False
+
+
 class ProcessManualGCodeTests(unittest.TestCase):
   def _build_process_for_manual_gcode(self, x_position=10.0, y_position=20.0):
     process = object.__new__(Process)
@@ -337,6 +379,24 @@ class ProcessManualGCodeTests(unittest.TestCase):
     error = process.executeG_CodeLine("X100 Y1400")
 
     self.assertIn("pivot keepout", error)
+    self.assertEqual(process.gCodeHandler.lines, [])
+
+  def test_execute_manual_gcode_reports_specific_blockers_when_not_ready(self):
+    process = self._build_process_for_manual_gcode()
+    process.controlStateMachine = _ControlStateMachineNotReady()
+    process._io.plcLogic = _PLCLogicBlocker()
+    process._io.head = _HeadBlocker()
+
+    error = process.executeG_CodeLine("X4")
+
+    self.assertIn("control=_ManualModeState", error)
+    self.assertIn("stop=_IdleStopState", error)
+    self.assertIn("plc=READY,move=RESET,queued_safe_z", error)
+    self.assertIn(
+      "head=LATCHING,transfer=stagePresent=True,fixedPresent=True,"
+      "stageLatched=False,fixedLatched=True,actuatorPos=3",
+      error,
+    )
     self.assertEqual(process.gCodeHandler.lines, [])
 
   def test_manual_seek_xy_rejects_out_of_bounds_target(self):
