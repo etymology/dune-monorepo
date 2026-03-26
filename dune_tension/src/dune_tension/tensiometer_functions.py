@@ -12,6 +12,18 @@ from dune_tension.paths import tension_data_db_path
 from dune_tension.plc_io import is_motion_target_in_bounds
 
 LOGGER = logging.getLogger(__name__)
+CONFIDENCE_SOURCES = ("neural_net", "signal_amplitude")
+
+
+def normalize_confidence_source(value: str | None) -> str:
+    """Normalize persisted/UI confidence-source values."""
+
+    normalized = str(value or "neural_net").strip().lower().replace(" ", "_")
+    if normalized not in CONFIDENCE_SOURCES:
+        raise ValueError(
+            f"Invalid confidence source {value!r}. Expected one of {CONFIDENCE_SOURCES}."
+        )
+    return normalized
 
 
 def check_stop_event(
@@ -36,6 +48,7 @@ class TensiometerConfig:
     flipped: bool
     samples_per_wire: int
     confidence_threshold: float
+    confidence_source: str
     save_audio: bool
     spoof: bool
     plot_audio: bool = False
@@ -57,6 +70,7 @@ def make_config(
     flipped: bool = False,
     samples_per_wire: int = 3,
     confidence_threshold: float = 0.7,
+    confidence_source: str = "neural_net",
     save_audio: bool = True,
     spoof: bool = False,
     plot_audio: bool = False,
@@ -90,6 +104,7 @@ def make_config(
         flipped,
         samples_per_wire,
         confidence_threshold,
+        normalize_confidence_source(confidence_source),
         save_audio,
         spoof,
         plot_audio,

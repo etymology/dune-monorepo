@@ -89,6 +89,7 @@ def _build_widgets(focus_value="4807.0"):
         entry_wire=_FakeEntry("1"),
         entry_wire_list=_FakeEntry("500-900"),
         entry_confidence=_FakeEntry("0.6"),
+        confidence_source_var=_FakeVar("Signal Amplitude"),
         plot_audio_var=_FakeVar(False),
         skip_measured_var=_FakeVar(True),
         focus_slider=_FakeScale(focus_value),
@@ -113,6 +114,7 @@ def test_save_state_accepts_float_like_focus_slider(monkeypatch, tmp_path):
 
     data = json.loads(Path(ctx.state_file).read_text(encoding="utf-8"))
     assert data["focus_target"] == 4807
+    assert data["confidence_source"] == "Signal Amplitude"
 
 
 def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
@@ -131,3 +133,4 @@ def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
 
     assert widgets.focus_slider.get() == 4000
     assert ctx.focus_command_var.get() == "4000"
+    assert widgets.confidence_source_var.get() == "Neural Net"

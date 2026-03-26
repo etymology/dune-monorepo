@@ -45,6 +45,9 @@ def _load_actions_module(monkeypatch):
 
     tensiometer_functions = types.ModuleType("dune_tension.tensiometer_functions")
     tensiometer_functions.make_config = lambda **kwargs: types.SimpleNamespace(**kwargs)
+    tensiometer_functions.normalize_confidence_source = (
+        lambda value: str(value).strip().lower().replace(" ", "_")
+    )
     monkeypatch.setitem(
         sys.modules,
         "dune_tension.tensiometer_functions",
@@ -151,6 +154,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
         b_taped=False,
         samples=2,
         confidence=0.9,
+        confidence_source="Signal Amplitude",
         record_duration=0.5,
         measuring_duration=5.0,
         wiggle_y_sigma_mm=0.4,
@@ -161,6 +165,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
     actions.create_tensiometer(ctx, inputs)
 
     assert len(build_calls) == 1
+    assert build_calls[0]["confidence_source"] == "signal_amplitude"
     assert build_calls[0]["runtime_bundle"] is runtime
 
 

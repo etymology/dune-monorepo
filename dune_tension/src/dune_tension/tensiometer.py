@@ -26,6 +26,7 @@ from dune_tension.tensiometer_functions import (
     check_stop_event,
     make_config,
     measure_list,
+    normalize_confidence_source,
     plan_measurement_triplets,
 )
 
@@ -50,6 +51,17 @@ class AudioAcquisitionConfig:
     idle_timeout: float = 0.2
     input_mode: str = "mic"
     input_audio_path: str | None = None
+
+
+@dataclass(frozen=True)
+class DeferredPitchSample:
+    """Captured sample metadata retained for deferred pitch analysis."""
+
+    audio_sample: Any
+    x: float
+    y: float
+    focus_position: int | None
+    confidence: float
 
 
 def acquire_audio(*args, **kwargs):
@@ -91,6 +103,7 @@ def build_tensiometer(
     stop_event: Optional[threading.Event] = None,
     samples_per_wire: int = 1,
     confidence_threshold: float = 2,
+    confidence_source: str = "neural_net",
     save_audio: bool = True,
     plot_audio: bool = False,
     record_duration: float = 0.5,
@@ -105,6 +118,8 @@ def build_tensiometer(
     strum: Optional[Callable[[], None]] = None,
     focus_wiggle: Optional[Callable[[float], None]] = None,
     focus_position_getter: Optional[Callable[[], int]] = None,
+    focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
+    quiet_waiter: Optional[Callable[[], None]] = None,
     estimated_time_callback: Optional[Callable[[str], None]] = None,
     audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
     summary_refresh_callback: Optional[Callable[[Any], None]] = None,
@@ -118,6 +133,7 @@ def build_tensiometer(
         flipped=flipped,
         samples_per_wire=samples_per_wire,
         confidence_threshold=confidence_threshold,
+        confidence_source=confidence_source,
         save_audio=save_audio,
         spoof=spoof,
         plot_audio=plot_audio,
@@ -157,6 +173,61 @@ def build_tensiometer(
         def active_focus_position_getter() -> int:
             return int(getattr(active_runtime.servo_controller, "focus_position", 0))
 
+    active_focus_range_getter = focus_range_getter
+    if active_focus_range_getter is None:
+        def active_focus_range_getter() -> tuple[int, int]:
+            low = 4000
+            high = 8000
+            try:
+                servo = getattr(active_runtime.servo_controller, "servo", None)
+                get_min = getattr(servo, "getMin", None)
+                get_max = getattr(servo, "getMax", None)
+                if callable(get_min):
+                    low = int(get_min(1) or low)
+                if callable(get_max):
+                    high = int(get_max(1) or high)
+            except Exception:
+                return (4000, 8000)
+            if low > high:
+                return (4000, 8000)
+            return (low, high)
+
+    active_quiet_waiter = quiet_waiter
+    if active_quiet_waiter is None:
+        def active_quiet_waiter() -> None:
+            try:
+                from spectrum_analysis.audio_sources import MicSource
+            except Exception:
+                return
+
+            sample_rate = max(int(getattr(active_runtime.audio, "samplerate", 0) or 0), 1)
+            noise_floor = float(getattr(active_runtime.audio, "noise_threshold", 0.0) or 0.0)
+            quiet_threshold = max(noise_floor * 1.25, noise_floor + 1e-4, 1e-4)
+            quiet_chunks_needed = 3
+            quiet_chunks = 0
+            source = MicSource(sample_rate, max(int(sample_rate * 0.01), 128))
+            deadline = time.monotonic() + 0.75
+            try:
+                source.start()
+                while time.monotonic() < deadline:
+                    chunk = source.read()
+                    if chunk.size == 0:
+                        continue
+                    chunk_rms = float(np.sqrt(np.mean(np.square(chunk, dtype=np.float64)) + 1e-12))
+                    if chunk_rms <= quiet_threshold:
+                        quiet_chunks += 1
+                        if quiet_chunks >= quiet_chunks_needed:
+                            return
+                    else:
+                        quiet_chunks = 0
+            except Exception:
+                return
+            finally:
+                try:
+                    source.stop()
+                except Exception:
+                    pass
+
     return Tensiometer(
         apa_name=apa_name,
         layer=layer,
@@ -167,6 +238,7 @@ def build_tensiometer(
         stop_event=stop_event,
         samples_per_wire=samples_per_wire,
         confidence_threshold=confidence_threshold,
+        confidence_source=confidence_source,
         save_audio=save_audio,
         plot_audio=plot_audio,
         record_duration=record_duration,
@@ -179,6 +251,8 @@ def build_tensiometer(
         strum=active_strum,
         focus_wiggle=active_focus_wiggle,
         focus_position_getter=active_focus_position_getter,
+        focus_range_getter=active_focus_range_getter,
+        quiet_waiter=active_quiet_waiter,
         estimated_time_callback=estimated_time_callback,
         audio_sample_callback=audio_sample_callback,
         summary_refresh_callback=summary_refresh_callback,
@@ -206,6 +280,7 @@ class Tensiometer:
         stop_event: Optional[threading.Event] = None,
         samples_per_wire: int = 1,
         confidence_threshold: float = 2,
+        confidence_source: str = "neural_net",
         save_audio: bool = True,
         plot_audio: bool = False,
         record_duration: float = 0.5,
@@ -220,6 +295,8 @@ class Tensiometer:
         strum: Optional[Callable[[], None]] = None,
         focus_wiggle: Optional[Callable[[float], None]] = None,
         focus_position_getter: Optional[Callable[[], int]] = None,
+        focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
+        quiet_waiter: Optional[Callable[[], None]] = None,
         estimated_time_callback: Optional[Callable[[str], None]] = None,
         audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
         summary_refresh_callback: Optional[Callable[[Any], None]] = None,
@@ -239,6 +316,7 @@ class Tensiometer:
             flipped=flipped,
             samples_per_wire=samples_per_wire,
             confidence_threshold=confidence_threshold,
+            confidence_source=confidence_source,
             save_audio=save_audio,
             spoof=spoof,
             plot_audio=plot_audio,
@@ -246,6 +324,9 @@ class Tensiometer:
             measuring_duration=measuring_duration,
         )
         self.stop_event = stop_event or threading.Event()
+        self.config.confidence_source = normalize_confidence_source(
+            self.config.confidence_source
+        )
         self.snr = snr
         self.wiggle_y_sigma_mm = float(wiggle_y_sigma_mm)
         self.focus_wiggle_sigma_quarter_us = float(focus_wiggle_sigma_quarter_us)
@@ -271,6 +352,8 @@ class Tensiometer:
         self._has_focus_wiggle_callback = focus_wiggle is not None
         self.focus_wiggle_func = focus_wiggle or (lambda _delta: None)
         self.focus_position_getter = focus_position_getter or (lambda: 0)
+        self.focus_range_getter = focus_range_getter or (lambda: (4000, 8000))
+        self.quiet_waiter = quiet_waiter or (lambda: None)
         self.strum_func = strum or (lambda: None)
         self.estimated_time_callback = estimated_time_callback or (lambda _value: None)
         self.audio_sample_callback = (
@@ -344,6 +427,44 @@ class Tensiometer:
             return float(compensated_x)
         except Exception:
             return new_x
+
+    def _get_focus_bounds(self) -> tuple[int, int]:
+        try:
+            bounds = self.focus_range_getter()
+        except Exception:
+            bounds = None
+        if not bounds or len(bounds) != 2:
+            return (4000, 8000)
+        low, high = int(bounds[0]), int(bounds[1])
+        if low > high:
+            return (4000, 8000)
+        return (low, high)
+
+    def _clamp_focus_position(self, focus_position: int) -> int:
+        low, high = self._get_focus_bounds()
+        return max(low, min(high, int(focus_position)))
+
+    def _move_to_measurement_pose(
+        self,
+        x_target: float,
+        y_target: float,
+        focus_target: int | None = None,
+    ) -> bool:
+        if focus_target is not None:
+            clamped_focus = self._clamp_focus_position(int(focus_target))
+            current_focus = self._get_focus_position()
+            delta_focus = clamped_focus - current_focus
+            if delta_focus != 0:
+                self._apply_focus_wiggle_with_x_compensation(delta_focus)
+        return bool(self.goto_xy_func(x_target, y_target))
+
+    def _await_quiet_background(self) -> None:
+        """Best-effort wait for ambient audio to return near the noise floor."""
+
+        try:
+            self.quiet_waiter()
+        except Exception as exc:
+            LOGGER.debug("Quiet wait failed: %s", exc)
 
     @staticmethod
     def _sample_sort_key(result: TensionResult) -> tuple[float, datetime]:
@@ -423,6 +544,74 @@ class Tensiometer:
             plt.close()
         except Exception as exc:  # pragma: no cover - plotting is optional
             LOGGER.warning("Failed to plot audio sample: %s", exc)
+
+    @staticmethod
+    def _sample_rms(audio_sample: Any) -> float:
+        """Return the RMS amplitude of an audio sample."""
+
+        audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
+        if audio_array.size == 0:
+            return 0.0
+        audio_float = audio_array.astype(np.float64, copy=False)
+        return float(np.sqrt(np.mean(np.square(audio_float))))
+
+    def _triangle_reference_rms(self, expected_frequency: float | None) -> float:
+        """Return the RMS of a unit-peak triangle wave over the full record window."""
+
+        try:
+            sample_rate = int(self.samplerate)
+            duration = float(self.config.record_duration)
+            frequency = float(expected_frequency)
+        except (TypeError, ValueError):
+            return float("nan")
+
+        if sample_rate <= 0 or not np.isfinite(duration) or duration <= 0.0:
+            return float("nan")
+        if not np.isfinite(frequency) or frequency <= 0.0:
+            return float("nan")
+
+        sample_count = max(int(round(duration * sample_rate)), 1)
+        times = np.arange(sample_count, dtype=np.float64) / float(sample_rate)
+        phase = np.mod(times * frequency, 1.0)
+        triangle_wave = 1.0 - 4.0 * np.abs(phase - 0.5)
+        return float(np.sqrt(np.mean(np.square(triangle_wave))))
+
+    def _amplitude_confidence(
+        self,
+        audio_sample: Any,
+        expected_frequency: float | None,
+    ) -> float:
+        """Return amplitude confidence normalized to the expected triangle-wave RMS."""
+
+        measured_rms = self._sample_rms(audio_sample)
+        reference_rms = self._triangle_reference_rms(expected_frequency)
+        if not np.isfinite(reference_rms) or reference_rms <= 0.0:
+            return measured_rms
+        return measured_rms / reference_rms
+
+    def _estimate_sample_pitch(
+        self,
+        audio_sample: Any,
+        expected_frequency: float | None,
+    ) -> tuple[Any | None, float, float]:
+        """Estimate pitch using the existing PESTO-first fallback path."""
+
+        analysis = None
+        try:
+            analysis = analyze_audio_with_pesto(
+                audio_sample,
+                self.samplerate,
+                expected_frequency=expected_frequency,
+                include_activations=True,
+            )
+            frequency, confidence = analysis.frequency, analysis.confidence
+        except Exception:
+            frequency, confidence = estimate_pitch_from_audio(
+                audio_sample,
+                self.samplerate,
+                expected_frequency,
+            )
+        return analysis, float(frequency), float(confidence)
 
     def measure_calibrate(self, wire_number: int) -> Optional[TensionResult]:
         xy = self.get_current_xy_position()
@@ -527,6 +716,7 @@ class Tensiometer:
         wire_x: float,
     ) -> list[TensionResult] | None:
         expected_frequency = wire_equation(length=length)["frequency"]
+        amplitude_mode = self.config.confidence_source == "signal_amplitude"
         measuring_timeout = self.config.measuring_duration
         candidate_wires: list[TensionResult] = []
         audio_acquisition_config = AudioAcquisitionConfig(
@@ -556,10 +746,73 @@ class Tensiometer:
         best_y = float(wire_y)
         best_focus = self._get_focus_position()
         axis_index = 0
+        threshold_reached = False
+        pending_best_sample: DeferredPitchSample | None = None
+
+        def _publish_audio_sample(audio_sample: Any, analysis: Any | None) -> None:
+            try:
+                self.audio_sample_callback(audio_sample, self.samplerate, analysis)
+            except Exception as exc:
+                LOGGER.debug("Audio sample callback failed: %s", exc)
+
+        def _flush_pending_skipped_sample() -> None:
+            nonlocal pending_best_sample
+            if pending_best_sample is None:
+                return
+            _publish_audio_sample(pending_best_sample.audio_sample, None)
+            pending_best_sample = None
+
+        def _build_wire_result(
+            *,
+            confidence: float,
+            frequency: float,
+            x: float,
+            y: float,
+            focus_position: int | None,
+        ) -> TensionResult:
+            LOGGER.info(
+                "Sample of wire %s: measured frequency %.2f Hz %s with confidence %.2f",
+                wire_number,
+                frequency,
+                wire_equation(length=length, frequency=frequency),
+                confidence,
+            )
+            return TensionResult.from_measurement(
+                apa_name=self.config.apa_name,
+                layer=self.config.layer,
+                side=self.config.side,
+                wire_number=wire_number,
+                frequency=frequency,
+                confidence=confidence,
+                x=x,
+                y=y,
+                focus_position=focus_position,
+                time=self._now(),
+                taped=self._is_current_side_taped(),
+            )
+
+        def _analyze_sample(
+            sample: DeferredPitchSample,
+        ) -> TensionResult:
+            analysis, frequency, _nn_confidence = self._estimate_sample_pitch(
+                sample.audio_sample,
+                expected_frequency,
+            )
+            _publish_audio_sample(sample.audio_sample, analysis)
+            wire_result = _build_wire_result(
+                confidence=sample.confidence,
+                frequency=frequency,
+                x=sample.x,
+                y=sample.y,
+                focus_position=sample.focus_position,
+            )
+            self.repository.append_sample(wire_result)
+            return wire_result
 
         def _move_to_pose(x_target: float, y_target: float, focus_target: int) -> None:
+            clamped_focus = self._clamp_focus_position(int(focus_target))
             current_focus = self._get_focus_position()
-            delta_focus = int(focus_target - current_focus)
+            delta_focus = int(clamped_focus - current_focus)
             if delta_focus != 0:
                 self._apply_focus_wiggle_with_x_compensation(delta_focus)
             self.goto_xy_func(x_target, y_target)
@@ -567,39 +820,34 @@ class Tensiometer:
         def _next_pose() -> tuple[float, float, int]:
             nonlocal axis_index, x_step_mm, y_step_mm, focus_step_quarter_us
 
-            candidates: list[tuple[float, float, int]] = [
-                (best_x + x_step_mm, best_y, best_focus),
-                (best_x - x_step_mm, best_y, best_focus),
-                (best_x, best_y + y_step_mm, best_focus),
-                (best_x, best_y - y_step_mm, best_focus),
-            ]
+            target_y = float(self._gauss(best_y, y_step_mm))
+            target_x = float(self._gauss(best_x, x_step_mm))
+            target_focus = int(best_focus)
 
             if self._has_focus_wiggle_callback and focus_step_quarter_us > 0:
-                for delta_focus in (focus_step_quarter_us, -focus_step_quarter_us):
-                    candidates.append(
-                        (
-                            best_x + self._focus_to_x_delta_mm(delta_focus),
-                            best_y,
-                            best_focus + delta_focus,
-                        )
-                    )
+                target_focus = self._clamp_focus_position(
+                    int(round(self._gauss(best_focus, focus_step_quarter_us)))
+                )
+                target_x = best_x + self._focus_to_x_delta_mm(target_focus - best_focus)
 
-            if axis_index >= len(candidates):
+            axis_index += 1
+            if axis_index >= 2:
                 axis_index = 0
-                x_step_mm = max(min_x_step_mm, x_step_mm * 0.7)
-                y_step_mm = max(min_y_step_mm, y_step_mm * 0.7)
+                x_step_mm = max(min_x_step_mm, x_step_mm * 0.85)
+                y_step_mm = max(min_y_step_mm, y_step_mm * 0.85)
                 if self._has_focus_wiggle_callback:
                     focus_step_quarter_us = max(
                         min_focus_step_quarter_us,
-                        int(focus_step_quarter_us * 0.7),
+                        int(focus_step_quarter_us * 0.85),
                     )
 
-            return candidates[axis_index]
+            return float(target_x), float(target_y), int(target_focus)
 
         while (self._time() - start_time) < measuring_timeout:
             if check_stop_event(self.stop_event, "tension measurement interrupted!"):
                 return None
             x, y = self.get_current_xy_position()
+            self._await_quiet_background()
 
             # Trigger a valve pulse before capturing audio.
             self.strum_func()
@@ -612,62 +860,74 @@ class Tensiometer:
             )
 
             if audio_sample is not None:
-                analysis = None
-                try:
-                    analysis = analyze_audio_with_pesto(
+                focus_position = self._get_focus_position()
+                if amplitude_mode:
+                    confidence = self._amplitude_confidence(
                         audio_sample,
-                        self.samplerate,
-                        expected_frequency=expected_frequency,
-                        include_activations=True,
-                    )
-                    frequency, confidence = analysis.frequency, analysis.confidence
-                except Exception:
-                    frequency, confidence = estimate_pitch_from_audio(
-                        audio_sample,
-                        self.samplerate,
                         expected_frequency,
                     )
-                try:
-                    self.audio_sample_callback(audio_sample, self.samplerate, analysis)
-                except Exception as exc:
-                    LOGGER.debug("Audio sample callback failed: %s", exc)
-
-                LOGGER.info(
-                    "Sample of wire %s: measured frequency %.2f Hz %s with confidence %.2f",
-                    wire_number,
-                    frequency,
-                    wire_equation(length=length, frequency=frequency),
-                    confidence,
-                )
-                wire_result = TensionResult.from_measurement(
-                    apa_name=self.config.apa_name,
-                    layer=self.config.layer,
-                    side=self.config.side,
-                    wire_number=wire_number,
-                    frequency=frequency,
-                    confidence=confidence,
-                    x=x,
-                    y=y,
-                    focus_position=self._get_focus_position(),
-                    time=self._now(),
-                    taped=self._is_current_side_taped(),
-                )
-                self.repository.append_sample(wire_result)
-
-                if tension_plausible(wire_result.tension):
-                    candidate_wires.append(wire_result)
-                    if wire_result.confidence > best_confidence:
-                        best_confidence = wire_result.confidence
-                        best_x = wire_result.x
-                        best_y = wire_result.y
+                    current_sample = DeferredPitchSample(
+                        audio_sample=audio_sample,
+                        x=x,
+                        y=y,
+                        focus_position=focus_position,
+                        confidence=confidence,
+                    )
+                    is_new_best = confidence > best_confidence
+                    if is_new_best:
+                        best_confidence = confidence
+                        best_x = current_sample.x
+                        best_y = current_sample.y
                         best_focus = (
-                            wire_result.focus_position
-                            if wire_result.focus_position is not None
+                            current_sample.focus_position
+                            if current_sample.focus_position is not None
                             else best_focus
                         )
                         axis_index = 0
-                    if wire_result.confidence >= self.config.confidence_threshold:
-                        break
+
+                    if confidence >= self.config.confidence_threshold:
+                        threshold_reached = True
+                        _flush_pending_skipped_sample()
+                        wire_result = _analyze_sample(current_sample)
+                        if tension_plausible(wire_result.tension):
+                            candidate_wires.append(wire_result)
+                            break
+                    elif threshold_reached:
+                        _publish_audio_sample(audio_sample, None)
+                    elif is_new_best:
+                        _flush_pending_skipped_sample()
+                        pending_best_sample = current_sample
+                    else:
+                        _publish_audio_sample(audio_sample, None)
+                else:
+                    analysis, frequency, confidence = self._estimate_sample_pitch(
+                        audio_sample,
+                        expected_frequency,
+                    )
+                    _publish_audio_sample(audio_sample, analysis)
+                    wire_result = _build_wire_result(
+                        confidence=confidence,
+                        frequency=frequency,
+                        x=x,
+                        y=y,
+                        focus_position=focus_position,
+                    )
+                    self.repository.append_sample(wire_result)
+
+                    if tension_plausible(wire_result.tension):
+                        candidate_wires.append(wire_result)
+                        if wire_result.confidence > best_confidence:
+                            best_confidence = wire_result.confidence
+                            best_x = wire_result.x
+                            best_y = wire_result.y
+                            best_focus = (
+                                wire_result.focus_position
+                                if wire_result.focus_position is not None
+                                else best_focus
+                            )
+                            axis_index = 0
+                        if wire_result.confidence >= self.config.confidence_threshold:
+                            break
 
             else:
                 LOGGER.info("Sample of wire %s: no audio detected.", wire_number)
@@ -675,7 +935,6 @@ class Tensiometer:
                 break
 
             target_x, target_y, target_focus = _next_pose()
-            axis_index += 1
             LOGGER.info(
                 "Optimizer next pose: x=%s y=%s focus=%s",
                 target_x,
@@ -683,6 +942,14 @@ class Tensiometer:
                 target_focus,
             )
             _move_to_pose(target_x, target_y, target_focus)
+
+        if amplitude_mode and not threshold_reached and pending_best_sample is not None:
+            wire_result = _analyze_sample(pending_best_sample)
+            pending_best_sample = None
+            if tension_plausible(wire_result.tension):
+                candidate_wires.append(wire_result)
+        else:
+            _flush_pending_skipped_sample()
         return candidate_wires
 
     def _merge_results(

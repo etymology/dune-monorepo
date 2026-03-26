@@ -251,6 +251,16 @@ def _create_widgets(
     entry_confidence = tk.Entry(measure_frame)
     entry_confidence.grid(row=0, column=1)
     entry_confidence.insert(0, "0.5")
+    tk.Label(measure_frame, text="Confidence Source:").grid(
+        row=0, column=2, sticky="e"
+    )
+    confidence_source_var = tk.StringVar(measure_frame, value="Neural Net")
+    tk.OptionMenu(
+        measure_frame,
+        confidence_source_var,
+        "Neural Net",
+        "Signal Amplitude",
+    ).grid(row=0, column=3, sticky="w")
 
     tk.Label(measure_frame, text="Record Duration (s):").grid(
         row=8, column=0, sticky="e"
@@ -427,6 +437,7 @@ def _create_widgets(
         entry_wire=entry_wire,
         entry_wire_list=entry_wire_list,
         entry_confidence=entry_confidence,
+        confidence_source_var=confidence_source_var,
         entry_record_duration=entry_record_duration,
         entry_measuring_duration=entry_measuring_duration,
         entry_wiggle_y_sigma=entry_wiggle_y_sigma,

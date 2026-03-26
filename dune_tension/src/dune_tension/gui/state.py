@@ -26,6 +26,7 @@ class _PersistedState:
     wire_number: str
     wire_list: str
     confidence_threshold: float
+    confidence_source: str
     plot_audio: bool
     skip_measured: bool
     focus_target: int
@@ -62,6 +63,7 @@ def save_state(ctx: GUIContext) -> None:
         wire_number=w.entry_wire.get(),
         wire_list=w.entry_wire_list.get(),
         confidence_threshold=conf,
+        confidence_source=str(w.confidence_source_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
         skip_measured=bool(w.skip_measured_var.get()),
         focus_target=_safe_int(w.focus_slider.get(), 4000),
@@ -95,6 +97,13 @@ def _safe_int(value: Any, default: int) -> int:
             return default
 
 
+def _confidence_source_label(value: Any) -> str:
+    normalized = str(value or "Neural Net").strip().lower().replace(" ", "_")
+    if normalized == "signal_amplitude":
+        return "Signal Amplitude"
+    return "Neural Net"
+
+
 def load_state(ctx: GUIContext) -> None:
     """Populate widgets from ``ctx.state_file`` if it exists."""
 
@@ -118,6 +127,9 @@ def load_state(ctx: GUIContext) -> None:
     _set_entry(w.entry_wire, data.get("wire_number", ""))
     _set_entry(w.entry_wire_list, data.get("wire_list", ""))
     _set_entry(w.entry_confidence, data.get("confidence_threshold", 0.5))
+    w.confidence_source_var.set(
+        _confidence_source_label(data.get("confidence_source", "Neural Net"))
+    )
     w.plot_audio_var.set(bool(data.get("plot_audio", False)))
     w.skip_measured_var.set(bool(data.get("skip_measured", False)))
     w.focus_slider.set(_safe_int(data.get("focus_target", 4000), 4000))
