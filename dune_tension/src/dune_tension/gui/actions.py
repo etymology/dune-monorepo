@@ -25,7 +25,7 @@ from dune_tension.data_cache import (
     update_dataframe,
 )
 from dune_tension.results import EXPECTED_COLUMNS
-from dune_tension.tensiometer_functions import make_config
+from dune_tension.tensiometer_functions import make_config, normalize_confidence_source
 from dune_tension.gui.context import GUIContext
 from dune_tension.gui.state import save_state
 
@@ -137,6 +137,7 @@ class WorkerInputs:
     a_taped: bool
     b_taped: bool
     confidence: float
+    confidence_source: str
     record_duration: float
     measuring_duration: float
     wiggle_y_sigma_mm: float
@@ -200,6 +201,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         a_taped=bool(w.a_taped_var.get()),
         b_taped=bool(w.b_taped_var.get()),
         confidence=confidence,
+        confidence_source=str(w.confidence_source_var.get()),
         record_duration=record_duration,
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
@@ -223,6 +225,10 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
 
     try:
         confidence = float(inputs.confidence)
+        confidence_source = normalize_confidence_source(
+            str(getattr(inputs, "confidence_source", "Neural Net")).strip()
+            or "Neural Net"
+        )
         record_duration = float(inputs.record_duration)
         measuring_duration = float(inputs.measuring_duration)
         wiggle_y_sigma_mm = float(inputs.wiggle_y_sigma_mm)
@@ -242,6 +248,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         stop_event=ctx.stop_event,
         samples_per_wire=1,
         confidence_threshold=confidence,
+        confidence_source=confidence_source,
         record_duration=record_duration,
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,

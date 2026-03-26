@@ -26,6 +26,7 @@ class GUIWidgets:
     entry_wire: tk.Entry
     entry_wire_list: tk.Entry
     entry_confidence: tk.Entry
+    confidence_source_var: tk.StringVar
     entry_record_duration: tk.Entry
     entry_measuring_duration: tk.Entry
     entry_wiggle_y_sigma: tk.Entry

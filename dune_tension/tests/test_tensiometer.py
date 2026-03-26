@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
+import math
 import sys
 import time
 import types
@@ -222,6 +223,295 @@ def test_collect_samples_stops_when_confidence_threshold_is_met(monkeypatch):
     assert samples[0].confidence == pytest.approx(0.95)
 
 
+def test_collect_samples_waits_for_quiet_before_audio(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+    events: list[str] = []
+
+    def _acquire_audio(**_kwargs):
+        events.append("audio")
+        return [1.0]
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", _acquire_audio)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "estimate_pitch_from_audio",
+        lambda *_args: (5.0, 0.95),
+    )
+    monkeypatch.setattr(
+        tensiometer_module,
+        "analyze_audio_with_pesto",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("fallback")),
+    )
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_threshold=0.9,
+        measuring_duration=1.0,
+        quiet_waiter=lambda: events.append("quiet"),
+        datetime_provider=lambda: datetime(2026, 3, 15, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert events[:2] == ["quiet", "audio"]
+
+
+def test_triangle_reference_rms_uses_full_recording_duration() -> None:
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        record_duration=1.0,
+    )
+
+    rms = tensiometer._triangle_reference_rms(100.0)
+
+    assert rms == pytest.approx(1.0 / math.sqrt(3.0), rel=0.01)
+
+
+def test_amplitude_confidence_falls_back_to_raw_rms_when_reference_invalid() -> None:
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        confidence_source="signal_amplitude",
+    )
+
+    confidence = tensiometer._amplitude_confidence([1.0, -1.0], float("nan"))
+
+    assert confidence == pytest.approx(1.0)
+
+
+def test_amplitude_mode_skips_pesto_until_threshold_then_analyzes_once(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+    low_sample = [0.1, -0.1, 0.1, -0.1]
+    high_sample = [0.8, -0.8, 0.8, -0.8]
+    captures = iter([low_sample, high_sample])
+    analyses: list[object] = []
+
+    monkeypatch.setattr(
+        tensiometer_module,
+        "acquire_audio",
+        lambda **_kwargs: next(captures, None),
+    )
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+
+    def _analyze(*_args, **_kwargs):
+        analyses.append(object())
+        marker = analyses[-1]
+        return types.SimpleNamespace(frequency=5.0, confidence=0.99, marker=marker)
+
+    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _analyze)
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_source="signal_amplitude",
+        confidence_threshold=0.9,
+        record_duration=1.0,
+        measuring_duration=1.0,
+        datetime_provider=lambda: datetime(2026, 3, 15, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+    published: list[tuple[list[float], object | None]] = []
+    tensiometer.audio_sample_callback = (
+        lambda sample, _samplerate, analysis: published.append((list(sample), analysis))
+    )
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert len(analyses) == 1
+    assert samples is not None
+    assert len(samples) == 1
+    assert len(repository.samples) == 1
+    assert repository.samples[0].confidence > 0.9
+    assert published[0] == (low_sample, None)
+    assert published[1][0] == high_sample
+    assert published[1][1] is not None
+
+
+def test_amplitude_mode_timeout_analyzes_only_best_pending_sample(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+    weaker_sample = [0.05, -0.05, 0.05, -0.05]
+    stronger_sample = [0.15, -0.15, 0.15, -0.15]
+    captures = iter([weaker_sample, stronger_sample])
+    analysis = types.SimpleNamespace(frequency=5.0, confidence=0.8)
+
+    monkeypatch.setattr(
+        tensiometer_module,
+        "acquire_audio",
+        lambda **_kwargs: next(captures, None),
+    )
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+    analyze_calls = []
+    monkeypatch.setattr(
+        tensiometer_module,
+        "analyze_audio_with_pesto",
+        lambda *_args, **_kwargs: analyze_calls.append(True) or analysis,
+    )
+
+    times = iter([0.0, 0.01, 0.02, 0.03, 0.2])
+    published: list[tuple[list[float], object | None]] = []
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_source="signal_amplitude",
+        confidence_threshold=0.9,
+        record_duration=1.0,
+        measuring_duration=0.05,
+        time_provider=lambda: next(times),
+        datetime_provider=lambda: datetime(2026, 3, 15, 12, 0, 0),
+        audio_sample_callback=lambda sample, _samplerate, payload: published.append(
+            (list(sample), payload)
+        ),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=0.0,
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert len(analyze_calls) == 1
+    assert samples is not None
+    assert len(samples) == 1
+    assert len(repository.samples) == 1
+    assert repository.samples[0].confidence == pytest.approx(
+        tensiometer._amplitude_confidence(stronger_sample, 5.0)
+    )
+    assert published[0] == (weaker_sample, None)
+    assert published[1] == (stronger_sample, analysis)
+
+
+def test_amplitude_mode_continues_after_implausible_threshold_sample(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+    captures = iter(
+        [
+            [0.8, -0.8, 0.8, -0.8],
+            [0.9, -0.9, 0.9, -0.9],
+        ]
+    )
+    plausibility = iter([False, True])
+    analyze_calls = []
+
+    monkeypatch.setattr(
+        tensiometer_module,
+        "acquire_audio",
+        lambda **_kwargs: next(captures, None),
+    )
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        tensiometer_module,
+        "tension_plausible",
+        lambda _tension: next(plausibility),
+    )
+    monkeypatch.setattr(
+        tensiometer_module,
+        "analyze_audio_with_pesto",
+        lambda *_args, **_kwargs: analyze_calls.append(True)
+        or types.SimpleNamespace(frequency=5.0, confidence=0.99),
+    )
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_source="signal_amplitude",
+        confidence_threshold=0.9,
+        record_duration=1.0,
+        measuring_duration=1.0,
+        datetime_provider=lambda: datetime(2026, 3, 15, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert len(analyze_calls) == 2
+    assert samples is not None
+    assert len(samples) == 1
+    assert len(repository.samples) == 2
+
+
 def test_measure_auto_reports_estimated_time(monkeypatch):
     eta_updates = []
     summaries_stub = types.ModuleType("dune_tension.summaries")
@@ -417,6 +707,7 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
         repository=DummyRepository(),
         measuring_duration=10.0,
         focus_wiggle=lambda delta: focus_deltas.append(delta),
+        gauss_func=lambda mean, sigma: mean + sigma,
     )
     tensiometer.strum_func = lambda: None
 
@@ -434,7 +725,7 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
 
     def _check_stop(_event, _msg=""):
         stop_checks["count"] += 1
-        return stop_checks["count"] >= 7
+        return stop_checks["count"] >= 3
 
     monkeypatch.setattr(tensiometer_module, "check_stop_event", _check_stop)
 
@@ -446,5 +737,6 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
         wire_x=1000.0,
     )
 
-    assert 100 in focus_deltas
-    assert any(abs(x - 999.7113) < 0.02 for x, _ in motion.moves)
+    assert focus_deltas == [100, 85]
+    assert motion.moves[0][0] == pytest.approx(999.7113, abs=0.02)
+    assert motion.moves[0][1] == pytest.approx(2000.1, abs=0.02)
