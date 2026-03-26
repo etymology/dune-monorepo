@@ -13,6 +13,7 @@ from dune_tension.data_cache import (
     append_dataframe_row,
     append_results_row,
     clear_wire_numbers,
+    find_outliers,
     find_distribution_outliers,
     get_dataframe,
     get_results_dataframe,
@@ -209,3 +210,42 @@ def test_find_distribution_outliers_uses_bulk_tension_distribution(tmp_path) -> 
     )
 
     assert outliers == [11]
+
+
+def test_find_outliers_uses_nearest_calculable_average_for_end_wires(tmp_path) -> None:
+    db_path = tmp_path / "residual_outliers.db"
+
+    def make_row(wire_number: int, tension: float, confidence: float = 0.95) -> dict:
+        return {
+            "apa_name": "APA",
+            "layer": "G",
+            "side": "A",
+            "wire_number": wire_number,
+            "frequency": 75.0,
+            "confidence": confidence,
+            "x": 100.0,
+            "y": 200.0,
+            "taped": False,
+            "time": "2026-03-10T10:00:00",
+            "zone": 1,
+            "wire_length": 1200.0,
+            "tension": tension,
+            "tension_pass": True,
+        }
+
+    for wire_number in range(1, 31):
+        tension = 5.0
+        if wire_number in {1, 30}:
+            tension = 15.0
+        append_dataframe_row(str(db_path), make_row(wire_number, tension))
+
+    outliers = find_outliers(
+        str(db_path),
+        "APA",
+        "G",
+        "A",
+        times_sigma=2.0,
+        confidence_threshold=0.9,
+    )
+
+    assert outliers == [1, 30]

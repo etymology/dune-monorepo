@@ -331,18 +331,22 @@ def find_outliers(
     if subset.empty:
         return []
 
-    subset = subset.sort_values("wire_number")
+    subset = subset.sort_values("wire_number").reset_index(drop=True)
 
-    rolling_mean = (
-        subset["tension"].rolling(window=20, center=True, min_periods=20).mean()
-    )
+    rolling_mean = subset["tension"].rolling(window=20, center=True, min_periods=20).mean()
+    if rolling_mean.notna().any():
+        first_valid = rolling_mean.first_valid_index()
+        last_valid = rolling_mean.last_valid_index()
+        rolling_mean = rolling_mean.copy()
+        rolling_mean.loc[:first_valid] = rolling_mean.loc[first_valid]
+        rolling_mean.loc[last_valid:] = rolling_mean.loc[last_valid]
     residuals = subset["tension"] - rolling_mean
     resid_std = residuals.std(skipna=True)
 
     if pd.isna(resid_std) or resid_std == 0:
         return []
 
-    is_outlier = rolling_mean.notna() & (residuals.abs() > times_sigma * resid_std)
+    is_outlier = residuals.abs() > times_sigma * resid_std
     outliers = subset.loc[is_outlier, "wire_number"].astype(int).tolist()
     return sorted(set(outliers))
 
