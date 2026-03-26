@@ -25,7 +25,6 @@ class _PersistedState:
     b_taped: bool
     wire_number: str
     wire_list: str
-    samples_per_wire: int
     confidence_threshold: float
     plot_audio: bool
     skip_measured: bool
@@ -44,13 +43,9 @@ def save_state(ctx: GUIContext) -> None:
 
     w = ctx.widgets
     try:
-        samples = int(w.entry_samples.get())
-    except ValueError:
-        samples = 3
-    try:
         conf = float(w.entry_confidence.get())
     except ValueError:
-        conf = 0.7
+        conf = 0.5
     try:
         times_sigma = float(w.entry_times_sigma.get())
     except ValueError:
@@ -66,11 +61,10 @@ def save_state(ctx: GUIContext) -> None:
         b_taped=bool(w.b_taped_var.get()),
         wire_number=w.entry_wire.get(),
         wire_list=w.entry_wire_list.get(),
-        samples_per_wire=samples,
         confidence_threshold=conf,
         plot_audio=bool(w.plot_audio_var.get()),
         skip_measured=bool(w.skip_measured_var.get()),
-        focus_target=int(w.focus_slider.get()),
+        focus_target=_safe_int(w.focus_slider.get(), 4000),
         condition=w.entry_condition.get(),
         times_sigma=times_sigma,
         set_tension=w.entry_set_tension.get(),
@@ -87,6 +81,18 @@ def save_state(ctx: GUIContext) -> None:
 def _set_entry(entry: tk.Entry, value: Any) -> None:
     entry.delete(0, tk.END)
     entry.insert(0, str(value))
+
+
+def _safe_int(value: Any, default: int) -> int:
+    """Best-effort integer parsing for persisted GUI values."""
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(str(value).strip()))
+        except (TypeError, ValueError):
+            return default
 
 
 def load_state(ctx: GUIContext) -> None:
@@ -111,15 +117,14 @@ def load_state(ctx: GUIContext) -> None:
     w.b_taped_var.set(bool(data.get("b_taped", False)))
     _set_entry(w.entry_wire, data.get("wire_number", ""))
     _set_entry(w.entry_wire_list, data.get("wire_list", ""))
-    _set_entry(w.entry_samples, data.get("samples_per_wire", 3))
-    _set_entry(w.entry_confidence, data.get("confidence_threshold", 0.7))
+    _set_entry(w.entry_confidence, data.get("confidence_threshold", 0.5))
     w.plot_audio_var.set(bool(data.get("plot_audio", False)))
     w.skip_measured_var.set(bool(data.get("skip_measured", False)))
-    w.focus_slider.set(int(data.get("focus_target", 4000)))
+    w.focus_slider.set(_safe_int(data.get("focus_target", 4000), 4000))
     _set_entry(w.entry_condition, data.get("condition", ""))
     _set_entry(w.entry_times_sigma, data.get("times_sigma", 2.0))
     _set_entry(w.entry_set_tension, data.get("set_tension", ""))
-    _set_entry(w.entry_record_duration, data.get("record_duration", 0.5))
+    _set_entry(w.entry_record_duration, data.get("record_duration", 1.0))
     _set_entry(w.entry_measuring_duration, data.get("measuring_duration", 10.0))
     _set_entry(
         w.entry_wiggle_y_sigma,
