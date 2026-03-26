@@ -369,6 +369,26 @@ def write_tag(tag_name: str, value: Any) -> dict[str, Any]:
     return _write_tag_server(tag_name, value)
 
 
+def _reset_stuck_xy_seek_if_stationary(start_x: float, start_y: float) -> bool:
+    """Clear XY seek when the PLC stayed in seek mode without moving."""
+
+    try:
+        current_x, current_y = get_xy()
+    except RuntimeError as exc:
+        LOGGER.warning("Unable to read XY while checking for stuck XY seek: %s", exc)
+        return False
+
+    if abs(current_x - float(start_x)) > 1e-6 or abs(current_y - float(start_y)) > 1e-6:
+        return False
+
+    LOGGER.warning(
+        "PLC is stuck in XY seek with no motion detected at %s,%s. Clearing MOVE_TYPE.",
+        current_x,
+        current_y,
+    )
+    return _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)
+
+
 def goto_xy(
     x_target: float,
     y_target: float,
@@ -468,6 +488,8 @@ def goto_xy(
             ):
                 return False
         else:
+            start_live_x = _TRUE_XY[0]
+            start_live_y = _TRUE_XY[1]
             idle_deadline = time.monotonic() + idle_timeout
             while True:
                 try:
@@ -512,6 +534,7 @@ def goto_xy(
                 if move_type != XY_MOVE_TYPE:
                     break
                 if time.monotonic() >= move_deadline:
+                    _reset_stuck_xy_seek_if_stationary(start_live_x, start_live_y)
                     LOGGER.warning("Timed out waiting for move completion.")
                     return False
                 time.sleep(STATE_POLL_INTERVAL)
@@ -526,7 +549,9 @@ def goto_xy(
 def reset_plc() -> bool:
     """Reset the PLC to its initial state."""
     if get_plc_io_mode() == "desktop":
-        return True
+        from dune_tension.plc_desktop import desktop_acknowledge_error
+
+        return desktop_acknowledge_error()
     with _MOTION_LOCK:
         return (
             _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)

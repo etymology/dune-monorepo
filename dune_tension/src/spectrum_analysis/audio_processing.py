@@ -31,6 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checking
     from spectrum_analysis.pitch_compare_config import PitchCompareConfig
 
 LOGGER = logging.getLogger(__name__)
+LEADING_AUDIO_DISCARD_SECONDS = 0.05
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,25 @@ def load_audio(path: Path, target_sr: int) -> tuple[np.ndarray, int]:
         sr = target_sr
 
     return audio.astype(np.float32), sr
+
+
+def discard_leading_audio(
+    audio: np.ndarray,
+    sample_rate: int,
+    discard_seconds: float = LEADING_AUDIO_DISCARD_SECONDS,
+) -> np.ndarray:
+    """Drop a fixed leading segment from an audio buffer."""
+
+    shaped = np.asarray(audio, dtype=np.float32)
+    if shaped.size == 0:
+        return shaped
+
+    discard_samples = max(int(round(float(discard_seconds) * int(sample_rate))), 0)
+    if discard_samples <= 0:
+        return shaped
+    if discard_samples >= shaped.size:
+        return np.zeros(0, dtype=np.float32)
+    return shaped[discard_samples:]
 
 
 def determine_window_and_hop(
@@ -452,20 +472,30 @@ def acquire_audio(
     trigger_mode = getattr(cfg, "trigger_mode", "snr")
 
     if trigger_mode != "harmonic_comb":
-        return _acquire_audio_snr(cfg, noise_rms, timeout)
+        audio = _acquire_audio_snr(cfg, noise_rms, timeout)
+        if audio is None:
+            return None
+        return discard_leading_audio(audio, cfg.sample_rate)
 
     expected_f0 = cfg.expected_f0
     if expected_f0 is None or not np.isfinite(expected_f0) or expected_f0 <= 0.0:
         LOGGER.warning("expected_f0 missing; falling back to RMS trigger.")
-        return _acquire_audio_snr(cfg, noise_rms, timeout)
+        audio = _acquire_audio_snr(cfg, noise_rms, timeout)
+        if audio is None:
+            return None
+        return discard_leading_audio(audio, cfg.sample_rate)
 
     try:
-        return record_with_harmonic_comb(
+        audio = record_with_harmonic_comb(
             expected_f0=expected_f0,
             sample_rate=cfg.sample_rate,
             max_record_seconds=cfg.max_record_seconds,
             comb_cfg=cfg.comb_trigger,
         )
+        return discard_leading_audio(audio, cfg.sample_rate)
     except ValueError:
         LOGGER.warning("Invalid frequency band; falling back to RMS trigger.")
-        return _acquire_audio_snr(cfg, noise_rms, timeout)
+        audio = _acquire_audio_snr(cfg, noise_rms, timeout)
+        if audio is None:
+            return None
+        return discard_leading_audio(audio, cfg.sample_rate)

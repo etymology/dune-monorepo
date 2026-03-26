@@ -291,6 +291,12 @@ def _create_widgets(
     entry_focus_wiggle_sigma.insert(
         0, str(MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us)
     )
+    use_manual_focus_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        measure_frame,
+        text="Manual Focus",
+        variable=use_manual_focus_var,
+    ).grid(row=11, column=2, columnspan=2, sticky="w")
 
     tk.Label(measure_frame, text="Wire Number:").grid(row=1, column=0, sticky="e")
     entry_wire = tk.Entry(measure_frame)
@@ -442,6 +448,7 @@ def _create_widgets(
         entry_measuring_duration=entry_measuring_duration,
         entry_wiggle_y_sigma=entry_wiggle_y_sigma,
         entry_focus_wiggle_sigma=entry_focus_wiggle_sigma,
+        use_manual_focus_var=use_manual_focus_var,
         plot_audio_var=plot_audio_var,
         skip_measured_var=skip_measured_var,
         entry_clear_range=entry_clear_range,

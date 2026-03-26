@@ -2,7 +2,11 @@
 name = "dune-monorepo"
 version = "0.0.0"
 requires-python = ">=3.12"
-dependencies = ["dune-winder", "dune-tension"]
+dependencies = [
+    "dune-winder",
+    "dune-tension",
+    "pytest>=9.0.2",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.3.0", "ruff>=0.9.9"]

@@ -9,7 +9,7 @@ import numpy as np
 from random import gauss
 
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
-from dune_tension.geometry import zone_lookup, length_lookup
+from dune_tension.geometry import zone_lookup, length_lookup, refine_position
 from dune_tension.results import TensionResult
 from dune_tension.services import (
     AudioCaptureService,
@@ -21,14 +21,15 @@ from dune_tension.services import (
 )
 from dune_tension.tension_calculation import wire_equation, tension_plausible
 from dune_tension.tensiometer_functions import (
+    PlannedWirePose,
     TensiometerConfig,
     WirePositionProvider,
     check_stop_event,
     make_config,
-    measure_list,
     normalize_confidence_source,
-    plan_measurement_triplets,
+    plan_measurement_poses,
 )
+from dune_tension.plc_io import is_motion_target_in_bounds
 
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
@@ -119,6 +120,8 @@ def build_tensiometer(
     focus_wiggle: Optional[Callable[[float], None]] = None,
     focus_position_getter: Optional[Callable[[], int]] = None,
     focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
+    use_manual_focus: bool = False,
+    manual_focus_target: int | None = None,
     quiet_waiter: Optional[Callable[[], None]] = None,
     estimated_time_callback: Optional[Callable[[str], None]] = None,
     audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
@@ -203,10 +206,11 @@ def build_tensiometer(
             sample_rate = max(int(getattr(active_runtime.audio, "samplerate", 0) or 0), 1)
             noise_floor = float(getattr(active_runtime.audio, "noise_threshold", 0.0) or 0.0)
             quiet_threshold = max(noise_floor * 1.25, noise_floor + 1e-4, 1e-4)
-            quiet_chunks_needed = 3
-            quiet_chunks = 0
-            source = MicSource(sample_rate, max(int(sample_rate * 0.01), 128))
-            deadline = time.monotonic() + 0.75
+            quiet_seconds_required = 1.0
+            quiet_seconds = 0.0
+            chunk_size = max(int(sample_rate * 0.01), 128)
+            source = MicSource(sample_rate, chunk_size)
+            deadline = time.monotonic() + max(quiet_seconds_required + 1.0, 2.0)
             try:
                 source.start()
                 while time.monotonic() < deadline:
@@ -214,12 +218,13 @@ def build_tensiometer(
                     if chunk.size == 0:
                         continue
                     chunk_rms = float(np.sqrt(np.mean(np.square(chunk, dtype=np.float64)) + 1e-12))
+                    chunk_seconds = float(chunk.size) / float(sample_rate)
                     if chunk_rms <= quiet_threshold:
-                        quiet_chunks += 1
-                        if quiet_chunks >= quiet_chunks_needed:
+                        quiet_seconds += chunk_seconds
+                        if quiet_seconds >= quiet_seconds_required:
                             return
                     else:
-                        quiet_chunks = 0
+                        quiet_seconds = 0.0
             except Exception:
                 return
             finally:
@@ -252,6 +257,8 @@ def build_tensiometer(
         focus_wiggle=active_focus_wiggle,
         focus_position_getter=active_focus_position_getter,
         focus_range_getter=active_focus_range_getter,
+        use_manual_focus=use_manual_focus,
+        manual_focus_target=manual_focus_target,
         quiet_waiter=active_quiet_waiter,
         estimated_time_callback=estimated_time_callback,
         audio_sample_callback=audio_sample_callback,
@@ -296,6 +303,8 @@ class Tensiometer:
         focus_wiggle: Optional[Callable[[float], None]] = None,
         focus_position_getter: Optional[Callable[[], int]] = None,
         focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
+        use_manual_focus: bool = False,
+        manual_focus_target: int | None = None,
         quiet_waiter: Optional[Callable[[], None]] = None,
         estimated_time_callback: Optional[Callable[[str], None]] = None,
         audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
@@ -353,6 +362,10 @@ class Tensiometer:
         self.focus_wiggle_func = focus_wiggle or (lambda _delta: None)
         self.focus_position_getter = focus_position_getter or (lambda: 0)
         self.focus_range_getter = focus_range_getter or (lambda: (4000, 8000))
+        self.use_manual_focus = bool(use_manual_focus)
+        self.manual_focus_target = (
+            None if manual_focus_target is None else int(manual_focus_target)
+        )
         self.quiet_waiter = quiet_waiter or (lambda: None)
         self.strum_func = strum or (lambda: None)
         self.estimated_time_callback = estimated_time_callback or (lambda _value: None)
@@ -444,19 +457,142 @@ class Tensiometer:
         low, high = self._get_focus_bounds()
         return max(low, min(high, int(focus_position)))
 
+    def _active_focus_target(self, focus_target: int | None = None) -> int | None:
+        if self.use_manual_focus:
+            if self.manual_focus_target is None:
+                return self._clamp_focus_position(self._get_focus_position())
+            return self._clamp_focus_position(self.manual_focus_target)
+        if focus_target is None:
+            return None
+        return self._clamp_focus_position(int(focus_target))
+
+    def _goto_xy_with_reset_recovery(
+        self,
+        x_target: float,
+        y_target: float,
+        *,
+        context: str,
+        **move_kwargs: Any,
+    ) -> bool:
+        """Attempt an XY move, resetting the PLC and retrying once on failure."""
+
+        try:
+            moved = self.goto_xy_func(x_target, y_target, **move_kwargs)
+        except Exception as exc:
+            LOGGER.warning("%s move to %s,%s raised %s", context, x_target, y_target, exc)
+            moved = False
+
+        if moved is not False:
+            return True
+
+        LOGGER.warning(
+            "%s move to %s,%s failed. Resetting PLC and retrying once.",
+            context,
+            x_target,
+            y_target,
+        )
+        try:
+            self.motion.reset_plc()
+        except Exception as exc:
+            LOGGER.warning("PLC reset after failed move raised %s", exc)
+
+        try:
+            retry = self.goto_xy_func(x_target, y_target, **move_kwargs)
+        except Exception as exc:
+            LOGGER.warning(
+                "%s retry after PLC reset raised %s for move to %s,%s",
+                context,
+                exc,
+                x_target,
+                y_target,
+            )
+            return False
+
+        if retry is False:
+            LOGGER.warning(
+                "%s retry after PLC reset still failed for move to %s,%s.",
+                context,
+                x_target,
+                y_target,
+            )
+            return False
+        return True
+
     def _move_to_measurement_pose(
         self,
         x_target: float,
         y_target: float,
         focus_target: int | None = None,
     ) -> bool:
-        if focus_target is not None:
-            clamped_focus = self._clamp_focus_position(int(focus_target))
+        clamped_focus = self._active_focus_target(focus_target)
+        if clamped_focus is not None:
             current_focus = self._get_focus_position()
             delta_focus = clamped_focus - current_focus
             if delta_focus != 0:
                 self._apply_focus_wiggle_with_x_compensation(delta_focus)
-        return bool(self.goto_xy_func(x_target, y_target))
+        return self._goto_xy_with_reset_recovery(
+            x_target,
+            y_target,
+            context="Measurement pose",
+        )
+
+    def _plan_auto_measurement_pose(
+        self,
+        wire_number: int,
+        *,
+        last_successful_result: TensionResult | None = None,
+        last_successful_wire_number: int | None = None,
+    ) -> PlannedWirePose | None:
+        """Return the next auto-measurement pose.
+
+        The first wire, or any wire after a run without a successful anchor, still
+        uses the shared wire-position provider. Once we have a successful
+        measurement, later wire positions are stepped locally from that measured
+        pose using the per-wire geometry spacing.
+        """
+
+        if (
+            last_successful_result is None
+            or last_successful_wire_number is None
+        ):
+            return self.wire_position_provider.get_pose(
+                self.config,
+                wire_number,
+                self._get_focus_position(),
+            )
+
+        wire_delta = int(wire_number) - int(last_successful_wire_number)
+        target_x = float(last_successful_result.x)
+        target_y = float(last_successful_result.y) + (wire_delta * float(self.config.dy))
+
+        if self.config.layer in ["V", "U"]:
+            refined = refine_position(target_x, target_y, self.config.dx, self.config.dy)
+            if refined is not None:
+                target_x, target_y = refined
+
+        if not is_motion_target_in_bounds(target_x, target_y):
+            LOGGER.warning(
+                "Auto-step pose %s,%s for wire %s is out of bounds; falling back to provider.",
+                target_x,
+                target_y,
+                wire_number,
+            )
+            return self.wire_position_provider.get_pose(
+                self.config,
+                wire_number,
+                self._get_focus_position(),
+            )
+
+        focus_position = last_successful_result.focus_position
+        if focus_position is None:
+            focus_position = self._get_focus_position()
+
+        return PlannedWirePose(
+            wire_number=int(wire_number),
+            x=float(target_x),
+            y=float(target_y),
+            focus_position=int(focus_position) if focus_position is not None else None,
+        )
 
     def _await_quiet_background(self) -> None:
         """Best-effort wait for ambient audio to return near the noise floor."""
@@ -648,35 +784,47 @@ class Tensiometer:
 
         LOGGER.info("Measuring missing wires...")
         LOGGER.info("Missing wires: %s", wires_to_measure)
-        targets = plan_measurement_triplets(
-            config=self.config,
-            wire_list=wires_to_measure,
-            get_xy_from_file_func=self.wire_position_provider.get_xy,
-            get_current_xy_func=self.get_current_xy_position,
-            preserve_order=False,
-        )
-        if not targets:
-            self.estimated_time_callback("0:00:00")
-            LOGGER.info("No measurable wires remain after planning motion targets.")
-            return
 
         start_time = self._time()
         measured_count = 0
         did_report_zero = False
+        last_successful_result: TensionResult | None = None
+        last_successful_wire_number: int | None = None
         with self.repository.run_scope():
-            for wire_number, x, y in targets:
+            for wire_number in wires_to_measure:
                 if check_stop_event(self.stop_event):
                     return
 
-                LOGGER.info(
-                    "Measuring wire %s at position %s,%s",
-                    wire_number,
-                    x,
-                    y,
+                target = self._plan_auto_measurement_pose(
+                    int(wire_number),
+                    last_successful_result=last_successful_result,
+                    last_successful_wire_number=last_successful_wire_number,
                 )
-                self.goto_collect_wire_data(wire_number=wire_number, wire_x=x, wire_y=y)
+                if target is None:
+                    LOGGER.warning(
+                        "No position data found for wire %s during auto measurement.",
+                        wire_number,
+                    )
+                    continue
+
+                LOGGER.info(
+                    "Measuring wire %s at position %s,%s focus=%s",
+                    target.wire_number,
+                    target.x,
+                    target.y,
+                    target.focus_position,
+                )
+                result = self.goto_collect_wire_data(
+                    wire_number=target.wire_number,
+                    wire_x=target.x,
+                    wire_y=target.y,
+                    focus_position=target.focus_position,
+                )
+                if result is not None and float(result.frequency) > 0.0:
+                    last_successful_result = result
+                    last_successful_wire_number = int(target.wire_number)
                 measured_count += 1
-                remaining = len(targets) - measured_count
+                remaining = len(wires_to_measure) - measured_count
                 if remaining > 0:
                     elapsed = self._time() - start_time
                     avg_time = elapsed / measured_count
@@ -691,21 +839,51 @@ class Tensiometer:
     def measure_list(
         self, wire_list: list[int], preserve_order: bool, profile: bool = False
     ) -> None:
-        with self.repository.run_scope():
-            measure_list(
+        ordered_wire_numbers = list(map(int, wire_list))
+        if not preserve_order:
+            ordered_targets = plan_measurement_poses(
                 config=self.config,
-                wire_list=wire_list,
-                get_xy_from_file_func=self.wire_position_provider.get_xy,
+                wire_list=ordered_wire_numbers,
+                get_pose_from_file_func=self.wire_position_provider.get_pose,
                 get_current_xy_func=self.get_current_xy_position,
-                collect_func=lambda w, x, y: self.goto_collect_wire_data(
-                    wire_number=w,
-                    wire_x=x,
-                    wire_y=y,
-                ),
-                stop_event=self.stop_event,
-                preserve_order=preserve_order,
-                profile=profile,
+                preserve_order=False,
+                current_focus_position=self._get_focus_position(),
             )
+            ordered_wire_numbers = [pose.wire_number for pose in ordered_targets]
+
+        with self.repository.run_scope():
+            last_successful_result: TensionResult | None = None
+            last_successful_wire_number: int | None = None
+            for wire_number in ordered_wire_numbers:
+                if check_stop_event(self.stop_event):
+                    return
+                target = self._plan_auto_measurement_pose(
+                    int(wire_number),
+                    last_successful_result=last_successful_result,
+                    last_successful_wire_number=last_successful_wire_number,
+                )
+                if target is None:
+                    LOGGER.warning(
+                        "No position data found for wire %s during list measurement.",
+                        wire_number,
+                    )
+                    continue
+                LOGGER.info(
+                    "Measuring wire %s at %s,%s focus=%s",
+                    target.wire_number,
+                    target.x,
+                    target.y,
+                    target.focus_position,
+                )
+                result = self.goto_collect_wire_data(
+                    wire_number=target.wire_number,
+                    wire_x=target.x,
+                    wire_y=target.y,
+                    focus_position=target.focus_position,
+                )
+                if result is not None and float(result.frequency) > 0.0:
+                    last_successful_result = result
+                    last_successful_wire_number = int(target.wire_number)
 
     def _collect_samples(
         self,
@@ -744,7 +922,10 @@ class Tensiometer:
         best_confidence = -1.0
         best_x = float(wire_x)
         best_y = float(wire_y)
-        best_focus = self._get_focus_position()
+        initial_focus = self._active_focus_target()
+        best_focus = (
+            self._get_focus_position() if initial_focus is None else int(initial_focus)
+        )
         axis_index = 0
         threshold_reached = False
         pending_best_sample: DeferredPitchSample | None = None
@@ -810,12 +991,21 @@ class Tensiometer:
             return wire_result
 
         def _move_to_pose(x_target: float, y_target: float, focus_target: int) -> None:
-            clamped_focus = self._clamp_focus_position(int(focus_target))
+            clamped_focus = self._active_focus_target(focus_target)
+            if clamped_focus is None:
+                clamped_focus = self._clamp_focus_position(int(focus_target))
             current_focus = self._get_focus_position()
             delta_focus = int(clamped_focus - current_focus)
             if delta_focus != 0:
                 self._apply_focus_wiggle_with_x_compensation(delta_focus)
-            self.goto_xy_func(x_target, y_target)
+            if not self._goto_xy_with_reset_recovery(
+                x_target,
+                y_target,
+                context=f"Optimizer pose for wire {wire_number}",
+            ):
+                raise RuntimeError(
+                    f"Failed to move to optimizer pose {x_target},{y_target} for wire {wire_number}"
+                )
 
         def _next_pose() -> tuple[float, float, int]:
             nonlocal axis_index, x_step_mm, y_step_mm, focus_step_quarter_us
@@ -824,7 +1014,11 @@ class Tensiometer:
             target_x = float(self._gauss(best_x, x_step_mm))
             target_focus = int(best_focus)
 
-            if self._has_focus_wiggle_callback and focus_step_quarter_us > 0:
+            if (
+                self._has_focus_wiggle_callback
+                and not self.use_manual_focus
+                and focus_step_quarter_us > 0
+            ):
                 target_focus = self._clamp_focus_position(
                     int(round(self._gauss(best_focus, focus_step_quarter_us)))
                 )
@@ -835,7 +1029,7 @@ class Tensiometer:
                 axis_index = 0
                 x_step_mm = max(min_x_step_mm, x_step_mm * 0.85)
                 y_step_mm = max(min_y_step_mm, y_step_mm * 0.85)
-                if self._has_focus_wiggle_callback:
+                if self._has_focus_wiggle_callback and not self.use_manual_focus:
                     focus_step_quarter_us = max(
                         min_focus_step_quarter_us,
                         int(focus_step_quarter_us * 0.85),
@@ -941,7 +1135,11 @@ class Tensiometer:
                 target_y,
                 target_focus,
             )
-            _move_to_pose(target_x, target_y, target_focus)
+            try:
+                _move_to_pose(target_x, target_y, target_focus)
+            except RuntimeError as exc:
+                LOGGER.warning("%s", exc)
+                break
 
         if amplitude_mode and not threshold_reached and pending_best_sample is not None:
             wire_result = _analyze_sample(pending_best_sample)
@@ -964,7 +1162,11 @@ class Tensiometer:
         return max(passing_wires, key=self._sample_sort_key)
 
     def goto_collect_wire_data(
-        self, wire_number: int, wire_x: float, wire_y: float
+        self,
+        wire_number: int,
+        wire_x: float,
+        wire_y: float,
+        focus_position: int | None = None,
     ) -> Optional[TensionResult]:
         self.motion.reset_plc()
         length = length_lookup(
@@ -979,7 +1181,7 @@ class Tensiometer:
         if check_stop_event(self.stop_event):
             return
 
-        succeed = self.goto_xy_func(wire_x, wire_y)
+        succeed = self._move_to_measurement_pose(wire_x, wire_y, focus_position)
         if check_stop_event(self.stop_event):
             return
         if not succeed:

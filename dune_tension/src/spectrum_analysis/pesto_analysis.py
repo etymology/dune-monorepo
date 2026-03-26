@@ -42,6 +42,57 @@ def _resolve_step_size_ms(_sample_rate: int, _sample_count: int) -> float:
     return float(max(DEFAULT_PESTO_STEP_SIZE_MS, 1.0))
 
 
+def _padding_samples(value: Any) -> int:
+    if isinstance(value, tuple):
+        try:
+            return max(int(item) for item in value)
+        except (TypeError, ValueError):
+            return 0
+
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _minimum_input_samples(model: Any) -> int | None:
+    preprocessor = getattr(model, "preprocessor", None)
+    hcqt_kernels = getattr(preprocessor, "hcqt_kernels", None)
+    cqt_kernels = getattr(hcqt_kernels, "cqt_kernels", None)
+    if cqt_kernels is None:
+        return None
+
+    required = 0
+    try:
+        iterator = iter(cqt_kernels)
+    except TypeError:
+        return None
+
+    for cqt in iterator:
+        conv = getattr(cqt, "conv", None)
+        padding = _padding_samples(getattr(conv, "padding", 0) if conv is not None else 0)
+        if padding <= 0 and bool(getattr(cqt, "center", False)):
+            padding = _padding_samples(getattr(cqt, "kernel_width", 0)) // 2
+        if padding > 0:
+            required = max(required, padding + 1)
+
+    return required or None
+
+
+def _pad_short_audio_for_model(audio: np.ndarray, model: Any) -> tuple[np.ndarray, int]:
+    minimum_input_samples = _minimum_input_samples(model)
+    if minimum_input_samples is None or audio.size >= minimum_input_samples:
+        return audio, 0
+
+    pad_width = int(minimum_input_samples - audio.size)
+    LOGGER.debug(
+        "Right-padding short audio from %s to %s samples for PESTO inference.",
+        audio.size,
+        minimum_input_samples,
+    )
+    return np.pad(audio, (0, pad_width), mode="constant"), pad_width
+
+
 def _empty_analysis_result() -> PestoAnalysisResult:
     empty = np.zeros(0, dtype=np.float32)
     return PestoAnalysisResult(
@@ -199,7 +250,9 @@ def analyze_audio_with_pesto(
         LOGGER.warning("pesto model loader is unavailable; cannot estimate pitch.")
         return _empty_analysis_result()
 
-    audio_tensor = torch.from_numpy(audio_array).to(dtype=torch.float32).unsqueeze(0)
+    original_sample_count = int(audio_array.size)
+    padded_audio_array, pad_width = _pad_short_audio_for_model(audio_array, model)
+    audio_tensor = torch.from_numpy(padded_audio_array).to(dtype=torch.float32).unsqueeze(0)
 
     try:
         with torch.inference_mode():
@@ -228,6 +281,14 @@ def analyze_audio_with_pesto(
     if sr_augment_factor != 1.0:
         predicted_frequencies = predicted_frequencies / float(sr_augment_factor)
         frame_times = frame_times * float(sr_augment_factor)
+
+    frame_keep_mask: np.ndarray | None = None
+    if pad_width > 0:
+        original_duration_seconds = float(original_sample_count) / float(sample_rate)
+        frame_keep_mask = frame_times <= (original_duration_seconds + 1e-9)
+        predicted_frequencies = predicted_frequencies[frame_keep_mask]
+        confidence_values = confidence_values[frame_keep_mask]
+        frame_times = frame_times[frame_keep_mask]
 
     valid = np.isfinite(predicted_frequencies) & (predicted_frequencies > 0.0)
     valid &= np.isfinite(confidence_values) & (confidence_values > 0.0)
@@ -262,6 +323,10 @@ def analyze_audio_with_pesto(
         if activation_np.ndim == 3 and activation_np.shape[0] == 1:
             activation_np = activation_np[0]
         if activation_np.ndim == 2:
+            if frame_keep_mask is not None and frame_keep_mask.size > 0:
+                frame_count = min(int(activation_np.shape[0]), int(frame_keep_mask.size))
+                activation_np = activation_np[:frame_count]
+                activation_np = activation_np[frame_keep_mask[:frame_count]]
             bins_per_semitone = max(int(getattr(model, "bins_per_semitone", 1)), 1)
             if sr_augment_factor != 1.0:
                 activation_np = _reverse_sr_augment(

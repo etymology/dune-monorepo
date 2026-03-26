@@ -142,6 +142,7 @@ class WorkerInputs:
     measuring_duration: float
     wiggle_y_sigma_mm: float
     focus_wiggle_sigma_quarter_us: float
+    use_manual_focus: bool
     plot_audio: bool
     skip_measured: bool
     wire_number: str
@@ -206,6 +207,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
+        use_manual_focus=bool(w.use_manual_focus_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
         skip_measured=bool(w.skip_measured_var.get()),
         wire_number=w.entry_wire.get(),
@@ -257,6 +259,8 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,
         focus_position_getter=lambda: int(ctx.servo_controller.focus_position),
+        use_manual_focus=bool(getattr(inputs, "use_manual_focus", False)),
+        manual_focus_target=None,
         estimated_time_callback=lambda value: _set_estimated_time(ctx, value),
         audio_sample_callback=lambda audio_sample, samplerate, analysis: _publish_live_waveform(
             ctx,
@@ -338,6 +342,8 @@ def create_streaming_controller(ctx: GUIContext, inputs: WorkerInputs):
         sample_rate=int(getattr(ctx.runtime.audio, "samplerate", 44100)),
         direct_accept_confidence=confidence,
         direct_accept_support=1,
+        use_manual_focus=bool(getattr(inputs, "use_manual_focus", False)),
+        manual_focus_target=None,
     )
     return StreamingMeasurementController(
         runtime=runtime,
@@ -519,8 +525,6 @@ def _parse_ranges(text: str) -> list[tuple[int, int]]:
                 start = end = int(part)
             except ValueError:
                 continue
-        if start > end:
-            start, end = end, start
         ranges.append((start, end))
     return ranges
 
@@ -532,7 +536,8 @@ def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     ranges = _parse_ranges(inputs.wire_list)
     wire_list: list[int] = []
     for start, end in ranges:
-        wire_list.extend(range(start, end + 1))
+        step = 1 if end >= start else -1
+        wire_list.extend(range(start, end + step, step))
     if inputs.skip_measured:
         filtered_wire_list = _filter_unmeasured_wires(inputs, wire_list)
         if filtered_wire_list:
@@ -551,7 +556,7 @@ def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     try:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring wires: %s", wire_list)
-        tensiometer.measure_list(wire_list, preserve_order=False)
+        tensiometer.measure_list(wire_list, preserve_order=True)
     finally:
         _cleanup_after_measurement(ctx, tensiometer)
 
