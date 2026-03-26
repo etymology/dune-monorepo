@@ -926,6 +926,30 @@ def build_command_registry(
 
   registry.register("sim_plc.clear_error", sim_plc_clear_error, True)
 
+  # ---------------------------------------------------------------------------
+  # Raw PLC tag access (used by dune_tension desktop transport).
+  # ---------------------------------------------------------------------------
+  def plc_read_tag(args):
+    _validateArgs(args, required=("tag",))
+    tag = _asString(args["tag"], "tag")
+    result = lowLevelIO.plc.read([tag])
+    if result is None:
+      raise ValueError("Failed to read tag: " + tag)
+    return result[0].value
+
+  registry.register("plc.read_tag", plc_read_tag, False)
+
+  def plc_write_tag(args):
+    _validateArgs(args, required=("tag", "value"))
+    tag = _asString(args["tag"], "tag")
+    value = args["value"]
+    result = lowLevelIO.plc.write((tag, value))
+    if result is None:
+      raise ValueError("Failed to write tag: " + tag)
+    return {"tag": tag, "value": value}
+
+  registry.register("plc.write_tag", plc_write_tag, True)
+
   if systemTime is not None:
     registry.register(
       "system.get_time",

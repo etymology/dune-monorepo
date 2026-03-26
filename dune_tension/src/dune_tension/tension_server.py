@@ -1,3 +1,12 @@
+"""Flask bridge for PLC tag read/write over HTTP.
+
+.. deprecated::
+    The ``desktop`` PLC transport (``PLC_IO_MODE=desktop``) routes tag
+    operations through the dune_winder command API and is now the
+    recommended approach.  This Flask server is retained as a fallback
+    for environments where dune_winder is not running.
+"""
+
 import atexit
 import os
 from typing import Any
