@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+<config>
+	<plcAddress>192.168.140.13</plcAddress>
+	<cameraURL>ftp://admin@192.168.140.19/image.bmp</cameraURL>
+	<pixelsPer_mm>18</pixelsPer_mm>
+	<manualCalibrationOffsetUX>65.0</manualCalibrationOffsetUX>
+	<manualCalibrationOffsetUY>-108.2</manualCalibrationOffsetUY>
+	<manualCalibrationOffsetVX>65.0</manualCalibrationOffsetVX>
+	<manualCalibrationOffsetVY>-108.2</manualCalibrationOffsetVY>
+	<manualCalibrationOffsetXX>65</manualCalibrationOffsetXX>
+	<manualCalibrationOffsetXY>-108.2</manualCalibrationOffsetXY>
+	<manualCalibrationOffsetGX>65</manualCalibrationOffsetGX>
+	<manualCalibrationOffsetGY>-108.2</manualCalibrationOffsetGY>
+	<serverAddress>127.0.0.1</serverAddress>
+	<serverPort>6626</serverPort>
+	<webServerPort>8080</webServerPort>
+	<machineCalibrationFile>machineCalibration.xml</machineCalibrationFile>
+	<maxVelocity>1020</maxVelocity>
+	<maxSlowVelocity>25.4</maxSlowVelocity>
+	<maxAcceleration>800</maxAcceleration>
+	<maxDeceleration>800</maxDeceleration>
+</config>
