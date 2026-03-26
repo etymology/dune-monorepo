@@ -5,6 +5,7 @@ description = "Measure wire tension through GUI."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "dune-winder",
     "flask>=3.1.0",
     "numpy>=1.26.4",
     "matplotlib>=3.10.3",
@@ -28,3 +29,6 @@ dune-tension-fit-focus = "dune_tension.streaming.cli:main_fit_focus"
 dune-tension-stream-replay = "dune_tension.streaming.cli:main_stream_replay"
 dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
 dune-spectrum-scroller = "spectrum_analysis.cli:main"
+
+[tool.uv.sources]
+dune-winder = { workspace = true }
