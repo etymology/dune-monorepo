@@ -20,6 +20,7 @@ from dune_winder.library.log import Log
 from dune_winder.library.app_config import AppConfig
 from dune_winder.library.json import dumps as jsonDumps
 from dune_winder.library.version import Version
+from dune_winder.paths import CONTROL_VERSION_PATH, SRC_ROOT, UI_VERSION_PATH, WEB_ROOT
 
 from dune_winder.machine.settings import Settings
 
@@ -323,15 +324,14 @@ def main():
 
     # Primary control process.
     process = Process(io, log, configuration, systemTime, machineCalibration)
-    projectRoot = os.path.dirname(Settings.CONFIG_FILE)
     controlVersion = Version(
-      os.path.join(projectRoot, "src", "version.xml"),
-      os.path.join(projectRoot, "src"),
+      str(CONTROL_VERSION_PATH),
+      str(SRC_ROOT),
       Settings.CONTROL_FILES,
     )
     uiVersion = Version(
-      os.path.join(projectRoot, "web", "version.xml"),
-      os.path.join(projectRoot, "web"),
+      str(UI_VERSION_PATH),
+      str(WEB_ROOT),
       Settings.UI_FILES,
     )
     commandRegistry = build_command_registry(

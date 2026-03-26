@@ -1,11 +1,7 @@
 import argparse
-import sys
 from pathlib import Path
 
-# Allow running as a standalone script: python3 src/dune_winder/plc_import.py
-if __name__ == "__main__":
-  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
+from dune_winder.paths import PLC_ROOT
 from dune_winder.plc_metadata_export import (
   _load_main_routine_overrides,
   fetch_plc_snapshot,
@@ -15,7 +11,7 @@ from dune_winder.plc_tag_values_export import fetch_and_write_tag_values
 
 
 DEFAULT_PLC_PATH = "192.168.140.13"
-DEFAULT_OUTPUT_ROOT = Path(__file__).resolve().parents[2] / "plc"
+DEFAULT_OUTPUT_ROOT = PLC_ROOT
 
 
 def build_argument_parser():

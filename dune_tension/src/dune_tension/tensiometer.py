@@ -154,9 +154,8 @@ def build_tensiometer(
     )
     active_focus_position_getter = focus_position_getter
     if active_focus_position_getter is None:
-        active_focus_position_getter = lambda: int(
-            getattr(active_runtime.servo_controller, "focus_position", 0)
-        )
+        def active_focus_position_getter() -> int:
+            return int(getattr(active_runtime.servo_controller, "focus_position", 0))
 
     return Tensiometer(
         apa_name=apa_name,

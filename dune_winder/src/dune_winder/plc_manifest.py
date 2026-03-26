@@ -6,12 +6,13 @@ from pathlib import Path
 from typing import Iterator
 
 from dune_winder.library.hash import Hash
+from dune_winder.paths import PLC_ROOT
 
 
 MANIFEST_SCHEMA_VERSION = 1
 METADATA_EXCLUDED_TOP_KEYS = frozenset({"generated_at", "values_generated_at"})
 METADATA_EXCLUDED_TAG_KEYS = frozenset({"value", "read_error"})
-DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[2] / "plc" / "manifest.json"
+DEFAULT_MANIFEST_PATH = PLC_ROOT / "manifest.json"
 
 
 # ---------------------------------------------------------------------------

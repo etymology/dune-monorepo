@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import copy
-import threading
-from pathlib import Path
 from typing import Any
 
+from dune_winder.paths import PLC_ROOT
 from dune_winder.plc_ladder import JSRRegistry
 from dune_winder.plc_ladder import RllParser
 from dune_winder.plc_ladder import RoutineExecutor
@@ -23,7 +22,7 @@ from .simulated_plc import SimulatedPLC
 
 
 class LadderSimulatedPLC(SimulatedPLC):
-  _PLC_ROOT = Path(__file__).resolve().parents[4] / "plc"
+  _PLC_ROOT = PLC_ROOT
   _LATCH_PROGRAM = "Latch_UnLatch_State_6_7_8"
 
   _SCAN_ORDER = (

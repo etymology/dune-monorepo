@@ -1,10 +1,11 @@
 import argparse
 from pathlib import Path
 
+from dune_winder.paths import PLC_ROOT
 from dune_winder.plc_rung_transform import transform_file
 
 
-DEFAULT_ROUTINE_DIR = Path(__file__).resolve().parents[1] / "plc"
+DEFAULT_ROUTINE_DIR = PLC_ROOT
 
 
 def build_argument_parser():

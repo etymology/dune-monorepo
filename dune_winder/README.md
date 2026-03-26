@@ -2,6 +2,10 @@
 
 Python 3 control software and web UI for the UChicago APA winder.
 
+The supported setup and development workflow starts at the monorepo root.
+See [../README.md](../README.md) for the canonical `uv sync`, run, test, and
+debug commands. This README keeps package-specific operational detail only.
+
 ## What This Repository Contains
 
 - Runtime control process, state machine logic, and hardware I/O integration.
@@ -14,36 +18,12 @@ Python 3 control software and web UI for the UChicago APA winder.
 
 ## Requirements
 
-- [uv](https://docs.astral.sh/uv/) (manages Python and dependencies)
+- Follow the root workflow in [../README.md](../README.md) for setup and sync
 - Network access to the production PLC and camera for live hardware operation
-
-## Setup
-
-Install uv if you don't have it:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Then clone and sync dependencies:
-
-```bash
-git clone <repo-url>
-cd dune_winder
-uv sync
-```
-
-Optional spreadsheet tooling:
-
-```bash
-uv sync --extra spreadsheets
-```
-
-uv automatically installs the required Python version and creates a `.venv`.
 
 ## Run The Application
 
-From the project root:
+From the monorepo root:
 
 ```bash
 uv run python -m dune_winder
@@ -77,19 +57,7 @@ plcMode = "REAL" # or "SIM"
 ```
 
 ## Development
-
-### Run tests
-
-```bash
-uv run python -m unittest discover -s tests
-```
-
-### Format and lint
-
-```bash
-uv run ruff format .
-uv run ruff check .
-```
+Use the root README for setup, syncing, testing, linting, and editor workflow.
 
 ## Remote Command API v2
 

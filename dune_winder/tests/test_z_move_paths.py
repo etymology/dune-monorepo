@@ -52,13 +52,14 @@ class ZMovePathTests(_TagIsolationTestCase):
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
 
     self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
-    self.assertTrue(plc.get_tag("STATE5_IND"))
+    self.assertFalse(plc.get_tag("STATE5_IND"))
     self.assertTrue(plc.get_tag("z_move_success") is False)
     self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
     self.assertTrue(plc.get_tag("z_axis_main_move.PC"))
 
   def test_z_seek_stalls_when_tension_gate_never_opens(self):
     plc = LadderSimulatedPLC("SIM")
+    plc.set_tag("check_tension_stable", True)
     plc.set_tag("tension_stable_tolerance", 0.0)
     plc.write(("Z_POSITION", 43.0))
     plc.write(("Z_SPEED", 100.0))
@@ -88,7 +89,7 @@ class ZMovePathTests(_TagIsolationTestCase):
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5001)
     self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
 
-  def test_z_seek_stalls_when_axis_cannot_be_enabled(self):
+  def test_z_seek_enables_axis_and_completes_motion(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("check_tension_stable", False)
     plc.set_tag("APA_IS_VERTICAL", False, override=True)
@@ -96,16 +97,16 @@ class ZMovePathTests(_TagIsolationTestCase):
     plc.write(("Z_SPEED", 100.0))
     plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
 
-    self._advance(plc, 10)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
 
-    self.assertEqual(plc.get_tag("STATE"), plc.STATE_Z_SEEK)
-    self.assertTrue(plc.get_tag("STATE5_IND"))
-    self.assertFalse(plc.get_tag("Z_axis.DriveEnableStatus"))
+    self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
+    self.assertFalse(plc.get_tag("STATE5_IND"))
+    self.assertTrue(plc.get_tag("Z_axis.DriveEnableStatus"))
     self.assertFalse(plc.get_tag("wait_for_mso"))
     self.assertFalse(plc.get_tag("trigger_z_move"))
-    self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
+    self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
 
-  def test_z_seek_can_finish_motion_but_stay_in_state_5_if_gate_drops(self):
+  def test_z_seek_finishes_even_if_gate_drops_after_start(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("check_tension_stable", False)
     plc.write(("Z_POSITION", 43.0))
@@ -122,8 +123,8 @@ class ZMovePathTests(_TagIsolationTestCase):
     self._advance_until(plc, lambda: plc.get_tag("z_axis_main_move.PC"), limit=200)
     self._advance(plc, 5)
 
-    self.assertEqual(plc.get_tag("STATE"), plc.STATE_Z_SEEK)
-    self.assertEqual(plc.get_tag("MOVE_TYPE"), plc.MOVE_SEEK_Z)
+    self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
+    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
     self.assertFalse(plc.get_tag("STATE5_IND"))
     self.assertFalse(plc.get_tag("z_move_success"))
     self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
@@ -185,6 +186,7 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
 
   def test_manual_mode_stays_manual_when_z_seek_stalls_in_state_5(self):
     io, machine = self._build_machine()
+    io.plc.set_tag("check_tension_stable", True)
     io.plc.set_tag("tension_stable_tolerance", 0.0)
     self._advance_machine_until(
       io,

@@ -6,10 +6,10 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-import pathlib
+from dune_winder.paths import CONFIGURATION_PATH, PACKAGE_ROOT
 
 # src/dune_winder/machine/ -> src/dune_winder/ -> src/ -> project root
-_ROOT = pathlib.Path(__file__).parent.parent.parent.parent
+_ROOT = PACKAGE_ROOT
 
 
 class Settings:
@@ -22,7 +22,7 @@ class Settings:
   IO_UPDATE_TIME = 0.1  # In seconds.  Currently 10 times/sec.
 
   # Path to configuration file.
-  CONFIG_FILE = str(_ROOT / "configuration.toml")
+  CONFIG_FILE = str(CONFIGURATION_PATH)
 
   G_CODE_LOG_FILE = "_gCode.gc"
 
@@ -47,4 +47,3 @@ class Settings:
 
   # File making up the version for the user interface.
   UI_FILES = r".*\.html$|.*\.css$|.*\.js$"
-

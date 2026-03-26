@@ -13,12 +13,13 @@ from dune_winder.plc_ladder import ScanContext
 from dune_winder.plc_ladder import TagStore
 from dune_winder.plc_ladder import load_imperative_routine_from_source
 from dune_winder.plc_ladder import load_plc_metadata
+from dune_winder.paths import PLC_ROOT
 
 
 class PlcLadderRuntimeTests(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
-    cls.metadata = load_plc_metadata("plc")
+    cls.metadata = load_plc_metadata(PLC_ROOT)
 
   def setUp(self):
     self.tag_store = TagStore(self.metadata, use_exported_values=True)
@@ -291,7 +292,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
     self.assertTrue(self.ctx.get_value("MoveA.IP"))
 
   def test_generated_python_matches_ast_execution_for_movexy_main(self):
-    path = Path("plc/MoveXY_State_2_3/main/pasteable.rll")
+    path = PLC_ROOT / "MoveXY_State_2_3" / "main" / "pasteable.rll"
     routine = self.parser.parse_routine_path(
       path,
       routine_name="main",
@@ -316,7 +317,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
     self._assert_ast_and_generated_match(routine, setup=setup)
 
   def test_generated_python_matches_ast_execution_for_movez_main(self):
-    path = Path("plc/MoveZ_State_4_5/main/pasteable.rll")
+    path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
     routine = self.parser.parse_routine_path(
       path,
       routine_name="main",

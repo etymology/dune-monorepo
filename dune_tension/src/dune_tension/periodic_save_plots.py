@@ -8,6 +8,7 @@ import sys
 import time
 from typing import Dict
 
+from dune_tension.paths import tension_data_db_path
 from dune_tension.summaries import update_tension_logs
 from dune_tension.tensiometer_functions import make_config
 
@@ -54,7 +55,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--data-path",
-        default="data/tension_data/tension_data.db",
+        default=str(tension_data_db_path()),
         help="Path to the SQLite database that stores tension measurements.",
     )
     parser.add_argument(

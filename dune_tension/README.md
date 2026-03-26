@@ -6,6 +6,10 @@ Wire-tension measurement tooling for DUNE APA work, including:
 - PLC/servo/valve control integration
 - Logging, summaries, plots, and M2M upload utilities
 
+The supported setup and development workflow starts at the monorepo root.
+See [../README.md](../README.md) for the canonical `uv sync`, run, test, and
+debug commands. This README keeps package-specific operational detail only.
+
 ## Repository Layout
 - `src/dune_tension/`: installable GUI/runtime package
 - `src/dune_tension/ukapa7_comparison/`: UKAPA7-specific comparison and report-generation helpers
@@ -24,23 +28,8 @@ Wire-tension measurement tooling for DUNE APA work, including:
 
 Project dependencies are declared in [pyproject.toml](pyproject.toml).
 
-## Install
-
-### Option 1: uv (recommended)
-```bash
-uv sync
-```
-
-### Option 2: venv + pip
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -e .
-```
-
 ## Entry Points
-After install, the following console commands are available:
+After the root `uv sync`, the following console commands are available:
 
 - `dune-tension-gui`
 - `dune-tension-periodic-plots`
@@ -125,10 +114,10 @@ SPOOF_AUDIO=1 SPOOF_PLC=1 SPOOF_SERVO=1 SPOOF_VALVE=1 dune-tension-gui
 
 ## Data and Output Paths
 Default runtime paths include:
-- Measurement DB: `data/tension_data/tension_data.db`
-- Summaries: `data/tension_summaries/`
-- Plots: `data/tension_plots/`
-- Missing/bad wires: `data/badwires/`
+- Measurement DB: `dune_tension/data/tension_data/tension_data.db`
+- Summaries: `dune_tension/data/tension_summaries/`
+- Plots: `dune_tension/data/tension_plots/`
+- Missing/bad wires: `dune_tension/data/badwires/`
 
 ## Spectrum / Pitch Tools
 
@@ -149,21 +138,11 @@ Example uploader script:
 - [src/dune_tension/uploadTensions.py](src/dune_tension/uploadTensions.py)
 
 ## Development
+Use the root README for setup, syncing, testing, linting, and editor workflow.
+Package-local compile checks can still be run with:
 
-### Compile check
 ```bash
 python3 -m compileall src
-```
-
-### Tests
-If not already installed:
-```bash
-pip install pytest
-```
-
-Then run:
-```bash
-pytest
 ```
 
 ## Troubleshooting

@@ -73,8 +73,9 @@ class PlcLadderParserTests(unittest.TestCase):
 
     self.assertIn("def MoveXY_State_2_3_main(ctx):", generated)
     self.assertIn("formula('STATE=2')", generated)
-    self.assertIn("if not tag('main_xy_move.IP'):", generated)
+    self.assertIn("if not tag('XY_AXIS_STAT[4].IP'):", generated)
     self.assertIn("MCLM(", generated)
+    self.assertIn("motion_control='main_xy_move'", generated)
     self.assertIn("speed_units='Units per sec'", generated)
     self.assertIn("accel_units='Units per sec2'", generated)
     self.assertIn("decel_units='Units per sec2'", generated)
@@ -143,8 +144,9 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("if tag('trigger_z_move'):", generated)
+    self.assertIn("def MoveZ_State_4_5_main(ctx):", generated)
     self.assertIn("MAM(", generated)
+    self.assertIn("motion_control='z_axis_main_move'", generated)
     compile(generated, str(path), "exec")
 
 

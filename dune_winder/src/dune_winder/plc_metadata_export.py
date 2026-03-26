@@ -3,8 +3,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dune_winder.paths import PLC_ROOT
 
-DEFAULT_OUTPUT_ROOT = Path(__file__).resolve().parents[2] / "plc"
+DEFAULT_OUTPUT_ROOT = PLC_ROOT
 
 
 def _load_main_routine_overrides(mapping_path):

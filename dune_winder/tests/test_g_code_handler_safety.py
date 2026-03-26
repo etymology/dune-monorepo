@@ -1,7 +1,7 @@
 import unittest
 
-from dune_winder.core.g_code_handler import G_CodeHandler
-from dune_winder.machine.default_calibration import DefaultMachineCalibration
+from dune_winder.gcode.handler import GCodeHandler
+from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
 
 
@@ -62,7 +62,7 @@ class GCodeHandlerSafetyTests(unittest.TestCase):
   def _handler(self, start_x, start_y):
     calibration = DefaultMachineCalibration()
     io = _IO(start_x, start_y)
-    handler = G_CodeHandler(io, calibration, WirePathModel(calibration))
+    handler = GCodeHandler(io, calibration, WirePathModel(calibration))
     handler._delay = 0
     return handler, io
 

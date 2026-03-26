@@ -9,11 +9,12 @@ from typing import Any
 
 import numpy as np
 
+from dune_tension.paths import data_path
+
 LOGGER = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
 _RUNTIME_NOISE_DIR = Path(
-    os.environ.get("DUNE_TENSION_NOISE_DIR", _REPO_ROOT / "data" / "noise_filters")
+    os.environ.get("DUNE_TENSION_NOISE_DIR", data_path("noise_filters"))
 )
 _NOISE_FILTER_PATH = Path(
     os.environ.get(

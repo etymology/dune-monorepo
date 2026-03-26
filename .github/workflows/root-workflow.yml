@@ -1,0 +1,36 @@
+name: Root Workflow
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync workspace
+        run: uv sync
+
+      - name: Import smoke test
+        run: |
+          uv run python -c "import dune_tension, dune_winder, spectrum_analysis"
+          uv run python -c "import convert_plc_rllscrap, motionQueueTest_gui"
+
+      - name: Run dune_winder tests
+        run: uv run python -m unittest discover -s dune_winder/tests
+
+      - name: Run dune_tension tests
+        run: uv run pytest dune_tension/tests
+
+      - name: Run ruff
+        run: uv run ruff check dune_winder dune_tension

@@ -1,6 +1,6 @@
 import unittest
 
-from tests._command_api_test_support import build_registry_fixture
+from _command_api_test_support import build_registry_fixture
 
 
 class CommandRegistryTests(unittest.TestCase):
@@ -92,4 +92,3 @@ class CommandRegistryTests(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
-

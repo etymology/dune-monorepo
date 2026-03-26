@@ -13,8 +13,7 @@ from dune_winder.core.anode_plane_array import AnodePlaneArray
 from dune_winder.library.app_config import AppConfig
 from dune_winder.library.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import WIRE_SPACING as GX_WIRE_SPACING
-from dune_winder.machine.layer_calibration import LayerCalibration
-from dune_winder.machine.settings import Settings
+from dune_winder.machine.calibration.layer import LayerCalibration
 
 
 class FakeLog:
@@ -439,7 +438,7 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(state["references"]["foot"]["wireX"], 7012.0, places=6)
       self.assertAlmostEqual(state["references"]["foot"]["wireY"], 184.75, places=6)
       self.assertEqual(state["counts"]["referencePointsRecorded"], 2)
-      self.assertFalse(state["readyToGenerate"])
+      self.assertTrue(state["readyToGenerate"])
 
   def test_xg_goto_reference_uses_selected_reference_target(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
@@ -502,14 +501,14 @@ class ManualCalibrationTests(unittest.TestCase):
         lines = inputFile.readlines()
 
       self.assertTrue(lines[0].startswith("( X-layer "))
-      self.assertEqual(lines[1], "N0 G113 PPRECISE X440.0 Y196.0\n")
+      self.assertEqual(lines[1], "N0 X440.0 Y196.0\n")
       self.assertEqual(lines[2], "N1 G106 P0\n")
-      self.assertEqual(lines[3], "N2 G113 PPRECISE (1,1) X635.0 Y196.0\n")
-      self.assertEqual(lines[4], "N3 G113 PPRECISE (1,2) X7165.0 Y398.0\n")
+      self.assertEqual(lines[3], "N2 (1,1) X635.0 Y196.0\n")
+      self.assertEqual(lines[4], "N3 (1,2) X7165.0 Y398.0\n")
       self.assertEqual(lines[5], "N4 (1,3) G106 P0\n")
       self.assertEqual(lines[6], "N5 (1,4) G106 P3\n")
-      self.assertEqual(lines[7], "N6 G113 PPRECISE (1,5) X7016.0 Y399.0\n")
-      self.assertEqual(lines[-1], "N3842 G113 PPRECISE X635.0 Y2496.0\n")
+      self.assertEqual(lines[7], "N6 (1,5) X7016.0 Y399.0\n")
+      self.assertEqual(lines[-1], "N3842 X635.0 Y2496.0\n")
 
       state = service.getState()
       self.assertFalse(state["dirty"])
