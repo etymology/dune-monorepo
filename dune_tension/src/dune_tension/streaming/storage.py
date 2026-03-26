@@ -11,6 +11,7 @@ import wave
 
 import numpy as np
 
+from dune_tension.paths import streaming_runs_root
 from dune_tension.streaming.models import (
     AudioChunkRef,
     FocusAnchor,
@@ -38,7 +39,7 @@ class StreamingSessionRepository:
     def __init__(
         self,
         *,
-        root_dir: str | Path = "data/streaming_runs",
+        root_dir: str | Path = streaming_runs_root(),
         session_id: str | None = None,
     ) -> None:
         self.root_dir = Path(root_dir)

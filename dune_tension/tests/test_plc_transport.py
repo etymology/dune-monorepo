@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 sys.modules.setdefault("requests", types.ModuleType("requests"))
 
+import dune_tension.plc_desktop as desktop
 import dune_tension.plc_io as plc
 
 
@@ -16,16 +17,20 @@ def _reset_plc_mode_warnings():
     plc._WARNED_PLC_IO_MODE_VALUES.clear()
 
 
-def test_read_tag_defaults_to_server_mode(monkeypatch):
+def test_read_tag_defaults_to_desktop_mode(monkeypatch):
     monkeypatch.delenv("PLC_IO_MODE", raising=False)
-    monkeypatch.setattr(plc, "_read_tag_server", lambda tag_name: (tag_name, "server"))
+    monkeypatch.setattr(
+        desktop,
+        "desktop_read_tag",
+        lambda tag_name: (tag_name, "desktop"),
+    )
     monkeypatch.setattr(
         plc,
         "_read_tag_direct",
         lambda _tag_name: pytest.fail("direct transport should not be used by default"),
     )
 
-    assert plc.read_tag("STATE", timeout=0.01, retry_interval=0.0) == ("STATE", "server")
+    assert plc.read_tag("STATE", timeout=0.01, retry_interval=0.0) == ("STATE", "desktop")
 
 
 def test_direct_mode_routes_reads_and_writes_to_direct_transport(monkeypatch):
@@ -57,9 +62,9 @@ def test_direct_mode_routes_reads_and_writes_to_direct_transport(monkeypatch):
     }
 
 
-def test_invalid_mode_falls_back_to_server_with_warning(monkeypatch, caplog):
+def test_invalid_mode_falls_back_to_desktop_with_warning(monkeypatch, caplog):
     monkeypatch.setenv("PLC_IO_MODE", "banana")
-    monkeypatch.setattr(plc, "_read_tag_server", lambda _tag_name: 123)
+    monkeypatch.setattr(desktop, "desktop_read_tag", lambda _tag_name: 123)
     monkeypatch.setattr(
         plc,
         "_read_tag_direct",

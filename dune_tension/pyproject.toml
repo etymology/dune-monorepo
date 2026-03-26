@@ -30,5 +30,22 @@ dune-tension-stream-replay = "dune_tension.streaming.cli:main_stream_replay"
 dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
 dune-spectrum-scroller = "spectrum_analysis.cli:main"
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dune_tension = ["*.json", "*.npy", "*.npz"]
+spectrum_analysis = ["*.json"]
+
+[tool.ruff.lint]
+ignore = ["F401", "F811"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E402"]
+
 [tool.uv.sources]
 dune-winder = { workspace = true }

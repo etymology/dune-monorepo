@@ -8,6 +8,7 @@ from threading import Event
 from dune_tension.config import LAYER_LAYOUTS
 from dune_tension.data_cache import get_dataframe
 from dune_tension.geometry import X_MAX, X_MIN, Y_MAX, Y_MIN, refine_position
+from dune_tension.paths import tension_data_db_path
 from dune_tension.plc_io import is_motion_target_in_bounds
 
 LOGGER = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ class TensiometerConfig:
     def __post_init__(self):
         # All tension measurements are now stored in a single SQLite file
         # rather than separate files for each APA/layer pair.
-        self.data_path = f"data/tension_data/tension_data.db"
+        self.data_path = str(tension_data_db_path())
 
 
 def make_config(

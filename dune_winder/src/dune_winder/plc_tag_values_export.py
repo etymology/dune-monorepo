@@ -3,8 +3,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-
-DEFAULT_OUTPUT_ROOT = Path(__file__).resolve().parents[2] / "plc"
+from dune_winder.paths import PLC_ROOT
+DEFAULT_OUTPUT_ROOT = PLC_ROOT
 _BATCH_SIZE = 20
 
 

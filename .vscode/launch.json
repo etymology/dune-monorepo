@@ -6,10 +6,9 @@
             "type": "debugpy",
             "request": "launch",
             "module": "dune_tension.main",
-            "cwd": "${workspaceFolder}/dune_tension",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/dune_tension/src",
                 "SPOOF_AUDIO": "1",
                 "SPOOF_SERVO": "1"
             }
@@ -28,40 +27,31 @@
             "type": "debugpy",
             "request": "launch",
             "module": "dune_winder",
-            "cwd": "${workspaceFolder}/dune_winder",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "PLC_MODE=SIM",
                 "LOG=TRUE",
                 "LOG_IO=FALSE",
                 "START=FALSE"
-            ],
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/dune_winder/src"
-            }
+            ]
         },
         {
             "name": "dune-winder",
             "type": "debugpy",
             "request": "launch",
             "module": "dune_winder",
-            "cwd": "${workspaceFolder}/dune_winder",
+            "cwd": "${workspaceFolder}",
             "console": "internalConsole",
-            "redirectOutput": true,
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/dune_winder/src"
-            }
+            "redirectOutput": true
         },
         {
             "name": "dune-winder (integrated terminal)",
             "type": "debugpy",
             "request": "launch",
             "module": "dune_winder",
-            "cwd": "${workspaceFolder}/dune_winder",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/dune_winder/src"
-            }
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         }
     ]
 }

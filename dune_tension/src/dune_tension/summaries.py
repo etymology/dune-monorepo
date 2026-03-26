@@ -7,6 +7,7 @@ import seaborn as sns
 from matplotlib.figure import Figure
 
 from dune_tension.data_cache import get_dataframe
+from dune_tension.paths import data_path
 from dune_tension.tension_calculation import tension_plausible
 from dune_tension.tensiometer_functions import TensiometerConfig
 
@@ -288,11 +289,16 @@ def update_tension_logs(config: TensiometerConfig) -> Dict[str, str]:
         config, measurements
     )
 
-    output_dir = "data/tension_plots"
-    summary_path = (
-        f"data/tension_summaries/tension_summary_{config.apa_name}_{config.layer}.csv"
+    output_dir = str(data_path("tension_plots"))
+    summary_path = str(
+        data_path(
+            "tension_summaries",
+            f"tension_summary_{config.apa_name}_{config.layer}.csv",
+        )
     )
-    bad_path = f"data/badwires/badwires_{config.apa_name}_{config.layer}.txt"
+    bad_path = str(
+        data_path("badwires", f"badwires_{config.apa_name}_{config.layer}.txt")
+    )
 
     write_summary_csv(tension_series, summary_path)
     save_plot(line_data, histogram_data, config.apa_name, config.layer, output_dir)

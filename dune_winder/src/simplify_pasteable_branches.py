@@ -5,9 +5,10 @@ from pathlib import Path
 
 from dune_winder.plc_ladder.branch_simplifier import iter_pasteable_files
 from dune_winder.plc_ladder.branch_simplifier import simplify_file
+from dune_winder.paths import PLC_ROOT
 
 
-DEFAULT_ROUTINE_DIR = Path(__file__).resolve().parents[1] / "plc"
+DEFAULT_ROUTINE_DIR = PLC_ROOT
 
 
 def build_argument_parser():

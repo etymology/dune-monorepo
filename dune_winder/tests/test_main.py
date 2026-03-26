@@ -2,7 +2,7 @@ import json
 import unittest
 
 import dune_winder.main as main_module
-from tests._command_api_test_support import build_registry_fixture
+from _command_api_test_support import build_registry_fixture
 
 
 class MainCommandHandlerTests(unittest.TestCase):

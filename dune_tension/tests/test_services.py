@@ -8,6 +8,8 @@ import types
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from dune_tension.paths import tension_data_db_path
+
 EXPECTED_COLUMNS = [
     "apa_name",
     "layer",
@@ -107,7 +109,7 @@ def test_result_repository_run_scope_batches_samples(monkeypatch) -> None:
     )
 
     repository = services.ResultRepository(
-        "data/tension_data/tension_data.db",
+        str(tension_data_db_path()),
         sample_batch_size=10,
     )
 

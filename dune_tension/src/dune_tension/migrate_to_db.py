@@ -6,6 +6,7 @@ from glob import glob
 import pandas as pd
 
 from dune_tension.data_cache import get_dataframe, update_dataframe
+from dune_tension.paths import data_path
 from dune_tension.results import TensionResult, EXPECTED_COLUMNS
 
 
@@ -38,9 +39,11 @@ def parse_wires(val: str) -> list[float]:
 
 
 def migrate_csvs(
-    csv_dir: str = "data/tension_data", db_path: str | None = None
+    csv_dir: str | None = None, db_path: str | None = None
 ) -> None:
     """Migrate all ``tension_data_*.csv`` files into a single SQLite DB."""
+    if csv_dir is None:
+        csv_dir = str(data_path("tension_data"))
     if db_path is None:
         db_path = os.path.join(csv_dir, "tension_data.db")
 

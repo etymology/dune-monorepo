@@ -31,6 +31,7 @@ def _setup(
     monkeypatch.setattr(plc, "write_tag", dummy_write_tag)
     monkeypatch.setattr(plc, "get_state", lambda: plc.IDLE_STATE)
     monkeypatch.setattr(plc, "get_movetype", lambda: plc.IDLE_MOVE_TYPE)
+    monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
     monkeypatch.setattr(plc.time, "sleep", lambda s: None)
     plc._TRUE_XY = [start_x, start_y]

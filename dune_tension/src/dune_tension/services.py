@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, Iterator, Mapping
 
 import dune_tension.data_cache as data_cache
+from dune_tension.paths import audio_path
 from dune_tension.results import EXPECTED_COLUMNS, TensionResult
 
 LOGGER = logging.getLogger(__name__)
@@ -111,18 +112,18 @@ class AudioCaptureService:
             LOGGER.info("Using spoofed audio sample for testing.")
             samplerate = 44100
             if spoof_audio_sample is None:
-                record_audio = lambda _duration, _sample_rate: ([], 0.0)
+                def record_audio(_duration: float, _sample_rate: int) -> tuple[Any, float]:
+                    return [], 0.0
             else:
-                record_audio = lambda _duration, _sample_rate: (
-                    spoof_audio_sample("audio"),
-                    0.0,
-                )
+                def record_audio(_duration: float, _sample_rate: int) -> tuple[Any, float]:
+                    return spoof_audio_sample(str(audio_path())), 0.0
         else:
-            record_audio = lambda duration, sample_rate: record_audio_filtered(
-                duration,
-                sample_rate=sample_rate,
-                normalize=True,
-            )
+            def record_audio(duration: float, sample_rate: int) -> tuple[Any, float]:
+                return record_audio_filtered(
+                    duration,
+                    sample_rate=sample_rate,
+                    normalize=True,
+                )
 
         return cls(
             samplerate=int(samplerate),

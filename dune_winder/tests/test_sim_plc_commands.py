@@ -1,6 +1,6 @@
 import unittest
 
-from tests._command_api_test_support import build_registry_fixture
+from _command_api_test_support import build_registry_fixture
 
 
 class SimPlcCommandTests(unittest.TestCase):

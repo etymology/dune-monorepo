@@ -1,11 +1,8 @@
-from pathlib import Path
 import unittest
 
 from dune_winder.plc_ladder import TagStore
 from dune_winder.plc_ladder import load_plc_metadata
-
-
-PLC_ROOT = Path(__file__).resolve().parents[1] / "plc"
+from dune_winder.paths import PLC_ROOT
 
 
 class PlcLadderMetadataTests(unittest.TestCase):
@@ -26,11 +23,11 @@ class PlcLadderMetadataTests(unittest.TestCase):
 
     tags.set("QueueCtl.POS", 7, program="motionQueue")
     tags.set("CurSeg.Valid", True, program="motionQueue")
-    tags.set("Z_AXIS_STAT[5].PC", True, program="MoveZ_State_4_5")
+    tags.set("z_axis_gui_stop.PC", True, program="MoveZ_State_4_5")
 
     self.assertEqual(tags.get("QueueCtl.POS", program="motionQueue"), 7)
     self.assertEqual(tags.get("CurSeg.Valid", program="motionQueue"), True)
-    self.assertEqual(tags.get("Z_AXIS_STAT[5].PC", program="MoveZ_State_4_5"), True)
+    self.assertEqual(tags.get("z_axis_gui_stop.PC", program="MoveZ_State_4_5"), True)
 
   def test_program_tags_shadow_controller_tags(self):
     metadata = load_plc_metadata(PLC_ROOT)
