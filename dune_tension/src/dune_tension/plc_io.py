@@ -46,7 +46,7 @@ _X_DEADZONE_LEFT = 0.0
 
 DEFAULT_TENSION_SERVER_URL = "http://192.168.137.1:5000"
 TENSION_SERVER_URL = DEFAULT_TENSION_SERVER_URL
-DEFAULT_PLC_IO_MODE = "server"
+DEFAULT_PLC_IO_MODE = "desktop"
 VALID_PLC_IO_MODES = {"server", "direct", "desktop"}
 _WARNED_PLC_IO_MODE_VALUES: set[str | None] = set()
 IDLE_MOVE_TYPE = 0
@@ -83,7 +83,7 @@ def get_plc_io_mode() -> str:
     if raw_mode is None:
         _warn_plc_mode_once(
             None,
-            "PLC_IO_MODE is not set. Falling back to 'server' mode.",
+            "PLC_IO_MODE is not set. Falling back to 'desktop' mode.",
         )
         return DEFAULT_PLC_IO_MODE
 
@@ -91,7 +91,7 @@ def get_plc_io_mode() -> str:
     if mode not in VALID_PLC_IO_MODES:
         _warn_plc_mode_once(
             raw_mode,
-            f"Invalid PLC_IO_MODE={raw_mode!r}. Falling back to 'server' mode.",
+            f"Invalid PLC_IO_MODE={raw_mode!r}. Falling back to 'desktop' mode.",
         )
         return DEFAULT_PLC_IO_MODE
 
@@ -291,7 +291,11 @@ def read_tag(
     transport = get_plc_io_mode()
 
     while time.monotonic() < end_time:
-        if transport == "direct":
+        if transport == "desktop":
+            from dune_tension.plc_desktop import desktop_read_tag
+
+            last_error = desktop_read_tag(tag_name)
+        elif transport == "direct":
             last_error = _read_tag_direct(tag_name)
         else:
             last_error = _read_tag_server(tag_name)
@@ -355,7 +359,12 @@ def get_movetype() -> int:
 
 def write_tag(tag_name: str, value: Any) -> dict[str, Any]:
     """Write a value to a PLC tag via the tension server."""
-    if get_plc_io_mode() == "direct":
+    mode = get_plc_io_mode()
+    if mode == "desktop":
+        from dune_tension.plc_desktop import desktop_write_tag
+
+        return desktop_write_tag(tag_name, value)
+    if mode == "direct":
         return _write_tag_direct(tag_name, value)
     return _write_tag_server(tag_name, value)
 

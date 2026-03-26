@@ -50,19 +50,36 @@ After install, the following console commands are available:
 ## Quick Start
 
 ### 1. Choose a PLC transport mode
-For the existing networked setup, start the PLC tension server on the machine connected to the PLC:
+
+**Desktop mode (default, recommended):** dune_tension sends PLC commands
+through the dune_winder HTTP API running on the PLC-connected desktop PC.
+This is the default — no extra server process is needed beyond dune_winder
+itself:
+
 ```bash
-python3 -m dune_tension.tension_server
+# On the desktop PC, dune_winder must be running (port 8080).
+# From any machine that can reach the desktop:
+dune-tension-gui
 ```
 
-Configure it with environment variables as needed:
+If the desktop PC is at a non-default address (e.g. over a mobile hotspot):
 ```bash
-PLC_IP_ADDRESS=192.168.140.13 SERVER_PORT=5000 python3 -m dune_tension.tension_server
+DESKTOP_SERVER_URL=http://192.168.137.1:8080 dune-tension-gui
 ```
 
-For a machine with direct PLC access, skip the HTTP server and launch the GUI with direct mode enabled:
+**Direct mode:** For a machine with direct PLC access and no dune_winder
+running:
 ```bash
 PLC_IO_MODE=direct PLC_IP_ADDRESS=192.168.140.13 dune-tension-gui
+```
+
+**Server mode (legacy):** Uses a standalone Flask bridge
+(`tension_server.py`). Desktop mode is preferred over this approach:
+```bash
+# On the PLC-connected machine:
+PLC_IP_ADDRESS=192.168.140.13 SERVER_PORT=5000 python3 -m dune_tension.tension_server
+# On the GUI machine:
+PLC_IO_MODE=server TENSION_SERVER_URL=http://192.168.137.1:5000 dune-tension-gui
 ```
 
 ### 2. Launch the GUI
@@ -86,11 +103,12 @@ dune-tension-periodic-plots USAPA5 X --interval 900
 ## PLC Environment Variables
 Set these before launching the GUI or server as needed:
 
-- `PLC_IO_MODE=server|direct` : choose HTTP server mode or direct `pycomm3` PLC access
-- `TENSION_SERVER_URL=http://host:5000` : URL for HTTP PLC server mode
+- `PLC_IO_MODE=desktop|direct|server` : transport mode (default: `desktop`)
+- `DESKTOP_SERVER_URL=http://host:8080` : dune_winder API URL for desktop mode
+- `TENSION_SERVER_URL=http://host:5000` : URL for legacy HTTP server mode
 - `PLC_IP_ADDRESS=192.168.140.13` : PLC address for direct mode or the server process
 - `PLC_COMM_RETRIES=2` : retry count for direct `pycomm3` communication
-- `SERVER_PORT=5000` : Flask tension server port
+- `SERVER_PORT=5000` : Flask tension server port (legacy server mode)
 
 ## Spoof / Dry-Run Modes
 Set environment variables before launching the GUI:

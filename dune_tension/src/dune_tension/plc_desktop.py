@@ -119,6 +119,26 @@ def desktop_seek_xy(
     return False
 
 
+def desktop_read_tag(tag_name: str) -> Any:
+    """Read a PLC tag through the desktop PC's dune_winder API."""
+    result = _post_command("plc.read_tag", {"tag": tag_name})
+    if not result.get("ok"):
+        error = result.get("error", {})
+        message = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        return {"error": f"desktop_read_tag({tag_name}): {message}"}
+    return result.get("data")
+
+
+def desktop_write_tag(tag_name: str, value: Any) -> dict[str, Any]:
+    """Write a PLC tag through the desktop PC's dune_winder API."""
+    result = _post_command("plc.write_tag", {"tag": tag_name, "value": value})
+    if not result.get("ok"):
+        error = result.get("error", {})
+        message = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        return {"error": f"desktop_write_tag({tag_name}): {message}"}
+    return result.get("data", {"tag": tag_name, "value": value})
+
+
 def desktop_is_server_active() -> bool:
     """Return True if the desktop PC's dune_winder server is reachable."""
     url = get_desktop_server_url()
