@@ -47,7 +47,7 @@ _X_DEADZONE_LEFT = 0.0
 DEFAULT_TENSION_SERVER_URL = "http://192.168.137.1:5000"
 TENSION_SERVER_URL = DEFAULT_TENSION_SERVER_URL
 DEFAULT_PLC_IO_MODE = "server"
-VALID_PLC_IO_MODES = {"server", "direct"}
+VALID_PLC_IO_MODES = {"server", "direct", "desktop"}
 _WARNED_PLC_IO_MODE_VALUES: set[str | None] = set()
 IDLE_MOVE_TYPE = 0
 IDLE_STATE = 1
@@ -306,6 +306,13 @@ def read_tag(
 
 def get_xy() -> tuple[float, float]:
     """Get the current position of the tensioning system."""
+    if get_plc_io_mode() == "desktop":
+        from dune_tension.plc_desktop import desktop_get_xy
+
+        result = desktop_get_xy()
+        if result is None:
+            raise RuntimeError("Failed to read XY position from desktop PC")
+        return result
     x = _read_numeric_tag("X_axis.ActualPosition")
     y = _read_numeric_tag("Y_axis.ActualPosition")
     return x, y
@@ -334,6 +341,10 @@ def get_cached_xy() -> tuple[float, float]:
 
 def get_state() -> int:
     """Get the current state of the tensioning system."""
+    if get_plc_io_mode() == "desktop":
+        from dune_tension.plc_desktop import desktop_is_ready
+
+        return IDLE_STATE if desktop_is_ready() else XY_STATE
     return int(_read_numeric_tag("STATE"))
 
 
@@ -436,53 +447,65 @@ def goto_xy(
         predicted_true_x = _TRUE_XY[0] + actual_move_x
         predicted_true_y = y_target
 
-        idle_deadline = time.monotonic() + idle_timeout
-        while True:
-            try:
-                current_state = get_state()
-            except RuntimeError as exc:
-                LOGGER.warning("Unable to read STATE before move: %s", exc)
-                return False
-            if current_state == IDLE_STATE:
-                break
-            if time.monotonic() >= idle_deadline:
-                LOGGER.warning(
-                    "Timed out waiting for idle state before move to %s,%s.",
-                    x_target,
-                    y_target,
-                )
-                return False
-            time.sleep(STATE_POLL_INTERVAL)
+        if get_plc_io_mode() == "desktop":
+            from dune_tension.plc_desktop import desktop_seek_xy as _desktop_seek_xy
 
-        if not set_speed(speed):
-            return False
+            if not _desktop_seek_xy(
+                x_target,
+                y_target,
+                speed,
+                move_timeout,
+                idle_timeout=idle_timeout,
+            ):
+                return False
+        else:
+            idle_deadline = time.monotonic() + idle_timeout
+            while True:
+                try:
+                    current_state = get_state()
+                except RuntimeError as exc:
+                    LOGGER.warning("Unable to read STATE before move: %s", exc)
+                    return False
+                if current_state == IDLE_STATE:
+                    break
+                if time.monotonic() >= idle_deadline:
+                    LOGGER.warning(
+                        "Timed out waiting for idle state before move to %s,%s.",
+                        x_target,
+                        y_target,
+                    )
+                    return False
+                time.sleep(STATE_POLL_INTERVAL)
 
-        writes = (
-            ("MOVE_TYPE", IDLE_MOVE_TYPE),
-            ("STATE", IDLE_STATE),
-            ("X_POSITION", x_target),
-            ("Y_POSITION", y_target),
-            ("MOVE_TYPE", XY_MOVE_TYPE),
-        )
-        for tag_name, value in writes:
-            if not _write_required(tag_name, value):
+            if not set_speed(speed):
                 return False
 
-        move_deadline = time.monotonic() + move_timeout
-        while True:
-            try:
-                move_type = get_movetype()
-            except RuntimeError as exc:
-                LOGGER.warning(
-                    "Unable to read MOVE_TYPE while waiting for move: %s", exc
-                )
-                return False
-            if move_type != XY_MOVE_TYPE:
-                break
-            if time.monotonic() >= move_deadline:
-                LOGGER.warning("Timed out waiting for move completion.")
-                return False
-            time.sleep(STATE_POLL_INTERVAL)
+            writes = (
+                ("MOVE_TYPE", IDLE_MOVE_TYPE),
+                ("STATE", IDLE_STATE),
+                ("X_POSITION", x_target),
+                ("Y_POSITION", y_target),
+                ("MOVE_TYPE", XY_MOVE_TYPE),
+            )
+            for tag_name, value in writes:
+                if not _write_required(tag_name, value):
+                    return False
+
+            move_deadline = time.monotonic() + move_timeout
+            while True:
+                try:
+                    move_type = get_movetype()
+                except RuntimeError as exc:
+                    LOGGER.warning(
+                        "Unable to read MOVE_TYPE while waiting for move: %s", exc
+                    )
+                    return False
+                if move_type != XY_MOVE_TYPE:
+                    break
+                if time.monotonic() >= move_deadline:
+                    LOGGER.warning("Timed out waiting for move completion.")
+                    return False
+                time.sleep(STATE_POLL_INTERVAL)
 
         _TRUE_XY[0] = predicted_true_x
         _TRUE_XY[1] = predicted_true_y
@@ -493,6 +516,8 @@ def goto_xy(
 
 def reset_plc() -> bool:
     """Reset the PLC to its initial state."""
+    if get_plc_io_mode() == "desktop":
+        return True
     with _MOTION_LOCK:
         return (
             _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)
@@ -530,6 +555,8 @@ def wiggle(step: float) -> bool:
 
 def set_speed(speed: float = 300) -> bool:
     """Set the speed of the winder."""
+    if get_plc_io_mode() == "desktop":
+        return True
     if not (0 <= speed <= 1000):
         LOGGER.warning(
             "Speed %s out of bounds. Please enter a value between 0 and 1000.",
@@ -567,8 +594,13 @@ def is_web_server_active() -> bool:
 
 def is_plc_available() -> bool:
     """Check whether the configured PLC transport is available."""
-    if get_plc_io_mode() == "direct":
+    mode = get_plc_io_mode()
+    if mode == "direct":
         return is_direct_plc_available()
+    if mode == "desktop":
+        from dune_tension.plc_desktop import desktop_is_server_active
+
+        return desktop_is_server_active()
     return is_web_server_active()
 
 
