@@ -512,6 +512,17 @@ def _configure_root_minimum_size(
     estimated_plot_width = int(max(LIVE_SUMMARY_FIGSIZE[0], LIVE_WAVEFORM_FIGSIZE[0]) * 100)
     side_width = max(side_width, estimated_plot_width)
 
+    screen_width = _safe_screen_dimension(root, "winfo_screenwidth")
+    screen_height = _safe_screen_dimension(root, "winfo_screenheight")
+
+    available_width = max(screen_width - 30, 1) if screen_width is not None else None
+    if available_width is not None:
+        main_width, side_width = _fit_column_widths_to_available_space(
+            main_width,
+            side_width,
+            available_width,
+        )
+
     if hasattr(root, "columnconfigure"):
         try:
             root.columnconfigure(0, weight=0, minsize=max(main_width, 1))
@@ -524,6 +535,10 @@ def _configure_root_minimum_size(
 
     total_width = main_width + side_width + 30
     total_height = max(main_height, side_height) + 20
+    if screen_width is not None:
+        total_width = min(total_width, screen_width)
+    if screen_height is not None:
+        total_height = min(total_height, screen_height)
     if total_width <= 0 or total_height <= 0:
         return
 
@@ -531,6 +546,42 @@ def _configure_root_minimum_size(
         root.minsize(total_width, total_height)
     except Exception:
         return
+
+
+def _safe_screen_dimension(root: tk.Misc, method_name: str) -> int | None:
+    """Best-effort screen size lookup for sizing constraints."""
+
+    method = getattr(root, method_name, None)
+    if method is None:
+        return None
+    try:
+        value = int(method())
+    except Exception:
+        return None
+    return value if value > 0 else None
+
+
+def _fit_column_widths_to_available_space(
+    main_width: int,
+    side_width: int,
+    available_width: int,
+) -> tuple[int, int]:
+    """Shrink column minimums so the root can fit on screen when maximized."""
+
+    desired_width = main_width + side_width
+    if desired_width <= available_width:
+        return main_width, side_width
+
+    overflow = desired_width - available_width
+
+    side_reduction = min(overflow, max(side_width - 1, 0))
+    side_width -= side_reduction
+    overflow -= side_reduction
+
+    if overflow > 0:
+        main_width = max(main_width - overflow, 1)
+
+    return main_width, side_width
 
 
 def _configure_commands(
