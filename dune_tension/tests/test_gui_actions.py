@@ -244,6 +244,26 @@ def test_erase_distribution_outliers_uses_bulk_detector(monkeypatch):
         )
     ]
     assert clear_calls == [("db.sqlite", "APA", "G", "A", [7, 9])]
+def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+    calls = []
+    monkeypatch.setattr(actions, "_capture_worker_inputs", lambda _ctx: object())
+    monkeypatch.setattr(actions, "save_state", lambda _ctx: None)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "dune_tension.audio_runtime",
+        types.SimpleNamespace(
+            get_samplerate=lambda: "44100.0",
+            calibrate_background_noise=lambda samplerate: calls.append(samplerate),
+        ),
+    )
+
+    ctx = types.SimpleNamespace(stop_event=threading.Event())
+
+    actions.calibrate_background_noise(ctx)
+
+    assert _wait_for(lambda: calls == [44100])
 
 
 def test_clear_range_accepts_tension_expression(monkeypatch):

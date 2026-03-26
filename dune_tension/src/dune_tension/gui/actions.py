@@ -36,6 +36,18 @@ LOGGER = logging.getLogger(__name__)
 FOCUS_X_MM_PER_QUARTER_US = (20.0 / 4000.0) / math.sqrt(3.0)
 
 
+def _safe_int(value: Any, default: int) -> int:
+    """Best-effort integer parsing for UI and device numeric values."""
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(str(value).strip()))
+        except (TypeError, ValueError):
+            return default
+
+
 def _focus_side_sign(side: str) -> float:
     """Return focus/X coupling sign: A is negative, B is positive."""
 
@@ -124,7 +136,6 @@ class WorkerInputs:
     flipped: bool
     a_taped: bool
     b_taped: bool
-    samples: int
     confidence: float
     record_duration: float
     measuring_duration: float
@@ -152,14 +163,6 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         raise RuntimeError("_capture_worker_inputs must run on the main Tk thread.")
 
     w = ctx.widgets
-    try:
-        samples = int(w.entry_samples.get())
-        if samples < 1:
-            raise ValueError("Samples per wire must be \u2265 1")
-    except ValueError as exc:
-        _show_input_error(ctx, str(exc))
-        raise
-
     try:
         confidence = float(w.entry_confidence.get())
     except ValueError as exc:
@@ -196,7 +199,6 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         flipped=bool(w.flipped_var.get()),
         a_taped=bool(w.a_taped_var.get()),
         b_taped=bool(w.b_taped_var.get()),
-        samples=samples,
         confidence=confidence,
         record_duration=record_duration,
         measuring_duration=measuring_duration,
@@ -220,7 +222,6 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
     from dune_tension.tensiometer import build_tensiometer
 
     try:
-        samples = int(inputs.samples)
         confidence = float(inputs.confidence)
         record_duration = float(inputs.record_duration)
         measuring_duration = float(inputs.measuring_duration)
@@ -239,7 +240,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         a_taped=inputs.a_taped,
         b_taped=inputs.b_taped,
         stop_event=ctx.stop_event,
-        samples_per_wire=samples,
+        samples_per_wire=1,
         confidence_threshold=confidence,
         record_duration=record_duration,
         measuring_duration=measuring_duration,
@@ -318,7 +319,6 @@ def create_streaming_controller(ctx: GUIContext, inputs: WorkerInputs):
 
     try:
         confidence = float(inputs.confidence)
-        samples = int(inputs.samples)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid streaming inputs: {exc}") from exc
 
@@ -330,7 +330,7 @@ def create_streaming_controller(ctx: GUIContext, inputs: WorkerInputs):
         flipped=inputs.flipped,
         sample_rate=int(getattr(ctx.runtime.audio, "samplerate", 44100)),
         direct_accept_confidence=confidence,
-        direct_accept_support=max(1, samples),
+        direct_accept_support=1,
     )
     return StreamingMeasurementController(
         runtime=runtime,
@@ -584,7 +584,7 @@ def calibrate_background_noise(ctx: GUIContext, _inputs: WorkerInputs) -> None:
         if samplerate is None:
             LOGGER.warning("Unable to access audio device")
             return
-        calibrate_background_noise(int(samplerate))
+        calibrate_background_noise(_safe_int(samplerate, 44100))
         LOGGER.info("Background noise calibrated")
     finally:
         ctx.stop_event.clear()
@@ -749,7 +749,7 @@ def _erase_detected_outliers(
     try:
         conf = float(ctx.widgets.entry_confidence.get())
     except ValueError:
-        conf = 0.7
+        conf = 0.5
     try:
         times_sigma = float(ctx.widgets.entry_times_sigma.get())
     except ValueError:
@@ -966,20 +966,16 @@ def handle_close(ctx: GUIContext) -> None:
 def _make_config_from_widgets(ctx: GUIContext):
     w = ctx.widgets
     try:
-        samples = int(w.entry_samples.get())
-    except ValueError:
-        samples = 3
-    try:
         conf = float(w.entry_confidence.get())
     except ValueError:
-        conf = 0.7
+        conf = 0.5
 
     return make_config(
         apa_name=w.entry_apa.get(),
         layer=w.layer_var.get(),
         side=w.side_var.get(),
         flipped=w.flipped_var.get(),
-        samples_per_wire=samples,
+        samples_per_wire=1,
         confidence_threshold=conf,
         plot_audio=w.plot_audio_var.get(),
     )
@@ -991,7 +987,7 @@ def _make_config_from_inputs(inputs: WorkerInputs):
         layer=inputs.layer,
         side=inputs.side,
         flipped=inputs.flipped,
-        samples_per_wire=inputs.samples,
+        samples_per_wire=1,
         confidence_threshold=inputs.confidence,
         plot_audio=inputs.plot_audio,
     )

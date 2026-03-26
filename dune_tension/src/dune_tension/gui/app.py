@@ -245,136 +245,133 @@ def _create_widgets(
         row=5, column=1, sticky="w"
     )
 
-    tk.Label(measure_frame, text="Samples per Wire (≥1):").grid(
+    tk.Label(measure_frame, text="Confidence Threshold:").grid(
         row=0, column=0, sticky="e"
     )
-    entry_samples = tk.Entry(measure_frame)
-    entry_samples.grid(row=0, column=1)
-
-    tk.Label(measure_frame, text="Confidence Threshold (0.0–1.0):").grid(
-        row=1, column=0, sticky="e"
-    )
     entry_confidence = tk.Entry(measure_frame)
-    entry_confidence.grid(row=1, column=1)
+    entry_confidence.grid(row=0, column=1)
+    entry_confidence.insert(0, "0.5")
 
     tk.Label(measure_frame, text="Record Duration (s):").grid(
-        row=9, column=0, sticky="e"
+        row=8, column=0, sticky="e"
     )
     entry_record_duration = tk.Entry(measure_frame)
-    entry_record_duration.grid(row=9, column=1)
+    entry_record_duration.grid(row=8, column=1)
+    entry_record_duration.insert(0, "1")
 
     tk.Label(measure_frame, text="Measuring Duration (s):").grid(
-        row=10, column=0, sticky="e"
+        row=9, column=0, sticky="e"
     )
     entry_measuring_duration = tk.Entry(measure_frame)
-    entry_measuring_duration.grid(row=10, column=1)
+    entry_measuring_duration.grid(row=9, column=1)
+    entry_measuring_duration.insert(0, "10")
 
     tk.Label(measure_frame, text="Y Wiggle σ (mm):").grid(
-        row=11, column=0, sticky="e"
+        row=10, column=0, sticky="e"
     )
     entry_wiggle_y_sigma = tk.Entry(measure_frame)
-    entry_wiggle_y_sigma.grid(row=11, column=1)
+    entry_wiggle_y_sigma.grid(row=10, column=1)
     entry_wiggle_y_sigma.insert(0, str(MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm))
 
     tk.Label(measure_frame, text="Focus Wiggle σ:").grid(
-        row=12, column=0, sticky="e"
+        row=11, column=0, sticky="e"
     )
     entry_focus_wiggle_sigma = tk.Entry(measure_frame)
-    entry_focus_wiggle_sigma.grid(row=12, column=1)
+    entry_focus_wiggle_sigma.grid(row=11, column=1)
     entry_focus_wiggle_sigma.insert(
         0, str(MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us)
     )
 
-    tk.Label(measure_frame, text="Wire Number:").grid(row=2, column=0, sticky="e")
+    tk.Label(measure_frame, text="Wire Number:").grid(row=1, column=0, sticky="e")
     entry_wire = tk.Entry(measure_frame)
-    entry_wire.grid(row=2, column=1)
+    entry_wire.grid(row=1, column=1)
     btn_calibrate = tk.Button(measure_frame, text="Calibrate")
-    btn_calibrate.grid(row=2, column=2)
+    btn_calibrate.grid(row=1, column=2)
 
-    tk.Label(measure_frame, text="Wire List:").grid(row=3, column=0, sticky="e")
+    tk.Label(measure_frame, text="Wire List:").grid(row=2, column=0, sticky="e")
     entry_wire_list = tk.Entry(measure_frame)
-    entry_wire_list.grid(row=3, column=1)
+    entry_wire_list.grid(row=2, column=1)
     btn_measure_list = tk.Button(measure_frame, text="Seek Wire(s)")
-    btn_measure_list.grid(row=3, column=2)
+    btn_measure_list.grid(row=2, column=2)
     skip_measured_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
         measure_frame,
         text="Skip Measured",
         variable=skip_measured_var,
-    ).grid(row=3, column=3, sticky="w")
+    ).grid(row=2, column=3, sticky="w")
 
     plot_audio_var = tk.BooleanVar(value=False)
     tk.Checkbutton(measure_frame, text="Plot Audio", variable=plot_audio_var).grid(
-        row=4, column=2, sticky="w"
+        row=3, column=2, sticky="w"
     )
 
     btn_measure_auto = tk.Button(measure_frame, text="Measure Auto")
-    btn_measure_auto.grid(row=4, column=0)
+    btn_measure_auto.grid(row=3, column=0)
     btn_interrupt = tk.Button(measure_frame, text="Interrupt")
-    btn_interrupt.grid(row=4, column=1)
-    tk.Label(measure_frame, text="ETA:").grid(row=13, column=0, sticky="e")
+    btn_interrupt.grid(row=3, column=1)
+    tk.Label(measure_frame, text="ETA:").grid(row=12, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=estimated_time_var).grid(
-        row=13, column=1, sticky="w"
+        row=12, column=1, sticky="w"
     )
     stream_segment_var = tk.StringVar(measure_frame, value="Idle")
     stream_comb_var = tk.StringVar(measure_frame, value="0.00")
     stream_focus_var = tk.StringVar(measure_frame, value="--")
     stream_pitch_backlog_var = tk.StringVar(measure_frame, value="0")
     stream_rescue_queue_var = tk.StringVar(measure_frame, value="0")
-    tk.Label(measure_frame, text="Stream Segment:").grid(row=14, column=0, sticky="e")
+    tk.Label(measure_frame, text="Stream Segment:").grid(row=13, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=stream_segment_var).grid(
+        row=13, column=1, sticky="w"
+    )
+    tk.Label(measure_frame, text="Comb Score:").grid(row=14, column=0, sticky="e")
+    tk.Label(measure_frame, textvariable=stream_comb_var).grid(
         row=14, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Comb Score:").grid(row=15, column=0, sticky="e")
-    tk.Label(measure_frame, textvariable=stream_comb_var).grid(
+    tk.Label(measure_frame, text="Focus Pred:").grid(row=15, column=0, sticky="e")
+    tk.Label(measure_frame, textvariable=stream_focus_var).grid(
         row=15, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Focus Pred:").grid(row=16, column=0, sticky="e")
-    tk.Label(measure_frame, textvariable=stream_focus_var).grid(
+    tk.Label(measure_frame, text="Pitch Backlog:").grid(row=16, column=0, sticky="e")
+    tk.Label(measure_frame, textvariable=stream_pitch_backlog_var).grid(
         row=16, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Pitch Backlog:").grid(row=17, column=0, sticky="e")
-    tk.Label(measure_frame, textvariable=stream_pitch_backlog_var).grid(
+    tk.Label(measure_frame, text="Rescue Queue:").grid(row=17, column=0, sticky="e")
+    tk.Label(measure_frame, textvariable=stream_rescue_queue_var).grid(
         row=17, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Rescue Queue:").grid(row=18, column=0, sticky="e")
-    tk.Label(measure_frame, textvariable=stream_rescue_queue_var).grid(
-        row=18, column=1, sticky="w"
-    )
 
-    tk.Label(measure_frame, text="Clear Range:").grid(row=5, column=0, sticky="e")
+    tk.Label(measure_frame, text="Clear Range:").grid(row=4, column=0, sticky="e")
     entry_clear_range = tk.Entry(measure_frame)
-    entry_clear_range.grid(row=5, column=1)
+    entry_clear_range.grid(row=4, column=1)
     btn_clear_range = tk.Button(measure_frame, text="Clear")
-    btn_clear_range.grid(row=5, column=2)
+    btn_clear_range.grid(row=4, column=2)
 
-    tk.Label(measure_frame, text="Condition:").grid(row=6, column=0, sticky="e")
+    tk.Label(measure_frame, text="Condition:").grid(row=5, column=0, sticky="e")
     entry_condition = tk.Entry(measure_frame)
-    entry_condition.grid(row=6, column=1)
+    entry_condition.grid(row=5, column=1)
     btn_measure_condition = tk.Button(measure_frame, text="Measure Condition")
-    btn_measure_condition.grid(row=6, column=2)
+    btn_measure_condition.grid(row=5, column=2)
 
     tk.Label(measure_frame, text="Outlier σ Multiplier:").grid(
-        row=7, column=0, sticky="e"
+        row=6, column=0, sticky="e"
     )
     entry_times_sigma = tk.Entry(measure_frame)
-    entry_times_sigma.grid(row=7, column=1)
+    entry_times_sigma.grid(row=6, column=1)
     entry_times_sigma.insert(0, "2.0")
     btn_erase_outliers = tk.Button(measure_frame, text="Erase Residual Outliers")
-    btn_erase_outliers.grid(row=7, column=2)
+    btn_erase_outliers.grid(row=6, column=2)
     btn_erase_distribution_outliers = tk.Button(
         measure_frame, text="Erase Bulk Outliers"
     )
-    btn_erase_distribution_outliers.grid(row=7, column=3)
+    btn_erase_distribution_outliers.grid(row=6, column=3)
 
-    tk.Label(measure_frame, text="Set Tensions:").grid(row=8, column=0, sticky="e")
+    tk.Label(measure_frame, text="Set Tensions:").grid(row=7, column=0, sticky="e")
     entry_set_tension = tk.Entry(measure_frame)
-    entry_set_tension.grid(row=8, column=1)
+    entry_set_tension.grid(row=7, column=1)
     btn_set_tension = tk.Button(measure_frame, text="Apply Tensions")
-    btn_set_tension.grid(row=8, column=2)
+    btn_set_tension.grid(row=7, column=2)
 
     btn_calibrate_noise = tk.Button(measure_frame, text="Calibrate Noise")
-    btn_calibrate_noise.grid(row=13, column=2)
+    btn_calibrate_noise.grid(row=12, column=2)
 
     tk.Label(servo_frame, text="Focus:").grid(row=0, column=0, sticky="e")
     focus_slider = tk.Scale(servo_frame, from_=4000, to=8000, orient=tk.HORIZONTAL)
@@ -429,7 +426,6 @@ def _create_widgets(
         b_taped_var=b_taped_var,
         entry_wire=entry_wire,
         entry_wire_list=entry_wire_list,
-        entry_samples=entry_samples,
         entry_confidence=entry_confidence,
         entry_record_duration=entry_record_duration,
         entry_measuring_duration=entry_measuring_duration,
