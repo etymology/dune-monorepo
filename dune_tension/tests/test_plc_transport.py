@@ -62,6 +62,90 @@ def test_direct_mode_routes_reads_and_writes_to_direct_transport(monkeypatch):
     }
 
 
+def test_desktop_mode_rejects_low_level_motion_tag_writes(monkeypatch):
+    monkeypatch.setenv("PLC_IO_MODE", "desktop")
+    monkeypatch.setattr(
+        desktop,
+        "_post_command",
+        lambda *_args, **_kwargs: pytest.fail(
+            "desktop mode should not proxy low-level motion tag writes"
+        ),
+    )
+
+    response = plc.write_tag("STATE", 7)
+
+    assert "error" in response
+    assert "manual_seek_xy" in response["error"]
+
+
+def test_reset_plc_in_desktop_mode_calls_acknowledge_error(monkeypatch):
+    monkeypatch.setenv("PLC_IO_MODE", "desktop")
+    calls = []
+    monkeypatch.setattr(
+        desktop,
+        "_post_command",
+        lambda name, args: calls.append((name, args)) or {"ok": True, "data": None},
+    )
+
+    assert plc.reset_plc() is True
+    assert calls == [("process.acknowledge_error", {})]
+
+
+def test_desktop_seek_xy_acknowledges_error_after_move_timeout(monkeypatch):
+    calls = []
+    monotonic_values = iter([0.0, 0.0, 0.2, 0.4, 0.49, 0.51, 0.7])
+    monkeypatch.setattr(desktop.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(desktop.time, "sleep", lambda _seconds: None)
+
+    def _post_command(name, args):
+        calls.append((name, args))
+        if name == "process.manual_seek_xy":
+            return {"ok": True, "data": False}
+        if name == "process.acknowledge_error":
+            return {"ok": True, "data": None}
+        if name == "process.get_control_state_name":
+            if len(calls) == 1:
+                return {"ok": True, "data": "StopMode"}
+            return {"ok": True, "data": "XYMode"}
+        return {"ok": True, "data": None}
+
+    monkeypatch.setattr(desktop, "_post_command", _post_command)
+
+    assert desktop.desktop_seek_xy(1.0, 2.0, 300.0, move_timeout=0.5) is False
+    assert ("process.acknowledge_error", {}) in calls
+
+
+def test_desktop_seek_xy_resets_while_waiting_for_ready_then_moves(monkeypatch):
+    calls = []
+    ready_states = iter(
+        [
+            {"ok": True, "data": "XYMode"},
+            {"ok": True, "data": "XYMode"},
+            {"ok": True, "data": "StopMode"},
+            {"ok": True, "data": "StopMode"},
+        ]
+    )
+    monotonic_values = iter([0.0, 0.1, 0.2, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
+    monkeypatch.setattr(desktop.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(desktop.time, "sleep", lambda _seconds: None)
+
+    def _post_command(name, args):
+        calls.append((name, args))
+        if name == "process.get_control_state_name":
+            return next(ready_states)
+        if name == "process.acknowledge_error":
+            return {"ok": True, "data": None}
+        if name == "process.manual_seek_xy":
+            return {"ok": True, "data": False}
+        return {"ok": True, "data": None}
+
+    monkeypatch.setattr(desktop, "_post_command", _post_command)
+
+    assert desktop.desktop_seek_xy(1.0, 2.0, 300.0, move_timeout=0.5, idle_timeout=0.5) is True
+    assert ("process.acknowledge_error", {}) in calls
+    assert ("process.manual_seek_xy", {"x": 1.0, "y": 2.0, "velocity": 300.0}) in calls
+
+
 def test_invalid_mode_falls_back_to_desktop_with_warning(monkeypatch, caplog):
     monkeypatch.setenv("PLC_IO_MODE", "banana")
     monkeypatch.setattr(desktop, "desktop_read_tag", lambda _tag_name: 123)

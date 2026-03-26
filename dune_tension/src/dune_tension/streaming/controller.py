@@ -72,6 +72,8 @@ class StreamingControllerConfig:
     rescue_position_step_mm: float = 0.5
     rescue_capture_seconds: float = 0.5
     default_focus: float = 4000.0
+    use_manual_focus: bool = False
+    manual_focus_target: float | None = None
     data_path: str = field(init=False)
 
     def __post_init__(self) -> None:
@@ -166,6 +168,25 @@ class StreamingMeasurementController:
         except Exception as exc:
             self.runtime.logger.warning("Focus command failed: %s", exc)
 
+    def _manual_focus_target(self) -> float | None:
+        if not bool(self.config.use_manual_focus):
+            return None
+        target = self.config.manual_focus_target
+        if target is None:
+            target = getattr(self.runtime.servo_controller, "focus_position", None)
+        if target is None or not np.isfinite(float(target)):
+            return float(self.config.default_focus)
+        return float(target)
+
+    def _focus_reference_for_position(self, x_true: float, y_true: float) -> float:
+        manual_focus = self._manual_focus_target()
+        if manual_focus is not None:
+            return manual_focus
+        focus_reference = self.runtime.focus_plane.predict(x_true, y_true, clamp=False)
+        if not np.isfinite(focus_reference):
+            return float(self.config.default_focus)
+        return float(focus_reference)
+
     def _goto_stage_xy(self, x_stage: float, y_stage: float, *, speed_mm_s: float | None = None) -> bool:
         kwargs = {}
         if speed_mm_s is not None:
@@ -242,10 +263,11 @@ class StreamingMeasurementController:
     ) -> tuple[StreamingSegment, float, float, float, float]:
         x_mid = (float(corridor.x0) + float(corridor.x1)) / 2.0
         y_mid = (float(corridor.y0) + float(corridor.y1)) / 2.0
-        focus_reference = self.runtime.focus_plane.predict(x_mid, y_mid, clamp=False)
-        if not np.isfinite(focus_reference):
-            focus_reference = float(self.config.default_focus)
-        focus = float(focus_reference) + float(corridor.focus_offset)
+        focus_reference = self._focus_reference_for_position(x_mid, y_mid)
+        manual_focus = self._manual_focus_target()
+        focus = manual_focus if manual_focus is not None else (
+            float(focus_reference) + float(corridor.focus_offset)
+        )
         x_stage0 = stage_x_for_laser_target(
             x_laser_target=float(corridor.x0),
             focus=focus,
@@ -384,15 +406,13 @@ class StreamingMeasurementController:
                 pose = build_measurement_pose(
                     x_true=pitch_bin.x_bin,
                     y_true=pitch_bin.y_bin,
-                    focus=self.runtime.focus_plane.predict(
+                    focus=self._focus_reference_for_position(
                         pitch_bin.x_bin,
                         pitch_bin.y_bin,
-                        clamp=False,
                     ),
-                    focus_reference=self.runtime.focus_plane.predict(
+                    focus_reference=self._focus_reference_for_position(
                         pitch_bin.x_bin,
                         pitch_bin.y_bin,
-                        clamp=False,
                     ),
                     side=self.config.side,
                 )
@@ -652,6 +672,16 @@ class StreamingMeasurementController:
             for along in (-self.config.rescue_position_step_mm, 0.0, self.config.rescue_position_step_mm)
             for focus_offset in (-self.config.focus_probe_step, 0.0, self.config.focus_probe_step)
         ]
+        manual_focus = self._manual_focus_target()
+        if manual_focus is not None:
+            trials = [
+                (along, 0.0)
+                for along in (
+                    -self.config.rescue_position_step_mm,
+                    0.0,
+                    self.config.rescue_position_step_mm,
+                )
+            ]
         audio_stream = self.runtime.audio_stream_factory(
             self.config.sample_rate,
             self.config.hop_size,
@@ -664,10 +694,10 @@ class StreamingMeasurementController:
                     break
                 x_laser = float(x_target) + (float(direction[0]) * float(along_offset))
                 y_laser = float(y_target) + (float(direction[1]) * float(along_offset))
-                focus_reference = self.runtime.focus_plane.predict(x_laser, y_laser, clamp=False)
-                if not np.isfinite(focus_reference):
-                    focus_reference = float(self.config.default_focus)
-                focus = float(focus_reference) + float(focus_offset)
+                focus_reference = self._focus_reference_for_position(x_laser, y_laser)
+                focus = manual_focus if manual_focus is not None else (
+                    float(focus_reference) + float(focus_offset)
+                )
                 x_stage = stage_x_for_laser_target(
                     x_laser_target=x_laser,
                     focus=focus,

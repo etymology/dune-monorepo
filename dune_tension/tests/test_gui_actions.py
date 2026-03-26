@@ -159,6 +159,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
         measuring_duration=5.0,
         wiggle_y_sigma_mm=0.4,
         focus_wiggle_sigma_quarter_us=50.0,
+        use_manual_focus=True,
         plot_audio=True,
     )
 
@@ -167,6 +168,8 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
     assert len(build_calls) == 1
     assert build_calls[0]["confidence_source"] == "signal_amplitude"
     assert build_calls[0]["runtime_bundle"] is runtime
+    assert build_calls[0]["use_manual_focus"] is True
+    assert build_calls[0]["manual_focus_target"] == 4100
 
 
 def test_measure_calibrate_dispatches_to_streaming_controller(monkeypatch):
@@ -333,7 +336,7 @@ def test_measure_list_button_skips_already_measured_wires_when_enabled(monkeypat
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([5, 7], False)]
+    assert measured_wires == [([5, 7], True)]
 
 
 def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatch):
@@ -355,7 +358,7 @@ def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatc
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([3, 5, 6, 7], False)]
+    assert measured_wires == [([3, 5, 6, 7], True)]
 
 
 def test_measure_list_button_keeps_requested_wires_when_skip_filters_everything(
@@ -387,7 +390,29 @@ def test_measure_list_button_keeps_requested_wires_when_skip_filters_everything(
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([3, 5, 6, 7], False)]
+    assert measured_wires == [([3, 5, 6, 7], True)]
+
+
+def test_measure_list_button_preserves_descending_range_order(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    measured_wires = []
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
+    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+
+    inputs = types.SimpleNamespace(wire_list="480-478,300", skip_measured=False)
+
+    actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert measured_wires == [([480, 479, 478, 300], True)]
 
 
 def test_adjust_focus_with_x_compensation_side_a(monkeypatch):

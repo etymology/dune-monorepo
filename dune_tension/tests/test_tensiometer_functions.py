@@ -3,6 +3,7 @@ import sys
 import types
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -64,107 +65,35 @@ def test_measure_list_uses_shared_planner_output(monkeypatch):
 
     monkeypatch.setattr(
         tensiometer_functions,
-        "plan_measurement_triplets",
-        lambda **kwargs: planner_calls.append(kwargs) or [(8, 8.0, 80.0), (3, 3.0, 30.0)],
+        "plan_measurement_poses",
+        lambda **kwargs: planner_calls.append(kwargs)
+        or [
+            tensiometer_functions.PlannedWirePose(8, 8.0, 80.0, 4100),
+            tensiometer_functions.PlannedWirePose(3, 3.0, 30.0, 4200),
+        ],
     )
 
     tensiometer_functions.measure_list(
         config=types.SimpleNamespace(),
         wire_list=[3, 8],
-        get_xy_from_file_func=lambda *_args, **_kwargs: None,
+        get_pose_from_file_func=lambda *_args, **_kwargs: None,
         get_current_xy_func=lambda: (0.0, 0.0),
-        collect_func=lambda wire, x, y: collected.append((wire, x, y)),
+        collect_func=lambda wire, x, y, focus: collected.append((wire, x, y, focus)),
         preserve_order=False,
         profile=False,
+        current_focus_position=4000,
     )
 
     assert len(planner_calls) == 1
     assert planner_calls[0]["wire_list"] == [3, 8]
-    assert collected == [(8, 8.0, 80.0), (3, 3.0, 30.0)]
+    assert collected == [(8, 8.0, 80.0, 4100), (3, 3.0, 30.0, 4200)]
 
 
-def test_wire_position_provider_caches_latest_positions(monkeypatch):
+def test_wire_position_provider_caches_latest_positions_and_focus(monkeypatch):
     import dune_tension.tensiometer_functions as tensiometer_functions
 
-    class FakeArray(list):
-        def __sub__(self, other):
-            return FakeArray([value - other for value in self])
-
-    class FakeMask(list):
-        def __and__(self, other):
-            return FakeMask([left and right for left, right in zip(self, other)])
-
-    class FakeStringAccessor:
-        def __init__(self, values):
-            self._values = values
-
-        def upper(self):
-            return FakeSeries([str(value).upper() for value in self._values])
-
-    class FakeSeries:
-        def __init__(self, values):
-            self._values = list(values)
-
-        def __eq__(self, other):
-            return FakeMask([value == other for value in self._values])
-
-        def astype(self, dtype):
-            converter = str if dtype is str else dtype
-            return FakeSeries([converter(value) for value in self._values])
-
-        @property
-        def str(self):
-            return FakeStringAccessor(self._values)
-
-        @property
-        def values(self):
-            return FakeArray(self._values)
-
-    class FakeDataFrame:
-        def __init__(self, rows):
-            self._rows = list(rows)
-
-        def __getitem__(self, key):
-            if isinstance(key, str):
-                return FakeSeries([row[key] for row in self._rows])
-            return FakeDataFrame(
-                [row for row, keep in zip(self._rows, key) if keep]
-            )
-
-        @property
-        def empty(self):
-            return not self._rows
-
-        def sort_values(self, column):
-            return FakeDataFrame(sorted(self._rows, key=lambda row: row[column]))
-
-        def drop_duplicates(self, subset, keep="last"):
-            latest_rows = {}
-            for row in self._rows:
-                latest_rows[row[subset]] = row
-            return FakeDataFrame(
-                [row for row in self._rows if latest_rows[row[subset]] is row]
-            )
-
-        def reset_index(self, drop=True):
-            return FakeDataFrame(self._rows)
-
-    numpy_stub = sys.modules["numpy"]
-    monkeypatch.setattr(
-        numpy_stub,
-        "abs",
-        lambda arr: FakeArray([abs(value) for value in arr]),
-        raising=False,
-    )
-    monkeypatch.setattr(
-        numpy_stub,
-        "argmin",
-        lambda arr: min(range(len(arr)), key=lambda index: arr[index]),
-        raising=False,
-    )
-
     loader_calls = []
-    df = FakeDataFrame(
+    df = pd.DataFrame(
         [
             {
                 "apa_name": "APA",
@@ -173,6 +102,9 @@ def test_wire_position_provider_caches_latest_positions(monkeypatch):
                 "wire_number": 10,
                 "x": 99.0,
                 "y": 199.0,
+                "focus_position": 4900,
+                "confidence": 0.2,
+                "measurement_mode": "legacy",
                 "time": "2026-03-10T10:00:00",
             },
             {
@@ -182,6 +114,9 @@ def test_wire_position_provider_caches_latest_positions(monkeypatch):
                 "wire_number": 10,
                 "x": 100.0,
                 "y": 200.0,
+                "focus_position": 5000,
+                "confidence": 0.9,
+                "measurement_mode": "legacy",
                 "time": "2026-03-10T10:01:00",
             },
             {
@@ -191,6 +126,9 @@ def test_wire_position_provider_caches_latest_positions(monkeypatch):
                 "wire_number": 12,
                 "x": 120.0,
                 "y": 220.0,
+                "focus_position": 5200,
+                "confidence": 0.8,
+                "measurement_mode": "legacy",
                 "time": "2026-03-10T10:02:00",
             },
         ]
@@ -202,8 +140,160 @@ def test_wire_position_provider_caches_latest_positions(monkeypatch):
     config = tensiometer_functions.make_config(apa_name="APA", layer="X", side="A")
 
     xy_wire_10 = provider.get_xy(config, 10)
-    xy_wire_12 = provider.get_xy(config, 12)
+    pose_wire_12 = provider.get_pose(config, 12)
 
     assert loader_calls == [True]
     assert xy_wire_10 == (100.0, 200.0)
-    assert xy_wire_12 == (120.0, 220.0)
+    assert pose_wire_12 == tensiometer_functions.PlannedWirePose(12, 120.0, 220.0, 5200)
+
+
+def test_wire_position_provider_uses_confidence_weighted_y_fit() -> None:
+    import dune_tension.tensiometer_functions as tensiometer_functions
+
+    config = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="X",
+        side="A",
+        flipped=False,
+        wire_max=100,
+        dx=0.0,
+        dy=10.0,
+    )
+    df = pd.DataFrame(
+        [
+            {
+                "apa_name": "APA",
+                "layer": "X",
+                "side": "A",
+                "wire_number": 10,
+                "x": 10.0,
+                "y": 100.0,
+                "focus_position": 5000,
+                "confidence": 100.0,
+                "measurement_mode": "legacy",
+                "time": "2026-03-10T10:00:00",
+            },
+            {
+                "apa_name": "APA",
+                "layer": "X",
+                "side": "A",
+                "wire_number": 20,
+                "x": 20.0,
+                "y": 200.0,
+                "focus_position": 6000,
+                "confidence": 100.0,
+                "measurement_mode": "legacy",
+                "time": "2026-03-10T10:01:00",
+            },
+            {
+                "apa_name": "APA",
+                "layer": "X",
+                "side": "A",
+                "wire_number": 30,
+                "x": 30.0,
+                "y": 300.0,
+                "focus_position": 9000,
+                "confidence": 0.01,
+                "measurement_mode": "legacy",
+                "time": "2026-03-10T10:02:00",
+            },
+        ]
+    )
+
+    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path: df)
+
+    pose = provider.get_pose(config, 25, current_focus_position=4300)
+
+    assert pose is not None
+    assert pose.y == pytest.approx(250.0)
+    assert pose.focus_position is not None
+    assert 6400 <= pose.focus_position <= 6700
+
+
+def test_wire_position_provider_ignores_non_legacy_rows_and_falls_back_to_nearest_focus() -> None:
+    import dune_tension.tensiometer_functions as tensiometer_functions
+
+    config = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="X",
+        side="A",
+        flipped=False,
+        wire_max=100,
+        dx=0.0,
+        dy=10.0,
+    )
+    df = pd.DataFrame(
+        [
+            {
+                "apa_name": "APA",
+                "layer": "X",
+                "side": "A",
+                "wire_number": 10,
+                "x": 10.0,
+                "y": 100.0,
+                "focus_position": 5000,
+                "confidence": 0.9,
+                "measurement_mode": "legacy",
+                "time": "2026-03-10T10:00:00",
+            },
+            {
+                "apa_name": "APA",
+                "layer": "X",
+                "side": "A",
+                "wire_number": 20,
+                "x": 20.0,
+                "y": 200.0,
+                "focus_position": 8000,
+                "confidence": 0.9,
+                "measurement_mode": "stream_sweep",
+                "time": "2026-03-10T10:01:00",
+            },
+        ]
+    )
+
+    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path: df)
+
+    pose = provider.get_pose(config, 15, current_focus_position=4300)
+
+    assert pose is not None
+    assert pose.focus_position == 5000
+
+
+def test_wire_position_provider_falls_back_to_current_focus_when_no_saved_focus_exists() -> None:
+    import dune_tension.tensiometer_functions as tensiometer_functions
+
+    config = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="X",
+        side="A",
+        flipped=False,
+        wire_max=100,
+        dx=0.0,
+        dy=10.0,
+    )
+    df = pd.DataFrame(
+        [
+            {
+                "apa_name": "APA",
+                "layer": "X",
+                "side": "A",
+                "wire_number": 10,
+                "x": 10.0,
+                "y": 100.0,
+                "focus_position": None,
+                "confidence": 0.9,
+                "measurement_mode": "legacy",
+                "time": "2026-03-10T10:00:00",
+            },
+        ]
+    )
+
+    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path: df)
+
+    pose = provider.get_pose(config, 10, current_focus_position=4321)
+
+    assert pose is not None
+    assert pose.focus_position == 4321

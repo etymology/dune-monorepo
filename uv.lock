@@ -343,6 +343,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "dune-tension" },
     { name = "dune-winder" },
+    { name = "pytest" },
 ]
 
 [package.dev-dependencies]
@@ -355,6 +356,7 @@ dev = [
 requires-dist = [
     { name = "dune-tension", editable = "dune_tension" },
     { name = "dune-winder", editable = "dune_winder" },
+    { name = "pytest", specifier = ">=9.0.2" },
 ]
 
 [package.metadata.requires-dev]

@@ -37,6 +37,7 @@ class _PersistedState:
     measuring_duration: str
     wiggle_y_sigma_mm: str
     focus_wiggle_sigma_quarter_us: str
+    use_manual_focus: bool
 
 
 def save_state(ctx: GUIContext) -> None:
@@ -74,6 +75,7 @@ def save_state(ctx: GUIContext) -> None:
         measuring_duration=w.entry_measuring_duration.get(),
         wiggle_y_sigma_mm=w.entry_wiggle_y_sigma.get(),
         focus_wiggle_sigma_quarter_us=w.entry_focus_wiggle_sigma.get(),
+        use_manual_focus=bool(w.use_manual_focus_var.get()),
     )
 
     with open(ctx.state_file, "w", encoding="utf-8") as handle:
@@ -149,5 +151,6 @@ def load_state(ctx: GUIContext) -> None:
             MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us,
         ),
     )
+    w.use_manual_focus_var.set(bool(data.get("use_manual_focus", False)))
 
     ctx.focus_command_var.set(str(w.focus_slider.get()))

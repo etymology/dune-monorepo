@@ -15,6 +15,15 @@ HTTP_CONNECT_TIMEOUT = 0.35
 HTTP_READ_TIMEOUT = 5.0
 POLL_INTERVAL = 0.1
 READY_STATE = "StopMode"
+_UNSUPPORTED_MOTION_TAGS = frozenset(
+    {
+        "STATE",
+        "MOVE_TYPE",
+        "X_POSITION",
+        "Y_POSITION",
+        "XY_SPEED",
+    }
+)
 
 _SESSION: Any = None
 
@@ -75,6 +84,15 @@ def desktop_is_ready() -> bool:
     return bool(result.get("ok")) and result.get("data") == READY_STATE
 
 
+def desktop_acknowledge_error() -> bool:
+    """Mirror dune_winder's Reset PLC button via process.acknowledge_error."""
+    result = _post_command("process.acknowledge_error", {})
+    if not result.get("ok"):
+        LOGGER.warning("desktop_acknowledge_error failed: %s", result.get("error"))
+        return False
+    return True
+
+
 def desktop_seek_xy(
     x: float,
     y: float,
@@ -83,18 +101,29 @@ def desktop_seek_xy(
     idle_timeout: float = 20.0,
 ) -> bool:
     """Wait for ready, issue manual_seek_xy, then poll until StopMode or timeout."""
-    idle_deadline = time.monotonic() + idle_timeout
-    while time.monotonic() < idle_deadline:
-        if desktop_is_ready():
-            break
-        time.sleep(POLL_INTERVAL)
-    else:
+    def _wait_for_ready(timeout: float) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if desktop_is_ready():
+                return True
+            time.sleep(POLL_INTERVAL)
+        return False
+
+    if not _wait_for_ready(idle_timeout):
         LOGGER.warning(
             "desktop_seek_xy: timed out waiting for ready state before move to %s,%s",
             x,
             y,
         )
-        return False
+        if not desktop_acknowledge_error():
+            return False
+        if not _wait_for_ready(idle_timeout):
+            LOGGER.warning(
+                "desktop_seek_xy: PLC reset did not restore ready state before move to %s,%s",
+                x,
+                y,
+            )
+            return False
 
     result = _post_command(
         "process.manual_seek_xy", {"x": x, "y": y, "velocity": speed}
@@ -116,6 +145,7 @@ def desktop_seek_xy(
         time.sleep(POLL_INTERVAL)
 
     LOGGER.warning("desktop_seek_xy timed out waiting for move completion")
+    desktop_acknowledge_error()
     return False
 
 
@@ -131,6 +161,15 @@ def desktop_read_tag(tag_name: str) -> Any:
 
 def desktop_write_tag(tag_name: str, value: Any) -> dict[str, Any]:
     """Write a PLC tag through the desktop PC's dune_winder API."""
+    normalized_tag = str(tag_name).strip().upper()
+    if normalized_tag in _UNSUPPORTED_MOTION_TAGS:
+        return {
+            "error": (
+                f"desktop_write_tag({tag_name}): low-level motion tag writes are "
+                "not supported in desktop mode; use process.manual_seek_xy instead"
+            )
+        }
+
     result = _post_command("plc.write_tag", {"tag": tag_name, "value": value})
     if not result.get("ok"):
         error = result.get("error", {})

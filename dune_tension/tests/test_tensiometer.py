@@ -7,12 +7,14 @@ import sys
 import time
 import types
 
+import numpy as np
 import pytest
 
 import dune_tension.results as results_module
 import dune_tension.tensiometer as tensiometer_module
 from dune_tension.results import TensionResult
 from dune_tension.tensiometer import Tensiometer
+from dune_tension.tensiometer_functions import PlannedWirePose
 
 
 class DummyRepository:
@@ -58,12 +60,64 @@ def _make_motion_service(start_x: float = 0.0, start_y: float = 0.0):
     )
 
 
+def _make_recovering_motion_service(
+    results: list[bool],
+    *,
+    start_x: float = 0.0,
+    start_y: float = 0.0,
+):
+    state = {"x": float(start_x), "y": float(start_y)}
+    moves: list[tuple[float, float]] = []
+    reset_calls = {"count": 0}
+    outcomes = iter(results)
+
+    def get_xy() -> tuple[float, float]:
+        return state["x"], state["y"]
+
+    def goto_xy(x: float, y: float, **_kwargs) -> bool:
+        moves.append((x, y))
+        outcome = next(outcomes, True)
+        if outcome:
+            state["x"] = float(x)
+            state["y"] = float(y)
+        return outcome
+
+    def reset_plc(*_args, **_kwargs) -> None:
+        reset_calls["count"] += 1
+
+    return types.SimpleNamespace(
+        get_xy=get_xy,
+        goto_xy=goto_xy,
+        increment=lambda *_args, **_kwargs: None,
+        reset_plc=reset_plc,
+        set_speed=lambda *_args, **_kwargs: True,
+        moves=moves,
+        state=state,
+        reset_calls=reset_calls,
+    )
+
+
 def _make_audio_service(sample_rate: int = 8000):
     return types.SimpleNamespace(
         samplerate=sample_rate,
         noise_threshold=0.0,
         record_audio=lambda *_args, **_kwargs: ([], 0.0),
     )
+
+
+class _StubWirePositionProvider:
+    def __init__(self, poses: dict[int, PlannedWirePose]) -> None:
+        self._poses = dict(poses)
+        self.calls: list[tuple[int, int | None]] = []
+
+    def get_pose(
+        self,
+        _config,
+        wire_number: int,
+        current_focus_position: int | None = None,
+    ) -> PlannedWirePose | None:
+        self.calls.append((int(wire_number), current_focus_position))
+        return self._poses.get(int(wire_number))
 
 
 def _patch_result_physics(monkeypatch) -> None:
@@ -276,6 +330,95 @@ def test_collect_samples_waits_for_quiet_before_audio(monkeypatch):
     )
 
     assert events[:2] == ["quiet", "audio"]
+
+
+def test_move_to_measurement_pose_uses_manual_focus_in_legacy_mode() -> None:
+    motion = _make_motion_service(start_x=1.0, start_y=2.0)
+    focus_moves: list[int] = []
+    focus_state = {"value": 4300}
+
+    def _focus_wiggle(delta: int) -> None:
+        focus_state["value"] += int(delta)
+        focus_moves.append(int(delta))
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        focus_wiggle=_focus_wiggle,
+        focus_position_getter=lambda: focus_state["value"],
+        use_manual_focus=True,
+        manual_focus_target=5000,
+    )
+
+    moved = tensiometer._move_to_measurement_pose(4.0, 5.0, focus_target=6100)
+
+    assert moved is True
+    assert focus_moves == [700]
+    assert focus_state["value"] == 5000
+    assert motion.moves[-1] == (4.0, 5.0)
+
+
+def test_default_quiet_waiter_requires_one_second_of_silence(monkeypatch):
+    chunk_size = 128
+    quiet_chunk = np.full(chunk_size, 0.05, dtype=np.float32)
+    noisy_chunk = np.full(chunk_size, 0.2, dtype=np.float32)
+    chunks = [quiet_chunk] * 7 + [noisy_chunk] + [quiet_chunk] * 8
+    created_sources: list[object] = []
+
+    class FakeMicSource:
+        def __init__(self, sample_rate: int, requested_chunk_size: int) -> None:
+            assert sample_rate == 1000
+            assert requested_chunk_size == chunk_size
+            self.read_count = 0
+            self.started = False
+            self.stopped = False
+            created_sources.append(self)
+
+        def start(self) -> None:
+            self.started = True
+
+        def read(self) -> np.ndarray:
+            chunk = chunks[min(self.read_count, len(chunks) - 1)]
+            self.read_count += 1
+            return chunk
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    monkeypatch.setitem(
+        sys.modules,
+        "spectrum_analysis.audio_sources",
+        types.SimpleNamespace(MicSource=FakeMicSource),
+    )
+
+    runtime_bundle = types.SimpleNamespace(
+        strum=lambda: None,
+        servo_controller=types.SimpleNamespace(focus_position=0),
+        audio=_make_audio_service(sample_rate=1000),
+        motion=_make_motion_service(),
+        build_repository=lambda _path: DummyRepository(),
+        wire_position_provider=None,
+    )
+    runtime_bundle.audio.noise_threshold = 0.1
+
+    tensiometer = tensiometer_module.build_tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        runtime_bundle=runtime_bundle,
+    )
+
+    tensiometer.quiet_waiter()
+
+    assert len(created_sources) == 1
+    source = created_sources[0]
+    assert source.started is True
+    assert source.stopped is True
+    assert source.read_count == 16
 
 
 def test_triangle_reference_rms_uses_full_recording_duration() -> None:
@@ -517,11 +660,11 @@ def test_measure_auto_reports_estimated_time(monkeypatch):
     summaries_stub = types.ModuleType("dune_tension.summaries")
     summaries_stub.get_missing_wires = lambda _cfg: {"A": [1, 2]}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
-    planner_calls = []
-    monkeypatch.setattr(
-        tensiometer_module,
-        "plan_measurement_triplets",
-        lambda **kwargs: planner_calls.append(kwargs) or [(2, 2.0, 0.0), (1, 1.0, 0.0)],
+    provider = _StubWirePositionProvider(
+        {
+            1: PlannedWirePose(1, 1.0, 0.0, 4300),
+            2: PlannedWirePose(2, 2.0, 0.0, 4200),
+        }
     )
 
     collected = []
@@ -535,20 +678,132 @@ def test_measure_auto_reports_estimated_time(monkeypatch):
         repository=DummyRepository(),
         estimated_time_callback=eta_updates.append,
         time_provider=lambda: next(times),
+        wire_position_provider=provider,
     )
-    tensiometer.goto_xy_func = lambda *_args, **_kwargs: pytest.fail(
-        "measure_auto should use the shared planner output directly"
-    )
-    tensiometer.goto_collect_wire_data = lambda **kwargs: collected.append(kwargs)
+    tensiometer.goto_collect_wire_data = lambda **kwargs: collected.append(kwargs) or None
 
     tensiometer.measure_auto()
 
-    assert len(planner_calls) == 1
-    assert planner_calls[0]["wire_list"] == [1, 2]
+    assert eta_updates == ["0:00:10", "0:00:00"]
+    assert provider.calls == [(1, 0), (2, 0)]
+    assert collected == [
+        {"wire_number": 1, "wire_x": 1.0, "wire_y": 0.0, "focus_position": 4300},
+        {"wire_number": 2, "wire_x": 2.0, "wire_y": 0.0, "focus_position": 4200},
+    ]
+
+
+def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
+    eta_updates = []
+    summaries_stub = types.ModuleType("dune_tension.summaries")
+    summaries_stub.get_missing_wires = lambda _cfg: {"A": [10, 12]}
+    monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
+
+    provider = _StubWirePositionProvider(
+        {
+            10: PlannedWirePose(10, 100.0, 200.0, 4300),
+            12: PlannedWirePose(12, 300.0, 999.0, 5200),
+        }
+    )
+
+    measured_result = TensionResult.from_measurement(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        wire_number=10,
+        frequency=80.0,
+        confidence=0.95,
+        x=2500.0,
+        y=1500.0,
+        focus_position=4350,
+        time=datetime(2026, 3, 15, 12, 0, 0),
+    )
+    collected: list[dict[str, object]] = []
+    times = iter([100.0, 110.0])
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        estimated_time_callback=eta_updates.append,
+        time_provider=lambda: next(times),
+        wire_position_provider=provider,
+    )
+
+    def _collect(**kwargs):
+        collected.append(kwargs)
+        if kwargs["wire_number"] == 10:
+            return measured_result
+        return None
+
+    tensiometer.goto_collect_wire_data = _collect
+
+    tensiometer.measure_auto()
+
+    assert provider.calls == [(10, 0)]
     assert eta_updates == ["0:00:10", "0:00:00"]
     assert collected == [
-        {"wire_number": 2, "wire_x": 2.0, "wire_y": 0.0},
-        {"wire_number": 1, "wire_x": 1.0, "wire_y": 0.0},
+        {"wire_number": 10, "wire_x": 100.0, "wire_y": 200.0, "focus_position": 4300},
+        {
+            "wire_number": 12,
+            "wire_x": 2500.0,
+            "wire_y": 1509.5833333333333,
+            "focus_position": 4350,
+        },
+    ]
+
+
+def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
+    provider = _StubWirePositionProvider(
+        {
+            10: PlannedWirePose(10, 100.0, 200.0, 4300),
+            12: PlannedWirePose(12, 300.0, 999.0, 5200),
+        }
+    )
+
+    measured_result = TensionResult.from_measurement(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        wire_number=10,
+        frequency=80.0,
+        confidence=0.95,
+        x=2500.0,
+        y=1500.0,
+        focus_position=4350,
+        time=datetime(2026, 3, 15, 12, 0, 0),
+    )
+    collected: list[dict[str, object]] = []
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        wire_position_provider=provider,
+    )
+
+    def _collect(**kwargs):
+        collected.append(kwargs)
+        if kwargs["wire_number"] == 10:
+            return measured_result
+        return None
+
+    tensiometer.goto_collect_wire_data = _collect
+
+    tensiometer.measure_list([10, 12], preserve_order=True)
+
+    assert provider.calls == [(10, 0)]
+    assert collected == [
+        {"wire_number": 10, "wire_x": 100.0, "wire_y": 200.0, "focus_position": 4300},
+        {
+            "wire_number": 12,
+            "wire_x": 2500.0,
+            "wire_y": 1509.5833333333333,
+            "focus_position": 4350,
+        },
     ]
 
 
@@ -694,9 +949,149 @@ def test_focus_wiggle_without_callback_does_not_adjust_x():
     assert motion.moves == []
 
 
+def test_goto_collect_wire_data_applies_planned_focus_before_xy_move(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    motion = _make_motion_service(start_x=10.0, start_y=2.0)
+    focus_state = {"value": 4000}
+    focus_deltas = []
+
+    def _focus_wiggle(delta: int) -> None:
+        focus_deltas.append(delta)
+        focus_state["value"] += int(delta)
+
+    result = TensionResult.from_measurement(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        wire_number=1,
+        frequency=80.0,
+        confidence=0.95,
+        x=11.0,
+        y=2.0,
+        focus_position=4200,
+        time=datetime(2026, 3, 15, 12, 0, 0),
+    )
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        focus_wiggle=_focus_wiggle,
+        focus_position_getter=lambda: focus_state["value"],
+        focus_range_getter=lambda: (4000, 8000),
+    )
+    tensiometer._collect_samples = lambda **_kwargs: [result]
+    tensiometer.repository.append_result = lambda _saved: None
+
+    measured = tensiometer.goto_collect_wire_data(
+        wire_number=1,
+        wire_x=11.0,
+        wire_y=2.0,
+        focus_position=4200,
+    )
+
+    assert measured is result
+    assert focus_deltas == [200]
+    assert motion.moves == [(9.4, 2.0), (11.0, 2.0)]
+
+
+def test_goto_collect_wire_data_resets_plc_and_retries_failed_measurement_move(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    motion = _make_recovering_motion_service([False, True], start_x=10.0, start_y=2.0)
+    result = TensionResult.from_measurement(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        wire_number=1,
+        frequency=80.0,
+        confidence=0.95,
+        x=11.0,
+        y=2.0,
+        focus_position=4200,
+        time=datetime(2026, 3, 15, 12, 0, 0),
+    )
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+    )
+    tensiometer._collect_samples = lambda **_kwargs: [result]
+    tensiometer.repository.append_result = lambda _saved: None
+
+    measured = tensiometer.goto_collect_wire_data(
+        wire_number=1,
+        wire_x=11.0,
+        wire_y=2.0,
+    )
+
+    assert measured is result
+    assert motion.moves == [(11.0, 2.0), (11.0, 2.0)]
+    assert motion.reset_calls["count"] == 4
+
+
+def test_collect_samples_resets_plc_and_retries_optimizer_move(monkeypatch):
+    motion = _make_recovering_motion_service([False, True], start_x=1000.0, start_y=2000.0)
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        measuring_duration=10.0,
+        gauss_func=lambda mean, sigma: mean + sigma,
+    )
+    tensiometer.strum_func = lambda: None
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 80.0 if frequency is None else float(frequency),
+            "tension": 6.0,
+        },
+    )
+
+    stop_checks = {"count": 0}
+
+    def _check_stop(_event, _msg=""):
+        stop_checks["count"] += 1
+        return stop_checks["count"] >= 2
+
+    monkeypatch.setattr(tensiometer_module, "check_stop_event", _check_stop)
+
+    tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2000.0,
+        wire_x=1000.0,
+    )
+
+    assert len(motion.moves) == 2
+    assert motion.moves[0][0] == pytest.approx(1010.0, abs=0.02)
+    assert motion.moves[0][1] == pytest.approx(2000.1, abs=0.02)
+    assert motion.moves[1][0] == pytest.approx(1010.0, abs=0.02)
+    assert motion.moves[1][1] == pytest.approx(2000.1, abs=0.02)
+    assert motion.reset_calls["count"] == 1
+
+
 def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
     motion = _make_motion_service(start_x=1000.0, start_y=2000.0)
     focus_deltas = []
+    focus_state = {"value": 0}
+
+    def _focus_wiggle(delta: int) -> None:
+        focus_deltas.append(delta)
+        focus_state["value"] += int(delta)
 
     tensiometer = Tensiometer(
         apa_name="APA",
@@ -706,7 +1101,9 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
         audio=_make_audio_service(),
         repository=DummyRepository(),
         measuring_duration=10.0,
-        focus_wiggle=lambda delta: focus_deltas.append(delta),
+        focus_wiggle=_focus_wiggle,
+        focus_position_getter=lambda: focus_state["value"],
+        focus_range_getter=lambda: (-8000, 8000),
         gauss_func=lambda mean, sigma: mean + sigma,
     )
     tensiometer.strum_func = lambda: None
@@ -737,6 +1134,6 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
         wire_x=1000.0,
     )
 
-    assert focus_deltas == [100, 85]
+    assert focus_deltas == [100]
     assert motion.moves[0][0] == pytest.approx(999.7113, abs=0.02)
-    assert motion.moves[0][1] == pytest.approx(2000.1, abs=0.02)
+    assert motion.moves[0][1] == pytest.approx(2000.0, abs=0.02)

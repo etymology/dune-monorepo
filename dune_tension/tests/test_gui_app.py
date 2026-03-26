@@ -103,10 +103,12 @@ def _load_app_module(monkeypatch):
 
 
 class _FakeRoot:
-    def __init__(self) -> None:
+    def __init__(self, screen_width: int = 1920, screen_height: int = 1080) -> None:
         self.columnconfigure_calls = []
         self.minsize_args = None
         self.update_calls = 0
+        self.screen_width = screen_width
+        self.screen_height = screen_height
 
     def update_idletasks(self) -> None:
         self.update_calls += 1
@@ -116,6 +118,12 @@ class _FakeRoot:
 
     def minsize(self, width, height) -> None:
         self.minsize_args = (width, height)
+
+    def winfo_screenwidth(self) -> int:
+        return self.screen_width
+
+    def winfo_screenheight(self) -> int:
+        return self.screen_height
 
 
 class _FakeFrame:
@@ -144,3 +152,18 @@ def test_configure_root_minimum_size_reserves_space_for_both_columns(monkeypatch
         (1, {"weight": 1, "minsize": 780}),
     ]
     assert root.minsize_args == (1230, 720)
+
+
+def test_configure_root_minimum_size_clamps_to_screen(monkeypatch):
+    app = _load_app_module(monkeypatch)
+    root = _FakeRoot(screen_width=1100, screen_height=680)
+    main_frame = _FakeFrame(420, 700)
+    side_frame = _FakeFrame(760, 680)
+
+    app._configure_root_minimum_size(root, main_frame, side_frame)
+
+    assert root.columnconfigure_calls == [
+        (0, {"weight": 0, "minsize": 420}),
+        (1, {"weight": 1, "minsize": 650}),
+    ]
+    assert root.minsize_args == (1100, 680)

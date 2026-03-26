@@ -142,9 +142,11 @@ class _FakeMotion:
 class _FakeServo:
     def __init__(self) -> None:
         self.focus_position = 4000
+        self.targets: list[int] = []
 
     def focus_target(self, target: int) -> None:
         self.focus_position = int(target)
+        self.targets.append(self.focus_position)
 
 
 class _FakeResultRepository:
@@ -257,3 +259,131 @@ def test_streaming_controller_run_sweep_accepts_candidate(tmp_path) -> None:
     assert summary["accepted_wires"] == [1]
     assert len(recorded_results) == 1
     assert (tmp_path / summary["session_id"] / "streaming.db").exists()
+
+
+def test_streaming_controller_run_sweep_uses_manual_focus_when_enabled(tmp_path) -> None:
+    sample_rate = 16000
+    recorded_results: list = []
+    audio = _harmonic_audio(sample_rate, 0.4)
+    audio_chunks = [audio[index : index + 2048] for index in range(0, audio.size, 2048)]
+    servo = _FakeServo()
+    runtime = MeasurementRuntime(
+        motion=_FakeMotion(),
+        servo_controller=servo,
+        valve_controller=None,
+        strum=lambda: None,
+        result_repository_factory=lambda _path: _FakeResultRepository(recorded_results),
+        streaming_repository_factory=lambda session_id=None: StreamingSessionRepository(
+            root_dir=tmp_path,
+            session_id=session_id or "session-manual-sweep",
+        ),
+        audio_stream_factory=lambda sr, hop: AudioStreamService(
+            sample_rate=sr,
+            hop_size=hop,
+            source_factory=lambda: _FakeAudioSource(audio_chunks, sr),
+        ),
+        wire_positions=StreamingWirePositionProvider(provider=_FakeWireProvider()),
+        focus_plane=FocusPlaneModel(c=4550.0),
+        clock=time.monotonic,
+        logger=types.SimpleNamespace(warning=lambda *args, **kwargs: None),
+    )
+    controller = StreamingMeasurementController(
+        runtime=runtime,
+        config=StreamingControllerConfig(
+            apa_name="APA",
+            layer="X",
+            side="A",
+            sample_rate=sample_rate,
+            cruise_margin_s=0.0,
+            direct_accept_support=1,
+            direct_accept_confidence=0.5,
+            direct_accept_angle_score=0.5,
+            direct_accept_focus_score=0.5,
+            use_manual_focus=True,
+            manual_focus_target=5000.0,
+        ),
+    )
+    controller.analysis.config = StreamingAnalysisConfig(
+        sample_rate=sample_rate,
+        voiced_window_min_frames=1,
+    )
+    controller.analysis = FastFrameAnalyzer(controller.analysis.config)
+    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: types.SimpleNamespace(
+        frequency=220.0,
+        confidence=0.91,
+    )
+
+    summary = controller.run_sweep(
+        [
+            SweepCorridor(
+                corridor_id="corridor-1",
+                x0=9.5,
+                y0=20.0,
+                x1=10.5,
+                y1=20.0,
+                speed_mm_s=5.0,
+            )
+        ]
+    )
+
+    assert summary["accepted_wires"] == [1]
+    assert servo.targets
+    assert servo.targets[0] == 5000
+    assert recorded_results[0].focus_position == 5000
+
+
+def test_streaming_controller_run_rescue_uses_manual_focus_when_enabled(tmp_path) -> None:
+    sample_rate = 16000
+    recorded_results: list = []
+    audio = _harmonic_audio(sample_rate, 0.5)
+    audio_chunks = [audio[index : index + 2048] for index in range(0, audio.size, 2048)]
+    servo = _FakeServo()
+    runtime = MeasurementRuntime(
+        motion=_FakeMotion(),
+        servo_controller=servo,
+        valve_controller=None,
+        strum=lambda: None,
+        result_repository_factory=lambda _path: _FakeResultRepository(recorded_results),
+        streaming_repository_factory=lambda session_id=None: StreamingSessionRepository(
+            root_dir=tmp_path,
+            session_id=session_id or "session-manual-rescue",
+        ),
+        audio_stream_factory=lambda sr, hop: AudioStreamService(
+            sample_rate=sr,
+            hop_size=hop,
+            source_factory=lambda: _FakeAudioSource(audio_chunks, sr),
+        ),
+        wire_positions=StreamingWirePositionProvider(provider=_FakeWireProvider()),
+        focus_plane=FocusPlaneModel(c=4550.0),
+        clock=time.monotonic,
+        logger=types.SimpleNamespace(warning=lambda *args, **kwargs: None),
+    )
+    controller = StreamingMeasurementController(
+        runtime=runtime,
+        config=StreamingControllerConfig(
+            apa_name="APA",
+            layer="X",
+            side="A",
+            sample_rate=sample_rate,
+            rescue_capture_seconds=0.05,
+            direct_accept_support=1,
+            use_manual_focus=True,
+            manual_focus_target=5100.0,
+        ),
+    )
+    controller.analysis.config = StreamingAnalysisConfig(
+        sample_rate=sample_rate,
+        voiced_window_min_frames=1,
+    )
+    controller.analysis = FastFrameAnalyzer(controller.analysis.config)
+    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: types.SimpleNamespace(
+        frequency=220.0,
+        confidence=0.91,
+    )
+
+    summary = controller.run_rescue(1)
+
+    assert summary["wire_number"] == 1
+    assert servo.targets
+    assert set(servo.targets) == {5100}
+    assert len(servo.targets) == 3

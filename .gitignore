@@ -10,3 +10,4 @@ __pycache__/
 *.egg-info/
 *.pyc
 dune_tension/data/streaming_runs/*
+*gui_state.json

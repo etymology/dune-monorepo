@@ -193,3 +193,89 @@ def test_analyze_audio_with_pesto_reverses_sr_augmentation(monkeypatch):
     assert np.allclose(result.activation_map[:6, 0], np.array([24, 25, 26, 27, 28, 29], dtype=np.float32))
     assert np.allclose(result.activation_map[:6, 1], np.array([54, 55, 56, 57, 58, 59], dtype=np.float32))
     assert np.allclose(result.activation_map[6:, :], 0.0)
+
+
+def test_analyze_audio_with_pesto_pads_short_audio_and_trims_outputs(monkeypatch):
+    captured = {}
+
+    def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
+        class _FakeConv:
+            padding = (32768,)
+
+        class _FakeCQT:
+            conv = _FakeConv()
+
+        class _FakeHCQT:
+            cqt_kernels = [_FakeCQT()]
+
+        class _FakeModel:
+            bins_per_semitone = 2
+            preprocessor = type(
+                "Preprocessor",
+                (),
+                {
+                    "hcqt_kwargs": {"fmin": 55.0},
+                    "hcqt_kernels": _FakeHCQT(),
+                },
+            )()
+
+            def __call__(self, audio_tensor, sr, convert_to_freq, return_activations):
+                captured["audio_shape"] = audio_tensor.value.shape
+                assert sr == 24000
+                assert convert_to_freq is True
+                assert return_activations is True
+                return (
+                    _FakeTensor([[110.0, 120.0, 130.0, 1000.0]]),
+                    _FakeTensor([[0.9, 0.6, 0.3, 0.4]]),
+                    _FakeTensor([[0.0, 0.0, 0.0, 0.0]]),
+                    _FakeTensor(
+                        [
+                            [
+                                [1.0, 2.0, 3.0],
+                                [4.0, 5.0, 6.0],
+                                [7.0, 8.0, 9.0],
+                                [10.0, 11.0, 12.0],
+                            ]
+                        ]
+                    ),
+                )
+
+        return _FakeModel()
+
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", fake_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+    monkeypatch.setattr(pesto_analysis, "_resolve_step_size_ms", lambda *_args: 500.0)
+
+    result = pesto_analysis.analyze_audio_with_pesto(
+        np.zeros(24000, dtype=np.float32),
+        sample_rate=24000,
+        include_activations=True,
+    )
+
+    assert captured["audio_shape"] == (1, 32769)
+    assert np.allclose(result.frame_times, np.array([0.0, 0.5, 1.0], dtype=np.float32))
+    assert np.allclose(
+        result.predicted_frequencies,
+        np.array([110.0, 120.0, 130.0], dtype=np.float32),
+    )
+    assert np.allclose(
+        result.frame_confidences,
+        np.array([0.9, 0.6, 0.3], dtype=np.float32),
+    )
+    assert np.isclose(result.frequency, 116.6666667)
+    assert np.isclose(result.confidence, 0.6)
+    assert result.activation_map is not None
+    assert result.activation_map.shape == (3, 3)
+    assert np.allclose(
+        result.activation_map,
+        np.array(
+            [
+                [1.0, 4.0, 7.0],
+                [2.0, 5.0, 8.0],
+                [3.0, 6.0, 9.0],
+            ],
+            dtype=np.float32,
+        ),
+    )

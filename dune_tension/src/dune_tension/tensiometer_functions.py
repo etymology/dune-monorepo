@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field
 import logging
-from typing import Any, Optional, Callable
+from typing import Any, Optional, Callable, Sequence
 import math
 from typing import List, Tuple
 from threading import Event
+
+import numpy as np
+import pandas as pd
 
 from dune_tension.config import LAYER_LAYOUTS
 from dune_tension.data_cache import get_dataframe
@@ -118,6 +121,57 @@ class _WirePositionSnapshot:
     wire_numbers: Any
     xs: Any
     ys: Any
+    focus_ys: Any
+    focus_positions: Any
+    focus_fit_slope: float | None
+    focus_fit_intercept: float | None
+
+
+@dataclass(frozen=True)
+class PlannedWirePose:
+    wire_number: int
+    x: float
+    y: float
+    focus_position: int | None = None
+
+
+def _weighted_focus_fit(
+    ys: Sequence[float],
+    focus_positions: Sequence[float],
+    weights: Sequence[float],
+) -> tuple[float | None, float | None]:
+    if len(ys) < 2:
+        return None, None
+
+    y_values = [float(value) for value in ys]
+    if len({round(value, 9) for value in y_values}) < 2:
+        return None, None
+
+    focus_values = [float(value) for value in focus_positions]
+    weight_values = [float(value) for value in weights]
+    total_weight = sum(weight_values)
+    if total_weight <= 0:
+        return None, None
+
+    y_mean = sum(weight * y for weight, y in zip(weight_values, y_values)) / total_weight
+    focus_mean = (
+        sum(weight * focus for weight, focus in zip(weight_values, focus_values))
+        / total_weight
+    )
+    variance = sum(
+        weight * (y - y_mean) ** 2
+        for weight, y in zip(weight_values, y_values)
+    )
+    if variance <= 0:
+        return None, None
+
+    covariance = sum(
+        weight * (y - y_mean) * (focus - focus_mean)
+        for weight, y, focus in zip(weight_values, y_values, focus_values)
+    )
+    slope = covariance / variance
+    intercept = focus_mean - slope * y_mean
+    return float(slope), float(intercept)
 
 
 class WirePositionProvider:
@@ -158,9 +212,25 @@ class WirePositionProvider:
 
         df = df_all[
             (df_all["apa_name"] == apa_name) & (df_all["layer"] == layer)
-        ]
+        ].copy()
         if getattr(df, "empty", True):
             return None
+
+        if "measurement_mode" not in df.columns:
+            df["measurement_mode"] = ""
+        df["measurement_mode"] = (
+            df["measurement_mode"].fillna("").astype(str).str.strip().str.lower()
+        )
+        df = df[df["measurement_mode"].isin({"", "legacy"})]
+        if df.empty:
+            return None
+
+        df["time"] = pd.to_datetime(df["time"], errors="coerce")
+        df["wire_number"] = pd.to_numeric(df["wire_number"], errors="coerce")
+        df["x"] = pd.to_numeric(df["x"], errors="coerce")
+        df["y"] = pd.to_numeric(df["y"], errors="coerce")
+        df["focus_position"] = pd.to_numeric(df["focus_position"], errors="coerce")
+        df["confidence"] = pd.to_numeric(df["confidence"], errors="coerce")
 
         df_side = (
             df[df["side"].astype(str).str.upper() == virtual_side]
@@ -172,10 +242,29 @@ class WirePositionProvider:
         if df_side.empty:
             return None
 
+        df_side = df_side.dropna(subset=["wire_number", "x", "y"]).copy()
+        if df_side.empty:
+            return None
+
+        focus_rows = df_side.dropna(subset=["y", "focus_position"]).copy()
+        fit_rows = focus_rows[
+            np.isfinite(focus_rows["confidence"].to_numpy(dtype=float))
+            & (focus_rows["confidence"].to_numpy(dtype=float) > 0.0)
+        ].copy()
+        slope, intercept = _weighted_focus_fit(
+            fit_rows["y"].tolist(),
+            fit_rows["focus_position"].tolist(),
+            fit_rows["confidence"].tolist(),
+        )
+
         return _WirePositionSnapshot(
             wire_numbers=df_side["wire_number"].astype(int).values,
             xs=df_side["x"].astype(float).values,
             ys=df_side["y"].astype(float).values,
+            focus_ys=focus_rows["y"].astype(float).values,
+            focus_positions=focus_rows["focus_position"].astype(float).values,
+            focus_fit_slope=slope,
+            focus_fit_intercept=intercept,
         )
 
     def _get_snapshot(
@@ -187,22 +276,12 @@ class WirePositionProvider:
             self._snapshots[key] = self._build_snapshot(config)
         return self._snapshots[key]
 
-    def get_xy(
+    def _resolve_xy(
         self,
         config: TensiometerConfig,
         wire_number: int,
-    ) -> Optional[tuple[float, float]]:
-        import numpy as np
-
-        snapshot = self._get_snapshot(config)
-        if snapshot is None:
-            LOGGER.warning(
-                "No data found for side %s in layer %s.",
-                config.side,
-                config.layer,
-            )
-            return None
-
+        snapshot: _WirePositionSnapshot,
+    ) -> tuple[float, float]:
         lookup_wire_number = int(wire_number)
         if config.flipped and config.layer in ["X", "G"]:
             lookup_wire_number = config.wire_max - lookup_wire_number
@@ -219,6 +298,69 @@ class WirePositionProvider:
             if config.layer in ["V", "U"]
             else (x, y)
         )
+
+    def _resolve_focus_position(
+        self,
+        snapshot: _WirePositionSnapshot,
+        y: float,
+        *,
+        current_focus_position: int | None = None,
+    ) -> int | None:
+        if (
+            snapshot.focus_fit_slope is not None
+            and snapshot.focus_fit_intercept is not None
+        ):
+            predicted = (
+                snapshot.focus_fit_slope * float(y) + snapshot.focus_fit_intercept
+            )
+            if math.isfinite(predicted):
+                return int(round(predicted))
+
+        if len(snapshot.focus_positions) > 0:
+            idx_closest = np.argmin(np.abs(snapshot.focus_ys - float(y)))
+            return int(round(float(snapshot.focus_positions[idx_closest])))
+
+        if current_focus_position is None:
+            return None
+        return int(current_focus_position)
+
+    def get_pose(
+        self,
+        config: TensiometerConfig,
+        wire_number: int,
+        current_focus_position: int | None = None,
+    ) -> Optional[PlannedWirePose]:
+        snapshot = self._get_snapshot(config)
+        if snapshot is None:
+            LOGGER.warning(
+                "No data found for side %s in layer %s.",
+                config.side,
+                config.layer,
+            )
+            return None
+
+        x, y = self._resolve_xy(config, wire_number, snapshot)
+        focus_position = self._resolve_focus_position(
+            snapshot,
+            y,
+            current_focus_position=current_focus_position,
+        )
+        return PlannedWirePose(
+            wire_number=int(wire_number),
+            x=float(x),
+            y=float(y),
+            focus_position=focus_position,
+        )
+
+    def get_xy(
+        self,
+        config: TensiometerConfig,
+        wire_number: int,
+    ) -> Optional[tuple[float, float]]:
+        pose = self.get_pose(config, wire_number)
+        if pose is None:
+            return None
+        return (pose.x, pose.y)
 
 
 _DEFAULT_WIRE_POSITION_PROVIDER = WirePositionProvider()
@@ -265,6 +407,72 @@ def greedy_order_triplets(
     return ordered
 
 
+def greedy_order_poses(
+    startxy: tuple[float, float], poses: list[PlannedWirePose]
+) -> list[PlannedWirePose]:
+    """Order planned poses by greedy nearest-neighbor distance."""
+
+    remaining = poses.copy()
+    ordered: list[PlannedWirePose] = []
+    current_x, current_y = startxy
+
+    while remaining:
+        next_pose = min(
+            remaining,
+            key=lambda pose: math.hypot(pose.x - current_x, pose.y - current_y),
+        )
+        ordered.append(next_pose)
+        remaining.remove(next_pose)
+        current_x, current_y = next_pose.x, next_pose.y
+
+    return ordered
+
+
+def plan_measurement_poses(
+    config: TensiometerConfig,
+    wire_list: list[int],
+    get_pose_from_file_func: Callable[
+        [TensiometerConfig, int, int | None], Optional[PlannedWirePose]
+    ],
+    get_current_xy_func: Callable[[], tuple[float, float]],
+    preserve_order: bool = False,
+    current_focus_position: int | None = None,
+) -> list[PlannedWirePose]:
+    """Resolve, validate, and order motion targets with optional focus targets."""
+
+    LOGGER.info("Loading wire coordinates...")
+    poses: list[PlannedWirePose] = []
+    for wire_number in wire_list:
+        pose = get_pose_from_file_func(config, wire_number, current_focus_position)
+        if pose is None:
+            LOGGER.warning("No position data found for wire %s", wire_number)
+            continue
+
+        if not is_motion_target_in_bounds(pose.x, pose.y):
+            LOGGER.warning(
+                "Skipping wire %s because motion target %s,%s is out of bounds.",
+                wire_number,
+                pose.x,
+                pose.y,
+            )
+            continue
+
+        poses.append(pose)
+
+    if not poses:
+        LOGGER.warning("No valid wires with legal coordinates.")
+        return []
+
+    if preserve_order:
+        LOGGER.info("Preserving requested wire order...")
+        return poses
+
+    LOGGER.info("Getting current position...")
+    start_xy = get_current_xy_func()
+    LOGGER.info("Reordering wires...")
+    return greedy_order_poses(start_xy, poses)
+
+
 def plan_measurement_triplets(
     config: TensiometerConfig,
     wire_list: list[int],
@@ -276,51 +484,36 @@ def plan_measurement_triplets(
 ) -> list[tuple[int, float, float]]:
     """Resolve, validate, and order motion targets for wire measurements."""
 
-    LOGGER.info("Loading wire coordinates...")
-    triplets: list[tuple[int, float, float]] = []
-    for wire_number in wire_list:
-        xy = get_xy_from_file_func(config, wire_number)
-        if xy is None:
-            LOGGER.warning("No position data found for wire %s", wire_number)
-            continue
-
-        x, y = xy
-        if not is_motion_target_in_bounds(x, y):
-            LOGGER.warning(
-                "Skipping wire %s because motion target %s,%s is out of bounds.",
-                wire_number,
-                x,
-                y,
+    poses = plan_measurement_poses(
+        config=config,
+        wire_list=wire_list,
+        get_pose_from_file_func=lambda cfg, wire, _current_focus: (
+            None
+            if (xy := get_xy_from_file_func(cfg, wire)) is None
+            else PlannedWirePose(
+                wire_number=int(wire),
+                x=float(xy[0]),
+                y=float(xy[1]),
             )
-            continue
-
-        triplets.append((wire_number, x, y))
-
-    if not triplets:
-        LOGGER.warning("No valid wires with legal coordinates.")
-        return []
-
-    if preserve_order:
-        LOGGER.info("Preserving requested wire order...")
-        return triplets
-
-    LOGGER.info("Getting current position...")
-    start_xy = get_current_xy_func()
-    LOGGER.info("Reordering wires...")
-    return greedy_order_triplets(start_xy, triplets)
+        ),
+        get_current_xy_func=get_current_xy_func,
+        preserve_order=preserve_order,
+    )
+    return [(pose.wire_number, pose.x, pose.y) for pose in poses]
 
 
 def measure_list(
     config: TensiometerConfig,
     wire_list: list[int],
-    get_xy_from_file_func: Callable[
-        [TensiometerConfig, int], Optional[tuple[float, float]]
+    get_pose_from_file_func: Callable[
+        [TensiometerConfig, int, int | None], Optional[PlannedWirePose]
     ],
     get_current_xy_func: Callable[[], tuple[float, float]],
-    collect_func: Callable[[int, float, float], Optional[float]],
+    collect_func: Callable[[int, float, float, int | None], Optional[float]],
     stop_event: Optional[object] = None,
     preserve_order: bool = False,
     profile: bool = True,
+    current_focus_position: int | None = None,
 ):
     if profile:
         import cProfile
@@ -330,20 +523,27 @@ def measure_list(
         profiler = cProfile.Profile()
         profiler.enable()
 
-    ordered_triplets = plan_measurement_triplets(
+    ordered_poses = plan_measurement_poses(
         config=config,
         wire_list=wire_list,
-        get_xy_from_file_func=get_xy_from_file_func,
+        get_pose_from_file_func=get_pose_from_file_func,
         get_current_xy_func=get_current_xy_func,
         preserve_order=preserve_order,
+        current_focus_position=current_focus_position,
     )
-    if not ordered_triplets:
+    if not ordered_poses:
         if profile:
             profiler.disable()
         return
 
-    for wire, x, y in ordered_triplets:
-        LOGGER.info("Measuring wire %s at %s,%s", wire, x, y)
+    for pose in ordered_poses:
+        LOGGER.info(
+            "Measuring wire %s at %s,%s focus=%s",
+            pose.wire_number,
+            pose.x,
+            pose.y,
+            pose.focus_position,
+        )
         if check_stop_event(stop_event):
             if profile:
                 profiler.disable()
@@ -351,7 +551,7 @@ def measure_list(
                 pstats.Stats(profiler, stream=s).sort_stats("cumulative").print_stats()
                 LOGGER.info("Profiling stats:\n%s", s.getvalue())
             return
-        collect_func(wire, x, y)
+        collect_func(pose.wire_number, pose.x, pose.y, pose.focus_position)
 
     if profile:
         profiler.disable()

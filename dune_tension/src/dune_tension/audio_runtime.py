@@ -43,6 +43,7 @@ def _load_audio_processing_helpers():
     from spectrum_analysis.audio_processing import (
         apply_noise_filter,
         compute_noise_profile,
+        discard_leading_audio,
         load_noise_profile,
         record_noise_sample,
         save_noise_profile,
@@ -51,6 +52,7 @@ def _load_audio_processing_helpers():
     return {
         "apply_noise_filter": apply_noise_filter,
         "compute_noise_profile": compute_noise_profile,
+        "discard_leading_audio": discard_leading_audio,
         "load_noise_profile": load_noise_profile,
         "record_noise_sample": record_noise_sample,
         "save_noise_profile": save_noise_profile,
@@ -112,6 +114,9 @@ def record_audio_filtered(
     helpers = _load_audio_processing_helpers()
     cfg = _pitch_compare_config(sample_rate=sample_rate, duration=duration)
     audio = np.asarray(helpers["record_noise_sample"](cfg), dtype=np.float32)
+    discard_leading_audio = helpers.get("discard_leading_audio")
+    if callable(discard_leading_audio):
+        audio = np.asarray(discard_leading_audio(audio, sample_rate), dtype=np.float32)
 
     profile = _load_noise_profile(sample_rate=sample_rate, duration=duration)
     if profile is not None:
