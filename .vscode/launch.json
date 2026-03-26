@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run Tensiometer with SPOOF_AUDIO",
+            "name": "dune-tension (debug spoofed)",
             "type": "debugpy",
             "request": "launch",
             "module": "dune_tension.main",
@@ -10,7 +10,35 @@
             "console": "integratedTerminal",
             "env": {
                 "SPOOF_AUDIO": "1",
-                "SPOOF_SERVO": "1"
+                "SPOOF_PLC": "1",
+                "SPOOF_SERVO": "1",
+                "SPOOF_VALVE": "1"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "dune-tension (real desktop mode)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "dune_tension.main",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PLC_IO_MODE": "desktop",
+                "DESKTOP_SERVER_URL": "http://192.168.137.1:8080"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "dune-tension (real direct PLC)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "dune_tension.main",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PLC_IO_MODE": "direct",
+                "PLC_IP_ADDRESS": "192.168.140.13"
             }
         },
         {
