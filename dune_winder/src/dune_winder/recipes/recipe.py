@@ -148,6 +148,7 @@ class Recipe:
       self._headerHash = bodyHash
 
     if archiveDirectory:
+      os.makedirs(archiveDirectory, exist_ok=True)
       # If this file does not exist in the archive, copy it there.
       archiveFile = archiveDirectory + "/" + bodyHash
       if not os.path.isfile(archiveFile):

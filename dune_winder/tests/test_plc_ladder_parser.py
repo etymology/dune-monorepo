@@ -133,5 +133,20 @@ class PlcLadderParserTests(unittest.TestCase):
           self.emitter.emit_routine(routine).strip().splitlines(),
         )
 
+  def test_imperative_codegen_compiles_for_movez_main(self):
+    path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
+    routine = self.parser.parse_routine_path(
+      path,
+      routine_name="main",
+      program="MoveZ_State_4_5",
+    )
+
+    generated = self.codegen.generate_routine(routine)
+
+    self.assertIn("if tag('trigger_z_move'):", generated)
+    self.assertIn("MAM(", generated)
+    compile(generated, str(path), "exec")
+
+
 if __name__ == "__main__":
   unittest.main()

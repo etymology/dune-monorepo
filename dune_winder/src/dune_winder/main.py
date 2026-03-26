@@ -291,7 +291,9 @@ def main():
   configuration.save()
 
   # Ensure runtime directories exist on first run.
+  os.makedirs(Settings.CACHE_DIR, exist_ok=True)
   os.makedirs(Settings.RECIPE_DIR, exist_ok=True)
+  os.makedirs(Settings.RECIPE_ARCHIVE_DIR, exist_ok=True)
 
   # Setup log file.
   log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
