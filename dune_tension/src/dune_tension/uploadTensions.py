@@ -7,10 +7,14 @@ def load_tension_summary(apa_name: str, layer: str) -> tuple[list, list]:
     config = make_config(apa_name=apa_name, layer=layer, side="A")
     tension_series = get_tension_series(config)
     wire_range = list(get_expected_range(layer))
+    if layer in ["X", "G", "x", "g"]:
+        b_side_wire_range = list(reversed(wire_range))
+    else:
+        b_side_wire_range = wire_range
     nan = float("nan")
     return (
         [tension_series["A"].get(wire, nan) for wire in wire_range],
-        [tension_series["B"].get(wire, nan) for wire in wire_range],
+        [tension_series["B"].get(wire, nan) for wire in b_side_wire_range],
     )
 
 
@@ -60,5 +64,9 @@ def uploadTensions(apa_name: str, layer: str, create_layer_action_id: str) -> No
     connection.close()
 
 
+def main() -> None:
+    uploadTensions("USAPA12", "X", r"69c55b1739ec5df0071382d7")
+
+
 if __name__ == "__main__":
-    uploadTensions("USAPA11", "G", r"698392969c0b3b26e5f29f47")
+    main()
