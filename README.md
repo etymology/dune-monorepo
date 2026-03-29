@@ -31,12 +31,20 @@ uv run dune-winder
 uv run dune-tension-gui
 ```
 
-Useful root-level commands:
+Run all tests (both packages) from root:
 
 ```bash
-uv run python -m unittest discover -s dune_winder/tests
-uv run pytest dune_tension/tests
-uv run ruff check dune_winder dune_tension
+uv run pytest
+```
+
+Other useful commands:
+
+```bash
+uv run pytest tests/dune_tension    # tension tests only
+uv run pytest tests/dune_winder     # winder tests only
+uv run ruff check src tests         # lint
+uv run ruff format src tests        # format
+make test                           # shorthand via Makefile
 ```
 
 ## VS Code
@@ -45,14 +53,20 @@ Open `/home/dune/dune-monorepo` as the workspace folder. The root `.vscode/`
 configuration is set up to use the monorepo `.venv` and launch both apps from
 the root workflow.
 
-## Package Notes
+## Layout
 
-- `dune_winder` keeps its configuration, PLC assets, cache, and web files under
-  `dune_winder/`.
-- `dune_tension` keeps its measurement database, summaries, plots, streaming
-  runs, and audio fixtures under `dune_tension/`.
+All Python source lives under [`src/`](src/): `dune_winder`, `dune_tension`, `spectrum_analysis`.
 
-Package-specific operational details remain in:
+Data artifacts stay in their own subdirectories and are **not** Python packages:
+
+- `dune_winder/` — PLC ladder programs, machine config, web UI, Grafana/InfluxDB
+- `dune_tension/` — measurement DB, tension summaries, plots, streaming runs, audio fixtures
+
+Tests live under [`tests/`](tests/): `dune_tension/` and `dune_winder/`.
+
+Docs live under [`docs/`](docs/): `dune_tension/` and `dune_winder/`.
+
+Package-specific operational details:
 
 - [dune_winder/README.md](dune_winder/README.md)
 - [dune_tension/README.md](dune_tension/README.md)

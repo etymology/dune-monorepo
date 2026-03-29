@@ -10,13 +10,6 @@ resolution-markers = [
     "python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
-[manifest]
-members = [
-    "dune-monorepo",
-    "dune-tension",
-    "dune-winder",
-]
-
 [[package]]
 name = "antlr4-python3-runtime"
 version = "4.9.3"
@@ -338,40 +331,11 @@ wheels = [
 
 [[package]]
 name = "dune-monorepo"
-version = "0.0.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "dune-tension" },
-    { name = "dune-winder" },
-    { name = "pytest" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dune-tension", editable = "dune_tension" },
-    { name = "dune-winder", editable = "dune_winder" },
-    { name = "pytest", specifier = ">=9.0.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.0" },
-    { name = "ruff", specifier = ">=0.9.9" },
-]
-
-[[package]]
-name = "dune-tension"
 version = "0.1.0"
-source = { editable = "dune_tension" }
+source = { editable = "." }
 dependencies = [
-    { name = "dune-winder" },
     { name = "flask" },
+    { name = "influxdb-client" },
     { name = "matplotlib" },
     { name = "nnaudio" },
     { name = "numpy" },
@@ -385,10 +349,16 @@ dependencies = [
     { name = "sounddevice" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "dune-winder", editable = "dune_winder" },
     { name = "flask", specifier = ">=3.1.0" },
+    { name = "influxdb-client", specifier = ">=1.40.0" },
     { name = "matplotlib", specifier = ">=3.10.3" },
     { name = "nnaudio", specifier = ">=0.3.3" },
     { name = "numpy", specifier = ">=1.26.4" },
@@ -402,19 +372,10 @@ requires-dist = [
     { name = "sounddevice", specifier = ">=0.5.2" },
 ]
 
-[[package]]
-name = "dune-winder"
-version = "0.1.0"
-source = { editable = "dune_winder" }
-dependencies = [
-    { name = "influxdb-client" },
-    { name = "pycomm3" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "influxdb-client", specifier = ">=1.40.0" },
-    { name = "pycomm3", specifier = ">=1.2.14" },
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "ruff", specifier = ">=0.9.9" },
 ]
 
 [[package]]

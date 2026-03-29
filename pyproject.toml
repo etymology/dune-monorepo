@@ -1,23 +1,66 @@
 [project]
 name = "dune-monorepo"
-version = "0.0.0"
+version = "0.1.0"
+description = "DUNE APA winder control and wire tension measurement"
 requires-python = ">=3.12"
 dependencies = [
-    "dune-winder",
-    "dune-tension",
-    "pytest>=9.0.2",
+    # dune_winder
+    "pycomm3>=1.2.14",
+    "influxdb-client>=1.40.0",
+    # dune_tension
+    "flask>=3.1.0",
+    "numpy>=1.26.4",
+    "matplotlib>=3.10.3",
+    "nnaudio>=0.3.3",
+    "pandas>=2.3.0",
+    "pesto-pitch>=2.0.1",
+    "pyserial>=3.5",
+    "requests>=2.32.3",
+    "scipy>=1.15.3",
+    "seaborn>=0.13.2",
+    "sounddevice>=0.5.2",
 ]
 
+[project.scripts]
+# dune_winder
+dune-winder = "dune_winder.main:main"
+plc-rung-transform = "dune_winder.plc_rung_transform:main"
+plc-import = "dune_winder.plc_import:main"
+plc-manifest = "dune_winder.plc_manifest:main"
+# dune_tension
+dune-tension-gui = "dune_tension.main:main"
+dune-tension-periodic-plots = "dune_tension.periodic_save_plots:main"
+dune-tension-stream-sweep = "dune_tension.streaming.cli:main_stream_sweep"
+dune-tension-stream-rescue = "dune_tension.streaming.cli:main_stream_rescue"
+dune-tension-fit-focus = "dune_tension.streaming.cli:main_fit_focus"
+dune-tension-stream-replay = "dune_tension.streaming.cli:main_stream_replay"
+dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
+dune-spectrum-scroller = "spectrum_analysis.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dune_tension = ["*.json", "*.npy", "*.npz"]
+dune_winder = ["version.xml"]
+spectrum_analysis = ["*.json"]
+
 [dependency-groups]
-dev = ["pytest>=8.3.0", "ruff>=0.9.9"]
+dev = ["pytest>=9.0.2", "ruff>=0.9.9"]
 
-[tool.uv]
-package = false
-default-groups = ["dev"]
+[tool.pytest.ini_options]
+testpaths = ["tests/dune_tension", "tests/dune_winder"]
 
-[tool.uv.sources]
-dune-winder = { workspace = true }
-dune-tension = { workspace = true }
+[tool.ruff]
+indent-width = 2
+extend-exclude = ["src/dune_winder/manual_port.py"]
 
-[tool.uv.workspace]
-members = ["dune_winder", "dune_tension"]
+[tool.ruff.lint]
+ignore = ["F401", "F811", "F841", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/dune_tension/*.py" = ["E402"]
