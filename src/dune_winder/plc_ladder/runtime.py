@@ -687,6 +687,14 @@ class RoutineExecutor:
     control["ER"] = False
     ctx.set_value(control_path, control)
 
+  def _resolve_motion_control_program(self, control_path: str, ctx: ScanContext) -> str | None:
+    if ctx.current_program is not None and ctx.tag_store.exists(control_path, program=ctx.current_program):
+      return ctx.current_program
+    unique_program = ctx._unique_program_for_path(control_path)
+    if unique_program is not None:
+      return unique_program
+    return ctx.current_program
+
   def _stop_axis(self, axis_path: str, control_path: str, ctx: ScanContext):
     ctx.runtime_state.axis_moves.pop(axis_path, None)
     axis = _deep_copy(ctx.get_value(axis_path))
@@ -694,11 +702,12 @@ class RoutineExecutor:
     axis["CommandAcceleration"] = 0.0
     axis["CoordinatedMotionStatus"] = False
     ctx.set_value(axis_path, axis)
-    control = _deep_copy(ctx.get_value(control_path))
+    control_program = self._resolve_motion_control_program(control_path, ctx)
+    control = _deep_copy(ctx.get_value(control_path, program=control_program))
     control["PC"] = True
     control["DN"] = True
     control["IP"] = False
-    ctx.set_value(control_path, control)
+    ctx.set_value(control_path, control, program=control_program)
 
   def _stop_coordinate(self, coordinate_path: str, control_path: str, ctx: ScanContext):
     active = ctx.runtime_state.coordinate_moves.pop(coordinate_path, None)
@@ -706,11 +715,14 @@ class RoutineExecutor:
     for motion in (active, pending):
       if motion is None:
         continue
-      motion_control = _deep_copy(ctx.get_value(motion.control_path))
+      motion_control_program = self._resolve_motion_control_program(motion.control_path, ctx)
+      motion_control = _deep_copy(
+        ctx.get_value(motion.control_path, program=motion_control_program)
+      )
       motion_control["IP"] = False
       motion_control["PC"] = True
       motion_control["DN"] = True
-      ctx.set_value(motion.control_path, motion_control)
+      ctx.set_value(motion.control_path, motion_control, program=motion_control_program)
       self._clear_component_velocities(motion.component_paths, ctx)
 
     coordinate = _deep_copy(ctx.get_value(coordinate_path))
@@ -721,11 +733,12 @@ class RoutineExecutor:
     coordinate["StoppingStatus"] = True
     ctx.set_value(coordinate_path, coordinate)
 
-    control = _deep_copy(ctx.get_value(control_path))
+    control_program = self._resolve_motion_control_program(control_path, ctx)
+    control = _deep_copy(ctx.get_value(control_path, program=control_program))
     control["PC"] = True
     control["DN"] = True
     control["IP"] = False
-    ctx.set_value(control_path, control)
+    ctx.set_value(control_path, control, program=control_program)
 
   def _start_axis_move(self, operands, ctx: ScanContext):
     axis_path = operands[0]
@@ -1085,6 +1098,7 @@ class InstructionRuntime:
   _servo_on = RoutineExecutor._servo_on
   _servo_off = RoutineExecutor._servo_off
   _fault_reset = RoutineExecutor._fault_reset
+  _resolve_motion_control_program = RoutineExecutor._resolve_motion_control_program
   _stop_axis = RoutineExecutor._stop_axis
   _stop_coordinate = RoutineExecutor._stop_coordinate
   _start_axis_move = RoutineExecutor._start_axis_move

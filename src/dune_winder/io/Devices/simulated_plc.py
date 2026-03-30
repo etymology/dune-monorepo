@@ -25,6 +25,7 @@ class SimulatedPLC(PLC):
   STATE_EOT = 11
   STATE_XZ_SEEK = 12
   STATE_QUEUED_MOTION = 13
+  STATE_HMI_STOP = 14
 
   MOVE_RESET = 0
   MOVE_JOG_XY = 1
@@ -37,6 +38,7 @@ class SimulatedPLC(PLC):
   MOVE_UNSERVO = 8
   MOVE_PLC_INIT = 9
   MOVE_SEEK_XZ = 10
+  MOVE_HMI_STOP_REQUEST = 11
 
   _MACHINE_SW_PATTERN = re.compile(r"^MACHINE_SW_STAT\[(\d+)\]$")
   _XZ_TARGET_PATTERN = re.compile(r"^xz_position_target\[(\d+)\]$")
@@ -62,6 +64,7 @@ class SimulatedPLC(PLC):
     MOVE_UNSERVO: STATE_UNSERVO,
     MOVE_PLC_INIT: STATE_INIT,
     MOVE_SEEK_XZ: STATE_XZ_SEEK,
+    MOVE_HMI_STOP_REQUEST: STATE_HMI_STOP,
   }
 
   def __init__(self, ipAddress="SIM"):
@@ -538,6 +541,9 @@ class SimulatedPLC(PLC):
         self._setError(5003)
         return
       self._tagValues["Z_axis.ActualPosition"] = zTarget
+
+    elif moveType == self.MOVE_HMI_STOP_REQUEST:
+      self._abortQueuedMotion()
 
     elif moveType == self.MOVE_LATCH:
       self._advanceLatch()

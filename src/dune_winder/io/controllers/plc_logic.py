@@ -37,6 +37,7 @@ class PLC_Logic:
     EOT = 11
     XZ_SEEK = 12
     QUEUED_MOTION = 13
+    HMI_STOP = 14
 
   # end class
 
@@ -53,6 +54,7 @@ class PLC_Logic:
     UNSERVO = 8
     PLC_INIT = 9
     SEEK_XZ = 10
+    HMI_STOP_REQUEST = 11
 
   # end class
 
@@ -174,18 +176,11 @@ class PLC_Logic:
   # ---------------------------------------------------------------------
   def stopSeek(self):
     """
-    Stop all motor position seeks.
+    Request the PLC HMI stop state for a controlled user-initiated motion stop.
     """
     self._clearQueuedSafeZMove()
-    # self._moveType.set( self.MoveTypes.RESET )
-    self._maxXY_Velocity.set(0)
-    self._maxZ_Velocity.set(0)
-    try:
-      self.queuedMotion.poll()
-      if not self.queuedMotion.status().is_idle:
-        self.queuedMotion.set_stop_request(True)
-    except Exception:
-      pass
+    self._clearLocalError()
+    self._moveType.set(self.MoveTypes.HMI_STOP_REQUEST)
 
   # ---------------------------------------------------------------------
   def setSafeZLatchTiming(self, retry_interval_seconds, timeout_seconds):

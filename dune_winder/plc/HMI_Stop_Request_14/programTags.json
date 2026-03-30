@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-03-30T00:00:00+00:00",
+  "plc_path": "metadata-scaffold",
+  "program_name": "HMI_Stop_Request_14",
+  "main_routine_name": "main",
+  "main_routine_name_source": "scaffold",
+  "routines": [
+    "main"
+  ],
+  "subroutines": [],
+  "udts": [],
+  "program_tags": [
+    {
+      "name": "STATE14_IND",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.STATE14_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.STATE14_IND"
+    },
+    {
+      "name": "hmi_stop_entry_sb",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_stop_entry_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_stop_entry_sb"
+    },
+    {
+      "name": "hmi_stop_entry_ob",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_stop_entry_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_stop_entry_ob"
+    },
+    {
+      "name": "hmi_xy_stop",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_xy_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "udt_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_xy_stop"
+    },
+    {
+      "name": "hmi_xz_stop",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_xz_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "udt_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_xz_stop"
+    },
+    {
+      "name": "hmi_x_axis_stop",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_x_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "udt_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_x_axis_stop"
+    },
+    {
+      "name": "hmi_y_axis_stop",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_y_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "udt_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_y_axis_stop"
+    },
+    {
+      "name": "hmi_z_axis_stop",
+      "fully_qualified_name": "Program:HMI_Stop_Request_14.hmi_z_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "udt_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "HMI_Stop_Request_14",
+      "value": null,
+      "read_error": "Tag doesn't exist - Program:HMI_Stop_Request_14.hmi_z_axis_stop"
+    }
+  ],
+  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
+}

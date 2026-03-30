@@ -181,6 +181,14 @@ class PLCLogicTests(unittest.TestCase):
     )
     self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
 
+  def test_stop_seek_requests_hmi_stop_move_type(self):
+    plc = _FreshReadPLC()
+    logic = PLC_Logic(plc, object(), object())
+
+    logic.stopSeek()
+
+    self.assertEqual(plc.write_calls, [("MOVE_TYPE", PLC_Logic.MoveTypes.HMI_STOP_REQUEST)])
+
 
 if __name__ == "__main__":
   unittest.main()
