@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for d:*)",
+      "Bash(do echo:*)",
+      "Read(//c/dune-monorepo/**)",
+      "Bash(done)",
+      "Bash(find *)"
+    ]
+  }
+}
