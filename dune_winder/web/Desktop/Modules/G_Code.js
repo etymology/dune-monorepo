@@ -12,7 +12,7 @@ function G_Code( modules )
   this.create = function( G_CODE_ROWS )
   {
     var winder = modules.get( "Winder" )
-    var commands = window.CommandCatalog
+    var commands = modules.get( "UiServices" ).getCommands()
 
     var totalRows = G_CODE_ROWS * 2 + 1
     $( "#gCodeTable" ).empty()

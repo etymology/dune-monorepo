@@ -4,7 +4,7 @@ function RecentLog( modules )
   var self = this
 
   var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var commands = modules.get( "UiServices" ).getCommands()
 
   function formatDescription( row )
   {
