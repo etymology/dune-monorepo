@@ -17,8 +17,8 @@ try:  # pragma: no cover - backend availability depends on the runtime environme
 except Exception:  # pragma: no cover - fall back to text placeholders in tests/headless
     FigureCanvasTkAgg = None  # type: ignore[assignment]
 
-LIVE_SUMMARY_FIGSIZE = (7.8, 3.6)
-LIVE_WAVEFORM_FIGSIZE = (7.2, 4.6)
+LIVE_SUMMARY_FIGSIZE = (6.0, 2.8)
+LIVE_WAVEFORM_FIGSIZE = (5.6, 3.5)
 
 
 class LivePlotManager:
