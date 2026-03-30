@@ -486,7 +486,7 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "value": 2
+      "value": 1
     },
     {
       "name": "STATE7_IND",
@@ -520,7 +520,7 @@
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "Delay_Z_Latched",
@@ -538,11 +538,11 @@
       "program": "Latch_UnLatch_State_6_7_8",
       "udt_name": "TIMER",
       "value": {
-        "PRE": 100,
-        "ACC": 100,
-        "EN": true,
+        "PRE": 50,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     },
     {
@@ -663,5 +663,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-03-24T21:24:37.355711+00:00"
+  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
 }
