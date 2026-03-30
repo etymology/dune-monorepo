@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-30T21:16:26.920261+00:00",
+  "last_updated": "2026-03-30T22:24:32.554083+00:00",
   "controller": {
     "tag_metadata": {
       "hash": "2D0-2EE-3E97",
@@ -313,6 +313,12 @@
           "hashed_at": "2026-03-30T21:16:26.516650+00:00",
           "file_mtime": "2026-03-30T21:13:17.801299+00:00"
         }
+      }
+    },
+    "Monoroutine": {
+      "tag_values": {
+        "hash": "44F-F7C-8C36",
+        "generated_at": "2026-03-30T22:24:32.533575+00:00"
       }
     }
   }
