@@ -1,28 +1,8 @@
 function VTemplate( modules )
 {
   var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
-  var call = function( commandName, args, callback )
-  {
-    winder.call
-    (
-      commandName,
-      args,
-      function( response )
-      {
-        if ( response && response.ok )
-        {
-          if ( callback )
-            callback( response.data, null )
-        }
-        else
-        {
-          if ( callback )
-            callback( null, response )
-        }
-      }
-    )
-  }
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
   var activeLayer = null
   var lastRenderedLayer = null
   var lastVState = null
@@ -669,7 +649,7 @@ function VTemplate( modules )
 
   function refreshLayerOnce()
   {
-    call
+    uiServices.call
     (
       commands.process.getRecipeLayer,
       {},
@@ -683,7 +663,7 @@ function VTemplate( modules )
 
   function refreshVStateOnce( callback )
   {
-    call
+    uiServices.call
     (
       commands.process.vTemplateGetState,
       {},
@@ -702,7 +682,7 @@ function VTemplate( modules )
 
   function refreshUStateOnce( callback )
   {
-    call
+    uiServices.call
     (
       commands.process.uTemplateGetState,
       {},
@@ -721,7 +701,7 @@ function VTemplate( modules )
 
   function refreshManualStateOnce( callback )
   {
-    call
+    uiServices.call
     (
       commands.process.manualCalibrationGetState,
       {},
@@ -770,23 +750,21 @@ function VTemplate( modules )
 
   function pageAction( commandName, args, callback )
   {
-    call
+    uiServices.call
     (
       commandName,
       args,
-      function( data, responseError )
+      function( data )
       {
-        if ( responseError )
-        {
-          var errorMessage = "Command failed."
-          if ( responseError.error && responseError.error.message )
-            errorMessage = responseError.error.message
-          setMessage( errorMessage, "error" )
-          return
-        }
-
         if ( callback )
           callback( data )
+      },
+      function( response )
+      {
+        var errorMessage = "Command failed."
+        if ( response && response.error && response.error.message )
+          errorMessage = response.error.message
+        setMessage( errorMessage, "error" )
       }
     )
   }
