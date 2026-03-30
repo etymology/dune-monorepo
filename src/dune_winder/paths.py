@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = REPO_ROOT / "src" / "dune_winder"
 PACKAGE_ROOT = REPO_ROOT / "dune_winder"
 WEB_ROOT = PACKAGE_ROOT / "web"
 PLC_ROOT = PACKAGE_ROOT / "plc"
