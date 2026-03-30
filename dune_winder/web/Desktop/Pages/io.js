@@ -1,6 +1,7 @@
 function IO( modules )
 {
   var winder = modules.get( "Winder" )
+  var uiServices = modules.get( "UiServices" )
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -12,16 +13,15 @@ function IO( modules )
   //-----------------------------------------------------------------------------
   function loadIO_Set( listRequest, itemRequestBuilder, tag )
   {
-    winder.call
+    uiServices.call
     (
       listRequest.name,
       listRequest.args || {},
-      function( response )
+      function( data )
       {
-        if ( ! response || ! response.ok || ! response.data )
+        if ( ! data )
           return
 
-        var data = response.data
         var columnNames = [ "Name", "Value" ]
         var widths = [ "60%", "40%" ]
         var filteredTable = new FilteredTable( columnNames, false, widths )
@@ -62,7 +62,7 @@ function IO( modules )
   //-----------------------------------------------------------------------------
   function loadIO()
   {
-    var commands = window.CommandCatalog
+    var commands = uiServices.getCommands()
     loadIO_Set
     (
       { name: commands.lowLevelIO.getInputs, args: {} },
@@ -101,5 +101,4 @@ function IO( modules )
   //   }
   // )
 
-  window[ "io" ] = this
 }
