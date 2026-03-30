@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-03-30T22:23:28.355613+00:00",
+  "program_tag_renames": {
+    "PID_Tension_Servo": {
+      "oneshotob": "PTS_oneshotob",
+      "oneshotsb": "PTS_oneshotsb"
+    },
+    "Initialize": {
+      "OutBit": "INIT_OutBit",
+      "SetBit": "INIT_SetBit",
+      "Z_AXIS_STAT": "INIT_Z_AXIS_STAT"
+    },
+    "Ready_State_1": {
+      "OutBit": "RS1_OutBit",
+      "SetBit": "RS1_SetBit"
+    },
+    "MoveXY_State_2_3": {
+      "eot_triggered": "MXY_eot_triggered",
+      "prepare_to_move": "MXY_prepare_to_move",
+      "wait_for_axes_mso": "MXY_wait_for_axes_mso",
+      "IssueNextPulse": "MXY_IssueNextPulse",
+      "x_axis_mso": "MXY_x_axis_mso",
+      "y_axis_mso": "MXY_y_axis_mso",
+      "oneshotob": "MXY_oneshotob",
+      "oneshotsb": "MXY_oneshotsb",
+      "X_AXIS_STAT": "MXY_X_AXIS_STAT",
+      "Y_AXIS_STAT": "MXY_Y_AXIS_STAT"
+    },
+    "MoveZ_State_4_5": {
+      "oneshotob": "MZ_oneshotob",
+      "oneshotsb": "MZ_oneshotsb",
+      "prepare_to_move": "MZ_prepare_to_move",
+      "wait_for_axes_mso": "MZ_wait_for_axes_mso"
+    },
+    "Latch_UnLatch_State_6_7_8": {
+      "oneshotob": "LAT_oneshotob",
+      "oneshotsb": "LAT_oneshotsb"
+    },
+    "UnServo_9": {
+      "oneshotob": "US9_oneshotob",
+      "oneshotsb": "US9_oneshotsb",
+      "X_AXIS_STAT": "US9_X_AXIS_STAT",
+      "Y_AXIS_STAT": "US9_Y_AXIS_STAT",
+      "Z_AXIS_STAT": "US9_Z_AXIS_STAT"
+    },
+    "Error_State_10": {
+      "oneshotob": "ERR10_oneshotob",
+      "oneshotsb": "ERR10_oneshotsb",
+      "X_AXIS_STAT": "ERR10_X_AXIS_STAT",
+      "Y_AXIS_STAT": "ERR10_Y_AXIS_STAT",
+      "Z_AXIS_STAT": "ERR10_Z_AXIS_STAT"
+    },
+    "EOT_Trip_11": {
+      "oneshotob": "EOT11_oneshotob",
+      "oneshotsb": "EOT11_oneshotsb"
+    },
+    "xz_move": {
+      "xy_stop": "XZ_xy_stop"
+    },
+    "yz_move": {
+      "STATE13_IND": "YZ_STATE13_IND",
+      "xy_stop": "YZ_xy_stop"
+    },
+    "motionQueue": {
+      "IssueNextPulse": "MQ_IssueNextPulse",
+      "eot_triggered": "MQ_eot_triggered",
+      "x_axis_mso": "MQ_x_axis_mso",
+      "y_axis_mso": "MQ_y_axis_mso",
+      "STATE13_IND": "MQ_STATE13_IND"
+    }
+  }
+}
