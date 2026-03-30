@@ -5,6 +5,12 @@ implemented.
 
 ## P2: `Process` as a high-coupling orchestration god-class
 
+Status: Implemented (2026-03-29) via `MotionService`,
+`SafetyValidationService`, `GCodePlaybackService`, `RecipeService`, and
+`RuntimeStateService`. `CalibrationService` was intentionally skipped after
+removing the unused camera-scan calibration path; manual calibration remains
+the active calibration workflow.
+
 ### Impact
 
 - `Process` mixes orchestration, validation, safety constraints, hardware control, and UI-facing behavior, making it difficult to change safely.

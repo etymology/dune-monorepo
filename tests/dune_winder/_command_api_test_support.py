@@ -175,9 +175,6 @@ class DummyProcess:
     self.lastAnchor = (pinA, pinB)
     return False
 
-  def getCameraImageURL(self):
-    return "/camera_image"
-
   def acknowledgeError(self):
     return None
 
@@ -345,4 +342,3 @@ def build_registry_fixture(sim_plc=False):
     machineCalibration,
   )
   return registry, process, io, configuration, log, machineCalibration
-

@@ -10,6 +10,8 @@ import os
 
 from dune_winder.machine.settings import Settings
 
+from dune_winder.core.process_context import ProcessContext
+
 
 class TemplateRecipeBase:
   LAYER = None
@@ -72,7 +74,7 @@ class TemplateRecipeBase:
     return {}
 
   # -------------------------------------------------------------------
-  def __init__(self, process):
+  def __init__(self, process: ProcessContext):
     self._process = process
     self._offsets = {}
     self._transferPause = True

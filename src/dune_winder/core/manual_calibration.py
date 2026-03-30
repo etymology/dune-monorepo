@@ -21,6 +21,8 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.layer_functions import LayerFunctions
 from dune_winder.machine.settings import Settings
 
+from dune_winder.core.process_context import ProcessContext
+
 
 UV_LAYERS = ("U", "V")
 GX_LAYERS = ("X", "G")
@@ -524,7 +526,7 @@ class _ManualCalibrationGXSession:
 
 
 class ManualCalibration:
-  def __init__(self, process):
+  def __init__(self, process: ProcessContext):
     self._process = process
     self._sessions = {}
 
