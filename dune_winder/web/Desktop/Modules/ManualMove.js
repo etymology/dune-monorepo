@@ -3,7 +3,8 @@ function ManualMove(modules) {
 
   var page = modules.get("Page");
   var winder = modules.get("Winder");
-  var commands = window.CommandCatalog;
+  var uiServices = modules.get("UiServices");
+  var commands = uiServices.getCommands();
   var sliders = null;
   var incrementalJog = null;
   var isMotorStatusLoaded = false;
@@ -116,28 +117,25 @@ function ManualMove(modules) {
     $("#manualMoveStatus").text(text);
   };
 
-  var handleGCodeExecutionResponse = function (response) {
-    if (response && response.ok) {
-      setStatus("Executed with no errors.");
-      return;
-    }
+  var onGCodeSuccess = function () {
+    setStatus("Executed with no errors.");
+  };
 
+  var onGCodeError = function (response) {
     if (response && response.error && response.error.message) {
       setStatus("Error interpreting line: " + response.error.message);
       return;
     }
-
     setStatus("Manual G-code execution failed.");
   };
 
   var executeActionGCode = function (gCode) {
     setStatus("Request G-Code execution...");
-    winder.call(
+    uiServices.call(
       commands.process.executeGCodeLine,
       { line: gCode },
-      function (response) {
-        handleGCodeExecutionResponse(response);
-      },
+      onGCodeSuccess,
+      onGCodeError,
     );
   };
 
@@ -205,25 +203,24 @@ function ManualMove(modules) {
     $("#manualGCode").val(gCode);
     setStatus("Request G-Code execution...");
 
-    winder.call(
+    uiServices.call(
       commands.process.executeGCodeLine,
       { line: gCode },
-      function (response) {
-        handleGCodeExecutionResponse(response);
-      },
+      onGCodeSuccess,
+      onGCodeError,
     );
   };
 
   this.reset = function () {
-    winder.call(commands.process.acknowledgeError, {});
+    uiServices.call(commands.process.acknowledgeError, {});
   };
 
   this.latch = function () {
-    winder.call(commands.io.moveLatch, {});
+    uiServices.call(commands.io.moveLatch, {});
   };
 
   this.servoDisable = function () {
-    winder.call(commands.process.servoDisable, {});
+    uiServices.call(commands.process.servoDisable, {});
   };
 
   refreshIncrementalJogVelocity();
