@@ -12,3 +12,4 @@ __pycache__/
 dune_tension/data/streaming_runs/*
 *gui_state.json
 shadow_plc_errors.log
+.DS_Store
