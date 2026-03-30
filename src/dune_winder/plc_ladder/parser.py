@@ -178,7 +178,11 @@ class RllParser:
     if not formula_tokens:
       raise ValueError("Missing formula expression")
 
-    return tuple(prefix + [self._restore_token(" ".join(formula_tokens))]), cursor
+    formula_text = self._restore_token(" ".join(formula_tokens))
+    if len(formula_text) >= 2 and formula_text[0] == '"' and formula_text[-1] == '"':
+      formula_text = formula_text[1:-1]
+
+    return tuple(prefix + [formula_text]), cursor
 
   def _is_boundary_token(self, token: str) -> bool:
     return token in OPERAND_COUNTS or token in {"BST", "NXB", "BND"}

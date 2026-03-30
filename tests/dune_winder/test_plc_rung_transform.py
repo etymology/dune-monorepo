@@ -40,16 +40,16 @@ class PlcRungTransformTests(unittest.TestCase):
 
     result = transform_text(source)
 
-    self.assertEqual(result, "CMP ABS(X_axis.ActualPosition-xz_position_target[0])<0.1 ")
+    self.assertEqual(result, 'CMP "ABS(X_axis.ActualPosition-xz_position_target[0])<0.1" ')
 
-  def test_transform_text_preserves_cmp_expression_spacing_without_quoting(self):
+  def test_transform_text_quotes_and_normalizes_cmp_expression_spacing(self):
     source = "XIC(STATE12_IND)CMP(Z_axis.ActualPosition > 415)OTE(MACHINE_SW_STAT[5])"
 
     result = transform_text(source)
 
     self.assertEqual(
       result,
-      "XIC STATE12_IND CMP Z_axis.ActualPosition > 415 OTE MACHINE_SW_STAT[5] ",
+      'XIC STATE12_IND CMP "Z_axis.ActualPosition>415" OTE MACHINE_SW_STAT[5] ',
     )
 
   def test_transform_text_leaves_numeric_bracket_lists_unchanged(self):

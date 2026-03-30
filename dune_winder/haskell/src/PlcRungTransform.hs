@@ -33,6 +33,16 @@ protectFormulaExpression = T.map $ \case
   ',' -> protectedComma
   c   -> c
 
+normalizeCmpFormulaExpression :: Text -> Text
+normalizeCmpFormulaExpression =
+  T.filter (not . (`elem` (" \t\r\n" :: String)))
+  . stripOuterQuotes
+  . T.strip
+  where
+    stripOuterQuotes t
+      | T.length t >= 2 && T.head t == '"' && T.last t == '"' = T.init (T.tail t)
+      | otherwise = t
+
 restoreProtectedFormulaExpression :: Text -> Text
 restoreProtectedFormulaExpression = T.map $ \case
   c | c == protectedLParen -> '('
@@ -122,7 +132,7 @@ matchSpecialFormulaCommandAt txt i
 
 rewriteSpecialFormulaCall :: Text -> Text -> Text
 rewriteSpecialFormulaCall "CMP" argumentsText =
-  "CMP(" <> protectFormulaExpression (T.strip argumentsText) <> ")"
+  "CMP(\"" <> protectFormulaExpression (normalizeCmpFormulaExpression argumentsText) <> "\")"
 rewriteSpecialFormulaCall command argumentsText =
   case splitTopLevelCommas argumentsText of
     firstArg : secondArg : rest ->
@@ -158,7 +168,7 @@ normalizeConditionTerm term =
       specialCase =
         case extractSpecialFormulaCall stripped of
           Just ("CMP", argsText) ->
-            Just ("CMP " <> protectFormulaExpression (T.strip argsText))
+            Just ("CMP \"" <> protectFormulaExpression (normalizeCmpFormulaExpression argsText) <> "\"")
           Just ("CPT", argsText) ->
             case splitTopLevelCommas argsText of
               firstArg : secondArg : rest ->

@@ -33,6 +33,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     ("MoveXY_State_2_3", "main"),
     ("MoveZ_State_4_5", "main"),
     ("xz_move", "main"),
+    ("HMI_Stop_Request_14", "main"),
     ("Error_State_10", "main"),
     ("motionQueue", "main"),
   )
@@ -51,6 +52,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.MOVE_UNSERVO: SimulatedPLC.STATE_UNSERVO,
     SimulatedPLC.MOVE_PLC_INIT: SimulatedPLC.STATE_INIT,
     SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
+    SimulatedPLC.MOVE_HMI_STOP_REQUEST: SimulatedPLC.STATE_HMI_STOP,
   }
   _LATCH_STUB_MOVE_TYPES = {
     SimulatedPLC.MOVE_LATCH,
@@ -516,7 +518,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     queueActive = bool(self._ctx.get_value("CurIssued")) or bool(self._ctx.get_value("NextIssued"))
     queueActive = queueActive or bool(self._ctx.get_value("X_Y.MovePendingStatus"))
     state = int(self._ctx.get_value("STATE"))
-    if queueActive and state not in {self.STATE_ERROR, self.STATE_EOT}:
+    if queueActive and state not in {self.STATE_ERROR, self.STATE_EOT, self.STATE_HMI_STOP}:
       self._ctx.set_value("STATE", self.STATE_QUEUED_MOTION)
       self._ctx.set_value("NEXTSTATE", self.STATE_QUEUED_MOTION)
       return

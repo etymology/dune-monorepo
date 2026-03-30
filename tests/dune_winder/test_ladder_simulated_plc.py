@@ -219,23 +219,75 @@ class LadderSimulatedPlcTests(unittest.TestCase):
 
     self._advance_until(plc, lambda: plc.get_tag("QueueCount") == 1)
 
-    self.assertEqual(plc.get_tag("IncomingSegAck"), 1)
-    self.assertEqual(plc.get_tag("LastIncomingSegReqID"), 1)
+  def test_hmi_stop_request_interrupts_xy_seek_and_returns_ready(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.write(("X_POSITION", 123.4))
+    plc.write(("Y_POSITION", 456.7))
+    plc.write(("XY_SPEED", 1000.0))
+    plc.write(("XY_ACCELERATION", 1000.0))
+    plc.write(("XY_DECELERATION", 1000.0))
+    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+    self._advance(plc)
 
-    plc.set_tag("StartQueuedPath", 1)
-    self._advance_until(
+    plc.write(("MOVE_TYPE", plc.MOVE_HMI_STOP_REQUEST))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_HMI_STOP)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+
+    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
+    self.assertTrue(plc.get_tag("hmi_xy_stop.DN"))
+    self.assertTrue(plc.get_tag("hmi_x_axis_stop.DN"))
+    self.assertTrue(plc.get_tag("hmi_y_axis_stop.DN"))
+    self.assertTrue(plc.get_tag("hmi_z_axis_stop.DN"))
+
+  def test_hmi_stop_request_interrupts_queued_motion_and_aborts_queue(self):
+    plc = LadderSimulatedPLC("SIM")
+    self._enqueue_segment(
       plc,
-      lambda: (
-        plc.get_tag("STATE") == plc.STATE_READY
-        and not plc.get_tag("CurIssued")
-        and plc.get_tag("QueueCount") == 0
+      1,
+      MotionSegment(
+        seq=1,
+        seg_type=1,
+        x=100.0,
+        y=100.0,
+        speed=1000.0,
+        accel=2000.0,
+        decel=2000.0,
+        jerk_accel=1500.0,
+        jerk_decel=3000.0,
+        term_type=3,
       ),
     )
+    self._enqueue_segment(
+      plc,
+      2,
+      MotionSegment(
+        seq=2,
+        seg_type=1,
+        x=200.0,
+        y=200.0,
+        speed=1000.0,
+        accel=2000.0,
+        decel=2000.0,
+        jerk_accel=1500.0,
+        jerk_decel=3000.0,
+        term_type=3,
+      ),
+    )
+    plc.set_tag("StartQueuedPath", True)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_QUEUED_MOTION)
+
+    plc.write(("MOVE_TYPE", plc.MOVE_HMI_STOP_REQUEST))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_HMI_STOP)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
 
     self.assertEqual(plc.get_tag("QueueCount"), 0)
     self.assertFalse(plc.get_tag("CurIssued"))
-    self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 125.0, places=6)
-    self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 250.0, places=6)
+    self.assertFalse(plc.get_tag("NextIssued"))
+    self.assertEqual(plc.get_tag("PendingSeq"), 0)
+    self.assertEqual(plc.get_tag("ActiveSeq"), 0)
+    self.assertTrue(plc.get_tag("hmi_xy_stop.DN"))
 
   def test_queue_circle_segment_executes_via_motion_queue_routine(self):
     plc = LadderSimulatedPLC("SIM")

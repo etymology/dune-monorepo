@@ -8,7 +8,7 @@ from dune_winder.plc_ladder import StructuredPythonCodeGenerator
 from dune_winder.plc_ladder import load_generated_routine
 
 
-PLC_ROOT = Path(__file__).resolve().parents[1] / "plc"
+PLC_ROOT = Path(__file__).resolve().parents[2] / "dune_winder" / "plc"
 
 
 class PlcLadderParserTests(unittest.TestCase):
@@ -31,6 +31,21 @@ class PlcLadderParserTests(unittest.TestCase):
     emitted = self.emitter.emit_routine(routine)
 
     self.assertEqual(emitted.strip().splitlines(), source.strip().splitlines())
+
+  def test_parses_quoted_cmp_formula_as_unquoted_ast_operand(self):
+    routine = self.parser.parse_routine_text(
+      "main",
+      'CMP "Z_axis.ActualPosition>415" OTE MACHINE_SW_STAT[5] \n',
+      program="MainProgram",
+    )
+
+    rung = routine.rungs[0]
+    self.assertEqual(rung.nodes[0].opcode, "CMP")
+    self.assertEqual(rung.nodes[0].operands, ("Z_axis.ActualPosition>415",))
+    self.assertEqual(
+      self.emitter.emit_routine(routine),
+      'CMP "Z_axis.ActualPosition>415" OTE MACHINE_SW_STAT[5] \n',
+    )
 
   def test_parses_all_targeted_acceptance_routines(self):
     routine_paths = [
