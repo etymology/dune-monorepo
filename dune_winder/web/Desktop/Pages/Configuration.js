@@ -3,10 +3,10 @@
 // Deal with serializeable configuration values.  These must come from a class
 // that has a get, put, and save function.
 //=============================================================================
-function ConfigurationList( winder, remotePrefix, tagPrefix )
+function ConfigurationList( uiServices, remotePrefix, tagPrefix )
 {
   var self = this
-  var commands = window.CommandCatalog
+  var commands = uiServices.getCommands()
 
   // Used to track the number of items still updating.  When all updates have
   // taken place, the data is saved.
@@ -23,14 +23,13 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
   {
     if ( isConfiguration )
     {
-      winder.call
+      uiServices.call
       (
         commands.configuration.get,
         { key: item },
-        function( response )
+        function( data )
         {
-          if ( response && response.ok )
-            callback( response.data )
+          callback( data )
         }
       )
       return
@@ -38,14 +37,14 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
 
     if ( isMachineCalibration )
     {
-      winder.call
+      uiServices.call
       (
         commands.machine.getCalibration,
         {},
-        function( response )
+        function( data )
         {
-          if ( response && response.ok && response.data )
-            callback( response.data[ item ] )
+          if ( data )
+            callback( data[ item ] )
         }
       )
     }
@@ -55,14 +54,19 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
   {
     if ( isConfiguration )
     {
-      winder.call
+      uiServices.call
       (
         commands.configuration.set,
         { key: item, value: value },
-        function( response )
+        function()
         {
           if ( callback )
-            callback( response && response.ok )
+            callback( true )
+        },
+        function()
+        {
+          if ( callback )
+            callback( false )
         }
       )
       return
@@ -70,14 +74,19 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
 
     if ( isMachineCalibration )
     {
-      winder.call
+      uiServices.call
       (
         commands.machine.setCalibration,
         { key: item, value: value },
-        function( response )
+        function()
         {
           if ( callback )
-            callback( response && response.ok )
+            callback( true )
+        },
+        function()
+        {
+          if ( callback )
+            callback( false )
         }
       )
     }
@@ -86,10 +95,10 @@ function ConfigurationList( winder, remotePrefix, tagPrefix )
   var executeSave = function()
   {
     if ( isConfiguration )
-      winder.call( commands.configuration.save, {} )
+      uiServices.call( commands.configuration.save, {} )
     else
     if ( isMachineCalibration )
-      winder.call( commands.machine.saveCalibration, {} )
+      uiServices.call( commands.machine.saveCalibration, {} )
   }
 
   //-----------------------------------------------------------------------------
@@ -275,8 +284,9 @@ function Configuration( modules )
   var self = this
 
   var winder = modules.get( "Winder" )
+  var uiServices = modules.get( "UiServices" )
   var page = modules.get( "Page" )
-  var commands = window.CommandCatalog
+  var commands = uiServices.getCommands()
 
   var machineCalibration
   var configuration
@@ -317,7 +327,7 @@ function Configuration( modules )
     // All parameters of machine calibration.
     var tag = $( "#machineCalibration" )
     tag.empty()
-    machineCalibration = new ConfigurationList( winder, "machineCalibration" )
+    machineCalibration = new ConfigurationList( uiServices, "machineCalibration" )
     machineCalibration.display( "Park x",             "parkX",            tag )
     machineCalibration.display( "Park y",             "parkY",            tag )
     machineCalibration.display( "Spool load x",       "spoolLoadX",       tag )
@@ -342,7 +352,7 @@ function Configuration( modules )
     // All parameters of machine setup.
     var tag = $( "#configuration" )
     tag.empty()
-    configuration = new ConfigurationList( winder, "configuration" )
+    configuration = new ConfigurationList( uiServices, "configuration" )
     configuration.display( "PLC address",        "plcAddress",       tag, self.isIP_Address )
     configuration.display( "Max velocity",       "maxVelocity",      tag )
     configuration.display( "Slow velocity",      "maxSlowVelocity",  tag )
@@ -435,15 +445,16 @@ function Configuration( modules )
           return
         }
 
-        winder.call
+        uiServices.call
         (
           command,
           {},
+          function( data )
+          {
+            $( "#customCommandResult" ).val( JSON.stringify( data ) )
+          },
           function( response )
           {
-            if ( response && response.ok )
-              $( "#customCommandResult" ).val( JSON.stringify( response.data ) )
-            else
             if ( response && response.error )
               $( "#customCommandResult" ).val( response.error.message )
             else
@@ -472,5 +483,4 @@ function Configuration( modules )
     winder.shutdown()
   }
 
-  window[ "configuration" ] = this
 }
