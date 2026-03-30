@@ -40,7 +40,8 @@ function PositionGraphic(modules) {
   var winder;
   var motorStatus;
   var runStatus;
-  var commands = window.CommandCatalog;
+  var uiServices = modules.get("UiServices");
+  var commands = uiServices.getCommands();
 
   // Images to hide if server stops communicating.
   var IMAGES_TO_HIDE = [
@@ -697,12 +698,12 @@ function PositionGraphic(modules) {
   var startSetup = function () {
     // Scaling can take place after machine calibration has been read.
     // So read the calibration and start the setup when we have this data.
-    winder.call(
+    uiServices.call(
       commands.machine.getCalibration,
       {},
-      function (response) {
-        if (response && response.ok && response.data) {
-          machineCaliration = response.data;
+      function (data) {
+        if (data) {
+          machineCaliration = data;
           setupCallback();
         }
       },

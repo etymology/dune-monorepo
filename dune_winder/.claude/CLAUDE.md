@@ -22,9 +22,9 @@ This project uses [uv](https://docs.astral.sh/uv/) for dependency and environmen
 
 - Install dependencies: `uv sync`
 - Run the app: `uv run python -m dune_winder` or `uv run dune-winder`
-- Run tests: `uv run python -m unittest discover -s tests`
-- Lint/format: `uv run ruff check .` / `uv run ruff format .`
-- Add a dependency: `uv add <package>` (updates both `pyproject.toml` and `uv.lock`)
+- Run tests: `uv run pytest tests/dune_winder` (from repo root)
+- Lint/format: `uv run ruff check src tests` / `uv run ruff format src tests`
+- Add a dependency: edit root `pyproject.toml` then `uv sync`
 - Do NOT use `pip install`, `python -m venv`, or bare `python` invocations — always prefix with `uv run`.
 
 ## Grafana / InfluxDB monitoring

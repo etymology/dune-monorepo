@@ -1,7 +1,21 @@
 function VersionDetails( modules )
 {
-  var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
+
+  var display = function( commandName, selector )
+  {
+    uiServices.call
+    (
+      commandName,
+      {},
+      function( data )
+      {
+        if ( data !== null )
+          $( selector ).text( data )
+      }
+    )
+  }
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -9,15 +23,15 @@ function VersionDetails( modules )
   //-----------------------------------------------------------------------------
   this.versionUpdate = function()
   {
-    winder.singleRemoteDisplay( commands.version.getVersion, "#controlVersionString" )
-    winder.singleRemoteDisplay( commands.version.getHash, "#controlVersionHash" )
-    winder.singleRemoteDisplay( commands.version.getDate, "#controlVersionDate" )
-    winder.singleRemoteDisplay( commands.version.verify, "#controlVersionValid" )
+    display( commands.version.getVersion, "#controlVersionString" )
+    display( commands.version.getHash, "#controlVersionHash" )
+    display( commands.version.getDate, "#controlVersionDate" )
+    display( commands.version.verify, "#controlVersionValid" )
 
-    winder.singleRemoteDisplay( commands.uiVersion.getVersion, "#uiVersionString" )
-    winder.singleRemoteDisplay( commands.uiVersion.getHash, "#uiVersionHash" )
-    winder.singleRemoteDisplay( commands.uiVersion.getDate, "#uiVersionDate" )
-    winder.singleRemoteDisplay( commands.uiVersion.verify, "#uiVersionValid" )
+    display( commands.uiVersion.getVersion, "#uiVersionString" )
+    display( commands.uiVersion.getHash, "#uiVersionHash" )
+    display( commands.uiVersion.getDate, "#uiVersionDate" )
+    display( commands.uiVersion.verify, "#uiVersionValid" )
   }
 
   //-----------------------------------------------------------------------------
@@ -26,14 +40,13 @@ function VersionDetails( modules )
   //-----------------------------------------------------------------------------
   this.versionUI_Recompute = function()
   {
-    winder.call
+    uiServices.call
     (
       commands.uiVersion.update,
       {},
-      function( response )
+      function()
       {
-        if ( response && response.ok )
-          this.versionUpdate()
+        this.versionUpdate()
       }.bind( this )
     )
   }
@@ -44,14 +57,13 @@ function VersionDetails( modules )
   //-----------------------------------------------------------------------------
   this.versionControlRecompute = function()
   {
-    winder.call
+    uiServices.call
     (
       commands.version.update,
       {},
-      function( response )
+      function()
       {
-        if ( response && response.ok )
-          this.versionUpdate()
+        this.versionUpdate()
       }.bind( this )
     )
   }

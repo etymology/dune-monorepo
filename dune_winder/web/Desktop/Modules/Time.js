@@ -8,7 +8,7 @@ function Time( modules )
     function()
     {
       var winder = modules.get( "Winder" )
-      var commands = window.CommandCatalog
+      var commands = modules.get( "UiServices" ).getCommands()
 
       // Display system time.
       winder.addPeriodicDisplay

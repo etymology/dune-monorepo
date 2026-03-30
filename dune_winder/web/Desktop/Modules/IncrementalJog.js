@@ -1,8 +1,8 @@
 function IncrementalJog( modules )
 {
-  var winder = modules.get( "Winder" )
+  var uiServices = modules.get( "UiServices" )
   var page = modules.get( "Page" )
-  var commands = window.CommandCatalog
+  var commands = uiServices.getCommands()
 
   var motorStatus
   modules.load
@@ -40,7 +40,7 @@ function IncrementalJog( modules )
     var x = motorStatus.motor[ "xPosition" ] + offset
     var y = motorStatus.motor[ "yPosition" ]
 
-    winder.call
+    uiServices.call
     (
       commands.process.manualSeekXY,
       { x: x, y: y, velocity: velocity }
@@ -58,7 +58,7 @@ function IncrementalJog( modules )
     var velocity = getVelocity()
     var x = motorStatus.motor[ "xPosition" ]
     var y = motorStatus.motor[ "yPosition" ] + offset
-    winder.call
+    uiServices.call
     (
       commands.process.manualSeekXY,
       { x: x, y: y, velocity: velocity }

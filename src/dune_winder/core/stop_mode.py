@@ -12,7 +12,6 @@ from dune_winder.library.state_machine_state import StateMachineState
 from dune_winder.library.logged_state_machine import LoggedStateMachine
 from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.core.control_events import (
-  CalibrationModeEvent,
   ManualModeEvent,
   StartWindEvent,
 )
@@ -229,13 +228,6 @@ class StopMode(StateMachineState):
       if self.isIdle():
         self.stateMachine.manualMode.setRequest(event)
         self.stateMachine.changeState(self.stateMachine.States.MANUAL)
-
-      return True
-
-    if isinstance(event, CalibrationModeEvent):
-      if self.isIdle():
-        self.stateMachine.calibrationMode.setRequest(event)
-        self.stateMachine.changeState(self.stateMachine.States.CALIBRATE)
 
       return True
 

@@ -1,8 +1,9 @@
 function PLC_Status( modules )
 {
   var winder = modules.get( "Winder" )
+  var uiServices = modules.get( "UiServices" )
   var runStatus = modules.get( "RunStatus" )
-  var commands = window.CommandCatalog
+  var commands = uiServices.getCommands()
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -10,13 +11,13 @@ function PLC_Status( modules )
   //-----------------------------------------------------------------------------
   this.reset = function ()
   {
-    winder.call( commands.process.acknowledgeError, {} )
+    uiServices.call( commands.process.acknowledgeError, {} )
   }
-  
+
   // new function for PLC_Init - PWH - September 2021
   this.PLC_init = function ()
   {
-    winder.call( commands.process.acknowledgePLCInit, {} )
+    uiServices.call( commands.process.acknowledgePLCInit, {} )
   }
 
   //-----------------------------------------------------------------------------

@@ -238,12 +238,6 @@ def build_command_registry(
 
   registry.register("process.snapshot_workspace", process_snapshot_workspace, False)
 
-  registry.register(
-    "process.get_camera_image_url",
-    lambda args: (_validateArgs(args), process.getCameraImageURL())[1],
-    False,
-  )
-
   # ---------------------------------------------------------------------------
   # Template generator commands.
   # ---------------------------------------------------------------------------
