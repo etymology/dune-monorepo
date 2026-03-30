@@ -10,6 +10,9 @@
 # Grafana queries InfluxDB directly using Flux, enabling sub-second display.
 ###############################################################################
 
+import socket
+from urllib.parse import urlparse
+
 try:
   from influxdb_client import InfluxDBClient, Point
   from influxdb_client.client.write_api import WriteOptions, WriteType
@@ -26,6 +29,24 @@ _URL    = "http://localhost:8086"
 _TOKEN  = "dune-winder-token"
 _ORG    = "dune"
 _BUCKET = "winder"
+
+
+def _endpoint_is_reachable(url: str, timeoutSeconds: float = 0.25) -> bool:
+  """Return True when the configured InfluxDB endpoint accepts TCP connections."""
+  parsed = urlparse(url)
+  host = parsed.hostname
+  port = parsed.port
+  if host is None:
+    return False
+
+  if port is None:
+    port = 443 if parsed.scheme == "https" else 80
+
+  try:
+    with socket.create_connection((host, port), timeout=timeoutSeconds):
+      return True
+  except OSError:
+    return False
 
 
 def _safe_float(value) -> float:
@@ -62,6 +83,12 @@ class MetricsCollector:
     if _IMPORT_ERROR is not None:
       self._disabledReason = (
         "Optional dependency 'influxdb-client' is not installed."
+      )
+      return
+
+    if not _endpoint_is_reachable(_URL):
+      self._disabledReason = (
+        f"InfluxDB endpoint {_URL} is not reachable."
       )
       return
 
