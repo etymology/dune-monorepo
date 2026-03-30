@@ -55,7 +55,6 @@
       getPositionLogging: "process.get_position_logging",
       setPositionLogging: "process.set_position_logging",
       getStage: "process.get_stage",
-      getCameraImageURL: "process.get_camera_image_url",
       vTemplateGetState: "process.v_template.get_state",
       vTemplateSetOffset: "process.v_template.set_offset",
       vTemplateSetPullIn: "process.v_template.set_pull_in",

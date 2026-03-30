@@ -14,7 +14,6 @@ from dune_winder.core.hardware_mode import HardwareMode
 from dune_winder.core.stop_mode import StopMode
 from dune_winder.core.wind_mode import WindMode
 from dune_winder.core.manual_mode import ManualMode
-from dune_winder.core.calibration_mode import CalibrationMode
 from dune_winder.library.time_source import TimeSource
 from dune_winder.library.log import Log
 from dune_winder.io.maps.base_io import BaseIO
@@ -27,9 +26,7 @@ class ControlStateMachine(LoggedStateMachine):
     HARDWARE = auto()
     STOP = auto()
     WIND = auto()
-    CALIBRATE = auto()
     MANUAL = auto()
-    TENTION = auto()
 
   # end class
 
@@ -93,9 +90,7 @@ class ControlStateMachine(LoggedStateMachine):
     """
     return self.getState() in (
       self.States.WIND,
-      self.States.CALIBRATE,
       self.States.MANUAL,
-      self.States.TENTION,
     )
 
   # ---------------------------------------------------------------------
@@ -159,7 +154,6 @@ class ControlStateMachine(LoggedStateMachine):
     self.stopMode = StopMode(self, self.States.STOP, io, log)
     self.windMode = WindMode(self, self.States.WIND, io, log)
     self.manualMode = ManualMode(self, self.States.MANUAL, io, log)
-    self.calibrationMode = CalibrationMode(self, self.States.CALIBRATE, io, log)
 
     self.changeState(self.States.HARDWARE)
 
@@ -169,7 +163,6 @@ class ControlStateMachine(LoggedStateMachine):
 
     # Runtime wiring shared by modes.
     self.gCodeHandler: Optional[GCodeHandler] = None
-    self.cameraCalibration = None
     self.machineCalibration = None
 
 
