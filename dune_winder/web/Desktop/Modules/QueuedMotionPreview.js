@@ -3,7 +3,7 @@ function QueuedMotionPreview(modules)
   var winder = null
   var motorStatus = null
   var uiServices = null
-  var commands = window.CommandCatalog
+  var commands = null
 
   var preview = null
   var previewPending = false
@@ -651,6 +651,7 @@ function QueuedMotionPreview(modules)
       winder = modules.get( "Winder" )
       motorStatus = modules.get( "MotorStatus" )
       uiServices = modules.get( "UiServices" )
+      commands = uiServices.getCommands()
       limits = buildLimits( {} )
       loadAutoContinue()
 
