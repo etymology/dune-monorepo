@@ -191,11 +191,11 @@
       "program": "MoveZ_State_4_5",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 134217728,
         "EN": false,
         "DN": false,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -359,9 +359,9 @@
       "program": "MoveZ_State_4_5",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 536870912,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -372,7 +372,7 @@
         "CalculatedDataAvailable": false,
         "ERR": 0,
         "STATUS": 0,
-        "STATE": 0,
+        "STATE": 1,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -561,11 +561,11 @@
       "program": "MoveZ_State_4_5",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -614,5 +614,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-03-24T21:24:37.355711+00:00"
+  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
 }

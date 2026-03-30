@@ -1,6 +1,7 @@
 EQU QueueCtl.POS 0 OTE QueueEmpty 
 GEQ QueueCtl.POS 32 OTE QueueFull 
 MOV QueueCtl.POS QueueCount 
+CMP "MOVE_TYPE=11" OTL AbortQueue CPT NEXTSTATE 14 
 XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS MCS X_Y gui_stop All Yes 2000 "Units per sec2" Yes 1000 "Units per sec3" 
 XIC QueueStopRequest OTL AbortQueue 
 BST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 

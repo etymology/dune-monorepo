@@ -174,7 +174,7 @@
       "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 33554432,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -208,7 +208,7 @@
       "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 33554432,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -242,7 +242,7 @@
       "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 33554432,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -276,7 +276,7 @@
       "program": "yz_move",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 33554432,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -295,5 +295,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-03-24T21:24:37.355711+00:00"
+  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
 }

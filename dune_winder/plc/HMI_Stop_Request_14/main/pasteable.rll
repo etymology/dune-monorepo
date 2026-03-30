@@ -8,3 +8,4 @@ XIC hmi_stop_entry_ob MAS Z_axis hmi_z_axis_stop All Yes 1200 "Units per sec2" Y
 XIC STATE14_IND OTE AbortQueue 
 XIC STATE14_IND CPT MOVE_TYPE 0 
 XIC STATE14_IND XIC hmi_xy_stop.DN XIC hmi_xz_stop.DN XIC hmi_x_axis_stop.DN XIC hmi_y_axis_stop.DN XIC hmi_z_axis_stop.DN XIO CurIssued XIO NextIssued XIO X_Y.MovePendingStatus LEQ QueueCount 0 CPT NEXTSTATE 1 
+
