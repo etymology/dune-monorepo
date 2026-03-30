@@ -2,17 +2,8 @@ function FullStop( modules )
 {
   var self = this
 
-  var winder
-  var commands = window.CommandCatalog
-
-  modules.load
-  (
-    [ "/Scripts/Winder" ],
-    function()
-    {
-      winder = modules.get( "Winder" )
-    }
-  )
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -20,7 +11,7 @@ function FullStop( modules )
   //-----------------------------------------------------------------------------
   this.stop = function ()
   {
-    winder.call( commands.process.stop, {} )
+    uiServices.call( commands.process.stop, {} )
   }
 
   window[ "fullStop" ] = this

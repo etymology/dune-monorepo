@@ -8,8 +8,8 @@ function Version( modules )
     "uiVersion" : 0
   }
 
-  var winder
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -42,43 +42,53 @@ function Version( modules )
 
   this.loadVersion = function()
   {
-    winder.singleRemoteDisplay
+    uiServices.call
     (
       commands.version.getVersion,
-      "#controlVersion",
-      this.softwareVersion,
-      "controlVersion"
-    )
-
-    winder.call
-    (
-      commands.version.verify,
       {},
-      function( response )
+      function( data )
       {
-        var data = response && response.ok && response.data
-        if ( data )
-          $( "#controlVersion" ).attr( 'class', "" )
-        else
-          $( "#controlVersion" ).attr( 'class', "badVersion"  )
+        if ( data !== null )
+        {
+          self.softwareVersion[ "controlVersion" ] = data
+          $( "#controlVersion" ).text( data )
+        }
       }
     )
 
-    winder.singleRemoteDisplay
+    uiServices.call
     (
-      commands.uiVersion.getVersion,
-      "#uiVersion",
-      this.softwareVersion,
-      "uiVersion"
+      commands.version.verify,
+      {},
+      function( data )
+      {
+        if ( data )
+          $( "#controlVersion" ).attr( 'class', "" )
+        else
+          $( "#controlVersion" ).attr( 'class', "badVersion" )
+      }
     )
 
-    winder.call
+    uiServices.call
+    (
+      commands.uiVersion.getVersion,
+      {},
+      function( data )
+      {
+        if ( data !== null )
+        {
+          self.softwareVersion[ "uiVersion" ] = data
+          $( "#uiVersion" ).text( data )
+        }
+      }
+    )
+
+    uiServices.call
     (
       commands.uiVersion.verify,
       {},
-      function( response )
+      function( data )
       {
-        var data = response && response.ok && response.data
         if ( data )
           $( "#uiVersion" ).attr( 'class', "" )
         else
@@ -87,15 +97,5 @@ function Version( modules )
     )
   }
 
-  modules.load
-  (
-    [ "/Scripts/Winder" ],
-    function()
-    {
-      winder = modules.get( "Winder" )
-      self.loadVersion()
-    }
-  )
-
-  window[ "version" ] = this
+  self.loadVersion()
 }

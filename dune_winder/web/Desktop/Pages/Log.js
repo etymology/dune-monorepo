@@ -1,7 +1,8 @@
 function Log( modules )
 {
   var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
 
   function formatDescription( row )
   {
@@ -40,16 +41,15 @@ function Log( modules )
 
     $( "#logTable" ).replaceWith( loadingText )
 
-    winder.call
+    uiServices.call
     (
       commands.log.getAll,
       args,
-      function( response )
+      function( data )
       {
-        if ( ! response || ! response.ok || ! response.data )
+        if ( ! data )
           return
 
-        var data = response.data
         var dataSet = []
 
         for ( item of data )
@@ -87,7 +87,6 @@ function Log( modules )
   // Load initial data.
   this.loadData( false )
 
-  window[ "log" ] = this
 }
 
 // //-----------------------------------------------------------------------------

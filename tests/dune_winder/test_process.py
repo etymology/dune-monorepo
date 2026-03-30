@@ -1,7 +1,9 @@
 import unittest
 
 from dune_winder.core.control_events import ManualModeEvent
+from dune_winder.core.motion_service import MotionService
 from dune_winder.core.process import Process
+from dune_winder.core.safety_validation_service import SafetyValidationService
 from dune_winder.io.primitives.digital_input import DigitalInput
 
 
@@ -271,37 +273,46 @@ class ProcessManualGCodeTests(unittest.TestCase):
     process.controlStateMachine = _ControlStateMachineForManualGCode()
     process.gCodeHandler = _GCodeHandlerForManualGCode()
 
-    process._transferLeft = -1000.0
-    process._transferRight = 10000.0
-    process._limitLeft = -1000.0
-    process._limitRight = 10000.0
-    process._limitTop = 10000.0
-    process._limitBottom = -1000.0
-    process._zlimitFront = 0.0
-    process._zlimitRear = 100.0
-    process._headwardPivotX = 150.0
-    process._headwardPivotY = 1400.0
-    process._headwardPivotXTolerance = 150.0
-    process._headwardPivotYTolerance = 300.0
-    process._transferLeftMargin = 10.0
-    process._transferYThreshold = 1000.0
-    process._queuedMotionZCollisionThreshold = 100.0
-    process._arcMaxStepRad = 0.05235987755982989
-    process._arcMaxChord = 5.0
-    process._apaCollisionBottomY = 50.0
-    process._apaCollisionTopY = 2250.0
-    process._transferZoneHeadMinX = 400.0
-    process._transferZoneHeadMaxX = 500.0
-    process._transferZoneFootMinX = 7100.0
-    process._transferZoneFootMaxX = 7200.0
-    process._supportCollisionBottomMinY = 80.0
-    process._supportCollisionBottomMaxY = 450.0
-    process._supportCollisionMiddleMinY = 1050.0
-    process._supportCollisionMiddleMaxY = 1550.0
-    process._supportCollisionTopMinY = 2200.0
-    process._supportCollisionTopMaxY = 2650.0
-    process._geometryEpsilon = 1e-9
-    process._maxVelocity = 300.0
+    safety = object.__new__(SafetyValidationService)
+    safety._io = process._io
+    safety._controlStateMachine = process.controlStateMachine
+    safety._maxVelocity = 300.0
+    safety._maxSlowVelocity = 50.0
+    safety._transferLeft = -1000.0
+    safety._transferRight = 10000.0
+    safety._limitLeft = -1000.0
+    safety._limitRight = 10000.0
+    safety._limitTop = 10000.0
+    safety._limitBottom = -1000.0
+    safety._zlimitFront = 0.0
+    safety._zlimitRear = 100.0
+    safety._headwardPivotX = 150.0
+    safety._headwardPivotY = 1400.0
+    safety._headwardPivotXTolerance = 150.0
+    safety._headwardPivotYTolerance = 300.0
+    safety._transferLeftMargin = 10.0
+    safety._transferYThreshold = 1000.0
+    safety._queuedMotionZCollisionThreshold = 100.0
+    safety._arcMaxStepRad = 0.05235987755982989
+    safety._arcMaxChord = 5.0
+    safety._apaCollisionBottomY = 50.0
+    safety._apaCollisionTopY = 2250.0
+    safety._transferZoneHeadMinX = 400.0
+    safety._transferZoneHeadMaxX = 500.0
+    safety._transferZoneFootMinX = 7100.0
+    safety._transferZoneFootMaxX = 7200.0
+    safety._supportCollisionBottomMinY = 80.0
+    safety._supportCollisionBottomMaxY = 450.0
+    safety._supportCollisionMiddleMinY = 1050.0
+    safety._supportCollisionMiddleMaxY = 1550.0
+    safety._supportCollisionTopMinY = 2200.0
+    safety._supportCollisionTopMaxY = 2650.0
+    safety._geometryEpsilon = 1e-9
+    process._safety = safety
+    process._motion = MotionService(
+      process._io, process._log, process.controlStateMachine,
+      safety, process.gCodeHandler, None, lambda: None,
+    )
 
     return process
 
@@ -358,7 +369,7 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
   def test_execute_manual_gcode_accepts_four_digit_feed(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
-    process._maxVelocity = 1200.0
+    process._safety._maxVelocity = 1200.0
 
     error = process.executeG_CodeLine("F1200")
 
@@ -384,6 +395,7 @@ class ProcessManualGCodeTests(unittest.TestCase):
   def test_execute_manual_gcode_reports_specific_blockers_when_not_ready(self):
     process = self._build_process_for_manual_gcode()
     process.controlStateMachine = _ControlStateMachineNotReady()
+    process._safety._controlStateMachine = process.controlStateMachine
     process._io.plcLogic = _PLCLogicBlocker()
     process._io.head = _HeadBlocker()
 
@@ -401,10 +413,10 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
   def test_manual_seek_xy_rejects_out_of_bounds_target(self):
     process = self._build_process_for_manual_gcode(x_position=10.0, y_position=20.0)
-    process._limitLeft = 0.0
-    process._limitRight = 100.0
-    process._limitBottom = 0.0
-    process._limitTop = 100.0
+    process._safety._limitLeft = 0.0
+    process._safety._limitRight = 100.0
+    process._safety._limitBottom = 0.0
+    process._safety._limitTop = 100.0
 
     isError = process.manualSeekXY(xPosition=120.0, yPosition=20.0)
 

@@ -39,12 +39,3 @@ class ManualModeEvent:
 @dataclass(frozen=True)
 class SetManualJoggingEvent:
   isJogging: bool
-
-
-@dataclass(frozen=True)
-class CalibrationModeEvent:
-  seekX: Optional[float] = None
-  seekY: Optional[float] = None
-  velocity: Optional[float] = None
-  acceleration: Optional[float] = None
-  deceleration: Optional[float] = None

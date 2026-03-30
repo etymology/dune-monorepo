@@ -2,8 +2,8 @@ function APA_List( modules )
 {
   var self = this
 
-  var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
 
   var STAGES =
   [
@@ -75,16 +75,15 @@ function APA_List( modules )
   //-----------------------------------------------------------------------------
   this.loadDetails = function( name )
   {
-    winder.call
+    uiServices.call
     (
       commands.process.getAPADetails,
       { name: name },
-      function( response )
+      function( data )
       {
-        if ( ! response || ! response.ok || ! response.data )
+        if ( ! data )
           return
 
-        var data = response.data
         $( "#apaDetails_name"            ).text( data[ "_name"            ] )
         $( "#apaDetails_calibrationFile" ).text( data[ "_calibrationFile" ] )
         $( "#apaDetails_recipeFile"      ).text( data[ "_recipeFile"      ] )
@@ -143,16 +142,15 @@ function APA_List( modules )
           [ "20%", "20%", "20%", "20%", "20%" ]
         )
 
-    winder.remoteAction
+    uiServices.call
     (
       commands.process.getAPADetailedList,
       {},
-      function( response )
+      function( data )
       {
-        if ( ! response || ! response.ok || ! response.data )
+        if ( ! data )
           return
 
-        var data = response.data
         apaDetails = {}
         var apaList = []
 

@@ -6,7 +6,8 @@ function Sliders( modules )
 
   var self = this
   var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
 
   var sliderValues =
   {
@@ -143,16 +144,12 @@ function Sliders( modules )
   function createSlider( request, sliderTag, valueTag, valueUnits, minimum, writeRequest )
   {
     // Maximum value query.
-    winder.call
+    uiServices.call
     (
       request.name,
       request.args || {},
-      function( response )
+      function( data )
       {
-        if ( ! response || ! response.ok )
-          return
-
-        var data = response.data
         var maximum = parseFloat( data )
 
         // Callback when slider is changed.
@@ -165,7 +162,7 @@ function Sliders( modules )
             $( "#" + valueTag ).html( value + " " + valueUnits )
 
             if ( event && writeRequest && writeRequest.name )
-              winder.call
+              uiServices.call
               (
                 writeRequest.name,
                 writeRequest.buildArgs( value )

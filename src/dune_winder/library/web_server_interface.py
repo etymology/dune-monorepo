@@ -5,8 +5,6 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
-import urllib.request
-import urllib.error
 import json
 
 from http.server import HTTPServer
@@ -59,34 +57,8 @@ class WebServerInterface(SimpleHTTPRequestHandler):
   def do_GET(self):
     """
     Callback for an HTTP GET request.
-    Intercepts /camera_image to proxy the camera's FTP image as HTTP so that
-    the browser can load it (browsers no longer support ftp:// in <img> tags).
-    All other paths are handled by SimpleHTTPRequestHandler as static files.
+    All paths are handled by SimpleHTTPRequestHandler as static files.
     """
-    if self.path.split("?")[0] == "/camera_image":
-      try:
-        if WebServerInterface.commandRegistry is None:
-          raise RuntimeError("Command registry is not configured.")
-
-        commandResult = WebServerInterface.commandRegistry.execute(
-          "process.get_camera_image_url", {}
-        )
-        if not commandResult.get("ok", False):
-          raise RuntimeError("Camera URL command failed.")
-
-        camera_url = commandResult.get("data")
-        with urllib.request.urlopen(camera_url, timeout=3) as response:
-          data = response.read()
-        self.send_response(200)
-        self.send_header("Content-Type", "image/bmp")
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(data)
-      except Exception:
-        self.send_response(503)
-        self.end_headers()
-      return
     super().do_GET()
 
   # ---------------------------------------------------------------------
