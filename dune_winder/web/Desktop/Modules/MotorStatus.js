@@ -9,7 +9,8 @@ function MotorStatus( modules )
   this.uiSnapshot = null
 
   var winder = modules.get( "Winder" )
-  var commands = window.CommandCatalog
+  var uiServices = modules.get( "UiServices" )
+  var commands = uiServices.getCommands()
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -87,36 +88,36 @@ function MotorStatus( modules )
   //-----------------------------------------------------------------------------
   var readConfig = function()
   {
-    winder.call
+    uiServices.call
     (
       commands.configuration.get,
       { key: "maxAcceleration" },
-      function( response )
+      function( data )
       {
-        if ( response && response.ok )
-          self.motor[ "maxAcceleration" ] = parseFloat( response.data )
+        if ( data !== null )
+          self.motor[ "maxAcceleration" ] = parseFloat( data )
       }
     )
 
-    winder.call
+    uiServices.call
     (
       commands.configuration.get,
       { key: "maxDeceleration" },
-      function( response )
+      function( data )
       {
-        if ( response && response.ok )
-          self.motor[ "maxDeceleration" ] = parseFloat( response.data )
+        if ( data !== null )
+          self.motor[ "maxDeceleration" ] = parseFloat( data )
       }
     )
 
-    winder.call
+    uiServices.call
     (
       commands.configuration.get,
       { key: "maxVelocity" },
-      function( response )
+      function( data )
       {
-        if ( response && response.ok )
-          self.motor[ "maxVelocity" ] = parseFloat( response.data )
+        if ( data !== null )
+          self.motor[ "maxVelocity" ] = parseFloat( data )
       }
     )
   }
