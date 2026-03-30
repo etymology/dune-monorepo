@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import partial
 from typing import Any
 import tkinter as tk
+import tkinter.font as tkfont
 
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui.actions import (
@@ -43,6 +44,11 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
 
     root = root or tk.Tk()
     root.title("Tensiometer GUI")
+    for font_name in ("TkDefaultFont", "TkTextFont", "TkFixedFont", "TkMenuFont"):
+        try:
+            tkfont.nametofont(font_name).configure(size=8)
+        except Exception:
+            pass
     if hasattr(root, "columnconfigure"):
         root.columnconfigure(0, weight=0)
         root.columnconfigure(1, weight=1)
@@ -133,14 +139,14 @@ def _create_widgets(
     """Build and layout the GUI widgets."""
 
     main_frame = tk.Frame(root)
-    main_frame.grid(row=0, column=0, padx=(10, 5), pady=10, sticky="nsew")
+    main_frame.grid(row=0, column=0, padx=(6, 3), pady=6, sticky="nsew")
     if hasattr(main_frame, "columnconfigure"):
         main_frame.columnconfigure(0, weight=1)
     if hasattr(main_frame, "rowconfigure"):
         main_frame.rowconfigure(0, weight=1)
 
     side_frame = tk.Frame(root)
-    side_frame.grid(row=0, column=1, padx=(5, 10), pady=10, sticky="nsew")
+    side_frame.grid(row=0, column=1, padx=(3, 6), pady=6, sticky="nsew")
     if hasattr(side_frame, "columnconfigure"):
         side_frame.columnconfigure(0, weight=1)
     if hasattr(side_frame, "rowconfigure"):
@@ -155,7 +161,7 @@ def _create_widgets(
         log_frame.rowconfigure(0, weight=1)
 
     live_plots_frame = tk.LabelFrame(side_frame, text="Live Plots")
-    live_plots_frame.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+    live_plots_frame.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
     if hasattr(live_plots_frame, "columnconfigure"):
         live_plots_frame.columnconfigure(0, weight=1)
     if hasattr(live_plots_frame, "rowconfigure"):
@@ -170,7 +176,7 @@ def _create_widgets(
         summary_plot_frame.rowconfigure(0, weight=1)
 
     waveform_plot_frame = tk.Frame(live_plots_frame)
-    waveform_plot_frame.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+    waveform_plot_frame.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
     if hasattr(waveform_plot_frame, "columnconfigure"):
         waveform_plot_frame.columnconfigure(0, weight=1)
     if hasattr(waveform_plot_frame, "rowconfigure"):
@@ -178,7 +184,7 @@ def _create_widgets(
 
     log_text: Any | None = None
     if hasattr(tk, "Text"):
-        log_text = tk.Text(log_frame, wrap="word", state="disabled", width=56)
+        log_text = tk.Text(log_frame, wrap="word", state="disabled", width=44)
         log_text.grid(row=0, column=0, sticky="nsew")
         if hasattr(tk, "Scrollbar"):
             scrollbar = tk.Scrollbar(log_frame, orient="vertical", command=log_text.yview)
@@ -191,23 +197,23 @@ def _create_widgets(
         bottom_frame.columnconfigure(0, weight=1)
 
     apa_frame = tk.LabelFrame(bottom_frame, text="APA")
-    apa_frame.grid(row=0, column=0, sticky="ew", pady=5)
+    apa_frame.grid(row=0, column=0, sticky="ew", pady=3)
 
     measure_frame = tk.LabelFrame(bottom_frame, text="Measurement")
-    measure_frame.grid(row=1, column=0, sticky="ew", pady=5)
+    measure_frame.grid(row=1, column=0, sticky="ew", pady=3)
     if hasattr(measure_frame, "columnconfigure"):
         measure_frame.columnconfigure(1, weight=1)
 
     servo_frame = tk.LabelFrame(bottom_frame, text="Servo")
-    servo_frame.grid(row=2, column=0, sticky="ew", pady=5)
+    servo_frame.grid(row=2, column=0, sticky="ew", pady=3)
     if hasattr(servo_frame, "columnconfigure"):
         servo_frame.columnconfigure(1, weight=1)
 
     manual_move_frame = tk.LabelFrame(bottom_frame, text="Manual Move")
-    manual_move_frame.grid(row=3, column=0, sticky="ew", pady=5)
+    manual_move_frame.grid(row=3, column=0, sticky="ew", pady=3)
 
     btn_refresh_plots = tk.Button(bottom_frame, text="Refresh Plots")
-    btn_refresh_plots.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+    btn_refresh_plots.grid(row=4, column=0, sticky="ew", pady=(6, 0))
 
     tk.Label(apa_frame, text="APA Name:").grid(row=0, column=0, sticky="e")
     entry_apa = tk.Entry(apa_frame)
@@ -400,7 +406,7 @@ def _create_widgets(
     focus_command_canvas: tk.Canvas | None = None
     focus_command_dot: Any | None = None
     if hasattr(tk, "Canvas"):
-        focus_command_canvas = tk.Canvas(servo_frame, height=10)
+        focus_command_canvas = tk.Canvas(servo_frame, height=8)
         focus_command_canvas.grid(row=1, column=1, sticky="ew")
         focus_command_canvas.create_line(0, 5, int(focus_slider.cget("length")), 5)
         focus_command_dot = focus_command_canvas.create_oval(
