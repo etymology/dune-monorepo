@@ -177,7 +177,11 @@ def _normalize_condition_term(term):
 
 
 def _replace_bracketed_conditions(content):
-  conditions = [_normalize_condition_term(part) for part in _split_top_level_commas(content) if part.strip()]
+  parts = _split_top_level_commas(content)
+  if len(parts) <= 1:
+    return "[" + content + "]"
+
+  conditions = [_normalize_condition_term(part) for part in parts if part.strip()]
   if not conditions:
     return "[" + content + "]"
 
