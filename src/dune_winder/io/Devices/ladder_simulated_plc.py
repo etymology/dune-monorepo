@@ -97,10 +97,13 @@ class LadderSimulatedPLC(SimulatedPLC):
     for alias in aliases
   }
 
+  def _load_metadata(self):
+    return load_plc_metadata(self._PLC_ROOT)
+
   def __init__(self, ipAddress="SIM", routine_backend: str = "ast"):
     super().__init__(ipAddress)
 
-    self._metadata = load_plc_metadata(self._PLC_ROOT)
+    self._metadata = self._load_metadata()
     self._tag_store = TagStore(self._metadata, use_exported_values=True)
     self._jsr_registry = JSRRegistry()
     self._executor = RoutineExecutor()
@@ -343,7 +346,7 @@ class LadderSimulatedPLC(SimulatedPLC):
 
   # ---------------------------------------------------------------------
   def _reset_tag_definition(self, name: str, program: str | None, dataTypeName: str | None):
-    if dataTypeName not in {"MOTION_INSTRUCTION", "TIMER", "CONTROL"}:
+    if dataTypeName not in {"MOTION_INSTRUCTION", "TIMER", "CONTROL", "COUNTER"}:
       return
 
     value = self._ctx.get_value(name, program=program)
@@ -355,7 +358,7 @@ class LadderSimulatedPLC(SimulatedPLC):
 
   # ---------------------------------------------------------------------
   def _reset_structure_value(self, value, dataTypeName: str):
-    struct = copy.deepcopy(value)
+    struct = copy.deepcopy(value) if isinstance(value, dict) else {}
     if dataTypeName == "MOTION_INSTRUCTION":
       flags = struct.get("FLAGS", 0)
       for key in list(struct):
@@ -378,6 +381,13 @@ class LadderSimulatedPLC(SimulatedPLC):
       struct["UL"] = False
       struct["IN"] = False
       struct["FD"] = False
+      return struct
+    if dataTypeName == "COUNTER":
+      struct["ACC"] = 0
+      struct["CU"] = False
+      struct["CD"] = False
+      struct["DN"] = False
+      struct["OV"] = False
       return struct
     return struct
 

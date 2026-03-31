@@ -420,6 +420,12 @@ class RoutineExecutor:
       if condition_in:
         self._change_coordinate_dynamics(operands, ctx)
       return bool(condition_in)
+    if opcode == "CTU":
+      self._execute_ctu(operands[0], bool(condition_in), ctx)
+      return bool(condition_in)
+    if opcode == "CTD":
+      self._execute_ctd(operands[0], bool(condition_in), ctx)
+      return bool(condition_in)
 
     raise ValueError(f"Unsupported runtime opcode {opcode!r}")
 
@@ -478,7 +484,8 @@ class RoutineExecutor:
     return pulse
 
   def _execute_ton(self, timer_path: str, condition_in: bool, ctx: ScanContext):
-    timer = _deep_copy(ctx.get_value(timer_path))
+    raw = ctx.get_value(timer_path)
+    timer = _deep_copy(raw) if isinstance(raw, dict) else {"PRE": 10, "ACC": 0, "EN": False, "TT": False, "DN": False}
     timer["EN"] = bool(condition_in)
     if condition_in:
       timer["ACC"] = int(timer.get("ACC", 0)) + int(ctx.runtime_state.scan_time_ms)
@@ -491,6 +498,28 @@ class RoutineExecutor:
       timer["TT"] = False
       timer["DN"] = False
     ctx.set_value(timer_path, timer)
+
+  def _execute_ctu(self, counter_path: str, condition_in: bool, ctx: ScanContext):
+    raw = ctx.get_value(counter_path)
+    counter = _deep_copy(raw) if isinstance(raw, dict) else {"PRE": 10, "ACC": 0, "CU": False, "CD": False, "DN": False, "OV": False}
+    prev_cu = bool(counter.get("CU", False))
+    counter["CU"] = bool(condition_in)
+    if condition_in and not prev_cu:
+      counter["ACC"] = int(counter.get("ACC", 0)) + 1
+    counter["DN"] = int(counter.get("ACC", 0)) >= int(counter.get("PRE", 0))
+    counter["OV"] = int(counter.get("ACC", 0)) > 32767
+    ctx.set_value(counter_path, counter)
+
+  def _execute_ctd(self, counter_path: str, condition_in: bool, ctx: ScanContext):
+    raw = ctx.get_value(counter_path)
+    counter = _deep_copy(raw) if isinstance(raw, dict) else {"PRE": 10, "ACC": 0, "CU": False, "CD": False, "DN": False, "OV": False}
+    prev_cd = bool(counter.get("CD", False))
+    counter["CD"] = bool(condition_in)
+    if condition_in and not prev_cd:
+      counter["ACC"] = int(counter.get("ACC", 0)) - 1
+    counter["DN"] = int(counter.get("ACC", 0)) >= int(counter.get("PRE", 0))
+    counter["UN"] = int(counter.get("ACC", 0)) < 0
+    ctx.set_value(counter_path, counter)
 
   def _execute_pid(self, operands, ctx: ScanContext):
     control_path = operands[0]
@@ -535,6 +564,14 @@ class RoutineExecutor:
       value["EN"] = False
       value["TT"] = False
       value["DN"] = False
+      ctx.set_value(path, value)
+      return
+    if isinstance(value, dict) and {"PRE", "ACC", "CU", "DN"} <= set(value):
+      value["ACC"] = 0
+      value["CU"] = False
+      value["CD"] = False
+      value["DN"] = False
+      value["OV"] = False
       ctx.set_value(path, value)
       return
     if isinstance(value, dict) and {"LEN", "POS", "EN", "EU", "DN", "EM", "ER", "UL", "IN", "FD"} <= set(value):
@@ -1116,3 +1153,5 @@ class InstructionRuntime:
   _advance_axis_moves = RoutineExecutor._advance_axis_moves
   _advance_coordinate_moves = RoutineExecutor._advance_coordinate_moves
   _finish_motion = RoutineExecutor._finish_motion
+  _execute_ctu = RoutineExecutor._execute_ctu
+  _execute_ctd = RoutineExecutor._execute_ctd
