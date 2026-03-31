@@ -96,10 +96,14 @@ def _tag_definition(raw: dict[str, Any], default_program: str | None = None) -> 
   )
 
 
-def load_plc_metadata(root: str | Path) -> PlcMetadata:
+def load_plc_metadata(
+  root: str | Path,
+  controller_tags_root: str | Path | None = None,
+) -> PlcMetadata:
   metadata_root = Path(root)
+  tags_root = Path(controller_tags_root) if controller_tags_root is not None else metadata_root
   controller_payload = json.loads(
-    (metadata_root / "controller_level_tags.json").read_text(encoding="utf-8")
+    (tags_root / "controller_level_tags.json").read_text(encoding="utf-8")
   )
 
   udts = {
