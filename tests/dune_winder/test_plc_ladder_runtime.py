@@ -11,6 +11,7 @@ from dune_winder.plc_ladder import RoutineExecutor
 from dune_winder.plc_ladder import RuntimeState
 from dune_winder.plc_ladder import ScanContext
 from dune_winder.plc_ladder import TagStore
+from dune_winder.plc_ladder import bind_scan_context
 from dune_winder.plc_ladder import load_imperative_routine_from_source
 from dune_winder.plc_ladder import load_plc_metadata
 from dune_winder.paths import PLC_ROOT
@@ -38,14 +39,23 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       runtime_state=RuntimeState(scan_time_ms=100),
     )
 
-  def _assert_contexts_match(self, expected: ScanContext, actual: ScanContext, *, program: str | None):
+  def _assert_contexts_match(
+    self, expected: ScanContext, actual: ScanContext, *, program: str | None
+  ):
     self.assertEqual(expected.tag_store.snapshot(), actual.tag_store.snapshot())
     if program is not None:
-      self.assertEqual(expected.tag_store.snapshot(program), actual.tag_store.snapshot(program))
+      self.assertEqual(
+        expected.tag_store.snapshot(program), actual.tag_store.snapshot(program)
+      )
     self.assertEqual(expected.builtin_values, actual.builtin_values)
     self.assertEqual(expected.runtime_state.axis_moves, actual.runtime_state.axis_moves)
-    self.assertEqual(expected.runtime_state.coordinate_moves, actual.runtime_state.coordinate_moves)
-    self.assertEqual(expected.runtime_state.coordinate_pending_moves, actual.runtime_state.coordinate_pending_moves)
+    self.assertEqual(
+      expected.runtime_state.coordinate_moves, actual.runtime_state.coordinate_moves
+    )
+    self.assertEqual(
+      expected.runtime_state.coordinate_pending_moves,
+      actual.runtime_state.coordinate_pending_moves,
+    )
     self.assertEqual(expected.scan_count, actual.scan_count)
 
   def _assert_ast_and_generated_match(
@@ -113,6 +123,36 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       ctx.set_value("trigger", True)
 
     self._assert_ast_and_generated_match(routine, setup=setup)
+
+  def test_tag_refs_support_member_index_value_and_write_through_access(self):
+    api = bind_scan_context(self.ctx)
+    self.ctx.set_value("X_axis.ActualPosition", 12.5)
+    self.ctx.set_value("MACHINE_SW_STAT[1]", False)
+    self.ctx.set_value("STATE", 2)
+
+    axis = api.ref("X_axis")
+    machine_bits = api.ref("MACHINE_SW_STAT")
+    state = api.ref("STATE")
+
+    self.assertEqual(float(axis.ActualPosition), 12.5)
+    self.assertEqual(state + 3, 5)
+    self.assertTrue(state == 2)
+
+    machine_bits[1].set(True)
+    self.assertTrue(self.ctx.get_value("MACHINE_SW_STAT[1]"))
+
+  def test_bound_api_normalizes_reference_and_value_operands_from_tag_refs(self):
+    api = bind_scan_context(self.ctx)
+    self.ctx.set_value("seed", 7)
+
+    api.FLL(
+      value=api.ref("seed"),
+      dest=api.ref("FIFO_Data")[0],
+      length=2,
+    )
+
+    self.assertEqual(self.ctx.get_value("FIFO_Data[0]"), 7)
+    self.assertEqual(self.ctx.get_value("FIFO_Data[1]"), 7)
 
   def test_osr_and_ons_only_pulse_on_rising_edge(self):
     routine = self.parser.parse_routine_text(
@@ -217,8 +257,8 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       "main",
       "\n".join(
         [
-          "XIC issue_a MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed \"Units per sec\" CmdA_Accel \"Units per sec2\" CmdA_Decel \"Units per sec2\" S-Curve CmdA_JerkAccel CmdA_JerkDecel \"Units per sec3\" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0",
-          "XIC issue_b MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed \"Units per sec\" CmdB_Accel \"Units per sec2\" CmdB_Decel \"Units per sec2\" S-Curve CmdB_JerkAccel CmdB_JerkDecel \"Units per sec3\" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0",
+          'XIC issue_a MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0',
+          'XIC issue_b MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0',
         ]
       ),
       program="motionQueue",
@@ -262,7 +302,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       "main",
       "\n".join(
         [
-          "XIC issue MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed \"Units per sec\" CmdA_Accel \"Units per sec2\" CmdA_Decel \"Units per sec2\" S-Curve CmdA_JerkAccel CmdA_JerkDecel \"Units per sec3\" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0",
+          'XIC issue MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0',
         ]
       ),
       program="motionQueue",
@@ -298,6 +338,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       routine_name="main",
       program="MoveXY_State_2_3",
     )
+
     def setup(ctx: ScanContext):
       ctx.set_value("STATE", 3)
       ctx.set_value("APA_IS_VERTICAL", True)
@@ -348,8 +389,8 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       "main",
       "\n".join(
         [
-          "XIC issue_a MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed \"Units per sec\" CmdA_Accel \"Units per sec2\" CmdA_Decel \"Units per sec2\" S-Curve CmdA_JerkAccel CmdA_JerkDecel \"Units per sec3\" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0",
-          "XIC issue_b MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed \"Units per sec\" CmdB_Accel \"Units per sec2\" CmdB_Decel \"Units per sec2\" S-Curve CmdB_JerkAccel CmdB_JerkDecel \"Units per sec3\" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0",
+          'XIC issue_a MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0',
+          'XIC issue_b MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0',
         ]
       ),
       program="motionQueue",

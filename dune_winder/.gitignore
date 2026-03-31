@@ -11,3 +11,6 @@ src/dune_winder.egg-info/*
 *.o
 .ghc.environment.
 shadow_plc_errors.log
+config/APA/V_Calibration.json
+gc_files/V-layer.gc
+shadow_plc_errors.log

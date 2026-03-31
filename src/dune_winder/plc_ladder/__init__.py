@@ -11,6 +11,7 @@ from .codegen import transpile_routine_to_structured_python
 from .emitter import RllEmitter
 from .imperative import bind_scan_context
 from .imperative import load_imperative_routine_from_source
+from .imperative import TagRef
 from .jsr_registry import JSRRegistry
 from .metadata import PlcMetadata
 from .metadata import load_plc_metadata
@@ -55,6 +56,7 @@ __all__ = [
   "RuntimeState",
   "ScanContext",
   "StructuredPythonCodeGenerator",
+  "TagRef",
   "TagStore",
   "Timer",
   "transpile_routine_to_python",
