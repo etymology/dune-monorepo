@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 from typing import Iterable
 
 from .ast import Branch
@@ -34,8 +35,8 @@ def ROUTINE(
   )
 
 
-def _instruction(opcode: str):
-  def build_instruction(*operands) -> InstructionCall:
+def _instruction(opcode: str) -> Callable[..., InstructionCall]:
+  def build_instruction(*operands: object) -> InstructionCall:
     return InstructionCall(
       opcode=opcode,
       operands=tuple(str(operand) for operand in operands),

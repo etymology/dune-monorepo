@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 from dune_winder.plc_ladder import PythonCodeGenerator
@@ -86,11 +87,17 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("def MoveXY_State_2_3_main(ctx):", generated)
-    self.assertIn("formula('STATE=2')", generated)
-    self.assertIn("if not tag('XY_AXIS_STAT[4].IP'):", generated)
+    self.assertIn("def MoveXY_State_2_3_main(ctx: ScanContext) -> None:", generated)
+    self.assertIn("api: BoundRoutineAPI = bind_scan_context(ctx)", generated)
+    self.assertIn("STATE: IntTag = api.ref('STATE')", generated)
+    self.assertIn("X_Y: CoordinateSystemTag = api.ref('X_Y')", generated)
+    self.assertIn("X_axis: AxisTag = api.ref('X_axis')", generated)
+    self.assertIn("main_xy_move: MotionControlTag = api.ref('main_xy_move')", generated)
+    self.assertIn("MCLM: MCLMCallable = api.MCLM", generated)
+    self.assertIn("if STATE==2:", generated)
+    self.assertIn("if (not XY_AXIS_STAT[4].IP) and (STATE==3)", generated)
     self.assertIn("MCLM(", generated)
-    self.assertIn("motion_control='main_xy_move'", generated)
+    self.assertIn("motion_control=main_xy_move", generated)
     self.assertIn("speed_units='Units per sec'", generated)
     self.assertIn("accel_units='Units per sec2'", generated)
     self.assertIn("decel_units='Units per sec2'", generated)
@@ -103,6 +110,8 @@ class PlcLadderParserTests(unittest.TestCase):
     self.assertIn("event_distance=0", generated)
     self.assertIn("calculated_data=0", generated)
     self.assertIn("__ladder_routine__ = ROUTINE(", generated)
+    self.assertNotIn("tag('", generated)
+    self.assertNotIn("formula(", generated)
     compile(generated, str(path), "exec")
 
     restored = load_generated_routine(generated)
@@ -122,7 +131,37 @@ class PlcLadderParserTests(unittest.TestCase):
     generated = self.codegen.generate_routine(routine)
 
     self.assertIn("while _pc <", generated)
-    self.assertIn("_pc = 5", generated)
+    self.assertRegex(generated, re.compile(r"_pc = \d+"))
+    compile(generated, str(path), "exec")
+
+  def test_imperative_codegen_reuses_boolean_branch_temps_for_ote(self):
+    routine = self.parser.parse_routine_text(
+      "main",
+      'BST XIC Local:1:I.Pt04.Data NXB CMP "Z_axis.ActualPosition>415" BND OTE MACHINE_SW_STAT[5] OTE Z_EXTENDED\n',
+      program="MainProgram",
+    )
+
+    generated = self.codegen.generate_routine(routine)
+
+    self.assertRegex(generated, re.compile(r"MACHINE_SW_STAT\[5\]\.set\(_branch_\d+\)"))
+    self.assertRegex(generated, re.compile(r"Z_EXTENDED\.set\(_branch_\d+\)"))
+    self.assertNotRegex(generated, re.compile(r"\.set\(bool\(_branch_\d+\)\)"))
+    compile(generated, "<branch_ote>", "exec")
+
+  def test_imperative_codegen_sanitizes_invalid_root_names(self):
+    path = PLC_ROOT / "MainProgram" / "main" / "pasteable.rll"
+    routine = self.parser.parse_routine_path(
+      path,
+      routine_name="main",
+      program="MainProgram",
+    )
+
+    generated = self.codegen.generate_routine(routine)
+
+    self.assertIn("Local_1_I: TagRef = api.ref('Local:1:I')", generated)
+    self.assertIn("DUNEW2PLC2_1_I: TagRef = api.ref('DUNEW2PLC2:1:I')", generated)
+    self.assertIn("Local_1_I.Pt00.Data", generated)
+    self.assertIn("DUNEW2PLC2_1_I.Pt00Data", generated)
     compile(generated, str(path), "exec")
 
   def test_round_trips_motion_queue_helpers_through_structured_python(self):
@@ -162,9 +201,9 @@ class PlcLadderParserTests(unittest.TestCase):
 
     generated = self.codegen.generate_routine(routine)
 
-    self.assertIn("def MoveZ_State_4_5_main(ctx):", generated)
+    self.assertIn("def MoveZ_State_4_5_main(ctx: ScanContext) -> None:", generated)
     self.assertIn("MAM(", generated)
-    self.assertIn("motion_control='z_axis_main_move'", generated)
+    self.assertIn("motion_control=z_axis_main_move", generated)
     compile(generated, str(path), "exec")
 
 

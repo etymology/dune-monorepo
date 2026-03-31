@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import keyword
 import re
+from pathlib import Path
+
+from dune_winder.paths import PLC_ROOT
 
 from .ast import Branch
 from .ast import InstructionCall
@@ -10,6 +14,10 @@ from .ast import Routine
 from .codegen_support import load_routine_from_source
 from .emitter import RllEmitter
 from .imperative import load_imperative_routine_from_source
+from .metadata import PlcMetadata
+from .metadata import TagDefinition
+from .metadata import load_plc_metadata
+from .tags import split_tag_path
 
 
 NUMERIC_PATTERN = re.compile(
@@ -314,7 +322,7 @@ class StructuredPythonCodeGenerator:
     if routine.program is not None:
       lines.append(f"  program={routine.program!r},")
     if routine.source_path is not None:
-      lines.append(f"  source_path={str(routine.source_path)!r},")
+      lines.append(f"  source_path={routine.source_path.as_posix()!r},")
 
     lines.append("  rungs=(")
     for rung in routine.rungs:
@@ -334,7 +342,7 @@ class StructuredPythonCodeGenerator:
     text = "_".join(parts)
     return "".join(character if character.isalnum() else "_" for character in text)
 
-  def _render_rung_nodes(self, rung: Rung):
+  def _render_rung_nodes(self, rung: Rung) -> list[str]:
     rendered = []
     for node in rung.nodes:
       rendered.append(self._render_node(node) + ",")
@@ -346,7 +354,7 @@ class StructuredPythonCodeGenerator:
       self._collect_imports(rung.nodes, imports)
     return tuple(sorted(imports))
 
-  def _collect_imports(self, nodes: tuple[Node, ...], imports: set[str]):
+  def _collect_imports(self, nodes: tuple[Node, ...], imports: set[str]) -> None:
     for node in nodes:
       if isinstance(node, InstructionCall):
         imports.add(node.opcode)
@@ -374,36 +382,69 @@ class StructuredPythonCodeGenerator:
 
 
 class PythonCodeGenerator:
-  def __init__(self):
+  def __init__(
+    self,
+    *,
+    plc_metadata: PlcMetadata | None = None,
+    plc_metadata_root: str | Path | None = None,
+    controller_tags_root: str | Path | None = None,
+  ) -> None:
     self._emitter = RllEmitter()
     self._structured = StructuredPythonCodeGenerator()
     self._temp_counter = 0
     self._label_map: dict[str, int] = {}
+    self._tag_aliases: dict[str, str] = {}
+    self._plc_metadata = plc_metadata
+    if self._plc_metadata is None:
+      metadata_root = Path(plc_metadata_root) if plc_metadata_root is not None else PLC_ROOT
+      controller_root = Path(controller_tags_root) if controller_tags_root is not None else None
+      try:
+        self._plc_metadata = load_plc_metadata(
+          metadata_root,
+          controller_tags_root=controller_root,
+        )
+      except FileNotFoundError:
+        self._plc_metadata = None
 
   def generate_routine(self, routine: Routine) -> str:
     self._assert_supported(routine)
     self._temp_counter = 0
     self._label_map = self._collect_label_map(routine)
+    self._tag_aliases = self._collect_tag_aliases(routine)
+    root_type_names = {
+      root: self._tag_type_name_for_root(root, routine.program)
+      for root in self._tag_aliases
+    }
+    helper_names = self._runtime_helpers_for(routine)
+    tag_type_imports = sorted({type_name for type_name in root_type_names.values() if type_name != "TagRef"})
+    imperative_imports = [
+      "BoundRoutineAPI",
+      "TagRef",
+      "bind_scan_context",
+    ]
+    imperative_imports.extend(tag_type_imports)
+    imperative_imports.extend(self._helper_type_name(helper_name) for helper_name in helper_names)
 
     lines = [
-      "from dune_winder.plc_ladder.imperative import bind_scan_context",
+      "from dune_winder.plc_ladder.imperative import " + ", ".join(imperative_imports),
+      "from dune_winder.plc_ladder.runtime import ScanContext",
     ]
     imports = self._math_imports_for(routine)
     if imports:
-      lines.append("")
-      lines.append(f"from math import {', '.join(imports)}")
+      helper_imports = ", ".join(f"formula_{name} as {name}" for name in imports)
+      lines.append(f"from dune_winder.plc_ladder.imperative import {helper_imports}")
     lines.append("")
     lines.extend(self._render_routine_metadata(routine))
     lines.append("")
 
     routine_name = self._structured._python_name(routine)
-    lines.append(f"def {routine_name}(ctx):")
-    lines.append("  api = bind_scan_context(ctx)")
-    lines.append("  tag = api.tag")
-    lines.append("  set_tag = api.set_tag")
-    lines.append("  formula = api.formula")
-    for helper_name in self._runtime_helpers_for(routine):
-      lines.append(f"  {helper_name} = api.{helper_name}")
+    lines.append(f"def {routine_name}(ctx: ScanContext) -> None:")
+    lines.append("  api: BoundRoutineAPI = bind_scan_context(ctx)")
+    for root, alias in self._tag_aliases.items():
+      tag_type_name = root_type_names.get(root, "TagRef")
+      lines.append(f"  {alias}: {tag_type_name} = api.ref({root!r})")
+    for helper_name in helper_names:
+      lines.append(f"  {helper_name}: {self._helper_type_name(helper_name)} = api.{helper_name}")
     if len(lines) > 0 and lines[-1] != "":
       lines.append("")
 
@@ -423,7 +464,7 @@ class PythonCodeGenerator:
 
     return "\n".join(lines) + "\n"
 
-  def _assert_supported(self, routine: Routine):
+  def _assert_supported(self, routine: Routine) -> None:
     unsupported = set()
     for rung in routine.rungs:
       self._collect_unsupported(rung.nodes, unsupported)
@@ -433,7 +474,7 @@ class PythonCodeGenerator:
         f"Imperative ladder translation does not support {items} in routine {routine.name!r}"
       )
 
-  def _collect_unsupported(self, nodes: tuple[Node, ...], unsupported: set[str]):
+  def _collect_unsupported(self, nodes: tuple[Node, ...], unsupported: set[str]) -> None:
     for node in nodes:
       if isinstance(node, Branch):
         for branch in node.branches:
@@ -457,7 +498,7 @@ class PythonCodeGenerator:
     nodes: tuple[Node, ...],
     label_map: dict[str, int],
     rung_index: int,
-  ):
+  ) -> None:
     for node in nodes:
       if isinstance(node, Branch):
         for branch in node.branches:
@@ -467,13 +508,54 @@ class PythonCodeGenerator:
         continue
       label_map.setdefault(str(node.operands[0]), rung_index)
 
+  def _tag_type_name_for_root(self, root: str, program: str | None) -> str:
+    if self._plc_metadata is None:
+      return "TagRef"
+
+    definition = self._plc_metadata.get_tag_definition(root, program=program)
+    if definition is None and program is not None:
+      definition = self._plc_metadata.get_tag_definition(root)
+    return self._type_name_for_tag_definition(definition)
+
+  def _type_name_for_tag_definition(self, definition: TagDefinition | None) -> str:
+    if definition is None:
+      return "TagRef"
+
+    if int(definition.array_dimensions or 0) > 0:
+      return "TagRef"
+
+    udt_name = str(definition.udt_name or definition.data_type_name or "")
+    if udt_name == "MOTION_INSTRUCTION":
+      return "MotionControlTag"
+    if udt_name == "COORDINATE_SYSTEM":
+      return "CoordinateSystemTag"
+    if udt_name == "TIMER":
+      return "TimerTag"
+    if udt_name == "CONTROL":
+      return "ControlTag"
+    if udt_name == "MotionSeg":
+      return "MotionSegTag"
+    if udt_name.startswith("AXIS_"):
+      return "AxisTag"
+
+    data_type_name = str(definition.data_type_name or "").upper()
+    if data_type_name == "BOOL":
+      return "BoolTag"
+    if data_type_name in {"REAL", "LREAL"}:
+      return "RealTag"
+    if data_type_name in {"SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT", "DWORD"}:
+      return "IntTag"
+    if data_type_name == "STRING":
+      return "StringTag"
+    return "TagRef"
+
   def _math_imports_for(self, routine: Routine) -> tuple[str, ...]:
     imports = set()
     for rung in routine.rungs:
       self._collect_math_imports(rung.nodes, imports)
     return tuple(sorted(imports))
 
-  def _collect_math_imports(self, nodes: tuple[Node, ...], imports: set[str]):
+  def _collect_math_imports(self, nodes: tuple[Node, ...], imports: set[str]) -> None:
     for node in nodes:
       if isinstance(node, Branch):
         for branch in node.branches:
@@ -512,7 +594,10 @@ class PythonCodeGenerator:
       self._collect_runtime_helpers(rung.nodes, helpers)
     return tuple(sorted(helpers))
 
-  def _collect_runtime_helpers(self, nodes: tuple[Node, ...], helpers: set[str]):
+  def _helper_type_name(self, helper_name: str) -> str:
+    return f"{helper_name}Callable"
+
+  def _collect_runtime_helpers(self, nodes: tuple[Node, ...], helpers: set[str]) -> None:
     for node in nodes:
       if isinstance(node, Branch):
         for branch in node.branches:
@@ -522,33 +607,205 @@ class PythonCodeGenerator:
         continue
       helpers.add(node.opcode)
 
+  def _collect_tag_aliases(self, routine: Routine) -> dict[str, str]:
+    roots: set[str] = set()
+    for rung in routine.rungs:
+      self._collect_tag_roots(rung.nodes, roots)
+
+    reserved = {
+      "abs",
+      "api",
+      "atan",
+      "bool",
+      "ctx",
+      "cos",
+      "fmod",
+      "sin",
+      "sqrt",
+      "trunc",
+    }
+    reserved.update(self._runtime_helpers_for(routine))
+    reserved.update(self._math_imports_for(routine))
+
+    aliases: dict[str, str] = {}
+    used = set(reserved)
+    for root in sorted(roots):
+      base = "".join(character if character.isalnum() else "_" for character in root)
+      if not base:
+        base = "tag"
+      if base[0].isdigit() or keyword.iskeyword(base):
+        base = f"tag_{base}"
+      alias = base
+      suffix = 1
+      while alias in used:
+        alias = f"{base}_{suffix}"
+        suffix += 1
+      aliases[root] = alias
+      used.add(alias)
+    return aliases
+
+  def _collect_tag_roots(self, nodes: tuple[Node, ...], roots: set[str]) -> None:
+    for node in nodes:
+      if isinstance(node, Branch):
+        for branch in node.branches:
+          self._collect_tag_roots(branch, roots)
+        continue
+      self._collect_instruction_tag_roots(node, roots)
+
+  def _collect_instruction_tag_roots(self, instruction: InstructionCall, roots: set[str]) -> None:
+    opcode = instruction.opcode
+    operands = instruction.operands
+
+    if opcode in {"AFI", "LBL", "NOP"}:
+      return
+    if opcode in {"CMP"}:
+      self._collect_formula_roots(operands[0], roots)
+      return
+    if opcode in {"XIC", "XIO", "OTE", "OTL", "OTU", "RES", "CTU", "CTD"}:
+      self._collect_path_root(operands[0], roots)
+      return
+    if opcode in {"EQU", "GEQ", "GRT", "LEQ", "LES", "NEQ", "MOV", "MOD", "TRN", "LIM", "ADD"}:
+      for operand in operands:
+        self._collect_value_roots(operand, roots)
+      return
+    if opcode == "CPT":
+      self._collect_path_root(operands[0], roots)
+      self._collect_formula_roots(operands[1], roots)
+      return
+    if opcode in {"ONS", "OSF", "OSR"}:
+      self._collect_path_root(operands[0], roots)
+      if len(operands) > 1:
+        self._collect_path_root(operands[1], roots)
+      return
+    if opcode == "TON":
+      self._collect_path_root(operands[0], roots)
+      return
+    if opcode == "COP":
+      self._collect_path_root(operands[0], roots)
+      self._collect_path_root(operands[1], roots)
+      self._collect_value_roots(operands[2], roots)
+      return
+    if opcode == "FLL":
+      self._collect_value_roots(operands[0], roots)
+      self._collect_path_root(operands[1], roots)
+      self._collect_value_roots(operands[2], roots)
+      return
+    if opcode in {"FFL", "FFU"}:
+      self._collect_path_root(operands[0], roots)
+      self._collect_path_root(operands[1], roots)
+      self._collect_path_root(operands[2], roots)
+      for operand in operands[3:]:
+        self._collect_value_roots(operand, roots)
+      return
+    if opcode == "JSR":
+      for operand in operands[1:]:
+        self._collect_value_roots(operand, roots)
+      return
+    if opcode in NAMED_ARGUMENTS:
+      for name, operand in zip(NAMED_ARGUMENTS[opcode], operands):
+        self._collect_named_argument_roots(name, operand, roots)
+      return
+    if opcode in {"PID", "SFX", "SLS"}:
+      for operand in operands:
+        self._collect_value_roots(operand, roots)
+      return
+    for operand in operands:
+      self._collect_value_roots(operand, roots)
+
+  def _collect_named_argument_roots(self, name: str, operand: str, roots: set[str]) -> None:
+    if name in REFERENCE_ARGUMENT_NAMES:
+      self._collect_path_root(operand, roots)
+      return
+    if name in {"profile", "merge"}:
+      return
+    if name == "termination_type":
+      text = str(operand).strip()
+      if NUMERIC_PATTERN.fullmatch(text):
+        value = int(float(text))
+        if value in VALID_TERMINATION_TYPES:
+          return
+      self._collect_value_roots(operand, roots)
+      return
+    if name in CANONICAL_LITERAL_ARGUMENT_VALUES or name in LITERAL_ARGUMENT_NAMES:
+      return
+    self._collect_value_roots(operand, roots)
+
+  def _collect_value_roots(self, token: str, roots: set[str]) -> None:
+    text = str(token)
+    if not self._is_path_like_token(text):
+      return
+    self._collect_path_root(text, roots)
+
+  def _collect_path_root(self, token: str, roots: set[str]) -> None:
+    text = str(token)
+    if not self._is_path_like_token(text):
+      return
+    segments = split_tag_path(text)
+    if not segments:
+      return
+    roots.add(segments[0].name)
+
+  def _collect_formula_roots(self, expression: str, roots: set[str]) -> None:
+    scrubbed = STRING_LITERAL_PATTERN.sub(" ", str(expression))
+    for match in IDENTIFIER_PATTERN.finditer(scrubbed):
+      identifier = match.group(1)
+      end = match.end(1)
+      if end < len(scrubbed) and scrubbed[end] == "(" and identifier.upper() in FORMULA_NAME_MAP:
+        continue
+      if identifier in {"and", "or", "not", "True", "False"}:
+        continue
+      self._collect_path_root(identifier, roots)
+
+  def _is_path_like_token(self, text: str) -> bool:
+    if text == "?":
+      return False
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+      return False
+    if NUMERIC_PATTERN.fullmatch(text):
+      return False
+    if text.lower() in {"true", "false"}:
+      return False
+    if text.startswith("_"):
+      return False
+    if ":" not in text and any(character in text for character in {" ", "-", "%"}):
+      return False
+    return True
+
   def _render_label_aware_routine(self, routine: Routine) -> list[str]:
+    segment_starts = sorted({0, *self._label_map.values()})
     lines = [
       "  _pc = 0",
       f"  while _pc < {len(routine.rungs)}:",
     ]
-    for index, rung in enumerate(routine.rungs):
-      if index == 0:
-        lines.append(f"    if _pc == {index}:")
-      else:
-        lines.append(f"    elif _pc == {index}:")
-      lines.append(f"      # rung {index}")
-      lines.append(f"      # {self._emitter.emit_rung(rung).strip()}")
-      rung_lines, _ = self._lower_nodes(rung.nodes, [], 3)
-      if rung_lines:
-        lines.extend(rung_lines)
-      else:
-        lines.append("      pass")
-      if index < len(routine.rungs) - 1:
-        lines.append(f"      _pc = {index + 1}")
-        lines.append("      continue")
+    for segment_index, start in enumerate(segment_starts):
+      end = (
+        segment_starts[segment_index + 1]
+        if segment_index + 1 < len(segment_starts)
+        else len(routine.rungs)
+      )
+      lines.append(f"    if _pc == {start}:")
+      for rung_index in range(start, end):
+        rung = routine.rungs[rung_index]
+        lines.append(f"      # rung {rung_index}")
+        lines.append(f"      # {self._emitter.emit_rung(rung).strip()}")
+        rung_lines, _ = self._lower_nodes(rung.nodes, [], 3)
+        if rung_lines:
+          lines.extend(rung_lines)
+        else:
+          lines.append("      pass")
+      if segment_index < len(segment_starts) - 1:
+        lines.append(f"      _pc = {segment_starts[segment_index + 1]}")
       else:
         lines.append("      break")
-    lines.append("    else:")
-    lines.append("      break")
+    lines.append("    break")
     return lines
 
-  def _lower_nodes(self, nodes: tuple[Node, ...], clauses: list[str], indent: int):
+  def _lower_nodes(
+    self,
+    nodes: tuple[Node, ...],
+    clauses: list[str],
+    indent: int,
+  ) -> tuple[list[str], list[str]]:
     lines = []
     current_clauses = list(clauses)
     for node in nodes:
@@ -560,7 +817,12 @@ class PythonCodeGenerator:
       lines.extend(instruction_lines)
     return lines, current_clauses
 
-  def _lower_branch(self, branch: Branch, input_clauses: list[str], indent: int):
+  def _lower_branch(
+    self,
+    branch: Branch,
+    input_clauses: list[str],
+    indent: int,
+  ) -> tuple[list[str], list[str]]:
     local_branch_lines = []
     local_branch_vars = []
     full_branch_lines = []
@@ -608,7 +870,12 @@ class PythonCodeGenerator:
     local = clauses[len(prefix):]
     return local or ["True"]
 
-  def _lower_instruction(self, instruction: InstructionCall, clauses: list[str], indent: int):
+  def _lower_instruction(
+    self,
+    instruction: InstructionCall,
+    clauses: list[str],
+    indent: int,
+  ) -> tuple[list[str], list[str]]:
     opcode = instruction.opcode
     operands = instruction.operands
 
@@ -665,7 +932,7 @@ class PythonCodeGenerator:
     if opcode == "XIO":
       return f"not {self._render_value(operands[0])}"
     if opcode == "CMP":
-      return f"formula({operands[0]!r})"
+      return self._render_formula(operands[0])
     if opcode == "LIM":
       low = self._render_value(operands[0])
       test = self._render_value(operands[1])
@@ -676,11 +943,16 @@ class PythonCodeGenerator:
     right = self._render_value(operands[1])
     return f"{left} {operator} {right}"
 
-  def _render_instruction_body(self, opcode: str, operands: tuple[str, ...], rung_in: str | None = None):
+  def _render_instruction_body(
+    self,
+    opcode: str,
+    operands: tuple[str, ...],
+    rung_in: str | None = None,
+  ) -> list[str]:
     if opcode == "ADD":
       return [self._render_assignment(operands[2], f"{self._render_value(operands[0])} + {self._render_value(operands[1])}")]
     if opcode == "CPT":
-      return [self._render_assignment(operands[0], f"formula({operands[1]!r})")]
+      return [self._render_assignment(operands[0], self._render_formula(operands[1]))]
     if opcode == "MOD":
       return [self._render_assignment(operands[2], f"fmod({self._render_value(operands[0])}, {self._render_value(operands[1])})")]
     if opcode == "MOV":
@@ -760,7 +1032,7 @@ class PythonCodeGenerator:
     body_lines = [f"_pc = {target}", "continue"]
     return self._guard_block(clauses, body_lines, indent)
 
-  def _render_jsr(self, operands: tuple[str, ...]):
+  def _render_jsr(self, operands: tuple[str, ...]) -> list[str]:
     routine_name = str(operands[0])
     keyword_items: list[tuple[str, str]] = [("routine", self._render_literal(routine_name))]
     if len(operands) > 1 and operands[1] != "0":
@@ -768,25 +1040,23 @@ class PythonCodeGenerator:
     return self._render_call_lines("JSR", keyword_items=tuple(keyword_items))
 
   def _render_output_energize(self, target: str, clauses: list[str]) -> str:
-    return self._render_assignment(target, f"bool({self._clauses_to_expr(clauses)})")
+    rung_expr = self._clauses_to_expr(clauses)
+    value = rung_expr if self._is_boolean_expr(rung_expr) else f"bool({rung_expr})"
+    return self._render_assignment(target, value)
 
   def _render_assignment(self, target: str, value: str) -> str:
     if str(target).startswith("_"):
       return f"{target} = {value}"
-    return f"set_tag({target!r}, {value})"
+    return f"{self._render_tag_ref(target)}.set({value})"
 
-  def _guard_block(self, clauses: list[str], body_lines: list[str], indent: int):
+  def _guard_block(self, clauses: list[str], body_lines: list[str], indent: int) -> list[str]:
     active_clauses = [clause for clause in clauses if clause != "True"]
     if not active_clauses:
       return [self._indent(indent) + line for line in body_lines]
 
-    lines = []
-    current_indent = indent
-    for clause in active_clauses:
-      lines.append(self._indent(current_indent) + f"if {clause}:")
-      current_indent += 1
+    lines = [self._indent(indent) + f"if {self._clauses_to_expr(active_clauses)}:"]
     for line in body_lines:
-      lines.append(self._indent(current_indent) + line)
+      lines.append(self._indent(indent + 1) + line)
     return lines
 
   def _clauses_to_expr(self, clauses: list[str]) -> str:
@@ -796,6 +1066,18 @@ class PythonCodeGenerator:
     if len(active_clauses) == 1:
       return active_clauses[0]
     return " and ".join(f"({clause})" for clause in active_clauses)
+
+  def _is_boolean_expr(self, expression: str) -> bool:
+    text = str(expression).strip()
+    if text in {"True", "False"}:
+      return True
+    if text.startswith("_"):
+      return True
+    if text.startswith("not "):
+      return True
+    if " and " in text or " or " in text:
+      return True
+    return any(operator in text for operator in ("==", "!=", "<=", ">=", "<", ">"))
 
   def _render_formula(self, expression: str) -> str:
     placeholders: list[str] = []
@@ -850,7 +1132,7 @@ class PythonCodeGenerator:
       return text
     if ":" not in text and any(character in text for character in {" ", "-", "%"}):
       return repr(text)
-    return f"tag({text!r})"
+    return self._render_tag_ref(text)
 
   def _render_named_argument(self, name: str, value: str) -> str:
     if name in REFERENCE_ARGUMENT_NAMES:
@@ -868,10 +1150,26 @@ class PythonCodeGenerator:
     return self._render_runtime_token(value)
 
   def _render_path_argument(self, token: str) -> str:
-    return repr(str(token))
+    return self._render_tag_ref(token)
 
   def _render_runtime_token(self, token: str) -> str:
-    return self._render_literal(token)
+    return self._render_value(token)
+
+  def _render_tag_ref(self, token: str) -> str:
+    segments = split_tag_path(str(token))
+    if not segments:
+      return repr(str(token))
+
+    root = segments[0]
+    alias = self._tag_aliases.get(root.name, root.name)
+    text = alias
+    for index in root.indexes:
+      text += f"[{index}]"
+    for segment in segments[1:]:
+      text += f".{segment.name}"
+      for index in segment.indexes:
+        text += f"[{index}]"
+    return text
 
   def _canonicalize_profile(self, token: str) -> str:
     text = str(token).strip()
@@ -949,8 +1247,18 @@ class PythonCodeGenerator:
     return bool(VALID_PATH_PATTERN.fullmatch(str(text)))
 
 
-def transpile_routine_to_python(routine: Routine) -> str:
-  return PythonCodeGenerator().generate_routine(routine)
+def transpile_routine_to_python(
+  routine: Routine,
+  *,
+  plc_metadata: PlcMetadata | None = None,
+  plc_metadata_root: str | Path | None = None,
+  controller_tags_root: str | Path | None = None,
+) -> str:
+  return PythonCodeGenerator(
+    plc_metadata=plc_metadata,
+    plc_metadata_root=plc_metadata_root,
+    controller_tags_root=controller_tags_root,
+  ).generate_routine(routine)
 
 
 def transpile_routine_to_structured_python(routine: Routine) -> str:

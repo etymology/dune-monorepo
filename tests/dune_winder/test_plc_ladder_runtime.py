@@ -11,6 +11,7 @@ from dune_winder.plc_ladder import RoutineExecutor
 from dune_winder.plc_ladder import RuntimeState
 from dune_winder.plc_ladder import ScanContext
 from dune_winder.plc_ladder import TagStore
+from dune_winder.plc_ladder import bind_scan_context
 from dune_winder.plc_ladder import load_imperative_routine_from_source
 from dune_winder.plc_ladder import load_plc_metadata
 from dune_winder.paths import PLC_ROOT
@@ -113,6 +114,36 @@ class PlcLadderRuntimeTests(unittest.TestCase):
       ctx.set_value("trigger", True)
 
     self._assert_ast_and_generated_match(routine, setup=setup)
+
+  def test_tag_refs_support_member_index_value_and_write_through_access(self):
+    api = bind_scan_context(self.ctx)
+    self.ctx.set_value("X_axis.ActualPosition", 12.5)
+    self.ctx.set_value("MACHINE_SW_STAT[1]", False)
+    self.ctx.set_value("STATE", 2)
+
+    axis = api.ref("X_axis")
+    machine_bits = api.ref("MACHINE_SW_STAT")
+    state = api.ref("STATE")
+
+    self.assertEqual(float(axis.ActualPosition), 12.5)
+    self.assertEqual(state + 3, 5)
+    self.assertTrue(state == 2)
+
+    machine_bits[1].set(True)
+    self.assertTrue(self.ctx.get_value("MACHINE_SW_STAT[1]"))
+
+  def test_bound_api_normalizes_reference_and_value_operands_from_tag_refs(self):
+    api = bind_scan_context(self.ctx)
+    self.ctx.set_value("seed", 7)
+
+    api.FLL(
+      value=api.ref("seed"),
+      dest=api.ref("FIFO_Data")[0],
+      length=2,
+    )
+
+    self.assertEqual(self.ctx.get_value("FIFO_Data[0]"), 7)
+    self.assertEqual(self.ctx.get_value("FIFO_Data[1]"), 7)
 
   def test_osr_and_ons_only_pulse_on_rising_edge(self):
     routine = self.parser.parse_routine_text(
