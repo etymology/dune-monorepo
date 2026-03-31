@@ -43,15 +43,15 @@ LBL lbl_end_63 LES REALS[47] REALS[48] JMP lbl_min_a_64
 MOV REALS[48] REALS[44] JMP lbl_min_end_65 
 LBL lbl_min_a_64 MOV REALS[47] REALS[44] 
 LBL lbl_min_end_65 NOP 
-LBL lbl_end_57 LES "SegQueueBST idx_3 BND .Speed" REALS[44] JMP lbl_min_a_66 
+LBL lbl_end_57 LES SegQueue[idx_3].Speed REALS[44] JMP lbl_min_a_66 
 MOV REALS[44] REALS[49] JMP lbl_min_end_67 
-LBL lbl_min_a_66 MOV "SegQueueBST idx_3 BND .Speed" REALS[49] 
+LBL lbl_min_a_66 MOV SegQueue[idx_3].Speed REALS[49] 
 LBL lbl_min_end_67 GRT REALS[49] 0.0 JMP lbl_else_68 
 OTL BOOLS[8] 
 JMP lbl_CapSegSpeed_end 
-LBL lbl_else_68 MOV REALS[49] "SegQueueBST idx_3 BND .Speed" 
-MOV "SegQueueBST idx_3 BND .XY[0]" REALS[42] 
-MOV "SegQueueBST idx_3 BND .XY[1]" REALS[43] 
+LBL lbl_else_68 MOV REALS[49] SegQueue[idx_3].Speed 
+MOV SegQueue[idx_3].XY[0] REALS[42] 
+MOV SegQueue[idx_3].XY[1] REALS[43] 
 ADD idx_3 1 idx_3 
 JMP lbl_loop_54 
 LBL lbl_loop_end_55 JMP lbl_CapSegSpeed_end 
