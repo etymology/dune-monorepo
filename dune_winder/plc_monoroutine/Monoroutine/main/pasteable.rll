@@ -1,12 +1,3 @@
-XIC DUNEW2PLC2:1:I.Pt02Data XIC DUNEW2PLC2:1:I.Pt03Data XIC DUNEW2PLC2:1:I.Pt04Data OTE Safety_System_Healthy 
-BST XIO DUNEW2PLC2:1:I.Pt05Data NXB XIO DUNEW2PLC2:1:I.Pt00Data NXB XIO DUNEW2PLC2:1:I.Pt01Data BND OTE X_Axis_SLS.Request 
-XIC DUNEW2PLC2:1:I.Pt05Data OTE MORE_STATS_S[0] 
-XIO Safety_System_Healthy OTL Safety_Tripped_S 
-XIO Safety_Tripped_S BST BST OTE DUNEW2SERVO1:SO.STOOutput1 NXB OTE DUNEW2SERVO1:SO.STOOutput2 BND NXB OTE DUNEW2SERVO2:SO.STOOutput1 BND 
-XIC resetPB_S XIC Safety_System_Healthy BST OTU Safety_Tripped_S NXB BST OTE X_Axis_SFX.Reset NXB OTE X_Axis_SLS.Reset BND BND 
-XIO DUNEW2PLC2:1:I.Pt06Data XIC DUNEW2SERVO1:SI.PrimaryFeedbackValid1 SFX X_Axis_SFX Seconds 512.0 512 512 0.0 DUNEW2SERVO1:SI.FeedbackPosition1 DUNEW2SERVO1:SI.FeedbackVelocity1 DUNEW2SERVO1:SI.PrimaryFeedbackValid1 DUNEW2SERVO1:SI.ConnectionFaulted X_Axis_SFX.HomeTrigger X_Axis_SFX.Reset DUNEW2SERVO1:SO.SFHomed1 DUNEW2SERVO1:SO.SFXFault1 
-XIO DUNEW2PLC2:1:I.Pt06Data SLS X_Axis_SLS AUTOMATIC AUTOMATIC 3000 X_Axis_SLS.ActiveLimit X_Axis_SFX X_Axis_SLS.Request X_Axis_SLS.Reset DUNEW2SERVO1:SO.SLSActive1 DUNEW2SERVO1:SO.SLSLimit1 DUNEW2SERVO1:SO.SLSFault1 
-XIC DUNEW2SERVO1:SO.SLSActive1 OTE MORE_STATS_S[1] 
 XIC Local:1:I.Pt00.Data OTE MACHINE_SW_STAT[1] OTE Z_RETRACTED_1A 
 BST XIO DUNEW2PLC2:1:I.Pt02Data NXB XIO DUNEW2PLC2:1:I.Pt03Data NXB XIO DUNEW2PLC2:1:I.Pt04Data BND OTE MACHINE_SW_STAT[23] 
 XIO Local:1:I.Pt01.Data OTE MACHINE_SW_STAT[2] OTE Z_RETRACTED_1B 
@@ -149,7 +140,7 @@ XIC main_xy_move.IP XIO ALL_EOT_GOOD OSR MXY_oneshotsb[8] MXY_eot_triggered
 XIC MXY_eot_triggered MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 
 XIC MXY_eot_triggered MCS X_Y XY_AXIS_STAT[6] All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 
 XIC MXY_oneshotob[5] CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
-BST XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 NXB XIO Z_FIXED_LATCHED NXB XIC latch_bypass BND OTE no_latch_collision 
+BST XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 NXB XIO Z_FIXED_LATCHED BND OTE no_latch_collision 
 BST XIC X_XFER_OK NXB XIC Y_XFER_OK BND OTE no_apa_collision 
 BST XIC X_XFER_OK BST LIM 400 X_axis.ActualPosition 500 BST XIC support_collision_window_bttm XIO FRAME_LOC_HD_BTM NXB XIC support_collision_window_mid XIO FRAME_LOC_HD_MID NXB XIC support_collision_window_top XIO FRAME_LOC_HD_TOP BND NXB LIM 7100 X_axis.ActualPosition 7200 BST XIC support_collision_window_bttm XIO FRAME_LOC_FT_BTM NXB XIC support_collision_window_mid XIO FRAME_LOC_FT_MID NXB XIC support_collision_window_top XIO FRAME_LOC_FT_TOP BND NXB XIO support_collision_window_bttm XIO support_collision_window_mid XIO support_collision_window_top BND NXB XIC Y_XFER_OK BND OTE no_supports_collision 
 XIC no_latch_collision XIC no_supports_collision XIC no_apa_collision OTE MASTER_Z_GO 
@@ -767,3 +758,4 @@ MOV MoveA.ERR QueueDiag_MoveA_ERRID
 MOV MoveA.EXERR QueueDiag_MoveA_EXERR 
 MOV MoveB.ERR QueueDiag_MoveB_ERRID 
 MOV MoveB.EXERR QueueDiag_MoveB_EXERR 
+
