@@ -111,7 +111,7 @@ class PlcLadderParserTests(unittest.TestCase):
       self.emitter.emit_routine(routine).strip().splitlines(),
     )
 
-  def test_imperative_codegen_rejects_jump_label_routines(self):
+  def test_imperative_codegen_compiles_jump_label_routines(self):
     path = PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll"
     routine = self.parser.parse_routine_path(
       path,
@@ -119,8 +119,11 @@ class PlcLadderParserTests(unittest.TestCase):
       program="motionQueue",
     )
 
-    with self.assertRaises(NotImplementedError):
-      self.codegen.generate_routine(routine)
+    generated = self.codegen.generate_routine(routine)
+
+    self.assertIn("while _pc <", generated)
+    self.assertIn("_pc = 5", generated)
+    compile(generated, str(path), "exec")
 
   def test_round_trips_motion_queue_helpers_through_structured_python(self):
     helper_paths = [
