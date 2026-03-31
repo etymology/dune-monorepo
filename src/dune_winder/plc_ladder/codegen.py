@@ -378,10 +378,12 @@ class PythonCodeGenerator:
     self._emitter = RllEmitter()
     self._structured = StructuredPythonCodeGenerator()
     self._temp_counter = 0
+    self._label_map: dict[str, int] = {}
 
   def generate_routine(self, routine: Routine) -> str:
     self._assert_supported(routine)
     self._temp_counter = 0
+    self._label_map = self._collect_label_map(routine)
 
     lines = [
       "from dune_winder.plc_ladder.imperative import bind_scan_context",
@@ -405,16 +407,19 @@ class PythonCodeGenerator:
     if len(lines) > 0 and lines[-1] != "":
       lines.append("")
 
-    for index, rung in enumerate(routine.rungs):
-      lines.append(f"  # rung {index}")
-      lines.append(f"  # {self._emitter.emit_rung(rung).strip()}")
-      rung_lines, _ = self._lower_nodes(rung.nodes, [], 1)
-      if rung_lines:
-        lines.extend(rung_lines)
-      else:
-        lines.append("  pass")
-      if index != len(routine.rungs) - 1:
-        lines.append("")
+    if self._label_map:
+      lines.extend(self._render_label_aware_routine(routine))
+    else:
+      for index, rung in enumerate(routine.rungs):
+        lines.append(f"  # rung {index}")
+        lines.append(f"  # {self._emitter.emit_rung(rung).strip()}")
+        rung_lines, _ = self._lower_nodes(rung.nodes, [], 1)
+        if rung_lines:
+          lines.extend(rung_lines)
+        else:
+          lines.append("  pass")
+        if index != len(routine.rungs) - 1:
+          lines.append("")
 
     return "\n".join(lines) + "\n"
 
@@ -434,8 +439,33 @@ class PythonCodeGenerator:
         for branch in node.branches:
           self._collect_unsupported(branch, unsupported)
         continue
-      if node.opcode in {"JMP", "LBL"}:
+      if node.opcode not in {"JMP", "LBL"}:
+        continue
+      if node.opcode == "JMP" and len(node.operands) != 1:
+        unsupported.add("JMP")
+      if node.opcode == "LBL" and len(node.operands) != 1:
         unsupported.add(node.opcode)
+
+  def _collect_label_map(self, routine: Routine) -> dict[str, int]:
+    label_map: dict[str, int] = {}
+    for index, rung in enumerate(routine.rungs):
+      self._collect_rung_labels(rung.nodes, label_map, index)
+    return label_map
+
+  def _collect_rung_labels(
+    self,
+    nodes: tuple[Node, ...],
+    label_map: dict[str, int],
+    rung_index: int,
+  ):
+    for node in nodes:
+      if isinstance(node, Branch):
+        for branch in node.branches:
+          self._collect_rung_labels(branch, label_map, rung_index)
+        continue
+      if node.opcode != "LBL" or not node.operands:
+        continue
+      label_map.setdefault(str(node.operands[0]), rung_index)
 
   def _math_imports_for(self, routine: Routine) -> tuple[str, ...]:
     imports = set()
@@ -488,9 +518,35 @@ class PythonCodeGenerator:
         for branch in node.branches:
           self._collect_runtime_helpers(branch, helpers)
         continue
-      if node.opcode in {"AFI", "CMP", "EQU", "GEQ", "GRT", "LEQ", "LES", "LIM", "NEQ", "OTE", "XIC", "XIO"}:
+      if node.opcode in {"AFI", "CMP", "EQU", "GEQ", "GRT", "JMP", "LBL", "LEQ", "LES", "LIM", "NEQ", "OTE", "XIC", "XIO"}:
         continue
       helpers.add(node.opcode)
+
+  def _render_label_aware_routine(self, routine: Routine) -> list[str]:
+    lines = [
+      "  _pc = 0",
+      f"  while _pc < {len(routine.rungs)}:",
+    ]
+    for index, rung in enumerate(routine.rungs):
+      if index == 0:
+        lines.append(f"    if _pc == {index}:")
+      else:
+        lines.append(f"    elif _pc == {index}:")
+      lines.append(f"      # rung {index}")
+      lines.append(f"      # {self._emitter.emit_rung(rung).strip()}")
+      rung_lines, _ = self._lower_nodes(rung.nodes, [], 3)
+      if rung_lines:
+        lines.extend(rung_lines)
+      else:
+        lines.append("      pass")
+      if index < len(routine.rungs) - 1:
+        lines.append(f"      _pc = {index + 1}")
+        lines.append("      continue")
+      else:
+        lines.append("      break")
+    lines.append("    else:")
+    lines.append("      break")
+    return lines
 
   def _lower_nodes(self, nodes: tuple[Node, ...], clauses: list[str], indent: int):
     lines = []
@@ -558,6 +614,12 @@ class PythonCodeGenerator:
 
     if opcode in {"AFI", "CMP", "EQU", "GEQ", "GRT", "LEQ", "LES", "LIM", "NEQ", "XIC", "XIO"}:
       return [], clauses + [self._render_predicate(opcode, operands)]
+
+    if opcode == "LBL":
+      return [], clauses
+
+    if opcode == "JMP":
+      return self._render_jump(operands, clauses, indent), clauses
 
     if opcode == "OTE":
       return [self._indent(indent) + self._render_output_energize(operands[0], clauses)], clauses
@@ -692,6 +754,11 @@ class PythonCodeGenerator:
     if not operands:
       return [f"{opcode}()"]
     return self._render_call_lines(opcode, positional=tuple(self._render_value(operand) for operand in operands))
+
+  def _render_jump(self, operands: tuple[str, ...], clauses: list[str], indent: int) -> list[str]:
+    target = self._label_map[str(operands[0])]
+    body_lines = [f"_pc = {target}", "continue"]
+    return self._guard_block(clauses, body_lines, indent)
 
   def _render_jsr(self, operands: tuple[str, ...]):
     routine_name = str(operands[0])
