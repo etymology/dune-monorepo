@@ -95,8 +95,12 @@ class _ManualLinePLCLogic(_QueuedMotionPLCLogic):
 
 
 class _Head:
+  def __init__(self):
+    self.clear_calls = 0
+    self._ready = True
+
   def isReady(self):
-    return True
+    return self._ready
 
   def readCurrentPosition(self):
     return 0
@@ -109,6 +113,10 @@ class _Head:
 
   def getTargetAxisPosition(self):
     return 0.0
+
+  def clearQueuedTransfer(self):
+    self.clear_calls += 1
+    self._ready = True
 
 
 class _IO:
@@ -628,6 +636,24 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertIsNone(error)
     self.assertEqual(handler._pending_actions, [])
     self.assertEqual(plc_logic.legacy_xy_moves, [])
+    self.assertEqual(len(plc_logic.z_moves), 1)
+    self.assertEqual(plc_logic.z_moves[0][0], 60.0)
+
+  def test_execute_manual_z_line_clears_stale_head_error_before_dispatch(self):
+    calibration = DefaultMachineCalibration()
+    plc_logic = _ManualLinePLCLogic()
+    io = _IO(400.0, 100.0, z=50.0, plc_logic=plc_logic)
+    io.head._ready = False
+    handler = GCodeHandler(
+      io,
+      calibration,
+      WirePathModel(calibration),
+    )
+
+    error = handler.executeG_CodeLine("Z60")
+
+    self.assertIsNone(error)
+    self.assertEqual(io.head.clear_calls, 1)
     self.assertEqual(len(plc_logic.z_moves), 1)
     self.assertEqual(plc_logic.z_moves[0][0], 60.0)
 

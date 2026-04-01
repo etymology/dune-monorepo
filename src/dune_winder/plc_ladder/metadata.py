@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dune_winder.paths import PLC_ROOT
+
 
 @dataclass(frozen=True)
 class FieldDefinition:
@@ -102,8 +104,26 @@ def load_plc_metadata(
 ) -> PlcMetadata:
   metadata_root = Path(root)
   tags_root = Path(controller_tags_root) if controller_tags_root is not None else metadata_root
+  controller_tags_path = tags_root / "controller_level_tags.json"
+
+  if not controller_tags_path.exists():
+    if controller_tags_root is None:
+      candidate_controller_tags_path = PLC_ROOT / "controller_level_tags.json"
+      if candidate_controller_tags_path.exists():
+        metadata_root = PLC_ROOT
+        tags_root = PLC_ROOT
+        controller_tags_path = candidate_controller_tags_path
+
+  if not controller_tags_path.exists():
+    searched = [str(tags_root)]
+    if controller_tags_root is None and str(PLC_ROOT) not in searched:
+      searched.append(str(PLC_ROOT))
+    raise FileNotFoundError(
+      "controller_level_tags.json not found. Looked in: " + ", ".join(searched)
+    )
+
   controller_payload = json.loads(
-    (tags_root / "controller_level_tags.json").read_text(encoding="utf-8")
+    controller_tags_path.read_text(encoding="utf-8")
   )
 
   udts = {

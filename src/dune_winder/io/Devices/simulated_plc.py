@@ -45,8 +45,8 @@ class SimulatedPLC(PLC):
 
   _MACHINE_SW_ASSUMPTIONS = [
     "Z retract/extend sensors are derived from Z axis position and nominal front/back limits.",
-    "Stage/fixed present sensors default true unless overridden; latch-side state tracks stage/fixed transfer steps independently of HEAD_POS.",
-    "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2/3), where 3 is the transient fixed-latch transfer position.",
+    "Stage/fixed present sensors default true unless overridden; latched sensors are derived from HEAD_POS (-1/0/3).",
+    "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2).",
     "Transfer and end-of-travel sensors are derived from current X/Y positions and configured limits.",
     "Safety bits (Rotation_Lock_key, Light_Curtain) default to permissive values unless overridden.",
     "estop and park default to false unless overridden.",
@@ -79,8 +79,6 @@ class SimulatedPLC(PLC):
     self._queuedMotionActive = False
     self._currentQueuedSegment = None
     self._currentQueueCyclesRemaining = 0
-    self._latchedSide = "stage"
-    self._returningToStage = False
 
     self._limits = {
       "parkX": 0.0,
@@ -102,83 +100,6 @@ class SimulatedPLC(PLC):
     self._tagValues = {}
     self._overrides = {}
     self._seedDefaultTags()
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _projectHeadPosition(latchedSide, actuatorPos: int) -> int:
-    if latchedSide == "stage":
-      return 0
-    if latchedSide == "fixed":
-      return 0 if int(actuatorPos) == 3 else 3
-    return -1
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _inferLatchState(headPos: int, actuatorPos: int):
-    head = int(headPos)
-    actuator = int(actuatorPos)
-    if head == -1:
-      return None, False
-    if actuator == 3:
-      return "fixed", False
-    if head == 3 and actuator == 1:
-      return "stage", True
-    if head == 3:
-      return "fixed", False
-    return "stage", False
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _nextLatchState(actuatorPos: int, latchedSide, returningToStage: bool):
-    actuator = int(actuatorPos)
-    side = latchedSide
-    returning = bool(returningToStage)
-
-    if side == "stage":
-      if actuator == 0:
-        return 1, "stage", False
-      if actuator == 1:
-        if returning:
-          return 2, "stage", False
-        return 3, "fixed", False
-      if actuator == 2:
-        return 1, "stage", False
-      if actuator == 3:
-        return 2, "fixed", False
-      return 1, "stage", False
-
-    if side == "fixed":
-      if actuator == 3:
-        return 2, "fixed", False
-      if actuator == 2:
-        return 1, "stage", True
-      if actuator == 1:
-        return 2, "stage", False
-      if actuator == 0:
-        return 2, "fixed", False
-      return 2, "fixed", False
-
-    return 1, "stage", False
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _actuatorSensorState(actuatorPos: int):
-    actuator = int(actuatorPos)
-    top = actuator in (2, 3)
-    mid = actuator == 2
-    return top, mid
-
-  # ---------------------------------------------------------------------
-  def _syncHiddenLatchStateFromVisible(self):
-    self._latchedSide, self._returningToStage = self._inferLatchState(
-      self._tagValues.get("HEAD_POS", 0),
-      self._tagValues.get("ACTUATOR_POS", 0),
-    )
-
-  # ---------------------------------------------------------------------
-  def _syncVisibleLatchTags(self):
-    actuator = int(self._tagValues.get("ACTUATOR_POS", 0))
-    self._tagValues["HEAD_POS"] = self._projectHeadPosition(self._latchedSide, actuator)
 
   # ---------------------------------------------------------------------
   def initialize(self):
@@ -298,6 +219,7 @@ class SimulatedPLC(PLC):
     self._tagValues["ERROR_CODE"] = 0
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
     self._tagValues["gui_latch_pulse"] = 0
+    self._tagValues["HEAD_POS"] = 0
     self._tagValues["ACTUATOR_POS"] = 0
 
     self._tagValues["XY_SPEED"] = 0.0
@@ -371,7 +293,6 @@ class SimulatedPLC(PLC):
     self._tagValues["UseAasCurrent"] = 1
     self._tagValues["X_Y.MovePendingStatus"] = 0
     self._tagValues["FaultCode"] = 0
-    self._syncVisibleLatchTags()
 
   # ---------------------------------------------------------------------
   def _writeTag(self, tagName, value):
@@ -432,17 +353,13 @@ class SimulatedPLC(PLC):
       if intValue not in (-1, 0, 3):
         raise ValueError("HEAD_POS must be one of -1, 0, or 3.")
       self._tagValues[tagName] = intValue
-      self._syncHiddenLatchStateFromVisible()
-      self._syncVisibleLatchTags()
       return
 
     if tagName == "ACTUATOR_POS":
       intValue = int(value)
-      if intValue not in (0, 1, 2, 3):
-        raise ValueError("ACTUATOR_POS must be one of 0, 1, 2, or 3.")
+      if intValue not in (0, 1, 2):
+        raise ValueError("ACTUATOR_POS must be one of 0, 1, or 2.")
       self._tagValues[tagName] = intValue
-      self._syncHiddenLatchStateFromVisible()
-      self._syncVisibleLatchTags()
       return
 
     if tagName == "xz_position_target":
@@ -550,14 +467,11 @@ class SimulatedPLC(PLC):
 
     elif moveType == self.MOVE_HOME_LATCH:
       self._tagValues["ACTUATOR_POS"] = 0
-      if self._latchedSide is None:
-        self._latchedSide = "stage"
-      self._returningToStage = False
-      self._syncVisibleLatchTags()
+      if self._tagValues.get("HEAD_POS") == -1:
+        self._tagValues["HEAD_POS"] = 0
 
     elif moveType == self.MOVE_LATCH_UNLOCK:
       self._tagValues["ACTUATOR_POS"] = 2
-      self._syncVisibleLatchTags()
 
     if self._tagValues.get("STATE") != self.STATE_ERROR:
       self._tagValues["ERROR_CODE"] = 0
@@ -566,13 +480,12 @@ class SimulatedPLC(PLC):
   # ---------------------------------------------------------------------
   def _advanceLatch(self):
     actuator = int(self._tagValues.get("ACTUATOR_POS", 0))
-    actuator, self._latchedSide, self._returningToStage = self._nextLatchState(
-      actuator,
-      self._latchedSide,
-      self._returningToStage,
-    )
+    actuator = (actuator + 1) % 3
     self._tagValues["ACTUATOR_POS"] = actuator
-    self._syncVisibleLatchTags()
+
+    headPos = int(self._tagValues.get("HEAD_POS", 0))
+    if actuator == 2 and headPos in (0, 3):
+      self._tagValues["HEAD_POS"] = 3 if headPos == 0 else 0
 
   # ---------------------------------------------------------------------
   def _setAxisMovement(self, isMoving: bool):
@@ -804,9 +717,6 @@ class SimulatedPLC(PLC):
     z = float(self._tagValues.get("Z_axis.ActualPosition", 0.0))
     headPos = int(self._tagValues.get("HEAD_POS", 0))
     actuatorPos = int(self._tagValues.get("ACTUATOR_POS", 0))
-    stageLatched = self._latchedSide == "stage"
-    fixedLatched = self._latchedSide == "fixed"
-    topSensor, midSensor = self._actuatorSensorState(actuatorPos)
 
     zRetracted = z <= (self._limits["zFront"] + 1.0)
     zExtended = z >= (self._limits["zBack"] - 1.0)
@@ -821,14 +731,14 @@ class SimulatedPLC(PLC):
       3: zRetracted,
       4: zRetracted,
       5: zExtended,
-      6: stageLatched,
-      7: fixedLatched,
+      6: headPos == 0,
+      7: headPos == 3,
       8: z <= self._limits["zLimitFront"] or z >= self._limits["zLimitRear"],
       9: True,
       10: True,
       11: zExtended,
-      12: topSensor,
-      13: midSensor,
+      12: actuatorPos == 0,
+      13: actuatorPos == 1,
       14: xPark,
       15: xTransfer,
       16: yTransfer,

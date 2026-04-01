@@ -130,18 +130,21 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(plc.latch_moves, 1)
     self.assertEqual(head._headState, Head.States.LATCHING)
 
-    plc._zStageLatchedBit.set(False)
-    plc._zFixedLatchedBit.set(True)
-    plc._actuatorPosition.set(3)
-    clock["now"] = 0.05
+    clock["now"] = 0.10
+    head.update()
+    self.assertEqual(plc.latch_moves, 1)
+    self.assertEqual(plc.z_moves, [(418.0, 400)])
+
+    clock["now"] = 0.30
     head.update()
     self.assertEqual(plc.latch_moves, 2)
     self.assertEqual(plc.z_moves, [(418.0, 400)])
-    self.assertEqual(head._headState, Head.States.LATCHING)
 
+    plc._zStageLatchedBit.set(False)
+    plc._zFixedLatchedBit.set(True)
     plc._actuatorPosition.set(2)
-    clock["now"] = 0.10
     head.update()
+
     self.assertEqual(plc.z_moves[-1], (0.0, 400))
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 

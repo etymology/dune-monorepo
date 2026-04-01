@@ -1,4 +1,4 @@
-BST XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 NXB XIO Z_FIXED_LATCHED NXB XIC latch_bypass BND OTE no_latch_collision 
+BST XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 NXB XIO Z_FIXED_LATCHED BND OTE no_latch_collision 
 BST XIC X_XFER_OK NXB XIC Y_XFER_OK BND OTE no_apa_collision 
 BST XIC X_XFER_OK BST LIM 400 X_axis.ActualPosition 500 BST XIC support_collision_window_bttm XIO FRAME_LOC_HD_BTM NXB XIC support_collision_window_mid XIO FRAME_LOC_HD_MID NXB XIC support_collision_window_top XIO FRAME_LOC_HD_TOP BND NXB LIM 7100 X_axis.ActualPosition 7200 BST XIC support_collision_window_bttm XIO FRAME_LOC_FT_BTM NXB XIC support_collision_window_mid XIO FRAME_LOC_FT_MID NXB XIC support_collision_window_top XIO FRAME_LOC_FT_TOP BND NXB XIO support_collision_window_bttm XIO support_collision_window_mid XIO support_collision_window_top BND NXB XIC Y_XFER_OK BND OTE no_supports_collision 
 XIC no_latch_collision XIC no_supports_collision XIC no_apa_collision OTE MASTER_Z_GO 

@@ -12,8 +12,6 @@
 #   PLC.  No operation that isn't specific to the ladder logic should be in
 #   this unit.
 ###################################################>############################
-import time
-
 from dune_winder.io.devices.plc import PLC
 from dune_winder.io.primitives.multi_axis_motor import MultiAxisMotor
 from dune_winder.io.primitives.plc_motor import PLC_Motor
@@ -91,19 +89,7 @@ class PLC_Logic:
     8000: "Unlock Latch Motor Successful",
     8001: "Wire broke",
     8002: "Wire over-tensioned",
-    9001: "Local Z pre-latch timed out before safe high-Z move",
-    9002: "Local high-Z move could not be started after pre-latch",
   }
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _enumName(enumClass, value):
-    for name, enumValue in vars(enumClass).items():
-      if name.startswith("_"):
-        continue
-      if enumValue == value:
-        return name
-    return "UNKNOWN(" + str(value) + ")"
 
   # ---------------------------------------------------------------------
   def isReady(self):
@@ -115,9 +101,6 @@ class PLC_Logic:
     Returns:
       True if ready, False if some other operation is taking place.
     """
-    if self._queuedSafeZMove is not None or self._localErrorCode != 0:
-      return False
-
     state = self._state.get()
 
     if self.States.READY == state:
@@ -135,240 +118,15 @@ class PLC_Logic:
     Returns:
       True if in error, False if not.
     """
-    return self._localErrorCode != 0 or self.States.ERROR == self._state.get()
 
-  # ---------------------------------------------------------------------
-  def getStateName(self):
-    """
-    Return the PLC state name.
-    """
-    return self._enumName(self.States, self.getState())
-
-  # ---------------------------------------------------------------------
-  def getMoveTypeName(self):
-    """
-    Return the PLC move-type name.
-    """
-    return self._enumName(self.MoveTypes, self.getMoveType())
-
-  # ---------------------------------------------------------------------
-  def getReadinessBlocker(self):
-    """
-    Return structured detail describing why the PLC controller is not ready.
-    """
-    if self.isReady():
-      return None
-
-    blocker = {
-      "state": self.getStateName(),
-      "moveType": self.getMoveTypeName(),
-      "errorCode": int(self.getErrorCode()),
-    }
-
-    if blocker["errorCode"] != 0:
-      blocker["errorMessage"] = self.getErrorCodeString()
-
-    if self._queuedSafeZMove is not None:
-      blocker["queuedSafeZMove"] = dict(self._queuedSafeZMove)
-
-    return blocker
+    return self.States.ERROR == self._state.get()
 
   # ---------------------------------------------------------------------
   def stopSeek(self):
     """
     Request the PLC HMI stop state for a controlled user-initiated motion stop.
     """
-    self._clearQueuedSafeZMove()
-    self._clearLocalError()
     self._moveType.set(self.MoveTypes.HMI_STOP_REQUEST)
-
-  # ---------------------------------------------------------------------
-  def setSafeZLatchTiming(self, retry_interval_seconds, timeout_seconds):
-    """
-    Configure the local pre-latch retry timing used before high-Z motion.
-    """
-    retryInterval = float(retry_interval_seconds)
-    timeout = float(timeout_seconds)
-    if retryInterval <= 0:
-      raise ValueError("Safe-Z latch retry interval must be positive.")
-    if timeout <= 0:
-      raise ValueError("Safe-Z latch timeout must be positive.")
-    self._safeZLatchRetryIntervalSeconds = retryInterval
-    self._safeZLatchTimeoutSeconds = timeout
-
-  # ---------------------------------------------------------------------
-  def _prepareForNewCommand(self):
-    """
-    Cancel any locally queued pre-latched move and clear local errors before
-    starting a new explicit command.
-    """
-    self._clearQueuedSafeZMove()
-    self._clearLocalError()
-
-  # ---------------------------------------------------------------------
-  def _clearLocalError(self):
-    """
-    Clear controller-local errors that do not originate in the PLC.
-    """
-    self._localErrorCode = 0
-    self._localErrorMessage = ""
-
-  # ---------------------------------------------------------------------
-  def _setLocalError(self, code, message):
-    """
-    Record a controller-local error and cancel any queued motion.
-    """
-    self._clearQueuedSafeZMove()
-    self._localErrorCode = int(code)
-    self._localErrorMessage = str(message)
-
-  # ---------------------------------------------------------------------
-  def _clearQueuedSafeZMove(self):
-    """
-    Clear any locally queued motion waiting for actuator position 2.
-    """
-    self._queuedSafeZMove = None
-    self._safeZLatchStartedAt = None
-    self._nextSafeZLatchPulseAt = None
-    self._safeZLatchWaitActuatorPos = None
-
-  # ---------------------------------------------------------------------
-  def _readTransferState(self):
-    """
-    Read the raw transfer tags used to decide whether high-Z motion must
-    pre-latch to actuator position 2 first.
-    """
-    return {
-      "stagePresent": bool(self._readTagNow(self._zStagePresentBit)),
-      "fixedPresent": bool(self._readTagNow(self._zFixedPresentBit)),
-      "stageLatched": bool(self._readTagNow(self._zStageLatchedBit)),
-      "fixedLatched": bool(self._readTagNow(self._zFixedLatchedBit)),
-      "actuatorPos": int(self._readTagNow(self._actuatorPosition)),
-    }
-
-  # ---------------------------------------------------------------------
-  def _requiresActuatorTwoBeforeHighZMove(self, targetZ, state):
-    """
-    High-Z motion is only legal with the fixed latch parked in actuator
-    position 2.
-    """
-    return (
-      float(targetZ) > self._safeZLatchThreshold
-      and state["fixedLatched"]
-      and int(state["actuatorPos"]) != 2
-    )
-
-  # ---------------------------------------------------------------------
-  def _queueSafeZMove(self, queuedMove):
-    """
-    Start the local pulse-and-wait loop that must complete before the pending
-    high-Z move can be issued.
-    """
-    now = self._clock()
-    self._queuedSafeZMove = dict(queuedMove)
-    self._safeZLatchStartedAt = now
-    self._nextSafeZLatchPulseAt = now
-    self._safeZLatchWaitActuatorPos = int(self._readTagNow(self._actuatorPosition))
-    self._updateQueuedSafeZMove()
-
-  # ---------------------------------------------------------------------
-  def _issueZSeek(self, position):
-    """
-    Write the actual PLC tags for a Z seek.
-    """
-    self._zAxis.setVelocity(self._velocity)
-    self._zAxis.setDesiredPosition(position)
-    self._pulseMoveType(self.MoveTypes.SEEK_Z)
-
-  # ---------------------------------------------------------------------
-  def _issueXZSeek(self, x, z):
-    """
-    Write the actual PLC tags for an X/Z coordinated seek.
-    """
-    yTransferOk = self._readTagNow(self._yTransferOk)
-    if not bool(yTransferOk):
-      raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
-
-    self._xzPositionTarget.set([float(x), float(z)])
-    self._moveType.set(self.MoveTypes.SEEK_XZ)
-
-  # ---------------------------------------------------------------------
-  def _dispatchQueuedSafeZMove(self, queuedMove):
-    """
-    Issue the high-Z move that was waiting for actuator position 2.
-    """
-    kind = queuedMove["kind"]
-    if kind == "z":
-      self._issueZSeek(float(queuedMove["z"]))
-      return
-    if kind == "xz":
-      self._issueXZSeek(float(queuedMove["x"]), float(queuedMove["z"]))
-      return
-    raise ValueError("Unknown queued safe-Z move type: " + str(kind))
-
-  # ---------------------------------------------------------------------
-  def _sendLatchPulseIfLegal(self):
-    """
-    Internal helper used by both explicit latch commands and local pre-latch
-    retries.
-    """
-    if not self.canMoveLatch():
-      return False
-
-    self._writeTagNow(self._guiLatchPulse.getName(), 1)
-    self._guiLatchPulse.updateFromReadTag(1)
-    return True
-
-  # ---------------------------------------------------------------------
-  def _updateQueuedSafeZMove(self):
-    """
-    Advance the local pre-latch loop for a queued high-Z motion.
-    """
-    if self._queuedSafeZMove is None or self._plc.isNotFunctional():
-      return
-
-    if self.States.ERROR == self._state.get():
-      self._clearQueuedSafeZMove()
-      return
-
-    transferState = self._readTransferState()
-    if int(transferState["actuatorPos"]) == 2:
-      queuedMove = dict(self._queuedSafeZMove)
-      self._clearQueuedSafeZMove()
-      try:
-        self._dispatchQueuedSafeZMove(queuedMove)
-      except Exception as exception:
-        self._setLocalError(9002, str(exception))
-      return
-
-    if self._safeZLatchStartedAt is None:
-      now = self._clock()
-      self._safeZLatchStartedAt = now
-      self._nextSafeZLatchPulseAt = now
-      self._safeZLatchWaitActuatorPos = int(transferState["actuatorPos"])
-
-    now = self._clock()
-    if now - self._safeZLatchStartedAt >= self._safeZLatchTimeoutSeconds:
-      self._setLocalError(9001, "Local Z pre-latch timed out before safe high-Z move.")
-      return
-
-    if transferState["actuatorPos"] != self._safeZLatchWaitActuatorPos:
-      self._safeZLatchWaitActuatorPos = int(transferState["actuatorPos"])
-      self._nextSafeZLatchPulseAt = now
-      if int(transferState["actuatorPos"]) == 2:
-        queuedMove = dict(self._queuedSafeZMove)
-        self._clearQueuedSafeZMove()
-        try:
-          self._dispatchQueuedSafeZMove(queuedMove)
-        except Exception as exception:
-          self._setLocalError(9002, str(exception))
-        return
-
-    if self._nextSafeZLatchPulseAt is not None and now < self._nextSafeZLatchPulseAt:
-      return
-
-    self._sendLatchPulseIfLegal()
-    self._nextSafeZLatchPulseAt = now + self._safeZLatchRetryIntervalSeconds
 
   # ---------------------------------------------------------------------
   def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
@@ -381,8 +139,6 @@ class PLC_Logic:
       velocity: Maximum velocity at which to make move.  None to use last
         velocity.
     """
-    self._prepareForNewCommand()
-
     if velocity is not None:
       self._velocity = velocity
 
@@ -407,7 +163,6 @@ class PLC_Logic:
       yVelocity: Speed of travel on y-axis.  0 for no motion or stop, negative
         for seeking in reverse direction.
     """
-    self._prepareForNewCommand()
 
     if acceleration is not None:
       self._maxXY_Acceleration.set(float(acceleration))
@@ -428,18 +183,12 @@ class PLC_Logic:
       velocity: Maximum velocity at which to make move.  None to use last
         velocity.
     """
-    self._prepareForNewCommand()
-
     if velocity is not None:
       self._velocity = velocity
 
-    if float(position) > self._safeZLatchThreshold:
-      transferState = self._readTransferState()
-      if self._requiresActuatorTwoBeforeHighZMove(position, transferState):
-        self._queueSafeZMove({"kind": "z", "z": float(position)})
-        return
-
-    self._issueZSeek(position)
+    self._zAxis.setVelocity(self._velocity)
+    self._zAxis.setDesiredPosition(position)
+    self._pulseMoveType(self.MoveTypes.SEEK_Z)
 
   # ---------------------------------------------------------------------
   def setXZ_Position(self, x, z, velocity=None):
@@ -452,17 +201,14 @@ class PLC_Logic:
       velocity: Reserved for interface compatibility. Ignored by the PLC
         transfer-motion command.
     """
-    self._prepareForNewCommand()
-
     del velocity
 
-    if float(z) > self._safeZLatchThreshold:
-      transferState = self._readTransferState()
-      if self._requiresActuatorTwoBeforeHighZMove(z, transferState):
-        self._queueSafeZMove({"kind": "xz", "x": float(x), "z": float(z)})
-        return
+    yTransferOk = self._readTagNow(self._yTransferOk)
+    if not bool(yTransferOk):
+      raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
 
-    self._issueXZSeek(x, z)
+    self._xzPositionTarget.set([float(x), float(z)])
+    self._moveType.set(self.MoveTypes.SEEK_XZ)
 
   # ---------------------------------------------------------------------
   def _readTagNow(self, tag):
@@ -522,7 +268,6 @@ class PLC_Logic:
       velocity: Speed of travel.  0 for no motion or stop, negative
         for seeking in reverse direction.
     """
-    self._prepareForNewCommand()
 
     self._zAxis.setVelocity(velocity)
     self._pulseMoveType(self.MoveTypes.JOG_Z)
@@ -552,8 +297,7 @@ class PLC_Logic:
     Check whether the latch pulse interlock is currently satisfied.
 
     Returns:
-      True if both stage and fixed present bits are set, or the stage is not
-      present.
+      True if both stage and fixed present bits are set, False otherwise.
     """
     stagePresent = bool(self._readTagNow(self._zStagePresentBit))
     fixedPresent = bool(self._readTagNow(self._zFixedPresentBit))
@@ -568,8 +312,12 @@ class PLC_Logic:
       True if the pulse was sent, False if the transfer-present interlock is
       not satisfied.
     """
-    self._prepareForNewCommand()
-    return self._sendLatchPulseIfLegal()
+    if not self.canMoveLatch():
+      return False
+
+    self._writeTagNow(self._guiLatchPulse.getName(), 1)
+    self._guiLatchPulse.updateFromReadTag(1)
+    return True
 
   # ---------------------------------------------------------------------
   def poll(self):
@@ -577,7 +325,6 @@ class PLC_Logic:
     Internal update. Call periodically.
     """
     PLC.Tag.pollAll(self._plc)
-    self._updateQueuedSafeZMove()
 
   # ---------------------------------------------------------------------
   def getMoveType(self):
@@ -604,8 +351,6 @@ class PLC_Logic:
     """
     Reset PLC logic.  Clears errors.
     """
-    self._clearQueuedSafeZMove()
-    self._clearLocalError()
     self._moveType.set(self.MoveTypes.RESET)
 
   # ---------------------------------------------------------------------
@@ -614,7 +359,7 @@ class PLC_Logic:
     """
     Initilize PLC logic.
     """
-    self._prepareForNewCommand()
+
     self._moveType.set(self.MoveTypes.PLC_INIT)
 
   # ---------------------------------------------------------------------
@@ -623,7 +368,6 @@ class PLC_Logic:
     """
     Start a latch homing operation.
     """
-    self._prepareForNewCommand()
     self._moveType.set(self.MoveTypes.HOME_LATCH)
 
   # ---------------------------------------------------------------------
@@ -632,7 +376,6 @@ class PLC_Logic:
     Unlock latch motor for manual operation.  Requires PLC_Logic.reset after
     complete.
     """
-    self._prepareForNewCommand()
     self._moveType.set(self.MoveTypes.LATCH_UNLOCK)
 
   # ---------------------------------------------------------------------
@@ -721,7 +464,6 @@ class PLC_Logic:
     """
     Disable servo control of motors.
     """
-    self._prepareForNewCommand()
     self._moveType.set(self.MoveTypes.UNSERVO)
 
   # ---------------------------------------------------------------------
@@ -733,8 +475,6 @@ class PLC_Logic:
     Returns:
       Integer error code.
     """
-    if self._localErrorCode != 0:
-      return self._localErrorCode
     return self._errorCode.get()
 
   # ---------------------------------------------------------------------
@@ -745,9 +485,6 @@ class PLC_Logic:
     Returns:
       String representation of error code.
     """
-    if self._localErrorCode != 0:
-      return self._localErrorMessage
-
     errorCode = self._errorCode.get()
 
     if errorCode in PLC_Logic.ERROR_CODES:
@@ -808,16 +545,6 @@ class PLC_Logic:
     self._velocity = 0.0
     self._maxAcceleration = 0
     self._maxDeceleration = 0
-    self._safeZLatchRetryIntervalSeconds = 0.25
-    self._safeZLatchTimeoutSeconds = 10.0
-    self._safeZLatchThreshold = 400.0
-    self._queuedSafeZMove = None
-    self._safeZLatchStartedAt = None
-    self._nextSafeZLatchPulseAt = None
-    self._safeZLatchWaitActuatorPos = None
-    self._localErrorCode = 0
-    self._localErrorMessage = ""
-    self._clock = time.monotonic
     self.queuedMotion = QueuedMotionPLCInterface(plc)
 
 

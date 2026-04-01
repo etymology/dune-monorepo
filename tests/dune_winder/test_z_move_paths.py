@@ -204,6 +204,33 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
     self.assertFalse(io.plc.get_tag("STATE5_IND"))
     self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
 
+  def test_manual_z_seek_clears_stale_head_error_and_returns_to_stop(self):
+    io, machine = self._build_machine()
+    self._advance_machine_until(
+      io,
+      machine,
+      lambda: machine.getState() == ControlStateMachine.States.STOP,
+    )
+
+    io.head._headState = io.head.States.ERROR
+    io.head._headPositionTarget = io.head.FIXED_SIDE
+    io.head._headLatchTarget = io.head.STAGE_SIDE
+    io.head._headZTarget = 418.0
+    io.head._headErrorMessage = "Latch transfer timed out"
+
+    machine.dispatch(ManualModeEvent(seekZ=43.0, velocity=100.0))
+    self.assertEqual(machine.getState(), ControlStateMachine.States.MANUAL)
+
+    self._advance_machine_until(
+      io,
+      machine,
+      lambda: machine.getState() == ControlStateMachine.States.STOP,
+    )
+
+    self.assertEqual(io.head.getState(), io.head.States.IDLE)
+    self.assertEqual(io.head._headLatchTarget, -1)
+    self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
+
 
 if __name__ == "__main__":
   unittest.main()

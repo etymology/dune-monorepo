@@ -40,6 +40,8 @@ class ManualMode(StateMachineState):
     self._noteSeekStop = False
     self._isJogging = False
     self._stopRequested = False
+    self._awaitPlcReady = False
+    self._awaitHeadReady = False
     self._request: Optional[ManualModeEvent] = None
 
   # ---------------------------------------------------------------------
@@ -66,6 +68,8 @@ class ManualMode(StateMachineState):
     self._wasJogging = False
     self._noteSeekStop = False
     self._stopRequested = False
+    self._awaitPlcReady = False
+    self._awaitHeadReady = False
 
     request = self._request
     self._request = None
@@ -95,18 +99,23 @@ class ManualMode(StateMachineState):
         request.deceleration,
       )
 
+      self._awaitPlcReady = True
       isError = False
 
     if request.isJogging:
       self._wasJogging = True
+      self._awaitPlcReady = True
       isError = False
 
     if request.seekZ is not None:
+      self._io.head.clearQueuedTransfer()
       self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
+      self._awaitPlcReady = True
       isError = False
 
     # Move the head?
     if request.setHeadPosition is not None:
+      self._awaitHeadReady = True
       isError = self._io.head.setHeadPosition(
         request.setHeadPosition, request.velocity
       )
@@ -140,7 +149,9 @@ class ManualMode(StateMachineState):
       self._stopRequested = False
 
     # Is movement done?
-    if self._io.plcLogic.isReady() and self._io.head.isReady():
+    plcReady = (not self._awaitPlcReady) or self._io.plcLogic.isReady()
+    headReady = (not self._awaitHeadReady) or self._io.head.isReady()
+    if plcReady and headReady:
       # If we were seeking and stopped pre-maturely, note where.
       if self._noteSeekStop:
         x = self._io.xAxis.getPosition()
