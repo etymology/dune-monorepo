@@ -63,9 +63,7 @@ def load_routine_from_source(source: str, *, symbol_name: str | None = None) -> 
     return routine
 
   routines = {
-    name: value
-    for name, value in namespace.items()
-    if isinstance(value, Routine)
+    name: value for name, value in namespace.items() if isinstance(value, Routine)
   }
   if not routines:
     raise ValueError("Generated source did not define a ladder routine")

@@ -1202,11 +1202,7 @@ def load_imperative_routine_from_source(
   namespace: dict[str, Any] = {}
   exec(compile(source, "<plc_ladder_imperative>", "exec"), namespace)
 
-  routines = [
-    value
-    for value in namespace.values()
-    if isinstance(value, Routine)
-  ]
+  routines = [value for value in namespace.values() if isinstance(value, Routine)]
   routine_metadata = routines[0] if len(routines) == 1 else None
 
   default_symbol = symbol_name
@@ -1227,7 +1223,11 @@ def load_imperative_routine_from_source(
       raise ValueError("Imperative source did not define a unique routine function")
     routine_fn = candidates[0]
 
-  routine_name = routine_metadata.name if routine_metadata is not None else getattr(routine_fn, "__name__", "main")
+  routine_name = (
+    routine_metadata.name
+    if routine_metadata is not None
+    else getattr(routine_fn, "__name__", "main")
+  )
   routine_program = routine_metadata.program if routine_metadata is not None else None
 
   def execute(ctx: ScanContext) -> None:
