@@ -280,7 +280,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("INIT_DONE", True)
     self._ctx.set_value("HEAD_POS", 0)
-    self._ctx.set_value("ACTUATOR_POS", 0)
+    self._ctx.set_value("ACTUATOR_POS", 1)
     self._ctx.set_value("LATCH_ACTUATOR_HOMED", True)
     self._ctx.set_value("MACHINE_SW_STAT[0]", True)
     self._ctx.set_value("UseAasCurrent", True)
@@ -422,12 +422,12 @@ class LadderSimulatedPLC(SimulatedPLC):
       "Local:1:I.Pt06.Data": plusYEot,
       "Local:1:I.Pt07.Data": zEot,
       "Local:1:I.Pt10.Data": False,
-      "Local:1:I.Pt11.Data": headPos == 0,
+      "Local:1:I.Pt11.Data": headPos == 0 and actuatorPos == 1,
       "Local:1:I.Pt12.Data": yTransfer,
       "Local:1:I.Pt13.Data": yTransfer,
       "Local:1:I.Pt15.Data": False,
       "Local:2:I.Pt00.Data": xTransfer,
-      "Local:2:I.Pt01.Data": headPos == 3,
+      "Local:2:I.Pt01.Data": headPos == 3 and actuatorPos == 2,
       "Local:2:I.Pt02.Data": False,
       "Local:2:I.Pt04.Data": xPark,
       "Local:2:I.Pt06.Data": False,
@@ -539,12 +539,21 @@ class LadderSimulatedPLC(SimulatedPLC):
   # ---------------------------------------------------------------------
   def _advance_latch_stub(self):
     actuator = int(self._ctx.get_value("ACTUATOR_POS"))
-    actuator = (actuator + 1) % 3
+    if actuator == 1:
+      actuator = 3
+    elif actuator == 3:
+      actuator = 2
+    elif actuator == 2:
+      actuator = 1
     self._ctx.set_value("ACTUATOR_POS", actuator)
 
     headPos = int(self._ctx.get_value("HEAD_POS"))
-    if actuator == 2 and headPos in (0, 3):
-      self._ctx.set_value("HEAD_POS", 3 if headPos == 0 else 0)
+    if actuator == 3 and headPos == -1:
+      self._ctx.set_value("HEAD_POS", 0)
+    elif actuator == 2 and headPos != 3:
+      self._ctx.set_value("HEAD_POS", 3)
+    elif actuator == 1 and headPos != 0:
+      self._ctx.set_value("HEAD_POS", 0)
 
   # ---------------------------------------------------------------------
   def _cap_seg_speed_jsr(self, ctx: ScanContext):
@@ -617,6 +626,12 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     if tagName == "MOVE_TYPE":
       moveType = int(value)
+      if moveType == self.MOVE_SEEK_XZ and not bool(self._readTagValue("Y_XFER_OK")):
+        self._ctx.set_value("ERROR_CODE", 5003)
+        self._ctx.set_value("STATE", self.STATE_ERROR)
+        self._ctx.set_value("NEXTSTATE", self.STATE_ERROR)
+        self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+        return
       self._ctx.set_value(tagName, moveType)
       nextState = self._MOVE_TO_STATE.get(moveType)
       if nextState is not None:
@@ -630,9 +645,7 @@ class LadderSimulatedPLC(SimulatedPLC):
       enabled = bool(self._coerceBit(value))
       self._ctx.set_value(tagName, enabled)
       if enabled:
-        if bool(self._readTagValue("MACHINE_SW_STAT[9]")) and bool(
-          self._readTagValue("MACHINE_SW_STAT[10]")
-        ):
+        if bool(self._readTagValue("ENABLE_ACTUATOR")):
           self._advance_latch_stub()
         self._ctx.set_value(tagName, False)
       return
@@ -653,7 +666,73 @@ class LadderSimulatedPLC(SimulatedPLC):
   def _readTagValue(self, tagName):
     if tagName in self._overrides:
       return copy.deepcopy(self._overrides[tagName])
+    if tagName == "HEAD_POS":
+      value = int(self._ctx.get_value(tagName))
+      if value == -1:
+        actuatorPos = int(self._ctx.get_value("ACTUATOR_POS"))
+        if actuatorPos in (1, 3):
+          return 0
+        if actuatorPos == 2:
+          return 3
+      return value
+    if tagName == "ENABLE_ACTUATOR":
+      return int(
+        bool(self._compatibility_machine_bit(9))
+        and bool(self._compatibility_machine_bit(10))
+        and bool(self._compatibility_machine_bit(5))
+      )
+    bitIndex = self._machineBitIndex(tagName)
+    if bitIndex is not None:
+      return copy.deepcopy(self._compatibility_machine_bit(bitIndex))
     return copy.deepcopy(self._ctx.get_value(tagName))
+
+  # ---------------------------------------------------------------------
+  def _compatibility_machine_bit(self, bitIndex: int):
+    headPos = int(self._ctx.get_value("HEAD_POS"))
+    actuatorPos = int(self._ctx.get_value("ACTUATOR_POS"))
+    z = float(self._ctx.get_value("Z_axis.ActualPosition"))
+    x = float(self._ctx.get_value("X_axis.ActualPosition"))
+    y = float(self._ctx.get_value("Y_axis.ActualPosition"))
+    zRetracted = z <= (self._limits["zFront"] + 1.0)
+    zExtended = z >= (self._limits["zBack"] - 1.0)
+    xPark = abs(x - self._limits["parkX"]) <= 1.0
+    xTransfer = self._limits["transferLeft"] <= x <= self._limits["transferRight"]
+    yTransfer = self._limits["transferBottom"] <= y <= self._limits["transferTop"]
+    bits = {
+      0: actuatorPos == 0,
+      1: zRetracted,
+      2: zRetracted,
+      3: zRetracted,
+      4: zRetracted,
+      5: zExtended,
+      6: headPos == 0 and actuatorPos == 1,
+      7: headPos == 3 and actuatorPos == 2,
+      8: z <= self._limits["zLimitFront"] or z >= self._limits["zLimitRear"],
+      9: True,
+      10: True,
+      11: zExtended,
+      12: actuatorPos == 0,
+      13: actuatorPos == 1,
+      14: xPark,
+      15: xTransfer,
+      16: yTransfer,
+      17: yTransfer,
+      18: y >= self._limits["limitTop"],
+      19: y <= self._limits["limitBottom"],
+      20: x >= self._limits["limitRight"],
+      21: x <= self._limits["limitLeft"],
+      22: True,
+      23: False,
+      24: False,
+      25: True,
+      26: headPos == 0 and actuatorPos == 0,
+      27: headPos == 0 and actuatorPos == 1,
+      28: headPos == 0 and actuatorPos == 2,
+      29: headPos == 3 and actuatorPos == 0,
+      30: headPos == 3 and actuatorPos == 1,
+      31: headPos == 3 and actuatorPos == 2,
+    }
+    return 1 if bits.get(bitIndex, False) else 0
 
   # ---------------------------------------------------------------------
   def _statusSnapshot(self):

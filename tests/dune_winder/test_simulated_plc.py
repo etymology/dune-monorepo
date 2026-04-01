@@ -14,9 +14,10 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 0)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
     self.assertEqual(plc.get_tag("MACHINE_SW_STAT[6]"), 1)
     self.assertEqual(plc.get_tag("MACHINE_SW_STAT[7]"), 0)
+    self.assertEqual(plc.get_tag("ENABLE_ACTUATOR"), 0)
 
   def test_xy_seek_uses_one_cycle_settle_model(self):
     plc = SimulatedPLC()
@@ -41,6 +42,11 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
+
+    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_LATCH))
+    self._settle_once(plc)
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
 
@@ -52,7 +58,15 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.write(("gui_latch_pulse", 1))
 
     self.assertEqual(plc.get_tag("gui_latch_pulse"), 0)
-    self.assertNotEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+
+    plc.write(("Z_POSITION", 418.0))
+    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_Z))
+    self._settle_once(plc)
+    self.assertEqual(plc.get_tag("ENABLE_ACTUATOR"), 1)
+
+    plc.write(("gui_latch_pulse", 1))
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
 
   def test_limit_violations_set_error_and_reset_clears(self):
     plc = SimulatedPLC()
@@ -91,6 +105,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
     plc.write(("xz_position_target", [321.0, 210.5]))
     plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_XZ))
+    self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)
@@ -100,6 +115,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
   def test_derived_machine_bits_support_override_precedence(self):
     plc = SimulatedPLC()
     plc.set_tag("HEAD_POS", 3)
+    plc.set_tag("ACTUATOR_POS", 2)
 
     self.assertEqual(plc.get_tag("MACHINE_SW_STAT[7]"), 1)
     self.assertEqual(plc.get_tag("MACHINE_SW_STAT[6]"), 0)

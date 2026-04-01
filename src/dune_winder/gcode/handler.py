@@ -841,6 +841,12 @@ class GCodeHandler(GCodeHandlerBase):
     elif action == "head":
       self._io.head.setHeadPosition(self._headPosition, velocity)
       moving = True
+    elif action == "head_transfer":
+      error = self._io.head.setTransferPosition(self._headPosition, velocity)
+      if error:
+        self._set_gcode_error(str(error))
+      else:
+        moving = True
     elif action == "latch":
       self._io.plcLogic.move_latch()
       moving = True
@@ -873,6 +879,24 @@ class GCodeHandler(GCodeHandlerBase):
     )
 
   # ---------------------------------------------------------------------
+  def _apply_head_controller_error(self):
+    head = getattr(self._io, "head", None)
+    if head is None or not hasattr(head, "hasError") or not head.hasError():
+      return False
+
+    message = "Head transfer failed."
+    if hasattr(head, "getLastError"):
+      try:
+        last_error = str(head.getLastError()).strip()
+      except Exception:
+        last_error = ""
+      if last_error:
+        message = last_error
+
+    self._set_gcode_error(message)
+    return True
+
+  # ---------------------------------------------------------------------
   def poll(self):
     """
     Update the logic for executing this line of G-Code.
@@ -890,7 +914,11 @@ class GCodeHandler(GCodeHandlerBase):
     if self._queued_session is not None:
       return self._advance_queued_motion()
 
-    if self._io.plcLogic.isReady() and self._io.head.isReady():
+    headReady = self._io.head.isReady()
+    if self._apply_head_controller_error():
+      return True
+
+    if self._io.plcLogic.isReady() and headReady:
       moving = False
 
       if not moving:
@@ -1071,11 +1099,15 @@ class GCodeHandler(GCodeHandlerBase):
       # Interpret the next line.
       gCode.execute(line)
       headReady = self._io.head.isReady()
+      if self._apply_head_controller_error():
+        headReady = True
       if not headReady and self._manualLineCanIgnoreHeadReadiness():
         self._io.head.clearQueuedTransfer()
         headReady = self._io.head.isReady()
+        if self._apply_head_controller_error():
+          headReady = True
 
-      if self._io.plcLogic.isReady() and headReady:
+      if self._io.plcLogic.isReady() and headReady and not self._isG_CodeError:
         self._dispatch_pending_actions(safety_label="manual")
       if self._isG_CodeError:
         errorData = {

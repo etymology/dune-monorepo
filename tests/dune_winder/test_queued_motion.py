@@ -102,11 +102,20 @@ class _Head:
   def isReady(self):
     return self._ready
 
+  def hasError(self):
+    return False
+
+  def getLastError(self):
+    return "stale head error" if not self._ready else ""
+
   def readCurrentPosition(self):
     return 0
 
   def setHeadPosition(self, position, velocity=None):
     raise AssertionError("Unexpected head move")
+
+  def setTransferPosition(self, position, velocity=None):
+    raise AssertionError("Unexpected head transfer move")
 
   def stop(self):
     return None

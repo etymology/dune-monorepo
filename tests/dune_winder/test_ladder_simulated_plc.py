@@ -76,7 +76,7 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 0)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
     self.assertTrue(plc.get_tag("MACHINE_SW_STAT[6]"))
     self.assertFalse(plc.get_tag("MACHINE_SW_STAT[7]"))
     self.assertEqual(plc.get_tag("QueueCtl.POS"), 0)
@@ -116,21 +116,21 @@ class LadderSimulatedPlcTests(unittest.TestCase):
   def test_latch_stub_cycles_positions_without_stalling_state_machine(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("HEAD_POS", 0)
-    plc.set_tag("ACTUATOR_POS", 0)
+    plc.set_tag("ACTUATOR_POS", 1)
 
     plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_LATCHING)
     self._advance(plc)
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_LATCHING)
-    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 0)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
 
     plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
     self._advance(plc)
-    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 1)
+    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 3)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
@@ -139,8 +139,8 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self._advance(plc)
     self.assertEqual(plc.get_tag("PREV_ACT_POS"), 2)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
-    self.assertEqual(plc.get_tag("HEAD_POS"), 3)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
 
   def test_gui_latch_pulse_advances_stub_and_auto_clears(self):
     plc = LadderSimulatedPLC("SIM")
@@ -150,7 +150,15 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc.write(("gui_latch_pulse", 1))
 
     self.assertFalse(plc.get_tag("gui_latch_pulse"))
-    self.assertNotEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+
+    plc.write(("Z_POSITION", 418.0))
+    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+
+    plc.write(("gui_latch_pulse", 1))
+
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
 
   def test_latch_home_and_unlock_stub_update_homed_status(self):
     plc = LadderSimulatedPLC("SIM")
@@ -182,7 +190,7 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc.write(("xz_position_target", [321.0, 210.5]))
     plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XZ))
 
-    self._advance(plc, 2)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") in (plc.STATE_ERROR, plc.STATE_READY))
 
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_ERROR)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)

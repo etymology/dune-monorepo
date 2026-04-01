@@ -46,7 +46,7 @@ class SimulatedPLC(PLC):
   _MACHINE_SW_ASSUMPTIONS = [
     "Z retract/extend sensors are derived from Z axis position and nominal front/back limits.",
     "Stage/fixed present sensors default true unless overridden; latched sensors are derived from HEAD_POS (-1/0/3).",
-    "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2).",
+    "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2/3).",
     "Transfer and end-of-travel sensors are derived from current X/Y positions and configured limits.",
     "Safety bits (Rotation_Lock_key, Light_Curtain) default to permissive values unless overridden.",
     "estop and park default to false unless overridden.",
@@ -220,7 +220,7 @@ class SimulatedPLC(PLC):
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
     self._tagValues["gui_latch_pulse"] = 0
     self._tagValues["HEAD_POS"] = 0
-    self._tagValues["ACTUATOR_POS"] = 0
+    self._tagValues["ACTUATOR_POS"] = 1
 
     self._tagValues["XY_SPEED"] = 0.0
     self._tagValues["XY_ACCELERATION"] = 0.0
@@ -341,9 +341,7 @@ class SimulatedPLC(PLC):
       enabled = self._coerceBit(value)
       self._tagValues[tagName] = enabled
       if enabled:
-        if bool(self._readTagValue("MACHINE_SW_STAT[9]")) and bool(
-          self._readTagValue("MACHINE_SW_STAT[10]")
-        ):
+        if bool(self._readTagValue("ENABLE_ACTUATOR")):
           self._advanceLatch()
         self._tagValues[tagName] = 0
       return
@@ -357,8 +355,8 @@ class SimulatedPLC(PLC):
 
     if tagName == "ACTUATOR_POS":
       intValue = int(value)
-      if intValue not in (0, 1, 2):
-        raise ValueError("ACTUATOR_POS must be one of 0, 1, or 2.")
+      if intValue not in (0, 1, 2, 3):
+        raise ValueError("ACTUATOR_POS must be one of 0, 1, 2, or 3.")
       self._tagValues[tagName] = intValue
       return
 
@@ -479,13 +477,20 @@ class SimulatedPLC(PLC):
 
   # ---------------------------------------------------------------------
   def _advanceLatch(self):
-    actuator = int(self._tagValues.get("ACTUATOR_POS", 0))
-    actuator = (actuator + 1) % 3
+    actuator = int(self._tagValues.get("ACTUATOR_POS", 1))
+    if actuator == 1:
+      actuator = 3
+    elif actuator == 3:
+      actuator = 2
+    elif actuator == 2:
+      actuator = 1
     self._tagValues["ACTUATOR_POS"] = actuator
 
     headPos = int(self._tagValues.get("HEAD_POS", 0))
-    if actuator == 2 and headPos in (0, 3):
-      self._tagValues["HEAD_POS"] = 3 if headPos == 0 else 0
+    if actuator == 2 and headPos == 0:
+      self._tagValues["HEAD_POS"] = 3
+    elif actuator == 1 and headPos == 3:
+      self._tagValues["HEAD_POS"] = 0
 
   # ---------------------------------------------------------------------
   def _setAxisMovement(self, isMoving: bool):
@@ -690,6 +695,13 @@ class SimulatedPLC(PLC):
     if tagName == "Y_XFER_OK":
       return self._readTagValue("MACHINE_SW_STAT[17]")
 
+    if tagName == "ENABLE_ACTUATOR":
+      return 1 if (
+        bool(self._readTagValue("MACHINE_SW_STAT[9]"))
+        and bool(self._readTagValue("MACHINE_SW_STAT[10]"))
+        and bool(self._readTagValue("MACHINE_SW_STAT[5]"))
+      ) else 0
+
     xzTargetIndex = self._xzTargetIndex(tagName)
     if xzTargetIndex is not None:
       return self._tagValues.get("xz_position_target", [0.0, 0.0])[xzTargetIndex]
@@ -731,8 +743,8 @@ class SimulatedPLC(PLC):
       3: zRetracted,
       4: zRetracted,
       5: zExtended,
-      6: headPos == 0,
-      7: headPos == 3,
+      6: headPos == 0 and actuatorPos == 1,
+      7: headPos == 3 and actuatorPos == 2,
       8: z <= self._limits["zLimitFront"] or z >= self._limits["zLimitRear"],
       9: True,
       10: True,

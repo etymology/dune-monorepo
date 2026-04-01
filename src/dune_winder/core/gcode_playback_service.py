@@ -47,11 +47,23 @@ class GCodePlaybackService:
 
   # -- run control ---------------------------------------------------------
 
+  # ---------------------------------------------------------------------
+  def _issueDirectStop(self):
+    plcLogic = getattr(self._io, "plcLogic", None)
+    if plcLogic is not None and hasattr(plcLogic, "stopSeek"):
+      plcLogic.stopSeek()
+
+    head = getattr(self._io, "head", None)
+    if head is not None and hasattr(head, "stop"):
+      head.stop()
+
+  # ---------------------------------------------------------------------
   def start(self):
     if self._controlStateMachine.isReadyForMovement():
       self._controlStateMachine.dispatch(StartWindEvent())
 
   def stop(self):
+    self._issueDirectStop()
     if self._controlStateMachine.isInMotion():
       self._controlStateMachine.dispatch(StopMotionEvent())
 
@@ -170,10 +182,7 @@ class GCodePlaybackService:
     self._log.add(
       LOG_NAME,
       "LOOP",
-      "G-Code loop mode set from "
-      + str(currentLoopMode)
-      + " to "
-      + str(isLoopMode),
+      "G-Code loop mode set from " + str(currentLoopMode) + " to " + str(isLoopMode),
       [currentLoopMode, isLoopMode],
     )
 
@@ -217,9 +226,7 @@ class GCodePlaybackService:
           [-1],
         )
     else:
-      self._log.add(
-        LOG_NAME, "POSITION_LOGGING", "Position logging ends", [0]
-      )
+      self._log.add(LOG_NAME, "POSITION_LOGGING", "Position logging ends", [0])
 
     self._gCodeHandler.startPositionLogging(fileName)
 
@@ -309,7 +316,9 @@ class GCodePlaybackService:
       x_only = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *$)"
       y_only = r"(\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"
       gxy = r"(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *$)"
-      gx_y = r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *$)"
+      gx_y = (
+        r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *$)"
+      )
       xyf = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Y]\d{1,4}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
       fxy = r"(\ *[F]\d{1,4}\ *[X]\d{1,4}(\.\d{1,2})?\ *[Y]\d{1,4}(\.\d{1,2})?\ *$)"
       xf = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
@@ -323,6 +332,7 @@ class GCodePlaybackService:
       gxyf = r"(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
       gx_yf = r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
       gp = r"(\ *[G]106\ *P[0123]\ *$)"
+      g206 = r"(\ *[G]206\ *P[0123]\ *$)"
       z_move = r"(\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
       zf = r"(\ *[Z]\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
       fz = r"(\ *[F]\d{1,4}\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
@@ -337,6 +347,8 @@ class GCodePlaybackService:
         + relativeXYMovePattern
         + "|"
         + gp
+        + "|"
+        + g206
         + "|"
         + f_only
         + "|"
@@ -391,7 +403,9 @@ class GCodePlaybackService:
         if "Z" in cmd and re.match("|".join([z_move, xz, xzf, fxz, zf, fz]), line):
           zCmd = cmd.split("Z")
           z_target = float(zCmd[1])
-          if z_target < self._safety.zlimit_front or z_target > self._safety.zlimit_rear:
+          if (
+            z_target < self._safety.zlimit_front or z_target > self._safety.zlimit_rear
+          ):
             error = (
               "Invalid Z-axis Coordinates, exceeding limit ["
               + str(z_target)
@@ -402,7 +416,11 @@ class GCodePlaybackService:
 
       if error is None and isXYMove:
         error = self._safety.validate_xy_move_target(xPosition, yPosition, x, y)
-      elif error is None and isXZMove and (x < self._safety.limit_left or x > self._safety.limit_right):
+      elif (
+        error is None
+        and isXZMove
+        and (x < self._safety.limit_left or x > self._safety.limit_right)
+      ):
         error = (
           "Invalid X-axis Coordinates, exceeding limit ["
           + str(self._safety.limit_left)
@@ -420,9 +438,9 @@ class GCodePlaybackService:
         )
       else:
         lineToExecute = line
-        if re.match(x_only+'|'+xf+'|'+fx, line):
+        if re.match(x_only + "|" + xf + "|" + fx, line):
           lineToExecute = line.strip() + " Y" + str(yPosition)
-        elif re.match(y_only+'|'+yf+'|'+fy, line):
+        elif re.match(y_only + "|" + yf + "|" + fy, line):
           lineToExecute = line.strip() + " X" + str(xPosition)
 
         errorData = self._gCodeHandler.executeG_CodeLine(

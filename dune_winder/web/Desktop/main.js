@@ -96,6 +96,43 @@ function setupMainScreen( page )
   )
 }
 
+function installButtonClickFeedback()
+{
+  $( document )
+    .off( "click.buttonFeedback" )
+    .on
+    (
+      "click.buttonFeedback",
+      "button",
+      function()
+      {
+        if ( $( this ).prop( "disabled" ) )
+          return
+
+        var button = $( this )
+        var existingTimer = button.data( "buttonFeedbackTimer" )
+        if ( existingTimer )
+          window.clearTimeout( existingTimer )
+
+        button.removeClass( "buttonClickAcknowledged" )
+        void this.offsetWidth
+        button.addClass( "buttonClickAcknowledged" )
+
+        var timer = window.setTimeout
+        (
+          function()
+          {
+            button.removeClass( "buttonClickAcknowledged" )
+            button.removeData( "buttonFeedbackTimer" )
+          },
+          220
+        )
+
+        button.data( "buttonFeedbackTimer", timer )
+      }
+    )
+}
+
 //-----------------------------------------------------------------------------
 // Uses:
 //   Callback for loading an other page.
@@ -234,6 +271,8 @@ $( document ).ready
 (
   function()
   {
+    installButtonClickFeedback()
+
     // Get the requested page.
     var pageName = getParameterByName( "page" )
     var popupMode = isPopupMode()

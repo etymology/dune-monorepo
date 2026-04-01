@@ -42,6 +42,7 @@ class ManualMode(StateMachineState):
     self._stopRequested = False
     self._awaitPlcReady = False
     self._awaitHeadReady = False
+    self._plcObservedBusy = False
     self._request: Optional[ManualModeEvent] = None
 
   # ---------------------------------------------------------------------
@@ -53,6 +54,18 @@ class ManualMode(StateMachineState):
   # ---------------------------------------------------------------------
   def isJogging(self):
     return self._isJogging
+
+  # ---------------------------------------------------------------------
+  def _plcMotionInFlight(self):
+    if not self._io.plcLogic.isReady():
+      return True
+
+    for axisName in ("xAxis", "yAxis", "zAxis"):
+      axis = getattr(self._io, axisName, None)
+      if axis is not None and hasattr(axis, "isSeeking") and axis.isSeeking():
+        return True
+
+    return False
 
   # ---------------------------------------------------------------------
   def enter(self):
@@ -70,6 +83,7 @@ class ManualMode(StateMachineState):
     self._stopRequested = False
     self._awaitPlcReady = False
     self._awaitHeadReady = False
+    self._plcObservedBusy = False
 
     request = self._request
     self._request = None
@@ -149,7 +163,13 @@ class ManualMode(StateMachineState):
       self._stopRequested = False
 
     # Is movement done?
-    plcReady = (not self._awaitPlcReady) or self._io.plcLogic.isReady()
+    plcReady = True
+    if self._awaitPlcReady:
+      plcBusy = self._plcMotionInFlight()
+      if plcBusy:
+        self._plcObservedBusy = True
+      plcReady = self._plcObservedBusy and not plcBusy
+
     headReady = (not self._awaitHeadReady) or self._io.head.isReady()
     if plcReady and headReady:
       # If we were seeking and stopped pre-maturely, note where.

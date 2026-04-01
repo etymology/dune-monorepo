@@ -22,8 +22,7 @@ class _FreshReadPLC(PLC):
     self.read_calls.append(tag)
     if isinstance(tag, str):
       return None
-    tagName = str(tag[0])
-    return [[tagName, self.read_values.get(tagName, 1)]]
+    return [[str(tagName), self.read_values.get(str(tagName), 1)] for tagName in tag]
 
   def write(self, tag, data=None, typeName=None):
     del data
@@ -109,41 +108,60 @@ class PLCLogicTests(unittest.TestCase):
     sent = logic.move_latch()
 
     self.assertTrue(sent)
-    self.assertEqual(
-      plc.read_calls,
-      [["MACHINE_SW_STAT[9]"], ["MACHINE_SW_STAT[10]"]],
-    )
+    self.assertEqual(plc.read_calls, [["ENABLE_ACTUATOR"]])
     self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
 
   def test_move_latch_skips_pulse_when_present_interlock_is_false(self):
     plc = _FreshReadPLC()
-    plc.read_values["MACHINE_SW_STAT[9]"] = 1
-    plc.read_values["MACHINE_SW_STAT[10]"] = 0
+    plc.read_values["ENABLE_ACTUATOR"] = 0
     logic = PLC_Logic(plc, object(), object())
 
     sent = logic.move_latch()
 
     self.assertFalse(sent)
-    self.assertEqual(
-      plc.read_calls,
-      [["MACHINE_SW_STAT[9]"], ["MACHINE_SW_STAT[10]"]],
-    )
+    self.assertEqual(plc.read_calls, [["ENABLE_ACTUATOR"]])
     self.assertEqual(plc.write_calls, [])
 
-  def test_move_latch_pulses_when_stage_present_is_false(self):
+  def test_get_transfer_state_now_reads_live_snapshot(self):
     plc = _FreshReadPLC()
-    plc.read_values["MACHINE_SW_STAT[9]"] = 0
-    plc.read_values["MACHINE_SW_STAT[10]"] = 0
-    logic = PLC_Logic(plc, object(), object())
+    plc.read_values.update(
+      {
+        "MACHINE_SW_STAT[9]": 1,
+        "MACHINE_SW_STAT[10]": 1,
+        "MACHINE_SW_STAT[6]": 1,
+        "MACHINE_SW_STAT[7]": 0,
+        "MACHINE_SW_STAT[5]": 1,
+        "ENABLE_ACTUATOR": 1,
+        "ACTUATOR_POS": 1,
+        "Z_axis.ActualPosition": 418.0,
+      }
+    )
+    zAxis = PLC_Motor("zAxis", plc, "Z")
+    logic = PLC_Logic(plc, object(), zAxis)
 
-    sent = logic.move_latch()
+    state = logic.getTransferStateNow()
 
-    self.assertTrue(sent)
     self.assertEqual(
       plc.read_calls,
-      [["MACHINE_SW_STAT[9]"], ["MACHINE_SW_STAT[10]"]],
+      [
+        ["MACHINE_SW_STAT[9]"],
+        ["MACHINE_SW_STAT[10]"],
+        ["MACHINE_SW_STAT[6]"],
+        ["MACHINE_SW_STAT[7]"],
+        ["MACHINE_SW_STAT[5]"],
+        ["ENABLE_ACTUATOR"],
+        ["ACTUATOR_POS"],
+        ["Z_axis.ActualPosition"],
+      ],
     )
-    self.assertEqual(plc.write_calls, [("gui_latch_pulse", 1)])
+    self.assertTrue(state["stagePresent"])
+    self.assertTrue(state["fixedPresent"])
+    self.assertTrue(state["stageLatched"])
+    self.assertFalse(state["fixedLatched"])
+    self.assertTrue(state["zExtended"])
+    self.assertTrue(state["enableActuator"])
+    self.assertEqual(state["actuatorPos"], 1)
+    self.assertEqual(state["zPosition"], 418.0)
 
   def test_stop_seek_requests_hmi_stop_move_type(self):
     plc = _FreshReadPLC()
@@ -152,6 +170,20 @@ class PLCLogicTests(unittest.TestCase):
     logic.stopSeek()
 
     self.assertEqual(plc.write_calls, [("MOVE_TYPE", PLC_Logic.MoveTypes.HMI_STOP_REQUEST)])
+
+  def test_reset_requests_ready_nextstate_and_clears_move_type(self):
+    plc = _FreshReadPLC()
+    logic = PLC_Logic(plc, object(), object())
+
+    logic.reset()
+
+    self.assertEqual(
+      plc.write_calls,
+      [
+        ("NEXTSTATE", PLC_Logic.States.READY),
+        ("MOVE_TYPE", PLC_Logic.MoveTypes.RESET),
+      ],
+    )
 
 
 if __name__ == "__main__":

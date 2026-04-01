@@ -94,7 +94,7 @@ class CommandValidationTests(unittest.TestCase):
     response = registry.executeRequest(
       {
         "name": "process.execute_gcode_line",
-        "args": {"line": "G106 P0"},
+        "args": {"line": "G206 P0"},
       },
     )
 

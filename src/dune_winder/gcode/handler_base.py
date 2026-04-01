@@ -53,6 +53,10 @@ class GCodeHandlerBase:
     self._instruction_request_head = True
 
   # ---------------------------------------------------------------------
+  def _request_head_transfer(self):
+    self._instruction_request_head_transfer = True
+
+  # ---------------------------------------------------------------------
   def _request_latch(self):
     self._instruction_request_latch = True
 
@@ -75,6 +79,7 @@ class GCodeHandlerBase:
       "_instruction_request_xy": self._instruction_request_xy,
       "_instruction_request_z": self._instruction_request_z,
       "_instruction_request_head": self._instruction_request_head,
+      "_instruction_request_head_transfer": self._instruction_request_head_transfer,
       "_instruction_request_latch": self._instruction_request_latch,
       "_instruction_request_stop": self._instruction_request_stop,
       "_instruction_contains_x": self._instruction_contains_x,
@@ -148,6 +153,9 @@ class GCodeHandlerBase:
     if self._instruction_request_head:
       self._pending_actions.append("head")
 
+    if self._instruction_request_head_transfer:
+      self._pending_actions.append("head_transfer")
+
     if self._instruction_request_latch:
       self._pending_actions.append("latch")
 
@@ -160,6 +168,7 @@ class GCodeHandlerBase:
     self._instruction_request_xy = False
     self._instruction_request_z = False
     self._instruction_request_head = False
+    self._instruction_request_head_transfer = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
     self._instruction_contains_x = False
@@ -441,6 +450,17 @@ class GCodeHandlerBase:
       print("  HEAD_LOCATION", self._headPosition)
 
   # ---------------------------------------------------------------------
+  def _headTransfer(self, function):
+    """
+    Head transfer position.
+    """
+    self._headPosition = self._parameterExtract(function, 1, None, int, "head transfer")
+    self._request_head_transfer()
+
+    if GCodeHandlerBase.DEBUG_UNIT:
+      print("  HEAD_TRANSFER", self._headPosition)
+
+  # ---------------------------------------------------------------------
   def _delay(self, function):
     """
     Delay.
@@ -632,6 +652,7 @@ class GCodeHandlerBase:
     Opcode.CLIP: _clip,
     Opcode.OFFSET: _offset,
     Opcode.HEAD_LOCATION: _headLocation,
+    Opcode.HEAD_TRANSFER: _headTransfer,
     Opcode.DELAY: _delay,
     Opcode.ANCHOR_POINT: _anchorPoint,
     Opcode.ARM_CORRECT: _armCorrect,
@@ -750,6 +771,7 @@ class GCodeHandlerBase:
     self._instruction_request_xy = False
     self._instruction_request_z = False
     self._instruction_request_head = False
+    self._instruction_request_head_transfer = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
     self._instruction_contains_x = False

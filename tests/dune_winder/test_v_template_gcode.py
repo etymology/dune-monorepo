@@ -42,7 +42,7 @@ class VTemplateGCodeTests(unittest.TestCase):
       [
         "N0 ( V Layer )",
         "N1 " + self.MERGE + "(HEAD RESTART) X440 Y0",
-        "N2 G106 P3",
+        "N2 G206 P3",
         "N3 " + self.MERGE + "(0, ) F1000 G103 PB400 PB399 PXY G105 PY30 ( BOARD GAP )",
         "N4 (1,1) (------------------STARTING LOOP 1------------------)",
       ],
@@ -55,7 +55,7 @@ class VTemplateGCodeTests(unittest.TestCase):
         "N" + str(tail_start + 1) + " " + self.TOLERANT + "(400,17) G103 PB2398 PB2399 PY G105 " + self._coord("PY", -Y_PULL_IN),
         "N" + str(tail_start + 2) + " " + self.MERGE + "(400,18) G103 PB2398 PB2399 PY G105 PY0 G111",
         "N" + str(tail_start + 3) + " " + self.MERGE + "(400,19) X440 Y2315 F300",
-        "N" + str(tail_start + 4) + " (400,20) G106 P0",
+        "N" + str(tail_start + 4) + " (400,20) G206 P0",
         "N" + str(tail_start + 5) + " " + self.MERGE + "(400,21) X440 Y2335",
         "N" + str(tail_start + 6) + " " + self.MERGE + "(400,22) X650 Y2335 G111",
         "N" + str(tail_start + 7) + " " + self.MERGE + "(400,23) X440 Y2335",
@@ -79,7 +79,7 @@ class VTemplateGCodeTests(unittest.TestCase):
       lines[5],
       "N5 " + self.MERGE + "(1,2) G109 PB400 PRT G103 PB1998 PB1999 PXY G105 PX2 G102 G108 (Top B corner - foot end)",
     )
-    self.assertEqual(lines[7], "N7 (1,4) G106 P0")
+    self.assertEqual(lines[7], "N7 (1,4) G206 P0")
 
     special_lines = render_v_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
@@ -137,9 +137,9 @@ class VTemplateGCodeTests(unittest.TestCase):
     paused_lines = render_v_template_text_lines(special_inputs={"transferPause": True})
 
     self.assertEqual(len(paused_lines) - len(base_lines), PRE_FINAL_WRAP_COUNT * 6 + 4)
-    self.assertEqual(paused_lines[6], "N6 (1,3) G106 P2")
-    self.assertEqual(paused_lines[11], "N11 (1,8) G106 P1")
-    self.assertEqual(paused_lines[16], "N16 (1,13) G106 P2")
+    self.assertEqual(paused_lines[6], "N6 (1,3) G206 P2")
+    self.assertEqual(paused_lines[11], "N11 (1,8) G206 P1")
+    self.assertEqual(paused_lines[16], "N16 (1,13) G206 P2")
 
   def test_named_input_snapshot_and_file_writers(self):
     named_inputs = get_v_template_named_inputs_snapshot()

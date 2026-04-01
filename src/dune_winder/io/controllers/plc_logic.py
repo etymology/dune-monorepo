@@ -297,11 +297,28 @@ class PLC_Logic:
     Check whether the latch pulse interlock is currently satisfied.
 
     Returns:
-      True if both stage and fixed present bits are set, False otherwise.
+      True if ENABLE_ACTUATOR is true, False otherwise.
     """
-    stagePresent = bool(self._readTagNow(self._zStagePresentBit))
-    fixedPresent = bool(self._readTagNow(self._zFixedPresentBit))
-    return (stagePresent and fixedPresent) or (not stagePresent)
+    return bool(self._readTagNow(self._enableActuator))
+
+  # ---------------------------------------------------------------------
+  def getTransferStateNow(self):
+    """
+    Read the head transfer tags immediately without using cached poll state.
+
+    Returns:
+      Dictionary containing the current live transfer state.
+    """
+    return {
+      "stagePresent": bool(self._readTagNow(self._zStagePresentBit)),
+      "fixedPresent": bool(self._readTagNow(self._zFixedPresentBit)),
+      "stageLatched": bool(self._readTagNow(self._zStageLatchedBit)),
+      "fixedLatched": bool(self._readTagNow(self._zFixedLatchedBit)),
+      "zExtended": bool(self._readTagNow(self._zExtendedBit)),
+      "enableActuator": bool(self._readTagNow(self._enableActuator)),
+      "actuatorPos": int(self._readTagNow(self._actuatorPosition)),
+      "zPosition": float(self._readTagNow(self._zAxis._position)),
+    }
 
   # ---------------------------------------------------------------------
   def move_latch(self):
@@ -315,8 +332,8 @@ class PLC_Logic:
     if not self.canMoveLatch():
       return False
 
-    self._writeTagNow(self._guiLatchPulse.getName(), 1)
-    self._guiLatchPulse.updateFromReadTag(1)
+    self._writeTagNow(self._guiLatchPulse.getName(), True)
+    self._guiLatchPulse.updateFromReadTag(True)
     return True
 
   # ---------------------------------------------------------------------
@@ -351,7 +368,10 @@ class PLC_Logic:
     """
     Reset PLC logic.  Clears errors.
     """
-    self._moveType.set(self.MoveTypes.RESET)
+    self._writeTagNow(self._nextState.getName(), self.States.READY)
+    self._nextState.updateFromReadTag(self.States.READY)
+    self._writeTagNow(self._moveType.getName(), self.MoveTypes.RESET)
+    self._moveType.updateFromReadTag(self.MoveTypes.RESET)
 
   # ---------------------------------------------------------------------
   # New function for PLC_Init - PWH - September 2021
@@ -511,6 +531,7 @@ class PLC_Logic:
     attributes = PLC.Tag.Attributes()
     attributes.isPolled = True
     self._state = PLC.Tag(plc, "STATE", attributes, tagType="DINT")
+    self._nextState = PLC.Tag(plc, "NEXTSTATE", attributes, tagType="DINT")
     self._errorCode = PLC.Tag(plc, "ERROR_CODE", attributes, tagType="DINT")
     self._headLatchState = PLC.Tag(plc, "HEAD_POS", attributes, tagType="DINT")
     self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS", attributes, tagType="DINT")
@@ -520,14 +541,20 @@ class PLC_Logic:
     machineStatus = PLC.Tag.Attributes()
     machineStatus.canWrite = False
     machineStatus.defaultValue = 0
+    machineStatus.isPolled = True
     self._zStageLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[6]", machineStatus)
     self._zFixedLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[7]", machineStatus)
     self._zStagePresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[9]", machineStatus)
     self._zFixedPresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[10]", machineStatus)
+    self._zExtendedBit = PLC.Tag(plc, "MACHINE_SW_STAT[5]", machineStatus)
+    self._enableActuator = PLC.Tag(plc, "ENABLE_ACTUATOR", machineStatus)
 
     pulseAttributes = PLC.Tag.Attributes()
     pulseAttributes.defaultValue = 0
-    self._guiLatchPulse = PLC.Tag(plc, "gui_latch_pulse", pulseAttributes, tagType="BOOL")
+    pulseAttributes.isPolled = True
+    self._guiLatchPulse = PLC.Tag(
+      plc, "gui_latch_pulse", pulseAttributes, tagType="BOOL"
+    )
 
     self._maxXY_Velocity = PLC.Tag(plc, "XY_SPEED", tagType="REAL")
     self._maxXY_Acceleration = PLC.Tag(plc, "XY_ACCELERATION", tagType="REAL")

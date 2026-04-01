@@ -12,15 +12,11 @@ from dune_winder.io.controllers.plc_logic import PLC_Logic
 
 class Head:
   class States:
-    # Continuous states.
-    IDLE = 0  # head is latched on one side, z retracted, done with moves
-    SEEKING_TO_FINAL_POSITION = 1  # moving to final z position
-    PRE_LATCHING = 2  # pulsing latch until actuator reaches transfer-safe 2
-    EXTENDING_TO_TRANSFER = 3  # waiting for z extension before transfer latch
-    LATCHING = 4  # waiting for latch pulses / actuator movement
-    ERROR = 5  # local latch timeout or other head-only failure
-
-  # end class
+    IDLE = 0
+    SEEKING_TO_FINAL_POSITION = 1
+    EXTENDING_TO_TRANSFER = 2
+    LATCHING = 3
+    ERROR = 4
 
   HEAD_ABSENT = -1
   STAGE_SIDE = 0
@@ -28,13 +24,10 @@ class Head:
   LEVEL_B_SIDE = 2
   FIXED_SIDE = 3
 
-  def __init__(self, plcLogic: PLC_Logic):
-    """
-    Constructor.
+  _TRANSFER_MODE_LEGACY = "legacy"
+  _TRANSFER_MODE_G206 = "g206"
 
-    Args:
-      plcLogic: Instance of PLC_Logic.
-    """
+  def __init__(self, plcLogic: PLC_Logic):
     self._plcLogic = plcLogic
     self._extended_z_position = 418
     self._retracted_z_position = 0
@@ -48,46 +41,42 @@ class Head:
     self._zPosTag = self._plcLogic._zAxis._position
     self._velocity = 300
     self._headState = self.States.IDLE
-    self._headPositionTarget = -1  # STAGE_SIDE/LEVEL_A_SIDE/LEVEL_B_SIDE/EXTENDED
-    self._headZTarget = -1  # position in mm
-    self._headLatchTarget = -1  # STAGE_SIDE or FIXED_SIDE
+    self._headPositionTarget = -1
+    self._headZTarget = -1
+    self._headLatchTarget = -1
     self._latchRetryIntervalSeconds = 1
     self._latchTimeoutSeconds = 10.0
-    self._latchSafeExtendedZThreshold = 400.0
     self._latchStateStartedAt = None
     self._nextLatchPulseAt = None
     self._latchWaitActuatorPos = None
-    self._preLatchZTarget = None
-    self._preLatchNextState = None
     self._clock = time.monotonic
+    self._activeTransferMode = None
+    self._lastError = ""
+    self._g206Transitions = []
+    self._g206TransitionIndex = 0
+    self._g206PulseAttempts = 0
+    self._g206SettleStartedAt = None
+    self._g206SettleSeconds = 1.0
+    self._g206MaxPulseAttempts = 5
 
   def isReady(self):
-    """
-    See if state head is idle (i.e. not in a state of motion).  Make sure
-    this is True before requesting a move.
-
-    Returns:
-      True if not in motion, False if not.
-    """
-    # update the state machine first
     self.update()
-
     return self.States.IDLE == self._headState
 
-  def clearQueuedTransfer(self):
-    """
-    Clear any queued multi-step transfer sequence.
+  def hasError(self):
+    return self.States.ERROR == self._headState
 
-    This is a local state-machine reset only. It intentionally does not issue
-    additional PLC commands.
-    """
+  def getLastError(self):
+    return self._lastError
+
+  def clearQueuedTransfer(self):
     self._headState = self.States.IDLE
+    self._activeTransferMode = None
+    self._lastError = ""
     self._resetLatchRetryState()
+    self._resetG206State()
 
   def setLatchTiming(self, retry_interval_seconds, timeout_seconds):
-    """
-    Configure local latch retry timing.
-    """
     retryInterval = float(retry_interval_seconds)
     timeout = float(timeout_seconds)
     if retryInterval <= 0:
@@ -98,36 +87,32 @@ class Head:
     self._latchTimeoutSeconds = timeout
 
   def _resetLatchRetryState(self):
-    """
-    Clear local latch retry bookkeeping.
-    """
     self._latchStateStartedAt = None
     self._nextLatchPulseAt = None
     self._latchWaitActuatorPos = None
-    self._preLatchZTarget = None
-    self._preLatchNextState = None
+
+  def _resetG206State(self):
+    self._g206Transitions = []
+    self._g206TransitionIndex = 0
+    self._g206PulseAttempts = 0
+    self._g206SettleStartedAt = None
 
   def _startLatchingState(self):
-    """
-    Initialize local latch retry bookkeeping.
-    """
     now = self._clock()
     self._latchStateStartedAt = now
     self._nextLatchPulseAt = now
     self._latchWaitActuatorPos = int(self._actuatorPosTag.get())
 
-  def _setLatchError(self, message):
-    """
-    Put the head controller into a local error state.
-    """
-    print("DEBUG: " + str(message))
+  def _setHeadError(self, message):
+    self._lastError = str(message)
     self._resetLatchRetryState()
+    self._resetG206State()
     self._headState = self.States.ERROR
 
+  def _setLatchError(self, message):
+    self._setHeadError(message)
+
   def _readTransferState(self):
-    """
-    Read the raw PLC tags that define head transfer state.
-    """
     return {
       "stagePresent": bool(self._stagePresentTag.get()),
       "fixedPresent": bool(self._fixedPresentTag.get()),
@@ -136,92 +121,114 @@ class Head:
       "actuatorPos": int(self._actuatorPosTag.get()),
     }
 
-  def _getCurrentSide(self):
-    """
-    Resolve which side the head is logically on from the raw PLC tags.
+  def _readTransferStateNow(self):
+    if hasattr(self._plcLogic, "getTransferStateNow"):
+      return self._plcLogic.getTransferStateNow()
 
-    Returns:
-      STAGE_SIDE, FIXED_SIDE, or HEAD_ABSENT when neither final-side state is
-      currently satisfied.
-    """
+    zPosition = float(self._zPosTag.get())
+    stagePresent = bool(self._stagePresentTag.get())
+    fixedPresent = bool(self._fixedPresentTag.get())
+    zExtended = zPosition >= (self._extended_z_position - 1.0)
+    return {
+      "stagePresent": stagePresent,
+      "fixedPresent": fixedPresent,
+      "stageLatched": bool(self._stageLatchedTag.get()),
+      "fixedLatched": bool(self._fixedLatchedTag.get()),
+      "zExtended": zExtended,
+      "enableActuator": stagePresent and fixedPresent and zExtended,
+      "actuatorPos": int(self._actuatorPosTag.get()),
+      "zPosition": zPosition,
+    }
+
+  def _getCurrentSide(self):
     state = self._readTransferState()
 
     if not state["stagePresent"] and not state["fixedPresent"]:
       return self.HEAD_ABSENT
 
-    if self._getCurrentTransferSide(
-      state
-    ) == self.FIXED_SIDE and self._isFixedFinalState(state):
+    if self._isFixedSideState(state):
       return self.FIXED_SIDE
 
-    if self._getCurrentTransferSide(
-      state
-    ) == self.STAGE_SIDE and self._isStageFinalState(state):
+    if self._isStageSideState(state):
       return self.STAGE_SIDE
 
     return self.HEAD_ABSENT
 
   def _getCurrentTransferSide(self, state):
-    """
-    Resolve which side currently holds the head, even if the latch is not yet
-    in its final command-complete actuator position.
-    """
     if not state["stagePresent"] and not state["fixedPresent"]:
       return self.HEAD_ABSENT
 
-    if state["fixedPresent"] and state["fixedLatched"] and not state["stageLatched"]:
+    if self._isFixedSideState(state):
       return self.FIXED_SIDE
 
-    if state["stagePresent"] and state["stageLatched"] and not state["fixedLatched"]:
+    if self._isStageSideState(state):
       return self.STAGE_SIDE
 
     return self.HEAD_ABSENT
 
-  def _isStageFinalState(self, state):
-    """
-    Final stable state for P0 / P1 / P2.
-    """
+  def _getCurrentStrictTransferSide(self, state):
+    if not state["stagePresent"] and not state["fixedPresent"]:
+      return self.HEAD_ABSENT
+
+    if self._isStrictFixedSideState(state):
+      return self.FIXED_SIDE
+
+    if self._isStrictStageSideState(state):
+      return self.STAGE_SIDE
+
+    return self.HEAD_ABSENT
+
+  def _isStageSideState(self, state):
     return (
       state["stagePresent"]
       and state["stageLatched"]
       and not state["fixedLatched"]
-      and state["actuatorPos"] == 1
     )
 
-  def _isFixedFinalState(self, state):
-    """
-    Final stable state for P3.
-    """
+  def _isFixedSideState(self, state):
     return (
       state["fixedPresent"]
       and state["fixedLatched"]
       and not state["stageLatched"]
-      and state["actuatorPos"] == 2
+    )
+
+  def _isStrictStageSideState(self, state):
+    return (
+      state["stagePresent"]
+      and state["stageLatched"]
+      and not state["fixedLatched"]
+      and int(state["actuatorPos"]) == 1
+    )
+
+  def _isStrictFixedSideState(self, state):
+    return (
+      state["fixedPresent"]
+      and state["fixedLatched"]
+      and not state["stageLatched"]
+      and int(state["actuatorPos"]) == 2
+    )
+
+  def _isStrictIntermediateThreeState(self, state):
+    return (
+      state["stagePresent"]
+      and state["fixedPresent"]
+      and not state["stageLatched"]
+      and not state["fixedLatched"]
+      and int(state["actuatorPos"]) == 3
     )
 
   def _isTransferLatchTargetReached(self):
-    """
-    Check whether the transfer latch phase has reached the requested side.
-    """
     state = self._readTransferState()
 
     if self._headLatchTarget == self.FIXED_SIDE:
-      return self._isFixedFinalState(state)
+      return self._isFixedSideState(state) and state["actuatorPos"] == 2
 
     if self._headLatchTarget == self.STAGE_SIDE:
-      return (
-        state["stagePresent"]
-        and state["stageLatched"]
-        and not state["fixedLatched"]
-        and state["actuatorPos"] == 2
-      )
+      return self._isStageSideState(state) and state["actuatorPos"] == 2
 
     raise ValueError("Unknown head latch target: " + str(self._headLatchTarget))
 
   def _isFinalTargetStateReached(self):
-    """
-    Check whether the requested G106 target has reached its final state.
-    """
     state = self._readTransferState()
 
     if self._headPositionTarget in (
@@ -229,99 +236,45 @@ class Head:
       self.LEVEL_A_SIDE,
       self.LEVEL_B_SIDE,
     ):
-      return self._isStageFinalState(state)
+      return self._isStageSideState(state)
 
     if self._headPositionTarget == self.FIXED_SIDE:
-      return self._isFixedFinalState(state)
+      return self._isFixedSideState(state)
 
     raise ValueError("Unknown head position target: " + str(self._headPositionTarget))
 
-  def _isPreLatchTransferPositionReached(self, state):
-    """
-    Check whether the latch is in actuator position 2, which is required before
-    extending Z for transfer when the stage is not present.
-    """
-    return int(state["actuatorPos"]) == 2
+  def _isG206FinalTargetReached(self, state):
+    if self._headPositionTarget == self.FIXED_SIDE:
+      return (
+        self._isStrictFixedSideState(state)
+        and self._isCloseToTargetZ(state["zPosition"], self._retracted_z_position)
+      )
 
-  def _requiresActuatorTwoBeforeZMove(self, target_z, state):
-    """
-    Any head-controlled Z move above the extension threshold must be issued
-    with the fixed latch already sitting in actuator position 2.
-    """
-    return (
-      float(target_z) > self._latchSafeExtendedZThreshold
-      and state["fixedLatched"]
-      and int(state["actuatorPos"]) != 2
-    )
+    if self._headPositionTarget in (
+      self.STAGE_SIDE,
+      self.LEVEL_A_SIDE,
+      self.LEVEL_B_SIDE,
+    ):
+      return (
+        self._isStrictStageSideState(state)
+        and self._isCloseToTargetZ(state["zPosition"], self._headZTarget)
+      )
 
-  def _startPreLatchingForZMove(self, target_z, next_state):
-    """
-    Enter the local pre-latch loop before a high-extension Z move.
-    """
-    self._preLatchZTarget = float(target_z)
-    self._preLatchNextState = next_state
-    self._startLatchingState()
-    self._headState = self.States.PRE_LATCHING
-    self._updatePreLatchingState()
+    return False
+
+  def _isCloseToTargetZ(self, actual, target):
+    return abs(float(actual) - float(target)) <= 1.0
 
   def _commandZMove(self, target_z, next_state):
-    """
-    Issue a Z move immediately, or pre-latch first if that is required.
-    """
-    state = self._readTransferState()
-    if self._requiresActuatorTwoBeforeZMove(target_z, state):
-      self._startPreLatchingForZMove(target_z, next_state)
-      return
-
+    state = self._readTransferStateNow()
+    if state["fixedLatched"] and int(state["actuatorPos"]) != 2:
+      self._setHeadError("Cannot move Z while fixed-latched unless actuator is at position 2.")
+      return False
     self._plcLogic.setZ_Position(target_z, self._velocity)
     self._headState = next_state
-
-  def _updatePreLatchingState(self):
-    """
-    Pulse the latch until actuator position 2 is reached, then issue the
-    queued high-extension Z move.
-    """
-    state = self._readTransferState()
-
-    if self._isPreLatchTransferPositionReached(state):
-      targetZ = self._preLatchZTarget
-      nextState = self._preLatchNextState
-      self._resetLatchRetryState()
-      self._plcLogic.setZ_Position(targetZ, self._velocity)
-      self._headState = nextState
-      return
-
-    if self._latchStateStartedAt is None:
-      self._startLatchingState()
-
-    now = self._clock()
-    if now - self._latchStateStartedAt >= self._latchTimeoutSeconds:
-      self._setLatchError("Pre-latch transfer positioning timed out")
-      return
-
-    if state["actuatorPos"] != self._latchWaitActuatorPos:
-      self._latchWaitActuatorPos = state["actuatorPos"]
-      self._nextLatchPulseAt = now
-      if self._isPreLatchTransferPositionReached(state):
-        targetZ = self._preLatchZTarget
-        nextState = self._preLatchNextState
-        self._resetLatchRetryState()
-        self._plcLogic.setZ_Position(targetZ, self._velocity)
-        self._headState = nextState
-        return
-
-    if self._nextLatchPulseAt is not None and now < self._nextLatchPulseAt:
-      return
-
-    pulseSent = self._plcLogic.move_latch()
-    self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
-    if pulseSent:
-      return
+    return True
 
   def _updateLatchingState(self):
-    """
-    Drive the pulse-and-wait latch loop until the transfer target is reached.
-    """
     state = self._readTransferState()
 
     if self._isTransferLatchTargetReached():
@@ -351,36 +304,109 @@ class Head:
       return
 
     pulseSent = self._plcLogic.move_latch()
+    self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
     if pulseSent:
-      self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
-    else:
-      # Retry later, but never pulse while the transfer-present interlock is false.
-      self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
+      return
+
+  def _commandNextG206Pulse(self):
+    state = self._readTransferStateNow()
+    transition = self._g206Transitions[self._g206TransitionIndex]
+
+    if not bool(state["enableActuator"]):
+      self._setHeadError("Cannot pulse latch unless ENABLE_ACTUATOR is true.")
+      return
+
+    if not self._isExpectedRetryState(state, transition["from"]):
+      self._setHeadError("Latch transition entered an invalid state before pulsing.")
+      return
+
+    if self._g206PulseAttempts >= self._g206MaxPulseAttempts:
+      self._setHeadError("Latch transition failed after 5 pulse attempts.")
+      return
+
+    pulseSent = self._plcLogic.move_latch()
+    if not pulseSent:
+      self._setHeadError("PLC rejected latch pulse while ENABLE_ACTUATOR was true.")
+      return
+
+    self._g206PulseAttempts += 1
+    self._g206SettleStartedAt = self._clock()
+
+  def _isExpectedRetryState(self, state, fromPos):
+    if fromPos == 1:
+      return self._isStrictStageSideState(state)
+    if fromPos == 2:
+      return self._isStrictFixedSideState(state)
+    if fromPos == 3:
+      return self._isStrictIntermediateThreeState(state)
+    return False
+
+  def _isExpectedTransitionSuccess(self, state, toPos):
+    if toPos == 1:
+      return self._isStrictStageSideState(state)
+    if toPos == 2:
+      return self._isStrictFixedSideState(state)
+    if toPos == 3:
+      return self._isStrictIntermediateThreeState(state)
+    return False
+
+  def _updateG206LatchingState(self):
+    if self._g206SettleStartedAt is None:
+      self._commandNextG206Pulse()
+      return
+
+    if (self._clock() - self._g206SettleStartedAt) < self._g206SettleSeconds:
+      return
+
+    state = self._readTransferStateNow()
+    transition = self._g206Transitions[self._g206TransitionIndex]
+    self._g206SettleStartedAt = None
+
+    if self._isExpectedTransitionSuccess(state, transition["to"]):
+      self._g206TransitionIndex += 1
+      self._g206PulseAttempts = 0
+      if self._g206TransitionIndex >= len(self._g206Transitions):
+        if self._commandZMove(self._headZTarget, self.States.SEEKING_TO_FINAL_POSITION):
+          self._resetG206State()
+        return
+      self._commandNextG206Pulse()
+      return
+
+    if not self._isExpectedRetryState(state, transition["from"]):
+      self._setHeadError("Latch transition settled into an invalid state.")
+      return
+
+    if self._g206PulseAttempts >= self._g206MaxPulseAttempts:
+      self._setHeadError("Latch transition failed after 5 pulse attempts.")
+      return
+
+    self._commandNextG206Pulse()
 
   def update(self):
-    """
-    Update state machine logic.
-    """
-
     if self._headState == self.States.IDLE:
-      # Do nothing.
-      pass
-    elif self._headState == self.States.ERROR:
-      # Wait for an explicit clear/reset via stop() or a new command.
-      pass
-    elif self._plcLogic.isError():
-      # PLC hit an error mid-transfer; abort the queued sequence so that the
-      # next command doesn't try to continue (e.g. latch before extending).
-      self.clearQueuedTransfer()
-    elif self._headState == self.States.SEEKING_TO_FINAL_POSITION:
-      # This is the final seek to the target position.
+      return
+
+    if self._headState == self.States.ERROR:
+      return
+
+    if self._plcLogic.isError():
+      self._setHeadError("PLC entered error state during head transfer.")
+      return
+
+    if self._activeTransferMode == self._TRANSFER_MODE_G206:
+      self._updateG206()
+      return
+
+    self._updateLegacy()
+
+  def _updateLegacy(self):
+    if self._headState == self.States.SEEKING_TO_FINAL_POSITION:
       if self._plcLogic.isReady() and self._isFinalTargetStateReached():
+        self._resetLatchRetryState()
         self._headState = self.States.IDLE
-    elif self._headState == self.States.PRE_LATCHING:
-      self._updatePreLatchingState()
+        self._activeTransferMode = None
     elif self._headState == self.States.EXTENDING_TO_TRANSFER:
       if self._plcLogic.isReady():
-        # We are in position to start the pulse-and-wait latch loop now.
         self._startLatchingState()
         self._headState = self.States.LATCHING
         self._updateLatchingState()
@@ -389,34 +415,59 @@ class Head:
     else:
       raise ValueError("Unknown head state: " + str(self._headState))
 
+  def _updateG206(self):
+    if self._headState == self.States.EXTENDING_TO_TRANSFER:
+      if not self._plcLogic.isReady():
+        return
+      state = self._readTransferStateNow()
+      if not bool(state["zExtended"]):
+        self._setHeadError("Head transfer requires Z_EXTENDED before latching.")
+        return
+      if not bool(state["enableActuator"]):
+        self._setHeadError("Head transfer requires ENABLE_ACTUATOR before latching.")
+        return
+      self._headState = self.States.LATCHING
+      self._commandNextG206Pulse()
+      return
+
+    if self._headState == self.States.LATCHING:
+      self._updateG206LatchingState()
+      return
+
+    if self._headState == self.States.SEEKING_TO_FINAL_POSITION:
+      if not self._plcLogic.isReady():
+        return
+      state = self._readTransferStateNow()
+      if not self._isG206FinalTargetReached(state):
+        self._setHeadError("Head transfer final state did not settle as requested.")
+        return
+      self._headState = self.States.IDLE
+      self._activeTransferMode = None
+      self._lastError = ""
+      return
+
+    raise ValueError("Unknown head state: " + str(self._headState))
+
   def setHeadPosition(self, head_position_target: int, velocity):
-    """
-    Set the head position.
-
-    Args:
-      position: STAGE_SIDE/LEVEL_A_SIDE/LEVEL_B_SIDE/EXTENDED.
-      velocity: Max travel velocity.
-
-    """
-
     self._headPositionTarget = head_position_target
     self._velocity = velocity
     self.clearQueuedTransfer()
+    self._activeTransferMode = self._TRANSFER_MODE_LEGACY
 
     currentTransferState = self._readTransferState()
     currentHeadSide = self._getCurrentTransferSide(currentTransferState)
 
-    # If neither side reports head present, there is nothing to move.
     if (
       not currentTransferState["stagePresent"]
       and not currentTransferState["fixedPresent"]
     ):
       print("DEBUG: Head not present, skipping G106 command")
+      self._activeTransferMode = None
       return False
 
-    # Ignore commands while the raw tags do not resolve to a stable side.
     if currentHeadSide == self.HEAD_ABSENT:
       print("DEBUG: Head state unresolved, skipping G106 command")
+      self._activeTransferMode = None
       return False
 
     target_lookup = {
@@ -425,75 +476,85 @@ class Head:
       self.LEVEL_B_SIDE: (self._back_z_position, self.STAGE_SIDE),
       self.FIXED_SIDE: (self._retracted_z_position, self.FIXED_SIDE),
     }
-    # set the target z position and latch side
     if head_position_target not in target_lookup:
       raise ValueError("Unknown head position request: " + str(head_position_target))
-    else:
-      self._headZTarget, self._headLatchTarget = target_lookup[head_position_target]
-
-    if self._headZTarget is None:
-      raise ValueError("Unknown head position request: " + str(head_position_target))
+    self._headZTarget, self._headLatchTarget = target_lookup[head_position_target]
 
     if self._headLatchTarget != currentHeadSide:
-      # head is not latched to the side we want
       self._commandZMove(self._extended_z_position, self.States.EXTENDING_TO_TRANSFER)
     else:
-      # otherwise just move the z axis to the target position
       self._commandZMove(self._headZTarget, self.States.SEEKING_TO_FINAL_POSITION)
 
     return False
 
-  def setFrontAndBack(self, front, back):
-    """
-    Set the front and back locations (i.e. locations to put head level with
-    the current layer).
+  def setTransferPosition(self, head_position_target: int, velocity):
+    self.clearQueuedTransfer()
+    self._activeTransferMode = self._TRANSFER_MODE_G206
+    self._headPositionTarget = head_position_target
+    self._velocity = velocity
 
-    Args:
-      front: Z-location to make head level with current layer on front side.
-      back: Z-location to make head level with current layer on back side.
-    """
+    target_lookup = {
+      self.STAGE_SIDE: (self._retracted_z_position, self.STAGE_SIDE),
+      self.LEVEL_A_SIDE: (self._front_z_position, self.STAGE_SIDE),
+      self.LEVEL_B_SIDE: (self._back_z_position, self.STAGE_SIDE),
+      self.FIXED_SIDE: (self._retracted_z_position, self.FIXED_SIDE),
+    }
+    if head_position_target not in target_lookup:
+      return self._failTransferRequest("Unknown head transfer request: " + str(head_position_target))
+
+    self._headZTarget, self._headLatchTarget = target_lookup[head_position_target]
+
+    state = self._readTransferStateNow()
+    currentSide = self._getCurrentStrictTransferSide(state)
+    if currentSide == self.HEAD_ABSENT:
+      return self._failTransferRequest("Head transfer requires a valid stable starting state.")
+
+    if currentSide == self.FIXED_SIDE and int(state["actuatorPos"]) != 2:
+      return self._failTransferRequest("Fixed-latched transfers require ACTUATOR_POS 2.")
+
+    if currentSide == self.STAGE_SIDE and int(state["actuatorPos"]) != 1:
+      return self._failTransferRequest("Stage-latched transfers require ACTUATOR_POS 1.")
+
+    if self._headLatchTarget == currentSide:
+      if not self._commandZMove(self._headZTarget, self.States.SEEKING_TO_FINAL_POSITION):
+        return self._lastError
+      return None
+
+    self._g206Transitions = []
+    if currentSide == self.STAGE_SIDE and self._headLatchTarget == self.FIXED_SIDE:
+      self._g206Transitions = [{"from": 1, "to": 3}, {"from": 3, "to": 2}]
+    elif currentSide == self.FIXED_SIDE and self._headLatchTarget == self.STAGE_SIDE:
+      self._g206Transitions = [{"from": 2, "to": 1}]
+    else:
+      return self._failTransferRequest("Unsupported head transfer side combination.")
+
+    if not self._commandZMove(self._extended_z_position, self.States.EXTENDING_TO_TRANSFER):
+      return self._lastError
+    return None
+
+  def _failTransferRequest(self, message):
+    self._setHeadError(message)
+    return self._lastError
+
+  def setFrontAndBack(self, front, back):
     self._front_z_position = front
     self._back_z_position = back
 
   def setExtendedAndRetracted(self, retracted, extended):
-    """
-    Set the extended and retracted position for the Z-axis.
-
-    Args:
-      retracted: Z-position for fully retracted.
-      extended: Z-position for fully extended (i.e. ready to latch).
-    """
     self._extended_z_position = extended
     self._retracted_z_position = retracted
 
   def getPosition(self):
-    """
-    Get the current position of the head.
-
-    Returns:
-      STAGE_SIDE/LEVEL_A_SIDE/LEVEL_B_SIDE/EXTENDED.
-    """
     return self.readCurrentPosition()
 
   def readCurrentPosition(self):
-    """
-    Poll the PLC to determine the current logical head position.
-
-    Reads the raw transfer tags directly and, when on the stage side, uses the
-    current Z axis position to distinguish STAGE_SIDE / LEVEL_A_SIDE /
-    LEVEL_B_SIDE.
-
-    Returns:
-      STAGE_SIDE / LEVEL_A_SIDE / LEVEL_B_SIDE / FIXED_SIDE, or HEAD_ABSENT
-      if the head is not latched to either side.
-    """
-    side = self._getCurrentSide()
+    state = self._readTransferStateNow()
+    side = self._getCurrentStrictTransferSide(state)
     if side == self.HEAD_ABSENT:
       return self.HEAD_ABSENT
     if side == self.FIXED_SIDE:
       return self.FIXED_SIDE
-    # On the stage side; use Z to distinguish 0 / 1 / 2.
-    z = self._zPosTag.get()
+    z = float(state["zPosition"])
     candidates = {
       self.STAGE_SIDE: self._retracted_z_position,
       self.LEVEL_A_SIDE: self._front_z_position,
@@ -502,27 +563,10 @@ class Head:
     return min(candidates, key=lambda p: abs(candidates[p] - z))
 
   def getTargetAxisPosition(self):
-    """
-    Get the target location of head axis.
-
-    Returns:
-      Target location of head axis.
-    """
     return self._headZTarget
 
   def stop(self):
-    """
-    Stop/abort transfer.
-    """
-
-    # If in transition...
     if self.States.IDLE != self._headState:
-      # If Z axis is in motion, stop it.
       if self.States.SEEKING_TO_FINAL_POSITION == self._headState:
         self._plcLogic.stopSeek()
-
-      # Idle the state machine.
       self.clearQueuedTransfer()
-
-
-# end class
