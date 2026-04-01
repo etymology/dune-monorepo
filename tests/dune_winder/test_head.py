@@ -160,7 +160,7 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(plc.z_moves[-1], (150.0, 275))
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 
-  def test_g206_retries_up_to_five_pulses_before_error(self):
+  def test_g206_retries_until_timeout_before_error(self):
     head, plc, clock = self._build_head(
       stage_present=True,
       fixed_present=True,
@@ -169,17 +169,19 @@ class HeadControllerTests(unittest.TestCase):
       actuator_pos=1,
       z_position=0.0,
     )
+    head.setLatchTiming(1.0, 3.0)
 
     self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
     head.update()
 
-    for attempt in range(2, 7):
+    for attempt in range(1, 5):
       clock["now"] = float(attempt)
       head.update()
 
-    self.assertEqual(plc.latch_moves, 5)
+    self.assertEqual(plc.latch_moves, 3)
     self.assertTrue(head.hasError())
-    self.assertIn("5 pulse attempts", head.getLastError())
+    self.assertIn("Latch phase timed out while targeting latch side 3", head.getLastError())
+    self.assertIn("actuatorPos=1", head.getLastError())
 
   def test_invalid_g206_start_state_fails_immediately(self):
     head, plc, _clock = self._build_head(
@@ -212,6 +214,47 @@ class HeadControllerTests(unittest.TestCase):
     self.assertIsNotNone(error)
     self.assertEqual(plc.z_moves, [])
     self.assertIn("valid stable starting state", error)
+
+  def test_g206_failure_does_not_leave_head_controller_busy(self):
+    head, plc, clock = self._build_head(
+      stage_present=True,
+      fixed_present=True,
+      stage_latched=True,
+      fixed_latched=False,
+      actuator_pos=1,
+      z_position=0.0,
+    )
+    head.setLatchTiming(1.0, 3.0)
+
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    head.update()
+
+    for attempt in range(1, 5):
+      clock["now"] = float(attempt)
+      head.update()
+
+    self.assertTrue(head.hasError())
+    self.assertTrue(head.isReady())
+    self.assertFalse(head.isTransferActive())
+
+  def test_g206_waits_for_enable_actuator_before_first_pulse(self):
+    head, plc, clock = self._build_head(
+      stage_present=True,
+      fixed_present=False,
+      stage_latched=True,
+      fixed_latched=False,
+      actuator_pos=1,
+      z_position=0.0,
+    )
+    head.setLatchTiming(1.0, 3.0)
+
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    head.update()
+    self.assertEqual(plc.latch_moves, 0)
+
+    plc._zFixedPresentBit.set(True)
+    head.update()
+    self.assertEqual(plc.latch_moves, 1)
 
 
 if __name__ == "__main__":

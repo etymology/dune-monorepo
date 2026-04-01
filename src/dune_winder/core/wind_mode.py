@@ -13,6 +13,10 @@ from dune_winder.library.log import Log
 
 
 class WindMode(StateMachineState):
+  class SubStates:
+    IDLE = 0
+    HEAD_TRANSFER = 1
+
   # ---------------------------------------------------------------------
   def __init__(
     self, stateMachine, state: int, io: BaseIO, log: Log
@@ -35,6 +39,18 @@ class WindMode(StateMachineState):
     self._stopRequested = False
     self._loopMode = False
     self._windTime = 0
+    self._subState = self.SubStates.IDLE
+
+  # ---------------------------------------------------------------------
+  def getSubState(self):
+    return self._subState
+
+  # ---------------------------------------------------------------------
+  def _syncSubState(self):
+    if hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive():
+      self._subState = self.SubStates.HEAD_TRANSFER
+    else:
+      self._subState = self.SubStates.IDLE
 
   # ---------------------------------------------------------------------
   def enter(self):
@@ -72,6 +88,7 @@ class WindMode(StateMachineState):
       self._startTime = self.stateMachine.systemTime.get()
       self._windTime = 0
       self._stopRequested = False
+      self._subState = self.SubStates.IDLE
       self._log.add(
         self.__class__.__name__,
         "WIND",
@@ -104,6 +121,7 @@ class WindMode(StateMachineState):
     )
 
     self.stateMachine.gCodeHandler.stop()
+    self._subState = self.SubStates.IDLE
     return False
 
   # ---------------------------------------------------------------------
@@ -121,7 +139,9 @@ class WindMode(StateMachineState):
       self._stopRequested = False
     else:
       # Update G-Code handler.
+      self._syncSubState()
       isDone = self.stateMachine.gCodeHandler.poll()
+      self._syncSubState()
 
       if self.stateMachine.gCodeHandler.isG_CodeError():
         # Log message that wind is complete.
@@ -190,6 +210,7 @@ class WindMode(StateMachineState):
           self.stateMachine.gCodeHandler.setLine(-1)
         else:
           # Return to stopped state.
+          self._subState = self.SubStates.IDLE
           self.changeState(self.stateMachine.States.STOP)
 
   # ---------------------------------------------------------------------

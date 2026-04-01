@@ -143,16 +143,16 @@ class PLCLogicTests(unittest.TestCase):
 
     self.assertEqual(
       plc.read_calls,
-      [
-        ["MACHINE_SW_STAT[9]"],
-        ["MACHINE_SW_STAT[10]"],
-        ["MACHINE_SW_STAT[6]"],
-        ["MACHINE_SW_STAT[7]"],
-        ["MACHINE_SW_STAT[5]"],
-        ["ENABLE_ACTUATOR"],
-        ["ACTUATOR_POS"],
-        ["Z_axis.ActualPosition"],
-      ],
+      [[
+        "MACHINE_SW_STAT[9]",
+        "MACHINE_SW_STAT[10]",
+        "MACHINE_SW_STAT[6]",
+        "MACHINE_SW_STAT[7]",
+        "MACHINE_SW_STAT[5]",
+        "ENABLE_ACTUATOR",
+        "ACTUATOR_POS",
+        "Z_axis.ActualPosition",
+      ]],
     )
     self.assertTrue(state["stagePresent"])
     self.assertTrue(state["fixedPresent"])

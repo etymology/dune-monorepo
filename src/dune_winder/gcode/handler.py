@@ -885,7 +885,14 @@ class GCodeHandler(GCodeHandlerBase):
       return False
 
     message = "Head transfer failed."
-    if hasattr(head, "getLastError"):
+    if hasattr(head, "consumeLastError"):
+      try:
+        last_error = str(head.consumeLastError()).strip()
+      except Exception:
+        last_error = ""
+      if last_error:
+        message = last_error
+    elif hasattr(head, "getLastError"):
       try:
         last_error = str(head.getLastError()).strip()
       except Exception:
@@ -894,6 +901,8 @@ class GCodeHandler(GCodeHandlerBase):
         message = last_error
 
     self._set_gcode_error(message)
+    if hasattr(head, "clearQueuedTransfer"):
+      head.clearQueuedTransfer()
     return True
 
   # ---------------------------------------------------------------------

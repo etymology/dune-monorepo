@@ -40,15 +40,23 @@ class _FakePLCLogic:
 class _FakeHead:
   def __init__(self):
     self.stop_requests = 0
+    self._ready_states = [True]
+    self._index = 0
+    self._transfer_active = False
 
   def isReady(self):
-    return True
+    value = self._ready_states[min(self._index, len(self._ready_states) - 1)]
+    self._index += 1
+    return value
 
   def hasError(self):
     return False
 
   def getLastError(self):
     return ""
+
+  def isTransferActive(self):
+    return self._transfer_active
 
   def clearQueuedTransfer(self):
     pass
@@ -79,9 +87,12 @@ class _FakeStateMachine:
 
 
 class _FakeIO:
-  def __init__(self, ready_states, axis_seeking_states=None):
+  def __init__(self, ready_states, axis_seeking_states=None, head_ready_states=None, head_transfer_active=False):
     self.plcLogic = _FakePLCLogic(ready_states)
     self.head = _FakeHead()
+    if head_ready_states is not None:
+      self.head._ready_states = list(head_ready_states)
+    self.head._transfer_active = bool(head_transfer_active)
     axis_states = axis_seeking_states or [False]
     self.xAxis = _FakeAxis(axis_states)
     self.yAxis = _FakeAxis([False])
@@ -107,6 +118,29 @@ class ManualModeTests(unittest.TestCase):
     mode.update()
     self.assertEqual(machine.changed_to, [])
 
+    mode.update()
+    self.assertEqual(machine.changed_to, [])
+
+    mode.update()
+    self.assertEqual(machine.changed_to, ["STOP"])
+
+  def test_execute_gcode_waits_while_head_transfer_substate_is_active(self):
+    io = _FakeIO(
+      ready_states=[True],
+      head_ready_states=[False, False, True],
+      head_transfer_active=True,
+    )
+    machine = _FakeStateMachine()
+    mode = ManualMode(machine, "MANUAL", io, _FakeLog())
+    mode.setRequest(ManualModeEvent(executeGCode=True))
+
+    self.assertFalse(mode.enter())
+    self.assertEqual(mode.getSubState(), ManualMode.SubStates.HEAD_TRANSFER)
+
+    mode.update()
+    self.assertEqual(machine.changed_to, [])
+
+    io.head._transfer_active = False
     mode.update()
     self.assertEqual(machine.changed_to, [])
 

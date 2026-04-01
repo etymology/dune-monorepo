@@ -234,6 +234,43 @@ class PLC_Logic:
     return tag.get()
 
   # ---------------------------------------------------------------------
+  def _readTagsNow(self, tags):
+    """
+    Read multiple tags immediately as a single PLC snapshot.
+
+    Args:
+      tags: Iterable of PLC.Tag instances.
+
+    Returns:
+      Dictionary keyed by tag name with fresh values when available.
+    """
+    tagList = list(tags)
+    tagNames = [tag.getName() for tag in tagList]
+    result = self._plc.read(tagNames)
+    values = {}
+
+    if result is None or self._plc.isNotFunctional():
+      for tag in tagList:
+        values[tag.getName()] = tag.get()
+      return values
+
+    for entry in result:
+      if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+        continue
+      tagName = str(entry[0])
+      values[tagName] = entry[1]
+      if tagName in PLC.Tag.tag_lookup_table:
+        for tag in PLC.Tag.tag_lookup_table[tagName]:
+          tag.updateFromReadTag(entry[1])
+
+    for tag in tagList:
+      tagName = tag.getName()
+      if tagName not in values:
+        values[tagName] = tag.get()
+
+    return values
+
+  # ---------------------------------------------------------------------
   def _writeTagNow(self, tagName, value):
     """
     Write a tag immediately and fail fast if the PLC rejects the write.
@@ -309,15 +346,27 @@ class PLC_Logic:
     Returns:
       Dictionary containing the current live transfer state.
     """
+    values = self._readTagsNow(
+      [
+        self._zStagePresentBit,
+        self._zFixedPresentBit,
+        self._zStageLatchedBit,
+        self._zFixedLatchedBit,
+        self._zExtendedBit,
+        self._enableActuator,
+        self._actuatorPosition,
+        self._zAxis._position,
+      ]
+    )
     return {
-      "stagePresent": bool(self._readTagNow(self._zStagePresentBit)),
-      "fixedPresent": bool(self._readTagNow(self._zFixedPresentBit)),
-      "stageLatched": bool(self._readTagNow(self._zStageLatchedBit)),
-      "fixedLatched": bool(self._readTagNow(self._zFixedLatchedBit)),
-      "zExtended": bool(self._readTagNow(self._zExtendedBit)),
-      "enableActuator": bool(self._readTagNow(self._enableActuator)),
-      "actuatorPos": int(self._readTagNow(self._actuatorPosition)),
-      "zPosition": float(self._readTagNow(self._zAxis._position)),
+      "stagePresent": bool(values[self._zStagePresentBit.getName()]),
+      "fixedPresent": bool(values[self._zFixedPresentBit.getName()]),
+      "stageLatched": bool(values[self._zStageLatchedBit.getName()]),
+      "fixedLatched": bool(values[self._zFixedLatchedBit.getName()]),
+      "zExtended": bool(values[self._zExtendedBit.getName()]),
+      "enableActuator": bool(values[self._enableActuator.getName()]),
+      "actuatorPos": int(values[self._actuatorPosition.getName()]),
+      "zPosition": float(values[self._zAxis._position.getName()]),
     }
 
   # ---------------------------------------------------------------------

@@ -19,6 +19,10 @@ from dune_winder.library.log import Log
 
 
 class ManualMode(StateMachineState):
+  class SubStates:
+    IDLE = 0
+    HEAD_TRANSFER = 1
+
   def __init__(
     self, stateMachine, state, io: ProductionIO, log: Log
   ):
@@ -44,6 +48,7 @@ class ManualMode(StateMachineState):
     self._awaitHeadReady = False
     self._plcObservedBusy = False
     self._request: Optional[ManualModeEvent] = None
+    self._subState = self.SubStates.IDLE
 
   # ---------------------------------------------------------------------
   def setRequest(self, request: ManualModeEvent):
@@ -54,6 +59,17 @@ class ManualMode(StateMachineState):
   # ---------------------------------------------------------------------
   def isJogging(self):
     return self._isJogging
+
+  # ---------------------------------------------------------------------
+  def getSubState(self):
+    return self._subState
+
+  # ---------------------------------------------------------------------
+  def _syncSubState(self):
+    if hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive():
+      self._subState = self.SubStates.HEAD_TRANSFER
+    else:
+      self._subState = self.SubStates.IDLE
 
   # ---------------------------------------------------------------------
   def _plcMotionInFlight(self):
@@ -84,6 +100,7 @@ class ManualMode(StateMachineState):
     self._awaitPlcReady = False
     self._awaitHeadReady = False
     self._plcObservedBusy = False
+    self._subState = self.SubStates.IDLE
 
     request = self._request
     self._request = None
@@ -93,6 +110,10 @@ class ManualMode(StateMachineState):
 
     # If executing a G-Code line.
     if request.executeGCode:
+      self._awaitHeadReady = (
+        hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive()
+      )
+      self._syncSubState()
       isError = False
 
     # X/Y axis move?
@@ -171,6 +192,7 @@ class ManualMode(StateMachineState):
       plcReady = self._plcObservedBusy and not plcBusy
 
     headReady = (not self._awaitHeadReady) or self._io.head.isReady()
+    self._syncSubState()
     if plcReady and headReady:
       # If we were seeking and stopped pre-maturely, note where.
       if self._noteSeekStop:
@@ -197,6 +219,7 @@ class ManualMode(StateMachineState):
         )
 
       self._isJogging = False
+      self._subState = self.SubStates.IDLE
       self.changeState(self.stateMachine.States.STOP)
 
   # ---------------------------------------------------------------------
