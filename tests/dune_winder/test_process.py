@@ -1,4 +1,5 @@
 import unittest
+import os
 
 from dune_winder.core.control_events import ManualModeEvent
 from dune_winder.core.motion_service import MotionService
@@ -117,6 +118,56 @@ class FakeAPARefresh:
       raise self.calibrationError
 
 
+class FakeWorkspaceForRefreshMessages:
+  def __init__(self, recipePath, calibrationPath):
+    self._recipePath = recipePath
+    self._calibrationPath = calibrationPath
+    self._recipeFile = "V-layer.gc"
+    self._calibrationFile = "V_Calibration.json"
+    self._recipeDirectory = "C:/recipes"
+    self._calibrationDirectory = "C:/config/APA"
+    self._recipe = object()
+    self._calibration = object()
+    self._recipeSignature = "recipe-signature"
+    self._calibrationSignature = "calibration-signature"
+
+  def _getRecipeFullPath(self):
+    return self._recipePath
+
+  def _getCalibrationFullPath(self):
+    return self._calibrationPath
+
+  def _missingRecipeMessage(self, recipeFullPath):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._missingRecipeMessage(self, recipeFullPath)
+
+  def _missingCalibrationMessage(self, calibFullPath):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._missingCalibrationMessage(self, calibFullPath)
+
+  def _calculateRecipeSignature(self):
+    if self._recipePath is None or not os.path.isfile(self._recipePath):
+      return None
+    return self._recipeSignature
+
+  def _calculateCalibrationSignature(self):
+    if self._calibrationPath is None or not os.path.isfile(self._calibrationPath):
+      return None
+    return self._calibrationSignature
+
+  def refreshRecipeIfChanged(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace.refreshRecipeIfChanged(self)
+
+  def refreshCalibrationIfChanged(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace.refreshCalibrationIfChanged(self)
+
+
 class FakeLog:
   def __init__(self):
     self.entries = []
@@ -185,8 +236,51 @@ class ProcessSnapshotTests(unittest.TestCase):
 
     result = process._refreshCalibrationBeforeExecution()
 
-    self.assertEqual(result, "Failed to refresh G-Code or calibration from disk.")
+    self.assertEqual(result, "recipe changed badly")
     self.assertEqual(process.workspace.calls, ["recipe"])
+    self.assertEqual(len(process._log.entries), 1)
+    self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+
+  def test_refresh_before_execution_returns_actionable_missing_recipe_message(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    process = object.__new__(Process)
+    process.workspace = FakeWorkspaceForRefreshMessages(
+      recipePath="C:/recipes/V-layer.gc",
+      calibrationPath="C:/config/APA/V_Calibration.json",
+    )
+    process._log = FakeLog()
+
+    result = process._refreshCalibrationBeforeExecution()
+
+    self.assertEqual(
+      result,
+      WinderWorkspace._missingRecipeMessage(process.workspace, "C:/recipes/V-layer.gc"),
+    )
+    self.assertEqual(len(process._log.entries), 1)
+    self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+
+  def test_refresh_before_execution_returns_actionable_missing_calibration_message(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    process = object.__new__(Process)
+    process.workspace = FakeWorkspaceForRefreshMessages(
+      recipePath="C:/recipes/V-layer.gc",
+      calibrationPath="C:/config/APA/V_Calibration.json",
+    )
+    process.workspace._recipeFile = None
+    process.workspace._recipe = None
+    process._log = FakeLog()
+
+    result = process._refreshCalibrationBeforeExecution()
+
+    self.assertEqual(
+      result,
+      WinderWorkspace._missingCalibrationMessage(
+        process.workspace,
+        "C:/config/APA/V_Calibration.json",
+      ),
+    )
     self.assertEqual(len(process._log.entries), 1)
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
 
@@ -214,9 +308,11 @@ class _ControlStateMachineForManualGCode:
 class _GCodeHandlerForManualGCode:
   def __init__(self):
     self.lines = []
+    self.skipFlags = []
 
-  def executeG_CodeLine(self, line):
+  def executeG_CodeLine(self, line, skip_before_execute_callback=False):
     self.lines.append(line)
+    self.skipFlags.append(skip_before_execute_callback)
     return None
 
 
@@ -323,6 +419,7 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["X4 Y22.0"])
+    self.assertEqual(process.gCodeHandler.skipFlags, [True])
     self.assertEqual(len(process.controlStateMachine.events), 1)
     self.assertIsInstance(process.controlStateMachine.events[0], ManualModeEvent)
     self.assertTrue(process.controlStateMachine.events[0].executeGCode)

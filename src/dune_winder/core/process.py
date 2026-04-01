@@ -305,7 +305,7 @@ class Process:
           "Failed to refresh runtime files from disk before G-Code execution.",
           [str(exception)],
         )
-        return "Failed to refresh G-Code or calibration from disk."
+        return str(exception)
       return None
 
     return self._playbackService().refreshCalibrationBeforeExecution()

@@ -863,6 +863,16 @@ class GCodeHandler(GCodeHandlerBase):
     return moving
 
   # ---------------------------------------------------------------------
+  def _manualLineCanIgnoreHeadReadiness(self):
+    """
+    Manual single-line Z/XZ moves may clear a stale queued head transfer and
+    proceed without treating the head controller as an active blocker.
+    """
+    return bool(self._pending_actions) and all(
+      action in ("z", "xz") for action in self._pending_actions
+    )
+
+  # ---------------------------------------------------------------------
   def poll(self):
     """
     Update the logic for executing this line of G-Code.
@@ -1024,7 +1034,7 @@ class GCodeHandler(GCodeHandlerBase):
 
 
   # ---------------------------------------------------------------------
-  def executeG_CodeLine(self, line: str):
+  def executeG_CodeLine(self, line: str, skip_before_execute_callback: bool = False):
     """
     Run a line of G-code.
 
@@ -1046,7 +1056,7 @@ class GCodeHandler(GCodeHandlerBase):
       "isG_CodeErrorData": list(self._isG_CodeErrorData),
     }
     try:
-      if self._beforeExecuteLineCallback:
+      if self._beforeExecuteLineCallback and not skip_before_execute_callback:
         error = self._beforeExecuteLineCallback()
         if error:
           return {"line": line, "message": str(error), "data": []}
@@ -1060,7 +1070,12 @@ class GCodeHandler(GCodeHandlerBase):
 
       # Interpret the next line.
       gCode.execute(line)
-      if self._io.plcLogic.isReady() and self._io.head.isReady():
+      headReady = self._io.head.isReady()
+      if not headReady and self._manualLineCanIgnoreHeadReadiness():
+        self._io.head.clearQueuedTransfer()
+        headReady = self._io.head.isReady()
+
+      if self._io.plcLogic.isReady() and headReady:
         self._dispatch_pending_actions(safety_label="manual")
       if self._isG_CodeError:
         errorData = {

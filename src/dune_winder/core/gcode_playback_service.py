@@ -286,7 +286,7 @@ class GCodePlaybackService:
         "Failed to refresh runtime files from disk before G-Code execution.",
         [str(exception)],
       )
-      return "Failed to refresh G-Code or calibration from disk."
+      return str(exception)
 
     return None
 
@@ -425,7 +425,10 @@ class GCodePlaybackService:
         elif re.match(y_only+'|'+yf+'|'+fy, line):
           lineToExecute = line.strip() + " X" + str(xPosition)
 
-        errorData = self._gCodeHandler.executeG_CodeLine(lineToExecute)
+        errorData = self._gCodeHandler.executeG_CodeLine(
+          lineToExecute,
+          skip_before_execute_callback=True,
+        )
 
         if errorData:
           error = errorData["message"]

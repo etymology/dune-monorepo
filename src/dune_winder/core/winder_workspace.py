@@ -463,6 +463,20 @@ class WinderWorkspace:
 
     return self._recipeDirectory + "/" + self._recipeFile
 
+  def _missingRecipeMessage(self, recipeFullPath):
+    return (
+      "Active G-Code file is missing: "
+      + str(recipeFullPath)
+      + ". Generate the G-Code file before playback."
+    )
+
+  def _missingCalibrationMessage(self, calibFullPath):
+    return (
+      "Active calibration file is missing: "
+      + str(calibFullPath)
+      + ". Generate or save the calibration file before playback."
+    )
+
   def _calculateRecipeSignature(self):
     recipeFullPath = self._getRecipeFullPath()
     if recipeFullPath is None or not os.path.isfile(recipeFullPath):
@@ -504,6 +518,9 @@ class WinderWorkspace:
     calibration = LayerCalibration(archivePath=archivePath)
     calibFullPath = self._getCalibrationFullPath()
 
+    if calibFullPath is None or not os.path.isfile(calibFullPath):
+      raise FileNotFoundError(self._missingCalibrationMessage(calibFullPath))
+
     try:
       calibration.load(self._calibrationDirectory, self._calibrationFile)
     except LayerCalibration.Error as exception:
@@ -541,6 +558,10 @@ class WinderWorkspace:
     if not self._calibrationFile:
       return
 
+    calibFullPath = self._getCalibrationFullPath()
+    if calibFullPath is None or not os.path.isfile(calibFullPath):
+      raise FileNotFoundError(self._missingCalibrationMessage(calibFullPath))
+
     currentSignature = self._calculateCalibrationSignature()
     if currentSignature is None:
       return
@@ -566,7 +587,7 @@ class WinderWorkspace:
     recipeFullPath = self._getRecipeFullPath()
     currentSignature = self._calculateRecipeSignature()
     if currentSignature is None:
-      raise Exception("Active G-Code file is missing: " + str(recipeFullPath))
+      raise FileNotFoundError(self._missingRecipeMessage(recipeFullPath))
 
     if self._recipe is None:
       self._recipe = Recipe(recipeFullPath, self._recipeArchiveDirectory)
