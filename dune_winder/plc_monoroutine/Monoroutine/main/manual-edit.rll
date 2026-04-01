@@ -296,6 +296,7 @@ XIC INIT_DONE CMP "STATE=10" OTE STATE10_IND
 XIC STATE10_IND XIO ERR10_state10_entry_oneshot_storage OTE ERR10_state10_entry_oneshot 
 XIC STATE10_IND OTL ERR10_state10_entry_oneshot_storage 
 XIO STATE10_IND OTU ERR10_state10_entry_oneshot_storage 
+XIC ERR10_state10_entry_oneshot CPT MOVE_TYPE -1 
 XIC ERR10_state10_entry_oneshot MCS X_Y ERR10_xy_group_stop_status All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
 XIC ERR10_state10_entry_oneshot MAS Z_axis ERR10_z_axis_stop_status All Yes 1000 "Units per sec2" No 10000 "% of Time" 
 XIC ERR10_xy_group_stop_status.PC XIC ERR10_z_axis_stop_status.PC XIO ERR10_motion_stop_done_oneshot_storage OTE ERR10_motion_stop_done_oneshot 
