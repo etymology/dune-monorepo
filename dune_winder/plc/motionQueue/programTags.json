@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-24T21:24:22.703798+00:00",
+  "generated_at": "2026-04-02T19:33:22.736743+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "motionQueue",
   "main_routine_name": "main",
@@ -478,15 +478,15 @@
         "Valid": false,
         "SegType": 1,
         "XY": [
-          440.0,
-          1202.3416748046875
+          596.96826171875,
+          332.9546813964844
         ],
-        "Speed": 600.0,
+        "Speed": 1.0,
         "Accel": 2000.0,
         "Decel": 2000.0,
         "JerkAccel": 1500.0,
-        "JerkDecel": 1500.0,
-        "TermType": 0,
+        "JerkDecel": 3000.0,
+        "TermType": 4,
         "Seq": 0,
         "CircleType": 1,
         "ViaCenter": [
@@ -852,7 +852,7 @@
       ],
       "array_dimensions": 1,
       "program": "motionQueue",
-      "value": 440.0
+      "value": 596.96826171875
     },
     {
       "name": "CmdTolerance",
@@ -884,7 +884,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 600.0
+      "value": 1.0
     },
     {
       "name": "CmdA_Accel",
@@ -948,7 +948,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 1500.0
+      "value": 3000.0
     },
     {
       "name": "CmdA_TermType",
@@ -964,7 +964,7 @@
       ],
       "array_dimensions": 0,
       "program": "motionQueue",
-      "value": 0
+      "value": 4
     },
     {
       "name": "CmdB_XY",
@@ -1626,5 +1626,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
+  "values_generated_at": "2026-04-02T19:33:46.170020+00:00"
 }

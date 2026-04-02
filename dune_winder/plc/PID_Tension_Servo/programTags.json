@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-24T21:24:22.703798+00:00",
+  "generated_at": "2026-04-02T19:33:22.736743+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "PID_Tension_Servo",
   "main_routine_name": "main",
@@ -64,7 +64,7 @@
       ],
       "array_dimensions": 0,
       "program": "PID_Tension_Servo",
-      "value": -2.497713565826416
+      "value": -0.03762340545654297
     },
     {
       "name": "constant_cv_out",
@@ -100,10 +100,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 1000,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 1000,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -123,9 +123,9 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 20,
-        "ACC": 2,
-        "EN": true,
-        "TT": true,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
         "DN": false
       }
     },
@@ -159,7 +159,7 @@
       ],
       "array_dimensions": 1,
       "program": "PID_Tension_Servo",
-      "value": false
+      "value": true
     },
     {
       "name": "cv_to_electrocraft",
@@ -175,7 +175,7 @@
       ],
       "array_dimensions": 0,
       "program": "PID_Tension_Servo",
-      "value": 2.5
+      "value": 5.971841335296631
     },
     {
       "name": "Enable_tension_motor",
@@ -192,7 +192,7 @@
       "array_dimensions": 0,
       "program": "PID_Tension_Servo",
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "tension_stable_tolerance",
@@ -224,8 +224,8 @@
       ],
       "array_dimensions": 0,
       "program": "PID_Tension_Servo",
-      "value": 1
+      "value": 25
     }
   ],
-  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
+  "values_generated_at": "2026-04-02T19:33:46.170020+00:00"
 }

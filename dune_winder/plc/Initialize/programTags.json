@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-24T21:24:22.703798+00:00",
+  "generated_at": "2026-04-02T19:33:22.736743+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Initialize",
   "main_routine_name": "main",
@@ -268,10 +268,10 @@
       "udt_name": "MOTION_INSTRUCTION",
       "value": [
         {
-          "FLAGS": 301989888,
+          "FLAGS": 570425344,
           "EN": false,
-          "DN": false,
-          "ER": true,
+          "DN": true,
+          "ER": false,
           "PC": false,
           "IP": false,
           "AC": false,
@@ -279,9 +279,9 @@
           "DECEL": false,
           "TrackingMaster": false,
           "CalculatedDataAvailable": false,
-          "ERR": 11,
+          "ERR": 0,
           "STATUS": 0,
-          "STATE": 0,
+          "STATE": 1,
           "SEGMENT": 0,
           "EXERR": 0
         },
@@ -846,5 +846,5 @@
       ]
     }
   ],
-  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
+  "values_generated_at": "2026-04-02T19:33:46.170020+00:00"
 }

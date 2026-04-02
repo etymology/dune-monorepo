@@ -282,22 +282,20 @@ function VTemplate( modules )
     $( "#gCodeGenerationVTransferPause" ).prop( "checked", !! state.transferPause )
     $( "#gCodeGenerationVIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#gCodeGenerationVStripG113Params" ).prop( "checked", !! state.stripG113Params )
-    setControlsDisabled( "#gCodeGenerationVCard", ! state.enabled || ! state.movementReady )
+    setControlsDisabled( "#gCodeGenerationVCard", ! state.enabled )
 
     setStatus(
       {
         layer: state.layer || "V",
         mode: "V template",
         dirty: state.dirty ? "Unsaved draft" : "Saved",
-        machine: state.movementReady ? "Ready to generate" : "Machine busy",
+        machine: state.movementReady ? "Ready for motion" : "Motion busy",
         summary: state.wrapCount + " wraps  |  " + state.lineCount + " lines",
-        ready: state.enabled && state.movementReady ? "Ready to generate" : "Waiting for machine",
+        ready: state.enabled ? "Ready to generate" : "Unavailable",
         liveFile: state.liveFile || "",
         hash: state.generated && state.generated.hashValue ? state.generated.hashValue : "-",
         updatedAt: state.generated && state.generated.updatedAt ? state.generated.updatedAt : "-",
-        disabled: state.movementReady
-          ? ( state.disabledReason || "" )
-          : "Machine is not ready to generate the V recipe.",
+        disabled: state.disabledReason || "",
       }
     )
 
@@ -365,22 +363,20 @@ function VTemplate( modules )
     $( "#gCodeGenerationUTransferPause" ).prop( "checked", !! state.transferPause )
     $( "#gCodeGenerationUIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#gCodeGenerationUStripG113Params" ).prop( "checked", !! state.stripG113Params )
-    setControlsDisabled( "#gCodeGenerationUCard", ! state.enabled || ! state.movementReady )
+    setControlsDisabled( "#gCodeGenerationUCard", ! state.enabled )
 
     setStatus(
       {
         layer: state.layer || "U",
         mode: "U template",
         dirty: state.dirty ? "Unsaved draft" : "Saved",
-        machine: state.movementReady ? "Ready to generate" : "Machine busy",
+        machine: state.movementReady ? "Ready for motion" : "Motion busy",
         summary: state.wrapCount + " wraps  |  " + state.lineCount + " lines",
-        ready: state.enabled && state.movementReady ? "Ready to generate" : "Waiting for machine",
+        ready: state.enabled ? "Ready to generate" : "Unavailable",
         liveFile: state.liveFile || "",
         hash: state.generated && state.generated.hashValue ? state.generated.hashValue : "-",
         updatedAt: state.generated && state.generated.updatedAt ? state.generated.updatedAt : "-",
-        disabled: state.movementReady
-          ? ( state.disabledReason || "" )
-          : "Machine is not ready to generate the U recipe.",
+        disabled: state.disabledReason || "",
       }
     )
 
@@ -767,6 +763,157 @@ function VTemplate( modules )
         setMessage( errorMessage, "error" )
       }
     )
+  }
+
+  function runSequentialPageActions( actions, onComplete )
+  {
+    var index = 0
+
+    function runNext()
+    {
+      if ( index >= actions.length )
+      {
+        if ( onComplete )
+          onComplete()
+        return
+      }
+
+      var action = actions[ index ]
+      index += 1
+      pageAction
+      (
+        action.command,
+        action.args || {},
+        function()
+        {
+          runNext()
+        }
+      )
+    }
+
+    runNext()
+  }
+
+  function buildVSaveActions()
+  {
+    var actions = []
+    var index
+
+    for ( index in vFieldSpecs )
+    {
+      var field = vFieldSpecs[ index ]
+      var value = parseFloat( $( "#gCodeGenerationV_" + field.key ).val() )
+      if ( isNaN( value ) )
+      {
+        setMessage( "Enter a valid number for " + field.label + ".", "error" )
+        return null
+      }
+      actions.push(
+        {
+          command: commands.process.vTemplateSetOffset,
+          args: { offset_id: field.key, value: value }
+        }
+      )
+    }
+
+    for ( index in vPullInSpecs )
+    {
+      var pullInField = vPullInSpecs[ index ]
+      var pullInValue = parseFloat( $( "#gCodeGenerationVPullIn_" + pullInField.key ).val() )
+      if ( isNaN( pullInValue ) )
+      {
+        setMessage( "Enter a valid number for " + pullInField.label + ".", "error" )
+        return null
+      }
+      actions.push(
+        {
+          command: commands.process.vTemplateSetPullIn,
+          args: { pull_in_id: pullInField.key, value: pullInValue }
+        }
+      )
+    }
+
+    actions.push(
+      {
+        command: commands.process.vTemplateSetTransferPause,
+        args: { enabled: $( "#gCodeGenerationVTransferPause" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
+        command: commands.process.vTemplateSetIncludeLeadMode,
+        args: { enabled: $( "#gCodeGenerationVIncludeLeadMode" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
+        command: commands.process.vTemplateSetStripG113Params,
+        args: { enabled: $( "#gCodeGenerationVStripG113Params" ).is( ":checked" ) }
+      }
+    )
+
+    return actions
+  }
+
+  function buildUSaveActions()
+  {
+    var actions = []
+    var index
+
+    for ( index in uFieldSpecs )
+    {
+      var field = uFieldSpecs[ index ]
+      var value = parseFloat( $( "#gCodeGenerationU_" + field.key ).val() )
+      if ( isNaN( value ) )
+      {
+        setMessage( "Enter a valid number for " + field.label + ".", "error" )
+        return null
+      }
+      actions.push(
+        {
+          command: commands.process.uTemplateSetOffset,
+          args: { offset_id: field.key, value: value }
+        }
+      )
+    }
+
+    for ( index in uPullInSpecs )
+    {
+      var pullInField = uPullInSpecs[ index ]
+      var pullInValue = parseFloat( $( "#gCodeGenerationUPullIn_" + pullInField.key ).val() )
+      if ( isNaN( pullInValue ) )
+      {
+        setMessage( "Enter a valid number for " + pullInField.label + ".", "error" )
+        return null
+      }
+      actions.push(
+        {
+          command: commands.process.uTemplateSetPullIn,
+          args: { pull_in_id: pullInField.key, value: pullInValue }
+        }
+      )
+    }
+
+    actions.push(
+      {
+        command: commands.process.uTemplateSetTransferPause,
+        args: { enabled: $( "#gCodeGenerationUTransferPause" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
+        command: commands.process.uTemplateSetIncludeLeadMode,
+        args: { enabled: $( "#gCodeGenerationUIncludeLeadMode" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
+        command: commands.process.uTemplateSetStripG113Params,
+        args: { enabled: $( "#gCodeGenerationUStripG113Params" ).is( ":checked" ) }
+      }
+    )
+
+    return actions
   }
 
   function applyVOffsetInput( offsetId )
@@ -1175,14 +1322,25 @@ function VTemplate( modules )
     (
       function()
       {
-        pageAction
+        var actions = buildVSaveActions()
+        if ( ! actions )
+          return
+
+        runSequentialPageActions
         (
-          commands.process.vTemplateGenerateRecipeFile,
-          {},
+          actions,
           function()
           {
-            setMessage( "Generated the live V-layer.gc recipe.", "success" )
-            refreshVStateOnce()
+            pageAction
+            (
+              commands.process.vTemplateGenerateRecipeFile,
+              {},
+              function()
+              {
+                setMessage( "Generated the live V-layer.gc recipe.", "success" )
+                refreshVStateOnce()
+              }
+            )
           }
         )
       }
@@ -1211,14 +1369,25 @@ function VTemplate( modules )
     (
       function()
       {
-        pageAction
+        var actions = buildUSaveActions()
+        if ( ! actions )
+          return
+
+        runSequentialPageActions
         (
-          commands.process.uTemplateGenerateRecipeFile,
-          {},
+          actions,
           function()
           {
-            setMessage( "Generated the live U-layer.gc recipe.", "success" )
-            refreshUStateOnce()
+            pageAction
+            (
+              commands.process.uTemplateGenerateRecipeFile,
+              {},
+              function()
+              {
+                setMessage( "Generated the live U-layer.gc recipe.", "success" )
+                refreshUStateOnce()
+              }
+            )
           }
         )
       }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-03-24T21:24:22.703798+00:00",
+  "generated_at": "2026-04-02T19:33:22.736743+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Latch_UnLatch_State_6_7_8",
   "main_routine_name": "main",
@@ -120,25 +120,8 @@
       "value": false
     },
     {
-      "name": "auto_main_branch_001",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.auto_main_branch_001",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0,
-      "value": true
-    },
-    {
-      "name": "auto_main_branch_002",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.auto_main_branch_002",
+      "name": "latching_rising_edge",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.latching_rising_edge",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "alias": false,
@@ -152,178 +135,6 @@
       "program": "Latch_UnLatch_State_6_7_8",
       "bit_position": 0,
       "value": false
-    },
-    {
-      "name": "auto_main_branch_003",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.auto_main_branch_003",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "ENABLE_ACTUATOR",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.ENABLE_ACTUATOR",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "HomeCounter",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.HomeCounter",
-      "tag_type": "struct",
-      "data_type_name": "COUNTER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER",
-      "value": {
-        "PRE": 99999,
-        "ACC": 386,
-        "CU": false,
-        "CD": false,
-        "DN": false,
-        "OV": false,
-        "UN": false
-      }
-    },
-    {
-      "name": "HomeSignal",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.HomeSignal",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "HomeTimer1",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.HomeTimer1",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 500,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "HomeTimer2",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.HomeTimer2",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 500,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "LatchCounter2",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.LatchCounter2",
-      "tag_type": "struct",
-      "data_type_name": "COUNTER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER",
-      "value": {
-        "PRE": 2,
-        "ACC": 2,
-        "CU": false,
-        "CD": false,
-        "DN": true,
-        "OV": false,
-        "UN": false
-      }
-    },
-    {
-      "name": "LatchCounter3",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.LatchCounter3",
-      "tag_type": "struct",
-      "data_type_name": "COUNTER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "COUNTER",
-      "value": {
-        "PRE": 2,
-        "ACC": 2,
-        "CU": false,
-        "CD": false,
-        "DN": true,
-        "OV": false,
-        "UN": false
-      }
     },
     {
       "name": "Latching_pulse_duration",
@@ -349,127 +160,54 @@
       }
     },
     {
-      "name": "LatchTimer3",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.LatchTimer3",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 250,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "LatchTimer4",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.LatchTimer4",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 250,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "LatchTimer5",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.LatchTimer5",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 250,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "LatchTimer6",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.LatchTimer6",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 250,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "oneshotob",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.oneshotob",
+      "name": "head_between_stage_and_fixed",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.head_between_stage_and_fixed",
       "tag_type": "atomic",
-      "data_type_name": "DWORD",
+      "data_type_name": "BOOL",
       "alias": false,
-      "external_access": "Read Only",
+      "external_access": "Read/Write",
       "dimensions": [
-        1,
+        0,
         0,
         0
       ],
-      "array_dimensions": 1,
+      "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
+      "bit_position": 0,
       "value": false
     },
     {
-      "name": "oneshotsb",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.oneshotsb",
+      "name": "latch_in_free_space",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.latch_in_free_space",
       "tag_type": "atomic",
-      "data_type_name": "DWORD",
+      "data_type_name": "BOOL",
       "alias": false,
-      "external_access": "Read Only",
+      "external_access": "Read/Write",
       "dimensions": [
-        1,
+        0,
         0,
         0
       ],
-      "array_dimensions": 1,
+      "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "null",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.null",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Latch_UnLatch_State_6_7_8",
+      "bit_position": 0,
       "value": false
     },
     {
@@ -486,45 +224,11 @@
       ],
       "array_dimensions": 0,
       "program": "Latch_UnLatch_State_6_7_8",
-      "value": 1
+      "value": 2
     },
     {
-      "name": "STATE7_IND",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.STATE7_IND",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "UNLOCK_LATCH_MOTOR_SHAFT",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.UNLOCK_LATCH_MOTOR_SHAFT",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "Delay_Z_Latched",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.Delay_Z_Latched",
+      "name": "delay_stage_latched",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.delay_stage_latched",
       "tag_type": "struct",
       "data_type_name": "TIMER",
       "alias": false,
@@ -538,11 +242,11 @@
       "program": "Latch_UnLatch_State_6_7_8",
       "udt_name": "TIMER",
       "value": {
-        "PRE": 50,
-        "ACC": 0,
-        "EN": false,
+        "PRE": 150,
+        "ACC": 150,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -561,7 +265,7 @@
       "program": "Latch_UnLatch_State_6_7_8",
       "udt_name": "TIMER",
       "value": {
-        "PRE": 100,
+        "PRE": 300,
         "ACC": 0,
         "EN": false,
         "TT": false,
@@ -584,7 +288,7 @@
       "program": "Latch_UnLatch_State_6_7_8",
       "udt_name": "TIMER",
       "value": {
-        "PRE": 250,
+        "PRE": 500,
         "ACC": 0,
         "EN": false,
         "TT": false,
@@ -592,31 +296,8 @@
       }
     },
     {
-      "name": "TimeoutTimer1",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.TimeoutTimer1",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Latch_UnLatch_State_6_7_8",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 1000,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
-    },
-    {
-      "name": "TimeoutTimer2",
-      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.TimeoutTimer2",
+      "name": "one_second_timer",
+      "fully_qualified_name": "Program:Latch_UnLatch_State_6_7_8.one_second_timer",
       "tag_type": "struct",
       "data_type_name": "TIMER",
       "alias": false,
@@ -653,7 +334,7 @@
       "program": "Latch_UnLatch_State_6_7_8",
       "udt_name": "COUNTER",
       "value": {
-        "PRE": 9999,
+        "PRE": 10,
         "ACC": 1,
         "CU": false,
         "CD": false,
@@ -663,5 +344,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-03-30T20:43:25.686708+00:00"
+  "values_generated_at": "2026-04-02T19:33:46.170020+00:00"
 }

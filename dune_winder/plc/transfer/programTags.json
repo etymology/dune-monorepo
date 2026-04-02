@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-02T19:33:22.736743+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "transfer",
+  "main_routine_name": "main",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "main"
+  ],
+  "subroutines": [],
+  "udts": [],
+  "program_tags": [],
+  "values_generated_at": "2026-04-02T19:33:46.170020+00:00"
+}
