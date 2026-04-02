@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dune_winder.paths import PLC_ROOT
+from dune_winder.paths import PLC_ROOT, MONOROUTINE_PLC_ROOT
 from dune_winder.plc_manifest import PlcManifest
 from dune_winder.plc_tag_values_export import _build_udt_lookup
 from dune_winder.plc_tag_values_export import _read_tag_value_with_fallback
@@ -14,7 +14,7 @@ from dune_winder.plc_tag_values_export import _read_tag_values
 
 
 DEFAULT_PLC_PATH = "192.168.140.13"
-DEFAULT_MONOROUTINE_ROOT = PLC_ROOT / "Monoroutine"
+DEFAULT_MONOROUTINE_ROOT = MONOROUTINE_PLC_ROOT / "Monoroutine"
 DEFAULT_REPORT_PATH = DEFAULT_MONOROUTINE_ROOT / "tag_value_sync_report.json"
 RENAME_MAP_PATH = DEFAULT_MONOROUTINE_ROOT / "tag_rename_map.json"
 MONOROUTINE_PROGRAM_TAGS_PATH = DEFAULT_MONOROUTINE_ROOT / "programTags.json"
@@ -85,8 +85,8 @@ def _build_reverse_rename_index(rename_payload: dict) -> dict[str, list[dict]]:
 
 
 def _resolve_monoroutine_sources(plc_root: Path) -> tuple[list[dict], dict]:
-  monoroutine_payload = _load_json(_monoroutine_program_tags_path(plc_root))
-  rename_payload = _load_json(_rename_map_path(plc_root))
+  monoroutine_payload = _load_json(_monoroutine_program_tags_path(MONOROUTINE_PLC_ROOT))
+  rename_payload = _load_json(_rename_map_path(MONOROUTINE_PLC_ROOT))
   source_index, source_payloads = _build_source_name_index(plc_root)
   reverse_renames = _build_reverse_rename_index(rename_payload)
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from dune_tension.config import GEOMETRY_CONFIG
 

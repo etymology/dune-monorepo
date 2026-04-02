@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import dune_tension.audio_runtime as audio_runtime_module
 from dune_tension.audioProcessing import spoof_audio_sample

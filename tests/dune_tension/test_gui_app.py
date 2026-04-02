@@ -5,7 +5,7 @@ import types
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parents[2]
     / "src"
     / "dune_tension"
     / "gui"
