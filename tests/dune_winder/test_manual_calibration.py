@@ -324,7 +324,28 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(predictedFront[0], baselineFront.x + 10.0, places=6)
       self.assertAlmostEqual(predictedFront[1], baselineFront.y + 5.0, places=6)
 
-  def test_save_live_writes_offset_zero_file_and_reloads_runtime_calibration(self):
+  def test_changing_camera_offset_recomputes_captured_uv_measurements(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      service = ManualCalibration(process)
+
+      service.startNew()
+      service.setCameraOffset(10.0, -5.0)
+      process._io.xAxis.position = 100.0
+      process._io.yAxis.position = 200.0
+      service.captureCurrentPin(1)
+
+      service.setCameraOffset(12.5, -7.5)
+
+      session = service._getSession("U")
+      self.assertAlmostEqual(session.measuredPins[1]["wireX"], 112.5)
+      self.assertAlmostEqual(session.measuredPins[1]["wireY"], 192.5)
+
+      prediction = service.predictPin(1)
+      self.assertAlmostEqual(prediction["wireX"], 112.5)
+      self.assertAlmostEqual(prediction["wireY"], 192.5)
+
+  def test_save_live_keeps_zero_file_offset_and_reloads_runtime_calibration(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = _create_process("U", rootDirectory)
       service = ManualCalibration(process)
