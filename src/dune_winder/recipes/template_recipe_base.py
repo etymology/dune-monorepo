@@ -118,11 +118,6 @@ class TemplateRecipeBase:
 
   # -------------------------------------------------------------------
   def _mutationGuard(self):
-    if not self._process.controlStateMachine.isReadyForMovement():
-      return self._errorResult(
-        "Machine is not ready to generate the " + self._layerName() + " recipe."
-      )
-
     return None
 
   # -------------------------------------------------------------------
