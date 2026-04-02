@@ -2,10 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from convert_plc_rllscrap import DEFAULT_ROUTINE_DIR
-from convert_plc_rllscrap import build_argument_parser
-from convert_plc_rllscrap import convert_directory
-from convert_plc_rllscrap import iter_rllscrap_files
+from dune_winder.convert_plc_rllscrap import DEFAULT_ROUTINE_DIR
+from dune_winder.convert_plc_rllscrap import build_argument_parser
+from dune_winder.convert_plc_rllscrap import convert_directory
+from dune_winder.convert_plc_rllscrap import iter_rllscrap_files
 
 
 class ConvertPlcRllscrapTests(unittest.TestCase):
