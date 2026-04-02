@@ -1549,6 +1549,21 @@ class ManualCalibration:
           reference["offsetY"] = session.cameraOffsetY
           reference["wireX"] = reference["rawCameraX"] + session.cameraOffsetX
           reference["wireY"] = reference["rawCameraY"] + session.cameraOffsetY
+    else:
+      for pin, measurement in session.measuredPins.items():
+        if (
+          measurement.get("source") == "capture"
+          and measurement.get("rawCameraX") is not None
+          and measurement.get("rawCameraY") is not None
+        ):
+          measurement["offsetX"] = session.cameraOffsetX
+          measurement["offsetY"] = session.cameraOffsetY
+          measurement["wireX"] = measurement["rawCameraX"] + session.cameraOffsetX
+          measurement["wireY"] = measurement["rawCameraY"] + session.cameraOffsetY
+          if pin in LAYER_METADATA[layer]["endpointInfo"]:
+            self._setBoardCheck(
+              session, pin, "adjusted", measurement["wireX"], measurement["wireY"]
+            )
     session.dirty = True
     self._persistSession(session)
     return self._okResult({"cameraOffsetX": session.cameraOffsetX, "cameraOffsetY": session.cameraOffsetY})
