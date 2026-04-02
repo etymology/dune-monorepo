@@ -405,6 +405,13 @@ class WinderWorkspace:
     if len(lines) == 0:
       return None
 
+    if self._layer in ("U", "V"):
+      targetLine = self._getUvWrapSeekLine(wrap)
+      if targetLine is None:
+        return -1
+      targetLine = max(1, min(targetLine, len(lines)))
+      return targetLine - 2
+
     wrapStartLine = self._getWrapStartLine(wrap)
     if wrapStartLine is None:
       return None
@@ -417,6 +424,30 @@ class WinderWorkspace:
 
     targetLine = max(1, min(targetLine, len(lines)))
     return targetLine - 2
+
+  def _getUvWrapSeekLine(self, wrap):
+    if self._recipe is None:
+      return None
+
+    targetLine = self._findUvWrapMarkerLine(wrap)
+    if targetLine is not None:
+      return targetLine
+
+    return 1
+
+  def _findUvWrapMarkerLine(self, wrap):
+    if self._recipe is None:
+      return None
+
+    firstPin = 401 - int(wrap)
+    secondPin = 400 - int(wrap)
+    marker = "G103 PB{} PB{}".format(firstPin, secondPin)
+
+    for index, line in enumerate(self._recipe.getLines(), start=1):
+      if marker in line.upper():
+        return index
+
+    return None
 
   def _getWrapStartLine(self, wrap):
     if self._recipe is None:
@@ -609,7 +640,7 @@ class WinderWorkspace:
         self._gCodeHandler.reloadG_Code(reloadedRecipe.getLines())
       except ValueError as exception:
         raise Exception(
-          "Updated G-Code file no longer contains the active execution line."
+          "Updated G-Code file must preserve the active execution state and keep the same number of lines."
         ) from exception
 
       self._recipe = reloadedRecipe
