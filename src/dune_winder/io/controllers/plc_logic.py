@@ -372,17 +372,16 @@ class PLC_Logic:
   # ---------------------------------------------------------------------
   def move_latch(self):
     """
-    Pulse the GUI latch command.
+    Request a latch transition through the PLC move-type state machine.
 
     Returns:
-      True if the pulse was sent, False if the transfer-present interlock is
+      True if the request was sent, False if the transfer-present interlock is
       not satisfied.
     """
     if not self.canMoveLatch():
       return False
 
-    self._writeTagNow(self._guiLatchPulse.getName(), True)
-    self._guiLatchPulse.updateFromReadTag(True)
+    self._pulseMoveType(self.MoveTypes.LATCH)
     return True
 
   # ---------------------------------------------------------------------

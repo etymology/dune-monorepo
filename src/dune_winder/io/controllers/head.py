@@ -291,30 +291,19 @@ class Head:
       self._headState = self.States.SEEKING_TO_FINAL_POSITION
       return
 
+    if not self._plcLogic.isReady():
+      return
+
+    if self._plcLogic.move_latch():
+      self._startLatchingState()
+      return
+
     if self._latchStateStartedAt is None:
       self._startLatchingState()
+      return
 
-    now = self._clock()
-    if now - self._latchStateStartedAt >= self._latchTimeoutSeconds:
+    if (self._clock() - self._latchStateStartedAt) >= self._latchTimeoutSeconds:
       self._setLatchError("Latch transfer timed out")
-      return
-
-    if state["actuatorPos"] != self._latchWaitActuatorPos:
-      self._latchWaitActuatorPos = state["actuatorPos"]
-      self._nextLatchPulseAt = now
-      if self._isTransferLatchTargetReached():
-        self._resetLatchRetryState()
-        self._plcLogic.setZ_Position(self._headZTarget, self._velocity)
-        self._headState = self.States.SEEKING_TO_FINAL_POSITION
-        return
-
-    if self._nextLatchPulseAt is not None and now < self._nextLatchPulseAt:
-      return
-
-    pulseSent = self._plcLogic.move_latch()
-    self._nextLatchPulseAt = now + self._latchRetryIntervalSeconds
-    if pulseSent:
-      return
 
   def _commandNextG206Pulse(self):
     state = self._readTransferStateNow()
@@ -388,8 +377,28 @@ class Head:
         self._resetG206State()
       return
 
+    if not self._plcLogic.isReady():
+      return
+
+    if not bool(state["enableActuator"]):
+      if self._g206TransitionStartedAt is None:
+        self._g206TransitionStartedAt = now
+      if (now - self._g206TransitionStartedAt) >= self._latchTimeoutSeconds:
+        self._setHeadError(
+          "Latch phase timed out while waiting for ENABLE_ACTUATOR while targeting latch side "
+          + str(int(self._headLatchTarget))
+          + "; last state: "
+          + self._formatTransferState(state)
+        )
+      return
+
+    if self._plcLogic.move_latch():
+      self._g206TransitionStartedAt = now
+      return
+
     if self._g206TransitionStartedAt is None:
       self._g206TransitionStartedAt = now
+      return
 
     if (now - self._g206TransitionStartedAt) >= self._latchTimeoutSeconds:
       self._setHeadError(
@@ -400,18 +409,6 @@ class Head:
         + " s; last state: "
         + self._formatTransferState(state)
       )
-      return
-
-    if not bool(state["enableActuator"]):
-      return
-
-    if (
-      self._g206SettleStartedAt is not None
-      and (now - self._g206SettleStartedAt) < self._g206SettleSeconds
-    ):
-      return
-
-    self._commandNextG206Pulse()
 
   def update(self):
     if self._headState == self.States.IDLE:
