@@ -1,10 +1,12 @@
 import unittest
 import os
+import tempfile
 
 from dune_winder.core.control_events import ManualModeEvent
 from dune_winder.core.motion_service import MotionService
 from dune_winder.core.process import Process
 from dune_winder.core.safety_validation_service import SafetyValidationService
+from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.io.primitives.digital_input import DigitalInput
 
 
@@ -176,6 +178,32 @@ class FakeLog:
     self.entries.append((source, code, message, data))
 
 
+class _ReloadGuardFakeAxis:
+  def __init__(self, position=0.0):
+    self._position = position
+
+  def getPosition(self):
+    return self._position
+
+
+class _ReloadGuardFakeHead:
+  def getTargetAxisPosition(self):
+    return 0.0
+
+
+class _ReloadGuardFakeIO:
+  def __init__(self):
+    self.xAxis = _ReloadGuardFakeAxis()
+    self.yAxis = _ReloadGuardFakeAxis()
+    self.zAxis = _ReloadGuardFakeAxis()
+    self.head = _ReloadGuardFakeHead()
+
+
+class _ReloadGuardFakeCalibration:
+  zFront = 0.0
+  zBack = 0.0
+
+
 class ProcessSnapshotTests(unittest.TestCase):
   def setUp(self):
     self._originalInputs = list(DigitalInput.digital_input_instances)
@@ -258,6 +286,56 @@ class ProcessSnapshotTests(unittest.TestCase):
       WinderWorkspace._missingRecipeMessage(process.workspace, "C:/recipes/V-layer.gc"),
     )
     self.assertEqual(len(process._log.entries), 1)
+
+  def test_gcode_reload_rejects_line_count_changes(self):
+    handler = GCodeHandler(_ReloadGuardFakeIO(), _ReloadGuardFakeCalibration(), None)
+    handler.loadG_Code(["G1 X1", "G1 X2"], calibration=None)
+
+    with self.assertRaisesRegex(ValueError, "same number of lines"):
+      handler.reloadG_Code(["G1 X1"])
+
+  def test_refresh_before_execution_returns_error_when_recipe_line_count_changes(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    with tempfile.TemporaryDirectory() as tempDir:
+      recipePath = os.path.join(tempDir, "V-layer.gc")
+      calibrationPath = os.path.join(tempDir, "V_Calibration.json")
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("G1 X1\nG1 X2\n")
+      with open(calibrationPath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("{}\n")
+
+      process = object.__new__(Process)
+      process.workspace = FakeWorkspaceForRefreshMessages(
+        recipePath=recipePath,
+        calibrationPath=calibrationPath,
+      )
+      process.workspace._log = FakeLog()
+      process.workspace._recipeDirectory = tempDir
+      process.workspace._recipeArchiveDirectory = tempDir
+      process.workspace._gCodeHandler = GCodeHandler(
+        _ReloadGuardFakeIO(),
+        _ReloadGuardFakeCalibration(),
+        None,
+      )
+      process.workspace._gCodeHandler.loadG_Code(["G1 X1", "G1 X2"], calibration=None)
+      process._log = FakeLog()
+
+      process.workspace._recipeSignature = "before"
+      process.workspace._calculateRecipeSignature = lambda: "after"
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("G1 X1\n")
+
+      result = process._refreshCalibrationBeforeExecution()
+
+      self.assertEqual(
+        result,
+        "Updated G-Code file must preserve the active execution state and keep the same number of lines.",
+      )
+      self.assertEqual(len(process._log.entries), 1)
+      self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
 
   def test_refresh_before_execution_returns_actionable_missing_calibration_message(self):
