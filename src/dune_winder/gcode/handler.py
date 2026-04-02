@@ -1259,10 +1259,16 @@ class GCodeHandler(GCodeHandlerBase):
       lines: New G-Code lines to use.
 
     Raises:
-      ValueError: Current execution pointers do not fit in the new file.
+      ValueError: Reload would invalidate the active execution state.
     """
+    previousLineCount = self._gCode.getLineCount() if self._gCode is not None else None
     gCode = GCodeProgramExecutor(lines, self._callbacks)
     lineCount = gCode.getLineCount()
+
+    if previousLineCount is not None and lineCount != previousLineCount:
+      raise ValueError(
+        "Updated G-Code file must contain the same number of lines as the active file."
+      )
 
     currentLine = self._currentLine
     if currentLine is not None and not (-1 <= currentLine < lineCount):
