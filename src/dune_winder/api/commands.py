@@ -129,9 +129,19 @@ def build_command_registry(
   def process_manual_seek_xy(args):
     _validateArgs(
       args,
-      required=("x", "y"),
-      optional=("velocity", "acceleration", "deceleration"),
+      optional=("x", "y", "velocity", "acceleration", "deceleration"),
     )
+    if "x" not in args and "y" not in args:
+      raise ValueError("At least one of 'x' or 'y' is required.")
+
+    xPosition = args.get("x")
+    if xPosition is not None:
+      xPosition = _asFloat(xPosition, "x")
+
+    yPosition = args.get("y")
+    if yPosition is not None:
+      yPosition = _asFloat(yPosition, "y")
+
     velocity = args.get("velocity")
     if velocity is not None:
       velocity = _asFloat(velocity, "velocity")
@@ -145,14 +155,20 @@ def build_command_registry(
       deceleration = _asFloat(deceleration, "deceleration")
 
     return process.manualSeekXY(
-      _asFloat(args["x"], "x"),
-      _asFloat(args["y"], "y"),
+      xPosition,
+      yPosition,
       velocity=velocity,
       acceleration=acceleration,
       deceleration=deceleration,
     )
 
   registry.register("process.manual_seek_xy", process_manual_seek_xy, True)
+
+  registry.register(
+    "process.get_real_x_position",
+    lambda args: (_validateArgs(args), process.getRealXPosition())[1],
+    False,
+  )
 
   def process_manual_seek_xy_named(args):
     _validateArgs(args, optional=("x_name", "y_name", "velocity"))
@@ -374,6 +390,18 @@ def build_command_registry(
   registry.register(
     "process.manual_calibration.set_camera_offset",
     manual_calibration_set_camera_offset,
+    True,
+  )
+
+  def manual_calibration_set_x_backlash_compensation(args):
+    _validateArgs(args, required=("value",))
+    return process.manualCalibration.setXBacklashCompensation(
+      _asFloat(args["value"], "value"),
+    )
+
+  registry.register(
+    "process.manual_calibration.set_x_backlash_compensation",
+    manual_calibration_set_x_backlash_compensation,
     True,
   )
 

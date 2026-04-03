@@ -2,6 +2,7 @@ import unittest
 
 from dune_winder.core.control_events import StopMotionEvent
 from dune_winder.core.gcode_playback_service import GCodePlaybackService
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 
 class _FakeGCodeHandler:
@@ -94,6 +95,7 @@ class GCodePlaybackServiceTests(unittest.TestCase):
       _FakeLog(),
       _FakeIO(plc_ready=plc_ready, axis_seeking=axis_seeking, head_ready=head_ready),
       safety=None,
+      xBacklash=XBacklashCompensation(),
       workspaceGetter=lambda: None,
     )
 

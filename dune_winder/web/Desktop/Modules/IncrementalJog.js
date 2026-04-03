@@ -36,14 +36,43 @@ function IncrementalJog( modules )
   //-----------------------------------------------------------------------------
   this.moveX = function( offset )
   {
+    if ( ! motorStatus || ! motorStatus.motor )
+      return
+
     var velocity = getVelocity()
-    var x = motorStatus.motor[ "xPosition" ] + offset
+    var rawX = motorStatus.motor[ "xPosition" ]
     var y = motorStatus.motor[ "yPosition" ]
+    var requestMove = function( realX )
+    {
+      var x = parseFloat( realX )
+      if ( isNaN( x ) )
+        x = rawX
+
+      uiServices.call
+      (
+        commands.process.manualSeekXY,
+        { x: x + offset, y: y, velocity: velocity }
+      )
+    }
+
+    if ( ! commands.process.getRealXPosition )
+    {
+      requestMove( rawX )
+      return
+    }
 
     uiServices.call
     (
-      commands.process.manualSeekXY,
-      { x: x, y: y, velocity: velocity }
+      commands.process.getRealXPosition,
+      {},
+      function( realX )
+      {
+        requestMove( realX )
+      },
+      function()
+      {
+        requestMove( rawX )
+      }
     )
   }
 
@@ -55,13 +84,15 @@ function IncrementalJog( modules )
   //-----------------------------------------------------------------------------
   this.moveY = function( offset )
   {
+    if ( ! motorStatus || ! motorStatus.motor )
+      return
+
     var velocity = getVelocity()
-    var x = motorStatus.motor[ "xPosition" ]
     var y = motorStatus.motor[ "yPosition" ] + offset
     uiServices.call
     (
       commands.process.manualSeekXY,
-      { x: x, y: y, velocity: velocity }
+      { y: y, velocity: velocity }
     )
   }
 

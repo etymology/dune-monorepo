@@ -56,6 +56,7 @@ class AppConfig:
   manualCalibrationOffsetXY: float = -108.2
   manualCalibrationOffsetGX: float = 65.0
   manualCalibrationOffsetGY: float = -108.2
+  xBacklashCompensationMm: float = 2.0
 
   # UI command server.
   serverAddress: str = "127.0.0.1"

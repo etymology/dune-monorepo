@@ -11,6 +11,7 @@
 	<manualCalibrationOffsetXY>-108.2</manualCalibrationOffsetXY>
 	<manualCalibrationOffsetGX>65</manualCalibrationOffsetGX>
 	<manualCalibrationOffsetGY>-108.2</manualCalibrationOffsetGY>
+	<xBacklashCompensationMm>2.0</xBacklashCompensationMm>
 	<serverAddress>127.0.0.1</serverAddress>
 	<serverPort>6626</serverPort>
 	<webServerPort>8080</webServerPort>

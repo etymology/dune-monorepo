@@ -22,6 +22,7 @@ if TYPE_CHECKING:
   from dune_winder.gcode.handler import GCodeHandler
   from dune_winder.io.maps.base_io import BaseIO
   from dune_winder.library.log import Log
+  from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 LOG_NAME = "GCodePlaybackService"
 
@@ -36,6 +37,7 @@ class GCodePlaybackService:
     log: Log,
     io: BaseIO,
     safety: SafetyValidationService,
+    xBacklash: XBacklashCompensation,
     workspaceGetter: Callable[[], Optional[WinderWorkspace]],
   ):
     self._gCodeHandler = gCodeHandler
@@ -43,6 +45,7 @@ class GCodePlaybackService:
     self._log = log
     self._io = io
     self._safety = safety
+    self._xBacklash = xBacklash
     self._workspaceGetter = workspaceGetter
 
   # -- run control ---------------------------------------------------------
@@ -365,8 +368,9 @@ class GCodePlaybackService:
         )
 
       # Check that X and Y input coordinate are within limits
-      xPosition = float(self._io.xAxis.getPosition())
+      rawXPosition = float(self._io.xAxis.getPosition())
       yPosition = float(self._io.yAxis.getPosition())
+      xPosition = self._xBacklash.getEffectiveX(rawXPosition)
       self._io.zAxis.getPosition()
       codeLineSplit = line.split()
       x = xPosition

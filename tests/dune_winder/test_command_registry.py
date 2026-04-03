@@ -32,6 +32,16 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
 
+  def test_manual_seek_xy_allows_single_axis_requests(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.manual_seek_xy", "args": {"y": 42.0}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(process.lastSeek, ("seekXY", None, 42.0, None, None, None))
+
   def test_batch_returns_mixed_result_entries(self):
     registry, process, _, _, _, _ = build_registry_fixture()
     response = registry.executeBatchRequest(

@@ -34,6 +34,7 @@ from dune_winder.queued_motion.segment_patterns import (
   DEFAULT_V_Y_MAX,
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
 )
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
 
@@ -782,8 +783,12 @@ class GCodeHandler(GCodeHandlerBase):
   def _dispatch_pending_action(self, action, velocity, *, safety_label="line"):
     moving = False
     if action == "xy":
+      current_raw_x = float(self._io.xAxis.getPosition())
+      current_effective_x = current_raw_x
+      if self._xBacklash is not None:
+        current_effective_x = self._xBacklash.getEffectiveX(current_raw_x)
       start_xy = (
-        float(self._io.xAxis.getPosition()),
+        current_effective_x,
         float(self._io.yAxis.getPosition()),
       )
       target_xy = (float(self._x), float(self._y))
@@ -805,7 +810,26 @@ class GCodeHandler(GCodeHandlerBase):
       except ValueError as exception:
         self._set_xy_safety_error(str(exception))
       else:
-        self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+        raw_target_x = float(self._x)
+        if self._xBacklash is not None:
+          raw_target_x = self._xBacklash.getCommandedRawX(current_raw_x, float(self._x))
+          safety_limits = self._motion_safety_limits()
+          if (
+            raw_target_x < float(safety_limits.limit_left)
+            or raw_target_x > float(safety_limits.limit_right)
+          ):
+            self._set_xy_safety_error(
+              "Compensated X-axis target exceeds raw axis limits ["
+              + str(float(safety_limits.limit_left))
+              + ", "
+              + str(float(safety_limits.limit_right))
+              + "]."
+            )
+            return False
+
+        self._io.plcLogic.setXY_Position(raw_target_x, self._y, velocity)
+        if self._xBacklash is not None:
+          self._xBacklash.noteCommand(current_raw_x, float(self._x))
         moving = True
     elif action == "z":
       self._io.plcLogic.setZ_Position(self._z, velocity)
@@ -1362,7 +1386,14 @@ class GCodeHandler(GCodeHandlerBase):
 
   # ---------------------------------------------------------------------
 
-  def __init__(self, io: BaseIO, machineCalibration, headCompensation, configuration=None):
+  def __init__(
+    self,
+    io: BaseIO,
+    machineCalibration,
+    headCompensation,
+    configuration=None,
+    xBacklash: XBacklashCompensation | None = None,
+  ):
     """
     Constructor.
 
@@ -1377,6 +1408,7 @@ class GCodeHandler(GCodeHandlerBase):
 
     self._io = io
     self._configuration = configuration
+    self._xBacklash = xBacklash
 
     self._direction = 1
     self.runToLine = -1

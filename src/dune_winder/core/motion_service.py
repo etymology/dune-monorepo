@@ -23,8 +23,10 @@ if TYPE_CHECKING:
   from dune_winder.io.maps.base_io import BaseIO
   from dune_winder.library.log import Log
   from dune_winder.machine.head_compensation import WirePathModel
+  from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 LOG_NAME = "MotionService"
+_MANUAL_XY_RESOLUTION_MM = 0.1
 
 
 class MotionService:
@@ -38,6 +40,7 @@ class MotionService:
     safety: SafetyValidationService,
     gCodeHandler: GCodeHandler,
     headCompensation: WirePathModel,
+    xBacklash: XBacklashCompensation,
     workspaceGetter: Callable[[], Optional[WinderWorkspace]],
   ):
     self._io = io
@@ -46,6 +49,7 @@ class MotionService:
     self._safety = safety
     self._gCodeHandler = gCodeHandler
     self._headCompensation = headCompensation
+    self._xBacklash = xBacklash
     self._workspaceGetter = workspaceGetter
 
   # -- velocity ------------------------------------------------------------
@@ -150,12 +154,55 @@ class MotionService:
   ):
     isError = True
     if self._controlStateMachine.isReadyForMovement():
-      currentX = float(self._io.xAxis.getPosition())
+      currentRawX = float(self._io.xAxis.getPosition())
       currentY = float(self._io.yAxis.getPosition())
+      currentX = self._xBacklash.getEffectiveX(currentRawX)
       targetX = currentX if xPosition is None else float(xPosition)
       targetY = currentY if yPosition is None else float(yPosition)
+      targetRawX = self._xBacklash.getCommandedRawX(currentRawX, targetX)
+      isNoopMove = (
+        abs(targetRawX - currentRawX) < _MANUAL_XY_RESOLUTION_MM
+        and abs(targetY - currentY) < _MANUAL_XY_RESOLUTION_MM
+      )
 
       error = self._safety.validate_xy_move_target(currentX, currentY, targetX, targetY)
+      if (
+        error is None
+        and (targetRawX < self._safety.limit_left or targetRawX > self._safety.limit_right)
+      ):
+        error = (
+          "Compensated X-axis target exceeds raw axis limits ["
+          + str(self._safety.limit_left)
+          + ", "
+          + str(self._safety.limit_right)
+          + "]."
+        )
+      if error is None and isNoopMove:
+        self._log.add(
+          LOG_NAME,
+          "JOG",
+          "Manual move X/Y skipped because target is already within resolution.",
+          [
+            xPosition,
+            yPosition,
+            velocity,
+            acceleration,
+            deceleration,
+            {
+              "currentRawX": currentRawX,
+              "currentEffectiveX": currentX,
+              "targetEffectiveX": targetX,
+              "targetRawX": targetRawX,
+              "currentY": currentY,
+              "targetY": targetY,
+              "deltaRawX": targetRawX - currentRawX,
+              "deltaY": targetY - currentY,
+              "backlashMm": self._xBacklash.getBacklashMm(),
+              "direction": self._xBacklash.getDirection(),
+            },
+          ],
+        )
+        return False
       if error is not None:
         self._log.add(
           LOG_NAME,
@@ -165,6 +212,7 @@ class MotionService:
         )
       else:
         isError = False
+        self._xBacklash.noteCommand(currentRawX, targetX)
         self._log.add(
           LOG_NAME,
           "JOG",
@@ -183,7 +231,7 @@ class MotionService:
         )
         self._controlStateMachine.dispatch(
           ManualModeEvent(
-            seekX=xPosition,
+            seekX=targetRawX,
             seekY=yPosition,
             velocity=velocity,
             acceleration=acceleration,

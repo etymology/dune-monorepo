@@ -9,10 +9,13 @@ function Calibrate(modules)
   var lastState = null
   var suppressWireRefresh = false
   var suppressOffsetRefresh = false
+  var suppressBacklashRefresh = false
   var boardRoutine =
   {
     active: false,
-    currentPin: null
+    currentPin: null,
+    recheckPins: null,
+    recheckIndex: -1
   }
 
   modules.load
@@ -336,6 +339,9 @@ function Calibrate(modules)
 
   function boardRoutineStartPin()
   {
+    if ( boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
+      return boardRoutine.recheckPins[ 0 ]
+
     var selectedPin = getSelectedBoardPin()
     if ( getBoardCheckEntry( selectedPin ) )
       return selectedPin
@@ -358,12 +364,16 @@ function Calibrate(modules)
   function renderBoardRoutineSummary()
   {
     var button = $( "#manualCalibrationBoardRoutineButton" )
+    var recheckButton = $( "#manualCalibrationBoardRecheckButton" )
     var summary = $( "#manualCalibrationBoardRoutineSummary" )
+
+    recheckButton.prop( "disabled", true )
 
     if ( ! lastState || ! lastState.enabled || lastState.mode != "uv" )
     {
       button.text( "Start Board Check" ).prop( "disabled", true )
       summary.text( "Load a U or V layer to use the board-check assistant." )
+      recheckButton.prop( "disabled", true )
       return
     }
 
@@ -371,6 +381,7 @@ function Calibrate(modules)
     {
       button.text( "Start Board Check" ).prop( "disabled", true )
       summary.text( "Complete the 12 bootstrap pins before starting board checks." )
+      recheckButton.prop( "disabled", true )
       return
     }
 
@@ -378,15 +389,20 @@ function Calibrate(modules)
     {
       button.text( "Start Board Check" ).prop( "disabled", true )
       summary.text( "No board endpoints are available for this layer." )
+      recheckButton.prop( "disabled", true )
       return
     }
 
     button.prop( "disabled", ! lastState.movementReady )
+    recheckButton.prop( "disabled", ! lastState.movementReady || boardRoutine.active )
 
     if ( boardRoutine.active && boardRoutine.currentPin !== null )
     {
       button.text( "Re-Move Current Pin" )
-      summary.text( "Assistant open at B" + boardRoutine.currentPin + "." )
+      if ( boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
+        summary.text( "Rechecking all board endpoints in order." )
+      else
+        summary.text( "Assistant open at B" + boardRoutine.currentPin + "." )
       return
     }
 
@@ -416,6 +432,8 @@ function Calibrate(modules)
   {
     boardRoutine.active = false
     boardRoutine.currentPin = null
+    boardRoutine.recheckPins = null
+    boardRoutine.recheckIndex = -1
     $( "#manualCalibrationBoardDialog" ).addClass( "hidden" )
   }
 
@@ -483,6 +501,10 @@ function Calibrate(modules)
   {
     boardRoutine.active = true
     boardRoutine.currentPin = pin
+    if ( boardRoutine.recheckPins )
+      boardRoutine.recheckIndex = boardRoutine.recheckPins.indexOf( pin )
+    else
+      boardRoutine.recheckIndex = -1
     $( "#manualCalibrationBoardDialog" ).removeClass( "hidden" )
     setSelectedBoardPin( pin )
     setSelectedPin( pin, true )
@@ -499,6 +521,23 @@ function Calibrate(modules)
 
   function advanceBoardRoutine()
   {
+    if ( boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
+    {
+      var nextIndex = boardRoutine.recheckIndex + 1
+      if ( nextIndex >= boardRoutine.recheckPins.length )
+      {
+        boardRoutine.recheckPins = null
+        boardRoutine.recheckIndex = -1
+        closeBoardRoutine()
+        renderBoardRoutineSummary()
+        setMessage( "Board recheck routine complete.", "success" )
+        return
+      }
+
+      moveBoardRoutineToPin( boardRoutine.recheckPins[ nextIndex ] )
+      return
+    }
+
     var nextPin = nextPendingBoardPin( boardRoutine.currentPin )
     if ( nextPin === null )
     {
@@ -898,6 +937,11 @@ function Calibrate(modules)
         formatNumber( state.cameraOffsetY, 3 ),
         suppressOffsetRefresh
       )
+      setFieldValueIfIdle(
+        "#manualCalibrationXBacklashCompensation",
+        formatNumber( state.xBacklashCompensationMm, 3 ),
+        suppressBacklashRefresh
+      )
     }
 
     if ( state.mode == "gx" )
@@ -951,6 +995,26 @@ function Calibrate(modules)
     (
       commands.process.manualCalibrationSetCameraOffset,
       { x: xValue, y: yValue },
+      function()
+      {
+        refreshStateOnce()
+      }
+    )
+  }
+
+  function applyXBacklashInput()
+  {
+    if ( ! lastState || ! lastState.enabled )
+      return
+
+    var value = parseFloat( $( "#manualCalibrationXBacklashCompensation" ).val() )
+    if ( isNaN( value ) )
+      return
+
+    manualAction
+    (
+      commands.process.manualCalibrationSetXBacklashCompensation,
+      { value: value },
       function()
       {
         refreshStateOnce()
@@ -1181,34 +1245,74 @@ function Calibrate(modules)
     )
 
   $( "#manualCalibrationBoardRoutineButton" )
-    .click
-    (
-      function()
-      {
-        if ( ! lastState || ! lastState.enabled )
+      .click
+      (
+        function()
         {
-          setMessage( "Load a U or V layer first.", "error" )
-          return
-        }
+          if ( ! lastState || ! lastState.enabled )
+          {
+            setMessage( "Load a U or V layer first.", "error" )
+            return
+          }
 
-        if ( ! lastState.counts.bootstrapComplete )
+          if ( ! lastState.counts.bootstrapComplete )
+          {
+            setMessage( "Complete the bootstrap pins before starting board checks.", "error" )
+            return
+          }
+
+          var pin = boardRoutine.active && boardRoutine.currentPin !== null
+            ? boardRoutine.currentPin
+            : boardRoutineStartPin()
+          if ( pin === null )
+          {
+            setMessage( "No board endpoints are available.", "error" )
+            return
+          }
+
+          moveBoardRoutineToPin( pin )
+        }
+      )
+
+  $( "#manualCalibrationBoardRecheckButton" )
+      .click
+      (
+        function()
         {
-          setMessage( "Complete the bootstrap pins before starting board checks.", "error" )
-          return
-        }
+          if ( ! lastState || ! lastState.enabled )
+          {
+            setMessage( "Load a U or V layer first.", "error" )
+            return
+          }
 
-        var pin = boardRoutine.active && boardRoutine.currentPin !== null
-          ? boardRoutine.currentPin
-          : boardRoutineStartPin()
-        if ( pin === null )
-        {
-          setMessage( "No board endpoints are available.", "error" )
-          return
-        }
+          if ( ! lastState.counts.bootstrapComplete )
+          {
+            setMessage( "Complete the bootstrap pins before starting board checks.", "error" )
+            return
+          }
 
-        moveBoardRoutineToPin( pin )
-      }
-    )
+          var items = getBoardCheckItems()
+          if ( 0 == items.length )
+          {
+            setMessage( "No board endpoints are available.", "error" )
+            return
+          }
+
+          boardRoutine.recheckPins = items.map( function( item ) { return item.pin } )
+          boardRoutine.recheckIndex = -1
+          boardRoutine.active = false
+          boardRoutine.currentPin = null
+
+          var startPin = boardRoutineStartPin()
+          if ( startPin === null )
+          {
+            setMessage( "No board endpoints are available.", "error" )
+            return
+          }
+
+          moveBoardRoutineToPin( startPin )
+        }
+      )
 
   $( "#manualCalibrationReferenceSelect" )
     .change
@@ -1504,6 +1608,24 @@ function Calibrate(modules)
       }
     )
     .change( applyOffsetInputs )
+
+  $( "#manualCalibrationXBacklashCompensation" )
+    .focus
+    (
+      function()
+      {
+        suppressBacklashRefresh = true
+      }
+    )
+    .blur
+    (
+      function()
+      {
+        suppressBacklashRefresh = false
+        applyXBacklashInput()
+      }
+    )
+    .change( applyXBacklashInput )
 
   $( "#manualCalibrationHeadAOffset" ).change( function() { applyGXOffsetInput( "headA", "#manualCalibrationHeadAOffset" ) } )
   $( "#manualCalibrationHeadBOffset" ).change( function() { applyGXOffsetInput( "headB", "#manualCalibrationHeadBOffset" ) } )
