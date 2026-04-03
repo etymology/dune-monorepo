@@ -171,6 +171,31 @@ class MAMCallable(Protocol):
   ) -> Any: ...
 
 
+class MAJCallable(Protocol):
+  def __call__(
+    self,
+    *,
+    axis: AxisTag | TagPathOperand,
+    motion_control: MotionControlTag | TagPathOperand,
+    direction: IntegerOperand,
+    speed: NumericOperand,
+    speed_units: MotionSpeedUnits,
+    accel: NumericOperand,
+    accel_units: MotionAccelUnits,
+    decel: NumericOperand,
+    decel_units: MotionAccelUnits,
+    profile: MotionProfile,
+    accel_jerk: NumericOperand,
+    decel_jerk: NumericOperand,
+    jerk_units: MotionJerkUnits,
+    merge: MotionMerge,
+    merge_speed: MotionMergeSpeed,
+    lock_position: IntegerOperand,
+    lock_direction: MotionLockDirection,
+    rung_in: bool = True,
+  ) -> Any: ...
+
+
 class MASCallable(Protocol):
   def __call__(
     self,
@@ -288,6 +313,19 @@ class MCSCallable(Protocol):
     change_jerk: MotionToggle,
     jerk: NumericOperand,
     jerk_units: MotionJerkUnits,
+  ) -> Any: ...
+
+
+class MRPCallable(Protocol):
+  def __call__(
+    self,
+    *,
+    axis: AxisTag | TagPathOperand,
+    motion_control: MotionControlTag | TagPathOperand,
+    move_type: str | IntegerOperand,
+    position_reference: str | IntegerOperand,
+    target: NumericOperand,
+    rung_in: bool = True,
   ) -> Any: ...
 
 
@@ -839,6 +877,50 @@ class BoundRoutineAPI:
       rung_in=rung_in,
     )
 
+  def MAJ(
+    self,
+    *,
+    axis: AxisTag | TagPathOperand,
+    motion_control: MotionControlTag | TagPathOperand,
+    direction: IntegerOperand,
+    speed: NumericOperand,
+    speed_units: MotionSpeedUnits,
+    accel: NumericOperand,
+    accel_units: MotionAccelUnits,
+    decel: NumericOperand,
+    decel_units: MotionAccelUnits,
+    profile: MotionProfile,
+    accel_jerk: NumericOperand,
+    decel_jerk: NumericOperand,
+    jerk_units: MotionJerkUnits,
+    merge: MotionMerge,
+    merge_speed: MotionMergeSpeed,
+    lock_position: IntegerOperand,
+    lock_direction: MotionLockDirection,
+    rung_in: bool = True,
+  ) -> Any:
+    return self._execute(
+      "MAJ",
+      self._normalize_reference(axis),
+      self._normalize_reference(motion_control),
+      self._normalize_value(direction),
+      self._normalize_value(speed),
+      speed_units,
+      self._normalize_value(accel),
+      accel_units,
+      self._normalize_value(decel),
+      decel_units,
+      profile,
+      self._normalize_value(accel_jerk),
+      self._normalize_value(decel_jerk),
+      jerk_units,
+      merge,
+      merge_speed,
+      lock_position,
+      lock_direction,
+      rung_in=rung_in,
+    )
+
   def MAS(
     self,
     *,
@@ -1047,6 +1129,26 @@ class BoundRoutineAPI:
       change_jerk,
       self._normalize_value(jerk),
       jerk_units,
+    )
+
+  def MRP(
+    self,
+    *,
+    axis: AxisTag | TagPathOperand,
+    motion_control: MotionControlTag | TagPathOperand,
+    move_type: str | IntegerOperand,
+    position_reference: str | IntegerOperand,
+    target: NumericOperand,
+    rung_in: bool = True,
+  ) -> Any:
+    return self._execute(
+      "MRP",
+      self._normalize_reference(axis),
+      self._normalize_reference(motion_control),
+      self._normalize_value(move_type),
+      self._normalize_value(position_reference),
+      self._normalize_value(target),
+      rung_in=rung_in,
     )
 
   def MOD(self, *, source_a: Any, source_b: Any, dest: Any) -> Any:
@@ -1266,11 +1368,13 @@ __all__ = [
   "JSRCallable",
   "MAFRCallable",
   "MAMCallable",
+  "MAJCallable",
   "MASCallable",
   "MCCDCallable",
   "MCCMCallable",
   "MCLMCallable",
   "MCSCallable",
+  "MRPCallable",
   "MODCallable",
   "MOVCallable",
   "MotionAccelUnits",
