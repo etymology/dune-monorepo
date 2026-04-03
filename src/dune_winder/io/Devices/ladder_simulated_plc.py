@@ -23,22 +23,35 @@ from .simulated_plc import SimulatedPLC
 
 class LadderSimulatedPLC(SimulatedPLC):
   _PLC_ROOT = PLC_ROOT
-  _LATCH_PROGRAM = "Latch_UnLatch_State_6_7_8"
+  _LATCH_PROGRAM = "state_6_latch"
+  _PROGRAM_NAME_ALIASES = {
+    "MainProgram": "main",
+    "PID_Tension_Servo": "tension_pid",
+    "Initialize": "init",
+    "Ready_State_1": "state_1_ready",
+    "MoveXY_State_2_3": "state_3_move_xy",
+    "MoveZ_State_4_5": "state_5_move_z",
+    "xz_move": "state_12_move_xz",
+    "HMI_Stop_Request_14": "state_14_hmi_stop",
+    "Error_State_10": "state_10_error",
+    "motionQueue": "queued_motion",
+    "Latch_UnLatch_State_6_7_8": "state_6_latch",
+  }
 
   _SCAN_ORDER = (
-    ("MainProgram", "main"),
-    ("PID_Tension_Servo", "main"),
-    ("Initialize", "main"),
-    ("Ready_State_1", "main"),
-    ("MoveXY_State_2_3", "main"),
-    ("MoveZ_State_4_5", "main"),
-    ("xz_move", "xz_move"),
-    ("HMI_Stop_Request_14", "main"),
-    ("Error_State_10", "main"),
-    ("motionQueue", "main"),
+    ("main", "main"),
+    ("tension_pid", "main"),
+    ("init", "main"),
+    ("state_1_ready", "main"),
+    ("state_3_move_xy", "main"),
+    ("state_5_move_z", "main"),
+    ("state_12_move_xz", "main"),
+    ("state_14_hmi_stop", "main"),
+    ("state_10_error", "main"),
+    ("queued_motion", "main"),
   )
   _ROUTINES_TO_LOAD = _SCAN_ORDER + (
-    ("MoveXY_State_2_3", "xy_speed_regulator"),
+    ("queued_motion", "CapSegSpeed"),
   )
 
   _MOVE_TO_STATE = {
@@ -234,23 +247,40 @@ class LadderSimulatedPLC(SimulatedPLC):
   def _load_routines(self):
     parser = RllParser()
     for programName, routineName in self._ROUTINES_TO_LOAD:
-      program = self._metadata.programs[programName]
+      resolvedProgramName = self._resolve_program_name(programName)
+      if resolvedProgramName is None:
+        continue
+
+      program = self._metadata.programs[resolvedProgramName]
       routine_dir = routineName
-      if routineName == program.main_routine_name and (self._PLC_ROOT / programName / "main" / "pasteable.rll").exists():
+      if (
+        routineName == program.main_routine_name
+        and (self._PLC_ROOT / resolvedProgramName / "main" / "pasteable.rll").exists()
+      ):
         routine_dir = "main"
-      routine_path = self._PLC_ROOT / programName / routine_dir / "pasteable.rll"
+      routine_path = self._PLC_ROOT / resolvedProgramName / routine_dir / "pasteable.rll"
       if not routine_path.exists():
         continue
       routine = parser.parse_routine_text(
         routineName,
         routine_path.read_text(encoding="utf-8"),
-        program=programName,
+        program=resolvedProgramName,
         source_path=routine_path,
       )
       loaded = routine
       if self._routine_backend == "imperative":
         loaded = load_imperative_routine_from_source(transpile_routine_to_python(routine))
-      self._routines[(programName, routineName)] = loaded
+      self._routines[(resolvedProgramName, routineName)] = loaded
+
+  # ---------------------------------------------------------------------
+  def _resolve_program_name(self, programName: str) -> str | None:
+    name = str(programName)
+    if name in self._metadata.programs:
+      return name
+    alias = self._PROGRAM_NAME_ALIASES.get(name)
+    if alias in self._metadata.programs:
+      return alias
+    return None
 
   # ---------------------------------------------------------------------
   def _register_jsr_targets(self):
@@ -360,7 +390,8 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._cycle = self._ctx.scan_count
 
     self._sync_builtin_inputs()
-    self._execute_loaded_routine("MainProgram", "main")
+    mainProgramName, mainRoutineName = self._SCAN_ORDER[0]
+    self._execute_loaded_routine(mainProgramName, mainRoutineName)
     self._apply_logic_overrides()
     for programName, routineName in self._SCAN_ORDER[1:]:
       self._execute_loaded_routine(programName, routineName)
@@ -371,19 +402,24 @@ class LadderSimulatedPLC(SimulatedPLC):
   # ---------------------------------------------------------------------
   def _refresh_io_state(self):
     self._sync_builtin_inputs()
-    self._execute_loaded_routine("MainProgram", "main")
+    mainProgramName, mainRoutineName = self._SCAN_ORDER[0]
+    self._execute_loaded_routine(mainProgramName, mainRoutineName)
     self._apply_logic_overrides()
 
   # ---------------------------------------------------------------------
   def _execute_loaded_routine(self, programName: str, routineName: str):
-    if programName == "Initialize" and routineName == "main":
+    resolvedProgramName = self._resolve_program_name(programName)
+    if resolvedProgramName is None:
+      return
+
+    if resolvedProgramName == "init" and routineName == "main":
       if (
         int(self._ctx.get_value("STATE")) != self.STATE_INIT
         and int(self._ctx.get_value("MOVE_TYPE")) != self.MOVE_PLC_INIT
         and bool(self._ctx.get_value("INIT_DONE"))
       ):
         return
-    routine = self._routines.get((programName, routineName))
+    routine = self._routines.get((resolvedProgramName, routineName))
     if routine is not None:
       self._execute_loaded_callable(routine, self._ctx)
 
