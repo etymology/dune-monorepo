@@ -12,6 +12,7 @@ manualCalibrationOffsetXX = 65.0
 manualCalibrationOffsetXY = -108.2
 manualCalibrationOffsetGX = 65.0
 manualCalibrationOffsetGY = -108.2
+xBacklashCompensationMm = 2.0
 serverAddress = "127.0.0.1"
 serverPort = 6626
 webServerPort = 8080

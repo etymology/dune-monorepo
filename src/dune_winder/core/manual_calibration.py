@@ -631,6 +631,18 @@ class ManualCalibration:
         reference["updatedAt"] = str(storedReference.get("updatedAt", ""))
         source = storedReference.get("source")
         reference["source"] = None if source is None else str(source)
+        if (
+          reference["source"] == "capture"
+          and reference["rawCameraX"] is not None
+          and reference["rawCameraY"] is not None
+          and reference["offsetX"] is not None
+          and reference["offsetY"] is not None
+        ):
+          reference["wireX"] = (
+            self._process._xBacklash.getEffectiveX(reference["rawCameraX"])
+            + reference["offsetX"]
+          )
+          reference["wireY"] = reference["rawCameraY"] + reference["offsetY"]
       references[referenceId] = reference
     session.references = references
 
@@ -743,6 +755,18 @@ class ManualCalibration:
             "updatedAt": str(measurement.get("updatedAt", "")),
             "source": str(measurement.get("source", "manual")),
           }
+          if (
+            measuredPins[pin]["source"] == "capture"
+            and measuredPins[pin]["rawCameraX"] is not None
+            and measuredPins[pin]["rawCameraY"] is not None
+          ):
+            measuredPins[pin]["wireX"] = (
+              self._process._xBacklash.getEffectiveX(measuredPins[pin]["rawCameraX"])
+              + measuredPins[pin]["offsetX"]
+            )
+            measuredPins[pin]["wireY"] = (
+              measuredPins[pin]["rawCameraY"] + measuredPins[pin]["offsetY"]
+            )
         session.measuredPins = measuredPins
 
         boardChecks = {}
@@ -1306,6 +1330,7 @@ class ManualCalibration:
     movementReady = self._process.controlStateMachine.isReadyForMovement()
     mode = _mode_for_layer(layer)
     enabled = mode is not None
+    backlashMm = self._process._xBacklash.getBacklashMm()
     disabledReason = None
     if not enabled:
       if layer is None:
@@ -1325,6 +1350,7 @@ class ManualCalibration:
         "dirty": False,
         "cameraOffsetX": None,
         "cameraOffsetY": None,
+        "xBacklashCompensationMm": backlashMm,
         "measuredPins": [],
         "bootstrapPins": [],
         "boardChecks": [],
@@ -1363,6 +1389,7 @@ class ManualCalibration:
         "dirty": session.dirty,
         "cameraOffsetX": session.cameraOffsetX,
         "cameraOffsetY": session.cameraOffsetY,
+        "xBacklashCompensationMm": backlashMm,
         "references": references,
         "offsets": offsets,
         "transferPause": session.transferPause,
@@ -1463,6 +1490,7 @@ class ManualCalibration:
       "dirty": session.dirty,
       "cameraOffsetX": session.cameraOffsetX,
       "cameraOffsetY": session.cameraOffsetY,
+      "xBacklashCompensationMm": backlashMm,
       "measuredPins": measuredPins,
       "bootstrapPins": bootstrapPins,
       "boardChecks": boardChecks,
@@ -1547,7 +1575,10 @@ class ManualCalibration:
         ):
           reference["offsetX"] = session.cameraOffsetX
           reference["offsetY"] = session.cameraOffsetY
-          reference["wireX"] = reference["rawCameraX"] + session.cameraOffsetX
+          reference["wireX"] = (
+            self._process._xBacklash.getEffectiveX(reference["rawCameraX"])
+            + session.cameraOffsetX
+          )
           reference["wireY"] = reference["rawCameraY"] + session.cameraOffsetY
     else:
       for pin, measurement in session.measuredPins.items():
@@ -1558,7 +1589,10 @@ class ManualCalibration:
         ):
           measurement["offsetX"] = session.cameraOffsetX
           measurement["offsetY"] = session.cameraOffsetY
-          measurement["wireX"] = measurement["rawCameraX"] + session.cameraOffsetX
+          measurement["wireX"] = (
+            self._process._xBacklash.getEffectiveX(measurement["rawCameraX"])
+            + session.cameraOffsetX
+          )
           measurement["wireY"] = measurement["rawCameraY"] + session.cameraOffsetY
           if pin in LAYER_METADATA[layer]["endpointInfo"]:
             self._setBoardCheck(
@@ -1567,6 +1601,48 @@ class ManualCalibration:
     session.dirty = True
     self._persistSession(session)
     return self._okResult({"cameraOffsetX": session.cameraOffsetX, "cameraOffsetY": session.cameraOffsetY})
+
+  # -------------------------------------------------------------------
+  def setXBacklashCompensation(self, value):
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    backlashMm = max(0.0, float(value))
+    self._process._xBacklash.setBacklashMm(backlashMm)
+    self._process._configuration.set("xBacklashCompensationMm", backlashMm)
+    for session in self._sessions.values():
+      if session.mode == "gx":
+        for referenceId in GX_REFERENCE_IDS:
+          reference = session.references[referenceId]
+          if (
+            reference.get("source") == "capture"
+            and reference.get("rawCameraX") is not None
+            and reference.get("rawCameraY") is not None
+          ):
+            reference["wireX"] = (
+              self._process._xBacklash.getEffectiveX(reference["rawCameraX"])
+              + reference["offsetX"]
+            )
+            reference["wireY"] = reference["rawCameraY"] + reference["offsetY"]
+        self._persistSession(session)
+        continue
+
+      for pin, measurement in session.measuredPins.items():
+        if (
+          measurement.get("source") == "capture"
+          and measurement.get("rawCameraX") is not None
+          and measurement.get("rawCameraY") is not None
+        ):
+          measurement["wireX"] = (
+            self._process._xBacklash.getEffectiveX(measurement["rawCameraX"])
+            + measurement["offsetX"]
+          )
+          measurement["wireY"] = measurement["rawCameraY"] + measurement["offsetY"]
+          if pin in LAYER_METADATA[session.layer]["endpointInfo"]:
+            self._setBoardCheck(session, pin, "adjusted", measurement["wireX"], measurement["wireY"])
+      self._persistSession(session)
+    return self._okResult({"xBacklashCompensationMm": backlashMm})
 
   # -------------------------------------------------------------------
   def captureCurrentReference(self, referenceId):
@@ -1586,6 +1662,7 @@ class ManualCalibration:
     session = self._getSession(layer)
     rawCameraX = self._process._io.xAxis.getPosition()
     rawCameraY = self._process._io.yAxis.getPosition()
+    effectiveCameraX = self._process._xBacklash.getEffectiveX(rawCameraX)
     session.references[referenceId] = {
       "id": referenceId,
       "label": GX_REFERENCE_LABELS[referenceId],
@@ -1594,7 +1671,7 @@ class ManualCalibration:
       "rawCameraY": rawCameraY,
       "offsetX": session.cameraOffsetX,
       "offsetY": session.cameraOffsetY,
-      "wireX": rawCameraX + session.cameraOffsetX,
+      "wireX": effectiveCameraX + session.cameraOffsetX,
       "wireY": rawCameraY + session.cameraOffsetY,
       "updatedAt": str(self._process._systemTime.get()),
       "source": "capture",
@@ -1939,7 +2016,7 @@ class ManualCalibration:
 
     rawCameraX = self._process._io.xAxis.getPosition()
     rawCameraY = self._process._io.yAxis.getPosition()
-    wireX = rawCameraX + session.cameraOffsetX
+    wireX = self._process._xBacklash.getEffectiveX(rawCameraX) + session.cameraOffsetX
     wireY = rawCameraY + session.cameraOffsetY
 
     session.measuredPins[pin] = {

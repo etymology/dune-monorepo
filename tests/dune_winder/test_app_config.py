@@ -54,6 +54,18 @@ class AppConfigTests(unittest.TestCase):
       reloaded = AppConfig.load(configPath)
       self.assertEqual(reloaded.plcSimEngine, "LADDER")
 
+  def test_x_backlash_compensation_defaults_and_persists(self):
+    with tempfile.TemporaryDirectory() as tempDirectory:
+      configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+
+      configuration = AppConfig.load(configPath)
+      self.assertEqual(configuration.xBacklashCompensationMm, 2.0)
+
+      configuration.set("xBacklashCompensationMm", 3.5)
+      reloaded = AppConfig.load(configPath)
+
+      self.assertEqual(reloaded.xBacklashCompensationMm, 3.5)
+
 
 if __name__ == "__main__":
   unittest.main()

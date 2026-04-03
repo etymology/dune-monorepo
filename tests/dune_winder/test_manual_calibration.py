@@ -14,6 +14,7 @@ from dune_winder.library.app_config import AppConfig
 from dune_winder.library.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import WIRE_SPACING as GX_WIRE_SPACING
 from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 
 class FakeLog:
@@ -142,6 +143,7 @@ class FakeProcess:
     self.workspace = FakeAPA(layer, apaPath, calibrationDirectory, recipeDirectory, recipeArchiveDirectory)
     self.workspace._gCodeHandler = self.gCodeHandler
     self.seekCalls = []
+    self._xBacklash = XBacklashCompensation(configuration.xBacklashCompensationMm)
 
   def getRecipeLayer(self):
     return self.workspace.getLayer()
@@ -306,6 +308,37 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(process.seekCalls[0][0], 100.0)
       self.assertAlmostEqual(process.seekCalls[0][1], 200.0)
       self.assertAlmostEqual(process.seekCalls[0][2], 25.0)
+
+  def test_capture_uses_effective_x_when_positive_backlash_bias_is_active(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      service = ManualCalibration(process)
+
+      service.startNew()
+      service.setCameraOffset(10.0, -5.0)
+      process._xBacklash.noteCommand(0.0, 10.0)
+      process._io.xAxis.position = 100.0
+      process._io.yAxis.position = 200.0
+
+      captureResult = service.captureCurrentPin(1)
+
+      self.assertTrue(captureResult["ok"])
+      session = service._getSession("U")
+      self.assertAlmostEqual(session.measuredPins[1]["rawCameraX"], 100.0)
+      self.assertAlmostEqual(session.measuredPins[1]["wireX"], 108.0)
+
+  def test_state_reports_and_updates_x_backlash_compensation(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      service = ManualCalibration(process)
+
+      self.assertAlmostEqual(service.getState()["xBacklashCompensationMm"], 2.0)
+
+      result = service.setXBacklashCompensation(3.25)
+
+      self.assertTrue(result["ok"])
+      self.assertAlmostEqual(service.getState()["xBacklashCompensationMm"], 3.25)
+      self.assertAlmostEqual(process._configuration.xBacklashCompensationMm, 3.25)
 
   def test_front_pin_prediction_uses_mapped_back_pin_correction(self):
     with tempfile.TemporaryDirectory() as rootDirectory:

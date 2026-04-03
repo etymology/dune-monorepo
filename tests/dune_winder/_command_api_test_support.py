@@ -73,6 +73,9 @@ class DummyManualCalibration:
   def getState(self):
     return {"mode": "gx"}
 
+  def setXBacklashCompensation(self, value):
+    return {"ok": True, "data": {"xBacklashCompensationMm": value}}
+
   def setCornerOffset(self, offsetId, value):
     return {"ok": True, "data": {"offsetId": offsetId, "value": value}}
 
@@ -158,6 +161,9 @@ class DummyProcess:
   def manualSeekXY(self, xPosition=None, yPosition=None, velocity=None, acceleration=None, deceleration=None):
     self.lastSeek = ("seekXY", xPosition, yPosition, velocity, acceleration, deceleration)
     return False
+
+  def getRealXPosition(self):
+    return 123.4
 
   def manualSeekZ(self, position, velocity=None):
     self.lastSeek = ("seekZ", position, velocity)

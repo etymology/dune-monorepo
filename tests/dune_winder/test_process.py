@@ -6,6 +6,7 @@ from dune_winder.core.control_events import ManualModeEvent
 from dune_winder.core.motion_service import MotionService
 from dune_winder.core.process import Process
 from dune_winder.core.safety_validation_service import SafetyValidationService
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.io.primitives.digital_input import DigitalInput
 
@@ -483,9 +484,11 @@ class ProcessManualGCodeTests(unittest.TestCase):
     safety._supportCollisionTopMaxY = 2650.0
     safety._geometryEpsilon = 1e-9
     process._safety = safety
+    process._xBacklash = XBacklashCompensation(2.0)
     process._motion = MotionService(
       process._io, process._log, process.controlStateMachine,
-      safety, process.gCodeHandler, None, lambda: None,
+      safety, process.gCodeHandler, None, process._xBacklash,
+      lambda: None,
     )
 
     return process
@@ -509,6 +512,16 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["Y3 X11.0"])
+
+  def test_execute_manual_gcode_uses_effective_x_for_y_only_move(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(0.0, 5.0)
+
+    error = process.executeG_CodeLine("Y3")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["Y3 X9.0"])
 
   def test_execute_manual_gcode_accepts_feed_only_without_movement(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
@@ -615,5 +628,32 @@ class ProcessManualGCodeTests(unittest.TestCase):
     self.assertFalse(isError)
     self.assertEqual(len(process.controlStateMachine.events), 1)
     self.assertIsInstance(process.controlStateMachine.events[0], ManualModeEvent)
-    self.assertEqual(process.controlStateMachine.events[0].seekX, 500.0)
+    self.assertEqual(process.controlStateMachine.events[0].seekX, 502.0)
     self.assertEqual(process.controlStateMachine.events[0].seekY, 200.0)
+
+  def test_manual_seek_xy_reversal_uses_unbiased_raw_target(self):
+    process = self._build_process_for_manual_gcode(x_position=112.0, y_position=100.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(100.0, 110.0)
+
+    isError = process.manualSeekXY(xPosition=109.0, yPosition=200.0)
+
+    self.assertFalse(isError)
+    self.assertEqual(process.controlStateMachine.events[0].seekX, 109.0)
+
+  def test_manual_seek_xy_skips_sub_resolution_noop_without_entering_manual_mode(self):
+    process = self._build_process_for_manual_gcode(x_position=112.0, y_position=100.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(100.0, 110.0)
+
+    isError = process.manualSeekXY(xPosition=110.02, yPosition=100.03)
+
+    self.assertFalse(isError)
+    self.assertEqual(process.controlStateMachine.events, [])
+
+  def test_get_real_x_position_uses_backlash_compensated_x(self):
+    process = self._build_process_for_manual_gcode(x_position=112.0, y_position=100.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(100.0, 110.0)
+
+    self.assertEqual(process.getRealXPosition(), 110.0)
