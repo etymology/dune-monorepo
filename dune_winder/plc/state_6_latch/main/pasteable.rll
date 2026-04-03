@@ -1,0 +1,26 @@
+XIO Local:1:I.Pt08.Data OTE MACHINE_SW_STAT[12] OTE LATCH_ACTUATOR_TOP 
+XIO Local:1:I.Pt09.Data OTE MACHINE_SW_STAT[13] OTE LATCH_ACTUATOR_MID 
+XIC LATCH_ACTUATOR_TOP XIO LATCH_ACTUATOR_MID CPT ACTUATOR_POS 3 
+XIC LATCH_ACTUATOR_TOP XIC LATCH_ACTUATOR_MID TON delay_mid_position ? ? 
+XIC LATCH_ACTUATOR_TOP XIC LATCH_ACTUATOR_MID XIC delay_mid_position.DN CPT ACTUATOR_POS 2 
+XIO LATCH_ACTUATOR_TOP XIO LATCH_ACTUATOR_MID XIO Z_STAGE_LATCHED CPT ACTUATOR_POS 0 
+XIC Z_STAGE_LATCHED TON delay_stage_latched ? ? 
+XIC Z_STAGE_LATCHED XIC delay_stage_latched.DN CPT ACTUATOR_POS 1 
+XIC Z_STAGE_PRESENT XIC Z_FIXED_PRESENT XIC Z_EXTENDED OTE head_between_stage_and_fixed 
+XIO Z_STAGE_PRESENT XIC Z_RETRACTED OTE latch_in_free_space 
+BST XIC head_between_stage_and_fixed NXB XIC latch_in_free_space BND OTE ENABLE_ACTUATOR 
+CMP "STATE=6" XIC ENABLE_ACTUATOR OTE latching_in_progress 
+CMP "STATE=6" XIO ENABLE_ACTUATOR CPT ERROR_CODE 6001 CPT NEXTSTATE 10 
+XIC latching_in_progress OSR null latching_rising_edge 
+XIC latching_rising_edge CPT PREV_ACT_POS ACTUATOR_POS 
+XIC latching_rising_edge RES LatchingTimeoutCounter 
+XIC latching_in_progress XIC Latching_pulse_interval.DN TON Latching_pulse_duration ? ? 
+XIC latching_in_progress TON Latching_pulse_interval ? ? 
+XIC latching_in_progress XIC Latching_pulse_duration.DN RES Latching_pulse_interval 
+XIC Latching_pulse_duration.TT OTE Local:3:O.Pt01.Data OTE latching_signal 
+XIC latching_in_progress XIC head_between_stage_and_fixed BST CMP "PREV_ACT_POS=1" NXB CMP "PREV_ACT_POS=3" NXB CMP "PREV_ACT_POS=2" NXB CMP "PREV_ACT_POS=0" BND CPT MOVE_TYPE 0 MOV 0 STATE_REQUEST CPT NEXTSTATE 1 
+XIC latching_in_progress XIC latch_in_free_space BST CMP "PREV_ACT_POS=0" NXB CMP "PREV_ACT_POS=3" NXB CMP "PREV_ACT_POS=2" BND CPT MOVE_TYPE 0 MOV 0 STATE_REQUEST CPT NEXTSTATE 1 
+XIC latching_in_progress XIO LatchingTimeoutCounter.DN TON one_second_timer ? ? 
+XIC latching_in_progress XIO LatchingTimeoutCounter.DN XIC one_second_timer.DN RES one_second_timer CTU LatchingTimeoutCounter ? ? 
+XIC LatchingTimeoutCounter.DN XIC latching_in_progress CPT ERROR_CODE 6002 CPT NEXTSTATE 10 RES LatchingTimeoutCounter 
+

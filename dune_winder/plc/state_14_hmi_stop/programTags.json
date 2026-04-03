@@ -1,0 +1,367 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "state_14_hmi_stop",
+  "main_routine_name": "main",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "main"
+  ],
+  "subroutines": [],
+  "udts": [
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 2
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 0
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 0
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 0
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15
+        }
+      ]
+    }
+  ],
+  "program_tags": [
+    {
+      "name": "STATE14_IND",
+      "fully_qualified_name": "Program:state_14_hmi_stop.STATE14_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "hmi_stop_entry_sb",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_stop_entry_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "hmi_stop_entry_ob",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_stop_entry_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "hmi_xy_stop",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_xy_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "hmi_xz_stop",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_xz_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "hmi_x_axis_stop",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_x_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "hmi_y_axis_stop",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_y_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "hmi_z_axis_stop",
+      "fully_qualified_name": "Program:state_14_hmi_stop.hmi_z_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_14_hmi_stop",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 704643072,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    }
+  ],
+  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+}
