@@ -46,12 +46,15 @@ class ZMovePathTests(_TagIsolationTestCase):
     plc.write(("Z_SPEED", 100.0))
     plc.write(("Z_ACCELERATION", 1000.0))
     plc.write(("Z_DECELLERATION", 1000.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
 
     self._advance_until(plc, lambda: plc.get_tag("z_axis_main_move.IP"))
-    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self._advance_until(
+      plc,
+      lambda: plc.get_tag("STATE") == plc.STATE_READY and plc.get_tag("STATE_REQUEST") == 0,
+    )
 
-    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertFalse(plc.get_tag("STATE5_IND"))
     self.assertTrue(plc.get_tag("z_move_success") is False)
     self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
@@ -63,12 +66,12 @@ class ZMovePathTests(_TagIsolationTestCase):
     plc.set_tag("tension_stable_tolerance", 0.0)
     plc.write(("Z_POSITION", 43.0))
     plc.write(("Z_SPEED", 100.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
 
     self._advance(plc, 10)
 
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_Z_SEEK)
-    self.assertEqual(plc.get_tag("MOVE_TYPE"), plc.MOVE_SEEK_Z)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), plc.STATE_Z_SEEK)
     self.assertFalse(plc.get_tag("STATE5_IND"))
     self.assertFalse(plc.get_tag("prepare_to_move"))
     self.assertFalse(plc.get_tag("trigger_z_move"))
@@ -80,7 +83,7 @@ class ZMovePathTests(_TagIsolationTestCase):
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
     plc.write(("Z_POSITION", 43.0))
     plc.write(("Z_SPEED", 100.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
 
     self._advance(plc, 3)
 
@@ -95,9 +98,12 @@ class ZMovePathTests(_TagIsolationTestCase):
     plc.set_tag("APA_IS_VERTICAL", False, override=True)
     plc.write(("Z_POSITION", 43.0))
     plc.write(("Z_SPEED", 100.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
 
-    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self._advance_until(
+      plc,
+      lambda: plc.get_tag("STATE") == plc.STATE_READY and plc.get_tag("STATE_REQUEST") == 0,
+    )
 
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
     self.assertFalse(plc.get_tag("STATE5_IND"))
@@ -113,7 +119,7 @@ class ZMovePathTests(_TagIsolationTestCase):
     plc.write(("Z_SPEED", 10.0))
     plc.write(("Z_ACCELERATION", 1000.0))
     plc.write(("Z_DECELLERATION", 1000.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
 
     self._advance_until(plc, lambda: plc.get_tag("z_axis_main_move.IP"))
 
@@ -124,7 +130,7 @@ class ZMovePathTests(_TagIsolationTestCase):
     self._advance(plc, 5)
 
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
-    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertFalse(plc.get_tag("STATE5_IND"))
     self.assertFalse(plc.get_tag("z_move_success"))
     self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
@@ -169,7 +175,10 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
     self._advance_machine_until(
       io,
       machine,
-      lambda: machine.getState() == ControlStateMachine.States.STOP,
+      lambda: (
+        machine.getState() == ControlStateMachine.States.STOP
+        and io.plc.get_tag("STATE_REQUEST") == 0
+      ),
     )
 
     machine.dispatch(ManualModeEvent(seekZ=43.0, velocity=100.0))
@@ -178,7 +187,10 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
     self._advance_machine_until(
       io,
       machine,
-      lambda: machine.getState() == ControlStateMachine.States.STOP,
+      lambda: (
+        machine.getState() == ControlStateMachine.States.STOP
+        and io.plc.get_tag("STATE_REQUEST") == 0
+      ),
     )
 
     self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_READY)

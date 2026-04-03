@@ -39,6 +39,15 @@ class PLC_Logic:
 
   # end class
 
+  _DIRECT_STATE_REQUESTS = {
+    States.XY_SEEK,
+    States.Z_SEEK,
+    States.LATCHING,
+    States.UNSERVO,
+    States.XZ_SEEK,
+    States.HMI_STOP,
+  }
+
   # States for move type state machine.
   class MoveTypes:
     RESET = 0
@@ -102,8 +111,9 @@ class PLC_Logic:
       True if ready, False if some other operation is taking place.
     """
     state = self._state.get()
+    stateRequest = self._stateRequest.get()
 
-    if self.States.READY == state:
+    if self.States.READY == state and int(stateRequest) == 0:
       result = True
     else:
       result = False
@@ -126,7 +136,7 @@ class PLC_Logic:
     """
     Request the PLC HMI stop state for a controlled user-initiated motion stop.
     """
-    self._moveType.set(self.MoveTypes.HMI_STOP_REQUEST)
+    self._requestState(self.States.HMI_STOP)
 
   # ---------------------------------------------------------------------
   def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
@@ -150,7 +160,7 @@ class PLC_Logic:
 
     self._maxXY_Velocity.set(self._velocity)
     self._xyAxis.setDesiredPosition([x, y])
-    self._moveType.set(self.MoveTypes.SEEK_XY)
+    self._requestState(self.States.XY_SEEK)
 
   # ---------------------------------------------------------------------
   def jogXY(self, xVelocity, yVelocity, acceleration=None, deceleration=None):
@@ -188,7 +198,7 @@ class PLC_Logic:
 
     self._zAxis.setVelocity(self._velocity)
     self._zAxis.setDesiredPosition(position)
-    self._pulseMoveType(self.MoveTypes.SEEK_Z)
+    self._requestState(self.States.Z_SEEK)
 
   # ---------------------------------------------------------------------
   def setXZ_Position(self, x, z, velocity=None):
@@ -208,7 +218,7 @@ class PLC_Logic:
       raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
 
     self._xzPositionTarget.set([float(x), float(z)])
-    self._moveType.set(self.MoveTypes.SEEK_XZ)
+    self._requestState(self.States.XZ_SEEK)
 
   # ---------------------------------------------------------------------
   def _readTagNow(self, tag):
@@ -297,6 +307,18 @@ class PLC_Logic:
     self._moveType.updateFromReadTag(requested)
 
   # ---------------------------------------------------------------------
+  def _requestState(self, state):
+    """
+    Write a direct PLC state request for routines that now dispatch through
+    STATE_REQUEST instead of MOVE_TYPE.
+    """
+    requested = int(state)
+    if requested not in self._DIRECT_STATE_REQUESTS:
+      raise ValueError("Unsupported STATE_REQUEST target: " + str(requested))
+    self._writeTagNow(self._stateRequest.getName(), requested)
+    self._stateRequest.updateFromReadTag(requested)
+
+  # ---------------------------------------------------------------------
   def jogZ(self, velocity):
     """
     Jog the Z axis at a given velocity.
@@ -381,7 +403,7 @@ class PLC_Logic:
     if not self.canMoveLatch():
       return False
 
-    self._pulseMoveType(self.MoveTypes.LATCH)
+    self._requestState(self.States.LATCHING)
     return True
 
   # ---------------------------------------------------------------------
@@ -400,6 +422,16 @@ class PLC_Logic:
       Move type tag value, number from PLC_Logic.MoveTypes.
     """
     return self._moveType.get()
+
+  # ---------------------------------------------------------------------
+  def getStateRequest(self):
+    """
+    Return the current direct state-request tag value.
+
+    Returns:
+      State-request tag value, or 0 when idle.
+    """
+    return self._stateRequest.get()
 
   # ---------------------------------------------------------------------
   def getState(self):
@@ -436,7 +468,9 @@ class PLC_Logic:
     """
     Start a latch homing operation.
     """
-    self._moveType.set(self.MoveTypes.HOME_LATCH)
+    raise NotImplementedError(
+      "Latch home is not supported by the checked-in PLC STATE_REQUEST contract."
+    )
 
   # ---------------------------------------------------------------------
   def latchUnlock(self):
@@ -444,7 +478,9 @@ class PLC_Logic:
     Unlock latch motor for manual operation.  Requires PLC_Logic.reset after
     complete.
     """
-    self._moveType.set(self.MoveTypes.LATCH_UNLOCK)
+    raise NotImplementedError(
+      "Latch unlock is not supported by the checked-in PLC STATE_REQUEST contract."
+    )
 
   # ---------------------------------------------------------------------
   def maxVelocity(self, maxVelocity=None):
@@ -532,7 +568,7 @@ class PLC_Logic:
     """
     Disable servo control of motors.
     """
-    self._moveType.set(self.MoveTypes.UNSERVO)
+    self._requestState(self.States.UNSERVO)
 
   # ---------------------------------------------------------------------
   def getErrorCode(self):
@@ -584,6 +620,7 @@ class PLC_Logic:
     self._headLatchState = PLC.Tag(plc, "HEAD_POS", attributes, tagType="DINT")
     self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS", attributes, tagType="DINT")
     self._moveType = PLC.Tag(plc, "MOVE_TYPE", attributes, tagType="INT")
+    self._stateRequest = PLC.Tag(plc, "STATE_REQUEST", attributes, tagType="DINT")
     self._yTransferOk = PLC.Tag(plc, "Y_XFER_OK", attributes, tagType="DINT")
 
     machineStatus = PLC.Tag.Attributes()

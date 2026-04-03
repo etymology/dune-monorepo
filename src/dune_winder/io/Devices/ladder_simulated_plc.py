@@ -67,6 +67,14 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
     SimulatedPLC.MOVE_HMI_STOP_REQUEST: SimulatedPLC.STATE_HMI_STOP,
   }
+  _STATE_REQUEST_TO_MOVE_TYPE = {
+    SimulatedPLC.STATE_XY_SEEK: SimulatedPLC.MOVE_SEEK_XY,
+    SimulatedPLC.STATE_Z_SEEK: SimulatedPLC.MOVE_SEEK_Z,
+    SimulatedPLC.STATE_LATCHING: SimulatedPLC.MOVE_LATCH,
+    SimulatedPLC.STATE_UNSERVO: SimulatedPLC.MOVE_UNSERVO,
+    SimulatedPLC.STATE_XZ_SEEK: SimulatedPLC.MOVE_SEEK_XZ,
+    SimulatedPLC.STATE_HMI_STOP: SimulatedPLC.MOVE_HMI_STOP_REQUEST,
+  }
   _LATCH_STUB_MOVE_TYPES = {
     SimulatedPLC.MOVE_LATCH,
     SimulatedPLC.MOVE_HOME_LATCH,
@@ -126,6 +134,8 @@ class LadderSimulatedPLC(SimulatedPLC):
     )
     self._routines = {}
     self._scan_cycle_active = False
+    self._pending_state_request = None
+    self._pending_state_request_started = False
 
     self._load_routines()
     self._register_jsr_targets()
@@ -231,6 +241,9 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._ctx.set_value("STATE", errorState)
       self._ctx.set_value("NEXTSTATE", errorState)
       self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+      self._ctx.set_value("STATE_REQUEST", 0)
+      self._pending_state_request = None
+      self._pending_state_request_started = False
       return self._statusSnapshot()
 
   # ---------------------------------------------------------------------
@@ -239,8 +252,11 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._abort_active_motion()
       self._ctx.set_value("ERROR_CODE", 0)
       self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+      self._ctx.set_value("STATE_REQUEST", 0)
       self._ctx.set_value("STATE", self.STATE_READY)
       self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+      self._pending_state_request = None
+      self._pending_state_request_started = False
       return self._statusSnapshot()
 
   # ---------------------------------------------------------------------
@@ -306,9 +322,11 @@ class LadderSimulatedPLC(SimulatedPLC):
     self._ctx.set_value("STATE", self.STATE_READY)
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+    self._ctx.set_value("STATE_REQUEST", 0)
     self._ctx.set_value("gui_latch_pulse", False)
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("INIT_DONE", True)
+    self._ctx.set_value("check_tension_stable", False)
     self._ctx.set_value("HEAD_POS", 0)
     self._ctx.set_value("ACTUATOR_POS", 1)
     self._ctx.set_value("LATCH_ACTUATOR_HOMED", True)
@@ -527,6 +545,20 @@ class LadderSimulatedPLC(SimulatedPLC):
     if state == self.STATE_QUEUED_MOTION and not queueActive:
       self._ctx.set_value("STATE", self.STATE_READY)
       self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+    if (
+      self._pending_state_request is not None
+      and state == self._pending_state_request
+    ):
+      self._pending_state_request_started = True
+    if (
+      self._pending_state_request is not None
+      and self._pending_state_request_started
+      and int(self._ctx.get_value("STATE")) == self.STATE_READY
+      and int(self._ctx.get_value("NEXTSTATE")) == self.STATE_READY
+    ):
+      self._ctx.set_value("STATE_REQUEST", 0)
+      self._pending_state_request = None
+      self._pending_state_request_started = False
 
   # ---------------------------------------------------------------------
   def _apply_latch_stub(self) -> bool:
@@ -569,6 +601,7 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+    self._ctx.set_value("STATE_REQUEST", 0)
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
     return True
 
@@ -677,6 +710,15 @@ class LadderSimulatedPLC(SimulatedPLC):
         self._ctx.set_value("NEXTSTATE", self.STATE_READY)
       return
 
+    if tagName == "STATE_REQUEST":
+      requestedState = int(value)
+      self._ctx.set_value(tagName, requestedState)
+      if requestedState not in self._STATE_REQUEST_TO_MOVE_TYPE:
+        return
+      self._pending_state_request = requestedState
+      self._pending_state_request_started = False
+      return
+
     if tagName == "gui_latch_pulse":
       enabled = bool(self._coerceBit(value))
       self._ctx.set_value(tagName, enabled)
@@ -780,6 +822,7 @@ class LadderSimulatedPLC(SimulatedPLC):
       "scanCount": self._ctx.scan_count,
       "state": int(self._ctx.get_value("STATE")),
       "moveType": int(self._ctx.get_value("MOVE_TYPE")),
+      "stateRequest": int(self._ctx.get_value("STATE_REQUEST")),
       "errorCode": int(self._ctx.get_value("ERROR_CODE")),
       "headPos": int(self._ctx.get_value("HEAD_POS")),
       "actuatorPos": int(self._ctx.get_value("ACTUATOR_POS")),

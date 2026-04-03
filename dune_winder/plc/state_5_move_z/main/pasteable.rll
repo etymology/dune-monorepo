@@ -14,5 +14,5 @@ XIC Z_axis.MoveStatus CMP "STATE_REQUEST=14" CPT NEXTSTATE 14
 XIO ALL_EOT_GOOD XIC Z_axis.MoveStatus MAS Z_axis eot_stop Jog Yes 2000 "Units per sec2" No 100 "% of Time" 
 XIC eot_stop.PC CPT ERROR_CODE 5005 CPT NEXTSTATE 11 MOV 0 eot_stop.FLAGS 
 CMP "STATE=5" CMP "ABS(Z_axis.ActualPosition-Z_POSITION)<0.1" OSR nullbit z_move_success 
-XIC z_move_success CPT STATE_REQUEST 0 CPT NEXTSTATE 1 MOV 0 z_axis_main_move.FLAGS MOV 0 z_axis_fast_move.FLAGS 
+XIC z_move_success CPT STATE_REQUEST 0 CPT MOVE_TYPE 0 CPT NEXTSTATE 1 MOV 0 z_axis_main_move.FLAGS MOV 0 z_axis_fast_move.FLAGS 
 

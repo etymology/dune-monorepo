@@ -68,6 +68,9 @@ class Head:
   def hasError(self):
     return bool(self._lastError)
 
+  def getState(self):
+    return self._headState
+
   def getLastError(self):
     return self._lastError
 
@@ -84,6 +87,9 @@ class Head:
 
   def clearQueuedTransfer(self):
     self._headState = self.States.IDLE
+    self._headPositionTarget = -1
+    self._headZTarget = -1
+    self._headLatchTarget = -1
     self._activeTransferMode = None
     self._lastError = ""
     self._resetLatchRetryState()

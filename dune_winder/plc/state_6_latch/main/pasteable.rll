@@ -17,7 +17,7 @@ XIC latching_rising_edge RES LatchingTimeoutCounter
 XIC latching_in_progress XIC Latching_pulse_interval.DN TON Latching_pulse_duration ? ? 
 XIC latching_in_progress TON Latching_pulse_interval ? ? 
 XIC latching_in_progress XIC Latching_pulse_duration.DN RES Latching_pulse_interval 
-XIC Latching_pulse_duration.TT OTE Local:3:O.Pt01.Data OTE latching_signal 
+BST XIC Latching_pulse_duration.TT NXB XIC manual_toggle_latch BND OTE Local:3:O.Pt01.Data OTE latching_signal 
 XIC latching_in_progress XIC head_between_stage_and_fixed BST CMP "PREV_ACT_POS=1" NXB CMP "PREV_ACT_POS=3" NXB CMP "PREV_ACT_POS=2" NXB CMP "PREV_ACT_POS=0" BND CPT MOVE_TYPE 0 MOV 0 STATE_REQUEST CPT NEXTSTATE 1 
 XIC latching_in_progress XIC latch_in_free_space BST CMP "PREV_ACT_POS=0" NXB CMP "PREV_ACT_POS=3" NXB CMP "PREV_ACT_POS=2" BND CPT MOVE_TYPE 0 MOV 0 STATE_REQUEST CPT NEXTSTATE 1 
 XIC latching_in_progress XIO LatchingTimeoutCounter.DN TON one_second_timer ? ? 

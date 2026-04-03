@@ -123,6 +123,7 @@ class ScanContext:
     return self.runtime_state.scan_time_ms / 1000.0
 
   def get_value(self, path: str, program: str | None = None):
+    path = self._normalize_path(path, program=program)
     target_program = self.current_program if program is None else program
     try:
       return self.tag_store.get(path, program=target_program)
@@ -136,6 +137,7 @@ class ScanContext:
       return self.builtin_values.get(str(path), 0)
 
   def set_value(self, path: str, value, program: str | None = None):
+    path = self._normalize_path(path, program=program)
     target_program = self.current_program if program is None else program
     try:
       return self.tag_store.set(path, value, program=target_program)
@@ -147,6 +149,7 @@ class ScanContext:
       return value
 
   def exists(self, path: str, program: str | None = None) -> bool:
+    path = self._normalize_path(path, program=program)
     target_program = self.current_program if program is None else program
     if self.tag_store.exists(path, program=target_program):
       return True
@@ -168,6 +171,38 @@ class ScanContext:
     if len(matches) == 1:
       return matches[0]
     return None
+
+  def _normalize_path(self, path: str, program: str | None = None) -> str:
+    text = str(path)
+    if "[" not in text:
+      return text
+
+    target_program = self.current_program if program is None else program
+    segments = split_tag_path(text)
+    normalized = []
+    changed = False
+    for segment in segments:
+      indexes = []
+      for index in segment.indexes:
+        if isinstance(index, int):
+          indexes.append(index)
+          continue
+        resolved = self._resolve_index_value(str(index), target_program)
+        indexes.append(resolved)
+        changed = changed or resolved != index
+      normalized.append(PathSegment(segment.name, tuple(indexes)))
+    if not changed:
+      return text
+    return _path_to_string(tuple(normalized))
+
+  def _resolve_index_value(self, index: str, program: str | None):
+    if NUMERIC_PATTERN.fullmatch(index):
+      return int(float(index))
+
+    try:
+      return _coerce_int(self.get_value(index, program=program))
+    except Exception:
+      return index
 
   def resolve_operand(self, token: str):
     text = str(token)

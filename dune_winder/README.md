@@ -170,10 +170,11 @@ The web/API layer also exposes queued-motion preview commands:
 The PLC link in this repository has two main paths:
 
 - Direct motion/state control: Python writes intent tags such as
-  `MOVE_TYPE`, `X_POSITION`, `Y_POSITION`, `Z_POSITION`, and speed/accel tags.
-  The PLC state routines in `plc/` validate interlocks, issue the Rockwell
-  motion instructions, and report completion through `STATE`, `ERROR_CODE`, and
-  axis status tags.
+  `STATE_REQUEST`, `X_POSITION`, `Y_POSITION`, `Z_POSITION`, and speed/accel
+  tags. `MOVE_TYPE` remains for reset / PLC-init compatibility only. The PLC
+  state routines in `plc/` validate interlocks, issue the Rockwell motion
+  instructions, and report completion through `STATE`, `ERROR_CODE`, and axis
+  status tags.
 - Queued motion: Python serializes `MotionSeg` UDT payloads into `IncomingSeg`
   and drives the queue handshake tags (`IncomingSegReqID`, `IncomingSegAck`,
   `StartQueuedPath`, `AbortQueue`, `QueueCount`, `CurIssued`, `NextIssued`,
