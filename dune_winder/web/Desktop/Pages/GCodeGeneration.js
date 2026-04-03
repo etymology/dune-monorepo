@@ -1,4 +1,4 @@
-function VTemplate( modules )
+function GCodeGeneration( modules )
 {
   var winder = modules.get( "Winder" )
   var uiServices = modules.get( "UiServices" )
