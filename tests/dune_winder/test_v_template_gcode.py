@@ -50,14 +50,14 @@ class VTemplateGCodeTests(unittest.TestCase):
     tail_start = len(lines) - 8
     self.assertEqual(
       lines[-8:],
-      [
-        "N" + str(tail_start) + " " + self.TOLERANT + "(400,16) G109 PF400 PRT G103 PB2398 PB2399 PXY (Top B corner - head end)",
-        "N" + str(tail_start + 1) + " " + self.TOLERANT + "(400,17) G103 PB2398 PB2399 PY G105 " + self._coord("PY", -Y_PULL_IN),
-        "N" + str(tail_start + 2) + " " + self.MERGE + "(400,18) G103 PB2398 PB2399 PY G105 PY0 G111",
+        [
+          "N" + str(tail_start) + " " + self.TOLERANT + "(400,16) G109 PF400 PRT G103 PB2398 PB2399 PX (Top B corner - head end)",
+          "N" + str(tail_start + 1) + " " + self.TOLERANT + "(400,17) G103 PB2398 PB2399 PY G105 " + self._coord("PY", -Y_PULL_IN),
+          "N" + str(tail_start + 2) + " " + self.MERGE + "(400,18) G103 PB2398 PB2399 PY G105 PY0 G111 (board gap)",
         "N" + str(tail_start + 3) + " " + self.MERGE + "(400,19) X440 Y2315 F300",
         "N" + str(tail_start + 4) + " (400,20) G206 P0",
         "N" + str(tail_start + 5) + " " + self.MERGE + "(400,21) X440 Y2335",
-        "N" + str(tail_start + 6) + " " + self.MERGE + "(400,22) X650 Y2335 G111",
+        "N" + str(tail_start + 6) + " " + self.MERGE + "(400,22) X650 Y2335 G111 (board gap)",
         "N" + str(tail_start + 7) + " " + self.MERGE + "(400,23) X440 Y2335",
       ],
     )
@@ -118,11 +118,11 @@ class VTemplateGCodeTests(unittest.TestCase):
       "N13 " + self.MERGE + "(1,10) G109 PB1200 PTR G103 PB1199 PB1198 PXY G105 PX5 G102 G108 (Bottom B corner - foot end)",
       "N15 " + self.MERGE + "(1,12) G109 PB1199 PBR G103 PF1599 PF1600 PX G105 PX6 (Bottom A corner - foot end)",
       "N17 " + self.MERGE + "(1,14) G109 PF1600 PLT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
-      "N19 " + self.TOLERANT + "(1,16) G109 PF799 PRT G103 PB1999 PB2000 PXY G105 PX8 (Top B corner - head end)",
+      "N19 " + self.TOLERANT + "(1,16) G109 PF799 PRT G103 PB1999 PB2000 PX G105 PX8 (Top B corner - head end)",
       "N21 " + self.MERGE + "(1,18) (HEAD RESTART) G109 PB2000 PLB G103 PB400 PB399 PXY G105 PY9 G102 G108 (Head B corner)",
       "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PF1 PF2 PXY G105 PY10 (Head A corner)",
       "N25 " + self.MERGE + "(1,22) G109 PF1 PTL G103 PF2398 PF2397 PXY G105 PX11 G102 G108 (Bottom A corner - head end)",
-      "N27 " + self.MERGE + "(1,24) G109 PF2398 PBL G103 PB400 PB401 G105 PX13 PX12 (Bottom B corner - head end)",
+      "N27 " + self.MERGE + "(1,24) G109 PF2398 PBL G103 PB400 PB401 PX G105 PX13 (Bottom B corner - head end)",
     ]
     for expected_line in expected_first_wrap:
       self.assertIn(expected_line, lines)
@@ -144,6 +144,7 @@ class VTemplateGCodeTests(unittest.TestCase):
   def test_named_input_snapshot_and_file_writers(self):
     named_inputs = get_v_template_named_inputs_snapshot()
     self.assertFalse(named_inputs["transferPause"])
+    self.assertFalse(named_inputs["addFootPauses"])
     self.assertEqual(named_inputs["line 10 (Head A corner)"], 0.0)
     self.assertEqual(named_inputs["Y_PULL_IN"], Y_PULL_IN)
     self.assertEqual(named_inputs["X_PULL_IN"], X_PULL_IN)
@@ -176,6 +177,39 @@ class VTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(recipe["fileName"], "V-layer.gc")
     self.assertEqual(recipe["pullIns"]["Y_PULL_IN"], 82.5)
     self.assertEqual(recipe["pullIns"]["X_PULL_IN"], 91.5)
+
+  def test_add_foot_pauses_appends_g111_only_on_qualifying_lines(self):
+    base_lines = render_v_template_text_lines()
+    paused_lines = render_v_template_text_lines(add_foot_pauses=True)
+
+    self.assertEqual(
+      paused_lines[9],
+      "N9 "
+      + self.MERGE
+      + "(1,6) G109 PF800 PRB G103 PF1600 PF1599 PXY G102 G108 G111 (board gap) ( BOARD GAP ) (Foot A corner)",
+    )
+    self.assertEqual(
+      paused_lines[16],
+      "N16 "
+      + self.TOLERANT
+      + "(1,13) G103 PF1599 PF1600 PY G105 "
+      + self._coord("PY", Y_PULL_IN)
+      + " G111 (board gap) ( BOARD GAP )",
+    )
+    self.assertNotIn("G111", base_lines[9])
+    self.assertNotIn("G111", base_lines[16])
+    self.assertNotIn("G111", paused_lines[5])
+    self.assertIn("foot", paused_lines[9].lower())
+    self.assertNotIn("foot", paused_lines[16].lower())
+
+  def test_add_foot_pauses_is_reported_in_recipe_metadata(self):
+    with tempfile.TemporaryDirectory() as directory:
+      recipe = write_v_template_file(
+        Path(directory) / "V-layer.gc",
+        add_foot_pauses=True,
+      )
+
+    self.assertTrue(recipe["addFootPauses"])
 
 
 if __name__ == "__main__":

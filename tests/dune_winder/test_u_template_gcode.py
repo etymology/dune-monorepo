@@ -149,6 +149,7 @@ class UTemplateGCodeTests(unittest.TestCase):
   def test_named_input_snapshot_and_file_writers(self):
     named_inputs = get_u_template_named_inputs_snapshot()
     self.assertFalse(named_inputs["transferPause"])
+    self.assertFalse(named_inputs["addFootPauses"])
     self.assertEqual(named_inputs["line 6 (Head A corner)"], 0.0)
     self.assertEqual(named_inputs["Y_PULL_IN"], Y_PULL_IN)
     self.assertEqual(named_inputs["X_PULL_IN"], X_PULL_IN)
@@ -183,6 +184,34 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(recipe["fileName"], "U-layer.gc")
     self.assertEqual(recipe["pullIns"]["Y_PULL_IN"], 212.5)
     self.assertEqual(recipe["pullIns"]["X_PULL_IN"], 187.5)
+
+  def test_add_foot_pauses_appends_g111_only_on_qualifying_lines(self):
+    base_lines = render_u_template_text_lines()
+    paused_lines = render_u_template_text_lines(add_foot_pauses=True)
+
+    self.assertEqual(
+      paused_lines[3],
+      "N3 " + self.MERGE + "(0, ) F300 G103 PB1201 PB1200 PXY G105 PX-50 G111 (board gap)",
+    )
+    self.assertEqual(
+      paused_lines[21],
+      "N21 "
+      + self.MERGE
+      + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G102 G108 G111 (board gap) (Bottom B corner - foot end)",
+    )
+    self.assertNotIn("G111", base_lines[3])
+    self.assertNotIn("G111", base_lines[21])
+    self.assertNotIn("G111", paused_lines[5])
+    self.assertIn("foot", paused_lines[21].lower())
+
+  def test_add_foot_pauses_is_reported_in_recipe_metadata(self):
+    with tempfile.TemporaryDirectory() as directory:
+      recipe = write_u_template_file(
+        Path(directory) / "U-layer.gc",
+        add_foot_pauses=True,
+      )
+
+    self.assertTrue(recipe["addFootPauses"])
 
 
 if __name__ == "__main__":

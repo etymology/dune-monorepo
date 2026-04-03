@@ -16,6 +16,18 @@ class CommandValidationTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertTrue(response["data"]["data"]["enabled"])
 
+  def test_v_template_add_foot_pauses_accepts_string_boolean(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.v_template.set_add_foot_pauses",
+        "args": {"enabled": "True"},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertTrue(response["data"]["data"]["enabled"])
+
   def test_v_template_pull_in_accepts_string_number(self):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(

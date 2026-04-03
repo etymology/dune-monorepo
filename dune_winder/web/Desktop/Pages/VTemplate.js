@@ -251,6 +251,7 @@ function VTemplate( modules )
           disabled: "",
         }
       )
+      $( "#gCodeGenerationVAddFootPauses" ).prop( "checked", false )
       setControlsDisabled( "#gCodeGenerationVCard", true )
       setNotes(
         [
@@ -280,6 +281,7 @@ function VTemplate( modules )
     }
 
     $( "#gCodeGenerationVTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#gCodeGenerationVAddFootPauses" ).prop( "checked", !! state.addFootPauses )
     $( "#gCodeGenerationVIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#gCodeGenerationVStripG113Params" ).prop( "checked", !! state.stripG113Params )
     setControlsDisabled( "#gCodeGenerationVCard", ! state.enabled )
@@ -332,6 +334,7 @@ function VTemplate( modules )
           disabled: "",
         }
       )
+      $( "#gCodeGenerationUAddFootPauses" ).prop( "checked", false )
       setControlsDisabled( "#gCodeGenerationUCard", true )
       setNotes(
         [
@@ -361,6 +364,7 @@ function VTemplate( modules )
     }
 
     $( "#gCodeGenerationUTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#gCodeGenerationUAddFootPauses" ).prop( "checked", !! state.addFootPauses )
     $( "#gCodeGenerationUIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#gCodeGenerationUStripG113Params" ).prop( "checked", !! state.stripG113Params )
     setControlsDisabled( "#gCodeGenerationUCard", ! state.enabled )
@@ -841,6 +845,12 @@ function VTemplate( modules )
     )
     actions.push(
       {
+        command: commands.process.vTemplateSetAddFootPauses,
+        args: { enabled: $( "#gCodeGenerationVAddFootPauses" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
         command: commands.process.vTemplateSetIncludeLeadMode,
         args: { enabled: $( "#gCodeGenerationVIncludeLeadMode" ).is( ":checked" ) }
       }
@@ -898,6 +908,12 @@ function VTemplate( modules )
       {
         command: commands.process.uTemplateSetTransferPause,
         args: { enabled: $( "#gCodeGenerationUTransferPause" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
+        command: commands.process.uTemplateSetAddFootPauses,
+        args: { enabled: $( "#gCodeGenerationUAddFootPauses" ).is( ":checked" ) }
       }
     )
     actions.push(
@@ -971,6 +987,22 @@ function VTemplate( modules )
     (
       commands.process.vTemplateSetTransferPause,
       { enabled: $( "#gCodeGenerationVTransferPause" ).is( ":checked" ) },
+      function()
+      {
+        refreshVStateOnce()
+      }
+    )
+  }
+
+  function applyVAddFootPauses()
+  {
+    if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.vTemplateSetAddFootPauses,
+      { enabled: $( "#gCodeGenerationVAddFootPauses" ).is( ":checked" ) },
       function()
       {
         refreshVStateOnce()
@@ -1065,6 +1097,22 @@ function VTemplate( modules )
     (
       commands.process.uTemplateSetTransferPause,
       { enabled: $( "#gCodeGenerationUTransferPause" ).is( ":checked" ) },
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
+  function applyUAddFootPauses()
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.uTemplateSetAddFootPauses,
+      { enabled: $( "#gCodeGenerationUAddFootPauses" ).is( ":checked" ) },
       function()
       {
         refreshUStateOnce()
@@ -1254,6 +1302,15 @@ function VTemplate( modules )
       }
     )
 
+  $( "#gCodeGenerationVAddFootPauses" )
+    .change
+    (
+      function()
+      {
+        applyVAddFootPauses()
+      }
+    )
+
   $( "#gCodeGenerationVStripG113Params" )
     .change
     (
@@ -1287,6 +1344,15 @@ function VTemplate( modules )
       function()
       {
         applyUIncludeLeadMode()
+      }
+    )
+
+  $( "#gCodeGenerationUAddFootPauses" )
+    .change
+    (
+      function()
+      {
+        applyUAddFootPauses()
       }
     )
 

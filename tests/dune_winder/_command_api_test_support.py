@@ -59,6 +59,9 @@ class DummyTemplateRecipe:
   def setTransferPause(self, enabled):
     return {"ok": True, "data": {"enabled": enabled}}
 
+  def setAddFootPauses(self, enabled):
+    return {"ok": True, "data": {"enabled": enabled}}
+
   def setIncludeLeadMode(self, enabled):
     return {"ok": True, "data": {"enabled": enabled}}
 

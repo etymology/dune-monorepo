@@ -494,6 +494,14 @@ def build_command_registry(
 
   registry.register("process.v_template.set_transfer_pause", v_template_set_transfer_pause, True)
 
+  def v_template_set_add_foot_pauses(args):
+    _validateArgs(args, required=("enabled",))
+    return process.vTemplateRecipe.setAddFootPauses(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.v_template.set_add_foot_pauses", v_template_set_add_foot_pauses, True
+  )
+
   def v_template_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
     return process.vTemplateRecipe.setIncludeLeadMode(_asBool(args["enabled"], "enabled"))
@@ -545,6 +553,14 @@ def build_command_registry(
     return process.uTemplateRecipe.setTransferPause(_asBool(args["enabled"], "enabled"))
 
   registry.register("process.u_template.set_transfer_pause", u_template_set_transfer_pause, True)
+
+  def u_template_set_add_foot_pauses(args):
+    _validateArgs(args, required=("enabled",))
+    return process.uTemplateRecipe.setAddFootPauses(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.u_template.set_add_foot_pauses", u_template_set_add_foot_pauses, True
+  )
 
   def u_template_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
