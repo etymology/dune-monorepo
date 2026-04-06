@@ -310,6 +310,15 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("ActiveSeq"), 0)
     self.assertTrue(plc.get_tag("hmi_xy_stop.DN"))
 
+  def test_eot_state_request_enters_eot_recovery_state(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.set_tag("MINUS_X_EOT", False, override=True)
+    plc.write(("STATE_REQUEST", plc.STATE_EOT))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_EOT)
+
+    self.assertEqual(plc.get_tag("STATE"), plc.STATE_EOT)
+
   def test_queue_circle_segment_executes_via_motion_queue_routine(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag(

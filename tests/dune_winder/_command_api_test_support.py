@@ -190,6 +190,9 @@ class DummyProcess:
   def servoDisable(self):
     return None
 
+  def eotRecover(self):
+    return None
+
   def getRecipes(self):
     return ["V-layer.gc"]
 

@@ -75,6 +75,10 @@ class MonoroutineLadderSimulatedPLC(LadderSimulatedPLC):
       requestedState = int(value)
       self._ctx.set_value("STATE_REQUEST", requestedState)
       moveType = self._STATE_REQUEST_TO_MOVE_TYPE.get(requestedState)
+      if requestedState == self.STATE_EOT:
+        self._pending_state_request = requestedState
+        self._pending_state_request_started = False
+        return
       if moveType is not None:
         self._pending_state_request = requestedState
         self._pending_state_request_started = False

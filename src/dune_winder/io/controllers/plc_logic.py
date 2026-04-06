@@ -44,6 +44,7 @@ class PLC_Logic:
     States.Z_SEEK,
     States.LATCHING,
     States.UNSERVO,
+    States.EOT,
     States.XZ_SEEK,
     States.HMI_STOP,
   }
@@ -137,6 +138,13 @@ class PLC_Logic:
     Request the PLC HMI stop state for a controlled user-initiated motion stop.
     """
     self._requestState(self.States.HMI_STOP)
+
+  # ---------------------------------------------------------------------
+  def recoverEOT(self):
+    """
+    Request the PLC EOT recovery state.
+    """
+    self._requestState(self.States.EOT)
 
   # ---------------------------------------------------------------------
   def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
@@ -448,10 +456,10 @@ class PLC_Logic:
     """
     Reset PLC logic.  Clears errors.
     """
-    self._writeTagNow(self._nextState.getName(), self.States.READY)
-    self._nextState.updateFromReadTag(self.States.READY)
-    self._writeTagNow(self._moveType.getName(), self.MoveTypes.RESET)
-    self._moveType.updateFromReadTag(self.MoveTypes.RESET)
+    self._writeTagNow(self._errorCode.getName(), 0)
+    self._errorCode.updateFromReadTag(0)
+    self._writeTagNow(self._stateRequest.getName(), 0)
+    self._stateRequest.updateFromReadTag(0)
 
   # ---------------------------------------------------------------------
   # New function for PLC_Init - PWH - September 2021

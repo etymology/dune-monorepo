@@ -384,6 +384,31 @@ class _ControlStateMachineForManualGCode:
     return True
 
 
+class _ControlStateMachineForEOTRecover:
+  class States:
+    STOP = "STOP"
+
+  def __init__(self):
+    self.changed_to = []
+
+  def changeState(self, state):
+    self.changed_to.append(state)
+    return False
+
+
+class _PLCLogicForEOTRecover:
+  def __init__(self):
+    self.calls = 0
+
+  def recoverEOT(self):
+    self.calls += 1
+
+
+class _IOForEOTRecover:
+  def __init__(self):
+    self.plcLogic = _PLCLogicForEOTRecover()
+
+
 class _GCodeHandlerForManualGCode:
   def __init__(self):
     self.lines = []
@@ -657,3 +682,24 @@ class ProcessManualGCodeTests(unittest.TestCase):
     process._xBacklash.noteCommand(100.0, 110.0)
 
     self.assertEqual(process.getRealXPosition(), 110.0)
+
+
+class MotionServiceTests(unittest.TestCase):
+  def test_recover_eot_returns_control_state_machine_to_stop_mode(self):
+    io = _IOForEOTRecover()
+    control = _ControlStateMachineForEOTRecover()
+    service = MotionService(
+      io,
+      FakeLog(),
+      control,
+      safety=None,
+      gCodeHandler=None,
+      headCompensation=None,
+      xBacklash=None,
+      workspaceGetter=lambda: None,
+    )
+
+    service.recoverEOT()
+
+    self.assertEqual(io.plcLogic.calls, 1)
+    self.assertEqual(control.changed_to, ["STOP"])

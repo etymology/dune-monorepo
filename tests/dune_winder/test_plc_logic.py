@@ -171,7 +171,7 @@ class PLCLogicTests(unittest.TestCase):
 
     self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.HMI_STOP)])
 
-  def test_reset_requests_ready_nextstate_and_clears_move_type(self):
+  def test_reset_clears_error_code_and_state_request(self):
     plc = _FreshReadPLC()
     logic = PLC_Logic(plc, object(), object())
 
@@ -180,8 +180,8 @@ class PLCLogicTests(unittest.TestCase):
     self.assertEqual(
       plc.write_calls,
       [
-        ("NEXTSTATE", PLC_Logic.States.READY),
-        ("MOVE_TYPE", PLC_Logic.MoveTypes.RESET),
+        ("ERROR_CODE", 0),
+        ("STATE_REQUEST", 0),
       ],
     )
 
@@ -212,6 +212,14 @@ class PLCLogicTests(unittest.TestCase):
     logic.servoDisable()
 
     self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.UNSERVO)])
+
+  def test_eot_recover_requests_state_request(self):
+    plc = _FreshReadPLC()
+    logic = PLC_Logic(plc, object(), object())
+
+    logic.recoverEOT()
+
+    self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.EOT)])
 
   def test_latch_home_is_not_supported_by_checked_in_plc_contract(self):
     plc = _FreshReadPLC()

@@ -123,7 +123,7 @@ V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
     "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} PX ${offset('PX', offsets[11])} (Bottom B corner - head end)",
-    "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset('PX', offsets[11])}",
     "if near_comb(399 + wrap): emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
 )
@@ -260,7 +260,9 @@ def _apply_add_foot_pauses(lines):
     first_pin = int(match.group(1))
     second_pin = int(match.group(2))
     if _should_add_foot_pause(first_pin, second_pin):
-      updated_lines.append(_append_command_before_trailing_comments(line, "G111 (board gap)"))
+      updated_lines.append(
+        _append_command_before_trailing_comments(line, "G111 (board gap)")
+      )
       continue
 
     updated_lines.append(line)

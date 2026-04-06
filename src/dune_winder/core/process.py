@@ -348,6 +348,10 @@ class Process:
     self._motionService().servoDisable()
 
   # ---------------------------------------------------------------------
+  def eotRecover(self):
+    self._motionService().recoverEOT()
+
+  # ---------------------------------------------------------------------
   def getG_CodeList(self, center, delta):
     return self._playbackService().getG_CodeList(center, delta)
 
