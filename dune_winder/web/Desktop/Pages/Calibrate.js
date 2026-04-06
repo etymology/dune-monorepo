@@ -15,7 +15,8 @@ function Calibrate(modules)
     active: false,
     currentPin: null,
     recheckPins: null,
-    recheckIndex: -1
+    recheckIndex: -1,
+    recheckMode: false
   }
 
   modules.load
@@ -339,9 +340,6 @@ function Calibrate(modules)
 
   function boardRoutineStartPin()
   {
-    if ( boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
-      return boardRoutine.recheckPins[ 0 ]
-
     var selectedPin = getSelectedBoardPin()
     if ( getBoardCheckEntry( selectedPin ) )
       return selectedPin
@@ -394,12 +392,12 @@ function Calibrate(modules)
     }
 
     button.prop( "disabled", ! lastState.movementReady )
-    recheckButton.prop( "disabled", ! lastState.movementReady || boardRoutine.active )
+    recheckButton.prop( "disabled", ! lastState.movementReady || boardRoutine.active || boardRoutine.recheckMode )
 
     if ( boardRoutine.active && boardRoutine.currentPin !== null )
     {
       button.text( "Re-Move Current Pin" )
-      if ( boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
+      if ( boardRoutine.recheckMode )
         summary.text( "Rechecking all board endpoints in order." )
       else
         summary.text( "Assistant open at B" + boardRoutine.currentPin + "." )
@@ -434,6 +432,7 @@ function Calibrate(modules)
     boardRoutine.currentPin = null
     boardRoutine.recheckPins = null
     boardRoutine.recheckIndex = -1
+    boardRoutine.recheckMode = false
     $( "#manualCalibrationBoardDialog" ).addClass( "hidden" )
   }
 
@@ -501,7 +500,7 @@ function Calibrate(modules)
   {
     boardRoutine.active = true
     boardRoutine.currentPin = pin
-    if ( boardRoutine.recheckPins )
+    if ( boardRoutine.recheckMode && boardRoutine.recheckPins )
       boardRoutine.recheckIndex = boardRoutine.recheckPins.indexOf( pin )
     else
       boardRoutine.recheckIndex = -1
@@ -521,11 +520,12 @@ function Calibrate(modules)
 
   function advanceBoardRoutine()
   {
-    if ( boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
+    if ( boardRoutine.recheckMode && boardRoutine.recheckPins && 0 < boardRoutine.recheckPins.length )
     {
       var nextIndex = boardRoutine.recheckIndex + 1
       if ( nextIndex >= boardRoutine.recheckPins.length )
       {
+        boardRoutine.recheckMode = false
         boardRoutine.recheckPins = null
         boardRoutine.recheckIndex = -1
         closeBoardRoutine()
@@ -1299,18 +1299,18 @@ function Calibrate(modules)
           }
 
           boardRoutine.recheckPins = items.map( function( item ) { return item.pin } )
-          boardRoutine.recheckIndex = -1
-          boardRoutine.active = false
-          boardRoutine.currentPin = null
-
-          var startPin = boardRoutineStartPin()
-          if ( startPin === null )
+          if ( 0 == boardRoutine.recheckPins.length )
           {
             setMessage( "No board endpoints are available.", "error" )
             return
           }
 
-          moveBoardRoutineToPin( startPin )
+          boardRoutine.recheckIndex = -1
+          boardRoutine.recheckMode = true
+          boardRoutine.active = false
+          boardRoutine.currentPin = null
+
+          moveBoardRoutineToPin( boardRoutine.recheckPins[ 0 ] )
         }
       )
 

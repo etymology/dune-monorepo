@@ -30,6 +30,7 @@ COMPARE_TAGS = [
   "NEXTSTATE",
   "ERROR_CODE",
   "MOVE_TYPE",
+  "STATE_REQUEST",
   "QueueCount",
   "CurIssued",
   "NextIssued",
@@ -167,7 +168,7 @@ class MonoroutineEquivalenceTests(unittest.TestCase):
       plc.write(("XY_SPEED", 1000.0))
       plc.write(("XY_ACCELERATION", 1000.0))
       plc.write(("XY_DECELERATION", 1000.0))
-      plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+      plc.write(("STATE_REQUEST", plc.STATE_XY_SEEK))
     _advance_both(ensemble, mono, 2)
     _assert_tags_equal(self, ensemble, mono, ["STATE"])
     # Both should reach READY
@@ -192,16 +193,16 @@ class MonoroutineEquivalenceTests(unittest.TestCase):
   def test_z_seek_state_transition(self):
     ensemble = _make_ensemble()
     mono = _make_mono()
-    ensemble.write(("MOVE_TYPE", ensemble.MOVE_SEEK_Z))
-    mono.write(("MOVE_TYPE", mono.MOVE_SEEK_Z))
+    ensemble.write(("STATE_REQUEST", ensemble.STATE_Z_SEEK))
+    mono.write(("STATE_REQUEST", mono.STATE_Z_SEEK))
     _advance_both(ensemble, mono, 2)
     _assert_tags_equal(self, ensemble, mono, ["STATE"])
 
   def test_unservo_state_transition(self):
     ensemble = _make_ensemble()
     mono = _make_mono()
-    ensemble.write(("MOVE_TYPE", ensemble.MOVE_UNSERVO))
-    mono.write(("MOVE_TYPE", mono.MOVE_UNSERVO))
+    ensemble.write(("STATE_REQUEST", ensemble.STATE_UNSERVO))
+    mono.write(("STATE_REQUEST", mono.STATE_UNSERVO))
     _advance_both(ensemble, mono, 3)
     _assert_tags_equal(self, ensemble, mono, ["STATE"])
 
@@ -215,10 +216,10 @@ class MonoroutineEquivalenceTests(unittest.TestCase):
       plc.write(("XY_SPEED", 1000.0))
       plc.write(("XY_ACCELERATION", 1000.0))
       plc.write(("XY_DECELERATION", 1000.0))
-      plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+      plc.write(("STATE_REQUEST", plc.STATE_XY_SEEK))
     _advance_both(ensemble, mono)
-    ensemble.write(("MOVE_TYPE", ensemble.MOVE_HMI_STOP_REQUEST))
-    mono.write(("MOVE_TYPE", mono.MOVE_HMI_STOP_REQUEST))
+    ensemble.write(("STATE_REQUEST", ensemble.STATE_HMI_STOP))
+    mono.write(("STATE_REQUEST", mono.STATE_HMI_STOP))
     self.assertTrue(
       _advance_both_until(
         ensemble, mono,
@@ -237,8 +238,8 @@ class MonoroutineEquivalenceTests(unittest.TestCase):
     mono.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
     ensemble.write(("xz_position_target", [100.0, 50.0]))
     mono.write(("xz_position_target", [100.0, 50.0]))
-    ensemble.write(("MOVE_TYPE", ensemble.MOVE_SEEK_XZ))
-    mono.write(("MOVE_TYPE", mono.MOVE_SEEK_XZ))
+    ensemble.write(("STATE_REQUEST", ensemble.STATE_XZ_SEEK))
+    mono.write(("STATE_REQUEST", mono.STATE_XZ_SEEK))
     _advance_both(ensemble, mono, 3)
     _assert_tags_equal(self, ensemble, mono, ["STATE", "ERROR_CODE"])
     self.assertEqual(ensemble.get_tag("STATE"), ensemble.STATE_ERROR)
@@ -421,7 +422,7 @@ class MonoroutineEquivalenceTests(unittest.TestCase):
       plc.write(("XY_SPEED", 1000.0))
       plc.write(("XY_ACCELERATION", 1000.0))
       plc.write(("XY_DECELERATION", 1000.0))
-      plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+      plc.write(("STATE_REQUEST", plc.STATE_XY_SEEK))
     self.assertTrue(
       _advance_both_until(
         ensemble, mono,

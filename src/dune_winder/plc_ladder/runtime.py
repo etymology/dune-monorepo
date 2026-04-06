@@ -123,6 +123,7 @@ class ScanContext:
     return self.runtime_state.scan_time_ms / 1000.0
 
   def get_value(self, path: str, program: str | None = None):
+    path = self._normalize_path(path, program=program)
     target_program = self.current_program if program is None else program
     try:
       return self.tag_store.get(path, program=target_program)
@@ -136,6 +137,7 @@ class ScanContext:
       return self.builtin_values.get(str(path), 0)
 
   def set_value(self, path: str, value, program: str | None = None):
+    path = self._normalize_path(path, program=program)
     target_program = self.current_program if program is None else program
     try:
       return self.tag_store.set(path, value, program=target_program)
@@ -147,6 +149,7 @@ class ScanContext:
       return value
 
   def exists(self, path: str, program: str | None = None) -> bool:
+    path = self._normalize_path(path, program=program)
     target_program = self.current_program if program is None else program
     if self.tag_store.exists(path, program=target_program):
       return True
@@ -168,6 +171,38 @@ class ScanContext:
     if len(matches) == 1:
       return matches[0]
     return None
+
+  def _normalize_path(self, path: str, program: str | None = None) -> str:
+    text = str(path)
+    if "[" not in text:
+      return text
+
+    target_program = self.current_program if program is None else program
+    segments = split_tag_path(text)
+    normalized = []
+    changed = False
+    for segment in segments:
+      indexes = []
+      for index in segment.indexes:
+        if isinstance(index, int):
+          indexes.append(index)
+          continue
+        resolved = self._resolve_index_value(str(index), target_program)
+        indexes.append(resolved)
+        changed = changed or resolved != index
+      normalized.append(PathSegment(segment.name, tuple(indexes)))
+    if not changed:
+      return text
+    return _path_to_string(tuple(normalized))
+
+  def _resolve_index_value(self, index: str, program: str | None):
+    if NUMERIC_PATTERN.fullmatch(index):
+      return int(float(index))
+
+    try:
+      return _coerce_int(self.get_value(index, program=program))
+    except Exception:
+      return index
 
   def resolve_operand(self, token: str):
     text = str(token)
@@ -407,6 +442,18 @@ class RoutineExecutor:
     if opcode == "MAM":
       if condition_in:
         self._start_axis_move(operands, ctx)
+      else:
+        self._disarm_motion_control(operands[1], ctx)
+      return bool(condition_in)
+    if opcode == "MAJ":
+      if condition_in:
+        self._start_axis_jog(operands, ctx)
+      else:
+        self._disarm_motion_control(operands[1], ctx)
+      return bool(condition_in)
+    if opcode == "MRP":
+      if condition_in:
+        self._start_axis_registration_move(operands, ctx)
       else:
         self._disarm_motion_control(operands[1], ctx)
       return bool(condition_in)
@@ -917,6 +964,103 @@ class RoutineExecutor:
     control = _deep_copy(ctx.get_value(control_path))
     control["EN"] = False
     ctx.set_value(control_path, control)
+
+  def _start_axis_jog(self, operands, ctx: ScanContext):
+    axis_path = operands[0]
+    control_path = operands[1]
+    control = _deep_copy(ctx.get_value(control_path))
+    if control.get("EN"):
+      return
+    existing = ctx.runtime_state.axis_moves.get(axis_path)
+    if existing is not None and existing.control_path == control_path:
+      return
+
+    direction = _coerce_int(ctx.resolve_operand(operands[2]))
+    speed = self._normalize_motion_speed(_coerce_float(ctx.resolve_operand(operands[3])))
+    acceleration = _coerce_float(ctx.resolve_operand(operands[5]))
+    component_path = f"{axis_path}.ActualPosition"
+    start_position = _coerce_float(ctx.get_value(component_path))
+    offset = 1_000_000.0 if direction == 0 else -1_000_000.0
+    target = start_position + offset
+    scans = self._motion_scan_count(abs(offset), speed, ctx)
+
+    control["EN"] = True
+    control["DN"] = False
+    control["ER"] = False
+    control["PC"] = False
+    control["IP"] = True
+    ctx.set_value(control_path, control)
+
+    axis = _deep_copy(ctx.get_value(axis_path))
+    axis["CommandAcceleration"] = acceleration
+    axis["ActualVelocity"] = speed if direction == 0 else -speed
+    axis["MoveStatus"] = True
+    ctx.set_value(axis_path, axis)
+
+    ctx.runtime_state.axis_moves[axis_path] = ActiveMotion(
+      control_path=control_path,
+      component_paths=(component_path,),
+      start_positions=(start_position,),
+      target_positions=(target,),
+      speed=speed,
+      acceleration=acceleration,
+      total_scans=scans,
+      remaining_scans=scans,
+      axis_paths=(axis_path,),
+      command_name="MAJ",
+      direction=direction,
+    )
+
+  def _start_axis_registration_move(self, operands, ctx: ScanContext):
+    axis_path = operands[0]
+    control_path = operands[1]
+    control = _deep_copy(ctx.get_value(control_path))
+    if control.get("EN"):
+      return
+    existing = ctx.runtime_state.axis_moves.get(axis_path)
+    if existing is not None and existing.control_path == control_path:
+      return
+
+    target = _coerce_float(ctx.resolve_operand(operands[4]))
+    component_path = f"{axis_path}.ActualPosition"
+    start_position = _coerce_float(ctx.get_value(component_path))
+    distance = abs(target - start_position)
+    if distance <= 1e-9:
+      self._complete_zero_distance_motion(
+        control_path=control_path,
+        component_paths=(component_path,),
+        target_positions=(target,),
+        axis_paths=(axis_path,),
+        coordinate_path=None,
+        ctx=ctx,
+      )
+      return
+
+    control["EN"] = True
+    control["DN"] = False
+    control["ER"] = False
+    control["PC"] = False
+    control["IP"] = True
+    ctx.set_value(control_path, control)
+
+    axis = _deep_copy(ctx.get_value(axis_path))
+    axis["CommandAcceleration"] = 0.0
+    axis["ActualVelocity"] = (target - start_position) / max(ctx.scan_dt_seconds, 1e-6)
+    axis["MoveStatus"] = True
+    ctx.set_value(axis_path, axis)
+
+    ctx.runtime_state.axis_moves[axis_path] = ActiveMotion(
+      control_path=control_path,
+      component_paths=(component_path,),
+      start_positions=(start_position,),
+      target_positions=(target,),
+      speed=max(distance / max(ctx.scan_dt_seconds, 1e-6), 1e-6),
+      acceleration=0.0,
+      total_scans=1,
+      remaining_scans=1,
+      axis_paths=(axis_path,),
+      command_name="MRP",
+    )
 
   def _motion_scan_count(self, distance: float, speed: float, ctx: ScanContext) -> int:
     speed = self._normalize_motion_speed(speed)

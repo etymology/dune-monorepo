@@ -1,0 +1,635 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "state_5_move_z",
+  "main_routine_name": "main",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "main"
+  ],
+  "subroutines": [],
+  "udts": [
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 2
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 0
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 0
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 0
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15
+        }
+      ]
+    }
+  ],
+  "program_tags": [
+    {
+      "name": "latch_bypass",
+      "fully_qualified_name": "Program:state_5_move_z.latch_bypass",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_eot_toggle",
+      "fully_qualified_name": "Program:state_5_move_z.z_eot_toggle",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_axis_main_move",
+      "fully_qualified_name": "Program:state_5_move_z.z_axis_main_move",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 0,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "oneshotob",
+      "fully_qualified_name": "Program:state_5_move_z.oneshotob",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        1,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "state_5_move_z",
+      "value": false
+    },
+    {
+      "name": "oneshotsb",
+      "fully_qualified_name": "Program:state_5_move_z.oneshotsb",
+      "tag_type": "atomic",
+      "data_type_name": "DWORD",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        1,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "state_5_move_z",
+      "value": true
+    },
+    {
+      "name": "prepare_to_move",
+      "fully_qualified_name": "Program:state_5_move_z.prepare_to_move",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "STATE5_IND",
+      "fully_qualified_name": "Program:state_5_move_z.STATE5_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "trigger_z_move",
+      "fully_qualified_name": "Program:state_5_move_z.trigger_z_move",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_axis_fast_move_success",
+      "fully_qualified_name": "Program:state_5_move_z.z_axis_fast_move_success",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "wait_for_mso",
+      "fully_qualified_name": "Program:state_5_move_z.wait_for_mso",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "wait_for_axes_mso",
+      "fully_qualified_name": "Program:state_5_move_z.wait_for_axes_mso",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "Z_POS_LOCK_STAT",
+      "fully_qualified_name": "Program:state_5_move_z.Z_POS_LOCK_STAT",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_axis_mso",
+      "fully_qualified_name": "Program:state_5_move_z.z_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 570425344,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 1,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "z_axis_gui_stop",
+      "fully_qualified_name": "Program:state_5_move_z.z_axis_gui_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 0,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "z_accel_jerk",
+      "fully_qualified_name": "Program:state_5_move_z.z_accel_jerk",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "value": 1000
+    },
+    {
+      "name": "z_move_success",
+      "fully_qualified_name": "Program:state_5_move_z.z_move_success",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "eot_stop",
+      "fully_qualified_name": "Program:state_5_move_z.eot_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "manual_trigger",
+      "fully_qualified_name": "Program:state_5_move_z.manual_trigger",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_manual_trigger",
+      "fully_qualified_name": "Program:state_5_move_z.z_manual_trigger",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_decel_jerk",
+      "fully_qualified_name": "Program:state_5_move_z.z_decel_jerk",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "value": 5000
+    },
+    {
+      "name": "error_suppress",
+      "fully_qualified_name": "Program:state_5_move_z.error_suppress",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "z_axis_fast_move",
+      "fully_qualified_name": "Program:state_5_move_z.z_axis_fast_move",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 0,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "manual_state5",
+      "fully_qualified_name": "Program:state_5_move_z.manual_state5",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "move_z",
+      "fully_qualified_name": "Program:state_5_move_z.move_z",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_5_move_z",
+      "bit_position": 0,
+      "value": true
+    }
+  ],
+  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+}

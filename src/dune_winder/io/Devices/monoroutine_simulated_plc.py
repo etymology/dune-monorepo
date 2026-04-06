@@ -68,3 +68,16 @@ class MonoroutineLadderSimulatedPLC(LadderSimulatedPLC):
     self._apply_logic_overrides()
     self._apply_latch_stub()
     self._apply_compatibility_state()
+
+  # -----------------------------------------------------------------------
+  def _writeTag(self, tagName, value):
+    if tagName == "STATE_REQUEST":
+      requestedState = int(value)
+      self._ctx.set_value("STATE_REQUEST", requestedState)
+      moveType = self._STATE_REQUEST_TO_MOVE_TYPE.get(requestedState)
+      if moveType is not None:
+        self._pending_state_request = requestedState
+        self._pending_state_request_started = False
+        return super()._writeTag("MOVE_TYPE", moveType)
+      return
+    return super()._writeTag(tagName, value)

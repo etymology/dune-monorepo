@@ -26,7 +26,7 @@ if TYPE_CHECKING:
   from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 LOG_NAME = "MotionService"
-_MANUAL_XY_RESOLUTION_MM = 0.1
+_MANUAL_XY_RESOLUTION_MM = 0.09
 
 
 class MotionService:
@@ -78,9 +78,7 @@ class MotionService:
       x = self._io.xAxis.getPosition()
       self._io.yAxis.getPosition()
       self._io.zAxis.getPosition()
-      if (
-        x < self._safety.transfer_left or x > self._safety.transfer_right
-      ):
+      if x < self._safety.transfer_left or x > self._safety.transfer_right:
         if xVelocity != 0:
           xVelocity = math.copysign(self._safety.max_slow_velocity, xVelocity)
         if yVelocity != 0:
@@ -103,11 +101,7 @@ class MotionService:
 
       self._controlStateMachine.dispatch(ManualModeEvent(isJogging=True))
       self._io.plcLogic.jogXY(xVelocity, yVelocity, acceleration, deceleration)
-    elif (
-      0 == xVelocity
-      and 0 == yVelocity
-      and self._controlStateMachine.isJogging()
-    ):
+    elif 0 == xVelocity and 0 == yVelocity and self._controlStateMachine.isJogging():
       self._log.add(LOG_NAME, "JOG", "Jog X/Y stop.")
       self._controlStateMachine.dispatch(SetManualJoggingEvent(False))
       self._io.plcLogic.jogXY(xVelocity, yVelocity)
@@ -125,9 +119,7 @@ class MotionService:
   def jogZ(self, velocity):
     isError = False
     if 0 != velocity and self._controlStateMachine.isReadyForMovement():
-      self._log.add(
-        LOG_NAME, "JOG", "Jog Z at " + str(velocity) + ".", [velocity]
-      )
+      self._log.add(LOG_NAME, "JOG", "Jog Z at " + str(velocity) + ".", [velocity])
       self._controlStateMachine.dispatch(ManualModeEvent(isJogging=True))
       self._io.plcLogic.jogZ(velocity)
     elif 0 == velocity and self._controlStateMachine.isJogging():
@@ -136,9 +128,7 @@ class MotionService:
       self._io.plcLogic.jogZ(velocity)
     else:
       isError = True
-      self._log.add(
-        LOG_NAME, "JOG", "Jog Z request ignored.", [velocity]
-      )
+      self._log.add(LOG_NAME, "JOG", "Jog Z request ignored.", [velocity])
 
     return isError
 
@@ -166,9 +156,8 @@ class MotionService:
       )
 
       error = self._safety.validate_xy_move_target(currentX, currentY, targetX, targetY)
-      if (
-        error is None
-        and (targetRawX < self._safety.limit_left or targetRawX > self._safety.limit_right)
+      if error is None and (
+        targetRawX < self._safety.limit_left or targetRawX > self._safety.limit_right
       ):
         error = (
           "Compensated X-axis target exceeds raw axis limits ["
@@ -262,9 +251,7 @@ class MotionService:
         ManualModeEvent(seekZ=position, velocity=velocity)
       )
     else:
-      self._log.add(
-        LOG_NAME, "JOG", "Manual move Z ignored.", [position, velocity]
-      )
+      self._log.add(LOG_NAME, "JOG", "Manual move Z ignored.", [position, velocity])
 
     return isError
 

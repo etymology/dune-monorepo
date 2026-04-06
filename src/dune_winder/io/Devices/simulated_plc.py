@@ -66,6 +66,22 @@ class SimulatedPLC(PLC):
     MOVE_SEEK_XZ: STATE_XZ_SEEK,
     MOVE_HMI_STOP_REQUEST: STATE_HMI_STOP,
   }
+  _STATE_REQUEST_TO_BUSY_STATE = {
+    STATE_XY_SEEK: STATE_XY_SEEK,
+    STATE_Z_SEEK: STATE_Z_SEEK,
+    STATE_LATCHING: STATE_LATCHING,
+    STATE_UNSERVO: STATE_UNSERVO,
+    STATE_XZ_SEEK: STATE_XZ_SEEK,
+    STATE_HMI_STOP: STATE_HMI_STOP,
+  }
+  _STATE_REQUEST_TO_MOVE_TYPE = {
+    STATE_XY_SEEK: MOVE_SEEK_XY,
+    STATE_Z_SEEK: MOVE_SEEK_Z,
+    STATE_LATCHING: MOVE_LATCH,
+    STATE_UNSERVO: MOVE_UNSERVO,
+    STATE_XZ_SEEK: MOVE_SEEK_XZ,
+    STATE_HMI_STOP: MOVE_HMI_STOP_REQUEST,
+  }
 
   def __init__(self, ipAddress="SIM"):
     self._ipAddress = ipAddress
@@ -218,6 +234,7 @@ class SimulatedPLC(PLC):
     self._tagValues["STATE"] = self.STATE_READY
     self._tagValues["ERROR_CODE"] = 0
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
+    self._tagValues["STATE_REQUEST"] = 0
     self._tagValues["gui_latch_pulse"] = 0
     self._tagValues["HEAD_POS"] = 0
     self._tagValues["ACTUATOR_POS"] = 1
@@ -303,6 +320,10 @@ class SimulatedPLC(PLC):
 
     if tagName == "MOVE_TYPE":
       self._setMoveType(int(value))
+      return
+
+    if tagName == "STATE_REQUEST":
+      self._setStateRequest(int(value))
       return
 
     if tagName == "IncomingSeg":
@@ -393,6 +414,27 @@ class SimulatedPLC(PLC):
     self._setAxisMovement(True)
 
   # ---------------------------------------------------------------------
+  def _setStateRequest(self, requestedState: int):
+    requestedState = int(requestedState)
+    self._tagValues["STATE_REQUEST"] = requestedState
+
+    if requestedState == 0:
+      return
+
+    busyState = self._STATE_REQUEST_TO_BUSY_STATE.get(requestedState)
+    moveType = self._STATE_REQUEST_TO_MOVE_TYPE.get(requestedState)
+    if busyState is None or moveType is None:
+      return
+
+    if self._tagValues.get("STATE", self.STATE_READY) == self.STATE_ERROR:
+      return
+
+    self._tagValues["STATE"] = busyState
+    self._pendingMoveType = moveType
+    self._settleCyclesRemaining = 1
+    self._setAxisMovement(True)
+
+  # ---------------------------------------------------------------------
   def _advanceCycle(self):
     self._cycle += 1
     self._advanceQueuedMotion()
@@ -474,6 +516,7 @@ class SimulatedPLC(PLC):
     if self._tagValues.get("STATE") != self.STATE_ERROR:
       self._tagValues["ERROR_CODE"] = 0
       self._tagValues["STATE"] = self.STATE_READY
+      self._tagValues["STATE_REQUEST"] = 0
 
   # ---------------------------------------------------------------------
   def _advanceLatch(self):
@@ -523,6 +566,7 @@ class SimulatedPLC(PLC):
     self._tagValues["ERROR_CODE"] = 0
     self._tagValues["STATE"] = self.STATE_READY
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
+    self._tagValues["STATE_REQUEST"] = 0
     self._setAxisMovement(False)
     self._abortQueuedMotion()
 
@@ -532,6 +576,7 @@ class SimulatedPLC(PLC):
     self._settleCyclesRemaining = 0
     self._tagValues["ERROR_CODE"] = int(code)
     self._tagValues["STATE"] = self.STATE_ERROR
+    self._tagValues["STATE_REQUEST"] = 0
     self._setAxisMovement(False)
     self._abortQueuedMotion()
 
@@ -781,6 +826,7 @@ class SimulatedPLC(PLC):
       "cycle": self._cycle,
       "state": int(self._tagValues.get("STATE", self.STATE_READY)),
       "moveType": int(self._tagValues.get("MOVE_TYPE", self.MOVE_RESET)),
+      "stateRequest": int(self._tagValues.get("STATE_REQUEST", 0)),
       "errorCode": int(self._tagValues.get("ERROR_CODE", 0)),
       "headPos": int(self._tagValues.get("HEAD_POS", 0)),
       "actuatorPos": int(self._tagValues.get("ACTUATOR_POS", 0)),

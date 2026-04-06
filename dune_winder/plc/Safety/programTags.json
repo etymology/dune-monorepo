@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-02T19:33:22.736743+00:00",
+  "generated_at": "2026-04-03T19:07:36.893524+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Safety",
   "main_routine_name": "Safety",
@@ -46,5 +46,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-04-02T19:33:46.170020+00:00"
+  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
 }

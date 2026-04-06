@@ -23,12 +23,13 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc = SimulatedPLC()
     plc.write(("X_POSITION", 123.4))
     plc.write(("Y_POSITION", 456.7))
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_XY))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_XY_SEEK))
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_XY_SEEK)
     self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 123.4, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
 
@@ -37,7 +38,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.set_tag("HEAD_POS", 0)
     plc.set_tag("ACTUATOR_POS", 1)
 
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_LATCH))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_LATCHING))
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_LATCHING)
     self._settle_once(plc)
 
@@ -45,7 +46,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
 
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_LATCH))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_LATCHING))
     self._settle_once(plc)
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
@@ -61,7 +62,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
 
     plc.write(("Z_POSITION", 418.0))
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_Z_SEEK))
     self._settle_once(plc)
     self.assertEqual(plc.get_tag("ENABLE_ACTUATOR"), 1)
 
@@ -72,7 +73,7 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc = SimulatedPLC()
     plc.write(("X_POSITION", 9000.0))
     plc.write(("Y_POSITION", 0.0))
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_XY))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_XY_SEEK))
     self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
@@ -83,28 +84,29 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("ERROR_CODE"), 0)
 
     plc.write(("Z_POSITION", 1000.0))
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_Z))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_Z_SEEK))
     self._settle_once(plc)
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)
 
-  def test_xz_move_type_updates_x_and_z_when_y_transfer_ok(self):
+  def test_xz_state_request_updates_x_and_z_when_y_transfer_ok(self):
     plc = SimulatedPLC()
     plc.write(("xz_position_target", [321.0, 210.5]))
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_XZ))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_XZ_SEEK))
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_XZ_SEEK)
     self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 321.0, places=6)
     self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 210.5, places=6)
 
-  def test_xz_move_type_sets_error_when_y_transfer_not_ok(self):
+  def test_xz_state_request_sets_error_when_y_transfer_not_ok(self):
     plc = SimulatedPLC()
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
     plc.write(("xz_position_target", [321.0, 210.5]))
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_SEEK_XZ))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_XZ_SEEK))
     self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_ERROR)
@@ -158,12 +160,13 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     plc.write(("IncomingSegReqID", 1))
     plc.write(("StartQueuedPath", 1))
 
-    plc.write(("MOVE_TYPE", SimulatedPLC.MOVE_HMI_STOP_REQUEST))
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_HMI_STOP))
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_HMI_STOP)
 
     self._settle_once(plc)
 
     self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_READY)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertEqual(plc.get_tag("QueueCount"), 0)
     self.assertEqual(plc.get_tag("CurIssued"), 0)
     self.assertEqual(plc.get_tag("NextIssued"), 0)

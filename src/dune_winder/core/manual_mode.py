@@ -46,7 +46,7 @@ class ManualMode(StateMachineState):
     self._stopRequested = False
     self._awaitPlcReady = False
     self._awaitHeadReady = False
-    self._plcObservedBusy = False
+    self._plcObservedInFlight = False
     self._request: Optional[ManualModeEvent] = None
     self._subState = self.SubStates.IDLE
 
@@ -73,9 +73,6 @@ class ManualMode(StateMachineState):
 
   # ---------------------------------------------------------------------
   def _plcMotionInFlight(self):
-    if not self._io.plcLogic.isReady():
-      return True
-
     for axisName in ("xAxis", "yAxis", "zAxis"):
       axis = getattr(self._io, axisName, None)
       if axis is not None and hasattr(axis, "isSeeking") and axis.isSeeking():
@@ -99,7 +96,7 @@ class ManualMode(StateMachineState):
     self._stopRequested = False
     self._awaitPlcReady = False
     self._awaitHeadReady = False
-    self._plcObservedBusy = False
+    self._plcObservedInFlight = False
     self._subState = self.SubStates.IDLE
 
     request = self._request
@@ -186,10 +183,12 @@ class ManualMode(StateMachineState):
     # Is movement done?
     plcReady = True
     if self._awaitPlcReady:
-      plcBusy = self._plcMotionInFlight()
+      plcReadySignal = self._io.plcLogic.isReady()
+      axisBusy = self._plcMotionInFlight()
+      plcBusy = (not plcReadySignal) or axisBusy
       if plcBusy:
-        self._plcObservedBusy = True
-      plcReady = self._plcObservedBusy and not plcBusy
+        self._plcObservedInFlight = True
+      plcReady = self._plcObservedInFlight and not plcBusy
 
     headReady = (not self._awaitHeadReady) or self._io.head.isReady()
     self._syncSubState()
