@@ -43,7 +43,7 @@ class VTemplateGCodeTests(unittest.TestCase):
         "N0 ( V Layer )",
         "N1 " + self.MERGE + "(HEAD RESTART) X440 Y0",
         "N2 G206 P3",
-        "N3 " + self.MERGE + "(0, ) F1000 G103 PB400 PB399 PXY G105 PY30",
+        "N3 " + self.MERGE + "(0, ) F1000 G103 PB400 PB399 PXY G105 PY30 (board gap)",
         "N4 (1,1) (------------------STARTING LOOP 1------------------)",
       ],
     )
@@ -53,11 +53,11 @@ class VTemplateGCodeTests(unittest.TestCase):
         [
           "N" + str(tail_start) + " " + self.TOLERANT + "(400,16) G109 PF400 PRT G103 PB2398 PB2399 PX (Top B corner - head end)",
           "N" + str(tail_start + 1) + " " + self.TOLERANT + "(400,17) G103 PB2398 PB2399 PY G105 " + self._coord("PY", -Y_PULL_IN),
-          "N" + str(tail_start + 2) + " " + self.MERGE + "(400,18) G103 PB2398 PB2399 PY G105 PY0 G111 (board gap)",
+          "N" + str(tail_start + 2) + " " + self.MERGE + "(400,18) G103 PB2398 PB2399 PY G105 PY0 G111",
         "N" + str(tail_start + 3) + " " + self.MERGE + "(400,19) X440 Y2315 F300",
         "N" + str(tail_start + 4) + " (400,20) G206 P0",
         "N" + str(tail_start + 5) + " " + self.MERGE + "(400,21) X440 Y2335",
-        "N" + str(tail_start + 6) + " " + self.MERGE + "(400,22) X650 Y2335 G111 (board gap)",
+        "N" + str(tail_start + 6) + " " + self.MERGE + "(400,22) X650 Y2335 G111",
         "N" + str(tail_start + 7) + " " + self.MERGE + "(400,23) X440 Y2335",
       ],
     )

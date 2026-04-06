@@ -41,6 +41,7 @@ class _PLCLogic:
     self.z_moves = []
     self.latch_moves = 0
     self.stop_requests = 0
+    self._latch_settle_until = None
 
   def isReady(self):
     return self._ready
@@ -55,6 +56,9 @@ class _PLCLogic:
   def move_latch(self):
     self.latch_moves += 1
     return True
+
+  def set_current_time(self, time_value):
+    self._current_time = time_value
 
   def stopSeek(self):
     self.stop_requests += 1
@@ -84,6 +88,11 @@ class HeadControllerTests(unittest.TestCase):
     head = Head(plc)
     clock = {"now": 0.0}
     head._clock = lambda: clock["now"]
+    original_update = head.update
+    def update_with_time_sync():
+      plc.set_current_time(clock["now"])
+      return original_update()
+    head.update = update_with_time_sync
     return head, plc, clock
 
   def test_same_side_stage_g206_move_only_seeks_z(self):
@@ -160,28 +169,27 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(plc.z_moves[-1], (150.0, 275))
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 
-  def test_g206_retries_until_timeout_before_error(self):
+  def test_g206_waits_for_extension_and_enable_before_latching(self):
     head, plc, clock = self._build_head(
       stage_present=True,
-      fixed_present=True,
+      fixed_present=False,
       stage_latched=True,
       fixed_latched=False,
       actuator_pos=1,
       z_position=0.0,
     )
-    head.setLatchTiming(1.0, 3.0)
 
     self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
     head.update()
+    self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
+    self.assertEqual(plc.latch_moves, 0)
 
-    for attempt in range(1, 5):
-      clock["now"] = float(attempt)
-      head.update()
-
-    self.assertEqual(plc.latch_moves, 3)
-    self.assertTrue(head.hasError())
-    self.assertIn("Latch phase timed out while targeting latch side 3", head.getLastError())
-    self.assertIn("actuatorPos=1", head.getLastError())
+    # Make fixed present so enableActuator becomes true
+    plc._zFixedPresentBit.set(True)
+    plc._zAxis._position.set(418.0)
+    head.update()
+    self.assertEqual(head._headState, Head.States.LATCHING)
+    self.assertEqual(plc.latch_moves, 1)
 
   def test_invalid_g206_start_state_fails_immediately(self):
     head, plc, _clock = self._build_head(
@@ -215,25 +223,31 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(plc.z_moves, [])
     self.assertIn("valid stable starting state", error)
 
-  def test_g206_failure_does_not_leave_head_controller_busy(self):
+  def test_g206_extension_timeout_errors_and_clears_state(self):
     head, plc, clock = self._build_head(
       stage_present=True,
-      fixed_present=True,
+      fixed_present=False,
       stage_latched=True,
       fixed_latched=False,
       actuator_pos=1,
       z_position=0.0,
     )
-    head.setLatchTiming(1.0, 3.0)
 
     self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
     head.update()
+    # Z should be commanded to extend but fixed not present yet
+    self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
 
-    for attempt in range(1, 5):
+    # Simulate extension timeout by advancing time past G206_EXTEND_TIMEOUT (10 seconds)
+    # without fixed becoming present (so z stays retracted)
+    for attempt in range(1, 15):
       clock["now"] = float(attempt)
       head.update()
+      if head.hasError():
+        break
 
     self.assertTrue(head.hasError())
+    self.assertIn("ENABLE_ACTUATOR", head.getLastError())
     self.assertTrue(head.isReady())
     self.assertFalse(head.isTransferActive())
 

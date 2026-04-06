@@ -1,0 +1,695 @@
+-- allium: 3
+-- head-transfer.allium
+
+-- Scope: Head transfer protocol (G206/G106) between Z-stage and fixed mount,
+--        including latch actuator state machine, Z-axis coordination, and
+--        safety interlocks for the transfer sequence.
+-- Includes: Actuator rocker mechanics, transfer preconditions, G206 strict
+--           multi-step protocol, G106 legacy pulse-retry protocol, Z motion
+--           interlocks during transfer, sensor fusion for head position
+-- Excludes:
+--   - PLC state dispatcher (see plc-motion.allium)
+--   - XY motion and queued motion (see plc-motion.allium)
+--   - Tension control, EOT handling (see plc-motion.allium)
+--   - Latch homing (state 7 — deprecated, never used, pending removal)
+--   - Latch state 8 (deprecated pending removal)
+--   - PLC tag communication protocol (pycomm3 details)
+
+use "./plc-motion.allium" as plc
+
+-- ==========================================================================
+-- External entities
+-- ==========================================================================
+
+-- Physical sensors are read-only from this spec's perspective.
+-- Their values are determined by the mechanical state of the machine.
+
+external entity ZAxis {
+  actual_position: Float
+}
+
+-- ==========================================================================
+-- Enumerations
+-- ==========================================================================
+
+-- Numeric encoding matches PLC ACTUATOR_POS tag for traceability.
+-- The rocker is a single mechanism: moving toward one side mechanically
+-- disengages the other. This is the core of the transfer principle.
+
+enum ActuatorPosition {
+  transition_engaged   -- 0: TOP=0, MID=0, Z_STAGE_LATCHED not yet asserted
+  stage_latched        -- 1: Z_STAGE_LATCHED sensor asserted (stable)
+  mid_engagement       -- 2: TOP=1, MID=1 — safe withdrawal point
+  rocker_at_fixed      -- 3: TOP=1, MID=0 — rocker pushed to fixed side
+}
+
+enum HeadSide { stage | fixed }
+
+-- ==========================================================================
+-- Entities
+-- ==========================================================================
+
+entity ActuatorState {
+  position: ActuatorPosition
+  top_sensor: Boolean
+  mid_sensor: Boolean
+
+  -- Sensor fusion: position is derived from sensor combination
+  -- position = transition_engaged  when NOT top AND NOT mid AND NOT z_stage_latched
+  -- position = stage_latched       when z_stage_latched (after Delay_Z_Latched)
+  -- position = mid_engagement      when top AND mid (after delay_mid_position)
+  -- position = rocker_at_fixed     when top AND NOT mid
+
+  transitions position {
+    transition_engaged -> stage_latched
+    transition_engaged -> rocker_at_fixed
+    stage_latched -> transition_engaged
+    mid_engagement -> transition_engaged
+    mid_engagement -> rocker_at_fixed
+    rocker_at_fixed -> mid_engagement
+    rocker_at_fixed -> transition_engaged
+    terminal: none
+  }
+}
+
+entity HeadPosition {
+  side: stage | fixed | floating | absent
+
+  -- Derived from sensor fusion
+  -- stage:    z_stage_latched AND NOT z_fixed_latched
+  -- fixed:    z_fixed_latched AND NOT z_stage_latched
+  -- floating: NOT z_stage_latched AND NOT z_fixed_latched
+  -- absent:   NOT z_stage_present AND NOT z_fixed_present
+
+  transitions side {
+    stage -> floating
+    fixed -> floating
+    floating -> stage
+    floating -> fixed
+    terminal: none
+  }
+}
+
+entity TransferPreconditions {
+  z_stage_present: Boolean
+  z_fixed_present: Boolean
+  z_stage_latched: Boolean
+  z_fixed_latched: Boolean
+  z_extended: Boolean
+
+  -- Derived: all three conditions must hold for any latch pulsing
+  enable_actuator: z_extended and z_stage_present and z_fixed_present
+
+  -- Derived: safe to retract Z from fixed mount
+  -- Asserted after z_fixed_latched with 100ms settling delay
+  z_safe_to_withdraw: Boolean
+}
+
+entity TransferCommand {
+  protocol: g206 | g106
+  target: HeadSide
+  origin: HeadSide
+
+  -- G206 transition plan (actuator position steps)
+  -- stage -> fixed: [1 -> 3, 3 -> 2]  (unlatch stage, settle to mid)
+  -- fixed -> stage: [2 -> 1]           (latch to stage from mid)
+  planned_transitions: List<ActuatorTransition>
+
+  -- Timing
+  started_at: Timestamp
+  latch_timeout: Duration
+  settle_delay: Duration
+  extend_timeout: Duration
+}
+
+value ActuatorTransition {
+  from_position: ActuatorPosition
+  to_position: ActuatorPosition
+}
+
+-- ==========================================================================
+-- Config
+-- ==========================================================================
+
+config {
+  -- Z positions (mm)
+  extended_z_position: Float = 418.0
+  retracted_z_position: Float = 0.0
+  front_z_position: Float = 150.0
+  back_z_position: Float = 250.0
+
+  -- Z extension detection threshold
+  z_extended_threshold: Float = 415.0
+
+  -- Latch pulse timing
+  latch_pulse_duration: Duration = 10.milliseconds
+  latch_pulse_interval: Duration = 250.milliseconds
+
+  -- G206 settle delay between pulses (wait after actuator state change)
+  g206_settle_delay: Duration = 0.5.seconds
+
+  -- Timeouts
+  latch_timeout: Duration = 10.seconds
+  extend_timeout: Duration = 10.seconds
+
+  -- Z velocity for transfer moves
+  transfer_velocity: Float = 300.0
+
+  -- Sensor settling delays
+  delay_z_latched: Duration = 50.milliseconds
+  delay_mid_position: Duration = 50.milliseconds
+  delay_fixed_latched: Duration = 100.milliseconds
+}
+
+-- ==========================================================================
+-- Given
+-- ==========================================================================
+
+given {
+  actuator: ActuatorState
+  head: HeadPosition
+  preconditions: TransferPreconditions
+}
+
+-- ==========================================================================
+-- Rules: Transfer initiation
+-- ==========================================================================
+
+rule G206TransferStageToFixed {
+  when: G206Transfer(target: fixed)
+
+  requires: head.side = stage
+  requires: actuator.position = stage_latched
+
+  let command = TransferCommand.created(
+    protocol: g206,
+    target: fixed,
+    origin: stage,
+    planned_transitions: [
+      ActuatorTransition(from_position: stage_latched, to_position: rocker_at_fixed),
+      ActuatorTransition(from_position: rocker_at_fixed, to_position: mid_engagement)
+    ],
+    started_at: now,
+    latch_timeout: config.latch_timeout,
+    settle_delay: config.g206_settle_delay,
+    extend_timeout: config.extend_timeout
+  )
+
+  ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
+  ensures: command
+
+  @guidance
+    -- Stage-to-fixed transfer requires two actuator transitions:
+    --   1. Pulse from state 1 (stage_latched) → state 3 (rocker_at_fixed).
+    --      The rocker swings to the fixed side, simultaneously unlatching
+    --      from the stage. Head becomes floating.
+    --   2. Rocker settles from state 3 → state 2 (mid_engagement).
+    --      State 2 is the safe withdrawal point. Z can retract from here.
+    -- Each transition is verified before proceeding to the next.
+}
+
+rule G206TransferFixedToStage {
+  when: G206Transfer(target: stage)
+
+  requires: head.side = fixed
+  requires: actuator.position = mid_engagement
+
+  let command = TransferCommand.created(
+    protocol: g206,
+    target: stage,
+    origin: fixed,
+    planned_transitions: [
+      ActuatorTransition(from_position: mid_engagement, to_position: stage_latched)
+    ],
+    started_at: now,
+    latch_timeout: config.latch_timeout,
+    settle_delay: config.g206_settle_delay,
+    extend_timeout: config.extend_timeout
+  )
+
+  ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
+  ensures: command
+
+  @guidance
+    -- Fixed-to-stage requires one transition:
+    --   Pulse from state 2 (mid_engagement) → state 1 (stage_latched).
+    -- Precondition: actuator must already be at state 2.
+    -- If actuator is not at state 2 when fixed-latched, the transfer
+    -- is rejected before starting — this catches cases where a prior
+    -- transfer left the actuator in an unexpected position.
+}
+
+rule G206TransferSameSide {
+  when: G206Transfer(target)
+
+  requires: head.side = target
+
+  ensures: ZMoveToFinalPosition(target)
+
+  @guidance
+    -- If the head is already on the target side, no latch operation
+    -- is needed. Only a Z move to the final position is issued.
+}
+
+rule G206TransferRejectedAbsent {
+  when: G206Transfer(target)
+
+  requires: head.side = absent or head.side = floating
+
+  ensures: TransferError("Head transfer requires a valid stable starting state.")
+
+  @guidance
+    -- Cannot initiate a transfer when head position is indeterminate.
+    -- Operator must resolve the mechanical state first.
+}
+
+rule G206TransferRejectedBadActuator {
+  when: G206Transfer(target: fixed)
+  requires: head.side = stage
+  requires: actuator.position != stage_latched
+
+  ensures: TransferError("Stage-latched transfers require ACTUATOR_POS 1.")
+}
+
+rule G206TransferRejectedFixedBadActuator {
+  when: G206Transfer(target: stage)
+  requires: head.side = fixed
+  requires: actuator.position != mid_engagement
+
+  ensures: TransferError("Fixed-latched transfers require ACTUATOR_POS 2.")
+}
+
+-- ==========================================================================
+-- Rules: G106 legacy transfer
+-- ==========================================================================
+
+rule G106TransferInitiate {
+  when: G106Transfer(target)
+
+  requires: head.side = stage or head.side = fixed
+  requires: head.side != target
+  requires: preconditions.z_stage_present or preconditions.z_fixed_present
+
+  ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
+  ensures: TransferCommand.created(
+    protocol: g106,
+    target: target,
+    origin: head.side,
+    planned_transitions: [],
+    started_at: now,
+    latch_timeout: config.latch_timeout,
+    settle_delay: config.latch_pulse_interval,
+    extend_timeout: config.extend_timeout
+  )
+
+  @guidance
+    -- Legacy protocol: extend Z, then pulse latch repeatedly at
+    -- latch_pulse_interval until target latch sensor asserts or timeout.
+    -- Does not enforce intermediate actuator position states.
+    -- Does not require strict actuator position preconditions.
+    -- Retained for backward compatibility; prefer G206 for new code.
+}
+
+rule G106TransferSameSide {
+  when: G106Transfer(target)
+  requires: head.side = target
+  ensures: ZMoveToFinalPosition(target)
+}
+
+-- ==========================================================================
+-- Rules: Z extension phase
+-- ==========================================================================
+
+rule ZExtensionReady {
+  when: ZExtendComplete()
+  requires: preconditions.enable_actuator
+
+  ensures: LatchingPhaseStarted()
+
+  @guidance
+    -- Z has reached extended position and all three enable conditions
+    -- are met (z_extended, z_stage_present, z_fixed_present).
+    -- Transition to latching phase.
+}
+
+rule ZExtensionTimeout {
+  when: command: TransferCommand.started_at + command.extend_timeout <= now
+  requires: not preconditions.z_extended
+
+  ensures: TransferError(
+    "Head transfer did not reach Z_EXTENDED before latching."
+  )
+}
+
+rule ZExtensionEnableTimeout {
+  when: command: TransferCommand.started_at + command.extend_timeout <= now
+  requires: preconditions.z_extended
+  requires: not preconditions.enable_actuator
+
+  ensures: TransferError(
+    "Head transfer reached extension but ENABLE_ACTUATOR never became true."
+  )
+
+  @guidance
+    -- Z is physically extended but stage or fixed presence sensor
+    -- is not asserted. Mechanical alignment issue.
+}
+
+-- ==========================================================================
+-- Rules: G206 latching phase
+-- ==========================================================================
+
+rule G206LatchPulse {
+  when: LatchPulseReady(command)
+  requires: command.protocol = g206
+  requires: preconditions.enable_actuator
+
+  ensures: LatchPulseSent()
+
+  @guidance
+    -- A single latch pulse is sent (latch_pulse_duration on, then off).
+    -- After each pulse, wait g206_settle_delay before evaluating
+    -- actuator state or sending the next pulse.
+    -- The settle delay prevents back-to-back pulses that could
+    -- overshoot the target actuator position.
+}
+
+rule G206TransitionComplete {
+  when: ActuatorReachedTarget(transition)
+  requires: command.protocol = g206
+
+  ensures: AdvanceToNextTransition(command)
+
+  @guidance
+    -- Current actuator transition step has been verified.
+    -- If more transitions remain in the plan, advance index.
+    -- If all transitions are complete, the latch target is reached.
+}
+
+rule G206LatchTargetReached {
+  when: AllTransitionsComplete(command)
+  requires: command.protocol = g206
+
+  ensures: ZMoveToFinalPosition(command.target)
+
+  @guidance
+    -- All planned actuator transitions completed successfully.
+    -- For stage-to-fixed: actuator is now at mid_engagement (2),
+    --   head is fixed_latched. Z retracts to retracted position.
+    -- For fixed-to-stage: actuator is at stage_latched (1),
+    --   head is stage_latched. Z moves to target position.
+}
+
+rule G206LatchTimeout {
+  when: command: TransferCommand.started_at + command.latch_timeout <= now
+  requires: command.protocol = g206
+
+  ensures: TransferError(
+    "Latch phase timed out while targeting latch side."
+  )
+
+  @guidance
+    -- The entire latch timeout covers the latching phase only
+    -- (not the Z extension phase, which has its own timeout).
+    -- If timed out, actuator may be in any intermediate state.
+    -- Recovery requires operator intervention.
+}
+
+-- ==========================================================================
+-- Rules: G106 legacy latching phase
+-- ==========================================================================
+
+rule G106LatchPulse {
+  when: LatchPulseReady(command)
+  requires: command.protocol = g106
+  requires: preconditions.enable_actuator
+
+  ensures: LatchPulseSent()
+
+  @guidance
+    -- Legacy: pulse at latch_pulse_interval. If actuator position
+    -- changes between pulses, reset the pulse timer (the change
+    -- indicates the mechanism is responding).
+}
+
+rule G106LatchTargetReached {
+  when: LegacyLatchTargetReached(command)
+  requires: command.protocol = g106
+
+  ensures: ZMoveToFinalPosition(command.target)
+
+  @guidance
+    -- Legacy target check: latch sensor for target side asserts
+    -- AND actuator position = mid_engagement (2).
+    -- Less strict than G206 — does not verify intermediate states.
+}
+
+rule G106LatchTimeout {
+  when: command: TransferCommand.started_at + command.latch_timeout <= now
+  requires: command.protocol = g106
+
+  ensures: TransferError("Latch transfer timed out.")
+}
+
+-- ==========================================================================
+-- Rules: Final Z positioning
+-- ==========================================================================
+
+rule ZFinalMoveComplete {
+  when: ZMoveComplete(command)
+
+  ensures: TransferComplete(command)
+
+  @guidance
+    -- Z has reached final target position within tolerance (1.0 mm).
+    -- For G206: additionally verifies strict final state:
+    --   stage target: z_stage_latched AND actuator = stage_latched (1)
+    --   fixed target: z_fixed_latched AND actuator = mid_engagement (2)
+    -- If final state does not match, G206 reports an error.
+    -- G106 accepts the final position without strict actuator check.
+}
+
+rule G206FinalStateVerificationFailed {
+  when: ZMoveComplete(command)
+  requires: command.protocol = g206
+  requires: not StrictFinalStateReached(command)
+
+  ensures: TransferError(
+    "Head transfer final state did not settle as requested."
+  )
+}
+
+-- ==========================================================================
+-- Rules: Transfer cancellation
+-- ==========================================================================
+
+rule TransferCancelledByPLCError {
+  when: PLCErrorDuringTransfer()
+
+  ensures: TransferAborted("PLC entered error state during head transfer.")
+  ensures: AllTransferStateCleared()
+}
+
+rule TransferStopRequested {
+  when: StopTransfer()
+
+  ensures: TransferAborted("Transfer stopped by operator.")
+  ensures: AllTransferStateCleared()
+
+  @guidance
+    -- If in SEEKING_TO_FINAL_POSITION, PLC seek is stopped.
+    -- All latch retry state and G206 transition state is cleared.
+}
+
+-- ==========================================================================
+-- Rules: Actuator rocker state transitions
+-- ==========================================================================
+
+-- These rules describe how the physical actuator responds to latch pulses.
+-- They are observations of mechanical behaviour, not commands.
+
+rule RockerUnlatchFromStage {
+  when: LatchPulseSent()
+  requires: actuator.position = stage_latched
+
+  ensures: actuator.position = transition_engaged
+
+  @guidance
+    -- A pulse when stage-latched (1) begins the unlatch sequence.
+    -- Actuator passes through transition_engaged (0) as sensors
+    -- deassert. The rocker then swings to rocker_at_fixed (3).
+    -- This is a two-step mechanical response to a single pulse:
+    --   1 → 0 (sensors clear) → 3 (rocker reaches fixed side)
+    -- Head becomes floating during this transition.
+}
+
+rule RockerSwingToFixed {
+  when: actuator: ActuatorState.position becomes transition_engaged
+  requires: head.side = floating
+
+  ensures: actuator.position = rocker_at_fixed
+
+  @guidance
+    -- After departing stage_latched, the rocker momentum carries it
+    -- to rocker_at_fixed (3). This is a mechanical consequence, not
+    -- a commanded action. TOP sensor asserts, MID stays deasserted.
+}
+
+rule RockerSettleToMid {
+  when: actuator: ActuatorState.position becomes rocker_at_fixed
+
+  ensures: actuator.position = mid_engagement
+
+  @guidance
+    -- After reaching rocker_at_fixed (3), the rocker settles back
+    -- to mid_engagement (2). This completes the unlatch-from-stage
+    -- sequence. State 2 is the safe withdrawal point.
+    -- The settle happens mechanically; timing depends on the
+    -- physical system but is typically under 2 seconds.
+}
+
+-- ==========================================================================
+-- Rules: Z-axis coordination during transfer
+-- ==========================================================================
+
+rule ZMoveBlockedDuringFloating {
+  when: ZMoveRequested()
+  requires: head.side = floating
+
+  ensures: ZMoveRejected("Cannot move Z while head is floating.")
+
+  @guidance
+    -- When the head is unlatched and in transit between sides,
+    -- Z axis movement is blocked to prevent mechanical damage.
+}
+
+rule ZWithdrawalRequiresState2 {
+  when: ZRetractRequested()
+  requires: preconditions.z_fixed_latched
+  requires: actuator.position != mid_engagement
+
+  ensures: ZMoveRejected(
+    "Cannot retract Z while fixed-latched unless actuator is at position 2."
+  )
+
+  @guidance
+    -- When the head is latched to the fixed mount, Z can only retract
+    -- if the actuator is at mid_engagement (2). At state 3 (rocker_at_fixed),
+    -- the latch mechanism is still engaged at the fixed end — retracting
+    -- Z would cause mechanical interference.
+}
+
+rule ZFreeMovementWhenFixedParked {
+  when: ZMoveRequested()
+  requires: preconditions.z_fixed_latched
+  requires: actuator.position = mid_engagement
+
+  ensures: ZMoveAllowed()
+
+  @guidance
+    -- When head is safely parked on the fixed mount with actuator
+    -- at mid_engagement, Z can move freely at high speed (1000 units/s)
+    -- because there is no mechanical coupling to the Z stage.
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant ActuatorEngagementRequiresExtension {
+  -- The latch signal can only be asserted when ALL of:
+  --   z_extended = true
+  --   z_stage_present = true
+  --   z_fixed_present = true
+  -- These three conditions derive ENABLE_ACTUATOR.
+  -- If any condition becomes false during pulsing, latch output
+  -- must be immediately deasserted.
+  -- PLC enforces: XIC Z_STAGE_PRESENT XIC Z_FIXED_PRESENT XIC Z_EXTENDED OTE ENABLE_ACTUATOR
+}
+
+invariant RockerAtFixedIsTransient {
+  -- ACTUATOR_POS = 3 (rocker_at_fixed) is a transient mechanical state.
+  -- The rocker is pushed to the fixed side: the latch is engaged at
+  -- the fixed end and unlatched at the stage end.
+  -- Z withdrawal is NOT SAFE in this state — the latch physically
+  -- interferes with the fixed mount.
+  -- The system must wait for the rocker to settle back to state 2
+  -- (mid_engagement) before allowing Z retraction.
+  -- Violation: if ACTUATOR_POS remains at 3 beyond settling timeout,
+  --   report error "ROCKER_STUCK_AT_FIXED".
+}
+
+invariant MidEngagementIsSafeWithdrawal {
+  -- ACTUATOR_POS = 2 (mid_engagement) is the safe withdrawal point.
+  -- At this position:
+  --   Neither side is mechanically engaged by the latch rocker.
+  --   Z can safely retract without interference.
+  --   Latch can pulse from this state toward either side.
+  -- This is the stable transit point for all transfer operations.
+}
+
+invariant HeadPositionCoherence {
+  -- head.side = stage  IFF z_stage_latched AND NOT z_fixed_latched
+  -- head.side = fixed  IFF z_fixed_latched AND NOT z_stage_latched
+  -- head.side = floating IFF NOT z_stage_latched AND NOT z_fixed_latched
+  -- head.side = absent IFF NOT z_stage_present AND NOT z_fixed_present
+  --
+  -- Both latched simultaneously is a mechanical fault:
+  --   z_stage_latched AND z_fixed_latched → error "DUAL_LATCH_FAULT"
+}
+
+invariant G206StrictStartingState {
+  -- G206 transfers enforce strict actuator position preconditions:
+  --   From stage: actuator MUST be at stage_latched (1)
+  --   From fixed: actuator MUST be at mid_engagement (2)
+  -- This catches cases where a prior transfer left the actuator
+  -- in an unexpected position, preventing cascading failures.
+  -- G106 does not enforce this — another reason to prefer G206.
+}
+
+invariant G206StrictFinalState {
+  -- G206 verifies strict final state after Z reaches target:
+  --   Target stage: z_stage_latched AND actuator = stage_latched (1)
+  --     AND z_position within 1.0 mm of target
+  --   Target fixed: z_fixed_latched AND actuator = mid_engagement (2)
+  --     AND z_position within 1.0 mm of retracted position
+  -- If final state does not match, the transfer is reported as failed
+  -- even though Z reached the target position.
+}
+
+invariant NoZMotionWhileFloating {
+  -- When head.side = floating, Z axis motion is blocked.
+  -- The head is unlatched and mechanically unconstrained.
+  -- Moving Z while floating risks dropping the head or
+  -- damaging the latch mechanism.
+}
+
+invariant LatchPulseSettling {
+  -- After each latch pulse, the system must wait at least
+  -- settle_delay before evaluating actuator state or sending
+  -- the next pulse. This prevents:
+  --   Reading sensor state before mechanical settling
+  --   Overshooting the target actuator position with rapid pulses
+  -- G206 uses g206_settle_delay (500ms default).
+  -- G106 uses latch_pulse_interval (250ms default).
+}
+
+-- ==========================================================================
+-- Error code reference
+-- ==========================================================================
+
+-- 6001: Latch actuator not enabled (z_stage_present, z_fixed_present, or
+--        z_extended is false when entering latching state)
+-- 6002: Latch sequence timeout (latching did not complete within timeout)
+
+-- ==========================================================================
+-- Open questions
+-- ==========================================================================
+
+open question "State 0 (transition_engaged) occurs in two distinct scenarios: head absent cycling (0→3→2) and head present transient. Should these be modeled as separate states, or is the current unified model sufficient?"
+
+open question "The rocker settling time from state 3 to state 2 is mechanically determined and not directly timed in the PLC. Should the spec define a maximum settling duration with error handling if exceeded?"
+
+open question "G106 legacy protocol: should it be formally deprecated in the spec, or maintained as a supported alternative? Current Python code supports both."
+
+open question "Latch pulse timing (10ms on, 250ms off) is hardcoded in PLC. Should these be operator-configurable for different mechanical setups, or are they fixed constants of the latch motor?"

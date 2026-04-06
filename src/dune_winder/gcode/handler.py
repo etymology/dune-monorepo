@@ -863,8 +863,11 @@ class GCodeHandler(GCodeHandlerBase):
         else:
           moving = True
     elif action == "head":
-      self._io.head.setHeadPosition(self._headPosition, velocity)
-      moving = True
+      error = self._io.head.setHeadPosition(self._headPosition, velocity)
+      if error:
+        self._set_gcode_error(str(error))
+      else:
+        moving = True
     elif action == "head_transfer":
       error = self._io.head.setTransferPosition(self._headPosition, velocity)
       if error:

@@ -6,7 +6,13 @@
       "Read(//c/dune-monorepo/**)",
       "Bash(done)",
       "Bash(find *)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(tee test_results.txt)",
+      "Bash(python -m pytest tests/dune_winder/test_ladder_simulated_plc.py::LadderSimulatedPlcTests::test_gui_latch_pulse_advances_stub_and_auto_clears -v)",
+      "Bash(python -m pytest tests/dune_winder/test_head.py::HeadControllerTests::test_g206_failure_does_not_leave_head_controller_busy -v)",
+      "Bash(python -m pytest tests/dune_winder/test_command_validation.py tests/dune_winder/test_manual_mode.py tests/dune_winder/test_main.py -v)",
+      "Bash(python -m pytest tests/dune_winder/test_head.py::HeadControllerTests::test_g206_failure_does_not_leave_head_controller_busy -xvs)"
     ]
   }
 }

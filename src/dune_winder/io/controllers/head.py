@@ -24,7 +24,6 @@ class Head:
   LEVEL_B_SIDE = 2
   FIXED_SIDE = 3
 
-  _TRANSFER_MODE_LEGACY = "legacy"
   _TRANSFER_MODE_G206 = "g206"
 
   def __init__(self, plcLogic: PLC_Logic):
@@ -46,9 +45,6 @@ class Head:
     self._headLatchTarget = -1
     self._latchRetryIntervalSeconds = 1
     self._latchTimeoutSeconds = 10.0
-    self._latchStateStartedAt = None
-    self._nextLatchPulseAt = None
-    self._latchWaitActuatorPos = None
     self._clock = time.monotonic
     self._activeTransferMode = None
     self._lastError = ""
@@ -92,7 +88,6 @@ class Head:
     self._headLatchTarget = -1
     self._activeTransferMode = None
     self._lastError = ""
-    self._resetLatchRetryState()
     self._resetG206State()
 
   def setLatchTiming(self, retry_interval_seconds, timeout_seconds):
@@ -105,11 +100,6 @@ class Head:
     self._latchRetryIntervalSeconds = retryInterval
     self._latchTimeoutSeconds = timeout
 
-  def _resetLatchRetryState(self):
-    self._latchStateStartedAt = None
-    self._nextLatchPulseAt = None
-    self._latchWaitActuatorPos = None
-
   def _resetG206State(self):
     self._g206Transitions = []
     self._g206TransitionIndex = 0
@@ -118,21 +108,11 @@ class Head:
     self._g206TransitionStartedAt = None
     self._g206ExtendStartedAt = None
 
-  def _startLatchingState(self):
-    now = self._clock()
-    self._latchStateStartedAt = now
-    self._nextLatchPulseAt = now
-    self._latchWaitActuatorPos = int(self._actuatorPosTag.get())
-
   def _setHeadError(self, message):
     self._lastError = str(message)
-    self._resetLatchRetryState()
     self._resetG206State()
     self._activeTransferMode = None
     self._headState = self.States.IDLE
-
-  def _setLatchError(self, message):
-    self._setHeadError(message)
 
   def _readTransferState(self):
     return {
@@ -162,32 +142,6 @@ class Head:
       "zPosition": zPosition,
     }
 
-  def _getCurrentSide(self):
-    state = self._readTransferState()
-
-    if not state["stagePresent"] and not state["fixedPresent"]:
-      return self.HEAD_ABSENT
-
-    if self._isFixedSideState(state):
-      return self.FIXED_SIDE
-
-    if self._isStageSideState(state):
-      return self.STAGE_SIDE
-
-    return self.HEAD_ABSENT
-
-  def _getCurrentTransferSide(self, state):
-    if not state["stagePresent"] and not state["fixedPresent"]:
-      return self.HEAD_ABSENT
-
-    if self._isFixedSideState(state):
-      return self.FIXED_SIDE
-
-    if self._isStageSideState(state):
-      return self.STAGE_SIDE
-
-    return self.HEAD_ABSENT
-
   def _getCurrentStrictTransferSide(self, state):
     if not state["stagePresent"] and not state["fixedPresent"]:
       return self.HEAD_ABSENT
@@ -199,12 +153,6 @@ class Head:
       return self.STAGE_SIDE
 
     return self.HEAD_ABSENT
-
-  def _isStageSideState(self, state):
-    return state["stagePresent"] and state["stageLatched"] and not state["fixedLatched"]
-
-  def _isFixedSideState(self, state):
-    return state["fixedPresent"] and state["fixedLatched"] and not state["stageLatched"]
 
   def _isStrictStageSideState(self, state):
     return (
@@ -230,32 +178,6 @@ class Head:
       and not state["fixedLatched"]
       and int(state["actuatorPos"]) == 3
     )
-
-  def _isTransferLatchTargetReached(self):
-    state = self._readTransferState()
-
-    if self._headLatchTarget == self.FIXED_SIDE:
-      return self._isFixedSideState(state) and state["actuatorPos"] == 2
-
-    if self._headLatchTarget == self.STAGE_SIDE:
-      return self._isStageSideState(state) and state["actuatorPos"] == 2
-
-    raise ValueError("Unknown head latch target: " + str(self._headLatchTarget))
-
-  def _isFinalTargetStateReached(self):
-    state = self._readTransferState()
-
-    if self._headPositionTarget in (
-      self.STAGE_SIDE,
-      self.LEVEL_A_SIDE,
-      self.LEVEL_B_SIDE,
-    ):
-      return self._isStageSideState(state)
-
-    if self._headPositionTarget == self.FIXED_SIDE:
-      return self._isFixedSideState(state)
-
-    raise ValueError("Unknown head position target: " + str(self._headPositionTarget))
 
   def _isG206FinalTargetReached(self, state):
     if self._headPositionTarget == self.FIXED_SIDE:
@@ -287,29 +209,6 @@ class Head:
     self._plcLogic.setZ_Position(target_z, self._velocity)
     self._headState = next_state
     return True
-
-  def _updateLatchingState(self):
-    state = self._readTransferState()
-
-    if self._isTransferLatchTargetReached():
-      self._resetLatchRetryState()
-      self._plcLogic.setZ_Position(self._headZTarget, self._velocity)
-      self._headState = self.States.SEEKING_TO_FINAL_POSITION
-      return
-
-    if not self._plcLogic.isReady():
-      return
-
-    if self._plcLogic.move_latch():
-      self._startLatchingState()
-      return
-
-    if self._latchStateStartedAt is None:
-      self._startLatchingState()
-      return
-
-    if (self._clock() - self._latchStateStartedAt) >= self._latchTimeoutSeconds:
-      self._setLatchError("Latch transfer timed out")
 
   def _commandNextG206Pulse(self):
     state = self._readTransferStateNow()
@@ -426,25 +325,6 @@ class Head:
 
     if self._activeTransferMode == self._TRANSFER_MODE_G206:
       self._updateG206()
-      return
-
-    self._updateLegacy()
-
-  def _updateLegacy(self):
-    if self._headState == self.States.SEEKING_TO_FINAL_POSITION:
-      if self._plcLogic.isReady() and self._isFinalTargetStateReached():
-        self._resetLatchRetryState()
-        self._headState = self.States.IDLE
-        self._activeTransferMode = None
-    elif self._headState == self.States.EXTENDING_TO_TRANSFER:
-      if self._plcLogic.isReady():
-        self._startLatchingState()
-        self._headState = self.States.LATCHING
-        self._updateLatchingState()
-    elif self._headState == self.States.LATCHING:
-      self._updateLatchingState()
-    else:
-      raise ValueError("Unknown head state: " + str(self._headState))
 
   def _updateG206(self):
     if self._headState == self.States.EXTENDING_TO_TRANSFER:
@@ -505,43 +385,7 @@ class Head:
     raise ValueError("Unknown head state: " + str(self._headState))
 
   def setHeadPosition(self, head_position_target: int, velocity):
-    self._headPositionTarget = head_position_target
-    self._velocity = velocity
-    self.clearQueuedTransfer()
-    self._activeTransferMode = self._TRANSFER_MODE_LEGACY
-
-    currentTransferState = self._readTransferState()
-    currentHeadSide = self._getCurrentTransferSide(currentTransferState)
-
-    if (
-      not currentTransferState["stagePresent"]
-      and not currentTransferState["fixedPresent"]
-    ):
-      print("DEBUG: Head not present, skipping G106 command")
-      self._activeTransferMode = None
-      return False
-
-    if currentHeadSide == self.HEAD_ABSENT:
-      print("DEBUG: Head state unresolved, skipping G106 command")
-      self._activeTransferMode = None
-      return False
-
-    target_lookup = {
-      self.STAGE_SIDE: (self._retracted_z_position, self.STAGE_SIDE),
-      self.LEVEL_A_SIDE: (self._front_z_position, self.STAGE_SIDE),
-      self.LEVEL_B_SIDE: (self._back_z_position, self.STAGE_SIDE),
-      self.FIXED_SIDE: (self._retracted_z_position, self.FIXED_SIDE),
-    }
-    if head_position_target not in target_lookup:
-      raise ValueError("Unknown head position request: " + str(head_position_target))
-    self._headZTarget, self._headLatchTarget = target_lookup[head_position_target]
-
-    if self._headLatchTarget != currentHeadSide:
-      self._commandZMove(self._extended_z_position, self.States.EXTENDING_TO_TRANSFER)
-    else:
-      self._commandZMove(self._headZTarget, self.States.SEEKING_TO_FINAL_POSITION)
-
-    return False
+    return self.setTransferPosition(head_position_target, velocity)
 
   def setTransferPosition(self, head_position_target: int, velocity):
     self.clearQueuedTransfer()
