@@ -104,8 +104,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       "N16 "
       + self.TOLERANT
       + "(1,13) G103 PF2 PF1 PXY G105 "
-      + self._coord("PX", 187.5)
-      + " ( BOARD GAP )",
+      + self._coord("PX", 187.5),
       lines,
     )
 

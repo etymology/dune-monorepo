@@ -568,7 +568,7 @@ def render_v_template_lines(
       "PB399",
       "PXY",
       "G105 " + _coord("PY", PREAMBLE_BOARD_GAP_PULL),
-      "( BOARD GAP )",
+      "(board gap)",
     ),
   ]
 
