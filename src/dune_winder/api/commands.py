@@ -604,6 +604,11 @@ def build_command_registry(
     lambda args: (_validateArgs(args), process.servoDisable())[1],
     True,
   )
+  registry.register(
+    "process.eot_recover",
+    lambda args: (_validateArgs(args), process.eotRecover())[1],
+    True,
+  )
 
   def process_load_recipe(args):
     _validateArgs(args, required=("layer", "recipe"), optional=("line",))

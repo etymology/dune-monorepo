@@ -68,6 +68,16 @@ class MotionService:
       self._log.add(LOG_NAME, "SERVO", "Idling servo control.")
       self._controlStateMachine.dispatch(ManualModeEvent(idleServos=True))
 
+  def recoverEOT(self):
+    self._log.add(LOG_NAME, "EOT", "Request EOT recovery.")
+    self._io.plcLogic.recoverEOT()
+    if (
+      hasattr(self._controlStateMachine, "States")
+      and hasattr(self._controlStateMachine, "changeState")
+      and hasattr(self._controlStateMachine.States, "STOP")
+    ):
+      self._controlStateMachine.changeState(self._controlStateMachine.States.STOP)
+
   # -- jog -----------------------------------------------------------------
 
   def jogXY(self, xVelocity, yVelocity, acceleration=None, deceleration=None):

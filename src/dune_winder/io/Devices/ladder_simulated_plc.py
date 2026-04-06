@@ -72,6 +72,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.STATE_Z_SEEK: SimulatedPLC.MOVE_SEEK_Z,
     SimulatedPLC.STATE_LATCHING: SimulatedPLC.MOVE_LATCH,
     SimulatedPLC.STATE_UNSERVO: SimulatedPLC.MOVE_UNSERVO,
+    SimulatedPLC.STATE_EOT: SimulatedPLC.MOVE_RESET,
     SimulatedPLC.STATE_XZ_SEEK: SimulatedPLC.MOVE_SEEK_XZ,
     SimulatedPLC.STATE_HMI_STOP: SimulatedPLC.MOVE_HMI_STOP_REQUEST,
   }

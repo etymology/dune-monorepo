@@ -171,6 +171,14 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("CurIssued"), 0)
     self.assertEqual(plc.get_tag("NextIssued"), 0)
 
+  def test_eot_state_request_enters_eot_state(self):
+    plc = SimulatedPLC()
+
+    plc.write(("STATE_REQUEST", SimulatedPLC.STATE_EOT))
+
+    self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_EOT)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), SimulatedPLC.STATE_EOT)
+
 
 if __name__ == "__main__":
   unittest.main()

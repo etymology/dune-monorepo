@@ -1,4 +1,4 @@
-XIO ALL_EOT_GOOD OTE STATE11_IND 
+CMP "STATE=11" OTE STATE11_IND 
 XIC STATE11_IND OSR oneshotsb[0] eot_entry_ob 
 XIC eot_entry_ob MOV 0 eot_stop_xy.FLAGS MOV 0 eot_stop_xz.FLAGS MOV 0 eot_stop_x.FLAGS MOV 0 eot_stop_y.FLAGS MOV 0 eot_stop_z.FLAGS MOV 0 x_minus_jog_cmd.FLAGS MOV 0 x_minus_jog_stop.FLAGS MOV 0 x_minus_mrp_cmd.FLAGS MOV 0 x_plus_jog_cmd.FLAGS MOV 0 x_plus_jog_stop.FLAGS MOV 0 y_minus_jog_cmd.FLAGS MOV 0 y_minus_jog_stop.FLAGS MOV 0 y_minus_mrp_cmd.FLAGS MOV 0 y_plus_jog_cmd.FLAGS MOV 0 y_plus_jog_stop.FLAGS MOV 0 z_zero_cmd.FLAGS 
 XIC eot_entry_ob RES x_minus_jog_timer RES x_plus_jog_timer RES y_minus_jog_timer RES y_plus_jog_timer 
@@ -67,4 +67,4 @@ XIC z_zero_start_ob OTL z_recover_started
 XIC z_zero_start_ob MAM Z_axis z_zero_cmd 0 0 1 "Units per sec" 1 "Units per sec2" 1 "Units per sec2" Trapezoidal 100 100 "% of Time" Disabled 0 0 0 0 0 
 XIC z_zero_cmd.DN OTU z_trip 
 XIC STATE11_IND XIO x_minus_trip XIO x_plus_trip XIO y_minus_trip XIO y_plus_trip XIO z_trip XIO PLUS_X_EOT XIO MINUS_X_EOT XIO PLUS_Y_EOT XIO MINUS_Y_EOT XIO Z_EOT XIO x_minus_jog_active XIO x_minus_stop_req XIO x_minus_cleared XIO x_plus_jog_active XIO x_plus_stop_req XIO y_minus_jog_active XIO y_minus_stop_req XIO y_minus_cleared XIO y_plus_jog_active XIO y_plus_stop_req XIO x_minus_jog_cmd.IP XIO x_plus_jog_cmd.IP XIO x_minus_mrp_cmd.IP XIO y_minus_jog_cmd.IP XIO y_plus_jog_cmd.IP XIO y_minus_mrp_cmd.IP XIO z_zero_cmd.IP OTE eot_recovery_done 
-XIC eot_recovery_done CPT ERROR_CODE 0 MOV 0 STATE_REQUEST CPT NEXTSTATE 1 
+XIC eot_recovery_done CPT ERROR_CODE 0 MOV 1 STATE_REQUEST CPT NEXTSTATE 1 

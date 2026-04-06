@@ -99,6 +99,23 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertTrue(set_response["data"])
     self.assertTrue(process.queuedMotionUseMaxSpeed)
 
+  def test_eot_recover_command_dispatch_succeeds(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+    process.eotRecovered = False
+
+    def _recover():
+      process.eotRecovered = True
+      return None
+
+    process.eotRecover = _recover
+
+    response = registry.executeRequest(
+      {"name": "process.eot_recover", "args": {}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertTrue(process.eotRecovered)
+
 
 if __name__ == "__main__":
   unittest.main()

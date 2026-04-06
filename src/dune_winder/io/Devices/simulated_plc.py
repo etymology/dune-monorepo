@@ -71,16 +71,9 @@ class SimulatedPLC(PLC):
     STATE_Z_SEEK: STATE_Z_SEEK,
     STATE_LATCHING: STATE_LATCHING,
     STATE_UNSERVO: STATE_UNSERVO,
+    STATE_EOT: STATE_EOT,
     STATE_XZ_SEEK: STATE_XZ_SEEK,
     STATE_HMI_STOP: STATE_HMI_STOP,
-  }
-  _STATE_REQUEST_TO_MOVE_TYPE = {
-    STATE_XY_SEEK: MOVE_SEEK_XY,
-    STATE_Z_SEEK: MOVE_SEEK_Z,
-    STATE_LATCHING: MOVE_LATCH,
-    STATE_UNSERVO: MOVE_UNSERVO,
-    STATE_XZ_SEEK: MOVE_SEEK_XZ,
-    STATE_HMI_STOP: MOVE_HMI_STOP_REQUEST,
   }
 
   def __init__(self, ipAddress="SIM"):
@@ -421,8 +414,25 @@ class SimulatedPLC(PLC):
     if requestedState == 0:
       return
 
+    if requestedState == self.STATE_EOT:
+      if self._tagValues.get("STATE", self.STATE_READY) == self.STATE_ERROR:
+        return
+      self._tagValues["STATE"] = self.STATE_EOT
+      self._pendingMoveType = None
+      self._settleCyclesRemaining = 0
+      self._setAxisMovement(False)
+      return
+
     busyState = self._STATE_REQUEST_TO_BUSY_STATE.get(requestedState)
-    moveType = self._STATE_REQUEST_TO_MOVE_TYPE.get(requestedState)
+    moveTypeMap = {
+      self.STATE_XY_SEEK: self.MOVE_SEEK_XY,
+      self.STATE_Z_SEEK: self.MOVE_SEEK_Z,
+      self.STATE_LATCHING: self.MOVE_LATCH,
+      self.STATE_UNSERVO: self.MOVE_UNSERVO,
+      self.STATE_XZ_SEEK: self.MOVE_SEEK_XZ,
+      self.STATE_HMI_STOP: self.MOVE_HMI_STOP_REQUEST,
+    }
+    moveType = moveTypeMap.get(requestedState)
     if busyState is None or moveType is None:
       return
 
