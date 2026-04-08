@@ -14,7 +14,21 @@
       Default queued motions to maximum allowed speed
     </label>
   </div>
-  <canvas id="queuedMotionPreviewCanvas"></canvas>
+  <div class="queuedMotionPreviewViews">
+    <section id="queuedMotionPreviewXZPanel" class="queuedMotionPreviewViewport">
+      <h4>XZ Plane</h4>
+      <canvas id="queuedMotionPreviewXZCanvas"></canvas>
+    </section>
+    <div id="queuedMotionPreviewBlankPanel" class="queuedMotionPreviewViewport queuedMotionPreviewBlank" aria-hidden="true"></div>
+    <section id="queuedMotionPreviewXYPanel" class="queuedMotionPreviewViewport">
+      <h4>XY Plane</h4>
+      <canvas id="queuedMotionPreviewXYCanvas"></canvas>
+    </section>
+    <section id="queuedMotionPreviewYZPanel" class="queuedMotionPreviewViewport">
+      <h4>YZ Plane</h4>
+      <canvas id="queuedMotionPreviewYZCanvas"></canvas>
+    </section>
+  </div>
   <div class="queuedMotionPreviewColumns">
     <section class="queuedMotionPreviewSection">
       <h4>Source G113</h4>

@@ -42,13 +42,68 @@
 
 #queuedMotionPreviewCanvas
 {
-  width: 100%;
-  min-height: 280px;
-  display: block;
+  display: none;
+}
+
+.queuedMotionPreviewViews
+{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "xz blank"
+    "xy yz";
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.queuedMotionPreviewViewport
+{
+  min-width: 0;
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
+    linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.78));
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 8px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.queuedMotionPreviewViewport h4
+{
+  margin-bottom: 6px;
+}
+
+#queuedMotionPreviewXZPanel
+{
+  grid-area: xz;
+}
+
+#queuedMotionPreviewXYPanel
+{
+  grid-area: xy;
+}
+
+#queuedMotionPreviewBlankPanel
+{
+  grid-area: blank;
+  min-height: 0;
+  border-style: dashed;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.28));
+}
+
+#queuedMotionPreviewYZPanel
+{
+  grid-area: yz;
+  align-self: stretch;
+}
+
+.queuedMotionPreviewViewport canvas
+{
+  width: 100%;
+  display: block;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.76));
 }
 
 .queuedMotionPreviewColumns
@@ -97,4 +152,22 @@
 .queuedMotionPreviewEmpty
 {
   color: #94a3b8;
+}
+
+@media (max-width: 1024px)
+{
+  .queuedMotionPreviewViews
+  {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "xz"
+      "blank"
+      "xy"
+      "yz";
+  }
+
+  #queuedMotionPreviewBlankPanel
+  {
+    min-height: 0;
+  }
 }
