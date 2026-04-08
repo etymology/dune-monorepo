@@ -6,5 +6,6 @@
         "**/target": true
     },
     "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-    "python.usePythonEnvironmentsExtension": true
+    "python.usePythonEnvironmentsExtension": true,
+    "makefile.configureOnOpen": false
 }
