@@ -14,9 +14,40 @@
 
 from .plc import PLC
 import threading
+import re
 
 
 class ControllogixPLC(PLC):
+  _ARRAY_TYPE_RE = re.compile(r"^[^\[]+\[(\d+)\]$")
+
+  # ---------------------------------------------------------------------
+  def _normalize_write_request(self, tag, typeName=None):
+    if not isinstance(tag, tuple) or len(tag) != 2:
+      return tag
+
+    tagName, value = tag
+    if not isinstance(tagName, str):
+      return tag
+
+    if typeName is None:
+      return tag
+
+    match = self._ARRAY_TYPE_RE.match(str(typeName).strip())
+    if match is None:
+      return tag
+
+    if not isinstance(value, (list, tuple)):
+      return tag
+
+    if "{" in tagName and tagName.endswith("}"):
+      return tag
+
+    elementCount = int(match.group(1))
+    if len(value) != elementCount:
+      return tag
+
+    return (f"{tagName}{{{elementCount}}}", value)
+
   # ---------------------------------------------------------------------
   def initialize(self):
     """
@@ -101,7 +132,7 @@ class ControllogixPLC(PLC):
     result = None
     if self._isFunctional:
       try:
-        result = self._plcDriver.write(tag)
+        result = self._plcDriver.write(self._normalize_write_request(tag, typeName))
       except Exception as e:
         print(e)
         # If tag writting threw an exception, the connection is dead.
