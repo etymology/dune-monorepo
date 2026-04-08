@@ -211,23 +211,23 @@ class ManualCalibrationTests(unittest.TestCase):
           min(candidatePins, key=lambda pin: (abs(pin - sideMidpoint), pin)),
         )
 
-  def test_build_transform_covers_translation_similarity_and_affine(self):
+  def test_build_transform_covers_translation_and_rigid_rotation(self):
     transform, mode = build_transform([(0.0, 0.0, 10.0, 5.0)])
     self.assertEqual(mode, "translation")
     self.assertPointAlmostEqual(_apply_transform(transform, 2.0, 3.0), (12.0, 8.0))
 
-    transform, mode = build_transform([(0.0, 0.0, 1.0, 1.0), (1.0, 0.0, 1.0, 3.0)])
-    self.assertEqual(mode, "similarity")
-    self.assertPointAlmostEqual(_apply_transform(transform, 0.0, 1.0), (-1.0, 1.0))
+    transform, mode = build_transform([(0.0, 0.0, 1.0, 1.0), (1.0, 0.0, 1.0, 2.0)])
+    self.assertEqual(mode, "rigid")
+    self.assertPointAlmostEqual(_apply_transform(transform, 0.0, 1.0), (0.0, 1.0))
 
-    affinePairs = [
+    rigidPairs = [
       (0.0, 0.0, 3.0, 4.0),
-      (1.0, 0.0, 4.0, 3.0),
-      (0.0, 1.0, 5.0, 5.0),
+      (1.0, 0.0, 3.0, 3.0),
+      (0.0, 1.0, 4.0, 4.0),
     ]
-    transform, mode = build_transform(affinePairs)
-    self.assertEqual(mode, "affine")
-    self.assertPointAlmostEqual(_apply_transform(transform, 2.0, 3.0), (11.0, 5.0))
+    transform, mode = build_transform(rigidPairs)
+    self.assertEqual(mode, "rigid")
+    self.assertPointAlmostEqual(_apply_transform(transform, 2.0, 3.0), (6.0, 2.0))
 
   def test_nominal_calibration_assigns_back_labels_to_back_side_geometry(self):
     for layer in ("U", "V"):

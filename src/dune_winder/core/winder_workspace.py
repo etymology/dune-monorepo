@@ -11,6 +11,7 @@ import re
 import tempfile
 from typing import Optional
 
+from dune_winder.core.manual_calibration import LAYER_METADATA, build_nominal_calibration
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.hash import Hash
 from dune_winder.library.log import Log
@@ -26,6 +27,11 @@ from dune_winder.recipes.xg_template_gcode import write_xg_template_file
 class WinderWorkspace:
   FILE_NAME = "state.json"
   LOG_FILE = "workspace_history.csv"
+  _PIN_PAIR_RE = re.compile(r"\bG103\s+P[BF](\d+)\s+P[BF](\d+)\b")
+  _UV_PIN_PAIR_RE = re.compile(r"\bG103\s+(P([BF])(\d+))\s+(P([BF])(\d+))\b", re.IGNORECASE)
+  _UV_WRAP_START_RE = re.compile(r"\(\s*\d+\s*,\s*1\b", re.IGNORECASE)
+  _UV_TRANSFER_RE = re.compile(r"\bG(?:106|206)\b", re.IGNORECASE)
+  _OPPOSITE_FAMILY_PIN_CACHE = {}
   SERIALIZED_VARIABLES = [
     "_calibrationFile",
     "_recipeFile",
@@ -126,6 +132,7 @@ class WinderWorkspace:
     recipeArchiveDirectory: str,
     log: Log,
     systemTime: TimeSource,
+    controlStateMachine=None,
     createNew=False,
   ):
     self._workspaceDirectory = workspaceDirectory
@@ -135,6 +142,7 @@ class WinderWorkspace:
     self._log = log
     self._gCodeHandler = gCodeHandler
     self._systemTime = systemTime
+    self._controlStateMachine = controlStateMachine
     self._startTime = systemTime.get()
 
     self._recipe = None
@@ -389,6 +397,259 @@ class WinderWorkspace:
   def getRecipePeriod(self):
     return getattr(self, "_recipePeriod", None)
 
+  @classmethod
+  def _normalizeUvLookupSide(cls, side):
+    normalized = str(side).strip().upper()
+    if normalized not in ("A", "B"):
+      raise ValueError("Side must be 'A' or 'B'.")
+    return normalized
+
+  @classmethod
+  def _normalizeUvBoardSide(cls, boardSide):
+    normalized = str(boardSide).strip().lower()
+    if normalized not in ("head", "bottom", "foot", "top"):
+      raise ValueError("Board side must be one of head, bottom, foot, or top.")
+    return normalized
+
+  @classmethod
+  def _coercePositiveInt(cls, value, label):
+    try:
+      coerced = int(value)
+    except (TypeError, ValueError) as exc:
+      raise ValueError(label + " must be an integer.") from exc
+    if coerced < 1:
+      raise ValueError(label + " must be >= 1.")
+    return coerced
+
+  @classmethod
+  def _getOppositeFamilyPinMap(cls, layer):
+    cache = cls._OPPOSITE_FAMILY_PIN_CACHE
+    if layer in cache:
+      return cache[layer]
+
+    calibration = build_nominal_calibration(layer)
+    pinMax = LAYER_METADATA[layer]["pinMax"]
+    frontPins = []
+    for pin in range(1, pinMax + 1):
+      location = calibration.getPinLocation("F" + str(pin))
+      frontPins.append((location.x, location.y, pin))
+
+    mapping = {}
+    for pin in range(1, pinMax + 1):
+      location = calibration.getPinLocation("B" + str(pin))
+      bestPin = None
+      bestDistance = None
+      for frontX, frontY, frontPin in frontPins:
+        distance = (location.x - frontX) ** 2 + (location.y - frontY) ** 2
+        if bestDistance is None or distance < bestDistance:
+          bestDistance = distance
+          bestPin = frontPin
+      mapping[pin] = bestPin
+
+    cache[layer] = mapping
+    return mapping
+
+  def _resolveUvBoardPin(self, side, boardSide, boardNumber, pinNumberOnBoard):
+    if self._layer not in ("U", "V"):
+      raise ValueError("UV pin lookup is only available for the U and V layers.")
+
+    normalizedSide = self._normalizeUvLookupSide(side)
+    normalizedBoardSide = self._normalizeUvBoardSide(boardSide)
+    normalizedBoardNumber = self._coercePositiveInt(boardNumber, "board_number")
+    normalizedPinNumber = self._coercePositiveInt(pinNumberOnBoard, "pin_number")
+
+    metadata = LAYER_METADATA[self._layer]
+    sideBoards = [board for board in metadata["boards"] if board["side"] == normalizedBoardSide]
+    if normalizedBoardNumber > len(sideBoards):
+      raise ValueError(
+        "board_number "
+        + str(normalizedBoardNumber)
+        + " is outside the "
+        + normalizedBoardSide
+        + " side range for layer "
+        + self._layer
+        + "."
+      )
+
+    board = sideBoards[normalizedBoardNumber - 1]
+    boardSpan = board["endPin"] - board["startPin"] + 1
+    if normalizedPinNumber > boardSpan:
+      raise ValueError(
+        "pin_number "
+        + str(normalizedPinNumber)
+        + " is outside board "
+        + str(normalizedBoardNumber)
+        + " on the "
+        + normalizedBoardSide
+        + " side for layer "
+        + self._layer
+        + "."
+      )
+
+    physicalPin = board["startPin"] + normalizedPinNumber - 1
+    if normalizedSide == "B":
+      resolvedPin = physicalPin
+      pinFamily = "PB"
+    else:
+      resolvedPin = self._getOppositeFamilyPinMap(self._layer)[physicalPin]
+      pinFamily = "PF"
+
+    return {
+      "layer": self._layer,
+      "side": normalizedSide,
+      "boardSide": normalizedBoardSide,
+      "boardNumber": normalizedBoardNumber,
+      "pinNumberOnBoard": normalizedPinNumber,
+      "boardIndex": board["boardIndex"],
+      "physicalPin": physicalPin,
+      "pinFamily": pinFamily,
+      "pin": resolvedPin,
+      "pinName": pinFamily + str(resolvedPin),
+    }
+
+  @classmethod
+  def _extractUvPinPairInfo(cls, line):
+    match = cls._UV_PIN_PAIR_RE.search(line)
+    if match is None:
+      return None
+
+    firstFamily = match.group(2).upper()
+    secondFamily = match.group(5).upper()
+    if firstFamily != secondFamily:
+      return None
+
+    return {
+      "pinFamily": "P" + firstFamily,
+      "segmentSide": "B" if firstFamily == "B" else "A",
+      "firstPin": int(match.group(3)),
+      "secondPin": int(match.group(6)),
+      "firstPinName": match.group(1).upper(),
+      "secondPinName": match.group(4).upper(),
+    }
+
+  def _buildUvSegments(self):
+    if self._layer not in ("U", "V"):
+      raise ValueError("UV segment search is only available for the U and V layers.")
+    if self._recipe is None:
+      raise ValueError("No recipe is loaded in the workspace.")
+
+    segments = []
+    current = None
+    boundaryPending = True
+    for index, line in enumerate(self._recipe.getLines()):
+      upperLine = line.upper()
+      isWrapBoundary = self._UV_WRAP_START_RE.search(upperLine) is not None
+      isTransferBoundary = self._UV_TRANSFER_RE.search(upperLine) is not None
+      isRestartBoundary = "HEAD RESTART" in upperLine
+      info = self._extractUvPinPairInfo(line)
+
+      if info is None:
+        if isWrapBoundary or isTransferBoundary:
+          boundaryPending = True
+        continue
+
+      if (
+        current is None
+        or boundaryPending
+        or isRestartBoundary
+        or current["segmentSide"] != info["segmentSide"]
+      ):
+        if current is not None:
+          segments.append(current)
+        current = {
+          "pinFamily": info["pinFamily"],
+          "segmentSide": info["segmentSide"],
+          "segmentStartLine": index,
+          "segmentStartLineNumber": index + 1,
+          "segmentEndLine": index,
+          "segmentEndLineNumber": index + 1,
+          "segmentLines": 0,
+          "firstPin": info["firstPin"],
+          "firstPinName": info["firstPinName"],
+          "lastPin": info["secondPin"],
+          "lastPinName": info["secondPinName"],
+          "lineMatches": [],
+        }
+
+      current["segmentEndLine"] = index
+      current["segmentEndLineNumber"] = index + 1
+      current["segmentLines"] += 1
+      current["lastPin"] = info["secondPin"]
+      current["lastPinName"] = info["secondPinName"]
+      current["lineMatches"].append(
+        {
+          "line": index,
+          "lineNumber": index + 1,
+          "firstPin": info["firstPin"],
+          "secondPin": info["secondPin"],
+          "firstPinName": info["firstPinName"],
+          "secondPinName": info["secondPinName"],
+        }
+      )
+      boundaryPending = False
+
+    if current is not None:
+      segments.append(current)
+
+    return segments
+
+  @classmethod
+  def _pinRoleForSegment(cls, segment, pin):
+    if segment["firstPin"] == segment["lastPin"] == pin:
+      return "single_point"
+    if segment["firstPin"] == pin:
+      return "start"
+    if segment["lastPin"] == pin:
+      return "end"
+    return "interior"
+
+  def findUvPinSegment(self, side, boardSide, boardNumber, pinNumber):
+    resolved = self._resolveUvBoardPin(side, boardSide, boardNumber, pinNumber)
+    segments = self._buildUvSegments()
+
+    matchedSegment = None
+    matchedLine = None
+    for segment in segments:
+      if segment["segmentSide"] != resolved["side"]:
+        continue
+      for lineMatch in segment["lineMatches"]:
+        if resolved["pin"] in (lineMatch["firstPin"], lineMatch["secondPin"]):
+          matchedSegment = segment
+          matchedLine = lineMatch
+          break
+      if matchedSegment is not None:
+        break
+
+    if matchedSegment is None or matchedLine is None:
+      raise ValueError(
+        resolved["pinName"] + " does not appear in any same-side segment in the loaded recipe."
+      )
+
+    result = dict(resolved)
+    result.update(
+      {
+        "segmentSide": matchedSegment["segmentSide"],
+        "segmentStartLine": matchedSegment["segmentStartLine"],
+        "segmentStartLineNumber": matchedSegment["segmentStartLineNumber"],
+        "matchedLine": matchedLine["line"],
+        "matchedLineNumber": matchedLine["lineNumber"],
+        "segmentEndLine": matchedSegment["segmentEndLine"],
+        "segmentEndLineNumber": matchedSegment["segmentEndLineNumber"],
+        "pinRole": self._pinRoleForSegment(matchedSegment, resolved["pin"]),
+        "segmentLines": matchedSegment["segmentLines"],
+      }
+    )
+    return result
+
+  def jumpToUvPinSegment(self, side, boardSide, boardNumber, pinNumber):
+    result = self.findUvPinSegment(side, boardSide, boardNumber, pinNumber)
+    isError = self._gCodeHandler.setLine(result["segmentStartLine"])
+    if isError:
+      raise ValueError("Unable to jump to the resolved segment start line.")
+    result = dict(result)
+    result["jumpedToLine"] = result["segmentStartLine"]
+    return result
+
   def getWrapSeekLine(self, wrap):
     if self._recipe is None:
       return None
@@ -636,12 +897,17 @@ class WinderWorkspace:
       )
 
       reloadedRecipe = Recipe(recipeFullPath, self._recipeArchiveDirectory)
-      try:
-        self._gCodeHandler.reloadG_Code(reloadedRecipe.getLines())
-      except ValueError as exception:
-        raise Exception(
-          "Updated G-Code file must preserve the active execution state and keep the same number of lines."
-        ) from exception
+      previousLines = self._recipe.getLines()
+      reloadedLines = reloadedRecipe.getLines()
+      if self._isActiveWindReload():
+        try:
+          self._gCodeHandler.reloadG_Code(reloadedLines)
+        except ValueError as exception:
+          raise Exception(
+            "Updated G-Code file must preserve the active execution state and keep the same number of lines."
+          ) from exception
+      else:
+        self._reloadRecipeWhileStopped(previousLines, reloadedLines)
 
       self._recipe = reloadedRecipe
       self._recipePeriod = self._recipe.getDetectedPeriod()
@@ -653,6 +919,72 @@ class WinderWorkspace:
         "Reloaded G-Code file " + recipeFullPath + " because the file changed on disk.",
         [recipeFullPath, self._recipe.getID(), self._recipeSignature],
       )
+
+  def _isActiveWindReload(self):
+    stateMachine = getattr(self, "_controlStateMachine", None)
+    state = getattr(stateMachine, "state", None)
+    return getattr(state.__class__, "__name__", None) == "WindMode"
+
+  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines):
+    previousLineCount = len(previousLines)
+    reloadedLineCount = len(reloadedLines)
+    currentLine = self._gCodeHandler.getLine()
+
+    self._gCodeHandler.loadG_Code(reloadedLines, self._calibration)
+
+    targetLine = currentLine
+    if previousLineCount != reloadedLineCount:
+      targetLine = self._findReloadLineByPinPair(previousLines, reloadedLines, currentLine)
+
+    if targetLine is None or targetLine < -1 or targetLine >= reloadedLineCount:
+      targetLine = min(currentLine if currentLine is not None else -1, reloadedLineCount - 1)
+
+    isError = self._gCodeHandler.setLine(targetLine)
+    if isError:
+      raise ValueError("Current G-Code line is outside the reloaded file.")
+
+  def _findReloadLineByPinPair(self, previousLines, reloadedLines, currentLine):
+    pinPair = self._getMostRecentPinPair(previousLines, currentLine)
+    if pinPair is None:
+      return currentLine
+    return self._findClosestPinPairLine(reloadedLines, pinPair, currentLine)
+
+  def _getMostRecentPinPair(self, lines, currentLine):
+    if not lines:
+      return None
+
+    if currentLine is None:
+      searchIndex = len(lines) - 1
+    else:
+      searchIndex = min(currentLine, len(lines) - 1)
+
+    for index in range(searchIndex, -1, -1):
+      pinPair = self._extractPinPair(lines[index])
+      if pinPair is not None:
+        return pinPair
+
+    return None
+
+  def _findClosestPinPairLine(self, lines, pinPair, currentLine):
+    matches = []
+    for index, line in enumerate(lines):
+      if self._extractPinPair(line) == pinPair:
+        matches.append(index)
+
+    if not matches:
+      return currentLine
+
+    if currentLine is None:
+      return matches[0]
+
+    return min(matches, key=lambda index: abs(index - currentLine))
+
+  @classmethod
+  def _extractPinPair(cls, line):
+    match = cls._PIN_PAIR_RE.search(line)
+    if match is None:
+      return None
+    return int(match.group(1)), int(match.group(2))
 
   def setupBlankCalibration(self, layer, geometry):
     self._calibration = LayerCalibration()

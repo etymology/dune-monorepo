@@ -82,8 +82,8 @@ LAYER_ENDPOINTS = {
     2353, 2377, 2378, 2401,
   ),
   "V": (
-    1, 39, 40, 79, 80, 119, 120, 159, 160, 199, 200, 239, 240, 279, 280, 319,
-    320, 359, 360, 399, 400, 423, 424, 448, 449, 472, 473, 509, 510, 546, 547,
+    1, 40, 41, 80, 81, 120, 121, 160, 161, 200, 201, 240, 241, 280, 281, 320,
+    321, 360, 361, 399, 400, 423, 424, 448, 449, 472, 473, 509, 510, 546, 547,
     583, 584, 620, 621, 657, 658, 694, 695, 731, 732, 768, 769, 805,
     806, 842, 843, 879, 880, 916, 917, 953, 954, 990, 991, 1027, 1028, 1064,
     1065, 1101, 1102, 1138, 1139, 1175, 1176, 1199, 1200, 1239, 1240, 1279,
@@ -192,88 +192,42 @@ def _translation_transform(pair):
   }
 
 
-def _similarity_transform(firstPair, secondPair):
-  sourceAX, sourceAY, targetAX, targetAY = firstPair
-  sourceBX, sourceBY, targetBX, targetBY = secondPair
+def _rigid_transform(pairs):
+  if len(pairs) < 2:
+    return None
 
-  deltaSourceX = sourceBX - sourceAX
-  deltaSourceY = sourceBY - sourceAY
-  deltaTargetX = targetBX - targetAX
-  deltaTargetY = targetBY - targetAY
+  count = float(len(pairs))
+  sourceCenterX = sum(pair[0] for pair in pairs) / count
+  sourceCenterY = sum(pair[1] for pair in pairs) / count
+  targetCenterX = sum(pair[2] for pair in pairs) / count
+  targetCenterY = sum(pair[3] for pair in pairs) / count
 
-  sourceLength = math.hypot(deltaSourceX, deltaSourceY)
-  targetLength = math.hypot(deltaTargetX, deltaTargetY)
-  if sourceLength < EPSILON or targetLength < EPSILON:
-    return _translation_transform(firstPair)
+  dot = 0.0
+  cross = 0.0
+  sourceSpread = 0.0
+  for sourceX, sourceY, targetX, targetY in pairs:
+    centeredSourceX = sourceX - sourceCenterX
+    centeredSourceY = sourceY - sourceCenterY
+    centeredTargetX = targetX - targetCenterX
+    centeredTargetY = targetY - targetCenterY
+    dot += centeredSourceX * centeredTargetX + centeredSourceY * centeredTargetY
+    cross += centeredSourceX * centeredTargetY - centeredSourceY * centeredTargetX
+    sourceSpread += centeredSourceX * centeredSourceX + centeredSourceY * centeredSourceY
 
-  scale = targetLength / sourceLength
-  rotation = math.atan2(deltaTargetY, deltaTargetX) - math.atan2(deltaSourceY, deltaSourceX)
+  if sourceSpread < EPSILON:
+    return _translation_transform(pairs[0])
 
-  cosine = math.cos(rotation) * scale
-  sine = math.sin(rotation) * scale
+  rotation = math.atan2(cross, dot)
+  cosine = math.cos(rotation)
+  sine = math.sin(rotation)
 
   return {
     "a": cosine,
     "b": -sine,
-    "c": targetAX - cosine * sourceAX + sine * sourceAY,
+    "c": targetCenterX - cosine * sourceCenterX + sine * sourceCenterY,
     "d": sine,
     "e": cosine,
-    "f": targetAY - sine * sourceAX - cosine * sourceAY,
-  }
-
-
-def _affine_transform(pairs):
-  if len(pairs) < 3:
-    return None
-
-  sumXX = 0.0
-  sumXY = 0.0
-  sumYY = 0.0
-  sumX = 0.0
-  sumY = 0.0
-  count = 0.0
-
-  sumTargetXX = 0.0
-  sumTargetYX = 0.0
-  sumTargetX = 0.0
-  sumTargetXY = 0.0
-  sumTargetYY = 0.0
-  sumTargetY = 0.0
-
-  for sourceX, sourceY, targetX, targetY in pairs:
-    sumXX += sourceX * sourceX
-    sumXY += sourceX * sourceY
-    sumYY += sourceY * sourceY
-    sumX += sourceX
-    sumY += sourceY
-    count += 1.0
-
-    sumTargetXX += sourceX * targetX
-    sumTargetYX += sourceY * targetX
-    sumTargetX += targetX
-
-    sumTargetXY += sourceX * targetY
-    sumTargetYY += sourceY * targetY
-    sumTargetY += targetY
-
-  matrix = [
-    [sumXX, sumXY, sumX],
-    [sumXY, sumYY, sumY],
-    [sumX, sumY, count],
-  ]
-
-  xSolution = _solve_linear_system(matrix, [sumTargetXX, sumTargetYX, sumTargetX])
-  ySolution = _solve_linear_system(matrix, [sumTargetXY, sumTargetYY, sumTargetY])
-  if xSolution is None or ySolution is None:
-    return None
-
-  return {
-    "a": xSolution[0],
-    "b": xSolution[1],
-    "c": xSolution[2],
-    "d": ySolution[0],
-    "e": ySolution[1],
-    "f": ySolution[2],
+    "f": targetCenterY - sine * sourceCenterX - cosine * sourceCenterY,
   }
 
 
@@ -304,16 +258,15 @@ def build_transform(pairs):
   if len(pairs) == 1:
     return (_translation_transform(pairs[0]), "translation")
 
-  if len(pairs) == 2:
-    return (_similarity_transform(pairs[0], pairs[1]), "similarity")
-
-  transform = _affine_transform(pairs)
+  transform = _rigid_transform(pairs)
   if transform is not None:
-    return (transform, "affine")
+    return (transform, "rigid")
 
   farthest = _farthest_pair(pairs)
   if farthest is not None:
-    return (_similarity_transform(farthest[0], farthest[1]), "similarity")
+    fallback = _rigid_transform([farthest[0], farthest[1]])
+    if fallback is not None:
+      return (fallback, "rigid")
 
   return (_translation_transform(pairs[0]), "translation")
 

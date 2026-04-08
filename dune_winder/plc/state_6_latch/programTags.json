@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "generated_at": "2026-04-07T20:41:44.902336+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_6_latch",
   "main_routine_name": "main",
@@ -105,6 +105,23 @@
     {
       "name": "latching_signal",
       "fully_qualified_name": "Program:state_6_latch.latching_signal",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_6_latch",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "manual_toggle_latch",
+      "fully_qualified_name": "Program:state_6_latch.manual_toggle_latch",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "alias": false,
@@ -344,5 +361,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
 }

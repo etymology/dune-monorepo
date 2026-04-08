@@ -116,6 +116,45 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertTrue(process.eotRecovered)
 
+  def test_find_uv_pin_segment_dispatches_to_workspace(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {
+        "name": "process.find_uv_pin_segment",
+        "args": {
+          "side": "B",
+          "board_side": "head",
+          "board_number": 1,
+          "pin_number": 40,
+        },
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(process.workspace.lastFindUvPinSegment, ("B", "head", 1, 40))
+    self.assertEqual(response["data"]["pinName"], "PB40")
+    self.assertEqual(response["data"]["segmentStartLine"], 12)
+
+  def test_jump_to_uv_pin_segment_dispatches_to_workspace(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {
+        "name": "process.jump_to_uv_pin_segment",
+        "args": {
+          "side": "A",
+          "board_side": "bottom",
+          "board_number": 1,
+          "pin_number": 1,
+        },
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(process.workspace.lastJumpUvPinSegment, ("A", "bottom", 1, 1))
+    self.assertEqual(response["data"]["jumpedToLine"], 12)
+
 
 if __name__ == "__main__":
   unittest.main()

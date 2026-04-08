@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "generated_at": "2026-04-07T20:41:44.902336+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "queued_motion",
   "main_routine_name": "main",
@@ -402,7 +402,7 @@
         "EN": false,
         "EU": false,
         "DN": false,
-        "EM": true,
+        "EM": false,
         "ER": false,
         "UL": false,
         "IN": false,
@@ -478,15 +478,15 @@
         "Valid": false,
         "SegType": 1,
         "XY": [
-          596.96826171875,
-          332.9546813964844
+          6344.578125,
+          2683.0
         ],
-        "Speed": 1.0,
+        "Speed": 600.0,
         "Accel": 2000.0,
         "Decel": 2000.0,
         "JerkAccel": 1500.0,
-        "JerkDecel": 3000.0,
-        "TermType": 4,
+        "JerkDecel": 1500.0,
+        "TermType": 0,
         "Seq": 0,
         "CircleType": 1,
         "ViaCenter": [
@@ -515,10 +515,10 @@
         "Valid": false,
         "SegType": 1,
         "XY": [
-          7165.0,
-          82.0
+          5807.32421875,
+          2683.0
         ],
-        "Speed": 825.0001220703125,
+        "Speed": 600.0,
         "Accel": 2000.0,
         "Decel": 2000.0,
         "JerkAccel": 1500.0,
@@ -852,7 +852,7 @@
       ],
       "array_dimensions": 1,
       "program": "queued_motion",
-      "value": 596.96826171875
+      "value": 5807.32421875
     },
     {
       "name": "CmdTolerance",
@@ -884,7 +884,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "value": 1.0
+      "value": 600.0
     },
     {
       "name": "CmdA_Accel",
@@ -948,7 +948,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "value": 3000.0
+      "value": 1500.0
     },
     {
       "name": "CmdA_TermType",
@@ -964,7 +964,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "value": 4
+      "value": 0
     },
     {
       "name": "CmdB_XY",
@@ -980,7 +980,7 @@
       ],
       "array_dimensions": 1,
       "program": "queued_motion",
-      "value": 7165.0
+      "value": 6344.578125
     },
     {
       "name": "RotateONS_BtoA",
@@ -1013,7 +1013,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "value": 825.0001220703125
+      "value": 600.0
     },
     {
       "name": "CmdB_Accel",
@@ -1160,11 +1160,11 @@
       "program": "queued_motion",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1194,11 +1194,11 @@
       "program": "queued_motion",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1375,7 +1375,7 @@
       "array_dimensions": 0,
       "program": "queued_motion",
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "WaitCurAxisOn",
@@ -1626,5 +1626,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
 }

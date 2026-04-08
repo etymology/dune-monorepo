@@ -68,8 +68,8 @@ class DummyTemplateRecipe:
   def resetDraft(self, markDirty=True):
     return {"ok": True, "data": {"markDirty": markDirty}}
 
-  def generateRecipeFile(self):
-    return {"ok": True, "data": {"generated": True}}
+  def generateRecipeFile(self, scriptVariant=None):
+    return {"ok": True, "data": {"generated": True, "scriptVariant": scriptVariant}}
 
 
 class DummyManualCalibration:
@@ -107,9 +107,39 @@ class DummySpool:
 class DummyWorkspace:
   def __init__(self):
     self._gCodeHandler = type("GCodeVars", (), {"transferLeft": 100.0, "transferRight": 200.0})()
+    self.lastFindUvPinSegment = None
+    self.lastJumpUvPinSegment = None
 
   def loadRecipe(self, layer, recipe, line):
     return {"layer": layer, "recipe": recipe, "line": line}
+
+  def findUvPinSegment(self, side, boardSide, boardNumber, pinNumber):
+    self.lastFindUvPinSegment = (side, boardSide, boardNumber, pinNumber)
+    return {
+      "layer": "V",
+      "side": side,
+      "boardSide": boardSide,
+      "boardNumber": boardNumber,
+      "pinNumberOnBoard": pinNumber,
+      "pinFamily": "PB",
+      "pin": 40,
+      "pinName": "PB40",
+      "segmentSide": "B",
+      "segmentStartLine": 12,
+      "segmentStartLineNumber": 13,
+      "matchedLine": 14,
+      "matchedLineNumber": 15,
+      "segmentEndLine": 16,
+      "segmentEndLineNumber": 17,
+      "pinRole": "start",
+      "segmentLines": 3,
+    }
+
+  def jumpToUvPinSegment(self, side, boardSide, boardNumber, pinNumber):
+    self.lastJumpUvPinSegment = (side, boardSide, boardNumber, pinNumber)
+    result = self.findUvPinSegment(side, boardSide, boardNumber, pinNumber)
+    result["jumpedToLine"] = result["segmentStartLine"]
+    return result
 
 
 class DummyProcess:

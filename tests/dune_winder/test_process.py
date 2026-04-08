@@ -170,6 +170,37 @@ class FakeWorkspaceForRefreshMessages:
 
     return WinderWorkspace.refreshCalibrationIfChanged(self)
 
+  def _isActiveWindReload(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._isActiveWindReload(self)
+
+  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._reloadRecipeWhileStopped(self, previousLines, reloadedLines)
+
+  def _findReloadLineByPinPair(self, previousLines, reloadedLines, currentLine):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._findReloadLineByPinPair(self, previousLines, reloadedLines, currentLine)
+
+  def _getMostRecentPinPair(self, lines, currentLine):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._getMostRecentPinPair(self, lines, currentLine)
+
+  def _findClosestPinPairLine(self, lines, pinPair, currentLine):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._findClosestPinPairLine(self, lines, pinPair, currentLine)
+
+  @classmethod
+  def _extractPinPair(cls, line):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._extractPinPair(line)
+
 
 class FakeLog:
   def __init__(self):
@@ -203,6 +234,15 @@ class _ReloadGuardFakeIO:
 class _ReloadGuardFakeCalibration:
   zFront = 0.0
   zBack = 0.0
+
+
+WindMode = type("WindMode", (), {})
+StopMode = type("StopMode", (), {})
+
+
+class _ReloadGuardControlStateMachine:
+  def __init__(self, state):
+    self.state = state
 
 
 class ProcessSnapshotTests(unittest.TestCase):
@@ -320,7 +360,13 @@ class ProcessSnapshotTests(unittest.TestCase):
         _ReloadGuardFakeCalibration(),
         None,
       )
+      process.workspace._recipe = type(
+        "LoadedRecipe",
+        (),
+        {"getLines": lambda self: ["G1 X1", "G1 X2"]},
+      )()
       process.workspace._gCodeHandler.loadG_Code(["G1 X1", "G1 X2"], calibration=None)
+      process.workspace._controlStateMachine = _ReloadGuardControlStateMachine(WindMode())
       process._log = FakeLog()
 
       process.workspace._recipeSignature = "before"
@@ -338,6 +384,63 @@ class ProcessSnapshotTests(unittest.TestCase):
       self.assertEqual(len(process._log.entries), 1)
       self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+
+  def test_refresh_before_execution_reseeks_by_pin_pair_when_stopped_and_line_count_changes(self):
+    with tempfile.TemporaryDirectory() as tempDir:
+      recipePath = os.path.join(tempDir, "V-layer.gc")
+      calibrationPath = os.path.join(tempDir, "V_Calibration.json")
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("N1 G1 X1\nN2 G103 PF10 PB20\nN3 G1 X2\nN4 G103 PF30 PB40\n")
+      with open(calibrationPath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("{}\n")
+
+      process = object.__new__(Process)
+      process.workspace = FakeWorkspaceForRefreshMessages(
+        recipePath=recipePath,
+        calibrationPath=calibrationPath,
+      )
+      process.workspace._log = FakeLog()
+      process.workspace._recipeDirectory = tempDir
+      process.workspace._recipeArchiveDirectory = tempDir
+      process.workspace._gCodeHandler = GCodeHandler(
+        _ReloadGuardFakeIO(),
+        _ReloadGuardFakeCalibration(),
+        None,
+      )
+      process.workspace._recipe = type(
+        "LoadedRecipe",
+        (),
+        {
+          "getLines": lambda self: [
+            "N1 G1 X1",
+            "N2 G103 PF10 PB20",
+            "N3 G1 X2",
+            "N4 G103 PF30 PB40",
+          ]
+        },
+      )()
+      process.workspace._gCodeHandler.loadG_Code(
+        ["N1 G1 X1", "N2 G103 PF10 PB20", "N3 G1 X2", "N4 G103 PF30 PB40"],
+        calibration=None,
+      )
+      process.workspace._gCodeHandler.setLine(3)
+      process.workspace._controlStateMachine = _ReloadGuardControlStateMachine(StopMode())
+      process._log = FakeLog()
+
+      process.workspace._recipeSignature = "before"
+      process.workspace._calculateRecipeSignature = lambda: "after"
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write(
+          "N1 G1 X1\nN2 G103 PF10 PB20\nN3 G1 X2\nN4 G1 X3\nN5 G103 PF30 PB40\nN6 G1 X4\n"
+        )
+
+      result = process._refreshCalibrationBeforeExecution()
+
+      self.assertIsNone(result)
+      self.assertEqual(process.workspace._gCodeHandler.getLine(), 4)
+      self.assertEqual(len(process._log.entries), 0)
 
   def test_refresh_before_execution_returns_actionable_missing_calibration_message(self):
     from dune_winder.core.winder_workspace import WinderWorkspace

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "generated_at": "2026-04-07T20:41:44.902336+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_5_move_z",
   "main_routine_name": "main",
@@ -191,11 +191,11 @@
       "program": "state_5_move_z",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 134217728,
         "EN": false,
         "DN": false,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -376,10 +376,10 @@
       "program": "state_5_move_z",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 570425344,
+        "FLAGS": 301989888,
         "EN": false,
-        "DN": true,
-        "ER": false,
+        "DN": false,
+        "ER": true,
         "PC": false,
         "IP": false,
         "AC": false,
@@ -387,9 +387,9 @@
         "DECEL": false,
         "TrackingMaster": false,
         "CalculatedDataAvailable": false,
-        "ERR": 0,
+        "ERR": 22,
         "STATUS": 0,
-        "STATE": 1,
+        "STATE": 0,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -442,7 +442,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "value": 1000
+      "value": 1500
     },
     {
       "name": "z_move_success",
@@ -543,7 +543,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "value": 5000
+      "value": 8000
     },
     {
       "name": "error_suppress",
@@ -631,5 +631,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
 }

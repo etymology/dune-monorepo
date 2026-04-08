@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "generated_at": "2026-04-07T20:41:44.902336+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_3_move_xy",
   "main_routine_name": "main",
@@ -198,13 +198,13 @@
       "program": "state_3_move_xy",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 612368384,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
         "PC": false,
-        "IP": true,
-        "AC": true,
+        "IP": false,
+        "AC": false,
         "ACCEL": false,
         "DECEL": false,
         "TrackingMaster": false,
@@ -518,10 +518,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 1,
-        "ACC": 0,
+        "ACC": 1,
         "EN": true,
-        "TT": true,
-        "DN": false
+        "TT": false,
+        "DN": true
       }
     },
     {
@@ -538,7 +538,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1000
+      "value": 1500
     },
     {
       "name": "xy_regulated_decel_jerk",
@@ -671,7 +671,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.103128433227539
+      "value": 8.495584487915039
     },
     {
       "name": "xy_p_term",
@@ -706,10 +706,10 @@
       "udt_name": "MOTION_INSTRUCTION",
       "value": [
         {
-          "FLAGS": 301989888,
+          "FLAGS": 536870912,
           "EN": false,
-          "DN": false,
-          "ER": true,
+          "DN": true,
+          "ER": false,
           "PC": false,
           "IP": false,
           "AC": false,
@@ -717,17 +717,17 @@
           "DECEL": false,
           "TrackingMaster": false,
           "CalculatedDataAvailable": false,
-          "ERR": 22,
+          "ERR": 0,
           "STATUS": 0,
           "STATE": 0,
           "SEGMENT": 0,
           "EXERR": 0
         },
         {
-          "FLAGS": 301989888,
+          "FLAGS": 536870912,
           "EN": false,
-          "DN": false,
-          "ER": true,
+          "DN": true,
+          "ER": false,
           "PC": false,
           "IP": false,
           "AC": false,
@@ -735,7 +735,7 @@
           "DECEL": false,
           "TrackingMaster": false,
           "CalculatedDataAvailable": false,
-          "ERR": 22,
+          "ERR": 0,
           "STATUS": 0,
           "STATE": 0,
           "SEGMENT": 0,
@@ -1348,7 +1348,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.4296533167362213
+      "value": 300000.0
     },
     {
       "name": "Current_x",
@@ -1396,7 +1396,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.42368438839912415
+      "value": 1.8749973773956299
     },
     {
       "name": "xy_i_term",
@@ -1477,7 +1477,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1947.2041015625
+      "value": 440.0006103515625
     },
     {
       "name": "dy",
@@ -1493,7 +1493,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1396.4747314453125
+      "value": 0.0020000000949949026
     },
     {
       "name": "k",
@@ -1509,7 +1509,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.42368438839912415
+      "value": 1.8749973773956299
     },
     {
       "name": "v_max",
@@ -1525,7 +1525,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1015.2299194335938
+      "value": 825.0
     },
     {
       "name": "starting_x",
@@ -1541,7 +1541,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6957.15673828125
+      "value": 440.0006103515625
     },
     {
       "name": "starting_y",
@@ -1557,7 +1557,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1396.4747314453125
+      "value": -0.0020000000949949026
     },
     {
       "name": "d_raw",
@@ -1621,7 +1621,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.294552803039551
+      "value": 5.186941146850586
     },
     {
       "name": "x_dist_to_target",
@@ -1637,7 +1637,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.0
+      "value": -9.955100059509277
     },
     {
       "name": "y_dist_to_target",
@@ -1653,7 +1653,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -9.999999747378752e-05
+      "value": 9.999999747378752e-05
     },
     {
       "name": "near_ending",
@@ -1670,7 +1670,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "XY_SERVO_ON",
@@ -1770,7 +1770,7 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 50,
-        "ACC": 38,
+        "ACC": 34,
         "EN": true,
         "TT": true,
         "DN": false
@@ -1790,7 +1790,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 9.999999747378752e-05
+      "value": 9.955100059509277
     },
     {
       "name": "stopping_distance",
@@ -1806,7 +1806,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 61.81359100341797
+      "value": 0.006301097106188536
     },
     {
       "name": "xy_d_dt",
@@ -3059,7 +3059,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2500
+      "value": 3000
     },
     {
       "name": "stopping_ratio",
@@ -3075,7 +3075,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1.2225921154022217
+      "value": 0.4054441750049591
     },
     {
       "name": "near_ending_trigger",
@@ -3127,6 +3127,23 @@
       "value": 300.0
     },
     {
+      "name": "main_xy_move_completed_sb",
+      "fully_qualified_name": "Program:state_3_move_xy.main_xy_move_completed_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_3_move_xy",
+      "bit_position": 0,
+      "value": false
+    },
+    {
       "name": "xy_kp",
       "fully_qualified_name": "Program:state_3_move_xy.xy_kp",
       "tag_type": "atomic",
@@ -3160,5 +3177,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
 }

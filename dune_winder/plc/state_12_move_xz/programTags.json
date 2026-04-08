@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-03T19:07:36.893524+00:00",
+  "generated_at": "2026-04-07T20:41:44.902336+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_12_move_xz",
   "main_routine_name": "main",
@@ -157,11 +157,11 @@
       "program": "state_12_move_xz",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -292,11 +292,11 @@
       "program": "state_12_move_xz",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -311,5 +311,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-04-03T19:17:01.991721+00:00"
+  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
 }
