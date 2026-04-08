@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-07T20:41:44.902336+00:00",
+  "generated_at": "2026-04-08T19:04:32.246947+00:00",
   "plc_path": "192.168.140.13",
   "controller": {
     "vendor": "Rockwell Automation/Allen-Bradley",
@@ -11720,26 +11720,26 @@
           "Uncertain": false
         },
         "Pt08": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt09": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt10": {
           "DataBits": 0,
           "Data": false,
           "Fault": false,
           "Uncertain": false
         },
-        "Pt11": {
+        "Pt09": {
+          "DataBits": 0,
+          "Data": false,
+          "Fault": false,
+          "Uncertain": false
+        },
+        "Pt10": {
           "DataBits": 1,
           "Data": true,
+          "Fault": false,
+          "Uncertain": false
+        },
+        "Pt11": {
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -11874,20 +11874,20 @@
         "DiagnosticActive": false,
         "DiagnosticSequenceCount": 0,
         "Pt00": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt01": {
           "DataBits": 0,
           "Data": false,
           "Fault": false,
           "Uncertain": false
         },
-        "Pt02": {
+        "Pt01": {
           "DataBits": 1,
           "Data": true,
+          "Fault": false,
+          "Uncertain": false
+        },
+        "Pt02": {
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -13219,11 +13219,11 @@
         "PortFa1_8Threshold": false,
         "PortGi1_1Threshold": false,
         "PortGi1_2Threshold": false,
-        "AllPortsUtilization": 1,
+        "AllPortsUtilization": 0,
         "PortFa1_1Utilization": 2,
-        "PortFa1_2Utilization": 21,
+        "PortFa1_2Utilization": 0,
         "PortFa1_3Utilization": 1,
-        "PortFa1_4Utilization": 21,
+        "PortFa1_4Utilization": 0,
         "PortFa1_5Utilization": 0,
         "PortFa1_6Utilization": 0,
         "PortFa1_7Utilization": 0,
@@ -13493,11 +13493,11 @@
         "ModuleFault": false,
         "ConfigFault": false,
         "TaskMaxScanTime": 320,
-        "TaskLastScanTime": 112,
-        "TaskLastIOTime": 83,
+        "TaskLastScanTime": 145,
+        "TaskLastIOTime": 97,
         "TaskMaxIOTime": 191,
-        "TaskAverageScanTime": 118,
-        "TaskAverageIOTime": 79
+        "TaskAverageScanTime": 112,
+        "TaskAverageIOTime": 75
       }
     },
     {
@@ -13578,12 +13578,12 @@
         "OutputCamPendingStatus": 0,
         "OutputCamLockStatus": 0,
         "OutputCamTransitionStatus": 0,
-        "ActualPosition": -9.953900337219238,
+        "ActualPosition": -9.999999747378752e-05,
         "StrobeActualPosition": 0.0,
-        "StartActualPosition": -9.943300247192383,
-        "AverageVelocity": -0.002016128972172737,
-        "ActualVelocity": 0.19999998807907104,
-        "ActualAcceleration": 199.99998474121094,
+        "StartActualPosition": 439.9997863769531,
+        "AverageVelocity": -0.0004032258002553135,
+        "ActualVelocity": 0.09999999403953552,
+        "ActualAcceleration": 24.999998092651367,
         "WatchPosition": 0.0,
         "Registration1Position": 0.0,
         "Registration1PositiveEdgePosition": 0.0,
@@ -13603,9 +13603,9 @@
         "MasterOffset": 0.0,
         "StrobeMasterOffset": 0.0,
         "StartMasterOffset": 0.0,
-        "CommandPosition": -9.954517364501953,
+        "CommandPosition": -0.0,
         "StrobeCommandPosition": 0.0,
-        "StartCommandPosition": -9.8903169631958,
+        "StartCommandPosition": 440.0,
         "DirectCommandVelocity": 0.0,
         "CommandVelocity": 0.0,
         "CommandAcceleration": 0.0,
@@ -13644,7 +13644,7 @@
         "PositionReference": 0.0,
         "PositionFeedback1": 0,
         "PositionFeedback2": 0,
-        "PositionError": -9.809943730942905e-05,
+        "PositionError": -0.0001307992497459054,
         "PositionIntegratorOutput": 0.0,
         "PositionLoopOutput": 0.0,
         "VelocityFineCommand": 0.0,
@@ -13679,7 +13679,7 @@
         "TorqueNotchFilter4WidthEstimate": 0.0,
         "TorqueLowPassFilterBandwidthEstimate": 0.0,
         "AdaptiveTuningGainScalingFactor": 0.0,
-        "CurrentCommand": 3.4861578941345215,
+        "CurrentCommand": -1.9760340452194214,
         "CurrentReference": 0.0,
         "CurrentFeedback": 0.0,
         "CurrentError": 0.0,
@@ -14369,12 +14369,12 @@
         "OutputCamPendingStatus": 0,
         "OutputCamLockStatus": 0,
         "OutputCamTransitionStatus": 0,
-        "ActualPosition": 0.00019999999494757503,
+        "ActualPosition": 0.0008999999845400453,
         "StrobeActualPosition": 0.0,
-        "StartActualPosition": 0.00019999999494757503,
-        "AverageVelocity": 0.000806451600510627,
-        "ActualVelocity": -0.19999998807907104,
-        "ActualAcceleration": -49.999996185302734,
+        "StartActualPosition": 0.0005000000237487257,
+        "AverageVelocity": 0.0012096773134544492,
+        "ActualVelocity": -0.14999999105930328,
+        "ActualAcceleration": 49.999996185302734,
         "WatchPosition": 0.0,
         "Registration1Position": 0.0,
         "Registration1PositiveEdgePosition": 0.0,
@@ -14435,7 +14435,7 @@
         "PositionReference": 0.0,
         "PositionFeedback1": 0,
         "PositionFeedback2": 0,
-        "PositionError": -0.00010902220674324781,
+        "PositionError": 0.0002725555095821619,
         "PositionIntegratorOutput": 0.0,
         "PositionLoopOutput": 0.0,
         "VelocityFineCommand": 0.0,
@@ -14452,7 +14452,7 @@
         "AccelerationFeedback": 0.0,
         "LoadObserverAccelerationEstimate": 0.0,
         "LoadObserverTorqueEstimate": 0.0,
-        "TorqueReference": 19.210325241088867,
+        "TorqueReference": 19.43990135192871,
         "TorqueReferenceFiltered": 0.0,
         "TorqueReferenceLimited": 0.0,
         "TorqueEstimate": 0.0,
@@ -14470,7 +14470,7 @@
         "TorqueNotchFilter4WidthEstimate": 0.0,
         "TorqueLowPassFilterBandwidthEstimate": 0.0,
         "AdaptiveTuningGainScalingFactor": 0.0,
-        "CurrentCommand": 19.898805618286133,
+        "CurrentCommand": 20.070249557495117,
         "CurrentReference": 0.0,
         "CurrentFeedback": 0.0,
         "CurrentError": 0.0,
@@ -15160,12 +15160,12 @@
         "OutputCamPendingStatus": 0,
         "OutputCamLockStatus": 0,
         "OutputCamTransitionStatus": 0,
-        "ActualPosition": 0.0017000000225380063,
+        "ActualPosition": 0.0003000000142492354,
         "StrobeActualPosition": 0.0,
-        "StartActualPosition": -0.0013000000035390258,
-        "AverageVelocity": -0.0012096773134544492,
-        "ActualVelocity": 0.3499999940395355,
-        "ActualAcceleration": 949.9999389648438,
+        "StartActualPosition": 417.6986083984375,
+        "AverageVelocity": 0.007258064113557339,
+        "ActualVelocity": -0.5999999642372131,
+        "ActualAcceleration": -524.9999389648438,
         "WatchPosition": 0.0,
         "Registration1Position": 0.0,
         "Registration1PositiveEdgePosition": 0.0,
@@ -15187,7 +15187,7 @@
         "StartMasterOffset": 0.0,
         "CommandPosition": -0.0,
         "StrobeCommandPosition": 0.0,
-        "StartCommandPosition": -0.0,
+        "StartCommandPosition": 417.70001220703125,
         "DirectCommandVelocity": 0.0,
         "CommandVelocity": 0.0,
         "CommandAcceleration": 0.0,
@@ -15226,7 +15226,7 @@
         "PositionReference": 0.0,
         "PositionFeedback1": 0,
         "PositionFeedback2": 0,
-        "PositionError": -0.000274658203125,
+        "PositionError": 0.000457763671875,
         "PositionIntegratorOutput": 0.0,
         "PositionLoopOutput": 0.0,
         "VelocityFineCommand": 0.0,
@@ -15261,7 +15261,7 @@
         "TorqueNotchFilter4WidthEstimate": 0.0,
         "TorqueLowPassFilterBandwidthEstimate": 0.0,
         "AdaptiveTuningGainScalingFactor": 0.0,
-        "CurrentCommand": 1.1424640417099,
+        "CurrentCommand": 0.3192729353904724,
         "CurrentReference": 0.0,
         "CurrentFeedback": 0.0,
         "CurrentError": 0.0,
@@ -15918,7 +15918,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 3,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": -9.953300476074219,
+        "ActualPosition": 9.999999747378752e-05,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -16729,7 +16729,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 1
+      "value": 2
     },
     {
       "name": "v_xyz",
@@ -16744,7 +16744,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0.5201561450958252
+      "value": 1.5999999046325684
     },
     {
       "name": "accel_xy",
@@ -16962,7 +16962,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0
+      "value": 3
     },
     {
       "name": "a_actual",
@@ -16992,7 +16992,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0.18027755618095398
+      "value": 0.1414213478565216
     },
     {
       "name": "current_command",
@@ -17180,7 +17180,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 1.0535533428192139
+      "value": 0.7414213418960571
     },
     {
       "name": "current_command_low",
@@ -17242,7 +17242,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 112.43949127197266
+      "value": 115.96778869628906
     },
     {
       "name": "LATCH_ACTUATOR_BOTTOM",
@@ -17290,7 +17290,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "LATCH_ACTUATOR_TOP",
@@ -17306,7 +17306,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "MACHINE_SW_STAT",
@@ -17467,7 +17467,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 11
+      "value": 1
     },
     {
       "name": "tension_stabilizing",
@@ -17615,10 +17615,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 200,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 200,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -17634,7 +17634,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 11
+      "value": 1
     },
     {
       "name": "latching_in_progress",
@@ -17961,7 +17961,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "Y_DELTA",
@@ -18178,7 +18178,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "Z_FIXED_PRESENT",
@@ -18194,7 +18194,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "Z_OK_TO_ENGAGE",
@@ -18287,7 +18287,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "Z_STAGE_PRESENT",
@@ -18303,7 +18303,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "Z_STAGE_UNLATCHED",
@@ -18391,8 +18391,8 @@
           "CalBits": 0,
           "CalFault": false,
           "Calibrating": false,
-          "Data": -0.02893533743917942,
-          "RollingTimestamp": 6396
+          "Data": -0.030761437490582466,
+          "RollingTimestamp": 30184
         },
         "Ch01": {
           "DataBits": 0,
@@ -18413,8 +18413,8 @@
           "CalBits": 0,
           "CalFault": false,
           "Calibrating": false,
-          "Data": 0.002279814565554261,
-          "RollingTimestamp": 6406
+          "Data": 0.002160741714760661,
+          "RollingTimestamp": 30194
         },
         "Ch02": {
           "DataBits": 2,
@@ -18587,20 +18587,20 @@
         "DiagnosticActive": false,
         "DiagnosticSequenceCount": 0,
         "Pt00": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt01": {
           "DataBits": 0,
           "Data": false,
           "Fault": false,
           "Uncertain": false
         },
-        "Pt02": {
+        "Pt01": {
           "DataBits": 1,
           "Data": true,
+          "Fault": false,
+          "Uncertain": false
+        },
+        "Pt02": {
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -18851,7 +18851,7 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 500,
-        "ACC": 134,
+        "ACC": 202,
         "EN": true,
         "TT": true,
         "DN": false
@@ -19937,11 +19937,11 @@
         "ConnectionStatus": 1,
         "RunMode": true,
         "ConnectionFaulted": false,
-        "FeedbackPosition1": -167,
+        "FeedbackPosition1": -695,
         "FeedbackVelocity1": 0.0,
         "SecondaryFeedbackPosition1": 0,
         "SecondaryFeedbackVelocity1": 0.0,
-        "FeedbackPosition2": 831,
+        "FeedbackPosition2": 832,
         "FeedbackVelocity2": 0.0,
         "SecondaryFeedbackPosition2": 0,
         "SecondaryFeedbackVelocity2": 0.0,
@@ -20032,10 +20032,10 @@
         "FeedbackResolution": 512,
         "Unwind": 512,
         "HomePosition": 0.0,
-        "FeedbackPosition": -167,
+        "FeedbackPosition": -695,
         "FeedbackVelocity": 0.0,
-        "ActualPosition": 0.673828125,
-        "ActualCycles": -1,
+        "ActualPosition": 0.642578125,
+        "ActualCycles": -2,
         "ActualSpeed": 0.0,
         "FaultType": 1,
         "DiagnosticCode": 0,
@@ -20564,7 +20564,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "DUNE2CAM1:I",
@@ -20582,15 +20582,15 @@
       "udt_name": "CC:InSight11_DINT8:I:0",
       "value": {
         "Status": {
-          "Status": 557955,
-          "TriggerReady": true,
+          "Status": 557586,
+          "TriggerReady": false,
           "TriggerAck": true,
           "MissedAcq": false,
-          "OfflineReason0": false,
+          "OfflineReason0": true,
           "OfflineReason1": false,
           "OfflineReason2": false,
-          "Online": true,
-          "SystemBusy": true,
+          "Online": false,
+          "SystemBusy": false,
           "InspectionCompleted": true,
           "ResultsBufferOverrun": false,
           "ResultsValid": false,
@@ -20613,7 +20613,7 @@
           "ErrorCode": 257,
           "NotUsedB6B7": null,
           "CurrentJobID": -1,
-          "AcquisitionID": -26274,
+          "AcquisitionID": 6375,
           "InspectionID": 0,
           "InspectionResultCode": 0
         },
@@ -20837,7 +20837,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0.002242663875222206
+      "value": 0.0022483791690319777
     },
     {
       "name": "winding_head_pid",
@@ -21128,7 +21128,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0.002242663875222206
+      "value": 0.0022483791690319777
     },
     {
       "name": "XY_DECEL_REQ",
@@ -21228,7 +21228,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 7,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": -9.954099655151367,
+        "ActualPosition": 9.999999747378752e-05,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -21558,7 +21558,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "QueueDiag_MoveA_IP",
@@ -22021,7 +22021,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "QueueDiag_QueueCtl_ER",
@@ -22296,7 +22296,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 3,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": -9.954500198364258,
+        "ActualPosition": 0.0,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -22458,7 +22458,7 @@
       ],
       "array_dimensions": 0,
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "STATE_REQUEST",
@@ -22612,5 +22612,5 @@
       "value": 2650
     }
   ],
-  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
+  "values_generated_at": "2026-04-08T19:04:47.706642+00:00"
 }

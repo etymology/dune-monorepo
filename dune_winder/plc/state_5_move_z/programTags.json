@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-07T20:41:44.902336+00:00",
+  "generated_at": "2026-04-08T19:04:32.246947+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_5_move_z",
   "main_routine_name": "main",
@@ -191,11 +191,11 @@
       "program": "state_5_move_z",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 134217728,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -578,11 +578,11 @@
       "program": "state_5_move_z",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 134217728,
         "EN": false,
         "DN": false,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -631,5 +631,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
+  "values_generated_at": "2026-04-08T19:04:47.706642+00:00"
 }

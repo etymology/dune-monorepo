@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-07T20:41:44.902336+00:00",
+  "generated_at": "2026-04-08T19:04:32.246947+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_3_move_xy",
   "main_routine_name": "main",
@@ -1348,7 +1348,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 300000.0
+      "value": 1200000.0
     },
     {
       "name": "Current_x",
@@ -1396,7 +1396,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1.8749973773956299
+      "value": 1.8750009536743164
     },
     {
       "name": "xy_i_term",
@@ -1477,7 +1477,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 440.0006103515625
+      "value": 439.9997863769531
     },
     {
       "name": "dy",
@@ -1493,7 +1493,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.0020000000949949026
+      "value": 0.0005000000237487257
     },
     {
       "name": "k",
@@ -1509,7 +1509,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1.8749973773956299
+      "value": 1.8750009536743164
     },
     {
       "name": "v_max",
@@ -1541,7 +1541,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 440.0006103515625
+      "value": 439.9997863769531
     },
     {
       "name": "starting_y",
@@ -1557,7 +1557,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -0.0020000000949949026
+      "value": 0.0005000000237487257
     },
     {
       "name": "d_raw",
@@ -1637,7 +1637,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -9.955100059509277
+      "value": 9.999999747378752e-05
     },
     {
       "name": "y_dist_to_target",
@@ -1653,7 +1653,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 9.999999747378752e-05
+      "value": 0.0003000000142492354
     },
     {
       "name": "near_ending",
@@ -1670,7 +1670,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "XY_SERVO_ON",
@@ -1790,7 +1790,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 9.955100059509277
+      "value": 0.0003162277862429619
     },
     {
       "name": "stopping_distance",
@@ -3075,7 +3075,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.4054441750049591
+      "value": 0.44694891571998596
     },
     {
       "name": "near_ending_trigger",
@@ -3177,5 +3177,5 @@
       "value": true
     }
   ],
-  "values_generated_at": "2026-04-07T20:42:01.692628+00:00"
+  "values_generated_at": "2026-04-08T19:04:47.706642+00:00"
 }
