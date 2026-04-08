@@ -37,6 +37,15 @@ class GCodeParserTests(unittest.TestCase):
     line = parse_line_text("  N1   X1   ( hello )   Y2  ")
     self.assertEqual(render_line(line), "N1 X1 ( hello ) Y2")
 
+  def test_parser_supports_symbolic_z_extend_with_pxz_recipe_order(self):
+    line = parse_line_text("G103 PF800 PF799 ZEXTEND PXZ")
+
+    self.assertEqual(render_line(line), "G103 PF800 PF799 PXZ ZEXTEND")
+    self.assertIsInstance(line.items[0], FunctionCall)
+    self.assertEqual(line.items[0].parameters, ["F800", "F799", "XZ"])
+    self.assertEqual(line.items[1].letter, "Z")
+    self.assertEqual(line.items[1].value, "EXTEND")
+
 
 class GCodeRuntimeTests(unittest.TestCase):
   def test_runtime_delivers_one_callback_per_instruction(self):

@@ -85,6 +85,7 @@ class GCodeHandlerBase:
       "_instruction_contains_x": self._instruction_contains_x,
       "_instruction_contains_y": self._instruction_contains_y,
       "_instruction_contains_z": self._instruction_contains_z,
+      "_instruction_force_xz": self._instruction_force_xz,
       "_instruction_queue_merge_mode": self._instruction_queue_merge_mode,
       "_line": self._line,
       "_delay": self._delay,
@@ -118,7 +119,9 @@ class GCodeHandlerBase:
 
     if command.letter == "Z":
       self._instruction_contains_z = True
-      self._z = float(command.value)
+      self._z = self._resolve_z_target(command.value)
+      if any(str(parameter).strip().upper() == "XZ" for parameter in command.parameters):
+        self._instruction_force_xz = True
       self._request_z_move()
       return
 
@@ -137,7 +140,7 @@ class GCodeHandlerBase:
     if (
       self._instruction_request_xy
       and self._instruction_request_z
-      and self._instruction_contains_x
+      and (self._instruction_contains_x or self._instruction_force_xz)
       and not self._instruction_contains_y
       and self._instruction_contains_z
     ):
@@ -174,6 +177,7 @@ class GCodeHandlerBase:
     self._instruction_contains_x = False
     self._instruction_contains_y = False
     self._instruction_contains_z = False
+    self._instruction_force_xz = False
     self._instruction_queue_merge_mode = None
 
     for item in line.items:
@@ -186,6 +190,23 @@ class GCodeHandlerBase:
         self._runFunction(item.as_legacy_parameter_list())
 
     self._queue_instruction_actions()
+
+  # ---------------------------------------------------------------------
+  def _resolve_z_target(self, value):
+    if isinstance(value, (int, float)):
+      return float(value)
+
+    text = str(value).strip()
+    try:
+      return float(text)
+    except ValueError:
+      pass
+
+    if text.upper() == "EXTEND":
+      return float(self._machineCalibration.zBack)
+
+    data = [str(value)]
+    raise GCodeExecutionError("Unknown Z target " + str(value) + ".", data)
 
   # ---------------------------------------------------------------------
   def _parameterExtract(self, parameters, start, finish, newType, errorMessage):
@@ -380,10 +401,12 @@ class GCodeHandlerBase:
 
     if "X" in axies:
       self._x = center.x
+      self._instruction_contains_x = True
       self._request_xy_move()
 
     if "Y" in axies:
       self._y = center.y
+      self._instruction_contains_y = True
       self._request_xy_move()
 
     # Save the Z center location (but don't act on it).
@@ -423,6 +446,7 @@ class GCodeHandlerBase:
           print("x", offset, end=" ")
 
         self._x += offset
+        self._instruction_contains_x = True
         self._request_xy_move()
 
       if "Y" == axis:
@@ -430,6 +454,7 @@ class GCodeHandlerBase:
           print("y", offset, end=" ")
 
         self._y += offset
+        self._instruction_contains_y = True
         self._request_xy_move()
 
       if GCodeHandlerBase.DEBUG_UNIT:
@@ -777,6 +802,7 @@ class GCodeHandlerBase:
     self._instruction_contains_x = False
     self._instruction_contains_y = False
     self._instruction_contains_z = False
+    self._instruction_force_xz = False
     self._instruction_queue_merge_mode = None
 
     # Current line number.

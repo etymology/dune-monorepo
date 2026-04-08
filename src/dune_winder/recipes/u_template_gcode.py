@@ -32,7 +32,7 @@ COMB_PULL_FACTOR = 3.0
 PREAMBLE_X = 7174.0
 PREAMBLE_Y = 60.0
 PREAMBLE_BOARD_GAP_PULL = -50.0
-COMBS = (592, 740, 888, 1043, 1191, 1754, 1902, 2050, 2198)
+COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
 PIN_MIN = 1
 PIN_MAX = 2401
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
@@ -191,7 +191,9 @@ def _apply_add_foot_pauses(lines):
     first_pin = int(match.group(1))
     second_pin = int(match.group(2))
     if _should_add_foot_pause(first_pin, second_pin):
-      updated_lines.append(_append_command_before_trailing_comments(line, "G111 (board gap)"))
+      updated_lines.append(
+        _append_command_before_trailing_comments(line, "G111 (board gap)")
+      )
       continue
 
     updated_lines.append(line)
@@ -245,7 +247,7 @@ def _conditional_offset_fragment(axis, condition_value, rendered_value):
 
 
 def _near_comb(pin_number):
-  return template_gcode_common.near_comb(pin_number, COMBS)
+  return template_gcode_common.near_comb(pin_number, COMBS, "U")
 
 
 def _coerce_bool(value):

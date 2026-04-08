@@ -31,7 +31,7 @@ Y_PULL_IN = 60.0
 X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 3.0
 PREAMBLE_BOARD_GAP_PULL = 30.0
-COMBS = (592, 740, 888, 1043, 1191, 1754, 1902, 2050, 2198)
+COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
 PIN_MIN = 1
 PIN_MAX = 2400
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
@@ -131,10 +131,11 @@ V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
 V_WRAP_FINAL_TAIL_SCRIPT = compile_template_script(
   (
     "emit G113 PPRECISE G103 PB2398 PB2399 PY G105 PY0 G111",
-    "emit G113 PPRECISE X440 Y2315 F300",
+    "emit G113 PPRECISE X440 Y2250 F300",
     "emit ${g106(0)}",
     "emit G113 PPRECISE X440 Y2335",
     "emit G113 PPRECISE X650 Y2335 G111",
+    "emit G113 PPRECISE X1200 Y2335 G111",
     "emit G113 PPRECISE X440 Y2335",
   )
 )
@@ -144,25 +145,23 @@ V_WRAP_BASE_SCRIPT_XZ = compile_template_script(
     "emit (------------------STARTING LOOP ${wrap}------------------)",
     "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
     "emit G206 P2",
-    "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} ZEXTEND PXZ ${offset('PX', offsets[1])}  (Top A corner - foot end)",
-    "emit G206 P0",
+    "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} Z0 PXZ ${offset('PX', offsets[1])}  (Top A corner - foot end)",
     "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
     "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Foot A corner)",
     "emit G206 P1",
-    "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} ZEXTEND PYZ ${offset('PY', offsets[3])}  (Foot B corner)",
     "emit G206 P3",
-    "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+    "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[3])}  (Foot B corner)",
+    "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset('PY', offsets[3])}",
     "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
     "emit G206 P2",
-    "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} ZEXTEND PXZ ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
-    "emit G206 P0",
+    "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} Z0 PXZ ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
     "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
     "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "emit G206 P1",
-    "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} ZEXTEND PXZ ${offset('PX', offsets[7])} (Top B corner - head end)",
     "emit G206 P3",
-    "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
+    "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[7])}",
     "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
 )
@@ -171,9 +170,9 @@ V_WRAP_NORMAL_TAIL_SCRIPT_XZ = compile_template_script(
   (
     "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
     "emit G206 P2",
-    "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} ZEXTEND PYZ ${offset('PY', offsets[9])} (Head A corner)",
     "emit G206 P0",
-    "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)}",
+    "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1}  PXY ${offset('PY', offsets[9])} (Head A corner)",
+    "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset('PY', offsets[9])}",
     "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
     "emit G206 P1",
     "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ZEXTEND PXZ ${offset('PX', offsets[11])} (Bottom B corner - head end)",
@@ -195,6 +194,8 @@ V_WRAP_FINAL_TAIL_SCRIPT_XZ = compile_template_script(
 )
 
 _G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
+SCRIPT_VARIANT_DEFAULT = "default"
+SCRIPT_VARIANT_XZ = "xz"
 
 
 def _apply_strip_g113_params(lines):
@@ -245,8 +246,8 @@ def _append_command_before_trailing_comments(line, command):
   if body.endswith(" " + command) or body == command:
     return str(line)
   if comments:
-    return normalize_line_text(" ".join([body, command] + comments))
-  return normalize_line_text(body + " " + command)
+    return _normalize_generated_line_text(" ".join([body, command] + comments))
+  return _normalize_generated_line_text(body + " " + command)
 
 
 def _apply_add_foot_pauses(lines):
@@ -273,6 +274,18 @@ class VTemplateInputError(ValueError):
   pass
 
 
+def _normalize_script_variant(script_variant):
+  if script_variant is None:
+    return SCRIPT_VARIANT_DEFAULT
+
+  normalized = str(script_variant).strip().lower()
+  if normalized in ("", "default", "normal", "standard"):
+    return SCRIPT_VARIANT_DEFAULT
+  if normalized == SCRIPT_VARIANT_XZ:
+    return SCRIPT_VARIANT_XZ
+  raise VTemplateInputError("Unsupported V script variant: " + repr(script_variant))
+
+
 def _format_number(value):
   return template_gcode_common.format_number(value)
 
@@ -288,11 +301,18 @@ def _normalize_pin_tokens(text):
   return template_gcode_common.normalize_pin_tokens(text, _wrap_pin_number)
 
 
+def _normalize_generated_line_text(text):
+  normalized = " ".join(str(text).split())
+  if "PXZ" in normalized or "ZEXTEND" in normalized:
+    return normalized
+  return normalize_line_text(normalized)
+
+
 def _line(*parts):
   return template_gcode_common.build_line(
     parts,
     normalize_pin_tokens_fn=_normalize_pin_tokens,
-    normalize_line_text_fn=normalize_line_text,
+    normalize_line_text_fn=_normalize_generated_line_text,
   )
 
 
@@ -309,7 +329,7 @@ def _g106(mode):
 
 
 def _near_comb(pin_number):
-  return template_gcode_common.near_comb(pin_number, COMBS)
+  return template_gcode_common.near_comb(pin_number, COMBS, "V")
 
 
 def _coerce_bool(value):
@@ -477,6 +497,7 @@ def _render_wrap_lines(
   transfer_pause,
   include_lead_mode,
   pull_ins,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   final_wrap=False,
 ):
   lines = []
@@ -508,15 +529,25 @@ def _render_wrap_lines(
     "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
   }
 
+  script_variant = _normalize_script_variant(script_variant)
+  if script_variant == SCRIPT_VARIANT_XZ:
+    base_script = V_WRAP_BASE_SCRIPT_XZ
+    normal_tail_script = V_WRAP_NORMAL_TAIL_SCRIPT_XZ
+    final_tail_script = V_WRAP_FINAL_TAIL_SCRIPT_XZ
+  else:
+    base_script = V_WRAP_BASE_SCRIPT
+    normal_tail_script = V_WRAP_NORMAL_TAIL_SCRIPT
+    final_tail_script = V_WRAP_FINAL_TAIL_SCRIPT
+
   execute_template_script(
-    V_WRAP_BASE_SCRIPT,
+    base_script,
     environment=environment,
     output_lines=lines,
     line_builder=_line,
     transfers=transfers,
   )
 
-  tail_script = V_WRAP_FINAL_TAIL_SCRIPT if final_wrap else V_WRAP_NORMAL_TAIL_SCRIPT
+  tail_script = final_tail_script if final_wrap else normal_tail_script
   execute_template_script(
     tail_script,
     environment=environment,
@@ -535,6 +566,7 @@ def render_v_template_lines(
   add_foot_pauses=False,
   include_lead_mode=False,
   strip_g113_params=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
   cell_overrides=None,
@@ -554,6 +586,7 @@ def render_v_template_lines(
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
   )
+  script_variant = _normalize_script_variant(script_variant)
 
   lines = [
     "( V Layer )",
@@ -580,6 +613,7 @@ def render_v_template_lines(
         transfer_pause_value,
         include_lead_mode_value,
         pull_ins,
+        script_variant=script_variant,
       )
     )
 
@@ -590,6 +624,7 @@ def render_v_template_lines(
       transfer_pause_value,
       include_lead_mode_value,
       pull_ins,
+      script_variant=script_variant,
       final_wrap=True,
     )
   )
@@ -605,11 +640,13 @@ def render_v_template_text_lines(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   return render_v_template_lines(
     add_foot_pauses=add_foot_pauses,
+    script_variant=script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
@@ -667,12 +704,14 @@ def write_v_template_text_file(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   output = Path(output_path)
   lines = render_v_template_text_lines(
     add_foot_pauses=add_foot_pauses,
+    script_variant=script_variant,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -708,11 +747,13 @@ def write_v_template_file(
   add_foot_pauses=False,
   include_lead_mode=False,
   strip_g113_params=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
   archive_directory=None,
   parent_hash=None,
 ):
+  resolved_script_variant = _normalize_script_variant(script_variant)
   (
     resolved_offsets,
     resolved_transfer_pause,
@@ -733,6 +774,7 @@ def write_v_template_file(
     add_foot_pauses=add_foot_pauses,
     include_lead_mode=include_lead_mode,
     strip_g113_params=strip_g113_params,
+    script_variant=resolved_script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
@@ -753,6 +795,7 @@ def write_v_template_file(
     "addFootPauses": resolved_add_foot_pauses,
     "includeLeadMode": resolved_include_lead_mode,
     "pullIns": dict(resolved_pull_ins),
+    "scriptVariant": resolved_script_variant,
     "wrapCount": WRAP_COUNT,
   }
 

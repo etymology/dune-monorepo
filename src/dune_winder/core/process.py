@@ -84,6 +84,7 @@ class Process:
         gCodeHandler=getattr(self, "gCodeHandler", None),
         log=getattr(self, "_log", None),
         systemTime=getattr(self, "_systemTime", None),
+        controlStateMachine=getattr(self, "controlStateMachine", None),
         resetWindTime=getattr(getattr(self, "controlStateMachine", None), "resetWindTime", None),
         getWindTime=getattr(getattr(self, "controlStateMachine", None), "getWindTime", None),
       )
@@ -202,6 +203,7 @@ class Process:
       gCodeHandler=self.gCodeHandler,
       log=self._log,
       systemTime=self._systemTime,
+      controlStateMachine=self.controlStateMachine,
       resetWindTime=self.controlStateMachine.resetWindTime,
       getWindTime=self.controlStateMachine.getWindTime,
     )
@@ -406,6 +408,9 @@ class Process:
   # ---------------------------------------------------------------------
   def getRecipePeriod(self):
     return self._recipeService().getRecipePeriod()
+
+  def getLayerCalibration(self):
+    return self._playbackService().getLayerCalibration()
 
   # ---------------------------------------------------------------------
   def getWrapSeekLine(self, wrap):

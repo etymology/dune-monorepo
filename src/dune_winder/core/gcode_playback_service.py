@@ -122,6 +122,50 @@ class GCodePlaybackService:
       result = self._gCodeHandler.getDirection()
     return result
 
+  def getLayerCalibration(self):
+    calibration = self._gCodeHandler.getLayerCalibration()
+    if calibration is None:
+      return None
+
+    def pin_sort_key(name):
+      text = str(name)
+      prefix_rank = 0 if text.startswith("F") else 1 if text.startswith("B") else 2
+      suffix = text[1:]
+      try:
+        pin_number = int(suffix)
+      except (TypeError, ValueError):
+        pin_number = 0
+      return (prefix_rank, pin_number, text)
+
+    offset = getattr(calibration, "offset", None)
+    offset_x = float(getattr(offset, "x", 0.0))
+    offset_y = float(getattr(offset, "y", 0.0))
+    offset_z = float(getattr(offset, "z", 0.0))
+
+    pins = []
+    for pin_name in sorted(calibration.getPinNames(), key=pin_sort_key):
+      location = calibration.getPinLocation(pin_name)
+      pins.append(
+        {
+          "name": str(pin_name),
+          "x": float(getattr(location, "x", 0.0)) + offset_x,
+          "y": float(getattr(location, "y", 0.0)) + offset_y,
+          "z": float(getattr(location, "z", 0.0)) + offset_z,
+        }
+      )
+
+    return {
+      "layer": getattr(calibration, "_layer", None),
+      "zFront": float(getattr(calibration, "zFront", 0.0)),
+      "zBack": float(getattr(calibration, "zBack", 0.0)),
+      "offset": {
+        "x": offset_x,
+        "y": offset_y,
+        "z": offset_z,
+      },
+      "pins": pins,
+    }
+
   def setG_CodeDirection(self, isForward):
     isError = True
     if self._gCodeHandler.isG_CodeLoaded():

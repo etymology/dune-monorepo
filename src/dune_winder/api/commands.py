@@ -531,6 +531,15 @@ def build_command_registry(
     True,
   )
 
+  registry.register(
+    "process.v_template.generate_recipe_file_xz",
+    lambda args: (
+      _validateArgs(args),
+      process.vTemplateRecipe.generateRecipeFile(scriptVariant="xz"),
+    )[1],
+    True,
+  )
+
   def u_template_set_offset(args):
     _validateArgs(args, required=("offset_id", "value"))
     return process.uTemplateRecipe.setOffset(
@@ -644,10 +653,47 @@ def build_command_registry(
     False,
   )
   registry.register(
+    "process.get_layer_calibration",
+    lambda args: (_validateArgs(args), process.getLayerCalibration())[1],
+    False,
+  )
+  registry.register(
     "process.get_workspace_state",
     lambda args: (_validateArgs(args), process.getWorkspaceState())[1],
     False,
   )
+
+  def process_find_uv_pin_segment(args):
+    _validateArgs(
+      args,
+      required=("side", "board_side", "board_number", "pin_number"),
+    )
+    if process.workspace is None:
+      raise ValueError("No workspace is loaded.")
+    return process.workspace.findUvPinSegment(
+      _asString(args["side"], "side"),
+      _asString(args["board_side"], "board_side"),
+      _asInt(args["board_number"], "board_number"),
+      _asInt(args["pin_number"], "pin_number"),
+    )
+
+  registry.register("process.find_uv_pin_segment", process_find_uv_pin_segment, False)
+
+  def process_jump_to_uv_pin_segment(args):
+    _validateArgs(
+      args,
+      required=("side", "board_side", "board_number", "pin_number"),
+    )
+    if process.workspace is None:
+      raise ValueError("No workspace is loaded.")
+    return process.workspace.jumpToUvPinSegment(
+      _asString(args["side"], "side"),
+      _asString(args["board_side"], "board_side"),
+      _asInt(args["board_number"], "board_number"),
+      _asInt(args["pin_number"], "pin_number"),
+    )
+
+  registry.register("process.jump_to_uv_pin_segment", process_jump_to_uv_pin_segment, True)
 
   def process_get_wrap_seek_line(args):
     _validateArgs(args, required=("wrap",))

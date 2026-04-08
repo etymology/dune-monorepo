@@ -798,6 +798,31 @@ function GCodeGeneration( modules )
     runNext()
   }
 
+  function generateVRecipe( commandName, successMessage )
+  {
+    var actions = buildVSaveActions()
+    if ( ! actions )
+      return
+
+    runSequentialPageActions
+    (
+      actions,
+      function()
+      {
+        pageAction
+        (
+          commandName,
+          {},
+          function()
+          {
+            setMessage( successMessage, "success" )
+            refreshVStateOnce()
+          }
+        )
+      }
+    )
+  }
+
   function buildVSaveActions()
   {
     var actions = []
@@ -1388,26 +1413,21 @@ function GCodeGeneration( modules )
     (
       function()
       {
-        var actions = buildVSaveActions()
-        if ( ! actions )
-          return
+        generateVRecipe(
+          commands.process.vTemplateGenerateRecipeFile,
+          "Generated the live V-layer.gc recipe."
+        )
+      }
+    )
 
-        runSequentialPageActions
-        (
-          actions,
-          function()
-          {
-            pageAction
-            (
-              commands.process.vTemplateGenerateRecipeFile,
-              {},
-              function()
-              {
-                setMessage( "Generated the live V-layer.gc recipe.", "success" )
-                refreshVStateOnce()
-              }
-            )
-          }
+  $( "#gCodeGenerationVGenerateXZButton" )
+    .click
+    (
+      function()
+      {
+        generateVRecipe(
+          "process.v_template.generate_recipe_file_xz",
+          "Generated the live V-layer.gc recipe with the XZ base script."
         )
       }
     )

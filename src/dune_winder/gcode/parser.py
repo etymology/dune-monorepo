@@ -59,12 +59,20 @@ def _validate_numeric_parameter(
   parameter: str,
   command_string: str,
 ) -> None:
-  if code in ("F", "X", "Y", "Z"):
+  if code in ("F", "X", "Y"):
     try:
       float(parameter)
     except ValueError as exception:
       data = [command_string, code, parameter]
       raise GCodeParseError("Invalid parameter data " + parameter, data) from exception
+
+  elif code == "Z":
+    try:
+      float(parameter)
+    except ValueError:
+      if str(parameter).strip().upper() != "EXTEND":
+        data = [command_string, code, parameter]
+        raise GCodeParseError("Invalid parameter data " + parameter, data)
 
   elif code in ("M", "N"):
     try:
@@ -77,6 +85,7 @@ def _validate_numeric_parameter(
 def parse_line_text(line: str) -> ProgramLine:
   program_line = ProgramLine()
   last_item: CommandWord | FunctionCall | None = None
+  previous_item: CommandWord | FunctionCall | None = None
 
   for token_type, token_value in _tokenize_line(str(line)):
     if "comment" == token_type:
@@ -92,10 +101,16 @@ def parse_line_text(line: str) -> ProgramLine:
         data = [command_string, code, parameter]
         raise GCodeParseError("Unassigned parameter " + parameter, data)
 
-      if isinstance(last_item, CommandWord):
-        _validate_numeric_parameter(last_item.letter, parameter, command_string)
+      attach_target = last_item
+      if (
+        isinstance(last_item, CommandWord)
+        and "Z" == last_item.letter
+        and str(parameter).strip().upper() == "XZ"
+        and isinstance(previous_item, FunctionCall)
+      ):
+        attach_target = previous_item
 
-      last_item.parameters.append(parameter)
+      attach_target.parameters.append(parameter)
       continue
 
     if code not in SUPPORTED_COMMAND_LETTERS:
@@ -109,6 +124,7 @@ def parse_line_text(line: str) -> ProgramLine:
       item = CommandWord(code, parameter, [])
 
     program_line.append(item)
+    previous_item = last_item
     last_item = item
 
   return program_line

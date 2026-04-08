@@ -460,7 +460,7 @@ class TemplateRecipeBase:
     )
 
   # -------------------------------------------------------------------
-  def generateRecipeFile(self):
+  def generateRecipeFile(self, scriptVariant=None):
     self._ensureDraftStateLoaded()
 
     layer, error = self._getActiveLayer()
@@ -476,16 +476,19 @@ class TemplateRecipeBase:
       os.makedirs(outputDirectory)
 
     outputPath = self._liveFilePath()
-    generation = self.write_template_file(
-      outputPath,
-      offsets=[self._offsets[offsetId] for offsetId in self.OFFSET_IDS],
-      transfer_pause=self._transferPause,
-      add_foot_pauses=self._addFootPauses,
-      include_lead_mode=self._includeLeadMode,
-      strip_g113_params=self._stripG113Params,
-      archive_directory=self._recipeArchiveDirectory(),
+    generation_kwargs = {
+      "offsets": [self._offsets[offsetId] for offsetId in self.OFFSET_IDS],
+      "transfer_pause": self._transferPause,
+      "add_foot_pauses": self._addFootPauses,
+      "include_lead_mode": self._includeLeadMode,
+      "strip_g113_params": self._stripG113Params,
+      "archive_directory": self._recipeArchiveDirectory(),
       **self._generationKwargs(),
-    )
+    }
+    if scriptVariant is not None:
+      generation_kwargs["script_variant"] = scriptVariant
+
+    generation = self.write_template_file(outputPath, **generation_kwargs)
 
     updatedAt = str(self._process._systemTime.get())
     self._generated = {
@@ -513,6 +516,7 @@ class TemplateRecipeBase:
         outputPath,
         generation["hashValue"],
         generation["wrapCount"],
+        generation.get("scriptVariant"),
         self._transferPause,
         self._addFootPauses,
         self._includeLeadMode,

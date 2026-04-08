@@ -88,6 +88,20 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertTrue(result["ok"])
       self.assertTrue(os.path.isfile(os.path.join(process.workspace._recipeDirectory, "V-layer.gc")))
 
+  def test_v_recipe_generation_supports_xz_script_variant(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("V", rootDirectory)
+      service = VTemplateRecipe(process)
+
+      result = service.generateRecipeFile(scriptVariant="xz")
+
+      self.assertTrue(result["ok"])
+      recipePath = os.path.join(process.workspace._recipeDirectory, "V-layer.gc")
+      self.assertTrue(os.path.isfile(recipePath))
+      with open(recipePath, encoding="utf-8") as handle:
+        recipeText = handle.read()
+      self.assertIn("PXZ", recipeText)
+
   def test_u_recipe_generation_is_allowed_while_machine_is_busy(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = FakeProcess("U", rootDirectory)

@@ -104,6 +104,16 @@ class VTemplateGCodeTests(unittest.TestCase):
       lines,
     )
 
+  def test_xz_script_variant_uses_xz_base_script(self):
+    lines = render_v_template_text_lines(script_variant="xz")
+
+    self.assertEqual(
+      lines[7],
+      "N7 " + self.MERGE + "(1,4) G109 PB1999 PLT G103 PF800 PF799 Z0 PXZ (Top A corner - foot end)",
+    )
+    self.assertEqual(lines[8], "N8 (1,5) G206 P0")
+    self.assertIn("ZEXTEND PXZ", "\n".join(lines))
+
   def test_offset_vector_maps_to_all_twelve_adjustment_sites(self):
     generator = VTemplateProgrammaticGenerator(
       special_inputs={"offsets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13]}
@@ -234,6 +244,15 @@ class VTemplateGCodeTests(unittest.TestCase):
       )
 
     self.assertTrue(recipe["addFootPauses"])
+
+  def test_xz_script_variant_is_reported_in_recipe_metadata(self):
+    with tempfile.TemporaryDirectory() as directory:
+      recipe = write_v_template_file(
+        Path(directory) / "V-layer.gc",
+        script_variant="xz",
+      )
+
+    self.assertEqual(recipe["scriptVariant"], "xz")
 
 
 if __name__ == "__main__":
