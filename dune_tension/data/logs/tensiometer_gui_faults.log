@@ -1,0 +1,82 @@
+
+[2026-04-10T11:52:22] starting fault capture pid=52360 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:00:09] starting fault capture pid=53123 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:07:26] starting fault capture pid=54196 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:15:57] starting fault capture pid=56349 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:29:59] starting fault capture pid=59232 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:30:50] starting fault capture pid=59397 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:38:43] starting fault capture pid=60665 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:41:07] starting fault capture pid=60885 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:50:56] starting fault capture pid=62902 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T12:53:15] starting fault capture pid=63289 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:05:14] starting fault capture pid=65247 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:07:45] starting fault capture pid=65721 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:13:17] starting fault capture pid=66323 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:22:06] starting fault capture pid=67013 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:32:51] starting fault capture pid=68891 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:36:18] starting fault capture pid=69256 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:44:05] starting fault capture pid=70154 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:52:20] starting fault capture pid=70914 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T13:53:36] starting fault capture pid=71047 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:16:31] starting fault capture pid=74224 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:19:08] starting fault capture pid=74584 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:21:56] starting fault capture pid=75058 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:26:17] starting fault capture pid=75570 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:42:55] starting fault capture pid=4340 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:43:07] starting fault capture pid=4379 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T14:56:49] starting fault capture pid=6796 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T15:03:55] starting fault capture pid=7528 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T15:43:44] starting fault capture pid=10616 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T15:44:42] starting fault capture pid=10743 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T15:47:35] starting fault capture pid=11127 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:00:43] starting fault capture pid=13795 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:17:16] starting fault capture pid=16953 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:20:41] starting fault capture pid=17457 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:28:40] starting fault capture pid=18196 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:31:09] starting fault capture pid=4244 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:33:32] starting fault capture pid=5752 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:46:05] starting fault capture pid=3017 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T16:52:37] starting fault capture pid=3545 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T17:07:27] starting fault capture pid=7034 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T17:09:47] starting fault capture pid=7427 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-10T17:16:25] starting fault capture pid=7968 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
