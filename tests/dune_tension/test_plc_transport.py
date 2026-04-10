@@ -146,6 +146,33 @@ def test_desktop_seek_xy_resets_while_waiting_for_ready_then_moves(monkeypatch):
     assert ("process.manual_seek_xy", {"x": 1.0, "y": 2.0, "velocity": 300.0}) in calls
 
 
+def test_desktop_seek_xy_can_return_after_command_acceptance(monkeypatch):
+    calls = []
+    monkeypatch.setattr(desktop.time, "sleep", lambda _seconds: None)
+
+    def _post_command(name, args):
+        calls.append((name, args))
+        if name == "process.get_control_state_name":
+            return {"ok": True, "data": "StopMode"}
+        if name == "process.manual_seek_xy":
+            return {"ok": True, "data": False}
+        return {"ok": True, "data": None}
+
+    monkeypatch.setattr(desktop, "_post_command", _post_command)
+
+    assert desktop.desktop_seek_xy(
+        1.0,
+        2.0,
+        300.0,
+        move_timeout=0.5,
+        wait_for_completion=False,
+    ) is True
+    assert calls == [
+        ("process.get_control_state_name", {}),
+        ("process.manual_seek_xy", {"x": 1.0, "y": 2.0, "velocity": 300.0}),
+    ]
+
+
 def test_invalid_mode_falls_back_to_desktop_with_warning(monkeypatch, caplog):
     monkeypatch.setenv("PLC_IO_MODE", "banana")
     monkeypatch.setattr(desktop, "desktop_read_tag", lambda _tag_name: 123)

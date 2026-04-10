@@ -1137,3 +1137,104 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
     assert focus_deltas == [100]
     assert motion.moves[0][0] == pytest.approx(999.7113, abs=0.02)
     assert motion.moves[0][1] == pytest.approx(2000.0, abs=0.02)
+    assert motion.moves[1][0] == pytest.approx(1009.7113, abs=0.02)
+    assert motion.moves[1][1] == pytest.approx(2000.1, abs=0.02)
+
+
+def test_optimizer_manual_focus_moves_along_wire_diagonal(monkeypatch):
+    motion = _make_motion_service(start_x=1000.0, start_y=2000.0)
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="U",
+        side="B",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        measuring_duration=10.0,
+        use_manual_focus=True,
+        gauss_func=lambda mean, sigma: mean + sigma,
+    )
+    tensiometer.strum_func = lambda: None
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 80.0 if frequency is None else float(frequency),
+            "tension": 6.0,
+        },
+    )
+
+    stop_checks = {"count": 0}
+
+    def _check_stop(_event, _msg=""):
+        stop_checks["count"] += 1
+        return stop_checks["count"] >= 2
+
+    monkeypatch.setattr(tensiometer_module, "check_stop_event", _check_stop)
+
+    tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2000.0,
+        wire_x=1000.0,
+    )
+
+    assert motion.moves[0][0] == pytest.approx(1010.0, abs=0.02)
+    assert motion.moves[0][1] == pytest.approx(1992.8125, abs=0.02)
+
+
+def test_optimizer_reposition_does_not_wait_for_move_completion(monkeypatch):
+    motion = _make_motion_service(start_x=1000.0, start_y=2000.0)
+    move_kwargs: list[dict[str, object]] = []
+
+    def goto_xy(x: float, y: float, **kwargs) -> bool:
+        move_kwargs.append(dict(kwargs))
+        motion.moves.append((x, y))
+        motion.state["x"] = float(x)
+        motion.state["y"] = float(y)
+        return True
+
+    motion.goto_xy = goto_xy
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        measuring_duration=10.0,
+        gauss_func=lambda mean, sigma: mean + sigma,
+    )
+    tensiometer.strum_func = lambda: None
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 80.0 if frequency is None else float(frequency),
+            "tension": 6.0,
+        },
+    )
+
+    stop_checks = {"count": 0}
+
+    def _check_stop(_event, _msg=""):
+        stop_checks["count"] += 1
+        return stop_checks["count"] >= 2
+
+    monkeypatch.setattr(tensiometer_module, "check_stop_event", _check_stop)
+
+    tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2000.0,
+        wire_x=1000.0,
+    )
+
+    assert move_kwargs == [{"wait_for_completion": False}]

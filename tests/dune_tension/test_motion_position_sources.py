@@ -25,6 +25,7 @@ def test_motion_service_prefers_backlash_aware_cached_xy(monkeypatch):
     motion = MotionService.build(spoof_movement=False)
 
     assert motion.get_xy() == (30.0, 40.0)
+    assert motion.get_live_xy() == (10.0, 20.0)
 
 
 def test_motion_service_uses_generic_plc_availability_when_present(monkeypatch):
@@ -45,6 +46,7 @@ def test_motion_service_uses_generic_plc_availability_when_present(monkeypatch):
     motion = MotionService.build(spoof_movement=False)
 
     assert motion.get_xy() == (30.0, 40.0)
+    assert motion.get_live_xy() == (10.0, 20.0)
 
 
 def test_motion_service_falls_back_to_spoof_when_plc_unavailable(monkeypatch):
@@ -63,8 +65,9 @@ def test_motion_service_falls_back_to_spoof_when_plc_unavailable(monkeypatch):
 
     motion = MotionService.build(spoof_movement=False)
 
-    assert motion.get_xy() == (-1.0, -2.0)
-    assert motion.goto_xy(1.0, 2.0) == "spoofed"
+    assert motion.get_xy() == (30.0, 40.0)
+    assert motion.get_live_xy() == (10.0, 20.0)
+    assert motion.goto_xy(1.0, 2.0) is False
 
 
 def test_motion_service_spoof_flag_overrides_live_plc(monkeypatch):
@@ -84,6 +87,7 @@ def test_motion_service_spoof_flag_overrides_live_plc(monkeypatch):
     motion = MotionService.build(spoof_movement=True)
 
     assert motion.get_xy() == (-3.0, -4.0)
+    assert motion.get_live_xy() == (-3.0, -4.0)
     assert motion.goto_xy(1.0, 2.0) == "spoofed"
 
 

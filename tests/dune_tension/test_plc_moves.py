@@ -14,7 +14,7 @@ from dune_tension.config import GEOMETRY_CONFIG
 def _setup(
     monkeypatch,
     start_x: float = 2000.0,
-    start_y: float = float(GEOMETRY_CONFIG.y_min),
+    start_y: float = float(GEOMETRY_CONFIG.measurable_y_min),
 ):
     moves = []
     cur = {"x": None, "y": None}
@@ -42,18 +42,18 @@ def _setup(
 
 def test_crossing_comb_splits_move(monkeypatch):
     moves = _setup(monkeypatch)
-    plc.goto_xy(3500.0, float(GEOMETRY_CONFIG.y_max))
+    plc.goto_xy(3500.0, float(GEOMETRY_CONFIG.measurable_y_max))
     assert moves == [
-        (2000.0, float(GEOMETRY_CONFIG.y_min)),
-        (3500.0, float(GEOMETRY_CONFIG.y_min)),
-        (3500.0, float(GEOMETRY_CONFIG.y_max)),
+        (2000.0, float(GEOMETRY_CONFIG.measurable_y_min)),
+        (3500.0, float(GEOMETRY_CONFIG.measurable_y_min)),
+        (3500.0, float(GEOMETRY_CONFIG.measurable_y_max)),
     ]
 
 
 def test_no_crossing_single_move(monkeypatch):
     moves = _setup(monkeypatch)
-    plc.goto_xy(2100.0, float(GEOMETRY_CONFIG.y_max))
-    assert moves == [(2100.0, float(GEOMETRY_CONFIG.y_max))]
+    plc.goto_xy(2100.0, float(GEOMETRY_CONFIG.measurable_y_max))
+    assert moves == [(2100.0, float(GEOMETRY_CONFIG.measurable_y_max))]
 
 
 def test_get_cached_xy_seeds_tracking_from_live_read(monkeypatch):
@@ -69,14 +69,14 @@ def test_goto_xy_uses_manual_seek_path_in_desktop_mode(monkeypatch):
 
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "desktop")
     monkeypatch.setattr(plc, "_ensure_tracked_xy", lambda: (2000.0, 100.0))
-    monkeypatch.setattr(plc, "is_motion_target_in_bounds", lambda *_args: True)
+    monkeypatch.setattr(plc, "is_in_measurable_area", lambda *_args: True)
     monkeypatch.setattr(plc, "write_tag", lambda *_args, **_kwargs: (_ for _ in ()).throw(
         AssertionError("desktop goto_xy should not write motion tags directly")
     ))
     monkeypatch.setattr(
         "dune_tension.plc_desktop.desktop_seek_xy",
-        lambda x, y, speed, move_timeout, idle_timeout=20.0: (
-            seek_calls.append((x, y, speed, move_timeout, idle_timeout)) or True
+        lambda x, y, speed, move_timeout, idle_timeout=20.0, wait_for_completion=True: (
+            seek_calls.append((x, y, speed, move_timeout, idle_timeout, wait_for_completion)) or True
         ),
     )
     plc._TRUE_XY = [2000.0, 100.0]
@@ -86,7 +86,24 @@ def test_goto_xy_uses_manual_seek_path_in_desktop_mode(monkeypatch):
     moved = plc.goto_xy(2100.0, 250.0, speed=123.0, move_timeout=9.0, idle_timeout=4.0)
 
     assert moved is True
-    assert seek_calls == [(2100.0, 250.0, 123.0, 9.0, 4.0)]
+    assert seek_calls == [(2100.0, 250.0, 123.0, 9.0, 4.0, True)]
+
+
+def test_goto_xy_can_skip_waiting_for_move_completion(monkeypatch):
+    moves = _setup(monkeypatch)
+    movetype_reads = {"count": 0}
+    monkeypatch.setattr(plc, "get_movetype", lambda: movetype_reads.__setitem__("count", movetype_reads["count"] + 1) or plc.XY_MOVE_TYPE)
+
+    moved = plc.goto_xy(
+        2100.0,
+        float(GEOMETRY_CONFIG.measurable_y_max),
+        move_timeout=1.0,
+        wait_for_completion=False,
+    )
+
+    assert moved is True
+    assert moves == [(2100.0, float(GEOMETRY_CONFIG.measurable_y_max))]
+    assert movetype_reads["count"] == 0
 
 
 def test_goto_xy_clears_move_type_when_xy_seek_times_out_without_motion(monkeypatch):
@@ -102,16 +119,16 @@ def test_goto_xy_clears_move_type_when_xy_seek_times_out_without_motion(monkeypa
     monkeypatch.setattr(plc, "get_movetype", lambda: plc.XY_MOVE_TYPE)
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
-    monkeypatch.setattr(plc, "get_xy", lambda: (2000.0, float(GEOMETRY_CONFIG.y_min)))
+    monkeypatch.setattr(plc, "get_xy", lambda: (2000.0, float(GEOMETRY_CONFIG.measurable_y_min)))
     monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
     monkeypatch.setattr(plc.time, "monotonic", lambda: next(monotonic_values))
-    plc._TRUE_XY = [2000.0, float(GEOMETRY_CONFIG.y_min)]
+    plc._TRUE_XY = [2000.0, float(GEOMETRY_CONFIG.measurable_y_min)]
     plc._LAST_X_DIR = 0
     plc._X_DEADZONE_LEFT = 0.0
 
     moved = plc.goto_xy(
         2100.0,
-        float(GEOMETRY_CONFIG.y_max),
+        float(GEOMETRY_CONFIG.measurable_y_max),
         move_timeout=1.0,
     )
 
@@ -132,16 +149,16 @@ def test_goto_xy_does_not_clear_move_type_when_xy_seek_times_out_after_motion(mo
     monkeypatch.setattr(plc, "get_movetype", lambda: plc.XY_MOVE_TYPE)
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
-    monkeypatch.setattr(plc, "get_xy", lambda: (2000.5, float(GEOMETRY_CONFIG.y_min)))
+    monkeypatch.setattr(plc, "get_xy", lambda: (2000.5, float(GEOMETRY_CONFIG.measurable_y_min)))
     monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
     monkeypatch.setattr(plc.time, "monotonic", lambda: next(monotonic_values))
-    plc._TRUE_XY = [2000.0, float(GEOMETRY_CONFIG.y_min)]
+    plc._TRUE_XY = [2000.0, float(GEOMETRY_CONFIG.measurable_y_min)]
     plc._LAST_X_DIR = 0
     plc._X_DEADZONE_LEFT = 0.0
 
     moved = plc.goto_xy(
         2100.0,
-        float(GEOMETRY_CONFIG.y_max),
+        float(GEOMETRY_CONFIG.measurable_y_max),
         move_timeout=1.0,
     )
 
