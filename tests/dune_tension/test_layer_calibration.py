@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 
 import dune_tension.layer_calibration as layer_calibration
@@ -26,6 +27,44 @@ def test_sync_layer_calibration_from_desktop_writes_local_file(monkeypatch, tmp_
     assert target.read_text(encoding="utf-8") == '{\n  "layer": "V"\n}\n'
     assert result.layer == "V"
     assert result.calibration_file == "V_Calibration.json"
+    assert result.content_hash == hashlib.sha256('{\n  "layer": "V"\n}\n'.encode("utf-8")).hexdigest()
+    assert result.changed is True
+
+
+def test_sync_layer_calibration_from_desktop_skips_rewrite_when_hash_matches(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    calibration_dir = tmp_path / "config" / "APA"
+    calibration_dir.mkdir(parents=True, exist_ok=True)
+    target = calibration_dir / "V_Calibration.json"
+    target.write_text('{\n  "layer": "V"\n}\n', encoding="utf-8")
+    monkeypatch.setattr(layer_calibration, "APA_CALIBRATION_DIR", calibration_dir)
+    monkeypatch.setattr(
+        layer_calibration,
+        "desktop_get_layer_calibration_json",
+        lambda layer: {
+            "layer": layer,
+            "activeLayer": layer,
+            "calibrationFile": f"{layer}_Calibration.json",
+            "source": "workspace",
+            "contentHash": hashlib.sha256('{\n  "layer": "V"\n}\n'.encode("utf-8")).hexdigest(),
+            "content": '{\n  "layer": "V"\n}\n',
+        },
+    )
+
+    writes = []
+    monkeypatch.setattr(
+        layer_calibration,
+        "_atomic_write_text",
+        lambda path, content: writes.append((path, content)),
+    )
+
+    result = layer_calibration.sync_layer_calibration_from_desktop("V")
+
+    assert writes == []
+    assert result.changed is False
+    assert target.read_text(encoding="utf-8") == '{\n  "layer": "V"\n}\n'
 
 
 def test_capture_laser_offset_stores_side_keyed_value(monkeypatch, tmp_path) -> None:
@@ -51,10 +90,24 @@ def test_capture_laser_offset_stores_side_keyed_value(monkeypatch, tmp_path) -> 
 
 def test_get_bottom_pin_options_returns_first_and_last_bottom_pins() -> None:
     assert layer_calibration.get_bottom_pin_options("U", "A") == [
-        ("Bottom first (B401)", "B401"),
-        ("Bottom last (B1200)", "B1200"),
+        ("Bottom first (F2401)", "F2401"),
+        ("Bottom last (F1602)", "F1602"),
     ]
     assert layer_calibration.get_bottom_pin_options("V", "B") == [
         ("Bottom first (B400)", "B400"),
         ("Bottom last (B1199)", "B1199"),
     ]
+
+
+def test_get_bottom_pin_options_uses_front_family_for_a_side() -> None:
+    assert layer_calibration.get_bottom_pin_options("V", "A") == [
+        ("Bottom first (F2399)", "F2399"),
+        ("Bottom last (F1600)", "F1600"),
+    ]
+
+
+def test_bottom_back_pin_to_front_pin_uses_uv_translation_formula() -> None:
+    assert layer_calibration._bottom_back_pin_to_front_pin("V", 400) == 2399
+    assert layer_calibration._bottom_back_pin_to_front_pin("V", 1199) == 1600
+    assert layer_calibration._bottom_back_pin_to_front_pin("U", 401) == 2401
+    assert layer_calibration._bottom_back_pin_to_front_pin("U", 1200) == 1602

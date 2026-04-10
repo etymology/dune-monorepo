@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -33,6 +34,8 @@ class CalibrationSyncResult:
     source: str
     synced_at: str
     local_path: str
+    content_hash: str | None = None
+    changed: bool = False
 
 
 def _normalize_layer(layer: str) -> str:
@@ -68,6 +71,18 @@ def _load_json_file(path: Path, *, default: Any) -> Any:
             return json.load(handle)
     except FileNotFoundError:
         return default
+
+
+def _hash_text(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _hash_file(path: Path) -> str | None:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return _hash_text(handle.read())
+    except FileNotFoundError:
+        return None
 
 
 def get_local_layer_calibration_path(layer: str) -> Path:
@@ -111,20 +126,36 @@ def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
     if not isinstance(content, str) or not content.strip():
         raise ValueError(f"Desktop returned empty calibration JSON for layer {requested_layer}.")
 
-    _atomic_write_text(local_path, content)
+    content_hash = str(payload.get("contentHash") or "").strip() or _hash_text(content)
+    local_hash = _hash_file(local_path)
+    changed = local_hash != content_hash
+    if changed:
+        _atomic_write_text(local_path, content)
     synced_at = datetime.now(UTC).isoformat()
-    LOGGER.info(
-        "Synced layer %s calibration from desktop to %s (file=%s).",
-        requested_layer,
-        local_path,
-        calibration_file,
-    )
+    if changed:
+        LOGGER.info(
+            "Synced layer %s calibration from desktop to %s (file=%s hash=%s).",
+            requested_layer,
+            local_path,
+            calibration_file,
+            content_hash,
+        )
+    else:
+        LOGGER.info(
+            "Layer %s calibration cache is current at %s (file=%s hash=%s).",
+            requested_layer,
+            local_path,
+            calibration_file,
+            content_hash,
+        )
     return CalibrationSyncResult(
         layer=requested_layer,
         calibration_file=calibration_file,
         source=str(payload.get("source") or "desktop"),
         synced_at=synced_at,
         local_path=str(local_path),
+        content_hash=content_hash,
+        changed=changed,
     )
 
 
@@ -183,6 +214,12 @@ def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
     return (float(location["x"]), float(location["y"]))
 
 
+def _bottom_back_pin_to_front_pin(layer: str, back_pin: int) -> int:
+    geometry = create_layer_geometry(_normalize_layer(layer))
+    translated = ((int(geometry.startPinFront) - int(back_pin)) % int(geometry.pins)) + 1
+    return int(translated)
+
+
 def get_bottom_pin_options(layer: str, side: str) -> list[tuple[str, str]]:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
@@ -190,10 +227,18 @@ def get_bottom_pin_options(layer: str, side: str) -> list[tuple[str, str]]:
         return []
 
     metadata = _build_layer_metadata(requested_layer)
-    start_pin, end_pin = metadata["sideRanges"]["bottom"]
+    back_start_pin, back_end_pin = metadata["sideRanges"]["bottom"]
+    if requested_side == "A":
+        start_pin = _bottom_back_pin_to_front_pin(requested_layer, back_start_pin)
+        end_pin = _bottom_back_pin_to_front_pin(requested_layer, back_end_pin)
+        pin_family = "F"
+    else:
+        start_pin = back_start_pin
+        end_pin = back_end_pin
+        pin_family = "B"
     options = [
-        (f"Bottom first (B{start_pin})", f"B{start_pin}"),
-        (f"Bottom last (B{end_pin})", f"B{end_pin}"),
+        (f"Bottom first ({pin_family}{start_pin})", f"{pin_family}{start_pin}"),
+        (f"Bottom last ({pin_family}{end_pin})", f"{pin_family}{end_pin}"),
     ]
     LOGGER.debug(
         "Bottom pin options for layer=%s side=%s resolved to %s.",
