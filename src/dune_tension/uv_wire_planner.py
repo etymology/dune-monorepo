@@ -106,16 +106,19 @@ def _sign(value: float) -> int:
     return 0
 
 
-def _clip_segment_to_rectangle(
-    start: tuple[float, float],
-    end: tuple[float, float],
+def _clip_line_to_rectangle(
+    point_a: tuple[float, float],
+    point_b: tuple[float, float],
 ) -> tuple[tuple[float, float], tuple[float, float]] | None:
-    x0, y0 = float(start[0]), float(start[1])
-    x1, y1 = float(end[0]), float(end[1])
+    x0, y0 = float(point_a[0]), float(point_a[1])
+    x1, y1 = float(point_b[0]), float(point_b[1])
     dx = x1 - x0
     dy = y1 - y0
-    t0 = 0.0
-    t1 = 1.0
+    if abs(dx) <= _EPSILON and abs(dy) <= _EPSILON:
+        return None
+
+    t0 = float("-inf")
+    t1 = float("inf")
 
     def _update(p: float, q: float) -> bool:
         nonlocal t0, t1
@@ -263,24 +266,23 @@ def plan_uv_wire(layer: str, side: str, wire_number: int, *, taped: bool = False
         tangent_x_sign_b=tangent_sign_b,
         radius_mm=pin_radius_mm,
     ):
-        clipped = _clip_segment_to_rectangle(tangent_a, tangent_b)
+        clipped = _clip_line_to_rectangle(tangent_a, tangent_b)
         if clipped is None:
             continue
-        for segment in _split_segment_at_combs(*clipped):
-            length = _segment_length(segment)
-            midpoint = _segment_midpoint(segment)
-            if (
-                length > best_length + _EPSILON
-                or (
-                    math.isclose(length, best_length, rel_tol=0.0, abs_tol=_EPSILON)
-                    and midpoint[1] < best_midpoint_y
-                )
-            ):
-                best_segment = segment
-                best_tangent_a = tangent_a
-                best_tangent_b = tangent_b
-                best_length = length
-                best_midpoint_y = midpoint[1]
+        length = _segment_length(clipped)
+        midpoint = _segment_midpoint(clipped)
+        if (
+            length > best_length + _EPSILON
+            or (
+                math.isclose(length, best_length, rel_tol=0.0, abs_tol=_EPSILON)
+                and midpoint[1] < best_midpoint_y
+            )
+        ):
+            best_segment = clipped
+            best_tangent_a = tangent_a
+            best_tangent_b = tangent_b
+            best_length = length
+            best_midpoint_y = midpoint[1]
 
     if best_segment is None or best_tangent_a is None or best_tangent_b is None:
         raise ValueError(

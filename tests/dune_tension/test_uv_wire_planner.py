@@ -53,3 +53,18 @@ def test_legacy_uv_provider_uses_planner_for_uv_and_fallback_elsewhere(monkeypat
     assert (uv_pose.x, uv_pose.y, uv_pose.focus_position) == (17.0, 27.0, 4200)
     assert (x_pose.x, x_pose.y, x_pose.focus_position) == (1.0, 2.0, 4100)
     assert fallback_calls == [("X", 3, 4100)]
+
+
+def test_clip_line_to_rectangle_extends_beyond_tangent_endpoints() -> None:
+    clipped = uv_wire_planner._clip_line_to_rectangle((10.0, 10.0), (20.0, 20.0))
+
+    assert clipped == (
+        (
+            uv_wire_planner.GEOMETRY_CONFIG.measurable_x_min,
+            uv_wire_planner.GEOMETRY_CONFIG.measurable_y_min,
+        ),
+        (
+            uv_wire_planner.GEOMETRY_CONFIG.measurable_x_max,
+            uv_wire_planner.GEOMETRY_CONFIG.measurable_y_max,
+        ),
+    )
