@@ -30,6 +30,8 @@ class GUIWidgets:
     entry_record_duration: tk.Entry
     entry_measuring_duration: tk.Entry
     entry_wiggle_y_sigma: tk.Entry
+    sweeping_wiggle_var: tk.BooleanVar
+    entry_sweeping_wiggle_span_mm: tk.Entry
     entry_focus_wiggle_sigma: tk.Entry
     use_manual_focus_var: tk.BooleanVar
     plot_audio_var: tk.BooleanVar
@@ -39,6 +41,7 @@ class GUIWidgets:
     entry_times_sigma: tk.Entry
     entry_set_tension: tk.Entry
     focus_slider: tk.Scale
+    disable_x_compensation_var: tk.BooleanVar
     entry_xy: tk.Entry
     stream_segment_var: tk.StringVar
     stream_comb_var: tk.StringVar

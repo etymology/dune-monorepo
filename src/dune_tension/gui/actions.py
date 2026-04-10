@@ -74,6 +74,9 @@ def adjust_focus_with_x_compensation(
     if delta_focus == 0:
         return
 
+    if ctx.widgets.disable_x_compensation_var.get():
+        return
+
     side_name = str(side or ctx.widgets.side_var.get()).upper()
     delta_x_mm = _focus_side_sign(side_name) * delta_focus * FOCUS_X_MM_PER_QUARTER_US
 
@@ -141,6 +144,8 @@ class WorkerInputs:
     record_duration: float
     measuring_duration: float
     wiggle_y_sigma_mm: float
+    sweeping_wiggle_enabled: bool
+    sweeping_wiggle_span_mm: float
     focus_wiggle_sigma_quarter_us: float
     use_manual_focus: bool
     plot_audio: bool
@@ -180,12 +185,17 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
 
     try:
         wiggle_y_sigma_mm = float(w.entry_wiggle_y_sigma.get())
+        sweeping_wiggle_span_mm = float(w.entry_sweeping_wiggle_span_mm.get())
         focus_wiggle_sigma_quarter_us = float(w.entry_focus_wiggle_sigma.get())
     except ValueError as exc:
         _show_input_error(ctx, str(exc))
         raise
     if wiggle_y_sigma_mm < 0:
         msg = "Y wiggle sigma must be non-negative"
+        _show_input_error(ctx, msg)
+        raise ValueError(msg)
+    if sweeping_wiggle_span_mm < 0:
+        msg = "Sweeping wiggle span must be non-negative"
         _show_input_error(ctx, msg)
         raise ValueError(msg)
     if focus_wiggle_sigma_quarter_us < 0:
@@ -206,6 +216,8 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         record_duration=record_duration,
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
+        sweeping_wiggle_enabled=bool(w.sweeping_wiggle_var.get()),
+        sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         use_manual_focus=bool(w.use_manual_focus_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
@@ -234,6 +246,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         record_duration = float(inputs.record_duration)
         measuring_duration = float(inputs.measuring_duration)
         wiggle_y_sigma_mm = float(inputs.wiggle_y_sigma_mm)
+        sweeping_wiggle_span_mm = float(inputs.sweeping_wiggle_span_mm)
         focus_wiggle_sigma_quarter_us = float(
             inputs.focus_wiggle_sigma_quarter_us
         )
@@ -254,6 +267,8 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         record_duration=record_duration,
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
+        sweeping_wiggle=bool(getattr(inputs, "sweeping_wiggle_enabled", False)),
+        sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         plot_audio=inputs.plot_audio,
         strum=ctx.strum,
@@ -643,7 +658,7 @@ def _parse_pairs(text: str) -> list[tuple[int, float]]:
 
 
 def _compile_tension_condition(expr: str):
-    """Compile a safe condition expression using only variable ``t``."""
+    """Compile a safe condition expression using variables ``t`` (tension) and ``n`` (wire number)."""
 
     allowed_nodes = (
         ast.Expression,
@@ -681,23 +696,34 @@ def _compile_tension_condition(expr: str):
     for node in ast.walk(tree):
         if not isinstance(node, allowed_nodes):
             raise ValueError(f"disallowed expression node: {type(node).__name__}")
-        if isinstance(node, ast.Name) and node.id != "t":
-            raise ValueError("only variable 't' is allowed")
+        if isinstance(node, ast.Name) and node.id not in ("t", "n"):
+            raise ValueError("only variables 't' (tension) and 'n' (wire number) are allowed")
 
     code = compile(tree, "<tension-condition>", "eval")
 
-    def predicate(tension: float) -> bool:
-        result = eval(code, {"__builtins__": {}}, {"t": float(tension)})
+    def predicate(wire_number: int, tension: float) -> bool:
+        result = eval(code, {"__builtins__": {}}, {"t": float(tension), "n": int(wire_number)})
         return bool(result)
 
     return predicate
 
 
+def _normalize_tension_condition(expr: str) -> str:
+    """Normalize GUI-friendly boolean syntax into a Python expression."""
+
+    normalized = re.sub(r"\bAND\b", "and", expr, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bOR\b", "or", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bNOT\b", "not", normalized, flags=re.IGNORECASE)
+    normalized = normalized.replace(",", " and ")
+    return normalized
+
+
 def _get_wires_matching_tension_condition(config: Any, expr: str) -> list[int]:
     from dune_tension.summaries import get_tension_series
 
+    normalized_expr = _normalize_tension_condition(expr)
     try:
-        predicate = _compile_tension_condition(expr)
+        predicate = _compile_tension_condition(normalized_expr)
     except ValueError as exc:
         LOGGER.warning("Invalid expression %r: %s", expr, exc)
         return []
@@ -708,10 +734,10 @@ def _get_wires_matching_tension_condition(config: Any, expr: str) -> list[int]:
         tension_series.get(str(config.side).upper(), {}).items()
     ):
         try:
-            if predicate(float(tension)):
+            if predicate(int(wire_number), float(tension)):
                 wires.append(int(wire_number))
         except Exception as exc:
-            LOGGER.warning("Invalid expression %r: %s", expr, exc)
+            LOGGER.warning("Error evaluating condition for wire %s: %s", wire_number, exc)
             return []
     return wires
 
@@ -752,6 +778,32 @@ def erase_distribution_outliers(ctx: GUIContext) -> None:
     _erase_detected_outliers(ctx, find_distribution_outliers, "bulk-distribution")
 
 
+def _parse_outlier_erase_expression(expr: str) -> tuple[float, list[str]]:
+    """Parse sigma and optional wire-number predicates from a GUI text field.
+
+    Supported forms include:
+    - ``2.5``
+    - ``2.5, n<1000``
+    - ``n<1000, 2.5``
+    - ``n<1000, n>2000, 3``
+
+    The first numeric token is treated as the sigma multiplier. Remaining
+    non-numeric clauses are treated as wire-number conditions.
+    """
+
+    sigma = 2.0
+    predicates: list[str] = []
+    for clause in (part.strip() for part in expr.split(",")):
+        if not clause:
+            continue
+        try:
+            sigma = float(clause)
+            continue
+        except ValueError:
+            predicates.append(clause)
+    return sigma, predicates
+
+
 def _erase_detected_outliers(
     ctx: GUIContext,
     detector,
@@ -762,10 +814,8 @@ def _erase_detected_outliers(
         conf = float(ctx.widgets.entry_confidence.get())
     except ValueError:
         conf = 0.5
-    try:
-        times_sigma = float(ctx.widgets.entry_times_sigma.get())
-    except ValueError:
-        times_sigma = 2.0
+    raw_expr = ctx.widgets.entry_times_sigma.get().strip()
+    times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
 
     outliers = sorted(
         detector(
@@ -777,6 +827,20 @@ def _erase_detected_outliers(
             confidence_threshold=conf,
         )
     )
+    if wire_predicates:
+        filtered_outliers: list[int] = []
+        for wire in outliers:
+            try:
+                wire_number = int(wire)
+                if all(
+                    _compile_tension_condition(pred)(wire_number, 0.0)
+                    for pred in wire_predicates
+                ):
+                    filtered_outliers.append(wire_number)
+            except Exception as exc:
+                LOGGER.warning("Error evaluating outlier filter for wire %s: %s", wire, exc)
+                return
+        outliers = filtered_outliers
 
     if outliers:
         clear_wire_numbers(
@@ -911,11 +975,21 @@ def manual_goto(ctx: GUIContext) -> None:
     except ValueError:
         LOGGER.warning("Invalid coordinates: %s", text)
         return
-    ctx.goto_xy(x_val, y_val)
+    try:
+        moved = ctx.goto_xy(x_val, y_val)
+    except Exception as exc:
+        LOGGER.warning("Manual goto failed: %s", exc)
+        return
+    if moved is False:
+        LOGGER.warning("Manual goto to %s,%s failed: PLC not available.", x_val, y_val)
 
 
 def manual_increment(ctx: GUIContext, dx: float, dy: float) -> None:
-    cur_x, cur_y = ctx.get_xy()
+    try:
+        cur_x, cur_y = ctx.get_xy()
+    except Exception as exc:
+        LOGGER.warning("Cannot increment: failed to read position: %s", exc)
+        return
     w = ctx.widgets
     if (w.side_var.get() == "A" and not w.flipped_var.get()) or (
         w.side_var.get() == "B" and w.flipped_var.get()
@@ -929,7 +1003,13 @@ def manual_increment(ctx: GUIContext, dx: float, dy: float) -> None:
     new_x = round(new_x, 1)
     new_y = round(new_y, 1)
 
-    ctx.goto_xy(new_x, new_y)
+    try:
+        moved = ctx.goto_xy(new_x, new_y)
+    except Exception as exc:
+        LOGGER.warning("Manual increment failed: %s", exc)
+        return
+    if moved is False:
+        LOGGER.warning("Manual increment to %s,%s failed: PLC not available.", new_x, new_y)
 
 
 def update_focus_command_indicator(ctx: GUIContext, value: int) -> None:

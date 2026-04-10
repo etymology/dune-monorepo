@@ -184,7 +184,7 @@ def _create_widgets(
 
     log_text: Any | None = None
     if hasattr(tk, "Text"):
-        log_text = tk.Text(log_frame, wrap="word", state="disabled", width=44)
+        log_text = tk.Text(log_frame, wrap="word", state="disabled", width=44, height=5)
         log_text.grid(row=0, column=0, sticky="nsew")
         if hasattr(tk, "Scrollbar"):
             scrollbar = tk.Scrollbar(log_frame, orient="vertical", command=log_text.yview)
@@ -288,6 +288,18 @@ def _create_widgets(
     entry_wiggle_y_sigma = tk.Entry(measure_frame)
     entry_wiggle_y_sigma.grid(row=10, column=1)
     entry_wiggle_y_sigma.insert(0, str(MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm))
+    sweeping_wiggle_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        measure_frame,
+        text="Sweeping Wiggle",
+        variable=sweeping_wiggle_var,
+    ).grid(row=10, column=2, sticky="w")
+    tk.Label(measure_frame, text="Sweep +/- (mm):").grid(
+        row=10, column=3, sticky="e"
+    )
+    entry_sweeping_wiggle_span_mm = tk.Entry(measure_frame, width=8)
+    entry_sweeping_wiggle_span_mm.grid(row=10, column=4, sticky="w")
+    entry_sweeping_wiggle_span_mm.insert(0, "1.0")
 
     tk.Label(measure_frame, text="Focus Wiggle σ:").grid(
         row=11, column=0, sticky="e"
@@ -367,7 +379,9 @@ def _create_widgets(
     btn_clear_range = tk.Button(measure_frame, text="Clear")
     btn_clear_range.grid(row=4, column=2)
 
-    tk.Label(measure_frame, text="Condition:").grid(row=5, column=0, sticky="e")
+    tk.Label(measure_frame, text="Condition (AND/OR):").grid(
+        row=5, column=0, sticky="e"
+    )
     entry_condition = tk.Entry(measure_frame)
     entry_condition.grid(row=5, column=1)
     btn_measure_condition = tk.Button(measure_frame, text="Measure Condition")
@@ -399,6 +413,12 @@ def _create_widgets(
     focus_slider = tk.Scale(servo_frame, from_=4000, to=8000, orient=tk.HORIZONTAL)
     focus_slider.set(4000)
     focus_slider.grid(row=0, column=1, sticky="ew")
+    disable_x_compensation_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        servo_frame,
+        text="Disable X Compensation",
+        variable=disable_x_compensation_var,
+    ).grid(row=0, column=2, sticky="w", padx=(6, 0))
 
     tk.Label(servo_frame, textvariable=focus_command_var).grid(
         row=1, column=0, sticky="e"
@@ -453,6 +473,8 @@ def _create_widgets(
         entry_record_duration=entry_record_duration,
         entry_measuring_duration=entry_measuring_duration,
         entry_wiggle_y_sigma=entry_wiggle_y_sigma,
+        sweeping_wiggle_var=sweeping_wiggle_var,
+        entry_sweeping_wiggle_span_mm=entry_sweeping_wiggle_span_mm,
         entry_focus_wiggle_sigma=entry_focus_wiggle_sigma,
         use_manual_focus_var=use_manual_focus_var,
         plot_audio_var=plot_audio_var,
@@ -462,6 +484,7 @@ def _create_widgets(
         entry_times_sigma=entry_times_sigma,
         entry_set_tension=entry_set_tension,
         focus_slider=focus_slider,
+        disable_x_compensation_var=disable_x_compensation_var,
         entry_xy=entry_xy,
         stream_segment_var=stream_segment_var,
         stream_comb_var=stream_comb_var,

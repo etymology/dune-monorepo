@@ -36,8 +36,11 @@ class _PersistedState:
     record_duration: str
     measuring_duration: str
     wiggle_y_sigma_mm: str
+    sweeping_wiggle_enabled: bool
+    sweeping_wiggle_span_mm: str
     focus_wiggle_sigma_quarter_us: str
     use_manual_focus: bool
+    disable_x_compensation: bool
 
 
 def save_state(ctx: GUIContext) -> None:
@@ -74,8 +77,11 @@ def save_state(ctx: GUIContext) -> None:
         record_duration=w.entry_record_duration.get(),
         measuring_duration=w.entry_measuring_duration.get(),
         wiggle_y_sigma_mm=w.entry_wiggle_y_sigma.get(),
+        sweeping_wiggle_enabled=bool(w.sweeping_wiggle_var.get()),
+        sweeping_wiggle_span_mm=w.entry_sweeping_wiggle_span_mm.get(),
         focus_wiggle_sigma_quarter_us=w.entry_focus_wiggle_sigma.get(),
         use_manual_focus=bool(w.use_manual_focus_var.get()),
+        disable_x_compensation=bool(w.disable_x_compensation_var.get()),
     )
 
     with open(ctx.state_file, "w", encoding="utf-8") as handle:
@@ -144,6 +150,11 @@ def load_state(ctx: GUIContext) -> None:
         w.entry_wiggle_y_sigma,
         data.get("wiggle_y_sigma_mm", MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm),
     )
+    w.sweeping_wiggle_var.set(bool(data.get("sweeping_wiggle_enabled", False)))
+    _set_entry(
+        w.entry_sweeping_wiggle_span_mm,
+        data.get("sweeping_wiggle_span_mm", 1.0),
+    )
     _set_entry(
         w.entry_focus_wiggle_sigma,
         data.get(
@@ -152,5 +163,6 @@ def load_state(ctx: GUIContext) -> None:
         ),
     )
     w.use_manual_focus_var.set(bool(data.get("use_manual_focus", False)))
+    w.disable_x_compensation_var.set(bool(data.get("disable_x_compensation", False)))
 
     ctx.focus_command_var.set(str(w.focus_slider.get()))
