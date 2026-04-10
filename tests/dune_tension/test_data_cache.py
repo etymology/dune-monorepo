@@ -17,6 +17,8 @@ from dune_tension.data_cache import (
     find_distribution_outliers,
     get_dataframe,
     get_results_dataframe,
+    select_dataframe,
+    select_results_dataframe,
 )
 from dune_tension.results import EXPECTED_COLUMNS
 
@@ -249,3 +251,73 @@ def test_find_outliers_uses_nearest_calculable_average_for_end_wires(tmp_path) -
     )
 
     assert outliers == [1, 30]
+
+
+def test_select_dataframe_filters_without_loading_full_table(tmp_path) -> None:
+    db_path = tmp_path / "filtered_tension_data.db"
+
+    def make_row(apa_name: str, layer: str, side: str, wire_number: int) -> dict:
+        return {
+            "apa_name": apa_name,
+            "layer": layer,
+            "side": side,
+            "wire_number": wire_number,
+            "frequency": 75.0,
+            "confidence": 0.95,
+            "x": 100.0,
+            "y": 200.0,
+            "taped": False,
+            "time": "2026-03-10T10:00:00",
+            "zone": 1,
+            "wire_length": 1200.0,
+            "tension": 6.0,
+            "tension_pass": True,
+        }
+
+    append_dataframe_row(str(db_path), make_row("APA1", "X", "A", 1))
+    append_dataframe_row(str(db_path), make_row("APA1", "V", "A", 2))
+    append_dataframe_row(str(db_path), make_row("APA2", "X", "B", 3))
+
+    filtered = select_dataframe(
+        str(db_path),
+        where_clause="apa_name = ? AND layer = ?",
+        params=("APA1", "X"),
+    )
+
+    assert filtered["apa_name"].tolist() == ["APA1"]
+    assert filtered["layer"].tolist() == ["X"]
+    assert filtered["wire_number"].tolist() == ["1"]
+
+
+def test_select_results_dataframe_filters_samples_table(tmp_path) -> None:
+    db_path = tmp_path / "filtered_tension_samples.db"
+
+    def make_row(side: str, wire_number: int) -> dict:
+        return {
+            "apa_name": "APA",
+            "layer": "G",
+            "side": side,
+            "wire_number": wire_number,
+            "frequency": 75.0,
+            "confidence": 0.95,
+            "x": 100.0,
+            "y": 200.0,
+            "taped": False,
+            "time": "2026-03-10T10:00:00",
+            "zone": 1,
+            "wire_length": 1200.0,
+            "tension": 6.0,
+            "tension_pass": True,
+        }
+
+    append_results_row(str(db_path), make_row("A", 1))
+    append_results_row(str(db_path), make_row("B", 2))
+
+    filtered = select_results_dataframe(
+        str(db_path),
+        where_clause="side = ?",
+        params=("B",),
+    )
+
+    assert filtered["side"].tolist() == ["B"]
+    assert filtered["wire_number"].tolist() == ["2"]
