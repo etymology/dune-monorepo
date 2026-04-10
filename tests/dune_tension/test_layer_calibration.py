@@ -88,6 +88,32 @@ def test_capture_laser_offset_stores_side_keyed_value(monkeypatch, tmp_path) -> 
     assert saved["B"]["captured_layer"] == "U"
 
 
+def test_capture_laser_offset_uses_front_pin_family_for_a_side(monkeypatch, tmp_path) -> None:
+    offset_path = tmp_path / "TensionLaserOffsets.json"
+    monkeypatch.setattr(layer_calibration, "LASER_OFFSET_PATH", offset_path)
+
+    looked_up_pins = []
+
+    def _record_pin(_layer, pin_name):
+        looked_up_pins.append(pin_name)
+        return (100.0, 200.0)
+
+    monkeypatch.setattr(layer_calibration, "get_calibrated_pin_xy", _record_pin)
+
+    entry = layer_calibration.capture_laser_offset(
+        layer="V",
+        side="A",
+        pin_name="B400",
+        captured_stage_xy=(95.0, 198.0),
+        captured_focus=None,
+    )
+
+    saved = json.loads(offset_path.read_text(encoding="utf-8"))
+    assert looked_up_pins == ["F2399"]
+    assert entry["captured_pin"] == "F2399"
+    assert saved["A"]["captured_pin"] == "F2399"
+
+
 def test_get_bottom_pin_options_returns_first_and_last_bottom_pins() -> None:
     assert layer_calibration.get_bottom_pin_options("U", "A") == [
         ("Bottom first (F2401)", "F2401"),
@@ -104,6 +130,27 @@ def test_get_bottom_pin_options_uses_front_family_for_a_side() -> None:
         ("Bottom first (F2399)", "F2399"),
         ("Bottom last (F1600)", "F1600"),
     ]
+
+
+def test_resolve_pin_name_for_side_uses_requested_family() -> None:
+    assert layer_calibration.resolve_pin_name_for_side("V", "A", "B400") == "F2399"
+    assert layer_calibration.resolve_pin_name_for_side("V", "B", "F2399") == "B400"
+
+
+def test_get_calibrated_pin_xy_for_side_uses_resolved_pin_name(monkeypatch) -> None:
+    monkeypatch.setattr(
+        layer_calibration,
+        "load_normalized_layer_calibration",
+        lambda _layer: {
+            "locations": {
+                "B400": {"x": 1.0, "y": 2.0},
+                "F2399": {"x": 3.0, "y": 4.0},
+            }
+        },
+    )
+
+    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "A", "B400") == (3.0, 4.0)
+    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "B", "F2399") == (1.0, 2.0)
 
 
 def test_bottom_back_pin_to_front_pin_uses_uv_translation_formula() -> None:

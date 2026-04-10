@@ -25,6 +25,18 @@ def _load_actions_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
+    config = types.ModuleType("dune_tension.config")
+    config.GEOMETRY_CONFIG = types.SimpleNamespace(
+        comb_positions=[],
+        measurable_x_min=0.0,
+        measurable_x_max=0.0,
+        measurable_y_min=0.0,
+        measurable_y_max=0.0,
+        zone_count=5,
+    )
+    config.LAYER_LAYOUTS = {}
+    monkeypatch.setitem(sys.modules, "dune_tension.config", config)
+
     data_cache = types.ModuleType("dune_tension.data_cache")
     data_cache.clear_wire_numbers = lambda *args, **kwargs: None
     data_cache.clear_wire_range = lambda *args, **kwargs: None
@@ -69,8 +81,9 @@ def _load_actions_module(monkeypatch):
         ("Bottom first (B400)", "B400"),
         ("Bottom last (B1199)", "B1199"),
     ]
-    layer_calibration.get_calibrated_pin_xy = lambda _layer, _pin: (100.0, 200.0)
+    layer_calibration.get_calibrated_pin_xy_for_side = lambda _layer, _side, _pin: (100.0, 200.0)
     layer_calibration.get_laser_offset = lambda _side: None
+    layer_calibration.resolve_pin_name_for_side = lambda _layer, _side, pin_name: pin_name
     monkeypatch.setitem(sys.modules, "dune_tension.layer_calibration", layer_calibration)
 
     plc_desktop = types.ModuleType("dune_tension.plc_desktop")
@@ -80,6 +93,11 @@ def _load_actions_module(monkeypatch):
     plc_io = types.ModuleType("dune_tension.plc_io")
     plc_io.get_plc_io_mode = lambda: "desktop"
     monkeypatch.setitem(sys.modules, "dune_tension.plc_io", plc_io)
+
+    uv_wire_planner = types.ModuleType("dune_tension.uv_wire_planner")
+    uv_wire_planner.plan_uv_wire = lambda *_args, **_kwargs: None
+    uv_wire_planner.plan_uv_wire_zone = lambda *_args, **_kwargs: 0
+    monkeypatch.setitem(sys.modules, "dune_tension.uv_wire_planner", uv_wire_planner)
 
     module_name = "gui_actions_under_test"
     spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
@@ -177,9 +195,12 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
         record_duration=0.5,
         measuring_duration=5.0,
         wiggle_y_sigma_mm=0.4,
+        sweeping_wiggle_span_mm=0.0,
         focus_wiggle_sigma_quarter_us=50.0,
         use_manual_focus=True,
         plot_audio=True,
+        suppress_wire_preview=False,
+        legacy_tension_condition="t<7",
     )
 
     actions.create_tensiometer(ctx, inputs)
@@ -188,8 +209,69 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
     assert build_calls[0]["confidence_source"] == "signal_amplitude"
     assert build_calls[0]["runtime_bundle"] is runtime
     assert build_calls[0]["use_manual_focus"] is True
-    assert build_calls[0]["manual_focus_target"] == 4100
+    assert build_calls[0]["manual_focus_target"] is None
+    assert build_calls[0]["legacy_tension_condition"] == "t<7"
     assert callable(build_calls[0]["wire_preview_callback"])
+
+
+def test_create_tensiometer_can_suppress_wire_preview(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    build_calls = []
+
+    monkeypatch.setitem(
+        sys.modules,
+        "dune_tension.tensiometer",
+        types.SimpleNamespace(
+            build_tensiometer=lambda **kwargs: build_calls.append(kwargs) or kwargs,
+            Tensiometer=object,
+        ),
+    )
+
+    requested_previews = []
+    monkeypatch.setattr(
+        actions,
+        "_request_uv_wire_preview",
+        lambda *_args, **_kwargs: requested_previews.append(True),
+    )
+    monkeypatch.setattr(actions, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0})
+
+    ctx = types.SimpleNamespace(
+        runtime=object(),
+        stop_event=threading.Event(),
+        strum=lambda: None,
+        servo_controller=types.SimpleNamespace(
+            focus_position=4100,
+            nudge_focus=lambda _delta: None,
+        ),
+        widgets=types.SimpleNamespace(),
+    )
+    inputs = types.SimpleNamespace(
+        apa_name="APA",
+        layer="U",
+        side="A",
+        flipped=False,
+        a_taped=False,
+        b_taped=False,
+        samples=2,
+        confidence=0.9,
+        confidence_source="Signal Amplitude",
+        record_duration=0.5,
+        measuring_duration=5.0,
+        wiggle_y_sigma_mm=0.4,
+        sweeping_wiggle_span_mm=0.0,
+        focus_wiggle_sigma_quarter_us=50.0,
+        use_manual_focus=True,
+        plot_audio=True,
+        suppress_wire_preview=True,
+        legacy_tension_condition="4<t",
+    )
+
+    actions.create_tensiometer(ctx, inputs)
+    build_calls[0]["wire_preview_callback"](1151, 11.0, 2.0)
+
+    assert requested_previews == []
+    assert build_calls[0]["legacy_tension_condition"] == "4<t"
 
 
 def test_measure_calibrate_dispatches_to_streaming_controller(monkeypatch):
@@ -381,7 +463,7 @@ def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatc
     assert measured_wires == [([3, 5, 6, 7], True)]
 
 
-def test_measure_list_button_keeps_requested_wires_when_skip_filters_everything(
+def test_measure_list_button_skips_requested_wires_when_all_are_measured(
     monkeypatch,
 ):
     actions = _load_actions_module(monkeypatch)
@@ -410,7 +492,75 @@ def test_measure_list_button_keeps_requested_wires_when_skip_filters_everything(
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([3, 5, 6, 7], True)]
+    assert measured_wires == []
+
+
+def test_measure_zone_button_skips_requested_wires_when_all_are_measured(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    measured_wires = []
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    summaries = types.ModuleType("dune_tension.summaries")
+    summaries.get_tension_series = lambda _config: {"A": {11: 5.8, 12: 6.1, 13: 6.2}}
+    monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
+    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
+    monkeypatch.setattr(
+        actions,
+        "_make_config_from_inputs",
+        lambda _inputs: types.SimpleNamespace(side="A"),
+    )
+    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        actions,
+        "_get_wires_in_zones",
+        lambda _layer, _side, _zones, *, taped: [11, 12, 13],
+    )
+
+    inputs = types.SimpleNamespace(
+        layer="U",
+        side="A",
+        a_taped=False,
+        b_taped=False,
+        wire_zone="1",
+        skip_measured_zone=True,
+    )
+
+    actions.measure_zone_button.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert measured_wires == []
+
+
+def test_get_wires_in_zones_uses_zone_only_planner(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    layout = types.SimpleNamespace(wire_min=8, wire_max=10)
+    monkeypatch.setattr(actions, "LAYER_LAYOUTS", {"U": layout})
+
+    plan_calls = []
+    monkeypatch.setattr(
+        actions,
+        "plan_uv_wire",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("full planner should not be used")),
+    )
+    monkeypatch.setattr(
+        actions,
+        "plan_uv_wire_zone",
+        lambda layer, side, wire_number: plan_calls.append((layer, side, wire_number)) or (
+            5 if wire_number != 9 else 3
+        ),
+    )
+
+    wires = actions._get_wires_in_zones("U", "A", {5}, taped=False)
+
+    assert wires == [8, 10]
+    assert plan_calls == [("U", "A", 8), ("U", "A", 9), ("U", "A", 10)]
 
 
 def test_selected_laser_offset_pin_uses_side_specific_pin_family(monkeypatch):
@@ -433,7 +583,7 @@ def test_selected_laser_offset_pin_uses_side_specific_pin_family(monkeypatch):
 def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     monkeypatch.setattr(actions, "get_laser_offset", lambda _side: {"x": 2.5, "y": -1.0})
-    monkeypatch.setattr(actions, "get_calibrated_pin_xy", lambda _layer, _pin: (100.0, 200.0))
+    monkeypatch.setattr(actions, "get_calibrated_pin_xy_for_side", lambda _layer, _side, _pin: (100.0, 200.0))
 
     moves = []
     ctx = types.SimpleNamespace(
@@ -485,7 +635,10 @@ def test_adjust_focus_with_x_compensation_side_a(monkeypatch):
         servo_controller=servo_controller,
         get_xy=lambda: (1000.0, 2000.0),
         goto_xy=lambda x, y: moves.append((x, y)) or True,
-        widgets=types.SimpleNamespace(side_var=types.SimpleNamespace(get=lambda: "A")),
+        widgets=types.SimpleNamespace(
+            side_var=types.SimpleNamespace(get=lambda: "A"),
+            disable_x_compensation_var=types.SimpleNamespace(get=lambda: False),
+        ),
     )
 
     actions.adjust_focus_with_x_compensation(ctx, 4400)
@@ -510,7 +663,10 @@ def test_adjust_focus_with_x_compensation_side_b(monkeypatch):
         servo_controller=servo_controller,
         get_xy=lambda: (1000.0, 2000.0),
         goto_xy=lambda x, y: moves.append((x, y)) or True,
-        widgets=types.SimpleNamespace(side_var=types.SimpleNamespace(get=lambda: "B")),
+        widgets=types.SimpleNamespace(
+            side_var=types.SimpleNamespace(get=lambda: "B"),
+            disable_x_compensation_var=types.SimpleNamespace(get=lambda: False),
+        ),
     )
 
     actions.adjust_focus_with_x_compensation(ctx, 4200)

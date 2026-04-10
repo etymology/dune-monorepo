@@ -25,12 +25,16 @@ class _PersistedState:
     b_taped: bool
     wire_number: str
     wire_list: str
+    wire_zone: str
+    skip_measured_zone: bool
     confidence_threshold: float
     confidence_source: str
     plot_audio: bool
+    suppress_wire_preview: bool
     skip_measured: bool
     focus_target: int
     condition: str
+    legacy_tension_condition: str
     times_sigma: float
     set_tension: str
     record_duration: str
@@ -56,6 +60,7 @@ def save_state(ctx: GUIContext) -> None:
         times_sigma = float(w.entry_times_sigma.get())
     except ValueError:
         times_sigma = 2.0
+    legacy_tension_condition_widget = getattr(w, "entry_legacy_tension_condition", None)
 
     state = _PersistedState(
         apa_name=w.entry_apa.get(),
@@ -67,12 +72,20 @@ def save_state(ctx: GUIContext) -> None:
         b_taped=bool(w.b_taped_var.get()),
         wire_number=w.entry_wire.get(),
         wire_list=w.entry_wire_list.get(),
+        wire_zone=w.entry_wire_zone.get(),
+        skip_measured_zone=bool(w.skip_measured_zone_var.get()),
         confidence_threshold=conf,
         confidence_source=str(w.confidence_source_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
+        suppress_wire_preview=bool(w.suppress_wire_preview_var.get()),
         skip_measured=bool(w.skip_measured_var.get()),
         focus_target=_safe_int(w.focus_slider.get(), 4000),
         condition=w.entry_condition.get(),
+        legacy_tension_condition=(
+            legacy_tension_condition_widget.get()
+            if legacy_tension_condition_widget is not None
+            else ""
+        ),
         times_sigma=times_sigma,
         set_tension=w.entry_set_tension.get(),
         record_duration=w.entry_record_duration.get(),
@@ -136,14 +149,23 @@ def load_state(ctx: GUIContext) -> None:
     w.b_taped_var.set(bool(data.get("b_taped", False)))
     _set_entry(w.entry_wire, data.get("wire_number", ""))
     _set_entry(w.entry_wire_list, data.get("wire_list", ""))
+    _set_entry(w.entry_wire_zone, data.get("wire_zone", ""))
+    w.skip_measured_zone_var.set(bool(data.get("skip_measured_zone", False)))
     _set_entry(w.entry_confidence, data.get("confidence_threshold", 0.5))
     w.confidence_source_var.set(
         _confidence_source_label(data.get("confidence_source", "Neural Net"))
     )
     w.plot_audio_var.set(bool(data.get("plot_audio", False)))
+    w.suppress_wire_preview_var.set(bool(data.get("suppress_wire_preview", False)))
     w.skip_measured_var.set(bool(data.get("skip_measured", False)))
     w.focus_slider.set(_safe_int(data.get("focus_target", 4000), 4000))
     _set_entry(w.entry_condition, data.get("condition", ""))
+    legacy_tension_condition_widget = getattr(w, "entry_legacy_tension_condition", None)
+    if legacy_tension_condition_widget is not None:
+        _set_entry(
+            legacy_tension_condition_widget,
+            data.get("legacy_tension_condition", ""),
+        )
     _set_entry(w.entry_times_sigma, data.get("times_sigma", 2.0))
     _set_entry(w.entry_set_tension, data.get("set_tension", ""))
     _set_entry(w.entry_record_duration, data.get("record_duration", 1.0))

@@ -7,6 +7,7 @@ import json
 import logging
 from pathlib import Path
 import tempfile
+from functools import lru_cache
 from typing import Any
 
 from dune_tension.paths import REPO_ROOT
@@ -18,6 +19,7 @@ from dune_tension.plc_desktop import (
 from dune_winder.core.manual_calibration import _build_layer_metadata, normalize_calibration
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.factory import create_layer_geometry
+from dune_winder.machine.geometry.layer_functions import LayerFunctions
 
 LOGGER = logging.getLogger(__name__)
 
@@ -131,6 +133,7 @@ def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
     changed = local_hash != content_hash
     if changed:
         _atomic_write_text(local_path, content)
+        clear_layer_calibration_cache()
     synced_at = datetime.now(UTC).isoformat()
     if changed:
         LOGGER.info(
@@ -197,10 +200,32 @@ def load_normalized_layer_calibration(layer: str) -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=4)
+def _load_normalized_layer_calibration_cached(layer: str) -> dict[str, Any]:
+    return load_normalized_layer_calibration(layer)
+
+
+@lru_cache(maxsize=2)
+def _load_laser_offset_store_cached() -> dict[str, Any]:
+    data = _load_json_file(LASER_OFFSET_PATH, default=_default_laser_offset_store())
+    if not isinstance(data, dict):
+        return _default_laser_offset_store()
+    normalized = _default_laser_offset_store()
+    for side in ("A", "B"):
+        value = data.get(side)
+        normalized[side] = value if isinstance(value, dict) else None
+    return normalized
+
+
+def clear_layer_calibration_cache() -> None:
+    _load_normalized_layer_calibration_cached.cache_clear()
+    _load_laser_offset_store_cached.cache_clear()
+
+
 def load_layer_calibration_summary(layer: str) -> dict[str, Any]:
     requested_layer = _normalize_layer(layer)
     ensure_local_layer_matches_active(requested_layer)
-    return load_normalized_layer_calibration(requested_layer)
+    return _load_normalized_layer_calibration_cached(requested_layer)
 
 
 def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
@@ -214,10 +239,41 @@ def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
     return (float(location["x"]), float(location["y"]))
 
 
+def _normalize_pin_name(pin_name: str) -> str:
+    value = str(pin_name).strip().upper()
+    if len(value) < 2 or value[0] not in {"B", "F"} or not value[1:].isdigit():
+        raise ValueError(f"Unsupported pin name {pin_name!r}.")
+    return value
+
+
+def _translate_pin_name_family(layer: str, pin_name: str, target_family: str) -> str:
+    requested_layer = _normalize_layer(layer)
+    normalized_pin = _normalize_pin_name(pin_name)
+    desired_family = str(target_family).strip().upper()
+    if desired_family not in {"B", "F"}:
+        raise ValueError(f"Unsupported target pin family {target_family!r}.")
+    if normalized_pin[0] == desired_family:
+        return normalized_pin
+
+    geometry = create_layer_geometry(requested_layer)
+    translated_pin = int(LayerFunctions.translateFrontBack(geometry, int(normalized_pin[1:])))
+    return f"{desired_family}{translated_pin}"
+
+
+def resolve_pin_name_for_side(layer: str, side: str, pin_name: str) -> str:
+    requested_side = _normalize_side(side)
+    target_family = "F" if requested_side == "A" else "B"
+    return _translate_pin_name_family(layer, pin_name, target_family)
+
+
+def get_calibrated_pin_xy_for_side(layer: str, side: str, pin_name: str) -> tuple[float, float]:
+    resolved_pin = resolve_pin_name_for_side(layer, side, pin_name)
+    return get_calibrated_pin_xy(layer, resolved_pin)
+
+
 def _bottom_back_pin_to_front_pin(layer: str, back_pin: int) -> int:
-    geometry = create_layer_geometry(_normalize_layer(layer))
-    translated = ((int(geometry.startPinFront) - int(back_pin)) % int(geometry.pins)) + 1
-    return int(translated)
+    translated = _translate_pin_name_family(layer, f"B{int(back_pin)}", "F")
+    return int(translated[1:])
 
 
 def get_bottom_pin_options(layer: str, side: str) -> list[tuple[str, str]]:
@@ -254,18 +310,12 @@ def _default_laser_offset_store() -> dict[str, Any]:
 
 
 def load_laser_offset_store() -> dict[str, Any]:
-    data = _load_json_file(LASER_OFFSET_PATH, default=_default_laser_offset_store())
-    if not isinstance(data, dict):
-        return _default_laser_offset_store()
-    normalized = _default_laser_offset_store()
-    for side in ("A", "B"):
-        value = data.get(side)
-        normalized[side] = value if isinstance(value, dict) else None
-    return normalized
+    return dict(_load_laser_offset_store_cached())
 
 
 def save_laser_offset_store(store: dict[str, Any]) -> None:
     _atomic_write_text(LASER_OFFSET_PATH, json.dumps(store, indent=2, sort_keys=True) + "\n")
+    _load_laser_offset_store_cached.cache_clear()
 
 
 def get_laser_offset(side: str) -> dict[str, Any] | None:
@@ -282,19 +332,20 @@ def capture_laser_offset(
 ) -> dict[str, Any]:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
-    normalized_pin = str(pin_name).strip().upper()
-    pin_x, pin_y = get_calibrated_pin_xy(requested_layer, normalized_pin)
+    resolved_pin = resolve_pin_name_for_side(requested_layer, requested_side, pin_name)
+    pin_x, pin_y = get_calibrated_pin_xy(requested_layer, resolved_pin)
     stage_x = float(captured_stage_xy[0])
     stage_y = float(captured_stage_xy[1])
     entry = {
         "x": float(pin_x - stage_x),
         "y": float(pin_y - stage_y),
         "captured_layer": requested_layer,
-        "captured_pin": normalized_pin,
+        "captured_pin": resolved_pin,
         "captured_focus": None if captured_focus is None else int(captured_focus),
         "updated_at": datetime.now(UTC).isoformat(),
     }
-    store = load_laser_offset_store()
+    store = dict(load_laser_offset_store())
     store[requested_side] = entry
     save_laser_offset_store(store)
+    clear_layer_calibration_cache()
     return entry

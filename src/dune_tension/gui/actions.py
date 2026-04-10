@@ -17,7 +17,7 @@ import tkinter as tk
 
 from tkinter import messagebox
 
-from dune_tension.config import GEOMETRY_CONFIG
+from dune_tension.config import GEOMETRY_CONFIG, LAYER_LAYOUTS
 from dune_tension.data_cache import (
     clear_wire_numbers,
     clear_wire_range,
@@ -31,13 +31,14 @@ from dune_tension.layer_calibration import (
     capture_laser_offset as save_captured_laser_offset,
     ensure_layer_calibration_ready,
     get_bottom_pin_options,
-    get_calibrated_pin_xy,
+    get_calibrated_pin_xy_for_side,
     get_laser_offset,
+    resolve_pin_name_for_side,
 )
 from dune_tension.plc_desktop import desktop_seek_pin
 from dune_tension.plc_io import get_plc_io_mode
 from dune_tension.tensiometer_functions import make_config, normalize_confidence_source
-from dune_tension.uv_wire_planner import plan_uv_wire
+from dune_tension.uv_wire_planner import plan_uv_wire, plan_uv_wire_zone
 from dune_tension.gui.context import GUIContext
 from dune_tension.gui.state import save_state
 
@@ -162,10 +163,14 @@ class WorkerInputs:
     focus_wiggle_sigma_quarter_us: float
     use_manual_focus: bool
     plot_audio: bool
+    suppress_wire_preview: bool
     skip_measured: bool
     wire_number: str
     wire_list: str
+    wire_zone: str
+    skip_measured_zone: bool
     condition: str
+    legacy_tension_condition: str
     times_sigma: str
     set_tension: str
     clear_range: str
@@ -216,6 +221,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         msg = "Focus wiggle sigma must be non-negative"
         _show_input_error(ctx, msg)
         raise ValueError(msg)
+    legacy_tension_condition_widget = getattr(w, "entry_legacy_tension_condition", None)
 
     return WorkerInputs(
         apa_name=w.entry_apa.get(),
@@ -235,10 +241,18 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         use_manual_focus=bool(w.use_manual_focus_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
+        suppress_wire_preview=bool(getattr(w.suppress_wire_preview_var, "get", lambda: False)()),
         skip_measured=bool(w.skip_measured_var.get()),
         wire_number=w.entry_wire.get(),
         wire_list=w.entry_wire_list.get(),
+        wire_zone=w.entry_wire_zone.get(),
+        skip_measured_zone=bool(w.skip_measured_zone_var.get()),
         condition=w.entry_condition.get(),
+        legacy_tension_condition=(
+            legacy_tension_condition_widget.get()
+            if legacy_tension_condition_widget is not None
+            else ""
+        ),
         times_sigma=w.entry_times_sigma.get(),
         set_tension=w.entry_set_tension.get(),
         clear_range=w.entry_clear_range.get(),
@@ -296,6 +310,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,
         focus_position_getter=lambda: int(ctx.servo_controller.focus_position),
+        legacy_tension_condition=str(getattr(inputs, "legacy_tension_condition", "") or ""),
         use_manual_focus=bool(getattr(inputs, "use_manual_focus", False)),
         manual_focus_target=None,
         estimated_time_callback=lambda value: _set_estimated_time(ctx, value),
@@ -309,14 +324,18 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
             ctx,
             config,
         ),
-        wire_preview_callback=lambda wire_number, wire_x, wire_y: _request_uv_wire_preview(
-            ctx,
-            str(inputs.layer).upper(),
-            str(inputs.side).upper(),
-            int(wire_number),
-            float(wire_x),
-            float(wire_y),
-            bool(inputs.a_taped) if str(inputs.side).upper() == "A" else bool(inputs.b_taped),
+        wire_preview_callback=(
+            (lambda *_args: None)
+            if bool(getattr(inputs, "suppress_wire_preview", False))
+            else lambda wire_number, wire_x, wire_y: _request_uv_wire_preview(
+                ctx,
+                str(inputs.layer).upper(),
+                str(inputs.side).upper(),
+                int(wire_number),
+                float(wire_x),
+                float(wire_y),
+                bool(inputs.a_taped) if str(inputs.side).upper() == "A" else bool(inputs.b_taped),
+            )
         ),
         runtime_bundle=ctx.runtime,
     )
@@ -399,8 +418,8 @@ def refresh_uv_laser_offset_controls(ctx: GUIContext) -> None:
         pass
 
 
-def _move_to_local_pin(ctx: GUIContext, layer: str, pin_name: str, velocity: float) -> bool:
-    pin_x, pin_y = get_calibrated_pin_xy(layer, pin_name)
+def _move_to_local_pin(ctx: GUIContext, layer: str, side: str, pin_name: str, velocity: float) -> bool:
+    pin_x, pin_y = get_calibrated_pin_xy_for_side(layer, side, pin_name)
     goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
     try:
         result = goto_xy(pin_x, pin_y, speed=float(velocity))
@@ -413,7 +432,7 @@ def _move_laser_to_pin(ctx: GUIContext, layer: str, side: str, pin_name: str) ->
     offset = get_laser_offset(side)
     if offset is None:
         raise ValueError(f"No saved laser offset exists for side {str(side).upper()}.")
-    pin_x, pin_y = get_calibrated_pin_xy(layer, pin_name)
+    pin_x, pin_y = get_calibrated_pin_xy_for_side(layer, side, pin_name)
     target_x = float(pin_x) - float(offset["x"])
     target_y = float(pin_y) - float(offset["y"])
     goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
@@ -847,6 +866,73 @@ def _parse_ranges(text: str) -> list[tuple[int, int]]:
     return ranges
 
 
+def _parse_zone_spec(text: str) -> set[int]:
+    """Parse zone specification like ``"3"``, ``"1-3"``, ``"2,4"`` into a set of zone ints.
+
+    Valid zones are 1–5 (``GEOMETRY_CONFIG.zone_count``). Invalid tokens and
+    out-of-range values are skipped with a warning.
+    """
+    max_zone = GEOMETRY_CONFIG.zone_count  # 5
+    zones: set[int] = set()
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            try:
+                start_str, end_str = part.split("-", 1)
+                start, end = int(start_str.strip()), int(end_str.strip())
+            except ValueError:
+                LOGGER.warning("Invalid zone range token: %r", part)
+                continue
+            if start > end:
+                LOGGER.warning("Zone range start > end, skipping: %r", part)
+                continue
+            for z in range(start, end + 1):
+                if 1 <= z <= max_zone:
+                    zones.add(z)
+                else:
+                    LOGGER.warning("Zone %d out of range [1, %d], skipping", z, max_zone)
+        else:
+            try:
+                z = int(part)
+            except ValueError:
+                LOGGER.warning("Invalid zone token: %r", part)
+                continue
+            if 1 <= z <= max_zone:
+                zones.add(z)
+            else:
+                LOGGER.warning("Zone %d out of range [1, %d], skipping", z, max_zone)
+    return zones
+
+
+def _get_wires_in_zones(layer: str, side: str, zones: set[int], *, taped: bool) -> list[int]:
+    """Return sorted wire numbers whose optimal measuring zone is in ``zones``.
+
+    Only applicable for U/V layers; returns an empty list with a warning for X/G.
+    Per-wire planning errors (e.g. wire too short to plan) are silently skipped.
+    """
+    layer_upper = str(layer).upper()
+    if layer_upper not in {"U", "V"}:
+        LOGGER.warning(
+            "Zone-based wire selection is only supported for U/V layers, not %s", layer_upper
+        )
+        return []
+
+    layout = LAYER_LAYOUTS.get(layer_upper)
+    if layout is None:
+        return []
+
+    wires: list[int] = []
+    for wire_number in range(layout.wire_min, layout.wire_max + 1):
+        try:
+            if plan_uv_wire_zone(layer_upper, side, wire_number) in zones:
+                wires.append(wire_number)
+        except Exception:
+            continue
+    return wires
+
+
 @_run_in_thread(measurement=True)
 def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     """Measure a comma separated list of wire ranges."""
@@ -858,12 +944,9 @@ def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
         wire_list.extend(range(start, end + step, step))
     if inputs.skip_measured:
         filtered_wire_list = _filter_unmeasured_wires(inputs, wire_list)
-        if filtered_wire_list:
-            wire_list = filtered_wire_list
-        elif wire_list:
-            LOGGER.info(
-                "All requested wires are already measured; keeping the requested list so the winder still seeks those wire positions."
-            )
+        if not filtered_wire_list:
+            return
+        wire_list = filtered_wire_list
 
     if _measurement_mode(inputs) != "legacy":
         LOGGER.info("Streaming measurement wires: %s", wire_list)
@@ -900,6 +983,53 @@ def _filter_unmeasured_wires(inputs: WorkerInputs, wire_list: list[int]) -> list
     if not remaining_wires:
         LOGGER.info("All requested wires are already measured.")
     return remaining_wires
+
+
+@_run_in_thread(measurement=True)
+def measure_zone_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    """Measure all U/V wires whose best-segment zone is in the specified zone set."""
+
+    layer = str(inputs.layer).upper()
+    zone_text = inputs.wire_zone.strip()
+    if not zone_text:
+        LOGGER.warning("No zone specification entered.")
+        return
+
+    zones = _parse_zone_spec(zone_text)
+    if not zones:
+        LOGGER.warning("No valid zones parsed from: %r", zone_text)
+        return
+
+    side = str(inputs.side).upper()
+    taped = bool(inputs.a_taped) if side == "A" else bool(inputs.b_taped)
+    LOGGER.info("Finding wires in zone(s) %s for layer=%s side=%s ...", sorted(zones), layer, side)
+    wire_list = _get_wires_in_zones(layer, side, zones, taped=taped)
+    if not wire_list:
+        LOGGER.info("No wires found in zone(s) %s.", sorted(zones))
+        return
+
+    LOGGER.info("Zone(s) %s → %d wires.", sorted(zones), len(wire_list))
+
+    if inputs.skip_measured_zone:
+        filtered = _filter_unmeasured_wires(inputs, wire_list)
+        if not filtered:
+            return
+        wire_list = filtered
+
+    if _measurement_mode(inputs) != "legacy":
+        LOGGER.info("Streaming zone measurement: %s", wire_list)
+        _run_streaming_for_wires(ctx, inputs, wire_list)
+        return
+
+    tensiometer: "Tensiometer | None" = None
+    try:
+        tensiometer = create_tensiometer(ctx, inputs)
+        LOGGER.info("Measuring %d wires in zone(s) %s", len(wire_list), sorted(zones))
+        tensiometer.measure_list(wire_list, preserve_order=True)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+    finally:
+        _cleanup_after_measurement(ctx, tensiometer)
 
 
 @_run_in_thread
@@ -962,14 +1092,15 @@ def seek_camera_to_pin(ctx: GUIContext, inputs: WorkerInputs) -> None:
 
     try:
         ensure_layer_calibration_ready(layer)
+        resolved_pin_name = resolve_pin_name_for_side(layer, side, pin_name)
         if get_plc_io_mode() == "desktop":
-            moved = desktop_seek_pin(pin_name, DEFAULT_PIN_SEEK_VELOCITY)
+            moved = desktop_seek_pin(resolved_pin_name, DEFAULT_PIN_SEEK_VELOCITY)
         else:
-            moved = _move_to_local_pin(ctx, layer, pin_name, DEFAULT_PIN_SEEK_VELOCITY)
+            moved = _move_to_local_pin(ctx, layer, side, pin_name, DEFAULT_PIN_SEEK_VELOCITY)
         if not moved:
-            LOGGER.warning("Failed to seek to pin %s.", pin_name)
+            LOGGER.warning("Failed to seek to pin %s.", resolved_pin_name)
             return
-        LOGGER.info("Seeked camera to %s.", pin_name)
+        LOGGER.info("Seeked camera to %s.", resolved_pin_name)
     except Exception as exc:
         LOGGER.warning("Failed to seek camera to pin %s: %s", pin_name, exc)
     finally:
@@ -1002,7 +1133,7 @@ def capture_laser_offset_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
         LOGGER.info(
             "Captured laser offset for side %s from %s: x=%0.3f mm y=%0.3f mm",
             side,
-            pin_name,
+            str(entry["captured_pin"]),
             float(entry["x"]),
             float(entry["y"]),
         )
@@ -1092,13 +1223,19 @@ def _compile_tension_condition(expr: str):
     for node in ast.walk(tree):
         if not isinstance(node, allowed_nodes):
             raise ValueError(f"disallowed expression node: {type(node).__name__}")
-        if isinstance(node, ast.Name) and node.id not in ("t", "n"):
-            raise ValueError("only variables 't' (tension) and 'n' (wire number) are allowed")
+        if isinstance(node, ast.Name) and node.id not in ("t", "n", "z"):
+            raise ValueError(
+                "only variables 't' (tension), 'n' (wire number), and 'z' (zone) are allowed"
+            )
 
     code = compile(tree, "<tension-condition>", "eval")
 
-    def predicate(wire_number: int, tension: float) -> bool:
-        result = eval(code, {"__builtins__": {}}, {"t": float(tension), "n": int(wire_number)})
+    def predicate(wire_number: int, tension: float, zone: int = 0) -> bool:
+        result = eval(
+            code,
+            {"__builtins__": {}},
+            {"t": float(tension), "n": int(wire_number), "z": int(zone)},
+        )
         return bool(result)
 
     return predicate
@@ -1111,10 +1248,33 @@ def _normalize_tension_condition(expr: str) -> str:
     normalized = re.sub(r"\bOR\b", "or", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"\bNOT\b", "not", normalized, flags=re.IGNORECASE)
     normalized = normalized.replace(",", " and ")
+    # Normalize bare "z=N" (single equals) to "z==N" for Python equality
+    normalized = re.sub(r"\b(z)\s*=(?!=)", r"\1==", normalized)
     return normalized
 
 
-def _get_wires_matching_tension_condition(config: Any, expr: str) -> list[int]:
+def _expr_uses_variable(normalized_expr: str, var: str) -> bool:
+    """Return True if the normalized expression references the given variable name."""
+    try:
+        tree = ast.parse(normalized_expr, mode="eval")
+    except SyntaxError:
+        return False
+    return any(isinstance(node, ast.Name) and node.id == var for node in ast.walk(tree))
+
+
+def _get_wires_matching_condition(config: Any, expr: str) -> list[int]:
+    """Return wire numbers satisfying the condition expression.
+
+    Supported variables:
+    - ``t``: measured tension (float; math.nan for unmeasured wires)
+    - ``n``: wire number (int)
+    - ``z``: zone 1–5 for U/V layers (int); 0 for X/G or wires that cannot be planned
+
+    If ``z`` is referenced, zones are computed via the lightweight UV zone planner
+    for all wires in the layer range. Wires with no measurement are included only if
+    the expression does not use ``t`` (otherwise the nan tension causes the predicate
+    to be skipped). For X/G layers with a ``z`` expression, no wires are returned.
+    """
     from dune_tension.summaries import get_tension_series
 
     normalized_expr = _normalize_tension_condition(expr)
@@ -1124,18 +1284,58 @@ def _get_wires_matching_tension_condition(config: Any, expr: str) -> list[int]:
         LOGGER.warning("Invalid expression %r: %s", expr, exc)
         return []
 
+    uses_z = _expr_uses_variable(normalized_expr, "z")
+    layer = str(config.layer).upper()
+
+    if uses_z:
+        if layer not in {"U", "V"}:
+            LOGGER.warning(
+                "Zone variable 'z' is not applicable for layer %s; returning no matches.", layer
+            )
+            return []
+
+        layout = LAYER_LAYOUTS.get(layer)
+        if layout is None:
+            return []
+
+        side = str(config.side).upper()
+        wire_zone_map: dict[int, int] = {}
+        for wire_number in range(layout.wire_min, layout.wire_max + 1):
+            try:
+                wire_zone_map[wire_number] = plan_uv_wire_zone(layer, side, wire_number)
+            except Exception:
+                continue
+
+        tension_series = get_tension_series(config)
+        measured: dict = tension_series.get(side, {})
+
+        wires: list[int] = []
+        for wire_number in range(layout.wire_min, layout.wire_max + 1):
+            zone = wire_zone_map.get(wire_number, 0)
+            tension = measured.get(wire_number, math.nan)
+            try:
+                if predicate(int(wire_number), float(tension), int(zone)):
+                    wires.append(wire_number)
+            except Exception:
+                continue
+        return wires
+
+    # z not used: original behaviour — iterate only measured wires
     wires: list[int] = []
     tension_series = get_tension_series(config)
     for wire_number, tension in sorted(
         tension_series.get(str(config.side).upper(), {}).items()
     ):
         try:
-            if predicate(int(wire_number), float(tension)):
+            if predicate(int(wire_number), float(tension), 0):
                 wires.append(int(wire_number))
         except Exception as exc:
             LOGGER.warning("Error evaluating condition for wire %s: %s", wire_number, exc)
             return []
     return wires
+
+
+_get_wires_matching_tension_condition = _get_wires_matching_condition
 
 
 def clear_range(ctx: GUIContext) -> None:
@@ -1229,7 +1429,7 @@ def _erase_detected_outliers(
             try:
                 wire_number = int(wire)
                 if all(
-                    _compile_tension_condition(pred)(wire_number, 0.0)
+                    _compile_tension_condition(pred)(wire_number, 0.0, 0)
                     for pred in wire_predicates
                 ):
                     filtered_outliers.append(wire_number)

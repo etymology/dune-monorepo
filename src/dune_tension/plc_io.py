@@ -333,6 +333,12 @@ def _ensure_tracked_xy() -> tuple[float, float]:
     return tuple(_TRUE_XY)
 
 
+def _clamp_measurable_x(x_value: float) -> float:
+    """Clamp an X coordinate to the measurable envelope for path planning."""
+
+    return min(max(float(x_value), float(MEASURABLE_X_MIN)), float(MEASURABLE_X_MAX))
+
+
 def get_cached_xy() -> tuple[float, float]:
     """Return the internally tracked XY position.
 
@@ -410,14 +416,15 @@ def goto_xy(
     _ensure_tracked_xy()
 
     if check_comb:
-        cur_x = _TRUE_XY[0]
+        cur_x = float(_TRUE_XY[0])
+        path_x = _clamp_measurable_x(cur_x)
         crosses = any(
-            (cur_x < c < x_target) or (x_target < c < cur_x) for c in comb_positions
+            (path_x < c < x_target) or (x_target < c < path_x) for c in comb_positions
         )
         if crosses:
             transit_y = float(MEASURABLE_Y_MIN)
             if not goto_xy(
-                cur_x,
+                path_x,
                 transit_y,
                 speed=speed,
                 deadzone=deadzone,

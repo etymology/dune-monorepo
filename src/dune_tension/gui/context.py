@@ -35,9 +35,13 @@ class GUIWidgets:
     entry_focus_wiggle_sigma: tk.Entry
     use_manual_focus_var: tk.BooleanVar
     plot_audio_var: tk.BooleanVar
+    suppress_wire_preview_var: tk.BooleanVar
     skip_measured_var: tk.BooleanVar
+    entry_wire_zone: tk.Entry
+    skip_measured_zone_var: tk.BooleanVar
     entry_clear_range: tk.Entry
     entry_condition: tk.Entry
+    entry_legacy_tension_condition: tk.Entry
     entry_times_sigma: tk.Entry
     entry_set_tension: tk.Entry
     focus_slider: tk.Scale

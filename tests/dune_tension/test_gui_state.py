@@ -88,13 +88,17 @@ def _build_widgets(focus_value="4807.0"):
         b_taped_var=_FakeVar(False),
         entry_wire=_FakeEntry("1"),
         entry_wire_list=_FakeEntry("500-900"),
+        entry_wire_zone=_FakeEntry(""),
+        skip_measured_zone_var=_FakeVar(False),
         entry_confidence=_FakeEntry("0.6"),
         confidence_source_var=_FakeVar("Signal Amplitude"),
         plot_audio_var=_FakeVar(False),
+        suppress_wire_preview_var=_FakeVar(False),
         skip_measured_var=_FakeVar(True),
         focus_slider=_FakeScale(focus_value),
         disable_x_compensation_var=_FakeVar(False),
         entry_condition=_FakeEntry("t>7"),
+        entry_legacy_tension_condition=_FakeEntry("t<7"),
         entry_times_sigma=_FakeEntry("2.0"),
         entry_set_tension=_FakeEntry("(481,5)"),
         entry_record_duration=_FakeEntry("1"),
@@ -120,14 +124,19 @@ def test_save_state_accepts_float_like_focus_slider(monkeypatch, tmp_path):
     data = json.loads(Path(ctx.state_file).read_text(encoding="utf-8"))
     assert data["focus_target"] == 4807
     assert data["confidence_source"] == "Signal Amplitude"
+    assert data["legacy_tension_condition"] == "t<7"
     assert data["disable_x_compensation"] is False
     assert data["laser_offset_pin"] == "B400"
+    assert data["suppress_wire_preview"] is False
 
 
 def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
     state = _load_state_module(monkeypatch)
     state_file = tmp_path / "gui_state.json"
-    state_file.write_text(json.dumps({"focus_target": ""}), encoding="utf-8")
+    state_file.write_text(
+        json.dumps({"focus_target": "", "legacy_tension_condition": "4<t"}),
+        encoding="utf-8",
+    )
 
     widgets = _build_widgets()
     ctx = types.SimpleNamespace(
@@ -141,8 +150,10 @@ def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
     assert widgets.focus_slider.get() == 4000
     assert ctx.focus_command_var.get() == "4000"
     assert widgets.confidence_source_var.get() == "Neural Net"
+    assert widgets.entry_legacy_tension_condition.get() == "4<t"
     assert widgets.disable_x_compensation_var.get() is False
     assert widgets.laser_offset_pin_var.get() == ""
+    assert widgets.suppress_wire_preview_var.get() is False
 
 
 def test_load_state_restores_disable_x_compensation(monkeypatch, tmp_path):
@@ -169,3 +180,27 @@ def test_load_state_restores_disable_x_compensation(monkeypatch, tmp_path):
 
     assert widgets.focus_slider.get() == 4500
     assert widgets.disable_x_compensation_var.get() is True
+
+
+def test_load_state_restores_suppress_wire_preview(monkeypatch, tmp_path):
+    state = _load_state_module(monkeypatch)
+    state_file = tmp_path / "gui_state.json"
+    state_file.write_text(
+        json.dumps(
+            {
+                "suppress_wire_preview": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    widgets = _build_widgets()
+    ctx = types.SimpleNamespace(
+        widgets=widgets,
+        state_file=str(state_file),
+        focus_command_var=_FakeVar(""),
+    )
+
+    state.load_state(ctx)
+
+    assert widgets.suppress_wire_preview_var.get() is True

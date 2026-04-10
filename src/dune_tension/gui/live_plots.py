@@ -154,7 +154,14 @@ class LivePlotManager:
             placeholder.grid_forget()
 
         canvas = FigureCanvasTkAgg(figure, master=parent)
-        canvas.draw()
+        try:
+            canvas.draw()
+        except KeyboardInterrupt:
+            # GUI interrupted during drawing - safe to ignore
+            pass
+        except Exception:
+            # Other drawing errors - still display the canvas
+            pass
         canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
         if kind == "summary":

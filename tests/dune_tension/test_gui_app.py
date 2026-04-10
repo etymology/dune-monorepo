@@ -21,6 +21,9 @@ def _load_app_module(monkeypatch):
     tk_stub.Button = object
     tk_stub.Canvas = object
     monkeypatch.setitem(sys.modules, "tkinter", tk_stub)
+    tkfont_stub = types.ModuleType("tkinter.font")
+    tkfont_stub.nametofont = lambda _name: types.SimpleNamespace(configure=lambda **_kwargs: None)
+    monkeypatch.setitem(sys.modules, "tkinter.font", tkfont_stub)
 
     dune_pkg = types.ModuleType("dune_tension")
     dune_pkg.__path__ = []
@@ -51,6 +54,7 @@ def _load_app_module(monkeypatch):
         "measure_calibrate",
         "measure_condition",
         "measure_list_button",
+        "measure_zone_button",
         "monitor_tension_logs",
         "refresh_uv_laser_offset_controls",
         "refresh_tension_logs",
@@ -78,6 +82,16 @@ def _load_app_module(monkeypatch):
     logging_panel = types.ModuleType("dune_tension.gui.logging_panel")
     logging_panel.configure_gui_logging = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.logging_panel", logging_panel)
+
+    crash_logging = types.ModuleType("dune_tension.gui.crash_logging")
+    crash_logging.format_process_stats = lambda: ""
+    crash_logging.install_gui_crash_logging = lambda: types.SimpleNamespace(
+        log_path="",
+        fault_log_path="",
+        flush=lambda: None,
+    )
+    crash_logging.install_tk_exception_logging = lambda *_args, **_kwargs: None
+    monkeypatch.setitem(sys.modules, "dune_tension.gui.crash_logging", crash_logging)
 
     services = types.ModuleType("dune_tension.services")
     services.build_runtime_bundle = lambda *_args, **_kwargs: object()
