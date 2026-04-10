@@ -93,6 +93,7 @@ def _build_widgets(focus_value="4807.0"):
         plot_audio_var=_FakeVar(False),
         skip_measured_var=_FakeVar(True),
         focus_slider=_FakeScale(focus_value),
+        disable_x_compensation_var=_FakeVar(False),
         entry_condition=_FakeEntry("t>7"),
         entry_times_sigma=_FakeEntry("2.0"),
         entry_set_tension=_FakeEntry("(481,5)"),
@@ -100,6 +101,7 @@ def _build_widgets(focus_value="4807.0"):
         entry_measuring_duration=_FakeEntry("10"),
         entry_wiggle_y_sigma=_FakeEntry("0.2"),
         entry_focus_wiggle_sigma=_FakeEntry("100"),
+        use_manual_focus_var=_FakeVar(False),
     )
 
 
@@ -115,6 +117,7 @@ def test_save_state_accepts_float_like_focus_slider(monkeypatch, tmp_path):
     data = json.loads(Path(ctx.state_file).read_text(encoding="utf-8"))
     assert data["focus_target"] == 4807
     assert data["confidence_source"] == "Signal Amplitude"
+    assert data["disable_x_compensation"] is False
 
 
 def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
@@ -134,3 +137,30 @@ def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
     assert widgets.focus_slider.get() == 4000
     assert ctx.focus_command_var.get() == "4000"
     assert widgets.confidence_source_var.get() == "Neural Net"
+    assert widgets.disable_x_compensation_var.get() is False
+
+
+def test_load_state_restores_disable_x_compensation(monkeypatch, tmp_path):
+    state = _load_state_module(monkeypatch)
+    state_file = tmp_path / "gui_state.json"
+    state_file.write_text(
+        json.dumps(
+            {
+                "focus_target": 4500,
+                "disable_x_compensation": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    widgets = _build_widgets()
+    ctx = types.SimpleNamespace(
+        widgets=widgets,
+        state_file=str(state_file),
+        focus_command_var=_FakeVar(""),
+    )
+
+    state.load_state(ctx)
+
+    assert widgets.focus_slider.get() == 4500
+    assert widgets.disable_x_compensation_var.get() is True
