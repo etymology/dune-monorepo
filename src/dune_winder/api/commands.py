@@ -669,11 +669,6 @@ def build_command_registry(
     False,
   )
   registry.register(
-    "process.get_layer_calibration",
-    lambda args: (_validateArgs(args), process.getLayerCalibration())[1],
-    False,
-  )
-  registry.register(
     "process.get_workspace_state",
     lambda args: (_validateArgs(args), process.getWorkspaceState())[1],
     False,
