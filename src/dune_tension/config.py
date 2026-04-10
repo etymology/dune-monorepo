@@ -6,12 +6,12 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class GeometryConfig:
     measurable_x_min: int = 1050 # 1050
-    measurable_x_max: int = 7030
-    measurable_y_min: int = 325
+    measurable_x_max: int = 7015
+    measurable_y_min: int = 330
     measurable_y_max: int = 2700
     g_length_m: float = 1.285
     x_length_m: float = 1.273
-    comb_positions: tuple[int, ...] = (1050, 2230, 3420, 4590, 5770, 7030)
+    comb_positions: tuple[int, ...] = (1050, 2230, 3420, 4590, 5770, 7015)
     refine_search_steps: int = 300
     refine_clearance_threshold: float = 400.0
     taped_length_offset_mm: float = 16.0
