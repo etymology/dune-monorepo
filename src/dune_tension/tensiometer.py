@@ -1,5 +1,5 @@
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import math
@@ -66,6 +66,48 @@ class DeferredPitchSample:
     confidence: float
 
 
+@dataclass
+class WireMeasurementProfile:
+    """Timing breakdown for one wire inside a list/auto batch run."""
+
+    workflow: str
+    wire_number: int
+    started_at: float
+    stage_seconds: dict[str, float] = field(default_factory=dict)
+
+    def add(self, stage: str, elapsed: float) -> None:
+        self.stage_seconds[stage] = self.stage_seconds.get(stage, 0.0) + max(
+            0.0,
+            float(elapsed),
+        )
+
+    @property
+    def total_seconds(self) -> float:
+        if "wire_total_wall" in self.stage_seconds:
+            return max(0.0, float(self.stage_seconds["wire_total_wall"]))
+        return max(0.0, float(sum(self.stage_seconds.values())))
+
+
+@dataclass
+class BatchMeasurementProfile:
+    """Aggregate timing for a list/auto wire measurement batch."""
+
+    workflow: str
+    requested_wires: list[int]
+    started_at: float
+    planning_seconds: float = 0.0
+    wire_profiles: list[WireMeasurementProfile] = field(default_factory=list)
+    skipped_wires: list[int] = field(default_factory=list)
+
+    def complete_wire(self, profile: WireMeasurementProfile | None) -> None:
+        if profile is not None:
+            self.wire_profiles.append(profile)
+
+    @property
+    def total_seconds(self) -> float:
+        return max(0.0, float(sum(p.total_seconds for p in self.wire_profiles) + self.planning_seconds))
+
+
 def acquire_audio(*args, **kwargs):
     """Lazily import the runtime audio acquisition helper."""
 
@@ -129,6 +171,7 @@ def build_tensiometer(
     estimated_time_callback: Optional[Callable[[str], None]] = None,
     audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
     summary_refresh_callback: Optional[Callable[[Any], None]] = None,
+    wire_preview_callback: Optional[Callable[[int, float, float], None]] = None,
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
 ) -> "Tensiometer":
@@ -268,6 +311,7 @@ def build_tensiometer(
         estimated_time_callback=estimated_time_callback,
         audio_sample_callback=audio_sample_callback,
         summary_refresh_callback=summary_refresh_callback,
+        wire_preview_callback=wire_preview_callback,
         config=config,
         motion=active_runtime.motion,
         audio=active_runtime.audio,
@@ -316,6 +360,7 @@ class Tensiometer:
         estimated_time_callback: Optional[Callable[[str], None]] = None,
         audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
         summary_refresh_callback: Optional[Callable[[Any], None]] = None,
+        wire_preview_callback: Optional[Callable[[int, float, float], None]] = None,
         config: TensiometerConfig | None = None,
         motion: MotionService | None = None,
         audio: AudioCaptureService | None = None,
@@ -349,6 +394,7 @@ class Tensiometer:
         self.sweeping_wiggle_span_mm = float(sweeping_wiggle_span_mm)
         self.focus_wiggle_sigma_quarter_us = float(focus_wiggle_sigma_quarter_us)
         self._time = time_provider or time.time
+        self._profile_time = time.perf_counter
         self._now = datetime_provider or datetime.now
         self._gauss = gauss_func or gauss
         if self.wiggle_y_sigma_mm < 0:
@@ -386,6 +432,7 @@ class Tensiometer:
             audio_sample_callback or (lambda _sample, _samplerate, _analysis: None)
         )
         self.summary_refresh_callback = summary_refresh_callback or (lambda _config: None)
+        self.wire_preview_callback = wire_preview_callback or (lambda *_args: None)
 
         self.a_taped = bool(a_taped)
         self.b_taped = bool(b_taped)
@@ -395,6 +442,102 @@ class Tensiometer:
         self._wiggle_thread: threading.Thread | None = None
         self._sweeping_wiggle_event: threading.Event | None = None
         self._sweeping_wiggle_thread: threading.Thread | None = None
+        self._active_batch_profile: BatchMeasurementProfile | None = None
+        self._active_wire_profile: WireMeasurementProfile | None = None
+
+    def _start_batch_profile(
+        self,
+        *,
+        workflow: str,
+        requested_wires: list[int],
+    ) -> BatchMeasurementProfile:
+        profile = BatchMeasurementProfile(
+            workflow=workflow,
+            requested_wires=list(map(int, requested_wires)),
+            started_at=self._profile_time(),
+        )
+        self._active_batch_profile = profile
+        LOGGER.info(
+            "Timing profile started for %s measurement of %s wire(s): %s",
+            workflow,
+            len(profile.requested_wires),
+            profile.requested_wires,
+        )
+        return profile
+
+    def _finish_batch_profile(self) -> None:
+        profile = self._active_batch_profile
+        self._active_batch_profile = None
+        self._active_wire_profile = None
+        if profile is None:
+            return
+        measured_wires = len(profile.wire_profiles)
+        total_wire_seconds = sum(p.total_seconds for p in profile.wire_profiles)
+        avg_wire_seconds = (
+            total_wire_seconds / measured_wires if measured_wires else 0.0
+        )
+        aggregate_stages: dict[str, float] = {}
+        for wire_profile in profile.wire_profiles:
+            for stage, elapsed in wire_profile.stage_seconds.items():
+                aggregate_stages[stage] = aggregate_stages.get(stage, 0.0) + elapsed
+        stage_summary = ", ".join(
+            f"{stage}={elapsed:.2f}s"
+            for stage, elapsed in sorted(
+                aggregate_stages.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        ) or "none"
+        LOGGER.info(
+            "Timing profile summary for %s measurement: requested=%s measured=%s skipped=%s planning=%.2fs avg_wire=%.2fs total=%.2fs stage_totals=[%s]",
+            profile.workflow,
+            len(profile.requested_wires),
+            measured_wires,
+            profile.skipped_wires,
+            profile.planning_seconds,
+            avg_wire_seconds,
+            profile.total_seconds,
+            stage_summary,
+        )
+
+    def _start_wire_profile(self, workflow: str, wire_number: int) -> None:
+        if self._active_batch_profile is None:
+            self._active_wire_profile = None
+            return
+        self._active_wire_profile = WireMeasurementProfile(
+            workflow=workflow,
+            wire_number=int(wire_number),
+            started_at=self._profile_time(),
+        )
+
+    def _record_wire_stage(self, stage: str, elapsed: float) -> None:
+        if self._active_wire_profile is not None:
+            self._active_wire_profile.add(stage, elapsed)
+
+    def _complete_wire_profile(self, *, skipped: bool = False) -> None:
+        profile = self._active_wire_profile
+        self._active_wire_profile = None
+        if self._active_batch_profile is None or profile is None:
+            return
+        if skipped:
+            self._active_batch_profile.skipped_wires.append(profile.wire_number)
+            return
+        self._active_batch_profile.complete_wire(profile)
+        stage_summary = ", ".join(
+            f"{stage}={elapsed:.2f}s"
+            for stage, elapsed in sorted(
+                profile.stage_seconds.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        ) or "none"
+        LOGGER.info(
+            "Timing profile for %s wire %s: total=%.2fs stages=[%s]",
+            profile.workflow,
+            profile.wire_number,
+            profile.total_seconds,
+            stage_summary,
+        )
 
     def _focus_wiggle_x_sign(self) -> float:
         """Return focus/X coupling sign: A is negative, B is positive."""
@@ -616,6 +759,33 @@ class Tensiometer:
             x=float(target_x),
             y=float(target_y),
             focus_position=int(focus_position) if focus_position is not None else None,
+        )
+
+    def _plan_batch_measurement_pose(
+        self,
+        wire_number: int,
+        *,
+        last_successful_result: TensionResult | None = None,
+        last_successful_wire_number: int | None = None,
+    ) -> PlannedWirePose | None:
+        """Return the absolute target pose for a batch measurement wire.
+
+        U/V legacy runs should always go to the provider-computed pose for the
+        requested wire, even in list/auto workflows. X/G retains the historical
+        step-from-last-success path.
+        """
+
+        if self.config.layer in ["U", "V"]:
+            return self.wire_position_provider.get_pose(
+                self.config,
+                int(wire_number),
+                self._get_focus_position(),
+            )
+
+        return self._plan_auto_measurement_pose(
+            int(wire_number),
+            last_successful_result=last_successful_result,
+            last_successful_wire_number=last_successful_wire_number,
         )
 
     def _await_quiet_background(self) -> None:
@@ -885,56 +1055,69 @@ class Tensiometer:
         did_report_zero = False
         last_successful_result: TensionResult | None = None
         last_successful_wire_number: int | None = None
-        with self.repository.run_scope():
-            for wire_number in wires_to_measure:
-                if check_stop_event(self.stop_event):
-                    return
+        self._start_batch_profile(workflow="auto", requested_wires=wires_to_measure)
+        try:
+            with self.repository.run_scope():
+                for wire_number in wires_to_measure:
+                    if check_stop_event(self.stop_event):
+                        return
 
-                target = self._plan_auto_measurement_pose(
-                    int(wire_number),
-                    last_successful_result=last_successful_result,
-                    last_successful_wire_number=last_successful_wire_number,
-                )
-                if target is None:
-                    LOGGER.warning(
-                        "No position data found for wire %s during auto measurement.",
-                        wire_number,
+                    self._start_wire_profile("auto", int(wire_number))
+                    target_started = self._profile_time()
+                    target = self._plan_batch_measurement_pose(
+                        int(wire_number),
+                        last_successful_result=last_successful_result,
+                        last_successful_wire_number=last_successful_wire_number,
                     )
-                    continue
+                    self._record_wire_stage(
+                        "plan_measurement_pose",
+                        self._profile_time() - target_started,
+                    )
+                    if target is None:
+                        LOGGER.warning(
+                            "No position data found for wire %s during auto measurement.",
+                            wire_number,
+                        )
+                        self._complete_wire_profile(skipped=True)
+                        continue
 
-                LOGGER.info(
-                    "Measuring wire %s at position %s,%s focus=%s",
-                    target.wire_number,
-                    target.x,
-                    target.y,
-                    target.focus_position,
-                )
-                result = self.goto_collect_wire_data(
-                    wire_number=target.wire_number,
-                    wire_x=target.x,
-                    wire_y=target.y,
-                    focus_position=target.focus_position,
-                )
-                if result is not None and float(result.frequency) > 0.0:
-                    last_successful_result = result
-                    last_successful_wire_number = int(target.wire_number)
-                measured_count += 1
-                remaining = len(wires_to_measure) - measured_count
-                if remaining > 0:
-                    elapsed = self._time() - start_time
-                    avg_time = elapsed / measured_count
-                    est_remaining = avg_time * remaining
-                    eta_text = str(timedelta(seconds=int(est_remaining)))
-                    self.estimated_time_callback(eta_text)
-                    did_report_zero = eta_text == "0:00:00"
-        if not did_report_zero:
-            self.estimated_time_callback("0:00:00")
-        LOGGER.info("Done measuring all wires")
+                    LOGGER.info(
+                        "Measuring wire %s at position %s,%s focus=%s",
+                        target.wire_number,
+                        target.x,
+                        target.y,
+                        target.focus_position,
+                    )
+                    result = self.goto_collect_wire_data(
+                        wire_number=target.wire_number,
+                        wire_x=target.x,
+                        wire_y=target.y,
+                        focus_position=target.focus_position,
+                    )
+                    self._complete_wire_profile()
+                    if result is not None and float(result.frequency) > 0.0:
+                        last_successful_result = result
+                        last_successful_wire_number = int(target.wire_number)
+                    measured_count += 1
+                    remaining = len(wires_to_measure) - measured_count
+                    if remaining > 0:
+                        elapsed = self._time() - start_time
+                        avg_time = elapsed / measured_count
+                        est_remaining = avg_time * remaining
+                        eta_text = str(timedelta(seconds=int(est_remaining)))
+                        self.estimated_time_callback(eta_text)
+                        did_report_zero = eta_text == "0:00:00"
+            if not did_report_zero:
+                self.estimated_time_callback("0:00:00")
+            LOGGER.info("Done measuring all wires")
+        finally:
+            self._finish_batch_profile()
 
     def measure_list(
         self, wire_list: list[int], preserve_order: bool, profile: bool = False
     ) -> None:
         ordered_wire_numbers = list(map(int, wire_list))
+        planning_started = self._profile_time()
         if not preserve_order:
             ordered_targets = plan_measurement_poses(
                 config=self.config,
@@ -945,40 +1128,55 @@ class Tensiometer:
                 current_focus_position=self._get_focus_position(),
             )
             ordered_wire_numbers = [pose.wire_number for pose in ordered_targets]
-
-        with self.repository.run_scope():
-            last_successful_result: TensionResult | None = None
-            last_successful_wire_number: int | None = None
-            for wire_number in ordered_wire_numbers:
-                if check_stop_event(self.stop_event):
-                    return
-                target = self._plan_auto_measurement_pose(
-                    int(wire_number),
-                    last_successful_result=last_successful_result,
-                    last_successful_wire_number=last_successful_wire_number,
-                )
-                if target is None:
-                    LOGGER.warning(
-                        "No position data found for wire %s during list measurement.",
-                        wire_number,
+        self._start_batch_profile(workflow="list", requested_wires=ordered_wire_numbers)
+        if self._active_batch_profile is not None:
+            self._active_batch_profile.planning_seconds = (
+                self._profile_time() - planning_started
+            )
+        try:
+            with self.repository.run_scope():
+                last_successful_result: TensionResult | None = None
+                last_successful_wire_number: int | None = None
+                for wire_number in ordered_wire_numbers:
+                    if check_stop_event(self.stop_event):
+                        return
+                    self._start_wire_profile("list", int(wire_number))
+                    target_started = self._profile_time()
+                    target = self._plan_batch_measurement_pose(
+                        int(wire_number),
+                        last_successful_result=last_successful_result,
+                        last_successful_wire_number=last_successful_wire_number,
                     )
-                    continue
-                LOGGER.info(
-                    "Measuring wire %s at %s,%s focus=%s",
-                    target.wire_number,
-                    target.x,
-                    target.y,
-                    target.focus_position,
-                )
-                result = self.goto_collect_wire_data(
-                    wire_number=target.wire_number,
-                    wire_x=target.x,
-                    wire_y=target.y,
-                    focus_position=target.focus_position,
-                )
-                if result is not None and float(result.frequency) > 0.0:
-                    last_successful_result = result
-                    last_successful_wire_number = int(target.wire_number)
+                    self._record_wire_stage(
+                        "plan_measurement_pose",
+                        self._profile_time() - target_started,
+                    )
+                    if target is None:
+                        LOGGER.warning(
+                            "No position data found for wire %s during list measurement.",
+                            wire_number,
+                        )
+                        self._complete_wire_profile(skipped=True)
+                        continue
+                    LOGGER.info(
+                        "Measuring wire %s at %s,%s focus=%s",
+                        target.wire_number,
+                        target.x,
+                        target.y,
+                        target.focus_position,
+                    )
+                    result = self.goto_collect_wire_data(
+                        wire_number=target.wire_number,
+                        wire_x=target.x,
+                        wire_y=target.y,
+                        focus_position=target.focus_position,
+                    )
+                    self._complete_wire_profile()
+                    if result is not None and float(result.frequency) > 0.0:
+                        last_successful_result = result
+                        last_successful_wire_number = int(target.wire_number)
+        finally:
+            self._finish_batch_profile()
 
     def _collect_samples(
         self,
@@ -1180,24 +1378,41 @@ class Tensiometer:
                 if check_stop_event(self.stop_event, "tension measurement interrupted!"):
                     return None
                 x, y = self.get_current_xy_position()
+                quiet_started = self._profile_time()
                 self._await_quiet_background()
+                self._record_wire_stage(
+                    "await_quiet_background",
+                    self._profile_time() - quiet_started,
+                )
 
                 # Trigger a valve pulse before capturing audio.
+                strum_started = self._profile_time()
                 self.strum_func()
+                self._record_wire_stage("strum", self._profile_time() - strum_started)
                 # record audio with harmonic comb
 
+                acquire_started = self._profile_time()
                 audio_sample = acquire_audio(
                     cfg=audio_acquisition_config,
                     noise_rms=self.noise_threshold / 3,
                     timeout=0.1,
                 )
+                self._record_wire_stage(
+                    "acquire_audio",
+                    self._profile_time() - acquire_started,
+                )
 
                 if audio_sample is not None:
                     focus_position = self._get_focus_position()
                     if amplitude_mode:
+                        analyze_started = self._profile_time()
                         confidence = self._amplitude_confidence(
                             audio_sample,
                             expected_frequency,
+                        )
+                        self._record_wire_stage(
+                            "analyze_audio",
+                            self._profile_time() - analyze_started,
                         )
                         current_sample = DeferredPitchSample(
                             audio_sample=audio_sample,
@@ -1233,9 +1448,14 @@ class Tensiometer:
                         else:
                             _publish_audio_sample(audio_sample, None)
                     else:
+                        analyze_started = self._profile_time()
                         analysis, frequency, confidence = self._estimate_sample_pitch(
                             audio_sample,
                             expected_frequency,
+                        )
+                        self._record_wire_stage(
+                            "analyze_audio",
+                            self._profile_time() - analyze_started,
                         )
                         _publish_audio_sample(audio_sample, analysis)
                         wire_result = _build_wire_result(
@@ -1276,11 +1496,20 @@ class Tensiometer:
                     target_y,
                     target_focus,
                 )
+                optimizer_move_started = self._profile_time()
                 try:
                     _move_to_pose(target_x, target_y, target_focus)
                 except RuntimeError as exc:
+                    self._record_wire_stage(
+                        "optimizer_move",
+                        self._profile_time() - optimizer_move_started,
+                    )
                     LOGGER.warning("%s", exc)
                     break
+                self._record_wire_stage(
+                    "optimizer_move",
+                    self._profile_time() - optimizer_move_started,
+                )
         finally:
             self._stop_sweeping_wiggle(
                 return_to_center=bool(
@@ -1318,7 +1547,12 @@ class Tensiometer:
         wire_y: float,
         focus_position: int | None = None,
     ) -> Optional[TensionResult]:
+        total_started = self._profile_time()
         self.motion.reset_plc()
+        self._record_wire_stage(
+            "reset_plc_before_move",
+            self._profile_time() - total_started,
+        )
         length = length_lookup(
             self.config.layer,
             wire_number,
@@ -1331,7 +1565,18 @@ class Tensiometer:
         if check_stop_event(self.stop_event):
             return
 
+        if self.config.layer in ["U", "V"]:
+            try:
+                self.wire_preview_callback(int(wire_number), float(wire_x), float(wire_y))
+            except Exception as exc:
+                LOGGER.debug("Wire preview callback failed for wire %s: %s", wire_number, exc)
+
+        move_started = self._profile_time()
         succeed = self._move_to_measurement_pose(wire_x, wire_y, focus_position)
+        self._record_wire_stage(
+            "move_to_measurement_pose",
+            self._profile_time() - move_started,
+        )
         if check_stop_event(self.stop_event):
             return
         if not succeed:
@@ -1355,6 +1600,7 @@ class Tensiometer:
                 taped=self._is_current_side_taped(),
             )
         start_time = self._time()
+        collect_started = self._profile_time()
         try:
             wires_results = self._collect_samples(
                 wire_number=wire_number,
@@ -1365,12 +1611,26 @@ class Tensiometer:
             )
 
         finally:
+            self._record_wire_stage(
+                "collect_samples",
+                self._profile_time() - collect_started,
+            )
+            reset_started = self._profile_time()
             self.motion.reset_plc()
+            self._record_wire_stage(
+                "reset_plc_after_collect",
+                self._profile_time() - reset_started,
+            )
 
         if wires_results is None:
             return
 
+        merge_started = self._profile_time()
         result = self._merge_results(wires_results, wire_number, wire_x, wire_y)
+        self._record_wire_stage(
+            "merge_results",
+            self._profile_time() - merge_started,
+        )
 
         if result is None:
             LOGGER.warning("Measurement failed for wire number %s.", wire_number)
@@ -1392,12 +1652,28 @@ class Tensiometer:
         )
         result.ttf = ttf
         result.time = self._now()
+        persist_started = self._profile_time()
         self.motion.reset_plc()
+        self._record_wire_stage(
+            "reset_plc_before_persist",
+            self._profile_time() - persist_started,
+        )
+        append_started = self._profile_time()
         self.repository.append_result(result)
+        self._record_wire_stage("append_result", self._profile_time() - append_started)
+        refresh_started = self._profile_time()
         try:
             self.summary_refresh_callback(self.config)
         except Exception as exc:
             LOGGER.debug("Summary refresh callback failed: %s", exc)
+        self._record_wire_stage(
+            "summary_refresh",
+            self._profile_time() - refresh_started,
+        )
+        self._record_wire_stage(
+            "wire_total_wall",
+            self._profile_time() - total_started,
+        )
 
         return result
 
