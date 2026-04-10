@@ -24,8 +24,9 @@ class SimulatedPLC(PLC):
   STATE_ERROR = 10
   STATE_EOT = 11
   STATE_XZ_SEEK = 12
-  STATE_QUEUED_MOTION = 13
+  STATE_YZ_SEEK = 13
   STATE_HMI_STOP = 14
+  STATE_QUEUED_MOTION = STATE_YZ_SEEK
 
   MOVE_RESET = 0
   MOVE_JOG_XY = 1
@@ -39,9 +40,11 @@ class SimulatedPLC(PLC):
   MOVE_PLC_INIT = 9
   MOVE_SEEK_XZ = 10
   MOVE_HMI_STOP_REQUEST = 11
+  MOVE_SEEK_YZ = 12
 
   _MACHINE_SW_PATTERN = re.compile(r"^MACHINE_SW_STAT\[(\d+)\]$")
   _XZ_TARGET_PATTERN = re.compile(r"^xz_position_target\[(\d+)\]$")
+  _YZ_TARGET_PATTERN = re.compile(r"^yz_position_target\[(\d+)\]$")
 
   _MACHINE_SW_ASSUMPTIONS = [
     "Z retract/extend sensors are derived from Z axis position and nominal front/back limits.",
@@ -65,6 +68,7 @@ class SimulatedPLC(PLC):
     MOVE_PLC_INIT: STATE_INIT,
     MOVE_SEEK_XZ: STATE_XZ_SEEK,
     MOVE_HMI_STOP_REQUEST: STATE_HMI_STOP,
+    MOVE_SEEK_YZ: STATE_YZ_SEEK,
   }
   _STATE_REQUEST_TO_BUSY_STATE = {
     STATE_XY_SEEK: STATE_XY_SEEK,
@@ -73,6 +77,7 @@ class SimulatedPLC(PLC):
     STATE_UNSERVO: STATE_UNSERVO,
     STATE_EOT: STATE_EOT,
     STATE_XZ_SEEK: STATE_XZ_SEEK,
+    STATE_YZ_SEEK: STATE_YZ_SEEK,
     STATE_HMI_STOP: STATE_HMI_STOP,
   }
 
@@ -282,6 +287,7 @@ class SimulatedPLC(PLC):
     self._tagValues["v_xyz"] = 0.0
     self._tagValues["tension_motor_cv"] = 0.0
     self._tagValues["xz_position_target"] = [0.0, 0.0]
+    self._tagValues["yz_position_target"] = [0.0, 0.0]
 
     self._tagValues["MORE_STATS_S[0]"] = 1
     self._tagValues["IncomingSeg"] = {}
@@ -380,6 +386,12 @@ class SimulatedPLC(PLC):
       self._tagValues[tagName] = [float(value[0]), float(value[1])]
       return
 
+    if tagName == "yz_position_target":
+      if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError("yz_position_target must be a two-element sequence.")
+      self._tagValues[tagName] = [float(value[0]), float(value[1])]
+      return
+
     if tagName in ("STATE", "ERROR_CODE"):
       self._tagValues[tagName] = int(value)
       return
@@ -430,6 +442,7 @@ class SimulatedPLC(PLC):
       self.STATE_LATCHING: self.MOVE_LATCH,
       self.STATE_UNSERVO: self.MOVE_UNSERVO,
       self.STATE_XZ_SEEK: self.MOVE_SEEK_XZ,
+      self.STATE_YZ_SEEK: self.MOVE_SEEK_YZ,
       self.STATE_HMI_STOP: self.MOVE_HMI_STOP_REQUEST,
     }
     moveType = moveTypeMap.get(requestedState)
@@ -475,6 +488,22 @@ class SimulatedPLC(PLC):
         self._setError(5003)
         return
       self._tagValues["X_axis.ActualPosition"] = xTarget
+      self._tagValues["Z_axis.ActualPosition"] = zTarget
+
+    elif moveType == self.MOVE_SEEK_YZ:
+      yTarget, zTarget = self._tagValues.get("yz_position_target", [0.0, 0.0])
+      yTarget = float(yTarget)
+      zTarget = float(zTarget)
+      if self._isXYLimitViolation(float(self._tagValues["X_axis.ActualPosition"]), yTarget):
+        self._setError(3003)
+        return
+      if self._isZLimitViolation(zTarget):
+        self._setError(5003)
+        return
+      if not bool(self._readTagValue("X_XFER_OK")):
+        self._setError(5003)
+        return
+      self._tagValues["Y_axis.ActualPosition"] = yTarget
       self._tagValues["Z_axis.ActualPosition"] = zTarget
 
     elif moveType == self.MOVE_SEEK_XY:
@@ -559,6 +588,10 @@ class SimulatedPLC(PLC):
     elif isMoving and self._pendingMoveType == self.MOVE_SEEK_XZ:
       self._tagValues["X_axis.ActualVelocity"] = 1.0
       self._tagValues["Y_axis.ActualVelocity"] = 0.0
+      self._tagValues["Z_axis.ActualVelocity"] = 1.0
+    elif isMoving and self._pendingMoveType == self.MOVE_SEEK_YZ:
+      self._tagValues["X_axis.ActualVelocity"] = 0.0
+      self._tagValues["Y_axis.ActualVelocity"] = 1.0
       self._tagValues["Z_axis.ActualVelocity"] = 1.0
     elif isMoving and self._pendingMoveType in (self.MOVE_JOG_Z, self.MOVE_SEEK_Z):
       self._tagValues["X_axis.ActualVelocity"] = 0.0
@@ -750,6 +783,9 @@ class SimulatedPLC(PLC):
     if tagName == "Y_XFER_OK":
       return self._readTagValue("MACHINE_SW_STAT[17]")
 
+    if tagName == "X_XFER_OK":
+      return self._readTagValue("MACHINE_SW_STAT[15]")
+
     if tagName == "ENABLE_ACTUATOR":
       return 1 if (
         bool(self._readTagValue("MACHINE_SW_STAT[9]"))
@@ -760,6 +796,10 @@ class SimulatedPLC(PLC):
     xzTargetIndex = self._xzTargetIndex(tagName)
     if xzTargetIndex is not None:
       return self._tagValues.get("xz_position_target", [0.0, 0.0])[xzTargetIndex]
+
+    yzTargetIndex = self._yzTargetIndex(tagName)
+    if yzTargetIndex is not None:
+      return self._tagValues.get("yz_position_target", [0.0, 0.0])[yzTargetIndex]
 
     bitIndex = self._machineBitIndex(tagName)
     if bitIndex is not None:
@@ -775,6 +815,16 @@ class SimulatedPLC(PLC):
     index = int(match.group(1))
     if index not in (0, 1):
       raise ValueError("xz_position_target index must be 0 or 1.")
+    return index
+
+  # ---------------------------------------------------------------------
+  def _yzTargetIndex(self, tagName):
+    match = self._YZ_TARGET_PATTERN.match(tagName)
+    if match is None:
+      return None
+    index = int(match.group(1))
+    if index not in (0, 1):
+      raise ValueError("yz_position_target index must be 0 or 1.")
     return index
 
   # ---------------------------------------------------------------------

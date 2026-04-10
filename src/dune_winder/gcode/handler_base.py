@@ -147,6 +147,16 @@ class GCodeHandlerBase:
       self._pending_actions.append("xz")
       return
 
+    if (
+      self._instruction_request_xy
+      and self._instruction_request_z
+      and self._instruction_contains_y
+      and not self._instruction_contains_x
+      and self._instruction_contains_z
+    ):
+      self._pending_actions.append("yz")
+      return
+
     if self._instruction_request_xy:
       self._pending_actions.append("xy")
 

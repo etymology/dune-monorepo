@@ -46,6 +46,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     ("state_3_move_xy", "main"),
     ("state_5_move_z", "main"),
     ("state_12_move_xz", "main"),
+    ("state_13_move_yz", "main"),
     ("state_14_hmi_stop", "main"),
     ("state_10_error", "main"),
     ("queued_motion", "main"),
@@ -65,6 +66,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.MOVE_UNSERVO: SimulatedPLC.STATE_UNSERVO,
     SimulatedPLC.MOVE_PLC_INIT: SimulatedPLC.STATE_INIT,
     SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
+    SimulatedPLC.MOVE_SEEK_YZ: SimulatedPLC.STATE_YZ_SEEK,
     SimulatedPLC.MOVE_HMI_STOP_REQUEST: SimulatedPLC.STATE_HMI_STOP,
   }
   _STATE_REQUEST_TO_MOVE_TYPE = {
@@ -74,6 +76,7 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.STATE_UNSERVO: SimulatedPLC.MOVE_UNSERVO,
     SimulatedPLC.STATE_EOT: SimulatedPLC.MOVE_RESET,
     SimulatedPLC.STATE_XZ_SEEK: SimulatedPLC.MOVE_SEEK_XZ,
+    SimulatedPLC.STATE_YZ_SEEK: SimulatedPLC.MOVE_SEEK_YZ,
     SimulatedPLC.STATE_HMI_STOP: SimulatedPLC.MOVE_HMI_STOP_REQUEST,
   }
   _LATCH_STUB_MOVE_TYPES = {
@@ -324,6 +327,8 @@ class LadderSimulatedPLC(SimulatedPLC):
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
     self._ctx.set_value("STATE_REQUEST", 0)
+    self._ctx.set_value("xz_position_target", [0.0, 0.0])
+    self._ctx.set_value("yz_position_target", [0.0, 0.0])
     self._ctx.set_value("gui_latch_pulse", False)
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("INIT_DONE", True)
@@ -702,6 +707,12 @@ class LadderSimulatedPLC(SimulatedPLC):
         self._ctx.set_value("NEXTSTATE", self.STATE_ERROR)
         self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
         return
+      if moveType == self.MOVE_SEEK_YZ and not bool(self._readTagValue("X_XFER_OK")):
+        self._ctx.set_value("ERROR_CODE", 5003)
+        self._ctx.set_value("STATE", self.STATE_ERROR)
+        self._ctx.set_value("NEXTSTATE", self.STATE_ERROR)
+        self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+        return
       self._ctx.set_value(tagName, moveType)
       nextState = self._MOVE_TO_STATE.get(moveType)
       if nextState is not None:
@@ -736,6 +747,12 @@ class LadderSimulatedPLC(SimulatedPLC):
     if tagName == "xz_position_target":
       if not isinstance(value, (list, tuple)) or len(value) != 2:
         raise ValueError("xz_position_target must be a two-element sequence.")
+      self._ctx.set_value(tagName, [float(value[0]), float(value[1])])
+      return
+
+    if tagName == "yz_position_target":
+      if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError("yz_position_target must be a two-element sequence.")
       self._ctx.set_value(tagName, [float(value[0]), float(value[1])])
       return
 

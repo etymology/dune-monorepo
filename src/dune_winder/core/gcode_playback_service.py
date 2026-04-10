@@ -375,6 +375,9 @@ class GCodePlaybackService:
       xz = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
       xzf = r"(\ *[X]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
       fxz = r"(\ *[F]\d{1,4}\ *[X]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
+      yz = r"(\ *[Y]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
+      yzf = r"(\ *[Y]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
+      fyz = r"(\ *[F]\d{1,4}\ *[Y]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
       f_only = r"(\ *[F]\d{1,4}(\.\d{1,2})?\ *$)"
       gxyf = r"(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
       gx_yf = r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
@@ -385,11 +388,14 @@ class GCodePlaybackService:
       fz = r"(\ *[F]\d{1,4}\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
       absoluteXYMovePattern = "|".join([xy, x_only, y_only, xyf, fxy, xf, fx, yf, fy])
       absoluteXZMovePattern = "|".join([xz, xzf, fxz])
+      absoluteYZMovePattern = "|".join([yz, yzf, fyz])
       relativeXYMovePattern = "|".join([gxy, gxyf, gx_y, gx_yf])
       if not re.match(
         absoluteXYMovePattern
         + "|"
         + absoluteXZMovePattern
+        + "|"
+        + absoluteYZMovePattern
         + "|"
         + relativeXYMovePattern
         + "|"
@@ -407,7 +413,8 @@ class GCodePlaybackService:
         line,
       ):
         error = (
-          "Invalid G-code format or coordinates exceeding the maximun digits allowed [X1234] : "
+          "Unsupported manual G-code format. "
+          "Supported moves are X/Y, X/Z, Y/Z, G105 P... transfer moves, G206 P0-3, and F-only lines: "
           + line
         )
 
@@ -421,6 +428,7 @@ class GCodePlaybackService:
       y = yPosition
       isXYMove = re.match(absoluteXYMovePattern + "|" + relativeXYMovePattern, line)
       isXZMove = re.match(absoluteXZMovePattern, line)
+      isYZMove = re.match(absoluteYZMovePattern, line)
       isRelativeXYMove = re.match(relativeXYMovePattern, line)
 
       for cmd in codeLineSplit:
@@ -430,7 +438,7 @@ class GCodePlaybackService:
           if isRelativeXYMove:
             x += xPosition
 
-        if "Y" in cmd and isXYMove:
+        if "Y" in cmd and (isXYMove or isYZMove):
           yCmd = cmd.split("Y")
           y = float(yCmd[1])
           if isRelativeXYMove:
@@ -448,7 +456,10 @@ class GCodePlaybackService:
               + "]"
             )
 
-        if "Z" in cmd and re.match("|".join([z_move, xz, xzf, fxz, zf, fz]), line):
+        if "Z" in cmd and re.match(
+          "|".join([z_move, xz, xzf, fxz, yz, yzf, fyz, zf, fz]),
+          line,
+        ):
           zCmd = cmd.split("Z")
           z_target = float(zCmd[1])
           if (
@@ -476,13 +487,23 @@ class GCodePlaybackService:
           + str(self._safety.limit_right)
           + "]"
         )
+      elif error is None and isYZMove:
+        limits = self._safety.current_motion_safety_limits()
+        if y < limits.limit_bottom or y > limits.limit_top:
+          error = (
+            "Invalid Y-axis Coordinates, exceeding limit ["
+            + str(limits.limit_bottom)
+            + " , "
+            + str(limits.limit_top)
+            + "]"
+          )
 
       if error is not None:
         self._log.add(
           LOG_NAME,
           "MANUAL_GCODE",
-          "Failed to execute manual G-Code line. Coordinates exceeding limit.",
-          [line],
+          "Failed to execute manual G-Code line.",
+          [line, error],
         )
       else:
         lineToExecute = line

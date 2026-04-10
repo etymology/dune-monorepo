@@ -34,7 +34,7 @@ class PLC_Logic:
     ERROR = 10
     EOT = 11
     XZ_SEEK = 12
-    QUEUED_MOTION = 13
+    YZ_SEEK = 13
     HMI_STOP = 14
 
   # end class
@@ -46,6 +46,7 @@ class PLC_Logic:
     States.UNSERVO,
     States.EOT,
     States.XZ_SEEK,
+    States.YZ_SEEK,
     States.HMI_STOP,
   }
 
@@ -227,6 +228,26 @@ class PLC_Logic:
 
     self._xzPositionTarget.set([float(x), float(z)])
     self._requestState(self.States.XZ_SEEK)
+
+  # ---------------------------------------------------------------------
+  def setYZ_Position(self, y, z, velocity=None):
+    """
+    Move in the Y/Z plane using the PLC transfer-motion interface.
+
+    Args:
+      y: Position to seek in y-axis (in millimeters).
+      z: Position to seek in z-axis (in millimeters).
+      velocity: Reserved for interface compatibility. Ignored by the PLC
+        transfer-motion command.
+    """
+    del velocity
+
+    xTransferOk = self._readTagNow(self._xTransferOk)
+    if not bool(xTransferOk):
+      raise ValueError("X_Transfer_OK must be true before issuing a YZ move.")
+
+    self._yzPositionTarget.set([float(y), float(z)])
+    self._requestState(self.States.YZ_SEEK)
 
   # ---------------------------------------------------------------------
   def _readTagNow(self, tag):
@@ -629,6 +650,7 @@ class PLC_Logic:
     self._actuatorPosition = PLC.Tag(plc, "ACTUATOR_POS", attributes, tagType="DINT")
     self._moveType = PLC.Tag(plc, "MOVE_TYPE", attributes, tagType="INT")
     self._stateRequest = PLC.Tag(plc, "STATE_REQUEST", attributes, tagType="DINT")
+    self._xTransferOk = PLC.Tag(plc, "X_XFER_OK", attributes, tagType="DINT")
     self._yTransferOk = PLC.Tag(plc, "Y_XFER_OK", attributes, tagType="DINT")
 
     machineStatus = PLC.Tag.Attributes()
@@ -660,6 +682,9 @@ class PLC_Logic:
     writeOnly.canRead = False
     self._xzPositionTarget = PLC.Tag(
       plc, "xz_position_target", writeOnly, tagType="REAL[2]"
+    )
+    self._yzPositionTarget = PLC.Tag(
+      plc, "yz_position_target", writeOnly, tagType="REAL[2]"
     )
 
     self._velocity = 0.0
