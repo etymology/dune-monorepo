@@ -17,6 +17,7 @@ import tkinter as tk
 
 from tkinter import messagebox
 
+from dune_tension.config import GEOMETRY_CONFIG
 from dune_tension.data_cache import (
     clear_wire_numbers,
     clear_wire_range,
@@ -36,6 +37,7 @@ from dune_tension.layer_calibration import (
 from dune_tension.plc_desktop import desktop_seek_pin
 from dune_tension.plc_io import get_plc_io_mode
 from dune_tension.tensiometer_functions import make_config, normalize_confidence_source
+from dune_tension.uv_wire_planner import plan_uv_wire
 from dune_tension.gui.context import GUIContext
 from dune_tension.gui.state import save_state
 
@@ -307,6 +309,15 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
             ctx,
             config,
         ),
+        wire_preview_callback=lambda wire_number, wire_x, wire_y: _request_uv_wire_preview(
+            ctx,
+            str(inputs.layer).upper(),
+            str(inputs.side).upper(),
+            int(wire_number),
+            float(wire_x),
+            float(wire_y),
+            bool(inputs.a_taped) if str(inputs.side).upper() == "A" else bool(inputs.b_taped),
+        ),
         runtime_bundle=ctx.runtime,
     )
 
@@ -396,6 +407,173 @@ def _move_to_local_pin(ctx: GUIContext, layer: str, pin_name: str, velocity: flo
     except TypeError:
         result = goto_xy(pin_x, pin_y)
     return result is not False
+
+
+def _move_laser_to_pin(ctx: GUIContext, layer: str, side: str, pin_name: str) -> bool:
+    offset = get_laser_offset(side)
+    if offset is None:
+        raise ValueError(f"No saved laser offset exists for side {str(side).upper()}.")
+    pin_x, pin_y = get_calibrated_pin_xy(layer, pin_name)
+    target_x = float(pin_x) - float(offset["x"])
+    target_y = float(pin_y) - float(offset["y"])
+    goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
+    try:
+        result = goto_xy(target_x, target_y)
+    except TypeError:
+        result = goto_xy(target_x, target_y, speed=None)
+    return result is not False
+
+
+def _show_uv_wire_preview(
+    ctx: GUIContext,
+    layer: str,
+    side: str,
+    wire_number: int,
+    wire_x: float,
+    wire_y: float,
+    taped: bool,
+    on_close,
+) -> None:
+    try:
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        from matplotlib.figure import Figure
+    except Exception:
+        LOGGER.debug("Matplotlib Tk backend unavailable; skipping wire preview.")
+        return
+
+    planned = plan_uv_wire(layer, side, wire_number, taped=bool(taped))
+    offset = get_laser_offset(side) or {"x": 0.0, "y": 0.0}
+    tangent_a = (
+        float(planned.tangent_a[0] - float(offset["x"])),
+        float(planned.tangent_a[1] - float(offset["y"])),
+    )
+    tangent_b = (
+        float(planned.tangent_b[0] - float(offset["x"])),
+        float(planned.tangent_b[1] - float(offset["y"])),
+    )
+
+    window = tk.Toplevel(ctx.root)
+    window.title(f"Wire {wire_number} preview")
+    window.geometry("980x720")
+    try:
+        window.transient(ctx.root)
+        window.grab_set()
+    except Exception:
+        pass
+
+    figure = Figure(figsize=(9.5, 6.8), constrained_layout=True)
+    axis = figure.add_subplot(1, 1, 1)
+    axis.set_title(f"U/V wire {wire_number} preview")
+    axis.set_xlabel("X (mm)")
+    axis.set_ylabel("Y (mm)")
+    axis.set_xlim(
+        float(GEOMETRY_CONFIG.measurable_x_min),
+        float(GEOMETRY_CONFIG.measurable_x_max),
+    )
+    axis.set_ylim(
+        float(GEOMETRY_CONFIG.measurable_y_min),
+        float(GEOMETRY_CONFIG.measurable_y_max),
+    )
+    axis.set_aspect("equal", adjustable="box")
+    axis.grid(True, linestyle=":", linewidth=0.5, color="#888888")
+
+    axis.fill_between(
+        [GEOMETRY_CONFIG.measurable_x_min, GEOMETRY_CONFIG.measurable_x_max],
+        [GEOMETRY_CONFIG.measurable_y_min, GEOMETRY_CONFIG.measurable_y_min],
+        [GEOMETRY_CONFIG.measurable_y_max, GEOMETRY_CONFIG.measurable_y_max],
+        color="#f1f1f1",
+        alpha=0.55,
+        label="Measurable area",
+    )
+    for comb_x in GEOMETRY_CONFIG.comb_positions[1:-1]:
+        axis.axvline(float(comb_x), color="#bbbbbb", linestyle="--", linewidth=0.8)
+
+    axis.plot(
+        [tangent_a[0], tangent_b[0]],
+        [tangent_a[1], tangent_b[1]],
+        color="#1f77b4",
+        linewidth=1.6,
+        linestyle="--",
+        label="Wire line",
+    )
+    axis.plot(
+        [float(planned.interval_start[0]), float(planned.interval_end[0])],
+        [float(planned.interval_start[1]), float(planned.interval_end[1])],
+        color="#d62728",
+        linewidth=3.0,
+        label="Measured segment",
+    )
+    axis.scatter(
+        [float(wire_x)],
+        [float(wire_y)],
+        color="#2ca02c",
+        s=42,
+        zorder=5,
+        label="Target point",
+    )
+    axis.legend(loc="upper right")
+
+    canvas = FigureCanvasTkAgg(figure, master=window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill="both", expand=True)
+    tk.Label(
+        window,
+        text=(
+            f"Target ({wire_x:.1f}, {wire_y:.1f})  "
+            f"Zone {planned.zone}  Length {planned.wire_length_m * 1000:.1f} mm"
+        ),
+        anchor="w",
+        justify="left",
+    ).pack(fill="x", padx=8, pady=(4, 0))
+    def _close() -> None:
+        try:
+            window.destroy()
+        finally:
+            on_close()
+
+    try:
+        window.protocol("WM_DELETE_WINDOW", _close)
+    except Exception:
+        pass
+    tk.Button(window, text="Continue", command=_close).pack(pady=8)
+
+
+def _request_uv_wire_preview(
+    ctx: GUIContext,
+    layer: str,
+    side: str,
+    wire_number: int,
+    wire_x: float,
+    wire_y: float,
+    taped: bool,
+) -> None:
+    if layer not in {"U", "V"}:
+        return
+
+    ready = threading.Event()
+
+    def _show_and_wait() -> None:
+        try:
+            _show_uv_wire_preview(
+                ctx,
+                layer,
+                side,
+                wire_number,
+                wire_x,
+                wire_y,
+                taped,
+                on_close=ready.set,
+            )
+        except Exception as exc:
+            LOGGER.warning("Failed to open wire preview for %s: %s", wire_number, exc)
+            ready.set()
+
+    try:
+        ctx.root.after(0, _show_and_wait)
+    except Exception:
+        return
+
+    ready.wait()
 
 
 def _current_stage_xy(ctx: GUIContext) -> tuple[float, float]:
@@ -830,6 +1008,31 @@ def capture_laser_offset_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
         )
     except Exception as exc:
         LOGGER.warning("Failed to capture laser offset from %s: %s", pin_name, exc)
+    finally:
+        try:
+            ctx.root.after(0, lambda: refresh_uv_laser_offset_controls(ctx))
+        except Exception:
+            pass
+
+
+@_run_in_thread
+def move_laser_to_pin_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    layer = str(inputs.layer).upper()
+    side = str(inputs.side).upper()
+    pin_name = _selected_laser_offset_pin(layer, side, inputs.laser_offset_pin)
+    if pin_name is None:
+        LOGGER.warning("No laser-offset pin is available for layer %s side %s.", layer, side)
+        return
+
+    try:
+        ensure_layer_calibration_ready(layer)
+        moved = _move_laser_to_pin(ctx, layer, side, pin_name)
+        if not moved:
+            LOGGER.warning("Failed to move laser to pin %s.", pin_name)
+            return
+        LOGGER.info("Moved laser to %s using saved side %s offset.", pin_name, side)
+    except Exception as exc:
+        LOGGER.warning("Failed to move laser to pin %s: %s", pin_name, exc)
     finally:
         try:
             ctx.root.after(0, lambda: refresh_uv_laser_offset_controls(ctx))

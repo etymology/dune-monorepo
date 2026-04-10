@@ -54,6 +54,7 @@ def _load_app_module(monkeypatch):
         "monitor_tension_logs",
         "refresh_uv_laser_offset_controls",
         "refresh_tension_logs",
+        "move_laser_to_pin_button",
         "seek_camera_to_pin",
         "capture_laser_offset_button",
         "set_manual_tension",

@@ -53,6 +53,7 @@ class GUIWidgets:
     laser_offset_pin_menu: Any
     laser_offset_readout_var: tk.StringVar
     btn_seek_pin: Any
+    btn_move_laser_to_pin: Any
     btn_capture_laser_offset: Any
 
 

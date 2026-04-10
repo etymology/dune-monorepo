@@ -25,6 +25,7 @@ from dune_tension.gui.actions import (
     measure_condition,
     measure_list_button,
     monitor_tension_logs,
+    move_laser_to_pin_button,
     refresh_tension_logs,
     refresh_uv_laser_offset_controls,
     seek_camera_to_pin,
@@ -475,11 +476,13 @@ def _create_widgets(
     laser_offset_pin_menu.grid(row=0, column=1, sticky="ew")
     btn_seek_pin = tk.Button(laser_offset_frame, text="Seek Camera To Pin")
     btn_seek_pin.grid(row=0, column=2, padx=(6, 0))
+    btn_move_laser_to_pin = tk.Button(laser_offset_frame, text="Move Laser To Pin")
+    btn_move_laser_to_pin.grid(row=0, column=3, padx=(6, 0))
     btn_capture_laser_offset = tk.Button(laser_offset_frame, text="Capture Laser Offset")
-    btn_capture_laser_offset.grid(row=0, column=3, padx=(6, 0))
+    btn_capture_laser_offset.grid(row=0, column=4, padx=(6, 0))
     laser_offset_readout_var = tk.StringVar(laser_offset_frame, value="Side A: not set")
     tk.Label(laser_offset_frame, textvariable=laser_offset_readout_var).grid(
-        row=1, column=0, columnspan=4, sticky="w"
+        row=1, column=0, columnspan=5, sticky="w"
     )
     laser_offset_frame.grid_remove()
 
@@ -606,6 +609,7 @@ def _create_widgets(
         laser_offset_pin_menu=laser_offset_pin_menu,
         laser_offset_readout_var=laser_offset_readout_var,
         btn_seek_pin=btn_seek_pin,
+        btn_move_laser_to_pin=btn_move_laser_to_pin,
         btn_capture_laser_offset=btn_capture_laser_offset,
     )
 
@@ -623,6 +627,7 @@ def _create_widgets(
         "manual_go": btn_manual_go,
         "refresh_plots": btn_refresh_plots,
         "seek_pin": btn_seek_pin,
+        "move_laser_to_pin": btn_move_laser_to_pin,
         "capture_laser_offset": btn_capture_laser_offset,
     }
 
@@ -762,6 +767,9 @@ def _configure_commands(
     buttons["manual_go"].configure(command=lambda: manual_goto(ctx))
     buttons["refresh_plots"].configure(command=lambda: refresh_tension_logs(ctx))
     buttons["seek_pin"].configure(command=lambda: seek_camera_to_pin(ctx))
+    buttons["move_laser_to_pin"].configure(
+        command=lambda: move_laser_to_pin_button(ctx)
+    )
     buttons["capture_laser_offset"].configure(
         command=lambda: capture_laser_offset_button(ctx)
     )

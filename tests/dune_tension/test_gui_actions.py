@@ -189,6 +189,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
     assert build_calls[0]["runtime_bundle"] is runtime
     assert build_calls[0]["use_manual_focus"] is True
     assert build_calls[0]["manual_focus_target"] == 4100
+    assert callable(build_calls[0]["wire_preview_callback"])
 
 
 def test_measure_calibrate_dispatches_to_streaming_controller(monkeypatch):
@@ -410,6 +411,40 @@ def test_measure_list_button_keeps_requested_wires_when_skip_filters_everything(
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
     assert measured_wires == [([3, 5, 6, 7], True)]
+
+
+def test_selected_laser_offset_pin_uses_side_specific_pin_family(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    monkeypatch.setattr(
+        actions,
+        "get_bottom_pin_options",
+        lambda _layer, side: (
+            [("Bottom first (F400)", "F400"), ("Bottom last (F1199)", "F1199")]
+            if side == "A"
+            else [("Bottom first (B400)", "B400"), ("Bottom last (B1199)", "B1199")]
+        ),
+    )
+
+    assert actions._selected_laser_offset_pin("V", "A", "B400") == "F400"
+    assert actions._selected_laser_offset_pin("V", "B", "F400") == "B400"
+
+
+def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+    monkeypatch.setattr(actions, "get_laser_offset", lambda _side: {"x": 2.5, "y": -1.0})
+    monkeypatch.setattr(actions, "get_calibrated_pin_xy", lambda _layer, _pin: (100.0, 200.0))
+
+    moves = []
+    ctx = types.SimpleNamespace(
+        runtime=types.SimpleNamespace(
+            motion=types.SimpleNamespace(goto_xy=lambda x, y, **_kwargs: moves.append((x, y)) or True)
+        ),
+        goto_xy=lambda x, y, **_kwargs: moves.append((x, y)) or True,
+    )
+
+    assert actions._move_laser_to_pin(ctx, "V", "A", "F2399") is True
+    assert moves == [(97.5, 201.0)]
 
 
 def test_measure_list_button_preserves_descending_range_order(monkeypatch):
