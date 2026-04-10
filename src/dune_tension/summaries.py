@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.figure import Figure
 
-from dune_tension.data_cache import get_dataframe
+from dune_tension.data_cache import select_dataframe
 from dune_tension.paths import data_path
 from dune_tension.tension_calculation import tension_plausible
 from dune_tension.tensiometer_functions import TensiometerConfig
@@ -103,12 +103,11 @@ def _compute_tensions(
 def _load_summary_measurements(config: TensiometerConfig) -> pd.DataFrame:
     """Return summary measurements for one APA/layer."""
 
-    measurements = get_dataframe(config.data_path)
-    mask = (
-        (measurements["apa_name"] == config.apa_name)
-        & (measurements["layer"] == config.layer)
+    return select_dataframe(
+        config.data_path,
+        where_clause="apa_name = ? AND layer = ?",
+        params=(config.apa_name, config.layer),
     )
-    return measurements.loc[mask].copy()
 
 
 def get_tension_series(config: TensiometerConfig) -> Dict[str, Dict[int, float]]:
@@ -163,7 +162,7 @@ def build_summary_plot_figure(
     apa_name: str,
     layer: str,
     *,
-    figsize: tuple[float, float] = (14, 5),
+    figsize: tuple[float, float] = (14, 10),
 ) -> Figure | None:
     """Build the summary plot figure used by both saved images and the live GUI."""
 
@@ -174,8 +173,12 @@ def build_summary_plot_figure(
     hist_df = pd.concat(histogram_data)
 
     figure = Figure(figsize=figsize)
-    scatter_axis = figure.add_subplot(1, 2, 1)
-    hist_axis = figure.add_subplot(1, 2, 2)
+    scatter_axis = figure.add_subplot(2, 2, 1)
+    hist_axis = figure.add_subplot(2, 2, 2)
+    resid_axis = figure.add_subplot(2, 2, 3)
+    resid_hist_axis = figure.add_subplot(2, 2, 4)
+
+    resid_data: List[pd.DataFrame] = []
 
     for side_label, group in line_df.groupby("side_label"):
         scatter_axis.scatter(
@@ -192,6 +195,26 @@ def build_summary_plot_figure(
             moving_average,
             alpha=0.4,
             linewidth=2,
+        )
+
+        rolling_mean = sorted_group["tension"].rolling(window=20, center=True, min_periods=20).mean()
+        if rolling_mean.notna().any():
+            first_valid = rolling_mean.first_valid_index()
+            last_valid = rolling_mean.last_valid_index()
+            rolling_mean = rolling_mean.copy()
+            rolling_mean.loc[:first_valid] = rolling_mean.loc[first_valid]
+            rolling_mean.loc[last_valid:] = rolling_mean.loc[last_valid]
+        residuals = sorted_group["tension"] - rolling_mean
+
+        resid_axis.scatter(
+            sorted_group["wire_number"],
+            residuals,
+            label=side_label,
+            alpha=0.5,
+            s=10,
+        )
+        resid_data.append(
+            pd.DataFrame({"residual": residuals, "side_label": side_label})
         )
 
     scatter_axis.set_title(
@@ -215,6 +238,30 @@ def build_summary_plot_figure(
     hist_axis.set_xlabel("Tension")
     hist_axis.set_ylabel("Count")
     hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+
+    resid_axis.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+    resid_axis.set_title(f"{apa_name} - Residuals from Moving Average - Layer {layer}")
+    resid_axis.set_xlabel("Wire Number")
+    resid_axis.set_ylabel("Residual")
+    resid_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+    resid_axis.legend()
+
+    if resid_data:
+        resid_df = pd.concat(resid_data)
+        sns.histplot(
+            data=resid_df,
+            x="residual",
+            hue="side_label",
+            element="step",
+            stat="count",
+            common_norm=False,
+            ax=resid_hist_axis,
+        )
+    resid_hist_axis.axvline(0, color="gray", linewidth=0.8, linestyle="--")
+    resid_hist_axis.set_title(f"{apa_name} - Residual Histogram - Layer {layer}")
+    resid_hist_axis.set_xlabel("Residual")
+    resid_hist_axis.set_ylabel("Count")
+    resid_hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
 
     figure.tight_layout()
     return figure

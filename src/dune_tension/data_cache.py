@@ -99,6 +99,35 @@ def _get_table_dataframe(file_path: str, table: str) -> pd.DataFrame:
     return df
 
 
+def _select_table_dataframe(
+    file_path: str,
+    table: str,
+    *,
+    where_clause: str = "",
+    params: Iterable[Any] = (),
+    columns: Iterable[str] | None = None,
+) -> pd.DataFrame:
+    if not Path(file_path).exists():
+        return pd.DataFrame(columns=list(columns) if columns is not None else EXPECTED_COLUMNS)
+
+    selected_columns = list(columns) if columns is not None else EXPECTED_COLUMNS
+    normalized_columns = [col for col in EXPECTED_COLUMNS if col in selected_columns]
+    if not normalized_columns:
+        return pd.DataFrame(columns=EXPECTED_COLUMNS)
+
+    sql = f"SELECT {', '.join(normalized_columns)} FROM {table}"
+    if where_clause.strip():
+        sql = f"{sql} WHERE {where_clause}"
+
+    with sqlite3.connect(file_path) as conn:
+        _ensure_tables(conn)
+        if not _table_exists(conn, table):
+            return pd.DataFrame(columns=normalized_columns)
+        df = pd.read_sql_query(sql, conn, params=tuple(params))
+
+    return _normalize_dataframe_columns(df)
+
+
 def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     normalized: dict[str, Any] = {}
     for col in EXPECTED_COLUMNS:
@@ -158,6 +187,24 @@ def get_dataframe(file_path: str) -> pd.DataFrame:
     return _get_table_dataframe(file_path, TABLE_TENSION_DATA)
 
 
+def select_dataframe(
+    file_path: str,
+    *,
+    where_clause: str = "",
+    params: Iterable[Any] = (),
+    columns: Iterable[str] | None = None,
+) -> pd.DataFrame:
+    """Return selected ``tension_data`` rows without caching the full table."""
+
+    return _select_table_dataframe(
+        file_path,
+        TABLE_TENSION_DATA,
+        where_clause=where_clause,
+        params=params,
+        columns=columns,
+    )
+
+
 def update_dataframe(file_path: str, df: pd.DataFrame) -> None:
     """Replace ``tension_data`` with ``df`` and refresh cache."""
 
@@ -209,6 +256,24 @@ def get_results_dataframe(file_path: str) -> pd.DataFrame:
     # Backward-compatibility path for historical DBs that stored samples in
     # tension_data only.
     return _get_table_dataframe(file_path, TABLE_TENSION_DATA)
+
+
+def select_results_dataframe(
+    file_path: str,
+    *,
+    where_clause: str = "",
+    params: Iterable[Any] = (),
+    columns: Iterable[str] | None = None,
+) -> pd.DataFrame:
+    """Return selected ``tension_samples`` rows without caching the full table."""
+
+    return _select_table_dataframe(
+        file_path,
+        TABLE_TENSION_SAMPLES,
+        where_clause=where_clause,
+        params=params,
+        columns=columns,
+    )
 
 
 def update_results_dataframe(file_path: str, df: pd.DataFrame) -> None:
