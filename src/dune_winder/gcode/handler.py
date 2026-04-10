@@ -444,7 +444,10 @@ class GCodeHandler(GCodeHandlerBase):
     start_xy = self._actual_xy()
     previews: list[_PreviewedQueuedLine] = []
     try:
-      current = self._preview_loaded_line(line_index)
+      try:
+        current = self._preview_loaded_line(line_index)
+      except GCodeExecutionError as exception:
+        raise self._queued_preview_execution_error(line_index, exception) from exception
       if not current.queueable or current.merge_mode is None:
         return None
       previews.append(current)
@@ -454,7 +457,10 @@ class GCodeHandler(GCodeHandlerBase):
         cursor += 1
         if cursor >= self._gCode.getLineCount():
           break
-        next_preview = self._preview_loaded_line(cursor)
+        try:
+          next_preview = self._preview_loaded_line(cursor)
+        except GCodeExecutionError as exception:
+          raise self._queued_preview_execution_error(cursor, exception) from exception
         if not next_preview.queueable:
           if next_preview.comment_only:
             continue  # skip comment-only lines; they don't affect motion state
@@ -600,6 +606,23 @@ class GCodeHandler(GCodeHandlerBase):
     }
 
   # ---------------------------------------------------------------------
+  def _queued_preview_execution_error(self, line_index, exception):
+    data = []
+    if self._gCode is not None and 0 <= int(line_index) < self._gCode.getLineCount():
+      data = [int(line_index), self._gCode.lines[int(line_index)]]
+    data.extend(list(getattr(exception, "data", [])))
+    return GCodeExecutionError(str(exception), data)
+
+  # ---------------------------------------------------------------------
+  def _apply_gcode_execution_error(self, exception):
+    self._isG_CodeError = True
+    self._isG_CodeErrorMessage = str(exception)
+    self._isG_CodeErrorData = list(getattr(exception, "data", []))
+    self._queued_preview = None
+    self._queued_session = None
+    self._queued_stop_mode = None
+
+  # ---------------------------------------------------------------------
   def _set_queued_motion_preview(self, block):
     self._queued_preview_id += 1
     self._queued_preview = _QueuedMotionPreviewState(
@@ -613,12 +636,17 @@ class GCodeHandler(GCodeHandlerBase):
       return
 
     start_sequence_id = int(self._queued_preview.block.get("start_sequence_id", self._queued_sequence_id))
-    block = self._build_queued_block(
-      int(self._queued_preview.block["start_line"]),
-      single_step_queue=bool(self._queued_preview.block.get("stop_after_block")),
-      start_seq=start_sequence_id,
-      reserve_sequence=False,
-    )
+    try:
+      block = self._build_queued_block(
+        int(self._queued_preview.block["start_line"]),
+        single_step_queue=bool(self._queued_preview.block.get("stop_after_block")),
+        start_seq=start_sequence_id,
+        reserve_sequence=False,
+      )
+    except GCodeExecutionError as exception:
+      self._apply_gcode_execution_error(exception)
+      self._queued_sequence_id = start_sequence_id
+      return
     if block is None:
       self._queued_preview = None
       self._queued_sequence_id = start_sequence_id
@@ -671,6 +699,9 @@ class GCodeHandler(GCodeHandlerBase):
   def _start_queued_block(self, line_index):
     try:
       block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
+    except GCodeExecutionError as exception:
+      self._apply_gcode_execution_error(exception)
+      return True
     except ValueError:
       # If queued planning fails for this line, execute it through the legacy path.
       return False

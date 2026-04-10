@@ -525,6 +525,28 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(preview["segments"][0]["start"]["x"], 400.0)
     self.assertEqual(preview["segments"][0]["start"]["y"], 100.0)
 
+  def test_start_queued_block_reports_malformed_gcode_as_interpreter_error(self):
+    calibration = DefaultMachineCalibration()
+
+    for line in (
+      "G113 PPRECISE G109",
+      "G113 PPRECISE G103 PF799",
+    ):
+      with self.subTest(line=line):
+        handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+        handler._x = 400.0
+        handler._y = 100.0
+        handler._z = 0.0
+        handler._gCode = GCodeProgramExecutor([line], handler._callbacks)
+
+        started = handler._start_queued_block(0)
+
+        self.assertTrue(started)
+        self.assertTrue(handler.isG_CodeError())
+        self.assertIn("incorrectly formatted", handler.getG_CodeErrorMessage())
+        self.assertEqual(handler.getG_CodeErrorData()[:2], [0, line])
+        self.assertIsNone(handler.getQueuedMotionPreview())
+
   def test_set_queued_motion_use_max_speed_refreshes_pending_preview_speed(self):
     calibration = DefaultMachineCalibration()
     handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
