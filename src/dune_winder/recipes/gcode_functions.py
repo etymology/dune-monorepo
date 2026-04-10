@@ -51,6 +51,10 @@ def head_location(location):
   return _function(Opcode.HEAD_LOCATION, [location])
 
 
+def head_transfer(location):
+  return _function(Opcode.HEAD_TRANSFER, [location])
+
+
 def delay(milliseconds):
   return _function(Opcode.DELAY, [milliseconds])
 

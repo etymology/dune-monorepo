@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import dune_tension.results as results_module
 from dune_tension.results import TensionResult, derive_tension_fields

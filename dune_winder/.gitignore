@@ -10,4 +10,5 @@ src/dune_winder.egg-info/*
 *.hi
 *.o
 .ghc.environment.
-shadow_plc_errors.log
+config/APA/
+gc_files/

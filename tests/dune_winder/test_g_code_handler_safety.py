@@ -3,6 +3,7 @@ import unittest
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 
 class _Axis:
@@ -36,11 +37,20 @@ class _Head:
   def isReady(self):
     return True
 
+  def hasError(self):
+    return False
+
+  def getLastError(self):
+    return ""
+
   def readCurrentPosition(self):
     return 0
 
   def setHeadPosition(self, position, velocity=None):
     raise AssertionError("Unexpected head move")
+
+  def setTransferPosition(self, position, velocity=None):
+    raise AssertionError("Unexpected head transfer move")
 
   def stop(self):
     return None
@@ -59,10 +69,15 @@ class _IO:
 
 
 class GCodeHandlerSafetyTests(unittest.TestCase):
-  def _handler(self, start_x, start_y):
+  def _handler(self, start_x, start_y, backlash=0.0):
     calibration = DefaultMachineCalibration()
     io = _IO(start_x, start_y)
-    handler = GCodeHandler(io, calibration, WirePathModel(calibration))
+    handler = GCodeHandler(
+      io,
+      calibration,
+      WirePathModel(calibration),
+      xBacklash=XBacklashCompensation(backlash),
+    )
     handler._delay = 0
     return handler, io
 
@@ -83,6 +98,15 @@ class GCodeHandlerSafetyTests(unittest.TestCase):
     self.assertIsNone(error)
     self.assertEqual(len(io.plcLogic.moves), 1)
     self.assertEqual(io.plcLogic.moves[0][:2], (500.0, 200.0))
+
+  def test_execute_manual_line_compensates_positive_x_move(self):
+    handler, io = self._handler(400.0, 100.0, backlash=2.0)
+
+    error = handler.executeG_CodeLine("X500 Y200")
+
+    self.assertIsNone(error)
+    self.assertEqual(len(io.plcLogic.moves), 1)
+    self.assertEqual(io.plcLogic.moves[0][:2], (502.0, 200.0))
 
 
 if __name__ == "__main__":

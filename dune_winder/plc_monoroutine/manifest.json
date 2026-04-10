@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "note": "Standalone manifest for the Monoroutine — a single-routine parallel branch of the ensemble PLC programs. Not part of the ensemble scan order.",
+  "programs": {
+    "Monoroutine": {
+      "tag_values": {
+        "hash": "44F-F7C-8C36",
+        "generated_at": "2026-03-30T22:24:32.533575+00:00"
+      },
+      "routines": {
+        "main": {
+          "hash": "1E0-9E3-6E65",
+          "hashed_at": "2026-03-31T00:37:17.341875+00:00",
+          "file_mtime": "2026-03-31T00:17:53.076817+00:00"
+        }
+      }
+    }
+  }
+}

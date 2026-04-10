@@ -53,6 +53,10 @@ class GCodeHandlerBase:
     self._instruction_request_head = True
 
   # ---------------------------------------------------------------------
+  def _request_head_transfer(self):
+    self._instruction_request_head_transfer = True
+
+  # ---------------------------------------------------------------------
   def _request_latch(self):
     self._instruction_request_latch = True
 
@@ -75,11 +79,13 @@ class GCodeHandlerBase:
       "_instruction_request_xy": self._instruction_request_xy,
       "_instruction_request_z": self._instruction_request_z,
       "_instruction_request_head": self._instruction_request_head,
+      "_instruction_request_head_transfer": self._instruction_request_head_transfer,
       "_instruction_request_latch": self._instruction_request_latch,
       "_instruction_request_stop": self._instruction_request_stop,
       "_instruction_contains_x": self._instruction_contains_x,
       "_instruction_contains_y": self._instruction_contains_y,
       "_instruction_contains_z": self._instruction_contains_z,
+      "_instruction_force_xz": self._instruction_force_xz,
       "_instruction_queue_merge_mode": self._instruction_queue_merge_mode,
       "_line": self._line,
       "_delay": self._delay,
@@ -113,7 +119,9 @@ class GCodeHandlerBase:
 
     if command.letter == "Z":
       self._instruction_contains_z = True
-      self._z = float(command.value)
+      self._z = self._resolve_z_target(command.value)
+      if any(str(parameter).strip().upper() == "XZ" for parameter in command.parameters):
+        self._instruction_force_xz = True
       self._request_z_move()
       return
 
@@ -132,11 +140,21 @@ class GCodeHandlerBase:
     if (
       self._instruction_request_xy
       and self._instruction_request_z
-      and self._instruction_contains_x
+      and (self._instruction_contains_x or self._instruction_force_xz)
       and not self._instruction_contains_y
       and self._instruction_contains_z
     ):
       self._pending_actions.append("xz")
+      return
+
+    if (
+      self._instruction_request_xy
+      and self._instruction_request_z
+      and self._instruction_contains_y
+      and not self._instruction_contains_x
+      and self._instruction_contains_z
+    ):
+      self._pending_actions.append("yz")
       return
 
     if self._instruction_request_xy:
@@ -147,6 +165,9 @@ class GCodeHandlerBase:
 
     if self._instruction_request_head:
       self._pending_actions.append("head")
+
+    if self._instruction_request_head_transfer:
+      self._pending_actions.append("head_transfer")
 
     if self._instruction_request_latch:
       self._pending_actions.append("latch")
@@ -160,11 +181,13 @@ class GCodeHandlerBase:
     self._instruction_request_xy = False
     self._instruction_request_z = False
     self._instruction_request_head = False
+    self._instruction_request_head_transfer = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
     self._instruction_contains_x = False
     self._instruction_contains_y = False
     self._instruction_contains_z = False
+    self._instruction_force_xz = False
     self._instruction_queue_merge_mode = None
 
     for item in line.items:
@@ -177,6 +200,23 @@ class GCodeHandlerBase:
         self._runFunction(item.as_legacy_parameter_list())
 
     self._queue_instruction_actions()
+
+  # ---------------------------------------------------------------------
+  def _resolve_z_target(self, value):
+    if isinstance(value, (int, float)):
+      return float(value)
+
+    text = str(value).strip()
+    try:
+      return float(text)
+    except ValueError:
+      pass
+
+    if text.upper() == "EXTEND":
+      return float(self._machineCalibration.zBack)
+
+    data = [str(value)]
+    raise GCodeExecutionError("Unknown Z target " + str(value) + ".", data)
 
   # ---------------------------------------------------------------------
   def _parameterExtract(self, parameters, start, finish, newType, errorMessage):
@@ -371,10 +411,12 @@ class GCodeHandlerBase:
 
     if "X" in axies:
       self._x = center.x
+      self._instruction_contains_x = True
       self._request_xy_move()
 
     if "Y" in axies:
       self._y = center.y
+      self._instruction_contains_y = True
       self._request_xy_move()
 
     # Save the Z center location (but don't act on it).
@@ -414,6 +456,7 @@ class GCodeHandlerBase:
           print("x", offset, end=" ")
 
         self._x += offset
+        self._instruction_contains_x = True
         self._request_xy_move()
 
       if "Y" == axis:
@@ -421,6 +464,7 @@ class GCodeHandlerBase:
           print("y", offset, end=" ")
 
         self._y += offset
+        self._instruction_contains_y = True
         self._request_xy_move()
 
       if GCodeHandlerBase.DEBUG_UNIT:
@@ -439,6 +483,17 @@ class GCodeHandlerBase:
 
     if GCodeHandlerBase.DEBUG_UNIT:
       print("  HEAD_LOCATION", self._headPosition)
+
+  # ---------------------------------------------------------------------
+  def _headTransfer(self, function):
+    """
+    Head transfer position.
+    """
+    self._headPosition = self._parameterExtract(function, 1, None, int, "head transfer")
+    self._request_head_transfer()
+
+    if GCodeHandlerBase.DEBUG_UNIT:
+      print("  HEAD_TRANSFER", self._headPosition)
 
   # ---------------------------------------------------------------------
   def _delay(self, function):
@@ -632,6 +687,7 @@ class GCodeHandlerBase:
     Opcode.CLIP: _clip,
     Opcode.OFFSET: _offset,
     Opcode.HEAD_LOCATION: _headLocation,
+    Opcode.HEAD_TRANSFER: _headTransfer,
     Opcode.DELAY: _delay,
     Opcode.ANCHOR_POINT: _anchorPoint,
     Opcode.ARM_CORRECT: _armCorrect,
@@ -750,11 +806,13 @@ class GCodeHandlerBase:
     self._instruction_request_xy = False
     self._instruction_request_z = False
     self._instruction_request_head = False
+    self._instruction_request_head_transfer = False
     self._instruction_request_latch = False
     self._instruction_request_stop = False
     self._instruction_contains_x = False
     self._instruction_contains_y = False
     self._instruction_contains_z = False
+    self._instruction_force_xz = False
     self._instruction_queue_merge_mode = None
 
     # Current line number.

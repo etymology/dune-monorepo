@@ -152,7 +152,10 @@ class TagStore:
       if not isinstance(index, int):
         raise KeyError(index)
       if isinstance(current, list):
-        current = current[index]
+        if index < len(current):
+          current = current[index]
+          continue
+        current = self._get_packed_list_bit(current, index)
         continue
       current = bool((int(current) >> index) & 1)
     return current
@@ -166,13 +169,19 @@ class TagStore:
       if not isinstance(index, int):
         raise KeyError(index)
       if isinstance(current, list):
-        current = current[index]
+        if index < len(current):
+          current = current[index]
+          continue
+        current = self._get_packed_list_bit(current, index)
         continue
       current = bool((int(current) >> index) & 1)
     final_index = indexes[-1]
     if not isinstance(final_index, int):
       raise KeyError(final_index)
     if isinstance(current, list):
+      if final_index >= len(current):
+        self._set_packed_list_bit(current, final_index, new_value)
+        return value
       current[final_index] = copy.deepcopy(new_value)
       return value
 
@@ -181,6 +190,26 @@ class TagStore:
     if bit_value:
       return raw_value | (1 << final_index)
     return raw_value & ~(1 << final_index)
+
+  def _get_packed_list_bit(self, value, index: int):
+    if not value:
+      raise IndexError(index)
+    word_index, bit_index = divmod(index, 32)
+    if word_index >= len(value):
+      raise IndexError(index)
+    return bool((int(value[word_index]) >> bit_index) & 1)
+
+  def _set_packed_list_bit(self, value, index: int, new_value):
+    if not value:
+      raise IndexError(index)
+    word_index, bit_index = divmod(index, 32)
+    if word_index >= len(value):
+      raise IndexError(index)
+    raw_value = int(value[word_index])
+    if bool(new_value):
+      value[word_index] = raw_value | (1 << bit_index)
+      return
+    value[word_index] = raw_value & ~(1 << bit_index)
 
   def _seed_tag_value(self, definition: TagDefinition):
     if definition.tag_type == "struct" and definition.udt_name is not None:

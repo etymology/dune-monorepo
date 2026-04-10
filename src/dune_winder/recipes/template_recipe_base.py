@@ -33,6 +33,7 @@ class TemplateRecipeBase:
     *,
     offsets=None,
     transfer_pause=False,
+    add_foot_pauses=False,
     include_lead_mode=False,
     strip_g113_params=False,
     named_inputs=None,
@@ -44,6 +45,7 @@ class TemplateRecipeBase:
       output_path,
       offsets,
       transfer_pause,
+      add_foot_pauses,
       include_lead_mode,
       named_inputs,
       special_inputs,
@@ -78,6 +80,7 @@ class TemplateRecipeBase:
     self._process = process
     self._offsets = {}
     self._transferPause = True
+    self._addFootPauses = False
     self._includeLeadMode = False
     self._stripG113Params = False
     self._dirty = False
@@ -118,11 +121,6 @@ class TemplateRecipeBase:
 
   # -------------------------------------------------------------------
   def _mutationGuard(self):
-    if not self._process.controlStateMachine.isReadyForMovement():
-      return self._errorResult(
-        "Machine is not ready to generate the " + self._layerName() + " recipe."
-      )
-
     return None
 
   # -------------------------------------------------------------------
@@ -216,6 +214,7 @@ class TemplateRecipeBase:
   def _resetState(self, markDirty):
     self._offsets = {offsetId: 0.0 for offsetId in self.OFFSET_IDS}
     self._transferPause = True
+    self._addFootPauses = False
     self._includeLeadMode = False
     self._stripG113Params = False
     self._resetExtraState()
@@ -229,6 +228,7 @@ class TemplateRecipeBase:
         self._offsets[offsetId] = float(offsets[offsetId])
 
     self._transferPause = bool(data.get("transferPause", self._transferPause))
+    self._addFootPauses = bool(data.get("addFootPauses", self._addFootPauses))
     self._includeLeadMode = bool(data.get("includeLeadMode", self._includeLeadMode))
     self._stripG113Params = bool(data.get("stripG113Params", self._stripG113Params))
     self._dirty = bool(data.get("dirty", self._dirty))
@@ -270,6 +270,7 @@ class TemplateRecipeBase:
       data = {
         "offsets": dict(self._offsets),
         "transferPause": self._transferPause,
+        "addFootPauses": self._addFootPauses,
         "includeLeadMode": self._includeLeadMode,
         "stripG113Params": self._stripG113Params,
         "dirty": self._dirty,
@@ -328,6 +329,7 @@ class TemplateRecipeBase:
       "liveFile": liveFile,
       "outputExists": os.path.isfile(liveFile),
       "transferPause": self._transferPause,
+      "addFootPauses": self._addFootPauses,
       "includeLeadMode": self._includeLeadMode,
       "stripG113Params": self._stripG113Params,
       "offsets": dict(self._offsets),
@@ -382,6 +384,23 @@ class TemplateRecipeBase:
     return self._okResult({"transferPause": self._transferPause})
 
   # -------------------------------------------------------------------
+  def setAddFootPauses(self, enabled):
+    self._ensureDraftStateLoaded()
+
+    _, error = self._getActiveLayer()
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    self._addFootPauses = bool(enabled)
+    self._dirty = True
+    self._persistState()
+    return self._okResult({"addFootPauses": self._addFootPauses})
+
+  # -------------------------------------------------------------------
   def setIncludeLeadMode(self, enabled):
     self._ensureDraftStateLoaded()
 
@@ -433,6 +452,7 @@ class TemplateRecipeBase:
       {
         "offsets": dict(self._offsets),
         "transferPause": self._transferPause,
+        "addFootPauses": self._addFootPauses,
         "includeLeadMode": self._includeLeadMode,
         "stripG113Params": self._stripG113Params,
         **self._extraPublicState(),
@@ -440,7 +460,7 @@ class TemplateRecipeBase:
     )
 
   # -------------------------------------------------------------------
-  def generateRecipeFile(self):
+  def generateRecipeFile(self, scriptVariant=None):
     self._ensureDraftStateLoaded()
 
     layer, error = self._getActiveLayer()
@@ -456,15 +476,19 @@ class TemplateRecipeBase:
       os.makedirs(outputDirectory)
 
     outputPath = self._liveFilePath()
-    generation = self.write_template_file(
-      outputPath,
-      offsets=[self._offsets[offsetId] for offsetId in self.OFFSET_IDS],
-      transfer_pause=self._transferPause,
-      include_lead_mode=self._includeLeadMode,
-      strip_g113_params=self._stripG113Params,
-      archive_directory=self._recipeArchiveDirectory(),
+    generation_kwargs = {
+      "offsets": [self._offsets[offsetId] for offsetId in self.OFFSET_IDS],
+      "transfer_pause": self._transferPause,
+      "add_foot_pauses": self._addFootPauses,
+      "include_lead_mode": self._includeLeadMode,
+      "strip_g113_params": self._stripG113Params,
+      "archive_directory": self._recipeArchiveDirectory(),
       **self._generationKwargs(),
-    )
+    }
+    if scriptVariant is not None:
+      generation_kwargs["script_variant"] = scriptVariant
+
+    generation = self.write_template_file(outputPath, **generation_kwargs)
 
     updatedAt = str(self._process._systemTime.get())
     self._generated = {
@@ -492,7 +516,9 @@ class TemplateRecipeBase:
         outputPath,
         generation["hashValue"],
         generation["wrapCount"],
+        generation.get("scriptVariant"),
         self._transferPause,
+        self._addFootPauses,
         self._includeLeadMode,
       ],
     )

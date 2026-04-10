@@ -74,7 +74,7 @@ At the Python boundary the runtime uses the local `PLC` abstraction:
 `SimulatedPLC` implements the same `PLC` interface in memory. It mirrors the
 current tag contract closely enough for:
 
-- direct motion (`MOVE_TYPE`, position targets, state transitions)
+- direct motion (`STATE_REQUEST` / `MOVE_TYPE`, position targets, state transitions)
 - queue handshake tags (`IncomingSeg*`, `StartQueuedPath`, `AbortQueue`, ...)
 - derived machine switch bits (`MACHINE_SW_STAT[*]`)
 - the `sim_plc.*` API commands used by tests and debugging
@@ -94,6 +94,7 @@ into controller tags, and PLC ladder decides how to execute it.
 The main direct-motion contract is written by `PLC_Logic`, `PLC_Motor`, and
 related helpers:
 
+- `STATE_REQUEST`
 - `MOVE_TYPE`
 - `X_POSITION`, `Y_POSITION`, `Z_POSITION`
 - `XY_SPEED`, `XY_ACCELERATION`, `XY_DECELERATION`
@@ -120,30 +121,32 @@ The PLC reports machine state back through tags such as:
 The direct-motion flow is:
 
 1. Python computes a target and writes the target/speed/accel tags.
-2. Python writes `MOVE_TYPE`.
-3. `plc/Ready_State_1/main/pasteable.rll` maps `MOVE_TYPE` to a `NEXTSTATE`.
+2. Python writes `STATE_REQUEST` for direct state-targeting commands, or
+   `MOVE_TYPE` for the remaining compatibility-only paths (`RESET`, `PLC_INIT`).
+3. `plc/state_1_ready/main/pasteable.rll` routes supported requests to
+   `NEXTSTATE`.
 4. `plc/MainProgram/main/pasteable.rll` copies `NEXTSTATE` into `STATE`.
 5. The state-specific ladder routine executes the real motion instruction.
-6. The PLC clears `MOVE_TYPE` and returns `NEXTSTATE` to `1` when done, or
-   sets an error path through `STATE=10`.
+6. The PLC clears `STATE_REQUEST` for supported request-driven paths and
+   returns `NEXTSTATE` to `1` when done, or sets an error path through
+   `STATE=10`.
 7. Python considers the operation complete when `PLC_Logic.isReady()` becomes
    true again (`STATE == READY`).
 
 #### MoveType/state mapping
 
-| Python entry point | `MOVE_TYPE` | PLC state | Ladder artifact |
-| --- | ---: | ---: | --- |
-| `reset()` | `0` | return to ready/error clear path | `plc/Error_State_10/main/pasteable.rll` |
-| `jogXY()` | `1` | `2` | `plc/MoveXY_State_2_3/main/pasteable.rll` |
-| `setXY_Position()` | `2` | `3` | `plc/MoveXY_State_2_3/main/pasteable.rll` |
-| `jogZ()` | `3` | `4` | `plc/MoveZ_State_4_5/main/pasteable.rll` |
-| `setZ_Position()` | `4` | `5` | `plc/MoveZ_State_4_5/main/pasteable.rll` |
-| `move_latch()` | `5` | `6` | `plc/Latch_UnLatch_State_6_7_8/main/pasteable.rll` |
-| `latchHome()` | `6` | `7` | `plc/Latch_UnLatch_State_6_7_8/main/pasteable.rll` |
-| `latchUnlock()` | `7` | `8` | `plc/Latch_UnLatch_State_6_7_8/main/pasteable.rll` |
-| `servoDisable()` | `8` | `9` | `plc/UnServo_9/main/pasteable.rll` |
-| `PLC_init()` | `9` | `0` then ready | `plc/Initialize/main/pasteable.rll` |
-| `setXZ_Position()` | `10` | `12` | `plc/xz_move/main/pasteable.rll` |
+| Python entry point | Command tag | Value | PLC state | Ladder artifact |
+| --- | --- | ---: | ---: | --- |
+| `reset()` | `MOVE_TYPE` | `0` | return to ready/error clear path | `plc/state_10_error/main/pasteable.rll` |
+| `jogXY()` | `MOVE_TYPE` | `1` | `2` | legacy jog path |
+| `setXY_Position()` | `STATE_REQUEST` | `3` | `3` | `plc/state_3_move_xy/main/pasteable.rll` |
+| `jogZ()` | `MOVE_TYPE` | `3` | `4` | legacy jog path |
+| `setZ_Position()` | `STATE_REQUEST` | `5` | `5` | `plc/state_5_move_z/main/pasteable.rll` |
+| `move_latch()` | `STATE_REQUEST` | `6` | `6` | `plc/state_6_latch/main/pasteable.rll` |
+| `servoDisable()` | `STATE_REQUEST` | `9` | `9` | `plc/state_9_unservo/main/pasteable.rll` |
+| `PLC_init()` | `MOVE_TYPE` | `9` | `0` then ready | `plc/init/main/pasteable.rll` |
+| `setXZ_Position()` | `STATE_REQUEST` | `12` | `12` | `plc/state_12_move_xz/main/pasteable.rll` |
+| `stopSeek()` | `STATE_REQUEST` | `14` | `14` | `plc/state_14_hmi_stop/main/pasteable.rll` |
 
 ### 2. Input and status projection
 

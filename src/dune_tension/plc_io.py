@@ -562,11 +562,7 @@ def reset_plc() -> bool:
 
         return desktop_acknowledge_error()
     with _MOTION_LOCK:
-        return (
-            _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)
-            and _write_required("STATE", IDLE_STATE)
-            and set_speed(0)
-        )
+        return _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)
 
 
 def increment(increment_x: float, increment_y: float) -> bool:

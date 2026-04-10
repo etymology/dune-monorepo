@@ -59,19 +59,25 @@ class DummyTemplateRecipe:
   def setTransferPause(self, enabled):
     return {"ok": True, "data": {"enabled": enabled}}
 
+  def setAddFootPauses(self, enabled):
+    return {"ok": True, "data": {"enabled": enabled}}
+
   def setIncludeLeadMode(self, enabled):
     return {"ok": True, "data": {"enabled": enabled}}
 
   def resetDraft(self, markDirty=True):
     return {"ok": True, "data": {"markDirty": markDirty}}
 
-  def generateRecipeFile(self):
-    return {"ok": True, "data": {"generated": True}}
+  def generateRecipeFile(self, scriptVariant=None):
+    return {"ok": True, "data": {"generated": True, "scriptVariant": scriptVariant}}
 
 
 class DummyManualCalibration:
   def getState(self):
     return {"mode": "gx"}
+
+  def setXBacklashCompensation(self, value):
+    return {"ok": True, "data": {"xBacklashCompensationMm": value}}
 
   def setCornerOffset(self, offsetId, value):
     return {"ok": True, "data": {"offsetId": offsetId, "value": value}}
@@ -102,6 +108,8 @@ class DummyWorkspace:
   def __init__(self):
     self._gCodeHandler = type("GCodeVars", (), {"transferLeft": 100.0, "transferRight": 200.0})()
     self._calibrationFile = "V_Calibration.json"
+    self.lastFindUvPinSegment = None
+    self.lastJumpUvPinSegment = None
 
   def loadRecipe(self, layer, recipe, line):
     return {"layer": layer, "recipe": recipe, "line": line}
@@ -111,6 +119,34 @@ class DummyWorkspace:
 
   def getCalibrationFullPath(self):
     return None
+
+  def findUvPinSegment(self, side, boardSide, boardNumber, pinNumber):
+    self.lastFindUvPinSegment = (side, boardSide, boardNumber, pinNumber)
+    return {
+      "layer": "V",
+      "side": side,
+      "boardSide": boardSide,
+      "boardNumber": boardNumber,
+      "pinNumberOnBoard": pinNumber,
+      "pinFamily": "PB",
+      "pin": 40,
+      "pinName": "PB40",
+      "segmentSide": "B",
+      "segmentStartLine": 12,
+      "segmentStartLineNumber": 13,
+      "matchedLine": 14,
+      "matchedLineNumber": 15,
+      "segmentEndLine": 16,
+      "segmentEndLineNumber": 17,
+      "pinRole": "start",
+      "segmentLines": 3,
+    }
+
+  def jumpToUvPinSegment(self, side, boardSide, boardNumber, pinNumber):
+    self.lastJumpUvPinSegment = (side, boardSide, boardNumber, pinNumber)
+    result = self.findUvPinSegment(side, boardSide, boardNumber, pinNumber)
+    result["jumpedToLine"] = result["segmentStartLine"]
+    return result
 
 
 class DummyProcess:
@@ -166,6 +202,9 @@ class DummyProcess:
     self.lastSeek = ("seekXY", xPosition, yPosition, velocity, acceleration, deceleration)
     return False
 
+  def getRealXPosition(self):
+    return 123.4
+
   def manualSeekZ(self, position, velocity=None):
     self.lastSeek = ("seekZ", position, velocity)
     return False
@@ -186,6 +225,9 @@ class DummyProcess:
     return None
 
   def servoDisable(self):
+    return None
+
+  def eotRecover(self):
     return None
 
   def getRecipes(self):

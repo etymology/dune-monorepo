@@ -47,8 +47,16 @@ def conditional_offset_fragment(axis, condition_value, rendered_value, *, coord_
   return "G105 " + coord_fn(axis, rendered_value)
 
 
-def near_comb(pin_number, combs):
-  return any(abs(int(pin_number) - comb_pin) <= 5 for comb_pin in combs)
+def near_comb(pin_number, combs, layer):
+  pin_number = int(pin_number)
+  normalized_layer = str(layer).upper()
+
+  if normalized_layer == "V":
+    return any((comb_pin - 5) < pin_number < (comb_pin + 2) for comb_pin in combs)
+  if normalized_layer == "U":
+    return any((comb_pin - 2) < pin_number < (comb_pin + 5) for comb_pin in combs)
+
+  raise ValueError("Unsupported layer for near_comb: " + repr(layer))
 
 
 def coerce_bool(value, *, error_type):
@@ -285,7 +293,9 @@ def annotate_wrap_lines(wrap_number, lines, *, line_builder):
 
 
 def number_lines(lines, *, line_builder):
-  return [line_builder("N" + str(line_number), line) for line_number, line in enumerate(lines)]
+  return [
+    line_builder("N" + str(line_number), line) for line_number, line in enumerate(lines)
+  ]
 
 
 def coerce_cli_value(value, *, coerce_bool_fn, coerce_number_fn, input_error_type):

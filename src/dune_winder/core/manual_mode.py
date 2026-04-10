@@ -19,6 +19,10 @@ from dune_winder.library.log import Log
 
 
 class ManualMode(StateMachineState):
+  class SubStates:
+    IDLE = 0
+    HEAD_TRANSFER = 1
+
   def __init__(
     self, stateMachine, state, io: ProductionIO, log: Log
   ):
@@ -40,7 +44,11 @@ class ManualMode(StateMachineState):
     self._noteSeekStop = False
     self._isJogging = False
     self._stopRequested = False
+    self._awaitPlcReady = False
+    self._awaitHeadReady = False
+    self._plcObservedInFlight = False
     self._request: Optional[ManualModeEvent] = None
+    self._subState = self.SubStates.IDLE
 
   # ---------------------------------------------------------------------
   def setRequest(self, request: ManualModeEvent):
@@ -51,6 +59,26 @@ class ManualMode(StateMachineState):
   # ---------------------------------------------------------------------
   def isJogging(self):
     return self._isJogging
+
+  # ---------------------------------------------------------------------
+  def getSubState(self):
+    return self._subState
+
+  # ---------------------------------------------------------------------
+  def _syncSubState(self):
+    if hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive():
+      self._subState = self.SubStates.HEAD_TRANSFER
+    else:
+      self._subState = self.SubStates.IDLE
+
+  # ---------------------------------------------------------------------
+  def _plcMotionInFlight(self):
+    for axisName in ("xAxis", "yAxis", "zAxis"):
+      axis = getattr(self._io, axisName, None)
+      if axis is not None and hasattr(axis, "isSeeking") and axis.isSeeking():
+        return True
+
+    return False
 
   # ---------------------------------------------------------------------
   def enter(self):
@@ -66,6 +94,10 @@ class ManualMode(StateMachineState):
     self._wasJogging = False
     self._noteSeekStop = False
     self._stopRequested = False
+    self._awaitPlcReady = False
+    self._awaitHeadReady = False
+    self._plcObservedInFlight = False
+    self._subState = self.SubStates.IDLE
 
     request = self._request
     self._request = None
@@ -75,6 +107,10 @@ class ManualMode(StateMachineState):
 
     # If executing a G-Code line.
     if request.executeGCode:
+      self._awaitHeadReady = (
+        hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive()
+      )
+      self._syncSubState()
       isError = False
 
     # X/Y axis move?
@@ -95,18 +131,23 @@ class ManualMode(StateMachineState):
         request.deceleration,
       )
 
+      self._awaitPlcReady = True
       isError = False
 
     if request.isJogging:
       self._wasJogging = True
+      self._awaitPlcReady = True
       isError = False
 
     if request.seekZ is not None:
+      self._io.head.clearQueuedTransfer()
       self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
+      self._awaitPlcReady = True
       isError = False
 
     # Move the head?
     if request.setHeadPosition is not None:
+      self._awaitHeadReady = True
       isError = self._io.head.setHeadPosition(
         request.setHeadPosition, request.velocity
       )
@@ -140,7 +181,18 @@ class ManualMode(StateMachineState):
       self._stopRequested = False
 
     # Is movement done?
-    if self._io.plcLogic.isReady() and self._io.head.isReady():
+    plcReady = True
+    if self._awaitPlcReady:
+      plcReadySignal = self._io.plcLogic.isReady()
+      axisBusy = self._plcMotionInFlight()
+      plcBusy = (not plcReadySignal) or axisBusy
+      if plcBusy:
+        self._plcObservedInFlight = True
+      plcReady = self._plcObservedInFlight and not plcBusy
+
+    headReady = (not self._awaitHeadReady) or self._io.head.isReady()
+    self._syncSubState()
+    if plcReady and headReady:
       # If we were seeking and stopped pre-maturely, note where.
       if self._noteSeekStop:
         x = self._io.xAxis.getPosition()
@@ -166,6 +218,7 @@ class ManualMode(StateMachineState):
         )
 
       self._isJogging = False
+      self._subState = self.SubStates.IDLE
       self.changeState(self.stateMachine.States.STOP)
 
   # ---------------------------------------------------------------------

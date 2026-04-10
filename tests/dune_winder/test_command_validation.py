@@ -16,6 +16,18 @@ class CommandValidationTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertTrue(response["data"]["data"]["enabled"])
 
+  def test_v_template_add_foot_pauses_accepts_string_boolean(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.v_template.set_add_foot_pauses",
+        "args": {"enabled": "True"},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertTrue(response["data"]["data"]["enabled"])
+
   def test_v_template_pull_in_accepts_string_number(self):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(
@@ -41,6 +53,18 @@ class CommandValidationTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertEqual(response["data"]["data"]["pullInId"], "Y_PULL_IN")
     self.assertEqual(response["data"]["data"]["value"], 212.5)
+
+  def test_v_template_xz_generate_command_is_registered(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.v_template.generate_recipe_file_xz",
+        "args": {},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["data"]["scriptVariant"], "xz")
 
   def test_unknown_arguments_are_rejected(self):
     registry, _, _, _, _, _ = build_registry_fixture()
@@ -94,13 +118,45 @@ class CommandValidationTests(unittest.TestCase):
     response = registry.executeRequest(
       {
         "name": "process.execute_gcode_line",
-        "args": {"line": "G106 P0"},
+        "args": {"line": "G206 P0"},
       },
     )
 
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
     self.assertIn("Machine not ready", response["error"]["message"])
+
+  def test_find_uv_pin_segment_rejects_unknown_arguments(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.find_uv_pin_segment",
+        "args": {
+          "side": "B",
+          "board_side": "head",
+          "board_number": 1,
+          "pin_number": 40,
+          "extra": 1,
+        },
+      },
+    )
+
+    self.assertFalse(response["ok"])
+    self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
+    self.assertIn("Unknown argument", response["error"]["message"])
+
+  def test_jump_to_uv_pin_segment_requires_all_arguments(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.jump_to_uv_pin_segment",
+        "args": {"side": "B", "board_side": "head", "board_number": 1},
+      },
+    )
+
+    self.assertFalse(response["ok"])
+    self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
+    self.assertIn("Missing argument", response["error"]["message"])
 
 
 if __name__ == "__main__":

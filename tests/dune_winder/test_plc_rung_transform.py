@@ -40,16 +40,16 @@ class PlcRungTransformTests(unittest.TestCase):
 
     result = transform_text(source)
 
-    self.assertEqual(result, "CMP ABS(X_axis.ActualPosition-xz_position_target[0])<0.1 ")
+    self.assertEqual(result, 'CMP "ABS(X_axis.ActualPosition-xz_position_target[0])<0.1" ')
 
-  def test_transform_text_preserves_cmp_expression_spacing_without_quoting(self):
+  def test_transform_text_quotes_and_normalizes_cmp_expression_spacing(self):
     source = "XIC(STATE12_IND)CMP(Z_axis.ActualPosition > 415)OTE(MACHINE_SW_STAT[5])"
 
     result = transform_text(source)
 
     self.assertEqual(
       result,
-      "XIC STATE12_IND CMP Z_axis.ActualPosition > 415 OTE MACHINE_SW_STAT[5] ",
+      'XIC STATE12_IND CMP "Z_axis.ActualPosition>415" OTE MACHINE_SW_STAT[5] ',
     )
 
   def test_transform_text_leaves_numeric_bracket_lists_unchanged(self):
@@ -97,6 +97,16 @@ class PlcRungTransformTests(unittest.TestCase):
       "BST EQU CurSeg.SegType 1 NXB EQU CurSeg.SegType 2 BND ",
     )
 
+  def test_transform_text_preserves_variable_array_indexes(self):
+    source = "CPT(dst,SegQueue[idx_2].XY[0]-x);MOV(SegQueue[idx_3].Speed,out)"
+
+    result = transform_text(source)
+
+    self.assertEqual(
+      result,
+      "CPT dst SegQueue[idx_2].XY[0]-x \nMOV SegQueue[idx_3].Speed out ",
+    )
+
   def test_transform_text_supports_nested_bracketed_conditions(self):
     source = (
       "[[XIO(Z_RETRACTED),GEQ(Z_axis.ActualPosition,MAX_TOLERABLE_Z)]"
@@ -118,7 +128,7 @@ class PlcRungTransformTests(unittest.TestCase):
 
     self.assertEqual(
       result,
-      "BST BST XIO Z_RETRACTED BND CPT ERROR_CODE 3000+(A*B) "
+      "BST [XIO Z_RETRACTED ]CPT ERROR_CODE 3000+(A*B) "
       "NXB XIC Z_RETRACTED BND NOP",
     )
 

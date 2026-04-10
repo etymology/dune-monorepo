@@ -7,6 +7,7 @@ from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.gcode.runtime import GCodeProgramExecutor
 from dune_winder.io.devices.plc import PLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
+from dune_winder.library.Geometry.location import Location
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface, validate_queue_segment
@@ -95,8 +96,18 @@ class _ManualLinePLCLogic(_QueuedMotionPLCLogic):
 
 
 class _Head:
+  def __init__(self):
+    self.clear_calls = 0
+    self._ready = True
+
   def isReady(self):
-    return True
+    return self._ready
+
+  def hasError(self):
+    return False
+
+  def getLastError(self):
+    return "stale head error" if not self._ready else ""
 
   def readCurrentPosition(self):
     return 0
@@ -104,11 +115,18 @@ class _Head:
   def setHeadPosition(self, position, velocity=None):
     raise AssertionError("Unexpected head move")
 
+  def setTransferPosition(self, position, velocity=None):
+    raise AssertionError("Unexpected head transfer move")
+
   def stop(self):
     return None
 
   def getTargetAxisPosition(self):
     return 0.0
+
+  def clearQueuedTransfer(self):
+    self.clear_calls += 1
+    self._ready = True
 
 
 class _IO:
@@ -127,6 +145,15 @@ class _IO:
     self.FrameLockFootTop = _Input(locks.get("frame_lock_foot_top", False))
     self.FrameLockFootMid = _Input(locks.get("frame_lock_foot_mid", False))
     self.FrameLockFootBtm = _Input(locks.get("frame_lock_foot_btm", False))
+
+
+class _LayerCalibration:
+  def __init__(self, pins):
+    self.offset = Location(0.0, 0.0, 0.0)
+    self._pins = dict(pins)
+
+  def getPinLocation(self, pin_name):
+    return self._pins[str(pin_name)]
 
 
 class _PLCTagAxis:
@@ -498,6 +525,28 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(preview["segments"][0]["start"]["x"], 400.0)
     self.assertEqual(preview["segments"][0]["start"]["y"], 100.0)
 
+  def test_start_queued_block_reports_malformed_gcode_as_interpreter_error(self):
+    calibration = DefaultMachineCalibration()
+
+    for line in (
+      "G113 PPRECISE G109",
+      "G113 PPRECISE G103 PF799",
+    ):
+      with self.subTest(line=line):
+        handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+        handler._x = 400.0
+        handler._y = 100.0
+        handler._z = 0.0
+        handler._gCode = GCodeProgramExecutor([line], handler._callbacks)
+
+        started = handler._start_queued_block(0)
+
+        self.assertTrue(started)
+        self.assertTrue(handler.isG_CodeError())
+        self.assertIn("incorrectly formatted", handler.getG_CodeErrorMessage())
+        self.assertEqual(handler.getG_CodeErrorData()[:2], [0, line])
+        self.assertIsNone(handler.getQueuedMotionPreview())
+
   def test_set_queued_motion_use_max_speed_refreshes_pending_preview_speed(self):
     calibration = DefaultMachineCalibration()
     handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
@@ -611,6 +660,80 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertIn("Y_Transfer_OK", error["message"])
     self.assertEqual(handler._io.plcLogic.xz_moves, [])
 
+  def test_execute_manual_line_routes_symbolic_xz_extend_move_through_plc_logic(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0, z=50.0), calibration, WirePathModel(calibration))
+
+    error = handler.executeG_CodeLine("X500 ZEXTEND")
+
+    self.assertIsNone(error)
+    self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
+    self.assertEqual(
+      handler._io.plcLogic.xz_moves[0][:2],
+      (500.0, float(calibration.zBack)),
+    )
+
+  def test_execute_manual_line_rejects_xz_move_with_x_out_of_bounds(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0, z=50.0), calibration, WirePathModel(calibration))
+
+    error = handler.executeG_CodeLine("X-1 Z200")
+
+    self.assertIsNotNone(error)
+    self.assertIn("target X out of bounds", error["message"])
+    self.assertEqual(handler._io.plcLogic.xz_moves, [])
+
+  def test_execute_manual_line_rejects_xz_move_with_z_out_of_bounds(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0, z=50.0), calibration, WirePathModel(calibration))
+
+    error = handler.executeG_CodeLine(f"X500 Z{float(calibration.zLimitRear) + 1.0}")
+
+    self.assertIsNotNone(error)
+    self.assertIn("target Z out of bounds", error["message"])
+    self.assertEqual(handler._io.plcLogic.xz_moves, [])
+
+  def test_execute_recipe_style_line_routes_z0_pxz_move_through_plc_logic(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0, z=50.0), calibration, WirePathModel(calibration))
+    handler.useLayerCalibration(
+      _LayerCalibration(
+        {
+          "F799": Location(510.0, 1000.0, 40.0),
+          "F798": Location(530.0, 1000.0, 60.0),
+        }
+      )
+    )
+
+    error = handler.executeG_CodeLine("G103 PF799 PF798 Z0 PXZ")
+
+    self.assertIsNone(error)
+    self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
+    self.assertEqual(handler._io.plcLogic.xz_moves[0][:2], (520.0, 0.0))
+    self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+
+  def test_execute_recipe_style_line_routes_zextend_pxz_move_through_plc_logic(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0, z=50.0), calibration, WirePathModel(calibration))
+    handler.useLayerCalibration(
+      _LayerCalibration(
+        {
+          "F799": Location(510.0, 1000.0, 40.0),
+          "F798": Location(530.0, 1000.0, 60.0),
+        }
+      )
+    )
+
+    error = handler.executeG_CodeLine("G103 PF799 PF798 ZEXTEND PXZ G105 PX5")
+
+    self.assertIsNone(error)
+    self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
+    self.assertEqual(
+      handler._io.plcLogic.xz_moves[0][:2],
+      (525.0, float(calibration.zBack)),
+    )
+    self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+
   def test_execute_manual_line_does_not_run_stale_pending_xy_action(self):
     calibration = DefaultMachineCalibration()
     plc_logic = _ManualLinePLCLogic()
@@ -628,6 +751,24 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertIsNone(error)
     self.assertEqual(handler._pending_actions, [])
     self.assertEqual(plc_logic.legacy_xy_moves, [])
+    self.assertEqual(len(plc_logic.z_moves), 1)
+    self.assertEqual(plc_logic.z_moves[0][0], 60.0)
+
+  def test_execute_manual_z_line_clears_stale_head_error_before_dispatch(self):
+    calibration = DefaultMachineCalibration()
+    plc_logic = _ManualLinePLCLogic()
+    io = _IO(400.0, 100.0, z=50.0, plc_logic=plc_logic)
+    io.head._ready = False
+    handler = GCodeHandler(
+      io,
+      calibration,
+      WirePathModel(calibration),
+    )
+
+    error = handler.executeG_CodeLine("Z60")
+
+    self.assertIsNone(error)
+    self.assertEqual(io.head.clear_calls, 1)
     self.assertEqual(len(plc_logic.z_moves), 1)
     self.assertEqual(plc_logic.z_moves[0][0], 60.0)
 

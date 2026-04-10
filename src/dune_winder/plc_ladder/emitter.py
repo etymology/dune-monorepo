@@ -19,7 +19,10 @@ class RllEmitter:
     for node in nodes:
       if isinstance(node, InstructionCall):
         emitted.append(node.opcode)
-        emitted.extend(node.operands)
+        if node.opcode == "CMP":
+          emitted.append(self._emit_cmp_operand(node.operands[0]))
+        else:
+          emitted.extend(node.operands)
         continue
       if isinstance(node, Branch):
         emitted.append("BST")
@@ -31,3 +34,9 @@ class RllEmitter:
         continue
       raise TypeError(f"Unsupported AST node: {type(node)!r}")
     return emitted
+
+  def _emit_cmp_operand(self, operand: str) -> str:
+    text = str(operand).strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+      text = text[1:-1]
+    return '"' + "".join(text.split()) + '"'

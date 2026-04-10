@@ -34,6 +34,7 @@ from dune_winder.machine.settings import Settings
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.core.motion_service import MotionService
 from dune_winder.core.safety_validation_service import SafetyValidationService
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 from dune_winder.machine.geometry.factory import create_layer_geometry
 
 
@@ -49,6 +50,7 @@ class Process:
         self._safety,
         self.gCodeHandler,
         self.headCompensation,
+        self._xBacklash,
         lambda: self.workspace,
       )
       self._motion = motion
@@ -64,6 +66,7 @@ class Process:
         self._log,
         self._io,
         self._safety,
+        self._xBacklash,
         lambda: getattr(self, "workspace", None),
       )
       self._playback = playback
@@ -83,6 +86,7 @@ class Process:
         gCodeHandler=getattr(self, "gCodeHandler", None),
         log=getattr(self, "_log", None),
         systemTime=getattr(self, "_systemTime", None),
+        controlStateMachine=getattr(self, "controlStateMachine", None),
         resetWindTime=getattr(getattr(self, "controlStateMachine", None), "resetWindTime", None),
         getWindTime=getattr(getattr(self, "controlStateMachine", None), "getWindTime", None),
       )
@@ -130,6 +134,7 @@ class Process:
 
     self.controlStateMachine = ControlStateMachine(io, log, systemTime)
     self.headCompensation = WirePathModel(machineCalibration)
+    self._xBacklash = XBacklashCompensation(configuration.xBacklashCompensationMm)
 
     self.workspace: Optional[WinderWorkspace] = None
 
@@ -152,7 +157,11 @@ class Process:
       os.makedirs(self._workspaceDirectory)
 
     self.gCodeHandler = GCodeHandler(
-      io, machineCalibration, self.headCompensation, configuration=configuration
+      io,
+      machineCalibration,
+      self.headCompensation,
+      configuration=configuration,
+      xBacklash=self._xBacklash,
     )
     self.controlStateMachine.gCodeHandler = self.gCodeHandler
 
@@ -179,12 +188,12 @@ class Process:
     )
     self._motion = MotionService(
       io, log, self.controlStateMachine, self._safety,
-      self.gCodeHandler, self.headCompensation,
+      self.gCodeHandler, self.headCompensation, self._xBacklash,
       lambda: self.workspace,
     )
     self._playback = GCodePlaybackService(
       self.gCodeHandler, self.controlStateMachine, log, io,
-      self._safety, lambda: self.workspace,
+      self._safety, self._xBacklash, lambda: self.workspace,
     )
     self.gCodeHandler.setBeforeExecuteLineCallback(self._playback.refreshCalibrationBeforeExecution)
 
@@ -196,6 +205,7 @@ class Process:
       gCodeHandler=self.gCodeHandler,
       log=self._log,
       systemTime=self._systemTime,
+      controlStateMachine=self.controlStateMachine,
       resetWindTime=self.controlStateMachine.resetWindTime,
       getWindTime=self.controlStateMachine.getWindTime,
     )
@@ -307,7 +317,7 @@ class Process:
           "Failed to refresh runtime files from disk before G-Code execution.",
           [str(exception)],
         )
-        return "Failed to refresh G-Code or calibration from disk."
+        return str(exception)
       return None
 
     return self._playbackService().refreshCalibrationBeforeExecution()
@@ -340,6 +350,10 @@ class Process:
   # ---------------------------------------------------------------------
   def servoDisable(self):
     self._motionService().servoDisable()
+
+  # ---------------------------------------------------------------------
+  def eotRecover(self):
+    self._motionService().recoverEOT()
 
   # ---------------------------------------------------------------------
   def getG_CodeList(self, center, delta):
@@ -396,6 +410,9 @@ class Process:
   # ---------------------------------------------------------------------
   def getRecipePeriod(self):
     return self._recipeService().getRecipePeriod()
+
+  def getLayerCalibration(self):
+    return self._playbackService().getLayerCalibration()
 
   # ---------------------------------------------------------------------
   def getWrapSeekLine(self, wrap):
@@ -570,5 +587,9 @@ class Process:
   # ---------------------------------------------------------------------
   def executeG_CodeLine(self, line: str):
     return self._playbackService().executeG_CodeLine(line)
+
+  # ---------------------------------------------------------------------
+  def getRealXPosition(self):
+    return self._xBacklash.getEffectiveX(self._io.xAxis.getPosition())
 
 # end class

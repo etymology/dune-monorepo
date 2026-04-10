@@ -32,6 +32,16 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
 
+  def test_manual_seek_xy_allows_single_axis_requests(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.manual_seek_xy", "args": {"y": 42.0}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(process.lastSeek, ("seekXY", None, 42.0, None, None, None))
+
   def test_batch_returns_mixed_result_entries(self):
     registry, process, _, _, _, _ = build_registry_fixture()
     response = registry.executeBatchRequest(
@@ -111,6 +121,62 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertEqual(response["data"]["calibrationFile"], "V_Calibration.json")
     self.assertIn("\"layer\": \"V\"", response["data"]["content"])
+
+  def test_eot_recover_command_dispatch_succeeds(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+    process.eotRecovered = False
+
+    def _recover():
+      process.eotRecovered = True
+      return None
+
+    process.eotRecover = _recover
+
+    response = registry.executeRequest(
+      {"name": "process.eot_recover", "args": {}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertTrue(process.eotRecovered)
+
+  def test_find_uv_pin_segment_dispatches_to_workspace(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {
+        "name": "process.find_uv_pin_segment",
+        "args": {
+          "side": "B",
+          "board_side": "head",
+          "board_number": 1,
+          "pin_number": 40,
+        },
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(process.workspace.lastFindUvPinSegment, ("B", "head", 1, 40))
+    self.assertEqual(response["data"]["pinName"], "PB40")
+    self.assertEqual(response["data"]["segmentStartLine"], 12)
+
+  def test_jump_to_uv_pin_segment_dispatches_to_workspace(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {
+        "name": "process.jump_to_uv_pin_segment",
+        "args": {
+          "side": "A",
+          "board_side": "bottom",
+          "board_number": 1,
+          "pin_number": 1,
+        },
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(process.workspace.lastJumpUvPinSegment, ("A", "bottom", 1, 1))
+    self.assertEqual(response["data"]["jumpedToLine"], 12)
 
 
 if __name__ == "__main__":

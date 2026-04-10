@@ -1,12 +1,16 @@
 import unittest
 import tempfile
 from pathlib import Path
+import os
+
 
 from dune_winder.core.control_events import ManualModeEvent
 from dune_winder.core.manual_calibration import build_nominal_calibration
 from dune_winder.core.motion_service import MotionService
 from dune_winder.core.process import Process
 from dune_winder.core.safety_validation_service import SafetyValidationService
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
+from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.io.primitives.digital_input import DigitalInput
 
 
@@ -120,12 +124,128 @@ class FakeAPARefresh:
       raise self.calibrationError
 
 
+class FakeWorkspaceForRefreshMessages:
+  def __init__(self, recipePath, calibrationPath):
+    self._recipePath = recipePath
+    self._calibrationPath = calibrationPath
+    self._recipeFile = "V-layer.gc"
+    self._calibrationFile = "V_Calibration.json"
+    self._recipeDirectory = "C:/recipes"
+    self._calibrationDirectory = "C:/config/APA"
+    self._recipe = object()
+    self._calibration = object()
+    self._recipeSignature = "recipe-signature"
+    self._calibrationSignature = "calibration-signature"
+
+  def _getRecipeFullPath(self):
+    return self._recipePath
+
+  def _getCalibrationFullPath(self):
+    return self._calibrationPath
+
+  def _missingRecipeMessage(self, recipeFullPath):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._missingRecipeMessage(self, recipeFullPath)
+
+  def _missingCalibrationMessage(self, calibFullPath):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._missingCalibrationMessage(self, calibFullPath)
+
+  def _calculateRecipeSignature(self):
+    if self._recipePath is None or not os.path.isfile(self._recipePath):
+      return None
+    return self._recipeSignature
+
+  def _calculateCalibrationSignature(self):
+    if self._calibrationPath is None or not os.path.isfile(self._calibrationPath):
+      return None
+    return self._calibrationSignature
+
+  def refreshRecipeIfChanged(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace.refreshRecipeIfChanged(self)
+
+  def refreshCalibrationIfChanged(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace.refreshCalibrationIfChanged(self)
+
+  def _isActiveWindReload(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._isActiveWindReload(self)
+
+  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._reloadRecipeWhileStopped(self, previousLines, reloadedLines)
+
+  def _findReloadLineByPinPair(self, previousLines, reloadedLines, currentLine):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._findReloadLineByPinPair(self, previousLines, reloadedLines, currentLine)
+
+  def _getMostRecentPinPair(self, lines, currentLine):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._getMostRecentPinPair(self, lines, currentLine)
+
+  def _findClosestPinPairLine(self, lines, pinPair, currentLine):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._findClosestPinPairLine(self, lines, pinPair, currentLine)
+
+  @classmethod
+  def _extractPinPair(cls, line):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._extractPinPair(line)
+
+
 class FakeLog:
   def __init__(self):
     self.entries = []
 
   def add(self, source, code, message, data=None):
     self.entries.append((source, code, message, data))
+
+
+class _ReloadGuardFakeAxis:
+  def __init__(self, position=0.0):
+    self._position = position
+
+  def getPosition(self):
+    return self._position
+
+
+class _ReloadGuardFakeHead:
+  def getTargetAxisPosition(self):
+    return 0.0
+
+
+class _ReloadGuardFakeIO:
+  def __init__(self):
+    self.xAxis = _ReloadGuardFakeAxis()
+    self.yAxis = _ReloadGuardFakeAxis()
+    self.zAxis = _ReloadGuardFakeAxis()
+    self.head = _ReloadGuardFakeHead()
+
+
+class _ReloadGuardFakeCalibration:
+  zFront = 0.0
+  zBack = 0.0
+
+
+WindMode = type("WindMode", (), {})
+StopMode = type("StopMode", (), {})
+
+
+class _ReloadGuardControlStateMachine:
+  def __init__(self, state):
+    self.state = state
 
 
 class ProcessSnapshotTests(unittest.TestCase):
@@ -188,7 +308,7 @@ class ProcessSnapshotTests(unittest.TestCase):
 
     result = process._refreshCalibrationBeforeExecution()
 
-    self.assertEqual(result, "Failed to refresh G-Code or calibration from disk.")
+    self.assertEqual(result, "recipe changed badly")
     self.assertEqual(process.workspace.calls, ["recipe"])
     self.assertEqual(len(process._log.entries), 1)
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
@@ -251,6 +371,162 @@ class ProcessSnapshotTests(unittest.TestCase):
 
       self.assertEqual(payload["calibrationFile"], "V_Calibration.json")
       self.assertIn("\"layer\": \"V\"", payload["content"])
+=======
+  def test_refresh_before_execution_returns_actionable_missing_recipe_message(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    process = object.__new__(Process)
+    process.workspace = FakeWorkspaceForRefreshMessages(
+      recipePath="C:/recipes/V-layer.gc",
+      calibrationPath="C:/config/APA/V_Calibration.json",
+    )
+    process._log = FakeLog()
+
+    result = process._refreshCalibrationBeforeExecution()
+
+    self.assertEqual(
+      result,
+      WinderWorkspace._missingRecipeMessage(process.workspace, "C:/recipes/V-layer.gc"),
+    )
+    self.assertEqual(len(process._log.entries), 1)
+
+  def test_gcode_reload_rejects_line_count_changes(self):
+    handler = GCodeHandler(_ReloadGuardFakeIO(), _ReloadGuardFakeCalibration(), None)
+    handler.loadG_Code(["G1 X1", "G1 X2"], calibration=None)
+
+    with self.assertRaisesRegex(ValueError, "same number of lines"):
+      handler.reloadG_Code(["G1 X1"])
+
+  def test_refresh_before_execution_returns_error_when_recipe_line_count_changes(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    with tempfile.TemporaryDirectory() as tempDir:
+      recipePath = os.path.join(tempDir, "V-layer.gc")
+      calibrationPath = os.path.join(tempDir, "V_Calibration.json")
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("G1 X1\nG1 X2\n")
+      with open(calibrationPath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("{}\n")
+
+      process = object.__new__(Process)
+      process.workspace = FakeWorkspaceForRefreshMessages(
+        recipePath=recipePath,
+        calibrationPath=calibrationPath,
+      )
+      process.workspace._log = FakeLog()
+      process.workspace._recipeDirectory = tempDir
+      process.workspace._recipeArchiveDirectory = tempDir
+      process.workspace._gCodeHandler = GCodeHandler(
+        _ReloadGuardFakeIO(),
+        _ReloadGuardFakeCalibration(),
+        None,
+      )
+      process.workspace._recipe = type(
+        "LoadedRecipe",
+        (),
+        {"getLines": lambda self: ["G1 X1", "G1 X2"]},
+      )()
+      process.workspace._gCodeHandler.loadG_Code(["G1 X1", "G1 X2"], calibration=None)
+      process.workspace._controlStateMachine = _ReloadGuardControlStateMachine(WindMode())
+      process._log = FakeLog()
+
+      process.workspace._recipeSignature = "before"
+      process.workspace._calculateRecipeSignature = lambda: "after"
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("G1 X1\n")
+
+      result = process._refreshCalibrationBeforeExecution()
+
+      self.assertEqual(
+        result,
+        "Updated G-Code file must preserve the active execution state and keep the same number of lines.",
+      )
+      self.assertEqual(len(process._log.entries), 1)
+      self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+    self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+
+  def test_refresh_before_execution_reseeks_by_pin_pair_when_stopped_and_line_count_changes(self):
+    with tempfile.TemporaryDirectory() as tempDir:
+      recipePath = os.path.join(tempDir, "V-layer.gc")
+      calibrationPath = os.path.join(tempDir, "V_Calibration.json")
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("N1 G1 X1\nN2 G103 PF10 PB20\nN3 G1 X2\nN4 G103 PF30 PB40\n")
+      with open(calibrationPath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("{}\n")
+
+      process = object.__new__(Process)
+      process.workspace = FakeWorkspaceForRefreshMessages(
+        recipePath=recipePath,
+        calibrationPath=calibrationPath,
+      )
+      process.workspace._log = FakeLog()
+      process.workspace._recipeDirectory = tempDir
+      process.workspace._recipeArchiveDirectory = tempDir
+      process.workspace._gCodeHandler = GCodeHandler(
+        _ReloadGuardFakeIO(),
+        _ReloadGuardFakeCalibration(),
+        None,
+      )
+      process.workspace._recipe = type(
+        "LoadedRecipe",
+        (),
+        {
+          "getLines": lambda self: [
+            "N1 G1 X1",
+            "N2 G103 PF10 PB20",
+            "N3 G1 X2",
+            "N4 G103 PF30 PB40",
+          ]
+        },
+      )()
+      process.workspace._gCodeHandler.loadG_Code(
+        ["N1 G1 X1", "N2 G103 PF10 PB20", "N3 G1 X2", "N4 G103 PF30 PB40"],
+        calibration=None,
+      )
+      process.workspace._gCodeHandler.setLine(3)
+      process.workspace._controlStateMachine = _ReloadGuardControlStateMachine(StopMode())
+      process._log = FakeLog()
+
+      process.workspace._recipeSignature = "before"
+      process.workspace._calculateRecipeSignature = lambda: "after"
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write(
+          "N1 G1 X1\nN2 G103 PF10 PB20\nN3 G1 X2\nN4 G1 X3\nN5 G103 PF30 PB40\nN6 G1 X4\n"
+        )
+
+      result = process._refreshCalibrationBeforeExecution()
+
+      self.assertIsNone(result)
+      self.assertEqual(process.workspace._gCodeHandler.getLine(), 4)
+      self.assertEqual(len(process._log.entries), 0)
+
+  def test_refresh_before_execution_returns_actionable_missing_calibration_message(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    process = object.__new__(Process)
+    process.workspace = FakeWorkspaceForRefreshMessages(
+      recipePath="C:/recipes/V-layer.gc",
+      calibrationPath="C:/config/APA/V_Calibration.json",
+    )
+    process.workspace._recipeFile = None
+    process.workspace._recipe = None
+    process._log = FakeLog()
+
+    result = process._refreshCalibrationBeforeExecution()
+
+    self.assertEqual(
+      result,
+      WinderWorkspace._missingCalibrationMessage(
+        process.workspace,
+        "C:/config/APA/V_Calibration.json",
+      ),
+    )
+    self.assertEqual(len(process._log.entries), 1)
+    self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
 
 
 class _AxisForManualGCode:
@@ -273,12 +549,39 @@ class _ControlStateMachineForManualGCode:
     return True
 
 
+class _ControlStateMachineForEOTRecover:
+  class States:
+    STOP = "STOP"
+
+  def __init__(self):
+    self.changed_to = []
+
+  def changeState(self, state):
+    self.changed_to.append(state)
+    return False
+
+
+class _PLCLogicForEOTRecover:
+  def __init__(self):
+    self.calls = 0
+
+  def recoverEOT(self):
+    self.calls += 1
+
+
+class _IOForEOTRecover:
+  def __init__(self):
+    self.plcLogic = _PLCLogicForEOTRecover()
+
+
 class _GCodeHandlerForManualGCode:
   def __init__(self):
     self.lines = []
+    self.skipFlags = []
 
-  def executeG_CodeLine(self, line):
+  def executeG_CodeLine(self, line, skip_before_execute_callback=False):
     self.lines.append(line)
+    self.skipFlags.append(skip_before_execute_callback)
     return None
 
 
@@ -371,9 +674,11 @@ class ProcessManualGCodeTests(unittest.TestCase):
     safety._supportCollisionTopMaxY = 2650.0
     safety._geometryEpsilon = 1e-9
     process._safety = safety
+    process._xBacklash = XBacklashCompensation(2.0)
     process._motion = MotionService(
       process._io, process._log, process.controlStateMachine,
-      safety, process.gCodeHandler, None, lambda: None,
+      safety, process.gCodeHandler, None, process._xBacklash,
+      lambda: None,
     )
 
     return process
@@ -385,6 +690,7 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["X4 Y22.0"])
+    self.assertEqual(process.gCodeHandler.skipFlags, [True])
     self.assertEqual(len(process.controlStateMachine.events), 1)
     self.assertIsInstance(process.controlStateMachine.events[0], ManualModeEvent)
     self.assertTrue(process.controlStateMachine.events[0].executeGCode)
@@ -396,6 +702,16 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     self.assertIsNone(error)
     self.assertEqual(process.gCodeHandler.lines, ["Y3 X11.0"])
+
+  def test_execute_manual_gcode_uses_effective_x_for_y_only_move(self):
+    process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(0.0, 5.0)
+
+    error = process.executeG_CodeLine("Y3")
+
+    self.assertIsNone(error)
+    self.assertEqual(process.gCodeHandler.lines, ["Y3 X9.0"])
 
   def test_execute_manual_gcode_accepts_feed_only_without_movement(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
@@ -502,5 +818,53 @@ class ProcessManualGCodeTests(unittest.TestCase):
     self.assertFalse(isError)
     self.assertEqual(len(process.controlStateMachine.events), 1)
     self.assertIsInstance(process.controlStateMachine.events[0], ManualModeEvent)
-    self.assertEqual(process.controlStateMachine.events[0].seekX, 500.0)
+    self.assertEqual(process.controlStateMachine.events[0].seekX, 502.0)
     self.assertEqual(process.controlStateMachine.events[0].seekY, 200.0)
+
+  def test_manual_seek_xy_reversal_uses_unbiased_raw_target(self):
+    process = self._build_process_for_manual_gcode(x_position=112.0, y_position=100.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(100.0, 110.0)
+
+    isError = process.manualSeekXY(xPosition=109.0, yPosition=200.0)
+
+    self.assertFalse(isError)
+    self.assertEqual(process.controlStateMachine.events[0].seekX, 109.0)
+
+  def test_manual_seek_xy_skips_sub_resolution_noop_without_entering_manual_mode(self):
+    process = self._build_process_for_manual_gcode(x_position=112.0, y_position=100.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(100.0, 110.0)
+
+    isError = process.manualSeekXY(xPosition=110.02, yPosition=100.03)
+
+    self.assertFalse(isError)
+    self.assertEqual(process.controlStateMachine.events, [])
+
+  def test_get_real_x_position_uses_backlash_compensated_x(self):
+    process = self._build_process_for_manual_gcode(x_position=112.0, y_position=100.0)
+    process._xBacklash.setBacklashMm(2.0)
+    process._xBacklash.noteCommand(100.0, 110.0)
+
+    self.assertEqual(process.getRealXPosition(), 110.0)
+
+
+class MotionServiceTests(unittest.TestCase):
+  def test_recover_eot_returns_control_state_machine_to_stop_mode(self):
+    io = _IOForEOTRecover()
+    control = _ControlStateMachineForEOTRecover()
+    service = MotionService(
+      io,
+      FakeLog(),
+      control,
+      safety=None,
+      gCodeHandler=None,
+      headCompensation=None,
+      xBacklash=None,
+      workspaceGetter=lambda: None,
+    )
+
+    service.recoverEOT()
+
+    self.assertEqual(io.plcLogic.calls, 1)
+    self.assertEqual(control.changed_to, ["STOP"])

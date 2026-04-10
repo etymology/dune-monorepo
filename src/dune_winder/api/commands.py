@@ -129,9 +129,19 @@ def build_command_registry(
   def process_manual_seek_xy(args):
     _validateArgs(
       args,
-      required=("x", "y"),
-      optional=("velocity", "acceleration", "deceleration"),
+      optional=("x", "y", "velocity", "acceleration", "deceleration"),
     )
+    if "x" not in args and "y" not in args:
+      raise ValueError("At least one of 'x' or 'y' is required.")
+
+    xPosition = args.get("x")
+    if xPosition is not None:
+      xPosition = _asFloat(xPosition, "x")
+
+    yPosition = args.get("y")
+    if yPosition is not None:
+      yPosition = _asFloat(yPosition, "y")
+
     velocity = args.get("velocity")
     if velocity is not None:
       velocity = _asFloat(velocity, "velocity")
@@ -145,14 +155,20 @@ def build_command_registry(
       deceleration = _asFloat(deceleration, "deceleration")
 
     return process.manualSeekXY(
-      _asFloat(args["x"], "x"),
-      _asFloat(args["y"], "y"),
+      xPosition,
+      yPosition,
       velocity=velocity,
       acceleration=acceleration,
       deceleration=deceleration,
     )
 
   registry.register("process.manual_seek_xy", process_manual_seek_xy, True)
+
+  registry.register(
+    "process.get_real_x_position",
+    lambda args: (_validateArgs(args), process.getRealXPosition())[1],
+    False,
+  )
 
   def process_manual_seek_xy_named(args):
     _validateArgs(args, optional=("x_name", "y_name", "velocity"))
@@ -393,6 +409,18 @@ def build_command_registry(
     True,
   )
 
+  def manual_calibration_set_x_backlash_compensation(args):
+    _validateArgs(args, required=("value",))
+    return process.manualCalibration.setXBacklashCompensation(
+      _asFloat(args["value"], "value"),
+    )
+
+  registry.register(
+    "process.manual_calibration.set_x_backlash_compensation",
+    manual_calibration_set_x_backlash_compensation,
+    True,
+  )
+
   def manual_calibration_update_measured_pin(args):
     _validateArgs(args, required=("pin", "wire_x", "wire_y"))
     return process.manualCalibration.updateMeasuredPin(
@@ -482,6 +510,14 @@ def build_command_registry(
 
   registry.register("process.v_template.set_transfer_pause", v_template_set_transfer_pause, True)
 
+  def v_template_set_add_foot_pauses(args):
+    _validateArgs(args, required=("enabled",))
+    return process.vTemplateRecipe.setAddFootPauses(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.v_template.set_add_foot_pauses", v_template_set_add_foot_pauses, True
+  )
+
   def v_template_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
     return process.vTemplateRecipe.setIncludeLeadMode(_asBool(args["enabled"], "enabled"))
@@ -511,6 +547,15 @@ def build_command_registry(
     True,
   )
 
+  registry.register(
+    "process.v_template.generate_recipe_file_xz",
+    lambda args: (
+      _validateArgs(args),
+      process.vTemplateRecipe.generateRecipeFile(scriptVariant="xz"),
+    )[1],
+    True,
+  )
+
   def u_template_set_offset(args):
     _validateArgs(args, required=("offset_id", "value"))
     return process.uTemplateRecipe.setOffset(
@@ -533,6 +578,14 @@ def build_command_registry(
     return process.uTemplateRecipe.setTransferPause(_asBool(args["enabled"], "enabled"))
 
   registry.register("process.u_template.set_transfer_pause", u_template_set_transfer_pause, True)
+
+  def u_template_set_add_foot_pauses(args):
+    _validateArgs(args, required=("enabled",))
+    return process.uTemplateRecipe.setAddFootPauses(_asBool(args["enabled"], "enabled"))
+
+  registry.register(
+    "process.u_template.set_add_foot_pauses", u_template_set_add_foot_pauses, True
+  )
 
   def u_template_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
@@ -576,6 +629,11 @@ def build_command_registry(
     lambda args: (_validateArgs(args), process.servoDisable())[1],
     True,
   )
+  registry.register(
+    "process.eot_recover",
+    lambda args: (_validateArgs(args), process.eotRecover())[1],
+    True,
+  )
 
   def process_load_recipe(args):
     _validateArgs(args, required=("layer", "recipe"), optional=("line",))
@@ -611,10 +669,47 @@ def build_command_registry(
     False,
   )
   registry.register(
+    "process.get_layer_calibration",
+    lambda args: (_validateArgs(args), process.getLayerCalibration())[1],
+    False,
+  )
+  registry.register(
     "process.get_workspace_state",
     lambda args: (_validateArgs(args), process.getWorkspaceState())[1],
     False,
   )
+
+  def process_find_uv_pin_segment(args):
+    _validateArgs(
+      args,
+      required=("side", "board_side", "board_number", "pin_number"),
+    )
+    if process.workspace is None:
+      raise ValueError("No workspace is loaded.")
+    return process.workspace.findUvPinSegment(
+      _asString(args["side"], "side"),
+      _asString(args["board_side"], "board_side"),
+      _asInt(args["board_number"], "board_number"),
+      _asInt(args["pin_number"], "pin_number"),
+    )
+
+  registry.register("process.find_uv_pin_segment", process_find_uv_pin_segment, False)
+
+  def process_jump_to_uv_pin_segment(args):
+    _validateArgs(
+      args,
+      required=("side", "board_side", "board_number", "pin_number"),
+    )
+    if process.workspace is None:
+      raise ValueError("No workspace is loaded.")
+    return process.workspace.jumpToUvPinSegment(
+      _asString(args["side"], "side"),
+      _asString(args["board_side"], "board_side"),
+      _asInt(args["board_number"], "board_number"),
+      _asInt(args["pin_number"], "pin_number"),
+    )
+
+  registry.register("process.jump_to_uv_pin_segment", process_jump_to_uv_pin_segment, True)
 
   def process_get_wrap_seek_line(args):
     _validateArgs(args, required=("wrap",))

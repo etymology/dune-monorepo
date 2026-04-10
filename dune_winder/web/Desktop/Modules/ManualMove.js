@@ -223,6 +223,10 @@ function ManualMove(modules) {
     uiServices.call(commands.process.servoDisable, {});
   };
 
+  this.eotRecover = function () {
+    uiServices.call(commands.process.eotRecover, {});
+  };
+
   refreshIncrementalJogVelocity();
   winder.addErrorClearCallback(refreshIncrementalJogVelocity);
 
@@ -262,6 +266,10 @@ function ManualMove(modules) {
 
   $("#manualMoveServoDisableButton").click(function () {
     self.servoDisable();
+  });
+
+  $("#manualMoveEotRecoverButton").click(function () {
+    self.eotRecover();
   });
 
   $("[data-manual-gcode]").click(function () {

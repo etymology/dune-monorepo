@@ -14,6 +14,7 @@ from dune_winder.library.app_config import AppConfig
 from dune_winder.library.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import WIRE_SPACING as GX_WIRE_SPACING
 from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 
 class FakeLog:
@@ -142,6 +143,7 @@ class FakeProcess:
     self.workspace = FakeAPA(layer, apaPath, calibrationDirectory, recipeDirectory, recipeArchiveDirectory)
     self.workspace._gCodeHandler = self.gCodeHandler
     self.seekCalls = []
+    self._xBacklash = XBacklashCompensation(configuration.xBacklashCompensationMm)
 
   def getRecipeLayer(self):
     return self.workspace.getLayer()
@@ -209,23 +211,23 @@ class ManualCalibrationTests(unittest.TestCase):
           min(candidatePins, key=lambda pin: (abs(pin - sideMidpoint), pin)),
         )
 
-  def test_build_transform_covers_translation_similarity_and_affine(self):
+  def test_build_transform_covers_translation_and_rigid_rotation(self):
     transform, mode = build_transform([(0.0, 0.0, 10.0, 5.0)])
     self.assertEqual(mode, "translation")
     self.assertPointAlmostEqual(_apply_transform(transform, 2.0, 3.0), (12.0, 8.0))
 
-    transform, mode = build_transform([(0.0, 0.0, 1.0, 1.0), (1.0, 0.0, 1.0, 3.0)])
-    self.assertEqual(mode, "similarity")
-    self.assertPointAlmostEqual(_apply_transform(transform, 0.0, 1.0), (-1.0, 1.0))
+    transform, mode = build_transform([(0.0, 0.0, 1.0, 1.0), (1.0, 0.0, 1.0, 2.0)])
+    self.assertEqual(mode, "rigid")
+    self.assertPointAlmostEqual(_apply_transform(transform, 0.0, 1.0), (0.0, 1.0))
 
-    affinePairs = [
+    rigidPairs = [
       (0.0, 0.0, 3.0, 4.0),
-      (1.0, 0.0, 4.0, 3.0),
-      (0.0, 1.0, 5.0, 5.0),
+      (1.0, 0.0, 3.0, 3.0),
+      (0.0, 1.0, 4.0, 4.0),
     ]
-    transform, mode = build_transform(affinePairs)
-    self.assertEqual(mode, "affine")
-    self.assertPointAlmostEqual(_apply_transform(transform, 2.0, 3.0), (11.0, 5.0))
+    transform, mode = build_transform(rigidPairs)
+    self.assertEqual(mode, "rigid")
+    self.assertPointAlmostEqual(_apply_transform(transform, 2.0, 3.0), (6.0, 2.0))
 
   def test_nominal_calibration_assigns_back_labels_to_back_side_geometry(self):
     for layer in ("U", "V"):
@@ -307,6 +309,37 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(process.seekCalls[0][1], 200.0)
       self.assertAlmostEqual(process.seekCalls[0][2], 25.0)
 
+  def test_capture_uses_effective_x_when_positive_backlash_bias_is_active(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      service = ManualCalibration(process)
+
+      service.startNew()
+      service.setCameraOffset(10.0, -5.0)
+      process._xBacklash.noteCommand(0.0, 10.0)
+      process._io.xAxis.position = 100.0
+      process._io.yAxis.position = 200.0
+
+      captureResult = service.captureCurrentPin(1)
+
+      self.assertTrue(captureResult["ok"])
+      session = service._getSession("U")
+      self.assertAlmostEqual(session.measuredPins[1]["rawCameraX"], 100.0)
+      self.assertAlmostEqual(session.measuredPins[1]["wireX"], 108.0)
+
+  def test_state_reports_and_updates_x_backlash_compensation(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      service = ManualCalibration(process)
+
+      self.assertAlmostEqual(service.getState()["xBacklashCompensationMm"], 2.0)
+
+      result = service.setXBacklashCompensation(3.25)
+
+      self.assertTrue(result["ok"])
+      self.assertAlmostEqual(service.getState()["xBacklashCompensationMm"], 3.25)
+      self.assertAlmostEqual(process._configuration.xBacklashCompensationMm, 3.25)
+
   def test_front_pin_prediction_uses_mapped_back_pin_correction(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = _create_process("U", rootDirectory)
@@ -324,7 +357,28 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(predictedFront[0], baselineFront.x + 10.0, places=6)
       self.assertAlmostEqual(predictedFront[1], baselineFront.y + 5.0, places=6)
 
-  def test_save_live_writes_offset_zero_file_and_reloads_runtime_calibration(self):
+  def test_changing_camera_offset_recomputes_captured_uv_measurements(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      service = ManualCalibration(process)
+
+      service.startNew()
+      service.setCameraOffset(10.0, -5.0)
+      process._io.xAxis.position = 100.0
+      process._io.yAxis.position = 200.0
+      service.captureCurrentPin(1)
+
+      service.setCameraOffset(12.5, -7.5)
+
+      session = service._getSession("U")
+      self.assertAlmostEqual(session.measuredPins[1]["wireX"], 112.5)
+      self.assertAlmostEqual(session.measuredPins[1]["wireY"], 192.5)
+
+      prediction = service.predictPin(1)
+      self.assertAlmostEqual(prediction["wireX"], 112.5)
+      self.assertAlmostEqual(prediction["wireY"], 192.5)
+
+  def test_save_live_keeps_zero_file_offset_and_reloads_runtime_calibration(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = _create_process("U", rootDirectory)
       service = ManualCalibration(process)
@@ -502,11 +556,11 @@ class ManualCalibrationTests(unittest.TestCase):
 
       self.assertTrue(lines[0].startswith("( X-layer "))
       self.assertEqual(lines[1], "N0 X440.0 Y196.0\n")
-      self.assertEqual(lines[2], "N1 G106 P0\n")
+      self.assertEqual(lines[2], "N1 G206 P0\n")
       self.assertEqual(lines[3], "N2 (1,1) X635.0 Y196.0\n")
       self.assertEqual(lines[4], "N3 (1,2) X7165.0 Y398.0\n")
-      self.assertEqual(lines[5], "N4 (1,3) G106 P0\n")
-      self.assertEqual(lines[6], "N5 (1,4) G106 P3\n")
+      self.assertEqual(lines[5], "N4 (1,3) G206 P0\n")
+      self.assertEqual(lines[6], "N5 (1,4) G206 P3\n")
       self.assertEqual(lines[7], "N6 (1,5) X7016.0 Y399.0\n")
       self.assertEqual(lines[-1], "N3842 X635.0 Y2496.0\n")
 

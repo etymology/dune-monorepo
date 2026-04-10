@@ -42,7 +42,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       [
         "N0 ( U Layer )",
         "N1 " + self.MERGE + "X7174 Y60 F300 (load new calibration file)",
-        "N2 F300 G106 P3",
+        "N2 F300 G206 P3",
         "N3 " + self.MERGE + "(0, ) F300 G103 PB1201 PB1200 PXY G105 PX-50",
         "N4 (1,1) (------------------STARTING LOOP 1------------------)",
         "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G102 G108 (Top B corner - foot end)",
@@ -52,7 +52,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       lines[-4:],
       [
         "N10077 " + self.MERGE + "(400,22) G109 PF2001 PRT G103 PF1201 PF1200 PXY G102 G108 (Foot A corner)",
-        "N10078 (400,23) G106 P3",
+        "N10078 (400,23) G206 P3",
         "N10079 " + self.MERGE + "(400,24) G109 PF1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
         "N10080 "
         + self.TOLERANT
@@ -78,7 +78,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       lines[5],
       "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX2 G102 G108 (Top B corner - foot end)",
     )
-    self.assertEqual(lines[7], "N7 (1,4) G106 P0")
+    self.assertEqual(lines[7], "N7 (1,4) G206 P0")
 
     special_lines = render_u_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
@@ -104,8 +104,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       "N16 "
       + self.TOLERANT
       + "(1,13) G103 PF2 PF1 PXY G105 "
-      + self._coord("PX", 187.5)
-      + " ( BOARD GAP )",
+      + self._coord("PX", 187.5),
       lines,
     )
 
@@ -142,13 +141,14 @@ class UTemplateGCodeTests(unittest.TestCase):
     paused_lines = render_u_template_text_lines(special_inputs={"transferPause": True})
 
     self.assertEqual(len(paused_lines) - len(base_lines), WRAP_COUNT * 6)
-    self.assertEqual(paused_lines[6], "N6 (1,3) G106 P2")
-    self.assertEqual(paused_lines[11], "N11 (1,8) G106 P1")
-    self.assertEqual(paused_lines[16], "N16 (1,13) G106 P2")
+    self.assertEqual(paused_lines[6], "N6 (1,3) G206 P2")
+    self.assertEqual(paused_lines[11], "N11 (1,8) G206 P1")
+    self.assertEqual(paused_lines[16], "N16 (1,13) G206 P2")
 
   def test_named_input_snapshot_and_file_writers(self):
     named_inputs = get_u_template_named_inputs_snapshot()
     self.assertFalse(named_inputs["transferPause"])
+    self.assertFalse(named_inputs["addFootPauses"])
     self.assertEqual(named_inputs["line 6 (Head A corner)"], 0.0)
     self.assertEqual(named_inputs["Y_PULL_IN"], Y_PULL_IN)
     self.assertEqual(named_inputs["X_PULL_IN"], X_PULL_IN)
@@ -183,6 +183,34 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(recipe["fileName"], "U-layer.gc")
     self.assertEqual(recipe["pullIns"]["Y_PULL_IN"], 212.5)
     self.assertEqual(recipe["pullIns"]["X_PULL_IN"], 187.5)
+
+  def test_add_foot_pauses_appends_g111_only_on_qualifying_lines(self):
+    base_lines = render_u_template_text_lines()
+    paused_lines = render_u_template_text_lines(add_foot_pauses=True)
+
+    self.assertEqual(
+      paused_lines[3],
+      "N3 " + self.MERGE + "(0, ) F300 G103 PB1201 PB1200 PXY G105 PX-50 G111 (board gap)",
+    )
+    self.assertEqual(
+      paused_lines[21],
+      "N21 "
+      + self.MERGE
+      + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G102 G108 G111 (board gap) (Bottom B corner - foot end)",
+    )
+    self.assertNotIn("G111", base_lines[3])
+    self.assertNotIn("G111", base_lines[21])
+    self.assertNotIn("G111", paused_lines[5])
+    self.assertIn("foot", paused_lines[21].lower())
+
+  def test_add_foot_pauses_is_reported_in_recipe_metadata(self):
+    with tempfile.TemporaryDirectory() as directory:
+      recipe = write_u_template_file(
+        Path(directory) / "U-layer.gc",
+        add_foot_pauses=True,
+      )
+
+    self.assertTrue(recipe["addFootPauses"])
 
 
 if __name__ == "__main__":

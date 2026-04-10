@@ -20,6 +20,7 @@ class Opcode(IntEnum):
   BREAK_POINT = 111
   TENSION_TESTING = 112
   QUEUE_MERGE = 113
+  HEAD_TRANSFER = 206
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,12 @@ _OPCODE_SPECS = (
     "QUEUE_MERGE",
     "mode",
     "Mark the current XY waypoint as mergeable for queued motion.",
+  ),
+  OpcodeSpec(
+    Opcode.HEAD_TRANSFER,
+    "HEAD_TRANSFER",
+    "location",
+    "Head transfer command.",
   ),
 )
 

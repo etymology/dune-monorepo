@@ -198,7 +198,7 @@ class PLC(IO_Device, metaclass=ABCMeta):
       """
       isError = False
 
-      result = self._plc.write((self._tagName, value))
+      result = self._plc.write((self._tagName, value), typeName=self._type)
       if result is None:
         isError = True
       else:

@@ -1,0 +1,435 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-08T19:04:32.246947+00:00",
+  "plc_path": "192.168.140.13",
+  "program_name": "state_13_move_yz",
+  "main_routine_name": "main",
+  "main_routine_name_source": "single_routine",
+  "routines": [
+    "main"
+  ],
+  "subroutines": [],
+  "udts": [
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 3
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 5,
+          "offset": 3
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 4,
+          "offset": 3
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 3
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 3
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 7,
+          "offset": 2
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 0,
+          "offset": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 1,
+          "offset": 0
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 2,
+          "offset": 0
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "bit": 3,
+          "offset": 0
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15
+        }
+      ]
+    }
+  ],
+  "program_tags": [
+    {
+      "name": "STATE13_IND",
+      "fully_qualified_name": "Program:state_13_move_yz.STATE13_IND",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "yz_main_move",
+      "fully_qualified_name": "Program:state_13_move_yz.yz_main_move",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "yz_stop",
+      "fully_qualified_name": "Program:state_13_move_yz.yz_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "xy_stop",
+      "fully_qualified_name": "Program:state_13_move_yz.xy_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "x_axis_stop",
+      "fully_qualified_name": "Program:state_13_move_yz.x_axis_stop",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "udt_name": "MOTION_INSTRUCTION",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "yz_target_collision_bttm",
+      "fully_qualified_name": "Program:state_13_move_yz.yz_target_collision_bttm",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "yz_target_collision_mid",
+      "fully_qualified_name": "Program:state_13_move_yz.yz_target_collision_mid",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "yz_target_collision_top",
+      "fully_qualified_name": "Program:state_13_move_yz.yz_target_collision_top",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "x_in_head_transfer_zone",
+      "fully_qualified_name": "Program:state_13_move_yz.x_in_head_transfer_zone",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "x_in_foot_transfer_zone",
+      "fully_qualified_name": "Program:state_13_move_yz.x_in_foot_transfer_zone",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "yz_target_support_collision",
+      "fully_qualified_name": "Program:state_13_move_yz.yz_target_support_collision",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": true
+    },
+    {
+      "name": "null",
+      "fully_qualified_name": "Program:state_13_move_yz.null",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    },
+    {
+      "name": "state_13_entry_osr",
+      "fully_qualified_name": "Program:state_13_move_yz.state_13_entry_osr",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0,
+      "value": false
+    }
+  ],
+  "values_generated_at": "2026-04-08T19:04:47.706642+00:00"
+}

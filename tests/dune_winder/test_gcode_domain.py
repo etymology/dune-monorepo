@@ -9,7 +9,7 @@ from dune_winder.gcode.runtime import (
   GCodeProgramExecutor,
   execute_program_line,
 )
-from dune_winder.recipes.gcode_functions import pin_center
+from dune_winder.recipes.gcode_functions import head_transfer, pin_center
 
 
 class GCodeParserTests(unittest.TestCase):
@@ -37,6 +37,15 @@ class GCodeParserTests(unittest.TestCase):
     line = parse_line_text("  N1   X1   ( hello )   Y2  ")
     self.assertEqual(render_line(line), "N1 X1 ( hello ) Y2")
 
+  def test_parser_supports_symbolic_z_extend_with_pxz_recipe_order(self):
+    line = parse_line_text("G103 PF800 PF799 ZEXTEND PXZ")
+
+    self.assertEqual(render_line(line), "G103 PF800 PF799 PXZ ZEXTEND")
+    self.assertIsInstance(line.items[0], FunctionCall)
+    self.assertEqual(line.items[0].parameters, ["F800", "F799", "XZ"])
+    self.assertEqual(line.items[1].letter, "Z")
+    self.assertEqual(line.items[1].value, "EXTEND")
+
 
 class GCodeRuntimeTests(unittest.TestCase):
   def test_runtime_delivers_one_callback_per_instruction(self):
@@ -52,10 +61,12 @@ class GCodeRuntimeTests(unittest.TestCase):
 class GCodeDomainTests(unittest.TestCase):
   def test_opcode_catalog_covers_all_runtime_opcodes(self):
     expected = set(range(100, 114))
+    expected.add(206)
     self.assertEqual(set(OPCODE_CATALOG.keys()), expected)
     self.assertEqual(int(Opcode.LATCH), 100)
     self.assertEqual(int(Opcode.TENSION_TESTING), 112)
     self.assertEqual(int(Opcode.QUEUE_MERGE), 113)
+    self.assertEqual(int(Opcode.HEAD_TRANSFER), 206)
 
   def test_recipe_function_helpers_build_canonical_calls(self):
     function = pin_center(["F1", "F2"], "XY")
@@ -63,6 +74,24 @@ class GCodeDomainTests(unittest.TestCase):
     self.assertIsInstance(function, FunctionCall)
     self.assertEqual(function.opcode, int(Opcode.PIN_CENTER))
     self.assertEqual(function.parameters, ["F1", "F2", "XY"])
+
+    transfer = head_transfer(3)
+    self.assertIsInstance(transfer, FunctionCall)
+    self.assertEqual(transfer.opcode, int(Opcode.HEAD_TRANSFER))
+    self.assertEqual(transfer.parameters, [3])
+
+  def test_parser_and_renderer_support_g206_transfer(self):
+    line = parse_line_text("G206 P3")
+
+    self.assertEqual(render_line(line), "G206 P3")
+    self.assertIsInstance(line.items[0], FunctionCall)
+    self.assertEqual(line.items[0].opcode, "206")
+    self.assertEqual(line.items[0].parameters, ["3"])
+
+  def test_parser_still_supports_legacy_g106(self):
+    line = parse_line_text("G106 P0")
+
+    self.assertEqual(render_line(line), "G106 P0")
 
   def test_program_executor_executes_with_canonical_runtime(self):
     seen = []

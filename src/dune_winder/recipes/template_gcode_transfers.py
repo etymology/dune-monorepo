@@ -1,12 +1,16 @@
 ###############################################################################
 # Name: TemplateGCodeTransfers.py
-# Uses: Shared helpers for G106 transfer emission in template generators.
+# Uses: Shared helpers for G206 transfer emission in template generators.
 # Date: 2026-03-05
 ###############################################################################
 
 
+def g206_line(line_builder, mode):
+  return line_builder("G206", "P" + str(int(mode)))
+
+
 def g106_line(line_builder, mode):
-  return line_builder("G106", "P" + str(int(mode)))
+  return g206_line(line_builder, mode)
 
 
 def append_g106_transfer(

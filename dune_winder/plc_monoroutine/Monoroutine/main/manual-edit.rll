@@ -1,0 +1,765 @@
+XIC Local:1:I.Pt00.Data OTE MACHINE_SW_STAT[1] OTE Z_RETRACTED_1A 
+XIO Local:1:I.Pt01.Data OTE MACHINE_SW_STAT[2] OTE Z_RETRACTED_1B 
+XIC Local:1:I.Pt02.Data OTE MACHINE_SW_STAT[3] OTE Z_RETRACTED_2A 
+XIO Local:1:I.Pt03.Data OTE MACHINE_SW_STAT[4] OTE Z_RETRACTED_2B 
+BST XIC Local:1:I.Pt04.Data NXB CMP "Z_axis.ActualPosition>415" BND OTE MACHINE_SW_STAT[5] OTE Z_EXTENDED 
+XIC Local:1:I.Pt11.Data OTE MACHINE_SW_STAT[6] OTE Z_STAGE_LATCHED 
+XIC Local:2:I.Pt01.Data OTE MACHINE_SW_STAT[7] OTE Z_FIXED_LATCHED 
+BST XIC Local:1:I.Pt07.Data NXB XIC z_eot_bypass BND OTE MACHINE_SW_STAT[8] OTE Z_EOT 
+XIO Local:1:I.Pt10.Data OTE MACHINE_SW_STAT[9] OTE Z_STAGE_PRESENT 
+XIO Local:2:I.Pt02.Data OTE MACHINE_SW_STAT[10] OTE Z_FIXED_PRESENT 
+XIC Local:2:I.Pt04.Data OTE MACHINE_SW_STAT[14] OTE X_PARKED 
+XIC Local:2:I.Pt00.Data OTE MACHINE_SW_STAT[15] OTE X_XFER_OK 
+XIC Local:1:I.Pt13.Data OTE MACHINE_SW_STAT[16] OTE Y_MOUNT_XFER_OK 
+XIC Local:1:I.Pt12.Data OTE MACHINE_SW_STAT[17] OTE Y_XFER_OK 
+XIC Local:1:I.Pt06.Data OTE MACHINE_SW_STAT[18] OTE PLUS_Y_EOT 
+XIC Local:2:I.Pt12.Data OTE MACHINE_SW_STAT[19] OTE MINUS_Y_EOT 
+XIC Local:2:I.Pt08.Data OTE MACHINE_SW_STAT[20] OTE PLUS_X_EOT 
+XIC Local:2:I.Pt10.Data OTE MACHINE_SW_STAT[21] OTE MINUS_X_EOT 
+XIC Local:2:I.Pt14.Data OTE MACHINE_SW_STAT[22] OTE APA_IS_VERTICAL 
+BST XIO DUNEW2PLC2:1:I.Pt02Data NXB XIO DUNEW2PLC2:1:I.Pt03Data NXB XIO DUNEW2PLC2:1:I.Pt04Data BND OTE MACHINE_SW_STAT[23] 
+XIC DUNEW2PLC2:1:I.Pt00Data XIC DUNEW2PLC2:1:I.Pt01Data OTE MACHINE_SW_STAT[25] 
+XIC Local:6:I.Pt00.Data OTE MACHINE_SW_STAT[26] OTE FRAME_LOC_HD_TOP 
+XIC Local:6:I.Pt01.Data OTE MACHINE_SW_STAT[27] OTE FRAME_LOC_HD_MID 
+XIC Local:6:I.Pt02.Data OTE MACHINE_SW_STAT[28] OTE FRAME_LOC_HD_BTM 
+XIC Local:6:I.Pt03.Data OTE MACHINE_SW_STAT[29] OTE FRAME_LOC_FT_TOP 
+XIC Local:6:I.Pt04.Data OTE MACHINE_SW_STAT[30] OTE FRAME_LOC_FT_MID 
+XIC Local:6:I.Pt05.Data OTE MACHINE_SW_STAT[31] OTE FRAME_LOC_FT_BTM 
+XIO DUNEW2PLC2:1:I.Pt06Data OTE speed_regulator_switch 
+BST XIC Z_RETRACTED_1A NXB XIC Z_RETRACTED_2A BND XIC Z_RETRACTED_1B XIC Z_RETRACTED_2B OTE Z_RETRACTED 
+XIC Z_EOT XIC PLUS_Y_EOT XIC MINUS_Y_EOT XIC PLUS_X_EOT XIC MINUS_X_EOT OTE ALL_EOT_GOOD 
+LIM 80 Y_axis.ActualPosition 450 OTE support_collision_window_bttm 
+LIM 1050 Y_axis.ActualPosition 1550 OTE support_collision_window_mid 
+LIM 2200 Y_axis.ActualPosition 2650 OTE support_collision_window_top 
+XIC Local:2:I.Pt06.Data OTE TENSION_ON_SWITCH 
+BST XIC Local:1:I.Pt15.Data NXB GRT tension wire_broken_tension BND OTE wire_break_proxy 
+XIO Safety_Tripped_S TON T01 5000 0 
+XIC Safety_Tripped_S BST OTE Local:3:O.Pt11.Data NXB OTE Local:3:O.Pt12.Data BND 
+BST XIC blink_on.TT BST XIC T01.TT NXB NEQ ERROR_CODE 0 BND NXB XIC X_axis.SLSActiveStatus BND OTE Local:3:O.Pt13.Data 
+XIC blink_on.TT XIC T01.TT OTE Local:3:O.Pt15.Data 
+BST XIC T01.TT NXB XIC T01.DN BND OTE Local:3:O.Pt14.Data 
+TON blink_on 500 0 
+XIC blink_on.DN TON blink_off 500 0 
+XIC blink_off.DN RES blink_on 
+XIC INIT_DONE CMP "NEXTSTATE=0" CPT STATE 0 
+XIC INIT_DONE CMP "NEXTSTATE=1" CPT STATE 1 
+XIC INIT_DONE CMP "NEXTSTATE=2" CPT STATE 2 
+XIC INIT_DONE CMP "NEXTSTATE=3" CPT STATE 3 
+XIC INIT_DONE CMP "NEXTSTATE=4" CPT STATE 4 
+XIC INIT_DONE CMP "NEXTSTATE=5" CPT STATE 5 
+XIC INIT_DONE CMP "NEXTSTATE=6" CPT STATE 6 
+XIC INIT_DONE CMP "NEXTSTATE=7" CPT STATE 7 
+XIC INIT_DONE CMP "NEXTSTATE=8" CPT STATE 8 
+XIC INIT_DONE CMP "NEXTSTATE=9" CPT STATE 9 
+XIC INIT_DONE CMP "NEXTSTATE=10" CPT STATE 10 
+XIC INIT_DONE CMP "NEXTSTATE=11" CPT STATE 11 
+XIC INIT_DONE CMP "NEXTSTATE=12" CPT STATE 12 
+XIC INIT_DONE CMP "NEXTSTATE=13" CPT STATE 13 
+XIC INIT_DONE CMP "NEXTSTATE=14" CPT STATE 14 
+XIC Local:2:I.Pt13.Data OTE ResetPB 
+CPT v_xyz SQR(X_axis.ActualVelocity*X_axis.ActualVelocity+Y_axis.ActualVelocity*Y_axis.ActualVelocity)+SQR(Z_axis.ActualVelocity*Z_axis.ActualVelocity) 
+CPT v_xy SQR(X_axis.ActualVelocity*X_axis.ActualVelocity+Y_axis.ActualVelocity*Y_axis.ActualVelocity) 
+NEQ v_xy 0 CPT accel_xy (X_axis.ActualVelocity*X_axis.CommandAcceleration+Y_axis.ActualVelocity*Y_axis.CommandAcceleration)/v_xy 
+BST BST XIC Z_STAGE_LATCHED NXB XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 3 BND CPT HEAD_POS 0 NXB XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 CPT HEAD_POS 3 NXB XIO Z_STAGE_LATCHED XIO Z_FIXED_LATCHED CPT HEAD_POS -1 BND 
+XIC TENSION_ON_SWITCH TON tension_on_switch_delay_on_start 1000 0
+XIC TENSION_ON_SWITCH OTL PTS_tension_switch_transition_oneshot_storage 
+XIO TENSION_ON_SWITCH OTU PTS_tension_switch_transition_oneshot_storage 
+XIC TENSION_ON_SWITCH OTL PTS_tension_switch_off_oneshot_storage 
+XIO TENSION_ON_SWITCH OTU PTS_tension_switch_off_oneshot_storage 
+XIO wire_break_proxy TON wire_break_debounce 20 0 
+XIC TENSION_ON_SWITCH XIO Safety_Tripped_S BST XIC wire_break_proxy NXB XIC tension_on_switch_delay_on_start.TT NXB XIO wire_break_debounce.DN BND OTE Enable_tension_motor 
+BST XIC tension_on_switch_delay_on_start.TT NXB XIC TENSION_CONTROL_OK BND BST BST XIC wire_break_proxy NXB XIO wire_break_switch_delay_on_start.DN NXB XIO wire_break_debounce.DN BND OTE TENSION_CONTROL_OK NXB TON wire_break_switch_delay_on_start 1000 0 BND 
+XIO PID_LOOP_TIMER.DN TON PID_LOOP_TIMER 3 0 
+CPT tension 2.26*tension_tag-0.503*tension_tag*tension_tag+0.0694*tension_tag*tension_tag*tension_tag-0.00314*tension_tag*tension_tag*tension_tag*tension_tag 
+CMP "tension_tag<=1" CPT tension tension_tag 
+BST XIC PID_LOOP_TIMER.DN NXB XIC pid_loop_timer_bypass BND BST XIC TENSION_CONTROL_OK MOV tension_setpoint winding_head_pid.SP NXB XIO TENSION_CONTROL_OK MOV 10 tension MOV 0 winding_head_pid.SP NXB PID winding_head_pid tension 0 tension_motor_cv 0 0 0 NXB BST XIO TENSION_CONTROL_OK NXB XIO TENSION_ON_SWITCH NXB XIC tension_on_switch_delay_on_start.TT LES tension_motor_cv neutral_cv BND MOV neutral_cv tension_motor_cv NXB XIC constant_cv_out MOV SetPoint_Override tension_motor_cv NXB MOV tension_motor_cv cv_to_electrocraft BND 
+CPT tension_motor_difference tension-tension_motor_cv 
+CPT current_command cv_to_electrocraft*(current_command_high-current_command_low)/pid_cv_high_limit+current_command_low 
+CPT neutral_cv -current_command_low/((current_command_high-current_command_low)/(pid_cv_high_limit-pid_cv_low_limit)) 
+MOV tension_stable_time tension_stable_timer.PRE CMP "ABS(tension-tension_setpoint)<tension_stable_tolerance" TON tension_stable_timer 100 0 
+GRT tension max_tolerable_tension XIC TENSION_ON_SWITCH OTE Local:3:O.Pt15.Data TON overtension_timer 10 0
+XIC overtension_timer.DN OTE MORE_STATS[2] CPT ERROR_CODE 8002 CPT NEXTSTATE 10 
+XIC tension_on_switch_delay_on_start.DN XIC wire_break_debounce.DN NEQ ERROR_CODE 8002 CPT NEXTSTATE 10 CPT ERROR_CODE 8001 
+XIO TENSION_ON_SWITCH XIC PTS_tension_switch_transition_oneshot_storage OTE PTS_clear_tension_fault_oneshot 
+XIC PTS_clear_tension_fault_oneshot BST EQU ERROR_CODE 8002 NXB EQU ERROR_CODE 8001 BND CPT ERROR_CODE 0 
+EQU MOVE_TYPE 9 XIC INIT_SW OTU INIT_SW 
+XIC INIT_SW TON TIMER 2000 0
+XIO INIT_SW CPT MOVE_TYPE 0 OTL INIT_SW 
+XIC TIMER.DN XIO INIT_SetBit[0] OTE INIT_OutBit[0] 
+XIC TIMER.DN OTL INIT_SetBit[0] 
+XIO TIMER.DN OTU INIT_SetBit[0] 
+XIC INIT_OutBit[0] CPT MOVE_TYPE 0 CPT NEXTSTATE 1 CPT STATE 0 CPT ERROR_CODE 0 
+XIC INIT_OutBit[0] OTU LATCH_ACTUATOR_HOMED 
+XIC INIT_SetBit[0] OTE INIT_DONE 
+XIC INIT_DONE CMP "STATE=0" MAFR Z_axis INIT_z_axis_fault_reset_status 
+XIC INIT_z_axis_fault_reset_status.DN XIO INIT_SetBit[1] OTE INIT_OutBit[1] 
+XIC INIT_z_axis_fault_reset_status.DN OTL INIT_SetBit[1] 
+XIO INIT_z_axis_fault_reset_status.DN OTU INIT_SetBit[1] 
+XIC INIT_OutBit[1] CPT NEXTSTATE 1 
+XIC INIT_DONE CMP "STATE=1" OTE STATE1_IND 
+XIC STATE1_IND XIO trigger_axes_sb OTE trigger_axes_ob 
+XIC STATE1_IND OTL trigger_axes_sb 
+XIO STATE1_IND OTU trigger_axes_sb 
+XIC trigger_axes_ob XIO dont_auto_trigger_axes_in_state_1 MSO X_axis x_on_mso MSO Y_axis y_on_mso MSO Z_axis z_on_mso 
+XIC STATE1_IND MOV 0 ERROR_CODE 
+XIC STATE1_IND CMP "MOVE_TYPE=1" XIO RS1_SetBit[0] OTE RS1_OutBit[0] 
+XIC STATE1_IND CMP "MOVE_TYPE=1" OTL RS1_SetBit[0] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 1 BND OTU RS1_SetBit[0] 
+XIC RS1_OutBit[0] CPT NEXTSTATE 2 
+XIC STATE1_IND CMP "MOVE_TYPE=2" XIO RS1_SetBit[1] OTE RS1_OutBit[1] 
+XIC STATE1_IND CMP "MOVE_TYPE=2" OTL RS1_SetBit[1] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 2 BND OTU RS1_SetBit[1] 
+XIC RS1_OutBit[1] CPT NEXTSTATE 3 
+XIC STATE1_IND CMP "MOVE_TYPE=3" XIO RS1_SetBit[2] OTE RS1_OutBit[2] 
+XIC STATE1_IND CMP "MOVE_TYPE=3" OTL RS1_SetBit[2] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 3 BND OTU RS1_SetBit[2] 
+XIC RS1_OutBit[2] CPT NEXTSTATE 4 
+XIC STATE1_IND CMP "MOVE_TYPE=4" XIO RS1_SetBit[3] OTE RS1_OutBit[3] 
+XIC STATE1_IND CMP "MOVE_TYPE=4" OTL RS1_SetBit[3] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 4 BND OTU RS1_SetBit[3] 
+XIC RS1_OutBit[3] CPT NEXTSTATE 5 
+XIC STATE1_IND CMP "MOVE_TYPE=5" XIO RS1_SetBit[4] OTE RS1_OutBit[4] 
+XIC STATE1_IND CMP "MOVE_TYPE=5" OTL RS1_SetBit[4] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 5 BND OTU RS1_SetBit[4] 
+XIC RS1_OutBit[4] CPT NEXTSTATE 6 
+XIC STATE1_IND CMP "MOVE_TYPE=6" XIO RS1_SetBit[5] OTE RS1_OutBit[5] 
+XIC STATE1_IND CMP "MOVE_TYPE=6" OTL RS1_SetBit[5] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 6 BND OTU RS1_SetBit[5] 
+XIC RS1_OutBit[5] CPT NEXTSTATE 7 
+XIC STATE1_IND CMP "MOVE_TYPE=7" XIO RS1_SetBit[6] OTE RS1_OutBit[6] 
+XIC STATE1_IND CMP "MOVE_TYPE=7" OTL RS1_SetBit[6] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 7 BND OTU RS1_SetBit[6] 
+XIC RS1_OutBit[6] CPT NEXTSTATE 8 
+XIC STATE1_IND CMP "MOVE_TYPE=8" XIO RS1_SetBit[7] OTE RS1_OutBit[7] 
+XIC STATE1_IND CMP "MOVE_TYPE=8" OTL RS1_SetBit[7] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 8 BND OTU RS1_SetBit[7] 
+XIC RS1_OutBit[7] CPT NEXTSTATE 9 
+XIC STATE1_IND CMP "MOVE_TYPE=11" XIO RS1_SetBit[8] OTE RS1_OutBit[8] 
+XIC STATE1_IND CMP "MOVE_TYPE=11" OTL RS1_SetBit[8] 
+BST XIO STATE1_IND NXB NEQ MOVE_TYPE 11 BND OTU RS1_SetBit[8] 
+XIC RS1_OutBit[8] CPT NEXTSTATE 14 
+CMP "STATE=2" CPT NEXTSTATE 1 
+XIO main_xy_move.IP CMP "STATE=3" BST XIC tension_stable_timer.DN NXB XIO check_tension_stable NXB XIO TENSION_CONTROL_OK BND BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z BND CPT ERROR_CODE 3001 CPT NEXTSTATE 10 NXB XIC Z_RETRACTED BST XIC APA_IS_VERTICAL NXB XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 BND OTE STATE3_IND BND 
+XIC STATE3_IND XIO MXY_state3_entry_oneshot_storage OTE MXY_state3_entry_oneshot 
+XIC STATE3_IND OTL MXY_state3_entry_oneshot_storage 
+XIO STATE3_IND OTU MXY_state3_entry_oneshot_storage 
+XIC STATE3_IND BST XIC X_Y.PhysicalAxisFault CPT ERROR_CODE 3002 NXB BST XIC X_axis.SafeTorqueOffInhibit NXB XIC Y_axis.SafeTorqueOffInhibit BND CPT ERROR_CODE 3004 BND CPT NEXTSTATE 10 
+XIC MXY_state3_entry_oneshot BST MSO X_axis MXY_x_axis_servo_on_status NXB MSO Y_axis MXY_y_axis_servo_on_status BND 
+XIC MXY_x_axis_servo_on_status.DN XIC MXY_y_axis_servo_on_status.DN XIO MXY_axes_servo_ready_oneshot_storage OTE MXY_axes_servo_ready_oneshot 
+XIC MXY_x_axis_servo_on_status.DN XIC MXY_y_axis_servo_on_status.DN OTL MXY_axes_servo_ready_oneshot_storage 
+BST XIO MXY_x_axis_servo_on_status.DN NXB XIO MXY_y_axis_servo_on_status.DN BND OTU MXY_axes_servo_ready_oneshot_storage 
+BST XIC MXY_axes_servo_ready_oneshot NXB XIC MXY_x_axis_servo_on_status.DN XIC MXY_y_axis_servo_on_status.DN XIC MXY_state3_entry_oneshot BND XIO MXY_trigger_xy_move_oneshot_storage OTE trigger_xy_move 
+BST XIC MXY_axes_servo_ready_oneshot NXB XIC MXY_x_axis_servo_on_status.DN XIC MXY_y_axis_servo_on_status.DN XIC MXY_state3_entry_oneshot BND OTL MXY_trigger_xy_move_oneshot_storage 
+BST XIO MXY_axes_servo_ready_oneshot NXB BST XIO MXY_x_axis_servo_on_status.DN NXB XIO MXY_y_axis_servo_on_status.DN NXB XIO MXY_state3_entry_oneshot BND BND OTU MXY_trigger_xy_move_oneshot_storage 
+XIC trigger_xy_move MOV X_axis.ActualPosition starting_x MOV Y_axis.ActualPosition starting_y 
+XIC trigger_xy_move CPT dx ABS(starting_x-X_POSITION) CPT dy ABS(starting_y-Y_POSITION) CPT x_time v_x_max/dx CPT y_time v_y_max/dy BST LES x_time y_time CPT k x_time NXB LEQ y_time x_time CPT k y_time BND CPT v_max k*SQR(dx*dx+dy*dy) BST LES v_max XY_SPEED CPT XY_SPEED_REQ v_max NXB LEQ XY_SPEED v_max CPT XY_SPEED_REQ XY_SPEED BND 
+CPT x_dist_to_target X_axis.ActualPosition-X_POSITION CPT y_dist_to_target Y_axis.ActualPosition-Y_POSITION CPT xy_dist_to_target SQR(x_dist_to_target*x_dist_to_target+y_dist_to_target*y_dist_to_target) 
+MOV xy_decel_jerk J MOV v_xyz v_0 CPT gamma SQR(accel_xy*accel_xy+4*J*v_0) CPT stopping_distance (accel_xy+gamma)*(accel_xy+gamma)*(accel_xy+gamma)/(6*J*J) 
+CMP "xy_dist_to_target<stopping_distance*1" OTE near_ending 
+CMP "STATE=3" CPT stopping_ratio stopping_distance/xy_dist_to_target 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION v_max "Units per sec" xy_regulated_acceleration "Units per sec2" xy_regulated_deceleration "Units per sec2" S-Curve xy_regulated_accel_jerk xy_decel_jerk "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIC trigger_xy_move MOV xy_dt regulator_loop_timer.PRE MOV xy_d_dt xy_d_timer.PRE MOV 0 xy_i_term 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIO regulator_loop_timer.DN TON regulator_loop_timer 1 0
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIO xy_d_timer.DN TON xy_d_timer 1 0
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIC xy_d_timer.DN CPT d_raw xy_kd*(xy_error-xy_error_prev)/xy_d_dt*100 CPT xy_d_term xy_d_alpha*d_raw+(1-xy_d_alpha)*xy_d_term_prev MOV xy_error xy_error_prev MOV xy_d_term xy_d_term_prev 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch CPT xy_error speed_tension_setpoint-tension 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIC regulator_loop_timer.DN CPT xy_p_term xy_kp*xy_error 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIC regulator_loop_timer.DN BST LES regulated_speed v_max NXB LES xy_error 0 BND BST GRT regulated_speed min_regulated_speed NXB GRT xy_error 0 BND CPT xy_i_term xy_i_term+(xy_ki*xy_error*xy_dt/1000) BST LES xy_i_term min_integral MOV min_integral xy_i_term NXB GRT xy_i_term max_integral MOV max_integral xy_i_term BND 
+XIC TENSION_CONTROL_OK XIC speed_regulator_switch XIC regulator_loop_timer.DN CPT regulated_speed xy_default_speed+xy_p_term+xy_i_term+xy_d_term BST LES v_max regulated_speed MOV v_max regulated_speed NXB LES regulated_speed min_regulated_speed MOV min_regulated_speed regulated_speed BND 
+BST XIO TENSION_CONTROL_OK NXB XIC TENSION_CONTROL_OK XIO speed_regulator_switch BND XIC trigger_xy_move MCLM X_Y main_xy_move 0 X_POSITION XY_SPEED_REQ "Units per sec" XY_ACCELERATION "Units per sec2" XY_DECELERATION "Units per sec2" S-Curve 500 500 "Units per sec3" 0 Disabled Programmed 50 0 None 0 0 
+XIO speed_regulator_switch XIC MXY_speed_regulator_disabled_oneshot_storage OTE MXY_speed_regulator_disabled_oneshot 
+XIC speed_regulator_switch OTL MXY_speed_regulator_disabled_oneshot_storage 
+XIO speed_regulator_switch OTU MXY_speed_regulator_disabled_oneshot_storage 
+XIC MXY_speed_regulator_disabled_oneshot XIO near_ending MCCD X_Y MCCD_X_Y_Axis1 "Coordinated Move" Yes XY_SPEED_REQ "Units per sec" Yes XY_ACCELERATION "Units per sec2" Yes XY_DECELERATION "Units per sec2" No xy_accel_jerk No xy_decel_jerk "Units per sec3" "Active Motion" 
+BST XIC main_xy_move.PC NXB XIC main_xy_move.ER BND BST CMP "X_axis.ActualPosition<(X_POSITION+0.1)" NXB XIC STATE3_IND CMP "MOVE_TYPE=0" CPT ERROR_CODE 3003 BND XIO MXY_xy_move_done_or_fault_oneshot_storage OTE MXY_xy_move_done_or_fault_oneshot 
+BST XIC main_xy_move.PC NXB XIC main_xy_move.ER BND BST CMP "X_axis.ActualPosition<(X_POSITION+0.1)" NXB XIC STATE3_IND CMP "MOVE_TYPE=0" CPT ERROR_CODE 3003 BND OTL MXY_xy_move_done_or_fault_oneshot_storage 
+BST XIO main_xy_move.PC NXB XIO main_xy_move.ER BND OTU MXY_xy_move_done_or_fault_oneshot_storage 
+XIC main_xy_move.IP CMP "MOVE_TYPE=11" CPT NEXTSTATE 14 
+XIC main_xy_move.IP XIO ALL_EOT_GOOD XIO MXY_eot_triggered_oneshot_storage OTE MXY_eot_triggered 
+XIC main_xy_move.IP XIO ALL_EOT_GOOD OTL MXY_eot_triggered_oneshot_storage 
+BST XIO main_xy_move.IP NXB XIC ALL_EOT_GOOD BND OTU MXY_eot_triggered_oneshot_storage 
+XIC MXY_eot_triggered MCS X_Y MXY_eot_stop_status All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 
+XIC MXY_eot_triggered MCS X_Y MXY_eot_stop_status All Yes 10000 "Units per sec2" Yes 1000 "Units per sec3" CPT NEXTSTATE 11 CPT MOVE_TYPE 0 
+XIC MXY_xy_move_done_or_fault_oneshot CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
+BST XIC Z_FIXED_LATCHED EQU ACTUATOR_POS 2 NXB XIO Z_FIXED_LATCHED BND OTE no_latch_collision 
+BST XIC X_XFER_OK NXB XIC Y_XFER_OK BND OTE no_apa_collision 
+BST XIC X_XFER_OK BST LIM 400 X_axis.ActualPosition 500 BST XIC support_collision_window_bttm XIO FRAME_LOC_HD_BTM NXB XIC support_collision_window_mid XIO FRAME_LOC_HD_MID NXB XIC support_collision_window_top XIO FRAME_LOC_HD_TOP BND NXB LIM 7100 X_axis.ActualPosition 7200 BST XIC support_collision_window_bttm XIO FRAME_LOC_FT_BTM NXB XIC support_collision_window_mid XIO FRAME_LOC_FT_MID NXB XIC support_collision_window_top XIO FRAME_LOC_FT_TOP BND NXB XIO support_collision_window_bttm XIO support_collision_window_mid XIO support_collision_window_top BND NXB XIC Y_XFER_OK BND OTE no_supports_collision 
+XIC no_latch_collision XIC no_supports_collision XIC no_apa_collision OTE MASTER_Z_GO 
+CMP "STATE=4" MOV 1 NEXTSTATE 
+CMP "STATE=5" XIC Z_FIXED_LATCHED XIC LATCH_ACTUATOR_HOMED CMP "ACTUATOR_POS<>2" CPT ERROR_CODE 5004 CPT NEXTSTATE 10 
+CMP "STATE=5" XIC Z_axis.PhysicalAxisFault CPT ERROR_CODE 5002 CPT NEXTSTATE 10 
+CMP "STATE=5" XIO MASTER_Z_GO CPT ERROR_CODE 5001 CPT NEXTSTATE 10 
+CMP "STATE=5" XIC MASTER_Z_GO BST XIC tension_stable_timer.DN NXB XIO check_tension_stable NXB XIO TENSION_CONTROL_OK NXB XIC Z_FIXED_LATCHED BND OTE STATE5_IND 
+XIC STATE5_IND XIO Z_axis.DriveEnableStatus MSO Z_axis z_axis_mso 
+XIC STATE5_IND XIC Z_axis.DriveEnableStatus XIO Z_FIXED_LATCHED MAM Z_axis z_axis_main_move 0 Z_POSITION Z_SPEED "Units per sec" Z_ACCELERATION "Units per sec2" Z_DECELLERATION "Units per sec2" S-Curve z_accel_jerk z_decel_jerk "Units per sec3" Disabled Programmed 0 None 0 0 
+XIC STATE5_IND XIC Z_axis.DriveEnableStatus XIC Z_FIXED_LATCHED MAM Z_axis z_axis_fast_move 0 Z_POSITION 1000 "Units per sec" 10000 "Units per sec2" 10000 "Units per sec2" S-Curve 10000 10000 "Units per sec3" Disabled Programmed 0 None 0 0 
+XIC Z_axis.MoveStatus CMP "MOVE_TYPE=11" CPT NEXTSTATE 14 
+XIO ALL_EOT_GOOD XIC Z_axis.MoveStatus MAS Z_axis eot_stop Jog Yes 2000 "Units per sec2" No 100 "% of Time" 
+XIC eot_stop.PC CPT ERROR_CODE 5005 CPT NEXTSTATE 11 MOV 0 eot_stop.FLAGS 
+CMP "STATE=5" CMP "ABS(Z_axis.ActualPosition-Z_POSITION)<0.1" OTE z_move_success 
+XIC z_move_success CPT MOVE_TYPE 0 CPT NEXTSTATE 1 OTU z_move_success MOV 0 z_axis_main_move.FLAGS 
+XIO Local:1:I.Pt08.Data OTE MACHINE_SW_STAT[12] OTE LATCH_ACTUATOR_TOP 
+XIO Local:1:I.Pt09.Data OTE MACHINE_SW_STAT[13] OTE LATCH_ACTUATOR_MID 
+XIC LATCH_ACTUATOR_TOP XIO LATCH_ACTUATOR_MID CPT ACTUATOR_POS 3 OTE Z_STAGE_UNLATCHED 
+XIC LATCH_ACTUATOR_TOP XIC LATCH_ACTUATOR_MID BST TON delay_mid_position 100 0 NXB XIC delay_mid_position.DN CPT ACTUATOR_POS 2 BND OTE Z_OK_TO_ENGAGE 
+XIO LATCH_ACTUATOR_TOP XIO LATCH_ACTUATOR_MID XIO Z_STAGE_LATCHED CPT ACTUATOR_POS 0 
+XIC Z_STAGE_LATCHED BST TON Delay_Z_Latched 1000 0 NXB XIC Delay_Z_Latched.DN CPT ACTUATOR_POS 1 BND 
+XIC Z_FIXED_LATCHED BST TON Delay_Fixed_Latched 1000 0 NXB XIC Delay_Fixed_Latched.DN OTE Z_SAFE_TO_WITHDRAW BND 
+XIC Z_STAGE_PRESENT XIC Z_FIXED_PRESENT XIC Z_EXTENDED OTE ENABLE_ACTUATOR 
+CMP "STATE=6" OTE STATE6_IND 
+XIC STATE6_IND XIO ENABLE_ACTUATOR XIO LAT_state6_enable_missing_oneshot_storage OTE LAT_state6_enable_missing_oneshot 
+XIC STATE6_IND XIO ENABLE_ACTUATOR OTL LAT_state6_enable_missing_oneshot_storage 
+BST XIO STATE6_IND NXB XIC ENABLE_ACTUATOR BND OTU LAT_state6_enable_missing_oneshot_storage 
+XIC LAT_state6_enable_missing_oneshot CPT ERROR_CODE 6001 CPT NEXTSTATE 10 
+XIC STATE6_IND XIC ENABLE_ACTUATOR XIO LAT_state6_enable_present_oneshot_storage OTE LAT_state6_enable_present_oneshot 
+XIC STATE6_IND XIC ENABLE_ACTUATOR OTL LAT_state6_enable_present_oneshot_storage 
+BST XIO STATE6_IND NXB XIO ENABLE_ACTUATOR BND OTU LAT_state6_enable_present_oneshot_storage 
+XIC LAT_state6_enable_present_oneshot CPT PREV_ACT_POS ACTUATOR_POS 
+XIC LAT_state6_enable_present_oneshot_storage BST CMP "PREV_ACT_POS=1" NXB CMP "PREV_ACT_POS=3" NXB CMP "PREV_ACT_POS=2" NXB CMP "PREV_ACT_POS=0" BND CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
+XIC LAT_state6_enable_present_oneshot_storage XIO Latching_pulse_interval.DN TON Latching_pulse_duration 10 0
+XIO LAT_latching_pulse_interval_holdoff_storage XIC Latching_pulse_duration.DN TON Latching_pulse_interval 250 0
+CMP "STATE=7" OTE STATE7_IND 
+XIC STATE7_IND XIO LAT_state7_entry_oneshot_storage OTE LAT_state7_entry_oneshot 
+XIC STATE7_IND OTL LAT_state7_entry_oneshot_storage 
+XIO STATE7_IND OTU LAT_state7_entry_oneshot_storage 
+XIC LAT_state7_entry_oneshot RES HomeCounter 
+XIC LAT_state7_entry_oneshot_storage XIO HomeCounter.DN XIO HomeTimer2.TT TON HomeTimer1 500 0
+XIC LAT_state7_entry_oneshot_storage XIO HomeCounter.DN XIO HomeTimer1.TT TON HomeTimer2 500 0
+XIC LAT_state7_entry_oneshot_storage XIO HomeCounter.DN XIC HomeTimer1.TT CTU HomeCounter 100 0
+XIC HomeCounter.DN XIC sometag OTE Local:3:O.Pt02.Data 
+XIC HomeCounter.DN XIO LAT_home_counter_done_oneshot_storage OTE LAT_home_counter_done_oneshot 
+XIC HomeCounter.DN OTL LAT_home_counter_done_oneshot_storage 
+XIO HomeCounter.DN OTU LAT_home_counter_done_oneshot_storage 
+XIC LAT_home_counter_done_oneshot XIC Z_STAGE_LATCHED OTL LATCH_ACTUATOR_HOMED 
+XIC LAT_home_counter_done_oneshot XIO Z_STAGE_LATCHED CPT ERROR_CODE 7002 OTL LATCH_ACTUATOR_HOMED 
+XIC LATCH_ACTUATOR_HOMED OTE MACHINE_SW_STAT[0] 
+XIC LATCH_ACTUATOR_HOMED XIO LAT_latch_actuator_homed_oneshot_storage OTE LAT_latch_actuator_homed_oneshot 
+XIC LATCH_ACTUATOR_HOMED OTL LAT_latch_actuator_homed_oneshot_storage 
+XIO LATCH_ACTUATOR_HOMED OTU LAT_latch_actuator_homed_oneshot_storage 
+XIC LAT_latch_actuator_homed_oneshot RES LatchCounter3 
+XIC LAT_latch_actuator_homed_oneshot_storage XIO LatchCounter3.DN XIO LatchTimer6.TT TON LatchTimer5 250 0
+XIC LAT_latch_actuator_homed_oneshot_storage XIO LatchCounter3.DN XIO LatchTimer5.TT TON LatchTimer6 250 0 
+XIC LAT_latch_actuator_homed_oneshot_storage XIO LatchCounter3.DN XIC LatchTimer5.TT CTU LatchCounter3 100 0
+XIC LatchCounter3.DN XIO LAT_home_verify_done_oneshot_storage OTE LAT_home_verify_done_oneshot 
+XIC LatchCounter3.DN OTL LAT_home_verify_done_oneshot_storage 
+XIO LatchCounter3.DN OTU LAT_home_verify_done_oneshot_storage 
+XIC STATE7_IND XIC LAT_home_verify_done_oneshot CPT ERROR_CODE 7000 OTU HomeSignal CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
+BST CMP "STATE=8" NXB XIC UNLOCK_LATCH_MOTOR_SHAFT BND OTE STATE8_IND 
+XIC STATE8_IND XIC sometag OTE Local:3:O.Pt02.Data 
+XIC Local:3:O.Pt02.Data CPT ERROR_CODE 8000 
+XIC STATE8_IND XIO LAT_state8_entry_oneshot_storage OTE LAT_state8_entry_oneshot 
+XIC STATE8_IND OTL LAT_state8_entry_oneshot_storage 
+XIO STATE8_IND OTU LAT_state8_entry_oneshot_storage 
+XIC LAT_state8_entry_oneshot OTU LATCH_ACTUATOR_HOMED 
+XIC LAT_state8_entry_oneshot RES LatchCounter2 
+XIC LAT_state8_entry_oneshot_storage XIO LatchCounter2.DN XIO LatchTimer4.TT TON LatchTimer3 250 0
+XIC LAT_state8_entry_oneshot_storage XIO LatchCounter2.DN XIO LatchTimer3.TT TON LatchTimer4 250 0 
+XIC LAT_state8_entry_oneshot_storage XIO LatchCounter2.DN XIC LatchTimer3.TT CTU LatchCounter2 100 0 
+XIC STATE8_IND XIC LatchCounter2.DN CMP "MOVE_TYPE=0" CPT NEXTSTATE 1 
+BST XIC Latching_pulse_duration.TT NXB XIC LatchTimer4.TT NXB XIC HomeTimer2.TT NXB XIC LatchTimer6.TT BND OTE Local:3:O.Pt01.Data OTE latching_signal 
+XIC Z_STAGE_PRESENT OTU gui_latch_pulse 
+XIC Z_STAGE_PRESENT XIO Z_FIXED_PRESENT OTE unsafe_to_latch 
+XIC gui_latch_pulse XIO unsafe_to_latch OTL Local:3:O.Pt01.Data TON gui_latch_pulse_timer 100 0 
+XIC gui_latch_pulse_timer.DN RES gui_latch_pulse_timer OTU gui_latch_pulse 
+BST CMP "STATE=6" NXB CMP "STATE=7" BND XIO LAT_latching_timeout_monitor_oneshot_storage OTE LAT_latching_timeout_monitor_oneshot 
+BST CMP "STATE=6" NXB CMP "STATE=7" BND OTL LAT_latching_timeout_monitor_oneshot_storage 
+BST NEQ STATE 6 NXB NEQ STATE 7 BND OTU LAT_latching_timeout_monitor_oneshot_storage 
+XIC LAT_latching_timeout_monitor_oneshot RES LatchingTimeoutCounter 
+XIC LAT_latching_timeout_monitor_oneshot_storage XIO LatchingTimeoutCounter.DN XIO TimeoutTimer2.TT TON TimeoutTimer1 250 0 
+XIC LAT_latching_timeout_monitor_oneshot_storage XIO LatchingTimeoutCounter.DN XIO TimeoutTimer1.TT TON TimeoutTimer2 250 0 
+XIC LAT_latching_timeout_monitor_oneshot_storage XIO LatchingTimeoutCounter.DN XIC TimeoutTimer1.TT CTU LatchingTimeoutCounter 100 0 
+XIC LatchingTimeoutCounter.DN XIO LAT_latching_timeout_done_oneshot_storage OTE LAT_latching_timeout_done_oneshot 
+XIC LatchingTimeoutCounter.DN OTL LAT_latching_timeout_done_oneshot_storage 
+XIO LatchingTimeoutCounter.DN OTU LAT_latching_timeout_done_oneshot_storage 
+XIC LAT_latching_timeout_done_oneshot CMP "STATE=6" CPT ERROR_CODE 6002 CPT NEXTSTATE 10 
+XIC INIT_DONE CMP "STATE=9" OTE STATE9_IND 
+XIC STATE9_IND XIO US9_state9_entry_oneshot_storage OTE US9_state9_entry_oneshot 
+XIC STATE9_IND OTL US9_state9_entry_oneshot_storage 
+XIO STATE9_IND OTU US9_state9_entry_oneshot_storage 
+XIC STATE9_IND XIC US9_state9_entry_oneshot MSF X_axis US9_x_axis_unservo_status 
+XIC STATE9_IND XIC US9_state9_entry_oneshot MSF Y_axis US9_y_axis_unservo_status 
+XIC STATE9_IND XIC US9_state9_entry_oneshot MSF Z_axis US9_z_axis_unservo_status 
+XIC US9_x_axis_unservo_status.DN XIO US9_x_unservo_done_oneshot_storage OTE US9_x_unservo_done_oneshot 
+XIC US9_x_axis_unservo_status.DN OTL US9_x_unservo_done_oneshot_storage 
+XIO US9_x_axis_unservo_status.DN OTU US9_x_unservo_done_oneshot_storage 
+XIC US9_x_unservo_done_oneshot MAFR X_axis US9_x_axis_fault_reset_status 
+XIC US9_y_axis_unservo_status.DN XIO US9_y_unservo_done_oneshot_storage OTE US9_y_unservo_done_oneshot 
+XIC US9_y_axis_unservo_status.DN OTL US9_y_unservo_done_oneshot_storage 
+XIO US9_y_axis_unservo_status.DN OTU US9_y_unservo_done_oneshot_storage 
+XIC US9_y_unservo_done_oneshot MAFR Y_axis US9_y_axis_fault_reset_status 
+XIC US9_z_axis_unservo_status.DN XIO US9_z_unservo_done_oneshot_storage OTE US9_z_unservo_done_oneshot 
+XIC US9_z_axis_unservo_status.DN OTL US9_z_unservo_done_oneshot_storage 
+XIO US9_z_axis_unservo_status.DN OTU US9_z_unservo_done_oneshot_storage 
+XIC US9_z_unservo_done_oneshot MAFR Z_axis US9_z_axis_fault_reset_status 
+XIC STATE9_IND XIC US9_x_axis_fault_reset_status.DN XIC US9_y_axis_fault_reset_status.DN XIC US9_z_axis_fault_reset_status.DN CMP "MOVE_TYPE=0" CPT NEXTSTATE 1 
+XIC INIT_DONE CMP "STATE=10" OTE STATE10_IND 
+XIC STATE10_IND XIO ERR10_state10_entry_oneshot_storage OTE ERR10_state10_entry_oneshot 
+XIC STATE10_IND OTL ERR10_state10_entry_oneshot_storage 
+XIO STATE10_IND OTU ERR10_state10_entry_oneshot_storage 
+XIC ERR10_state10_entry_oneshot CPT MOVE_TYPE -1 
+XIC ERR10_state10_entry_oneshot MCS X_Y ERR10_xy_group_stop_status All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC ERR10_state10_entry_oneshot MAS Z_axis ERR10_z_axis_stop_status All Yes 1000 "Units per sec2" No 10000 "% of Time" 
+XIC ERR10_xy_group_stop_status.PC XIC ERR10_z_axis_stop_status.PC XIO ERR10_motion_stop_done_oneshot_storage OTE ERR10_motion_stop_done_oneshot 
+XIC ERR10_xy_group_stop_status.PC XIC ERR10_z_axis_stop_status.PC OTL ERR10_motion_stop_done_oneshot_storage 
+BST XIO ERR10_xy_group_stop_status.PC NXB XIO ERR10_z_axis_stop_status.PC BND OTU ERR10_motion_stop_done_oneshot_storage 
+XIC ERR10_motion_stop_done_oneshot XIC error_servo_off MSF X_axis ERR10_x_axis_unservo_status 
+XIC ERR10_motion_stop_done_oneshot XIC error_servo_off MSF Y_axis ERR10_y_axis_unservo_status 
+XIC ERR10_motion_stop_done_oneshot XIC error_servo_off MSF Z_axis ERR10_z_axis_unservo_status 
+XIC ERR10_x_axis_unservo_status.DN XIC ERR10_y_axis_unservo_status.DN XIC ERR10_z_axis_unservo_status.DN CMP "MOVE_TYPE=0" XIO ERR10_servo_off_done_oneshot_storage OTE ERR10_servo_off_done_oneshot 
+XIC ERR10_x_axis_unservo_status.DN XIC ERR10_y_axis_unservo_status.DN XIC ERR10_z_axis_unservo_status.DN CMP "MOVE_TYPE=0" OTL ERR10_servo_off_done_oneshot_storage 
+BST XIO ERR10_x_axis_unservo_status.DN NXB XIO ERR10_y_axis_unservo_status.DN NXB XIO ERR10_z_axis_unservo_status.DN NXB NEQ MOVE_TYPE 0 BND OTU ERR10_servo_off_done_oneshot_storage 
+XIC ERR10_servo_off_done_oneshot MAFR Z_axis ERR10_z_axis_fault_reset_status 
+XIC ERR10_z_axis_fault_reset_status.DN MAFR Y_axis ERR10_y_axis_fault_reset_status 
+XIC ERR10_y_axis_fault_reset_status.DN MAFR X_axis ERR10_x_axis_fault_reset_status 
+XIC ERR10_z_axis_unservo_status.DN XIC ERR10_y_axis_unservo_status.DN XIC ERR10_x_axis_unservo_status.DN CMP "MOVE_TYPE=0" CMP "STATE=10" CPT ERROR_CODE 0 CPT NEXTSTATE 1 
+XIO ALL_EOT_GOOD OTE STATE11_IND 
+XIC STATE11_IND XIO EOT11_state11_entry_oneshot_storage OTE EOT11_state11_entry_oneshot 
+XIC STATE11_IND OTL EOT11_state11_entry_oneshot_storage 
+XIO STATE11_IND OTU EOT11_state11_entry_oneshot_storage 
+XIC EOT11_state11_entry_oneshot MCS X_Y EOT11_xy_group_stop_status All Yes 10000 "Units per sec2" Yes 10000 "Units per sec3" 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIO EOT11_axes_stopped_oneshot_storage OTE EOT11_axes_stopped_oneshot 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN OTL EOT11_axes_stopped_oneshot_storage 
+BST XIO STATE11_IND NXB XIO EOT11_xy_group_stop_status.DN BND OTU EOT11_axes_stopped_oneshot_storage 
+XIC EOT11_axes_stopped_oneshot MSO X_axis EOT11_x_axis_servo_on_status MSO Y_axis EOT11_y_axis_servo_on_status MSO Z_axis EOT11_z_axis_servo_on_status 
+XIC EOT11_state11_entry_oneshot MAS X_axis EOT11_x_axis_abort_status All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_state11_entry_oneshot MAS Y_axis EOT11_y_axis_abort_status All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_state11_entry_oneshot MAS Z_axis EOT11_z_axis_abort_status All Yes 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC STATE11_IND OTE AbortQueue 
+XIC STATE11_IND CPT MOVE_TYPE 0 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO PLUS_X_EOT XIC MINUS_X_EOT XIO EOT11_minus_x_recovery_move_status.IP XIO EOT11_minus_x_recovery_oneshot_storage OTE EOT11_minus_x_recovery_oneshot 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO PLUS_X_EOT XIC MINUS_X_EOT XIO EOT11_minus_x_recovery_move_status.IP OTL EOT11_minus_x_recovery_oneshot_storage 
+BST XIO STATE11_IND NXB XIO EOT11_xy_group_stop_status.DN NXB XIO EOT11_x_axis_servo_on_status.DN NXB XIO EOT11_y_axis_servo_on_status.DN NXB XIO EOT11_z_axis_servo_on_status.DN NXB XIC PLUS_X_EOT NXB XIO MINUS_X_EOT NXB XIC EOT11_minus_x_recovery_move_status.IP BND OTU EOT11_minus_x_recovery_oneshot_storage 
+XIC EOT11_minus_x_recovery_oneshot MAM X_axis EOT11_minus_x_recovery_move_status 1 -1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO MINUS_X_EOT XIC PLUS_X_EOT XIO EOT11_plus_x_recovery_move_status.IP XIO EOT11_plus_x_recovery_oneshot_storage OTE EOT11_plus_x_recovery_oneshot 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO MINUS_X_EOT XIC PLUS_X_EOT XIO EOT11_plus_x_recovery_move_status.IP OTL EOT11_plus_x_recovery_oneshot_storage 
+BST XIO STATE11_IND NXB XIO EOT11_xy_group_stop_status.DN NXB XIO EOT11_x_axis_servo_on_status.DN NXB XIO EOT11_y_axis_servo_on_status.DN NXB XIO EOT11_z_axis_servo_on_status.DN NXB XIC MINUS_X_EOT NXB XIO PLUS_X_EOT NXB XIC EOT11_plus_x_recovery_move_status.IP BND OTU EOT11_plus_x_recovery_oneshot_storage 
+XIC EOT11_plus_x_recovery_oneshot MAM X_axis EOT11_plus_x_recovery_move_status 1 10 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO PLUS_Y_EOT XIC MINUS_Y_EOT XIO EOT11_minus_y_recovery_move_status.IP XIO EOT11_minus_y_recovery_oneshot_storage OTE EOT11_minus_y_recovery_oneshot 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO PLUS_Y_EOT XIC MINUS_Y_EOT XIO EOT11_minus_y_recovery_move_status.IP OTL EOT11_minus_y_recovery_oneshot_storage 
+BST XIO STATE11_IND NXB XIO EOT11_xy_group_stop_status.DN NXB XIO EOT11_x_axis_servo_on_status.DN NXB XIO EOT11_y_axis_servo_on_status.DN NXB XIO EOT11_z_axis_servo_on_status.DN NXB XIC PLUS_Y_EOT NXB XIO MINUS_Y_EOT NXB XIC EOT11_minus_y_recovery_move_status.IP BND OTU EOT11_minus_y_recovery_oneshot_storage 
+XIC EOT11_minus_y_recovery_oneshot MAM Y_axis EOT11_minus_y_recovery_move_status 1 -1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO MINUS_Y_EOT XIC PLUS_Y_EOT XIO EOT11_plus_y_recovery_move_status.IP XIO EOT11_plus_y_recovery_oneshot_storage OTE EOT11_plus_y_recovery_oneshot 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO MINUS_Y_EOT XIC PLUS_Y_EOT XIO EOT11_plus_y_recovery_move_status.IP OTL EOT11_plus_y_recovery_oneshot_storage 
+BST XIO STATE11_IND NXB XIO EOT11_xy_group_stop_status.DN NXB XIO EOT11_x_axis_servo_on_status.DN NXB XIO EOT11_y_axis_servo_on_status.DN NXB XIO EOT11_z_axis_servo_on_status.DN NXB XIC MINUS_Y_EOT NXB XIO PLUS_Y_EOT NXB XIC EOT11_plus_y_recovery_move_status.IP BND OTU EOT11_plus_y_recovery_oneshot_storage 
+XIC EOT11_plus_y_recovery_oneshot MAM Y_axis EOT11_plus_y_recovery_move_status 1 1 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO Z_EOT XIO EOT11_z_clearance_move_status.IP XIO EOT11_z_clearance_move_oneshot_storage OTE EOT11_z_clearance_move_oneshot 
+XIC STATE11_IND XIC EOT11_xy_group_stop_status.DN XIC EOT11_x_axis_servo_on_status.DN XIC EOT11_y_axis_servo_on_status.DN XIC EOT11_z_axis_servo_on_status.DN XIO Z_EOT XIO EOT11_z_clearance_move_status.IP OTL EOT11_z_clearance_move_oneshot_storage 
+BST XIO STATE11_IND NXB XIO EOT11_xy_group_stop_status.DN NXB XIO EOT11_x_axis_servo_on_status.DN NXB XIO EOT11_y_axis_servo_on_status.DN NXB XIO EOT11_z_axis_servo_on_status.DN NXB XIC Z_EOT NXB XIC EOT11_z_clearance_move_status.IP BND OTU EOT11_z_clearance_move_oneshot_storage 
+XIC EOT11_z_clearance_move_oneshot MAM Z_axis EOT11_z_clearance_move_status 0 0 25 "Units per sec" 100 "Units per sec2" 100 "Units per sec2" S-Curve 100 100 "% of Time" Disabled 0 0 0 0 0 
+XIC ALL_EOT_GOOD XIO EOT11_z_clearance_move_status.IP XIO EOT11_all_eot_good_oneshot_storage OTE EOT11_all_eot_good_oneshot 
+XIC ALL_EOT_GOOD XIO EOT11_z_clearance_move_status.IP OTL EOT11_all_eot_good_oneshot_storage 
+BST XIO ALL_EOT_GOOD NXB XIC EOT11_z_clearance_move_status.IP BND OTU EOT11_all_eot_good_oneshot_storage 
+XIC EOT11_all_eot_good_oneshot MAS X_axis EOT11_x_axis_recovery_stop_a_status Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_all_eot_good_oneshot MAS X_axis EOT11_x_axis_recovery_stop_b_status Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_all_eot_good_oneshot MAS Y_axis EOT11_y_axis_recovery_stop_a_status Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_all_eot_good_oneshot MAS Y_axis EOT11_y_axis_recovery_stop_b_status Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_all_eot_good_oneshot MAS Z_axis EOT11_z_axis_recovery_stop_status Move No 1000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC EOT11_all_eot_good_oneshot CPT ERROR_CODE 0 CPT NEXTSTATE 1 
+CMP "STATE=12" OTE STATE12_IND 
+XIC STATE12_IND XIO Y_XFER_OK CPT ERROR_CODE 5003 CPT MOVE_TYPE 0 CPT NEXTSTATE 10 
+XIC STATE12_IND XIC Y_XFER_OK XIO xz_main_move.IP MCLM xz xz_main_move 0 xz_position_target 800 "Units per sec" 1000 "Units per sec2" 1000 "Units per sec2" S-Curve 1000 1000 "Units per sec3" 0 0 0 0 0 0 0 0 
+XIO Y_XFER_OK XIC xz_main_move.IP MCS X_Y XZ_xy_stop All Yes 4000 "Units per sec2" Yes 2000 "Units per sec3" MCS xz xz_stop All Yes 4000 "Units per sec2" Yes 200 "Units per sec3" CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
+XIC STATE12_IND XIC xz_main_move.ER CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
+XIC STATE12_IND CMP "ABS(X_axis.ActualPosition-xz_position_target[0])<0.1" CMP "ABS(Z_axis.ActualPosition-xz_position_target[1])<0.1" CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
+XIC Y_axis.MoveStatus XIO Z_RETRACTED MAS Y_axis y_axis_stop All Yes 4000 "Units per sec2" Yes 4000 "Units per sec3" 
+CMP "STATE=13" OTE YZ_STATE13_IND 
+XIC YZ_STATE13_IND XIO X_XFER_OK CPT ERROR_CODE 5003 CPT MOVE_TYPE 0 CPT NEXTSTATE 10 
+XIC YZ_STATE13_IND XIC X_XFER_OK XIO yz_main_move.IP MCLM xz yz_main_move 0 xz_position_target 800 "Units per sec" 1000 "Units per sec2" 1000 "Units per sec2" S-Curve 1000 1000 "Units per sec3" 0 0 0 0 0 0 0 0 
+XIO Y_XFER_OK XIC yz_main_move.IP MCS X_Y YZ_xy_stop All Yes 4000 "Units per sec2" Yes 2000 "Units per sec3" MCS xz yz_stop All Yes 4000 "Units per sec2" Yes 200 "Units per sec3" CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
+XIC YZ_STATE13_IND XIC yz_main_move.ER CPT MOVE_TYPE 0 CPT ERROR_CODE 5003 CPT NEXTSTATE 10 
+XIC YZ_STATE13_IND CMP "ABS(X_axis.ActualPosition-xz_position_target[0])<0.1" CMP "ABS(Z_axis.ActualPosition-xz_position_target[1])<0.1" CPT MOVE_TYPE 0 CPT NEXTSTATE 1 
+XIC X_axis.MoveStatus XIO Z_RETRACTED MAS X_axis x_axis_stop All Yes 4000 "Units per sec2" Yes 4000 "Units per sec3" 
+CMP "STATE=14" OTE STATE14_IND 
+XIC STATE14_IND XIO hmi_stop_entry_sb OTE hmi_stop_entry_ob 
+XIC STATE14_IND OTL hmi_stop_entry_sb 
+XIO STATE14_IND OTU hmi_stop_entry_sb 
+XIC hmi_stop_entry_ob MCS X_Y hmi_xy_stop All Yes 1200 "Units per sec2" Yes 1200 "Units per sec3" 
+XIC hmi_stop_entry_ob MCS xz hmi_xz_stop All Yes 1200 "Units per sec2" Yes 1200 "Units per sec3" 
+XIC hmi_stop_entry_ob MAS X_axis hmi_x_axis_stop All Yes 1200 "Units per sec2" Yes 1200 "Units per sec3" 
+XIC hmi_stop_entry_ob MAS Y_axis hmi_y_axis_stop All Yes 1200 "Units per sec2" Yes 1200 "Units per sec3" 
+XIC hmi_stop_entry_ob MAS Z_axis hmi_z_axis_stop All Yes 1200 "Units per sec2" Yes 1200 "Units per sec3" 
+XIC STATE14_IND OTE AbortQueue 
+XIC STATE14_IND CPT MOVE_TYPE 0 
+XIC STATE14_IND XIC hmi_xy_stop.DN XIC hmi_xz_stop.DN XIC hmi_x_axis_stop.DN XIC hmi_y_axis_stop.DN XIC hmi_z_axis_stop.DN XIO CurIssued XIO NextIssued XIO X_Y.MovePendingStatus LEQ QueueCount 0 CPT NEXTSTATE 1 
+EQU QueueCtl.POS 0 OTE QueueEmpty 
+GEQ QueueCtl.POS 32 OTE QueueFull 
+MOV QueueCtl.POS QueueCount 
+CMP "MOVE_TYPE=11" OTL AbortQueue CPT NEXTSTATE 14 
+XIC QueueStopRequest BST XIC CurIssued NXB XIC NextIssued NXB XIC X_Y.MovePendingStatus BND ONS QueueStopReqONS MCS X_Y gui_stop All Yes 2000 "Units per sec2" Yes 1000 "Units per sec3" 
+XIC QueueStopRequest OTL AbortQueue 
+BST XIC AbortQueue NXB XIO ALL_EOT_GOOD BND OTE AbortActive 
+NEQ IncomingSegReqID LastIncomingSegReqID OTL EnqueueReq 
+XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 1 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 OTE SegValidLine 
+XIC EnqueueReq XIC IncomingSeg.Valid EQU IncomingSeg.SegType 2 GRT IncomingSeg.Speed 0.0 GRT IncomingSeg.Accel 0.0 GRT IncomingSeg.Decel 0.0 GEQ IncomingSeg.TermType 0 LEQ IncomingSeg.TermType 6 GEQ IncomingSeg.CircleType 0 LEQ IncomingSeg.CircleType 3 GEQ IncomingSeg.Direction 0 LEQ IncomingSeg.Direction 3 OTE SegValidArc 
+BST XIC SegValidLine NXB XIC SegValidArc BND OTE SegValid 
+XIC EnqueueReq XIC SegValid XIO QueueFull FFL IncomingSeg SegQueue[0] QueueCtl 32 0 
+XIC EnqueueReq XIC SegValid XIO QueueFull MOV IncomingSeg.Seq IncomingSegAck 
+XIC EnqueueReq XIC SegValid XIO QueueFull MOV IncomingSegReqID LastIncomingSegReqID 
+XIC EnqueueReq OTU EnqueueReq 
+XIC MoveA.ER MOV 3 FaultCode 
+XIC MoveA.ER OTL QueueFault 
+XIC MoveA.ER OTL AbortQueue 
+XIC MoveA.ER OTU MoveA.ER 
+XIC MoveB.ER MOV 4 FaultCode 
+XIC MoveB.ER OTL QueueFault 
+XIC MoveB.ER OTL AbortQueue 
+XIC MoveB.ER OTU MoveB.ER 
+BST XIC QueueFault NXB XIC MoveA.ER NXB XIC MoveB.ER BND OTE MotionFault 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST EQU CurSeg.SegType 1 NXB EQU CurSeg.SegType 2 BND OTL PrepCurMove 
+XIC CheckCurSeg XIO CurSeg.Valid MOV 1 FaultCode 
+XIC CheckCurSeg XIO CurSeg.Valid OTL QueueFault 
+XIC CheckCurSeg XIC CurSeg.Valid LEQ CurSeg.Seq 0 MOV 6 FaultCode 
+XIC CheckCurSeg XIC CurSeg.Valid LEQ CurSeg.Seq 0 OTL QueueFault 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST LES CurSeg.SegType 1 NXB GRT CurSeg.SegType 2 BND MOV 7 FaultCode 
+XIC CheckCurSeg XIC CurSeg.Valid GRT CurSeg.Seq 0 BST LES CurSeg.SegType 1 NXB GRT CurSeg.SegType 2 BND OTL QueueFault 
+XIC CheckCurSeg OTU CheckCurSeg 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST EQU NextSeg.SegType 1 NXB EQU NextSeg.SegType 2 BND OTL PrepNextMove 
+XIC CheckNextSeg XIO NextSeg.Valid MOV 2 FaultCode 
+XIC CheckNextSeg XIO NextSeg.Valid OTL QueueFault 
+XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 MOV 5 FaultCode 
+XIC CheckNextSeg XIC NextSeg.Valid LEQ NextSeg.Seq 0 OTL QueueFault 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND MOV 8 FaultCode 
+XIC CheckNextSeg XIC NextSeg.Valid GRT NextSeg.Seq 0 BST LES NextSeg.SegType 1 NXB GRT NextSeg.SegType 2 BND OTL QueueFault 
+XIC CheckNextSeg OTU CheckNextSeg 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV QueueCtl.POS DINTS[5] 
+BST XIC CurIssued NXB XIC NextIssued NXB XIC QueueFault NXB LEQ QueueCtl.POS 0 BND MOV 0 DINTS[5] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_x_max REALS[38] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV v_y_max REALS[39] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV X_axis.ActualPosition REALS[40] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 MOV Y_axis.ActualPosition REALS[41] 
+XIO CurIssued XIO NextIssued XIO QueueFault GEQ QueueCtl.POS 1 OTL BOOLS[7] 
+NEQ DINTS[5] 0 JMP MQ_cap_lbl_else_46 
+JMP MQ_cap_lbl_CapSegSpeed_end 
+LBL MQ_cap_lbl_else_46 BST LEQ REALS[38] 0.0 NXB LEQ REALS[39] 0.0 BND OTL BOOLS[901] 
+GRT REALS[38] 0.0 GRT REALS[39] 0.0 JMP MQ_cap_lbl_else_48 
+OTL BOOLS[8] 
+JMP MQ_cap_lbl_CapSegSpeed_end 
+LBL MQ_cap_lbl_else_48 BST LES REALS[38] 3.4028235E+38 NXB LES REALS[39] 3.4028235E+38 BND OTL BOOLS[902] 
+XIC BOOLS[902] JMP MQ_cap_lbl_else_50 
+JMP MQ_cap_lbl_CapSegSpeed_end 
+LBL MQ_cap_lbl_else_50 XIC BOOLS[7] JMP MQ_cap_lbl_else_52 
+MOV SegQueue[0].XY[0] REALS[42] 
+MOV SegQueue[0].XY[1] REALS[43] 
+OTL BOOLS[9] 
+JMP MQ_cap_lbl_end_53 
+LBL MQ_cap_lbl_else_52 MOV REALS[40] REALS[42] 
+MOV REALS[41] REALS[43] 
+OTU BOOLS[9] 
+LBL MQ_cap_lbl_end_53 MOV 0 idx_3 
+LBL MQ_cap_lbl_loop_54 GEQ idx_3 DINTS[5] JMP MQ_cap_lbl_loop_end_55 
+BST NEQ idx_3 0 NXB XIO BOOLS[9] BND OTL BOOLS[903] 
+XIC BOOLS[903] JMP MQ_cap_lbl_else_56 
+LES REALS[38] REALS[39] JMP MQ_cap_lbl_min_a_58 
+MOV REALS[39] REALS[44] JMP MQ_cap_lbl_min_end_59 
+LBL MQ_cap_lbl_min_a_58 MOV REALS[38] REALS[44] 
+LBL MQ_cap_lbl_min_end_59 MOV 1.0 REALS[45] 
+MOV 1.0 REALS[46] 
+JMP MQ_cap_lbl_end_57 
+LBL MQ_cap_lbl_else_56 MOV REALS[42] REALS[20] 
+MOV REALS[43] REALS[21] 
+MOV idx_3 idx_2 
+NEQ SegQueue[idx_2].SegType 1 JMP MQ_seg_lbl_else_30 
+CPT REALS[24] SegQueue[idx_2].XY[0]-REALS[20] 
+CPT REALS[25] SegQueue[idx_2].XY[1]-REALS[21] 
+CPT REALS[26] SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25]) 
+GRT REALS[26] 0.000000001 JMP MQ_seg_lbl_else_32 
+MOV 0.0 REALS[22] 
+MOV 0.0 REALS[23] 
+JMP MQ_seg_lbl_SegTangentBounds_end 
+LBL MQ_seg_lbl_else_32 CPT REALS[22] ABS(REALS[24]/REALS[26]) 
+CPT REALS[23] ABS(REALS[25]/REALS[26]) 
+JMP MQ_seg_lbl_SegTangentBounds_end 
+LBL MQ_seg_lbl_else_30 NEQ SegQueue[idx_2].SegType 2 JMP MQ_seg_lbl_else_34 
+MOV idx_2 idx_0 
+MOV idx_2 idx_1 
+NEQ REALS[28] 0 JMP MQ_seg_lbl_else_36 
+CPT REALS[31] SQR(REALS[20]-REALS[29]*REALS[20]-REALS[29]+REALS[21]-REALS[30]*REALS[21]-REALS[30]) 
+CPT REALS[32] SQR(SegQueue[idx_2].XY[0]-REALS[29]*SegQueue[idx_2].XY[0]-REALS[29]+SegQueue[idx_2].XY[1]-REALS[30]*SegQueue[idx_2].XY[1]-REALS[30]) 
+BST LEQ REALS[31] 0.000000001 NXB LEQ REALS[32] 0.000000001 BND OTL BOOLS[900] 
+XIC BOOLS[900] JMP MQ_seg_lbl_else_38 
+CPT REALS[912] REALS[21]-REALS[30] 
+CPT REALS[913] REALS[20]-REALS[29] 
+GRT REALS[913] 0.0 CPT REALS[33] ATN(REALS[912]/REALS[913]) JMP MQ_seg_lbl_atan2_done_40 
+LES REALS[913] 0.0 GEQ REALS[912] 0.0 CPT REALS[33] ATN(REALS[912]/REALS[913])+3.14159265358979 JMP MQ_seg_lbl_atan2_done_40 
+LES REALS[913] 0.0 LES REALS[912] 0.0 CPT REALS[33] ATN(REALS[912]/REALS[913])-3.14159265358979 JMP MQ_seg_lbl_atan2_done_40 
+EQU REALS[913] 0.0 GRT REALS[912] 0.0 MOV 1.5707963267949 REALS[33] JMP MQ_seg_lbl_atan2_done_40 
+EQU REALS[913] 0.0 LES REALS[912] 0.0 MOV -1.5707963267949 REALS[33] JMP MQ_seg_lbl_atan2_done_40 
+MOV 0.0 REALS[33] 
+LBL MQ_seg_lbl_atan2_done_40 CPT REALS[914] SegQueue[idx_2].XY[1]-REALS[30] 
+CPT REALS[915] SegQueue[idx_2].XY[0]-REALS[29] 
+GRT REALS[915] 0.0 CPT REALS[34] ATN(REALS[914]/REALS[915]) JMP MQ_seg_lbl_atan2_done_41 
+LES REALS[915] 0.0 GEQ REALS[914] 0.0 CPT REALS[34] ATN(REALS[914]/REALS[915])+3.14159265358979 JMP MQ_seg_lbl_atan2_done_41 
+LES REALS[915] 0.0 LES REALS[914] 0.0 CPT REALS[34] ATN(REALS[914]/REALS[915])-3.14159265358979 JMP MQ_seg_lbl_atan2_done_41 
+EQU REALS[915] 0.0 GRT REALS[914] 0.0 MOV 1.5707963267949 REALS[34] JMP MQ_seg_lbl_atan2_done_41 
+EQU REALS[915] 0.0 LES REALS[914] 0.0 MOV -1.5707963267949 REALS[34] JMP MQ_seg_lbl_atan2_done_41 
+MOV 0.0 REALS[34] 
+LBL MQ_seg_lbl_atan2_done_41 MOV REALS[33] REALS[14] 
+MOV REALS[34] REALS[15] 
+MOV SegQueue[idx_2].Direction DINTS[4] 
+CPT REALS[17] 2.0*3.14159265358979 
+CPT REALS[910] REALS[15]-REALS[14] 
+MOD REALS[910] REALS[17] REALS[18] 
+CPT REALS[911] REALS[14]-REALS[15] 
+MOD REALS[911] REALS[17] REALS[19] 
+NEQ DINTS[4] 0 JMP MQ_arc_lbl_else_18 
+CPT REALS[16] -REALS[19] 
+JMP MQ_arc_lbl_ArcSweepRad_end 
+LBL MQ_arc_lbl_else_18 NEQ DINTS[4] 1 JMP MQ_arc_lbl_else_20 
+MOV REALS[18] REALS[16] 
+JMP MQ_arc_lbl_ArcSweepRad_end 
+LBL MQ_arc_lbl_else_20 NEQ DINTS[4] 2 JMP MQ_arc_lbl_else_22 
+CPT REALS[16] -REALS[19] 
+JMP MQ_arc_lbl_ArcSweepRad_end 
+LBL MQ_arc_lbl_else_22 NEQ DINTS[4] 3 JMP MQ_arc_lbl_else_24 
+MOV REALS[18] REALS[16] 
+JMP MQ_arc_lbl_ArcSweepRad_end 
+LBL MQ_arc_lbl_else_24 OTU BOOLS[3] 
+JMP MQ_arc_lbl_ArcSweepRad_end 
+LBL MQ_arc_lbl_ArcSweepRad_end NOP 
+MOV REALS[16] REALS[35] 
+XIC BOOLS[3] OTL BOOLS[6] 
+XIO BOOLS[3] OTU BOOLS[6] 
+XIO BOOLS[6] JMP MQ_seg_lbl_else_42 
+MOV REALS[33] REALS[0] 
+MOV REALS[35] REALS[1] 
+CPT REALS[3] REALS[0]+REALS[1] 
+LES REALS[0] REALS[3] JMP MQ_sin_lbl_min_a_0 
+MOV REALS[3] REALS[4] JMP MQ_sin_lbl_min_end_1 
+LBL MQ_sin_lbl_min_a_0 MOV REALS[0] REALS[4] 
+LBL MQ_sin_lbl_min_end_1 GRT REALS[0] REALS[3] JMP MQ_sin_lbl_max_a_2 
+MOV REALS[3] REALS[5] JMP MQ_sin_lbl_max_end_3 
+LBL MQ_sin_lbl_max_a_2 MOV REALS[0] REALS[5] 
+LBL MQ_sin_lbl_max_end_3 CPT REALS[900] ABS(SIN(REALS[0])) 
+CPT REALS[901] ABS(SIN(REALS[3])) 
+GRT REALS[900] REALS[901] JMP MQ_sin_lbl_max_a_4 
+MOV REALS[901] REALS[6] JMP MQ_sin_lbl_max_end_5 
+LBL MQ_sin_lbl_max_a_4 MOV REALS[900] REALS[6] 
+LBL MQ_sin_lbl_max_end_5 CPT REALS[902] REALS[4]-0.5*3.14159265358979/3.14159265358979 
+TRN REALS[902] DINTS[900] 
+MOV DINTS[900] REALS[903] 
+GEQ REALS[903] REALS[902] JMP MQ_sin_lbl_ceil_done_6 
+ADD DINTS[900] 1 DINTS[900] 
+LBL MQ_sin_lbl_ceil_done_6 MOV DINTS[900] DINTS[0] 
+CPT REALS[904] REALS[5]-0.5*3.14159265358979/3.14159265358979 
+TRN REALS[904] DINTS[1] 
+GRT DINTS[0] DINTS[1] JMP MQ_sin_lbl_else_7 
+MOV 1.0 REALS[2] 
+JMP MQ_sin_lbl_MaxAbsSinSweep_end 
+LBL MQ_sin_lbl_else_7 MOV REALS[6] REALS[2] 
+JMP MQ_sin_lbl_MaxAbsSinSweep_end 
+LBL MQ_sin_lbl_MaxAbsSinSweep_end NOP 
+MOV REALS[2] REALS[36] 
+MOV REALS[33] REALS[7] 
+MOV REALS[35] REALS[8] 
+CPT REALS[10] REALS[7]+REALS[8] 
+LES REALS[7] REALS[10] JMP MQ_cos_lbl_min_a_9 
+MOV REALS[10] REALS[11] JMP MQ_cos_lbl_min_end_10 
+LBL MQ_cos_lbl_min_a_9 MOV REALS[7] REALS[11] 
+LBL MQ_cos_lbl_min_end_10 GRT REALS[7] REALS[10] JMP MQ_cos_lbl_max_a_11 
+MOV REALS[10] REALS[12] JMP MQ_cos_lbl_max_end_12 
+LBL MQ_cos_lbl_max_a_11 MOV REALS[7] REALS[12] 
+LBL MQ_cos_lbl_max_end_12 CPT REALS[905] ABS(COS(REALS[7])) 
+CPT REALS[906] ABS(COS(REALS[10])) 
+GRT REALS[905] REALS[906] JMP MQ_cos_lbl_max_a_13 
+MOV REALS[906] REALS[13] JMP MQ_cos_lbl_max_end_14 
+LBL MQ_cos_lbl_max_a_13 MOV REALS[905] REALS[13] 
+LBL MQ_cos_lbl_max_end_14 CPT REALS[907] REALS[11]/3.14159265358979 
+TRN REALS[907] DINTS[901] 
+MOV DINTS[901] REALS[908] 
+GEQ REALS[908] REALS[907] JMP MQ_cos_lbl_ceil_done_15 
+ADD DINTS[901] 1 DINTS[901] 
+LBL MQ_cos_lbl_ceil_done_15 MOV DINTS[901] DINTS[2] 
+CPT REALS[909] REALS[12]/3.14159265358979 
+TRN REALS[909] DINTS[3] 
+GRT DINTS[2] DINTS[3] JMP MQ_cos_lbl_else_16 
+MOV 1.0 REALS[9] 
+JMP MQ_cos_lbl_MaxAbsCosSweep_end 
+LBL MQ_cos_lbl_else_16 MOV REALS[13] REALS[9] 
+JMP MQ_cos_lbl_MaxAbsCosSweep_end 
+LBL MQ_cos_lbl_MaxAbsCosSweep_end NOP 
+MOV REALS[9] REALS[37] 
+MOV REALS[36] REALS[22] 
+MOV REALS[37] REALS[23] 
+JMP MQ_seg_lbl_SegTangentBounds_end 
+LBL MQ_seg_lbl_else_42 NOP 
+LBL MQ_seg_lbl_else_38 NOP 
+LBL MQ_seg_lbl_else_36 NOP 
+LBL MQ_seg_lbl_else_34 CPT REALS[24] SegQueue[idx_2].XY[0]-REALS[20] 
+CPT REALS[25] SegQueue[idx_2].XY[1]-REALS[21] 
+CPT REALS[26] SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25]) 
+GRT REALS[26] 0.000000001 JMP MQ_seg_lbl_else_44 
+MOV 0.0 REALS[22] 
+MOV 0.0 REALS[23] 
+JMP MQ_seg_lbl_SegTangentBounds_end 
+LBL MQ_seg_lbl_else_44 CPT REALS[22] ABS(REALS[24]/REALS[26]) 
+CPT REALS[23] ABS(REALS[25]/REALS[26]) 
+JMP MQ_seg_lbl_SegTangentBounds_end 
+LBL MQ_seg_lbl_SegTangentBounds_end NOP 
+MOV REALS[22] REALS[45] 
+MOV REALS[23] REALS[46] 
+GRT REALS[45] 0.000000001 JMP MQ_cap_lbl_else_60 
+MOV 3.4028235E+38 REALS[47] 
+JMP MQ_cap_lbl_end_61 
+LBL MQ_cap_lbl_else_60 CPT REALS[47] REALS[38]/REALS[45] 
+LBL MQ_cap_lbl_end_61 GRT REALS[46] 0.000000001 JMP MQ_cap_lbl_else_62 
+MOV 3.4028235E+38 REALS[48] 
+JMP MQ_cap_lbl_end_63 
+LBL MQ_cap_lbl_else_62 CPT REALS[48] REALS[39]/REALS[46] 
+LBL MQ_cap_lbl_end_63 LES REALS[47] REALS[48] JMP MQ_cap_lbl_min_a_64 
+MOV REALS[48] REALS[44] JMP MQ_cap_lbl_min_end_65 
+LBL MQ_cap_lbl_min_a_64 MOV REALS[47] REALS[44] 
+LBL MQ_cap_lbl_min_end_65 NOP 
+LBL MQ_cap_lbl_end_57 LES SegQueue[idx_3].Speed REALS[44] JMP MQ_cap_lbl_min_a_66 
+MOV REALS[44] REALS[49] JMP MQ_cap_lbl_min_end_67 
+LBL MQ_cap_lbl_min_a_66 MOV SegQueue[idx_3].Speed REALS[49] 
+LBL MQ_cap_lbl_min_end_67 GRT REALS[49] 0.0 JMP MQ_cap_lbl_else_68 
+OTL BOOLS[8] 
+JMP MQ_cap_lbl_CapSegSpeed_end 
+LBL MQ_cap_lbl_else_68 MOV REALS[49] SegQueue[idx_3].Speed 
+MOV SegQueue[idx_3].XY[0] REALS[42] 
+MOV SegQueue[idx_3].XY[1] REALS[43] 
+ADD idx_3 1 idx_3 
+JMP MQ_cap_lbl_loop_54 
+LBL MQ_cap_lbl_loop_end_55 JMP MQ_cap_lbl_CapSegSpeed_end 
+LBL MQ_cap_lbl_CapSegSpeed_end NOP 
+XIC StartQueuedPath BST BST XIO Z_RETRACTED NXB GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z BND CPT ERROR_CODE 3001 CPT NEXTSTATE 10 NXB XIC Z_RETRACTED XIO APA_IS_VERTICAL CPT ERROR_CODE 3005 CPT NEXTSTATE 10 BND OTE AbortQueue OTU StartQueuedPath 
+XIC StartQueuedPath XIO CurIssued XIO QueueFault GEQ QueueCtl.POS 1 ONS StartCurONS OTL LoadCurReq 
+XIC LoadCurReq OTU StartQueuedPath 
+XIC LoadCurReq FFU SegQueue[0] CurSeg QueueCtl 32 0 
+XIC LoadCurReq OTL CheckCurSeg 
+XIC LoadCurReq OTU LoadCurReq 
+XIC PrepCurMove XIC UseAasCurrent COP CurSeg.XY[0] CmdA_XY[0] 2 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Speed CmdA_Speed 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Accel CmdA_Accel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Decel CmdA_Decel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.JerkAccel CmdA_JerkAccel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.JerkDecel CmdA_JerkDecel 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.TermType CmdA_TermType 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.SegType CmdA_SegType 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.CircleType CmdA_CircleType 
+XIC PrepCurMove XIC UseAasCurrent COP CurSeg.ViaCenter[0] CmdA_ViaCenter[0] 2 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Direction CmdA_Direction 
+XIC PrepCurMove XIC UseAasCurrent MOV CurSeg.Seq ActiveSeq 
+XIC PrepCurMove XIO UseAasCurrent COP CurSeg.XY[0] CmdB_XY[0] 2 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Speed CmdB_Speed 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Accel CmdB_Accel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Decel CmdB_Decel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.JerkAccel CmdB_JerkAccel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.JerkDecel CmdB_JerkDecel 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.TermType CmdB_TermType 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.SegType CmdB_SegType 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.CircleType CmdB_CircleType 
+XIC PrepCurMove XIO UseAasCurrent COP CurSeg.ViaCenter[0] CmdB_ViaCenter[0] 2 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Direction CmdB_Direction 
+XIC PrepCurMove XIO UseAasCurrent MOV CurSeg.Seq ActiveSeq 
+XIC PrepCurMove XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL IssueCurPulse 
+XIC PrepCurMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitCurAxisOn 
+XIC PrepCurMove OTU PrepCurMove 
+XIC WaitCurAxisOn XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault OTU WaitCurAxisOn 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault MSO X_axis MQ_x_axis_mso MSO Y_axis MQ_y_axis_mso 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC MQ_x_axis_mso.DN XIC MQ_y_axis_mso.DN OTL IssueCurPulse 
+XIC WaitCurAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC MQ_x_axis_mso.DN XIC MQ_y_axis_mso.DN OTU WaitCurAxisOn 
+XIC PrepCurMove OTU PrepCurMove 
+XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIC UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse XIO UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC IssueCurPulse OTL CurIssued 
+XIC IssueCurPulse OTU IssueCurPulse 
+XIC CurIssued XIC UseAasCurrent XIC MoveA.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextA_ONS OTL LoadNextReq 
+XIC CurIssued XIO UseAasCurrent XIC MoveB.IP XIO X_Y.MovePendingStatus XIO NextIssued XIO QueueEmpty XIO QueueFault ONS StartNextB_ONS OTL LoadNextReq 
+XIC LoadNextReq FFU SegQueue[0] NextSeg QueueCtl 32 0
+XIC LoadNextReq OTL CheckNextSeg 
+XIC LoadNextReq OTU LoadNextReq 
+XIC PrepNextMove XIC UseAasCurrent COP NextSeg.XY[0] CmdB_XY[0] 2 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Speed CmdB_Speed 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Accel CmdB_Accel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Decel CmdB_Decel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.JerkAccel CmdB_JerkAccel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.JerkDecel CmdB_JerkDecel 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.TermType CmdB_TermType 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.SegType CmdB_SegType 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.CircleType CmdB_CircleType 
+XIC PrepNextMove XIC UseAasCurrent COP NextSeg.ViaCenter[0] CmdB_ViaCenter[0] 2 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Direction CmdB_Direction 
+XIC PrepNextMove XIC UseAasCurrent MOV NextSeg.Seq PendingSeq 
+XIC PrepNextMove XIO UseAasCurrent COP NextSeg.XY[0] CmdA_XY[0] 2 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Speed CmdA_Speed 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Accel CmdA_Accel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Decel CmdA_Decel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.JerkAccel CmdA_JerkAccel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.JerkDecel CmdA_JerkDecel 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.TermType CmdA_TermType 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.SegType CmdA_SegType 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.CircleType CmdA_CircleType 
+XIC PrepNextMove XIO UseAasCurrent COP NextSeg.ViaCenter[0] CmdA_ViaCenter[0] 2 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Direction CmdA_Direction 
+XIC PrepNextMove XIO UseAasCurrent MOV NextSeg.Seq PendingSeq 
+XIC PrepNextMove XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC X_axis.DriveEnableStatus XIC Y_axis.DriveEnableStatus OTL MQ_IssueNextPulse 
+XIC PrepNextMove XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault BST XIO X_axis.DriveEnableStatus NXB XIO Y_axis.DriveEnableStatus BND OTL WaitNextAxisOn 
+XIC PrepNextMove OTU PrepNextMove 
+XIC WaitNextAxisOn XIO APA_IS_VERTICAL MOV 3005 FaultCode CPT ERROR_CODE 3005 CPT NEXTSTATE 10 OTL QueueFault OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIC X_Y.PhysicalAxisFault MOV 3002 FaultCode CPT ERROR_CODE 3002 CPT NEXTSTATE 10 OTL QueueFault OTU WaitNextAxisOn 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault MSO X_axis MQ_x_axis_mso MSO Y_axis MQ_y_axis_mso 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC MQ_x_axis_mso.DN XIC MQ_y_axis_mso.DN OTL MQ_IssueNextPulse 
+XIC WaitNextAxisOn XIC APA_IS_VERTICAL XIO X_Y.PhysicalAxisFault XIC MQ_x_axis_mso.DN XIC MQ_y_axis_mso.DN OTU WaitNextAxisOn 
+XIC PrepNextMove OTU PrepNextMove 
+XIC MQ_IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 1 MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC MQ_IssueNextPulse XIC UseAasCurrent EQU CmdB_SegType 2 MCCM X_Y MoveB 0 CmdB_XY[0] CmdB_CircleType CmdB_ViaCenter[0] CmdB_Direction CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC MQ_IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 1 MCLM X_Y MoveA 0 CmdA_XY[0] CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC MQ_IssueNextPulse XIO UseAasCurrent EQU CmdA_SegType 2 MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0 
+XIC MQ_IssueNextPulse OTL NextIssued 
+XIC MQ_IssueNextPulse OTU MQ_IssueNextPulse 
+XIC CurIssued XIC NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.IP ONS RotateONS_AtoB OTL RotateMoves 
+XIC CurIssued XIC NextIssued XIO UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveA.IP ONS RotateONS_BtoA OTL RotateMoves 
+XIC RotateMoves COP NextSeg CurSeg 1 
+XIC RotateMoves XIC UseAasCurrent OTL FlipToB 
+XIC RotateMoves XIO UseAasCurrent OTL FlipToA 
+XIC FlipToB OTU UseAasCurrent 
+XIC FlipToA OTL UseAasCurrent 
+XIC RotateMoves OTU NextIssued 
+XIC RotateMoves MOV PendingSeq ActiveSeq 
+XIC RotateMoves MOV 0 PendingSeq 
+XIC RotateMoves OTU RotateMoves 
+XIC FlipToA OTU FlipToA 
+XIC FlipToB OTU FlipToB 
+XIC CurIssued XIO NextIssued XIC UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveA.PC ONS DoneONS_A OTU CurIssued 
+XIC CurIssued XIO NextIssued XIO UseAasCurrent XIO X_Y.MovePendingStatus XIC MoveB.PC ONS DoneONS_B OTU CurIssued 
+XIC AbortActive RES CurIssueAckTON 
+XIC AbortActive RES NextIssueAckTON 
+XIC AbortActive RES QueueCtl 
+XIC AbortActive OTU CurIssued 
+XIC AbortActive OTU NextIssued 
+XIC AbortActive OTU LoadCurReq 
+XIC AbortActive OTU LoadNextReq 
+XIC AbortActive OTU PrepCurMove 
+XIC AbortActive OTU PrepNextMove 
+XIC AbortActive OTU IssueCurPulse 
+XIC AbortActive OTU MQ_IssueNextPulse 
+XIC AbortActive OTU WaitCurAxisOn 
+XIC AbortActive OTU WaitNextAxisOn 
+XIC AbortActive OTU QueueStopRequest 
+XIC AbortActive OTU AbortQueue 
+XIC AbortActive OTU EnqueueReq 
+XIC AbortActive OTU RotateMoves 
+XIC AbortActive OTU FlipToA 
+XIC AbortActive OTU FlipToB 
+XIC AbortActive OTL UseAasCurrent 
+XIC AbortActive OTU StartQueuedPath 
+XIC AbortActive MOV 0 FaultCode 
+XIC AbortActive OTU QueueFault 
+XIC AbortActive OTU CheckCurSeg 
+XIC AbortActive OTU CheckNextSeg 
+XIC AbortActive OTU CurSeg.Valid 
+XIC AbortActive MOV 0 CurSeg.Seq 
+XIC AbortActive OTU NextSeg.Valid 
+XIC AbortActive MOV 0 NextSeg.Seq 
+XIC AbortActive MOV IncomingSegReqID LastIncomingSegReqID 
+XIC AbortActive MOV 0 ActiveSeq 
+XIC AbortActive MOV 0 PendingSeq 
+XIC AbortActive FLL 0 SegQueue[0] 32 

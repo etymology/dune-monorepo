@@ -41,6 +41,7 @@ class _PLCLogic:
     self.z_moves = []
     self.latch_moves = 0
     self.stop_requests = 0
+    self._latch_settle_until = None
 
   def isReady(self):
     return self._ready
@@ -50,15 +51,35 @@ class _PLCLogic:
 
   def setZ_Position(self, position, velocity=None):
     self.z_moves.append((float(position), velocity))
+    self._zAxis._position.set(float(position))
 
   def move_latch(self):
-    if self._zStagePresentBit.get() and not self._zFixedPresentBit.get():
-      return False
     self.latch_moves += 1
     return True
 
+  def set_current_time(self, time_value):
+    self._current_time = time_value
+
   def stopSeek(self):
     self.stop_requests += 1
+
+  def getTransferStateNow(self):
+    z_position = float(self._zAxis._position.get())
+    z_extended = z_position >= 417.0
+    return {
+      "stagePresent": bool(self._zStagePresentBit.get()),
+      "fixedPresent": bool(self._zFixedPresentBit.get()),
+      "stageLatched": bool(self._zStageLatchedBit.get()),
+      "fixedLatched": bool(self._zFixedLatchedBit.get()),
+      "zExtended": z_extended,
+      "enableActuator": (
+        bool(self._zStagePresentBit.get())
+        and bool(self._zFixedPresentBit.get())
+        and z_extended
+      ),
+      "actuatorPos": int(self._actuatorPosition.get()),
+      "zPosition": z_position,
+    }
 
 
 class HeadControllerTests(unittest.TestCase):
@@ -67,35 +88,14 @@ class HeadControllerTests(unittest.TestCase):
     head = Head(plc)
     clock = {"now": 0.0}
     head._clock = lambda: clock["now"]
-    head.setLatchTiming(0.25, 1.0)
+    original_update = head.update
+    def update_with_time_sync():
+      plc.set_current_time(clock["now"])
+      return original_update()
+    head.update = update_with_time_sync
     return head, plc, clock
 
-  def test_read_current_position_uses_z_to_distinguish_stage_modes(self):
-    head, plc, _clock = self._build_head(
-      stage_present=True,
-      fixed_present=False,
-      stage_latched=True,
-      fixed_latched=False,
-      actuator_pos=1,
-      z_position=150.0,
-    )
-
-    self.assertEqual(head.readCurrentPosition(), Head.LEVEL_A_SIDE)
-    self.assertEqual(head.getPosition(), Head.LEVEL_A_SIDE)
-
-  def test_stage_side_is_not_reported_until_actuator_reaches_final_pos_one(self):
-    head, plc, _clock = self._build_head(
-      stage_present=True,
-      fixed_present=False,
-      stage_latched=True,
-      fixed_latched=False,
-      actuator_pos=2,
-      z_position=150.0,
-    )
-
-    self.assertEqual(head.readCurrentPosition(), Head.HEAD_ABSENT)
-
-  def test_same_side_stage_moves_only_seek_z(self):
+  def test_same_side_stage_g206_move_only_seeks_z(self):
     head, plc, _clock = self._build_head(
       stage_present=True,
       fixed_present=True,
@@ -105,24 +105,24 @@ class HeadControllerTests(unittest.TestCase):
       z_position=0.0,
     )
 
-    head.setHeadPosition(Head.LEVEL_B_SIDE, 321)
+    error = head.setTransferPosition(Head.LEVEL_B_SIDE, 321)
 
+    self.assertIsNone(error)
     self.assertEqual(plc.z_moves, [(250.0, 321)])
     self.assertEqual(plc.latch_moves, 0)
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 
-  def test_stage_to_fixed_transfer_retries_pulses_until_actuator_changes(self):
+  def test_stage_to_fixed_g206_runs_1_to_3_to_2_then_retracts(self):
     head, plc, clock = self._build_head(
       stage_present=True,
       fixed_present=True,
       stage_latched=True,
       fixed_latched=False,
       actuator_pos=1,
-      z_position=150.0,
+      z_position=0.0,
     )
 
-    head.setHeadPosition(Head.FIXED_SIDE, 400)
-
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
     self.assertEqual(plc.z_moves, [(418.0, 400)])
     self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
 
@@ -131,21 +131,20 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(head._headState, Head.States.LATCHING)
 
     plc._zStageLatchedBit.set(False)
-    plc._zFixedLatchedBit.set(True)
     plc._actuatorPosition.set(3)
-    clock["now"] = 0.05
+    clock["now"] = 1.01
     head.update()
     self.assertEqual(plc.latch_moves, 2)
-    self.assertEqual(plc.z_moves, [(418.0, 400)])
-    self.assertEqual(head._headState, Head.States.LATCHING)
 
+    plc._zFixedLatchedBit.set(True)
     plc._actuatorPosition.set(2)
-    clock["now"] = 0.10
+    clock["now"] = 2.02
     head.update()
+
     self.assertEqual(plc.z_moves[-1], (0.0, 400))
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 
-  def test_fixed_to_stage_transfer_waits_for_actuator_two_before_retract(self):
+  def test_fixed_to_stage_g206_runs_2_to_1_then_moves_to_requested_z(self):
     head, plc, clock = self._build_head(
       stage_present=True,
       fixed_present=True,
@@ -155,108 +154,121 @@ class HeadControllerTests(unittest.TestCase):
       z_position=0.0,
     )
 
-    head.setHeadPosition(Head.LEVEL_A_SIDE, 275)
-
+    self.assertIsNone(head.setTransferPosition(Head.LEVEL_A_SIDE, 275))
     self.assertEqual(plc.z_moves, [(418.0, 275)])
-    self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
 
     head.update()
     self.assertEqual(plc.latch_moves, 1)
-    self.assertEqual(head._headState, Head.States.LATCHING)
 
-    plc._zStageLatchedBit.set(True)
     plc._zFixedLatchedBit.set(False)
+    plc._zStageLatchedBit.set(True)
     plc._actuatorPosition.set(1)
-    clock["now"] = 0.05
-    head.update()
-
-    self.assertEqual(plc.latch_moves, 2)
-    self.assertEqual(plc.z_moves, [(418.0, 275)])
-    self.assertEqual(head._headState, Head.States.LATCHING)
-
-    plc._actuatorPosition.set(2)
+    clock["now"] = 1.01
     head.update()
 
     self.assertEqual(plc.z_moves[-1], (150.0, 275))
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 
-    head.update()
-    self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
-
-    plc._actuatorPosition.set(1)
-    head.update()
-    self.assertEqual(head._headState, Head.States.IDLE)
-
-  def test_fixed_latched_high_z_move_pre_latches_before_extension(self):
-    head, plc, clock = self._build_head(
-      stage_present=False,
-      fixed_present=True,
-      stage_latched=False,
-      fixed_latched=True,
-      actuator_pos=0,
-      z_position=0.0,
-    )
-
-    head.setHeadPosition(Head.LEVEL_A_SIDE, 275)
-
-    self.assertEqual(plc.z_moves, [])
-    self.assertEqual(plc.latch_moves, 1)
-    self.assertEqual(head._headState, Head.States.PRE_LATCHING)
-
-    plc._actuatorPosition.set(3)
-    clock["now"] = 0.05
-    head.update()
-    self.assertEqual(plc.latch_moves, 2)
-    self.assertEqual(plc.z_moves, [])
-    self.assertEqual(head._headState, Head.States.PRE_LATCHING)
-
-    plc._actuatorPosition.set(2)
-    clock["now"] = 0.10
-    head.update()
-    self.assertEqual(plc.z_moves, [(418.0, 275)])
-    self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
-
-  def test_latching_skips_pulses_without_both_present_and_times_out(self):
+  def test_g206_waits_for_extension_and_enable_before_latching(self):
     head, plc, clock = self._build_head(
       stage_present=True,
       fixed_present=False,
       stage_latched=True,
       fixed_latched=False,
       actuator_pos=1,
-      z_position=150.0,
+      z_position=0.0,
     )
 
-    head.setHeadPosition(Head.FIXED_SIDE, 200)
-
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
     head.update()
-    self.assertEqual(head._headState, Head.States.LATCHING)
+    self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
     self.assertEqual(plc.latch_moves, 0)
 
-    clock["now"] = 0.30
+    # Make fixed present so enableActuator becomes true
+    plc._zFixedPresentBit.set(True)
+    plc._zAxis._position.set(418.0)
     head.update()
-    self.assertEqual(plc.latch_moves, 0)
     self.assertEqual(head._headState, Head.States.LATCHING)
+    self.assertEqual(plc.latch_moves, 1)
 
-    clock["now"] = 1.10
-    head.update()
-    self.assertEqual(head._headState, Head.States.ERROR)
-
-  def test_set_head_position_is_noop_when_neither_side_is_present(self):
+  def test_invalid_g206_start_state_fails_immediately(self):
     head, plc, _clock = self._build_head(
-      stage_present=False,
-      fixed_present=False,
+      stage_present=True,
+      fixed_present=True,
+      stage_latched=True,
+      fixed_latched=True,
+      actuator_pos=1,
+      z_position=0.0,
+    )
+
+    error = head.setTransferPosition(Head.FIXED_SIDE, 400)
+
+    self.assertIsNotNone(error)
+    self.assertEqual(plc.z_moves, [])
+    self.assertTrue(head.hasError())
+
+  def test_fixed_latched_with_wrong_actuator_blocks_z_motion(self):
+    head, plc, _clock = self._build_head(
+      stage_present=True,
+      fixed_present=True,
       stage_latched=False,
+      fixed_latched=True,
+      actuator_pos=3,
+      z_position=0.0,
+    )
+
+    error = head.setTransferPosition(Head.LEVEL_A_SIDE, 200)
+
+    self.assertIsNotNone(error)
+    self.assertEqual(plc.z_moves, [])
+    self.assertIn("valid stable starting state", error)
+
+  def test_g206_extension_timeout_errors_and_clears_state(self):
+    head, plc, clock = self._build_head(
+      stage_present=True,
+      fixed_present=False,
+      stage_latched=True,
       fixed_latched=False,
       actuator_pos=1,
       z_position=0.0,
     )
 
-    head.setHeadPosition(Head.STAGE_SIDE, 200)
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    head.update()
+    # Z should be commanded to extend but fixed not present yet
+    self.assertEqual(head._headState, Head.States.EXTENDING_TO_TRANSFER)
 
-    self.assertEqual(plc.z_moves, [])
+    # Simulate extension timeout by advancing time past G206_EXTEND_TIMEOUT (10 seconds)
+    # without fixed becoming present (so z stays retracted)
+    for attempt in range(1, 15):
+      clock["now"] = float(attempt)
+      head.update()
+      if head.hasError():
+        break
+
+    self.assertTrue(head.hasError())
+    self.assertIn("ENABLE_ACTUATOR", head.getLastError())
+    self.assertTrue(head.isReady())
+    self.assertFalse(head.isTransferActive())
+
+  def test_g206_waits_for_enable_actuator_before_first_pulse(self):
+    head, plc, clock = self._build_head(
+      stage_present=True,
+      fixed_present=False,
+      stage_latched=True,
+      fixed_latched=False,
+      actuator_pos=1,
+      z_position=0.0,
+    )
+    head.setLatchTiming(1.0, 3.0)
+
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    head.update()
     self.assertEqual(plc.latch_moves, 0)
-    self.assertEqual(head.readCurrentPosition(), Head.HEAD_ABSENT)
-    self.assertEqual(head._headState, Head.States.IDLE)
+
+    plc._zFixedPresentBit.set(True)
+    head.update()
+    self.assertEqual(plc.latch_moves, 1)
 
 
 if __name__ == "__main__":

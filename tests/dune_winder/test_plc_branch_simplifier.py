@@ -26,8 +26,8 @@ class PlcBranchSimplifierTests(unittest.TestCase):
     self.assertEqual(
       self.emitter.emit_routine(result.routine),
       (
-        "CMP STATE=3 XIO Z_RETRACTED CPT ERROR_CODE 3001 CPT NEXTSTATE 10 \n"
-        "CMP STATE=3 GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z CPT ERROR_CODE 3001 CPT NEXTSTATE 10 \n"
+        "CMP \"STATE=3\" XIO Z_RETRACTED CPT ERROR_CODE 3001 CPT NEXTSTATE 10 \n"
+        "CMP \"STATE=3\" GEQ Z_axis.ActualPosition MAX_TOLERABLE_Z CPT ERROR_CODE 3001 CPT NEXTSTATE 10 \n"
       ),
     )
 

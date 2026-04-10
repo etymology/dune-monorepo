@@ -29,6 +29,7 @@ class FakeWorkspace:
 class WrapSeekTests(unittest.TestCase):
   def test_get_wrap_seek_line_uses_latest_prior_head_restart_before_wrap_start(self):
     workspace = object.__new__(WinderWorkspace)
+    workspace._layer = None
     workspace._recipe = FakeRecipe(
       11,
       [
@@ -54,6 +55,7 @@ class WrapSeekTests(unittest.TestCase):
     ]
 
     workspace = object.__new__(WinderWorkspace)
+    workspace._layer = None
     workspace._recipe = FakeRecipe(30, lines)
 
     self.assertEqual(workspace.getWrapSeekLine(2), 3)
@@ -68,12 +70,14 @@ class WrapSeekTests(unittest.TestCase):
     ]
 
     workspace = object.__new__(WinderWorkspace)
+    workspace._layer = None
     workspace._recipe = FakeRecipe(9, lines)
 
     self.assertEqual(workspace.getWrapSeekLine(1), -1)
 
   def test_get_wrap_seek_line_rejects_invalid_wrap_numbers(self):
     workspace = object.__new__(WinderWorkspace)
+    workspace._layer = None
     workspace._recipe = FakeRecipe(46, ["N1\n"] * 100)
 
     self.assertIsNone(workspace.getWrapSeekLine(0))
@@ -81,6 +85,7 @@ class WrapSeekTests(unittest.TestCase):
 
   def test_get_wrap_seek_line_returns_none_when_wrap_start_marker_is_missing(self):
     workspace = object.__new__(WinderWorkspace)
+    workspace._layer = None
     workspace._recipe = FakeRecipe(
       46,
       [

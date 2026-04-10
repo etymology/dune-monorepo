@@ -91,13 +91,50 @@ function setupMainScreen( page )
   )
 }
 
+function installButtonClickFeedback()
+{
+  $( document )
+    .off( "click.buttonFeedback" )
+    .on
+    (
+      "click.buttonFeedback",
+      "button",
+      function()
+      {
+        if ( $( this ).prop( "disabled" ) )
+          return
+
+        var button = $( this )
+        var existingTimer = button.data( "buttonFeedbackTimer" )
+        if ( existingTimer )
+          window.clearTimeout( existingTimer )
+
+        button.removeClass( "buttonClickAcknowledged" )
+        void this.offsetWidth
+        button.addClass( "buttonClickAcknowledged" )
+
+        var timer = window.setTimeout
+        (
+          function()
+          {
+            button.removeClass( "buttonClickAcknowledged" )
+            button.removeData( "buttonFeedbackTimer" )
+          },
+          220
+        )
+
+        button.data( "buttonFeedbackTimer", timer )
+      }
+    )
+}
+
 var PAGE_NAME_MAP =
 {
   apa: "APA",
   log: "Log",
   io: "IO",
   calibrate: "Calibrate",
-  vtemplate: "VTemplate",
+  gcodegeneration: "GCodeGeneration",
   configuration: "Configuration",
   manualmovepopup: "ManualMovePopup"
 }
@@ -199,6 +236,8 @@ $( document ).ready
 (
   function()
   {
+    installButtonClickFeedback()
+
     // Save all loaded style sheets.  These stay regardless of page changes.
     APP_STATE.baseStylesheets = []
     $( 'head' )

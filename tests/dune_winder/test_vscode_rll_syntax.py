@@ -6,8 +6,8 @@ import unittest
 from dune_winder.plc_ladder.parser import OPERAND_COUNTS
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-EXTENSION_ROOT = REPO_ROOT / "tools" / "vscode-plc-rll"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+EXTENSION_ROOT = REPO_ROOT / "dune_winder" / "tools" / "vscode-plc-rll"
 
 
 class VSCodeRllSyntaxTests(unittest.TestCase):

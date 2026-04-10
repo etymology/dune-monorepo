@@ -10,6 +10,7 @@ import argparse
 import re
 from pathlib import Path
 
+from dune_winder.core.manual_calibration import LAYER_METADATA
 from dune_winder.recipes.recipe_template_language import (
   compile_template_script,
   execute_template_script,
@@ -30,7 +31,7 @@ Y_PULL_IN = 60.0
 X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 3.0
 PREAMBLE_BOARD_GAP_PULL = 30.0
-COMBS = (592, 740, 888, 1043, 1191, 1754, 1902, 2050, 2198)
+COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
 PIN_MIN = 1
 PIN_MAX = 2400
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
@@ -85,6 +86,9 @@ SPECIAL_OFFSET_ALIASES = {
   "head_b_offset": 8,
   "head_a_offset": 9,
 }
+FOOT_PAUSE_MIN_PIN = 1200
+FOOT_PAUSE_MAX_PIN = 1600
+_PIN_PAIR_RE = re.compile(r"\bG103\s+P[BF](\d+)\s+P[BF](\d+)\b")
 
 V_WRAP_BASE_SCRIPT = compile_template_script(
   (
@@ -92,20 +96,20 @@ V_WRAP_BASE_SCRIPT = compile_template_script(
     "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
     "transfer b_to_a_transfer",
     "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} PX ${offset('PX', offsets[1])} (Top A corner - foot end)",
-    "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[1])}",
     "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 ( BOARD GAP ) (Foot A corner)",
+    "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Foot A corner)",
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PY ${offset('PY', offsets[3])} (Foot B corner)",
-    "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset('PY', offsets[3])}",
     "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
     "transfer b_to_a_transfer",
     "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} PX ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
-    "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ( BOARD GAP )",
+    "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset('PX', offsets[5])}",
     "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PXY ${offset('PX', offsets[7])} (Top B corner - head end)",
-    "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
+    "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[7])}",
     "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
 )
@@ -115,16 +119,70 @@ V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
     "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
     "transfer b_to_a_transfer",
     "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PXY ${offset('PY', offsets[9])} (Head A corner)",
-    "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset('PY', offsets[9])}",
     "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ${offset('PX', offsets[11])} PX12 (Bottom B corner - head end)",
-    "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} PX ${offset('PX', offsets[11])} (Bottom B corner - head end)",
+    "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset('PX', offsets[11])}",
     "if near_comb(399 + wrap): emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
   )
 )
 
 V_WRAP_FINAL_TAIL_SCRIPT = compile_template_script(
+  (
+    "emit G113 PPRECISE G103 PB2398 PB2399 PY G105 PY0 G111",
+    "emit G113 PPRECISE X440 Y2250 F300",
+    "emit ${g106(0)}",
+    "emit G113 PPRECISE X440 Y2335",
+    "emit G113 PPRECISE X650 Y2335 G111",
+    "emit G113 PPRECISE X1200 Y2335 G111",
+    "emit G113 PPRECISE X440 Y2335",
+  )
+)
+
+V_WRAP_BASE_SCRIPT_XZ = compile_template_script(
+  (
+    "emit (------------------STARTING LOOP ${wrap}------------------)",
+    "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
+    "emit G206 P2",
+    "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} Z0 PXZ ${offset('PX', offsets[1])}  (Top A corner - foot end)",
+    "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Foot A corner)",
+    "emit G206 P1",
+    "emit G206 P3",
+    "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[3])}  (Foot B corner)",
+    "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset('PY', offsets[3])}",
+    "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
+    "emit G206 P2",
+    "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} Z0 PXZ ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
+    "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+    "emit G206 P1",
+    "emit G206 P3",
+    "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
+    "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[7])}",
+    "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
+  )
+)
+
+V_WRAP_NORMAL_TAIL_SCRIPT_XZ = compile_template_script(
+  (
+    "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
+    "emit G206 P2",
+    "emit G206 P0",
+    "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1}  PXY ${offset('PY', offsets[9])} (Head A corner)",
+    "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset('PY', offsets[9])}",
+    "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
+    "emit G206 P1",
+    "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ZEXTEND PXZ ${offset('PX', offsets[11])} (Bottom B corner - head end)",
+    "emit G206 P3",
+    "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(399 + wrap): emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+  )
+)
+
+V_WRAP_FINAL_TAIL_SCRIPT_XZ = compile_template_script(
   (
     "emit G113 PPRECISE G103 PB2398 PB2399 PY G105 PY0 G111",
     "emit G113 PPRECISE X440 Y2315 F300",
@@ -135,16 +193,97 @@ V_WRAP_FINAL_TAIL_SCRIPT = compile_template_script(
   )
 )
 
-
 _G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
+SCRIPT_VARIANT_DEFAULT = "default"
+SCRIPT_VARIANT_XZ = "xz"
 
 
 def _apply_strip_g113_params(lines):
-  return [re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines]
+  return [
+    re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
+  ]
+
+
+def _are_consecutive_pins(first_pin, second_pin):
+  return (
+    _wrap_pin_number(first_pin + 1) == second_pin
+    or _wrap_pin_number(second_pin + 1) == first_pin
+  )
+
+
+def _should_add_foot_pause(first_pin, second_pin):
+  if not _are_consecutive_pins(first_pin, second_pin):
+    return False
+
+  if not (
+    FOOT_PAUSE_MIN_PIN <= first_pin <= FOOT_PAUSE_MAX_PIN
+    or FOOT_PAUSE_MIN_PIN <= second_pin <= FOOT_PAUSE_MAX_PIN
+  ):
+    return False
+
+  first_board = LAYER_METADATA["V"]["pinToBoard"].get(first_pin)
+  second_board = LAYER_METADATA["V"]["pinToBoard"].get(second_pin)
+  if first_board is None or second_board is None:
+    return False
+
+  return first_board["boardIndex"] != second_board["boardIndex"]
+
+
+def _split_trailing_comments(line):
+  body = str(line).rstrip()
+  comments = []
+  while True:
+    match = re.search(r"\s+(\([^()]*\))\s*$", body)
+    if match is None:
+      break
+    comments.insert(0, match.group(1))
+    body = body[: match.start()].rstrip()
+  return body, comments
+
+
+def _append_command_before_trailing_comments(line, command):
+  body, comments = _split_trailing_comments(line)
+  if body.endswith(" " + command) or body == command:
+    return str(line)
+  if comments:
+    return _normalize_generated_line_text(" ".join([body, command] + comments))
+  return _normalize_generated_line_text(body + " " + command)
+
+
+def _apply_add_foot_pauses(lines):
+  updated_lines = []
+  for line in lines:
+    match = _PIN_PAIR_RE.search(line)
+    if match is None:
+      updated_lines.append(line)
+      continue
+
+    first_pin = int(match.group(1))
+    second_pin = int(match.group(2))
+    if _should_add_foot_pause(first_pin, second_pin):
+      updated_lines.append(
+        _append_command_before_trailing_comments(line, "G111 (board gap)")
+      )
+      continue
+
+    updated_lines.append(line)
+  return updated_lines
 
 
 class VTemplateInputError(ValueError):
   pass
+
+
+def _normalize_script_variant(script_variant):
+  if script_variant is None:
+    return SCRIPT_VARIANT_DEFAULT
+
+  normalized = str(script_variant).strip().lower()
+  if normalized in ("", "default", "normal", "standard"):
+    return SCRIPT_VARIANT_DEFAULT
+  if normalized == SCRIPT_VARIANT_XZ:
+    return SCRIPT_VARIANT_XZ
+  raise VTemplateInputError("Unsupported V script variant: " + repr(script_variant))
 
 
 def _format_number(value):
@@ -162,11 +301,18 @@ def _normalize_pin_tokens(text):
   return template_gcode_common.normalize_pin_tokens(text, _wrap_pin_number)
 
 
+def _normalize_generated_line_text(text):
+  normalized = " ".join(str(text).split())
+  if "PXZ" in normalized or "ZEXTEND" in normalized:
+    return normalized
+  return normalize_line_text(normalized)
+
+
 def _line(*parts):
   return template_gcode_common.build_line(
     parts,
     normalize_pin_tokens_fn=_normalize_pin_tokens,
-    normalize_line_text_fn=normalize_line_text,
+    normalize_line_text_fn=_normalize_generated_line_text,
   )
 
 
@@ -183,7 +329,7 @@ def _g106(mode):
 
 
 def _near_comb(pin_number):
-  return template_gcode_common.near_comb(pin_number, COMBS)
+  return template_gcode_common.near_comb(pin_number, COMBS, "V")
 
 
 def _coerce_bool(value):
@@ -213,13 +359,18 @@ def _apply_pull_in_input(key, value, pull_ins):
   return True
 
 
-def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode, pull_ins):
+def _apply_named_input(
+  named_inputs, offsets, transfer_pause, add_foot_pauses, include_lead_mode, pull_ins
+):
   filtered_named_inputs = {}
   for key, value in (named_inputs or {}).items():
     if _apply_pull_in_input(key, value, pull_ins):
       continue
+    if key in ("addFootPauses", "add foot pauses"):
+      add_foot_pauses = _coerce_bool(value)
+      continue
     filtered_named_inputs[key] = value
-  return template_gcode_common.apply_named_input(
+  transfer_pause, include_lead_mode = template_gcode_common.apply_named_input(
     filtered_named_inputs,
     offsets,
     transfer_pause,
@@ -231,15 +382,21 @@ def _apply_named_input(named_inputs, offsets, transfer_pause, include_lead_mode,
     error_type=VTemplateInputError,
     layer_name="V",
   )
+  return transfer_pause, add_foot_pauses, include_lead_mode
 
 
-def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_mode, pull_ins):
+def _apply_special_input(
+  special_inputs, offsets, transfer_pause, add_foot_pauses, include_lead_mode, pull_ins
+):
   filtered_special_inputs = {}
   for key, value in (special_inputs or {}).items():
     if _apply_pull_in_input(key, value, pull_ins):
       continue
+    if key in ("addFootPauses", "add_foot_pauses", "add_foot_pause"):
+      add_foot_pauses = _coerce_bool(value)
+      continue
     filtered_special_inputs[key] = value
-  return template_gcode_common.apply_special_input(
+  transfer_pause, include_lead_mode = template_gcode_common.apply_special_input(
     filtered_special_inputs,
     offsets,
     transfer_pause,
@@ -252,6 +409,7 @@ def _apply_special_input(special_inputs, offsets, transfer_pause, include_lead_m
     error_type=VTemplateInputError,
     layer_name="V",
   )
+  return transfer_pause, add_foot_pauses, include_lead_mode
 
 
 def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
@@ -262,40 +420,48 @@ def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None
 
   offsets = list(DEFAULT_OFFSETS)
   transfer_pause = False
+  add_foot_pauses = False
   include_lead_mode = False
   pull_ins = dict(DEFAULT_PULL_INS)
-  transfer_pause, include_lead_mode = _apply_named_input(
+  transfer_pause, add_foot_pauses, include_lead_mode = _apply_named_input(
     named_inputs,
     offsets,
     transfer_pause,
+    add_foot_pauses,
     include_lead_mode,
     pull_ins,
   )
-  transfer_pause, include_lead_mode = _apply_special_input(
+  transfer_pause, add_foot_pauses, include_lead_mode = _apply_special_input(
     special_inputs,
     offsets,
     transfer_pause,
+    add_foot_pauses,
     include_lead_mode,
     pull_ins,
   )
-  return offsets, transfer_pause, include_lead_mode, pull_ins
+  return offsets, transfer_pause, add_foot_pauses, include_lead_mode, pull_ins
 
 
 def _resolve_render_state(
   *,
   offsets=None,
   transfer_pause=False,
+  add_foot_pauses=False,
   include_lead_mode=False,
   named_inputs=None,
   special_inputs=None,
   cell_overrides=None,
 ):
-  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode, resolved_pull_ins = (
-    _resolve_options(
-      named_inputs=named_inputs,
-      special_inputs=special_inputs,
-      cell_overrides=cell_overrides,
-    )
+  (
+    resolved_offsets,
+    resolved_transfer_pause,
+    resolved_add_foot_pauses,
+    resolved_include_lead_mode,
+    resolved_pull_ins,
+  ) = _resolve_options(
+    named_inputs=named_inputs,
+    special_inputs=special_inputs,
+    cell_overrides=cell_overrides,
   )
   if offsets is not None:
     for index, value in enumerate(_coerce_offsets(offsets)):
@@ -303,6 +469,7 @@ def _resolve_render_state(
   return (
     resolved_offsets,
     (_coerce_bool(transfer_pause) or resolved_transfer_pause),
+    (_coerce_bool(add_foot_pauses) or resolved_add_foot_pauses),
     (_coerce_bool(include_lead_mode) or resolved_include_lead_mode),
     resolved_pull_ins,
   )
@@ -330,6 +497,7 @@ def _render_wrap_lines(
   transfer_pause,
   include_lead_mode,
   pull_ins,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   final_wrap=False,
 ):
   lines = []
@@ -361,15 +529,25 @@ def _render_wrap_lines(
     "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
   }
 
+  script_variant = _normalize_script_variant(script_variant)
+  if script_variant == SCRIPT_VARIANT_XZ:
+    base_script = V_WRAP_BASE_SCRIPT_XZ
+    normal_tail_script = V_WRAP_NORMAL_TAIL_SCRIPT_XZ
+    final_tail_script = V_WRAP_FINAL_TAIL_SCRIPT_XZ
+  else:
+    base_script = V_WRAP_BASE_SCRIPT
+    normal_tail_script = V_WRAP_NORMAL_TAIL_SCRIPT
+    final_tail_script = V_WRAP_FINAL_TAIL_SCRIPT
+
   execute_template_script(
-    V_WRAP_BASE_SCRIPT,
+    base_script,
     environment=environment,
     output_lines=lines,
     line_builder=_line,
     transfers=transfers,
   )
 
-  tail_script = V_WRAP_FINAL_TAIL_SCRIPT if final_wrap else V_WRAP_NORMAL_TAIL_SCRIPT
+  tail_script = final_tail_script if final_wrap else normal_tail_script
   execute_template_script(
     tail_script,
     environment=environment,
@@ -385,22 +563,30 @@ def render_v_template_lines(
   *,
   offsets=None,
   transfer_pause=False,
+  add_foot_pauses=False,
   include_lead_mode=False,
   strip_g113_params=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
   cell_overrides=None,
 ):
-  resolved_offsets, transfer_pause_value, include_lead_mode_value, pull_ins = (
-    _resolve_render_state(
-      offsets=offsets,
-      transfer_pause=transfer_pause,
-      include_lead_mode=include_lead_mode,
-      named_inputs=named_inputs,
-      special_inputs=special_inputs,
-      cell_overrides=cell_overrides,
-    )
+  (
+    resolved_offsets,
+    transfer_pause_value,
+    add_foot_pauses_value,
+    include_lead_mode_value,
+    pull_ins,
+  ) = _resolve_render_state(
+    offsets=offsets,
+    transfer_pause=transfer_pause,
+    add_foot_pauses=add_foot_pauses,
+    include_lead_mode=include_lead_mode,
+    named_inputs=named_inputs,
+    special_inputs=special_inputs,
+    cell_overrides=cell_overrides,
   )
+  script_variant = _normalize_script_variant(script_variant)
 
   lines = [
     "( V Layer )",
@@ -415,7 +601,7 @@ def render_v_template_lines(
       "PB399",
       "PXY",
       "G105 " + _coord("PY", PREAMBLE_BOARD_GAP_PULL),
-      "( BOARD GAP )",
+      "(board gap)",
     ),
   ]
 
@@ -427,6 +613,7 @@ def render_v_template_lines(
         transfer_pause_value,
         include_lead_mode_value,
         pull_ins,
+        script_variant=script_variant,
       )
     )
 
@@ -437,9 +624,12 @@ def render_v_template_lines(
       transfer_pause_value,
       include_lead_mode_value,
       pull_ins,
+      script_variant=script_variant,
       final_wrap=True,
     )
   )
+  if add_foot_pauses_value:
+    lines = _apply_add_foot_pauses(lines)
   lines = _number_lines(lines)
   if strip_g113_params:
     lines = _apply_strip_g113_params(lines)
@@ -449,10 +639,14 @@ def render_v_template_lines(
 def render_v_template_text_lines(
   cell_overrides=None,
   *,
+  add_foot_pauses=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   return render_v_template_lines(
+    add_foot_pauses=add_foot_pauses,
+    script_variant=script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
@@ -463,12 +657,14 @@ def render_v_template_text_lines(
 def render_v_template_ac_lines(
   cell_overrides=None,
   *,
+  add_foot_pauses=False,
   named_inputs=None,
   sheet_path=None,
   special_inputs=None,
 ):
   _ = sheet_path
   return render_v_template_text_lines(
+    add_foot_pauses=add_foot_pauses,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -507,11 +703,15 @@ def write_v_template_text_file(
   output_path,
   cell_overrides=None,
   *,
+  add_foot_pauses=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   output = Path(output_path)
   lines = render_v_template_text_lines(
+    add_foot_pauses=add_foot_pauses,
+    script_variant=script_variant,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -524,6 +724,7 @@ def write_v_template_ac_file(
   output_path,
   cell_overrides=None,
   *,
+  add_foot_pauses=False,
   named_inputs=None,
   sheet_path=None,
   special_inputs=None,
@@ -532,6 +733,7 @@ def write_v_template_ac_file(
   return write_v_template_text_file(
     output_path,
     cell_overrides=cell_overrides,
+    add_foot_pauses=add_foot_pauses,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
@@ -542,27 +744,37 @@ def write_v_template_file(
   *,
   offsets=None,
   transfer_pause=False,
+  add_foot_pauses=False,
   include_lead_mode=False,
   strip_g113_params=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
   archive_directory=None,
   parent_hash=None,
 ):
-  resolved_offsets, resolved_transfer_pause, resolved_include_lead_mode, resolved_pull_ins = (
-    _resolve_render_state(
-      offsets=offsets,
-      transfer_pause=transfer_pause,
-      include_lead_mode=include_lead_mode,
-      named_inputs=named_inputs,
-      special_inputs=special_inputs,
-    )
+  resolved_script_variant = _normalize_script_variant(script_variant)
+  (
+    resolved_offsets,
+    resolved_transfer_pause,
+    resolved_add_foot_pauses,
+    resolved_include_lead_mode,
+    resolved_pull_ins,
+  ) = _resolve_render_state(
+    offsets=offsets,
+    transfer_pause=transfer_pause,
+    add_foot_pauses=add_foot_pauses,
+    include_lead_mode=include_lead_mode,
+    named_inputs=named_inputs,
+    special_inputs=special_inputs,
   )
   lines = render_v_template_lines(
     offsets=offsets,
     transfer_pause=transfer_pause,
+    add_foot_pauses=add_foot_pauses,
     include_lead_mode=include_lead_mode,
     strip_g113_params=strip_g113_params,
+    script_variant=resolved_script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
@@ -580,8 +792,10 @@ def write_v_template_file(
     "lines": lines,
     "offsets": list(resolved_offsets),
     "transferPause": resolved_transfer_pause,
+    "addFootPauses": resolved_add_foot_pauses,
     "includeLeadMode": resolved_include_lead_mode,
     "pullIns": dict(resolved_pull_ins),
+    "scriptVariant": resolved_script_variant,
     "wrapCount": WRAP_COUNT,
   }
 
@@ -596,7 +810,13 @@ class VTemplateProgrammaticGenerator:
     special_inputs=None,
   ):
     _ = sheet_path
-    self.offsets, self.transfer_pause, self.include_lead_mode, self.pull_ins = _resolve_options(
+    (
+      self.offsets,
+      self.transfer_pause,
+      self.add_foot_pauses,
+      self.include_lead_mode,
+      self.pull_ins,
+    ) = _resolve_options(
       named_inputs=named_inputs,
       special_inputs=special_inputs,
       cell_overrides=cell_overrides,
@@ -604,6 +824,7 @@ class VTemplateProgrammaticGenerator:
     self._lines = render_v_template_lines(
       offsets=self.offsets,
       transfer_pause=self.transfer_pause,
+      add_foot_pauses=self.add_foot_pauses,
       include_lead_mode=self.include_lead_mode,
       named_inputs=self.pull_ins,
     )
@@ -622,6 +843,8 @@ class VTemplateProgrammaticGenerator:
     values = {
       "transferPause": self.transfer_pause,
       "pause at combs": self.transfer_pause,
+      "addFootPauses": self.add_foot_pauses,
+      "add foot pauses": self.add_foot_pauses,
       "includeLeadMode": self.include_lead_mode,
       "include lead mode": self.include_lead_mode,
       "Y_PULL_IN": self.pull_ins["Y_PULL_IN"],

@@ -77,6 +77,42 @@ def _build_configuration(rootDirectory):
 
 
 class TemplateRecipePersistenceTests(unittest.TestCase):
+  def test_v_recipe_generation_is_allowed_while_machine_is_busy(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("V", rootDirectory)
+      process.controlStateMachine = FakeControlStateMachine(False)
+      service = VTemplateRecipe(process)
+
+      result = service.generateRecipeFile()
+
+      self.assertTrue(result["ok"])
+      self.assertTrue(os.path.isfile(os.path.join(process.workspace._recipeDirectory, "V-layer.gc")))
+
+  def test_v_recipe_generation_supports_xz_script_variant(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("V", rootDirectory)
+      service = VTemplateRecipe(process)
+
+      result = service.generateRecipeFile(scriptVariant="xz")
+
+      self.assertTrue(result["ok"])
+      recipePath = os.path.join(process.workspace._recipeDirectory, "V-layer.gc")
+      self.assertTrue(os.path.isfile(recipePath))
+      with open(recipePath, encoding="utf-8") as handle:
+        recipeText = handle.read()
+      self.assertIn("PXZ", recipeText)
+
+  def test_u_recipe_generation_is_allowed_while_machine_is_busy(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("U", rootDirectory)
+      process.controlStateMachine = FakeControlStateMachine(False)
+      service = UTemplateRecipe(process)
+
+      result = service.generateRecipeFile()
+
+      self.assertTrue(result["ok"])
+      self.assertTrue(os.path.isfile(os.path.join(process.workspace._recipeDirectory, "U-layer.gc")))
+
   def test_u_recipe_draft_persists_after_service_restart(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = FakeProcess("U", rootDirectory)
@@ -85,6 +121,8 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       result = service.setOffset("head_a_corner", 1.25)
       self.assertTrue(result["ok"])
       result = service.setTransferPause(False)
+      self.assertTrue(result["ok"])
+      result = service.setAddFootPauses(True)
       self.assertTrue(result["ok"])
       result = service.setPullIn("Y_PULL_IN", 212.5)
       self.assertTrue(result["ok"])
@@ -98,6 +136,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       state = restarted.getState()
       self.assertAlmostEqual(state["offsets"]["head_a_corner"], 1.25, places=6)
       self.assertFalse(state["transferPause"])
+      self.assertTrue(state["addFootPauses"])
       self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 212.5, places=6)
       self.assertAlmostEqual(state["pullIns"]["X_PULL_IN"], 187.5, places=6)
       self.assertTrue(state["dirty"])
@@ -111,6 +150,8 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertTrue(result["ok"])
       result = service.setTransferPause(False)
       self.assertTrue(result["ok"])
+      result = service.setAddFootPauses(True)
+      self.assertTrue(result["ok"])
       result = service.setPullIn("Y_PULL_IN", 82.5)
       self.assertTrue(result["ok"])
       result = service.setPullIn("X_PULL_IN", 91.5)
@@ -123,6 +164,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       state = restarted.getState()
       self.assertAlmostEqual(state["offsets"]["head_a_corner"], -2.5, places=6)
       self.assertFalse(state["transferPause"])
+      self.assertTrue(state["addFootPauses"])
       self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 82.5, places=6)
       self.assertAlmostEqual(state["pullIns"]["X_PULL_IN"], 91.5, places=6)
       self.assertTrue(state["dirty"])

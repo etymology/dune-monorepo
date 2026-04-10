@@ -24,7 +24,9 @@ class SimulatedPLC(PLC):
   STATE_ERROR = 10
   STATE_EOT = 11
   STATE_XZ_SEEK = 12
-  STATE_QUEUED_MOTION = 13
+  STATE_YZ_SEEK = 13
+  STATE_HMI_STOP = 14
+  STATE_QUEUED_MOTION = STATE_YZ_SEEK
 
   MOVE_RESET = 0
   MOVE_JOG_XY = 1
@@ -37,14 +39,17 @@ class SimulatedPLC(PLC):
   MOVE_UNSERVO = 8
   MOVE_PLC_INIT = 9
   MOVE_SEEK_XZ = 10
+  MOVE_HMI_STOP_REQUEST = 11
+  MOVE_SEEK_YZ = 12
 
   _MACHINE_SW_PATTERN = re.compile(r"^MACHINE_SW_STAT\[(\d+)\]$")
   _XZ_TARGET_PATTERN = re.compile(r"^xz_position_target\[(\d+)\]$")
+  _YZ_TARGET_PATTERN = re.compile(r"^yz_position_target\[(\d+)\]$")
 
   _MACHINE_SW_ASSUMPTIONS = [
     "Z retract/extend sensors are derived from Z axis position and nominal front/back limits.",
-    "Stage/fixed present sensors default true unless overridden; latch-side state tracks stage/fixed transfer steps independently of HEAD_POS.",
-    "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2/3), where 3 is the transient fixed-latch transfer position.",
+    "Stage/fixed present sensors default true unless overridden; latched sensors are derived from HEAD_POS (-1/0/3).",
+    "Actuator top/mid sensors are derived from ACTUATOR_POS (0/1/2/3).",
     "Transfer and end-of-travel sensors are derived from current X/Y positions and configured limits.",
     "Safety bits (Rotation_Lock_key, Light_Curtain) default to permissive values unless overridden.",
     "estop and park default to false unless overridden.",
@@ -62,6 +67,18 @@ class SimulatedPLC(PLC):
     MOVE_UNSERVO: STATE_UNSERVO,
     MOVE_PLC_INIT: STATE_INIT,
     MOVE_SEEK_XZ: STATE_XZ_SEEK,
+    MOVE_HMI_STOP_REQUEST: STATE_HMI_STOP,
+    MOVE_SEEK_YZ: STATE_YZ_SEEK,
+  }
+  _STATE_REQUEST_TO_BUSY_STATE = {
+    STATE_XY_SEEK: STATE_XY_SEEK,
+    STATE_Z_SEEK: STATE_Z_SEEK,
+    STATE_LATCHING: STATE_LATCHING,
+    STATE_UNSERVO: STATE_UNSERVO,
+    STATE_EOT: STATE_EOT,
+    STATE_XZ_SEEK: STATE_XZ_SEEK,
+    STATE_YZ_SEEK: STATE_YZ_SEEK,
+    STATE_HMI_STOP: STATE_HMI_STOP,
   }
 
   def __init__(self, ipAddress="SIM"):
@@ -76,8 +93,6 @@ class SimulatedPLC(PLC):
     self._queuedMotionActive = False
     self._currentQueuedSegment = None
     self._currentQueueCyclesRemaining = 0
-    self._latchedSide = "stage"
-    self._returningToStage = False
 
     self._limits = {
       "parkX": 0.0,
@@ -99,83 +114,6 @@ class SimulatedPLC(PLC):
     self._tagValues = {}
     self._overrides = {}
     self._seedDefaultTags()
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _projectHeadPosition(latchedSide, actuatorPos: int) -> int:
-    if latchedSide == "stage":
-      return 0
-    if latchedSide == "fixed":
-      return 0 if int(actuatorPos) == 3 else 3
-    return -1
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _inferLatchState(headPos: int, actuatorPos: int):
-    head = int(headPos)
-    actuator = int(actuatorPos)
-    if head == -1:
-      return None, False
-    if actuator == 3:
-      return "fixed", False
-    if head == 3 and actuator == 1:
-      return "stage", True
-    if head == 3:
-      return "fixed", False
-    return "stage", False
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _nextLatchState(actuatorPos: int, latchedSide, returningToStage: bool):
-    actuator = int(actuatorPos)
-    side = latchedSide
-    returning = bool(returningToStage)
-
-    if side == "stage":
-      if actuator == 0:
-        return 1, "stage", False
-      if actuator == 1:
-        if returning:
-          return 2, "stage", False
-        return 3, "fixed", False
-      if actuator == 2:
-        return 1, "stage", False
-      if actuator == 3:
-        return 2, "fixed", False
-      return 1, "stage", False
-
-    if side == "fixed":
-      if actuator == 3:
-        return 2, "fixed", False
-      if actuator == 2:
-        return 1, "stage", True
-      if actuator == 1:
-        return 2, "stage", False
-      if actuator == 0:
-        return 2, "fixed", False
-      return 2, "fixed", False
-
-    return 1, "stage", False
-
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def _actuatorSensorState(actuatorPos: int):
-    actuator = int(actuatorPos)
-    top = actuator in (2, 3)
-    mid = actuator == 2
-    return top, mid
-
-  # ---------------------------------------------------------------------
-  def _syncHiddenLatchStateFromVisible(self):
-    self._latchedSide, self._returningToStage = self._inferLatchState(
-      self._tagValues.get("HEAD_POS", 0),
-      self._tagValues.get("ACTUATOR_POS", 0),
-    )
-
-  # ---------------------------------------------------------------------
-  def _syncVisibleLatchTags(self):
-    actuator = int(self._tagValues.get("ACTUATOR_POS", 0))
-    self._tagValues["HEAD_POS"] = self._projectHeadPosition(self._latchedSide, actuator)
 
   # ---------------------------------------------------------------------
   def initialize(self):
@@ -294,8 +232,10 @@ class SimulatedPLC(PLC):
     self._tagValues["STATE"] = self.STATE_READY
     self._tagValues["ERROR_CODE"] = 0
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
+    self._tagValues["STATE_REQUEST"] = 0
     self._tagValues["gui_latch_pulse"] = 0
-    self._tagValues["ACTUATOR_POS"] = 0
+    self._tagValues["HEAD_POS"] = 0
+    self._tagValues["ACTUATOR_POS"] = 1
 
     self._tagValues["XY_SPEED"] = 0.0
     self._tagValues["XY_ACCELERATION"] = 0.0
@@ -347,6 +287,7 @@ class SimulatedPLC(PLC):
     self._tagValues["v_xyz"] = 0.0
     self._tagValues["tension_motor_cv"] = 0.0
     self._tagValues["xz_position_target"] = [0.0, 0.0]
+    self._tagValues["yz_position_target"] = [0.0, 0.0]
 
     self._tagValues["MORE_STATS_S[0]"] = 1
     self._tagValues["IncomingSeg"] = {}
@@ -368,7 +309,6 @@ class SimulatedPLC(PLC):
     self._tagValues["UseAasCurrent"] = 1
     self._tagValues["X_Y.MovePendingStatus"] = 0
     self._tagValues["FaultCode"] = 0
-    self._syncVisibleLatchTags()
 
   # ---------------------------------------------------------------------
   def _writeTag(self, tagName, value):
@@ -379,6 +319,10 @@ class SimulatedPLC(PLC):
 
     if tagName == "MOVE_TYPE":
       self._setMoveType(int(value))
+      return
+
+    if tagName == "STATE_REQUEST":
+      self._setStateRequest(int(value))
       return
 
     if tagName == "IncomingSeg":
@@ -417,9 +361,7 @@ class SimulatedPLC(PLC):
       enabled = self._coerceBit(value)
       self._tagValues[tagName] = enabled
       if enabled:
-        if bool(self._readTagValue("MACHINE_SW_STAT[9]")) and bool(
-          self._readTagValue("MACHINE_SW_STAT[10]")
-        ):
+        if bool(self._readTagValue("ENABLE_ACTUATOR")):
           self._advanceLatch()
         self._tagValues[tagName] = 0
       return
@@ -429,8 +371,6 @@ class SimulatedPLC(PLC):
       if intValue not in (-1, 0, 3):
         raise ValueError("HEAD_POS must be one of -1, 0, or 3.")
       self._tagValues[tagName] = intValue
-      self._syncHiddenLatchStateFromVisible()
-      self._syncVisibleLatchTags()
       return
 
     if tagName == "ACTUATOR_POS":
@@ -438,13 +378,17 @@ class SimulatedPLC(PLC):
       if intValue not in (0, 1, 2, 3):
         raise ValueError("ACTUATOR_POS must be one of 0, 1, 2, or 3.")
       self._tagValues[tagName] = intValue
-      self._syncHiddenLatchStateFromVisible()
-      self._syncVisibleLatchTags()
       return
 
     if tagName == "xz_position_target":
       if not isinstance(value, (list, tuple)) or len(value) != 2:
         raise ValueError("xz_position_target must be a two-element sequence.")
+      self._tagValues[tagName] = [float(value[0]), float(value[1])]
+      return
+
+    if tagName == "yz_position_target":
+      if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError("yz_position_target must be a two-element sequence.")
       self._tagValues[tagName] = [float(value[0]), float(value[1])]
       return
 
@@ -467,6 +411,45 @@ class SimulatedPLC(PLC):
 
     busyState = self._MOVE_TO_BUSY_STATE.get(moveType)
     if busyState is None:
+      return
+
+    self._tagValues["STATE"] = busyState
+    self._pendingMoveType = moveType
+    self._settleCyclesRemaining = 1
+    self._setAxisMovement(True)
+
+  # ---------------------------------------------------------------------
+  def _setStateRequest(self, requestedState: int):
+    requestedState = int(requestedState)
+    self._tagValues["STATE_REQUEST"] = requestedState
+
+    if requestedState == 0:
+      return
+
+    if requestedState == self.STATE_EOT:
+      if self._tagValues.get("STATE", self.STATE_READY) == self.STATE_ERROR:
+        return
+      self._tagValues["STATE"] = self.STATE_EOT
+      self._pendingMoveType = None
+      self._settleCyclesRemaining = 0
+      self._setAxisMovement(False)
+      return
+
+    busyState = self._STATE_REQUEST_TO_BUSY_STATE.get(requestedState)
+    moveTypeMap = {
+      self.STATE_XY_SEEK: self.MOVE_SEEK_XY,
+      self.STATE_Z_SEEK: self.MOVE_SEEK_Z,
+      self.STATE_LATCHING: self.MOVE_LATCH,
+      self.STATE_UNSERVO: self.MOVE_UNSERVO,
+      self.STATE_XZ_SEEK: self.MOVE_SEEK_XZ,
+      self.STATE_YZ_SEEK: self.MOVE_SEEK_YZ,
+      self.STATE_HMI_STOP: self.MOVE_HMI_STOP_REQUEST,
+    }
+    moveType = moveTypeMap.get(requestedState)
+    if busyState is None or moveType is None:
+      return
+
+    if self._tagValues.get("STATE", self.STATE_READY) == self.STATE_ERROR:
       return
 
     self._tagValues["STATE"] = busyState
@@ -507,6 +490,22 @@ class SimulatedPLC(PLC):
       self._tagValues["X_axis.ActualPosition"] = xTarget
       self._tagValues["Z_axis.ActualPosition"] = zTarget
 
+    elif moveType == self.MOVE_SEEK_YZ:
+      yTarget, zTarget = self._tagValues.get("yz_position_target", [0.0, 0.0])
+      yTarget = float(yTarget)
+      zTarget = float(zTarget)
+      if self._isXYLimitViolation(float(self._tagValues["X_axis.ActualPosition"]), yTarget):
+        self._setError(3003)
+        return
+      if self._isZLimitViolation(zTarget):
+        self._setError(5003)
+        return
+      if not bool(self._readTagValue("X_XFER_OK")):
+        self._setError(5003)
+        return
+      self._tagValues["Y_axis.ActualPosition"] = yTarget
+      self._tagValues["Z_axis.ActualPosition"] = zTarget
+
     elif moveType == self.MOVE_SEEK_XY:
       xTarget = float(self._tagValues.get("X_POSITION", self._tagValues["X_axis.ActualPosition"]))
       yTarget = float(self._tagValues.get("Y_POSITION", self._tagValues["Y_axis.ActualPosition"]))
@@ -539,34 +538,41 @@ class SimulatedPLC(PLC):
         return
       self._tagValues["Z_axis.ActualPosition"] = zTarget
 
+    elif moveType == self.MOVE_HMI_STOP_REQUEST:
+      self._abortQueuedMotion()
+
     elif moveType == self.MOVE_LATCH:
       self._advanceLatch()
 
     elif moveType == self.MOVE_HOME_LATCH:
       self._tagValues["ACTUATOR_POS"] = 0
-      if self._latchedSide is None:
-        self._latchedSide = "stage"
-      self._returningToStage = False
-      self._syncVisibleLatchTags()
+      if self._tagValues.get("HEAD_POS") == -1:
+        self._tagValues["HEAD_POS"] = 0
 
     elif moveType == self.MOVE_LATCH_UNLOCK:
       self._tagValues["ACTUATOR_POS"] = 2
-      self._syncVisibleLatchTags()
 
     if self._tagValues.get("STATE") != self.STATE_ERROR:
       self._tagValues["ERROR_CODE"] = 0
       self._tagValues["STATE"] = self.STATE_READY
+      self._tagValues["STATE_REQUEST"] = 0
 
   # ---------------------------------------------------------------------
   def _advanceLatch(self):
-    actuator = int(self._tagValues.get("ACTUATOR_POS", 0))
-    actuator, self._latchedSide, self._returningToStage = self._nextLatchState(
-      actuator,
-      self._latchedSide,
-      self._returningToStage,
-    )
+    actuator = int(self._tagValues.get("ACTUATOR_POS", 1))
+    if actuator == 1:
+      actuator = 3
+    elif actuator == 3:
+      actuator = 2
+    elif actuator == 2:
+      actuator = 1
     self._tagValues["ACTUATOR_POS"] = actuator
-    self._syncVisibleLatchTags()
+
+    headPos = int(self._tagValues.get("HEAD_POS", 0))
+    if actuator == 2 and headPos == 0:
+      self._tagValues["HEAD_POS"] = 3
+    elif actuator == 1 and headPos == 3:
+      self._tagValues["HEAD_POS"] = 0
 
   # ---------------------------------------------------------------------
   def _setAxisMovement(self, isMoving: bool):
@@ -582,6 +588,10 @@ class SimulatedPLC(PLC):
     elif isMoving and self._pendingMoveType == self.MOVE_SEEK_XZ:
       self._tagValues["X_axis.ActualVelocity"] = 1.0
       self._tagValues["Y_axis.ActualVelocity"] = 0.0
+      self._tagValues["Z_axis.ActualVelocity"] = 1.0
+    elif isMoving and self._pendingMoveType == self.MOVE_SEEK_YZ:
+      self._tagValues["X_axis.ActualVelocity"] = 0.0
+      self._tagValues["Y_axis.ActualVelocity"] = 1.0
       self._tagValues["Z_axis.ActualVelocity"] = 1.0
     elif isMoving and self._pendingMoveType in (self.MOVE_JOG_Z, self.MOVE_SEEK_Z):
       self._tagValues["X_axis.ActualVelocity"] = 0.0
@@ -599,6 +609,7 @@ class SimulatedPLC(PLC):
     self._tagValues["ERROR_CODE"] = 0
     self._tagValues["STATE"] = self.STATE_READY
     self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
+    self._tagValues["STATE_REQUEST"] = 0
     self._setAxisMovement(False)
     self._abortQueuedMotion()
 
@@ -608,6 +619,7 @@ class SimulatedPLC(PLC):
     self._settleCyclesRemaining = 0
     self._tagValues["ERROR_CODE"] = int(code)
     self._tagValues["STATE"] = self.STATE_ERROR
+    self._tagValues["STATE_REQUEST"] = 0
     self._setAxisMovement(False)
     self._abortQueuedMotion()
 
@@ -771,9 +783,23 @@ class SimulatedPLC(PLC):
     if tagName == "Y_XFER_OK":
       return self._readTagValue("MACHINE_SW_STAT[17]")
 
+    if tagName == "X_XFER_OK":
+      return self._readTagValue("MACHINE_SW_STAT[15]")
+
+    if tagName == "ENABLE_ACTUATOR":
+      return 1 if (
+        bool(self._readTagValue("MACHINE_SW_STAT[9]"))
+        and bool(self._readTagValue("MACHINE_SW_STAT[10]"))
+        and bool(self._readTagValue("MACHINE_SW_STAT[5]"))
+      ) else 0
+
     xzTargetIndex = self._xzTargetIndex(tagName)
     if xzTargetIndex is not None:
       return self._tagValues.get("xz_position_target", [0.0, 0.0])[xzTargetIndex]
+
+    yzTargetIndex = self._yzTargetIndex(tagName)
+    if yzTargetIndex is not None:
+      return self._tagValues.get("yz_position_target", [0.0, 0.0])[yzTargetIndex]
 
     bitIndex = self._machineBitIndex(tagName)
     if bitIndex is not None:
@@ -792,15 +818,22 @@ class SimulatedPLC(PLC):
     return index
 
   # ---------------------------------------------------------------------
+  def _yzTargetIndex(self, tagName):
+    match = self._YZ_TARGET_PATTERN.match(tagName)
+    if match is None:
+      return None
+    index = int(match.group(1))
+    if index not in (0, 1):
+      raise ValueError("yz_position_target index must be 0 or 1.")
+    return index
+
+  # ---------------------------------------------------------------------
   def _deriveMachineSwitchBit(self, bitIndex: int):
     x = float(self._tagValues.get("X_axis.ActualPosition", 0.0))
     y = float(self._tagValues.get("Y_axis.ActualPosition", 0.0))
     z = float(self._tagValues.get("Z_axis.ActualPosition", 0.0))
     headPos = int(self._tagValues.get("HEAD_POS", 0))
     actuatorPos = int(self._tagValues.get("ACTUATOR_POS", 0))
-    stageLatched = self._latchedSide == "stage"
-    fixedLatched = self._latchedSide == "fixed"
-    topSensor, midSensor = self._actuatorSensorState(actuatorPos)
 
     zRetracted = z <= (self._limits["zFront"] + 1.0)
     zExtended = z >= (self._limits["zBack"] - 1.0)
@@ -815,14 +848,14 @@ class SimulatedPLC(PLC):
       3: zRetracted,
       4: zRetracted,
       5: zExtended,
-      6: stageLatched,
-      7: fixedLatched,
+      6: headPos == 0 and actuatorPos == 1,
+      7: headPos == 3 and actuatorPos == 2,
       8: z <= self._limits["zLimitFront"] or z >= self._limits["zLimitRear"],
       9: True,
       10: True,
       11: zExtended,
-      12: topSensor,
-      13: midSensor,
+      12: actuatorPos == 0,
+      13: actuatorPos == 1,
       14: xPark,
       15: xTransfer,
       16: yTransfer,
@@ -853,6 +886,7 @@ class SimulatedPLC(PLC):
       "cycle": self._cycle,
       "state": int(self._tagValues.get("STATE", self.STATE_READY)),
       "moveType": int(self._tagValues.get("MOVE_TYPE", self.MOVE_RESET)),
+      "stateRequest": int(self._tagValues.get("STATE_REQUEST", 0)),
       "errorCode": int(self._tagValues.get("ERROR_CODE", 0)),
       "headPos": int(self._tagValues.get("HEAD_POS", 0)),
       "actuatorPos": int(self._tagValues.get("ACTUATOR_POS", 0)),

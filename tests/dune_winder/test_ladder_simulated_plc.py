@@ -76,7 +76,7 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 0)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 0)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
     self.assertTrue(plc.get_tag("MACHINE_SW_STAT[6]"))
     self.assertFalse(plc.get_tag("MACHINE_SW_STAT[7]"))
     self.assertEqual(plc.get_tag("QueueCtl.POS"), 0)
@@ -88,11 +88,11 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc.write(("XY_SPEED", 1000.0))
     plc.write(("XY_ACCELERATION", 1000.0))
     plc.write(("XY_DECELERATION", 1000.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+    plc.write(("STATE_REQUEST", plc.STATE_XY_SEEK))
 
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
 
-    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 123.4, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
     self.assertTrue(plc.get_tag("main_xy_move.PC"))
@@ -104,47 +104,43 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc.write(("XY_SPEED", 1000.0))
     plc.write(("XY_ACCELERATION", 1000.0))
     plc.write(("XY_DECELERATION", 1000.0))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XY))
+    plc.write(("STATE_REQUEST", plc.STATE_XY_SEEK))
 
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
 
-    self.assertEqual(plc.get_tag("MOVE_TYPE"), 0)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 123.4, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 456.7, places=6)
     self.assertTrue(plc.get_tag("main_xy_move.PC"))
 
-  def test_latch_stub_uses_stage_to_fixed_transient_position_three(self):
+  def test_latch_stub_cycles_positions_without_stalling_state_machine(self):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("HEAD_POS", 0)
-    plc.set_tag("ACTUATOR_POS", 0)
+    plc.set_tag("ACTUATOR_POS", 1)
 
-    plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
+    plc.write(("STATE_REQUEST", plc.STATE_LATCHING))
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_LATCHING)
     self._advance(plc)
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_LATCHING)
-    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 0)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
-    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
-    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
-    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
-    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[6]"))
-    self.assertFalse(plc.get_tag("MACHINE_SW_STAT[7]"))
-
-    plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
-    self._advance(plc)
     self.assertEqual(plc.get_tag("PREV_ACT_POS"), 1)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
     self.assertEqual(plc.get_tag("HEAD_POS"), 0)
-    self.assertFalse(plc.get_tag("MACHINE_SW_STAT[6]"))
-    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[7]"))
 
-    plc.write(("MOVE_TYPE", plc.MOVE_LATCH))
+    plc.write(("STATE_REQUEST", plc.STATE_LATCHING))
     self._advance(plc)
     self.assertEqual(plc.get_tag("PREV_ACT_POS"), 3)
     self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 2)
     self.assertEqual(plc.get_tag("HEAD_POS"), 3)
+
+    plc.write(("STATE_REQUEST", plc.STATE_LATCHING))
+    self._advance(plc)
+    self.assertEqual(plc.get_tag("PREV_ACT_POS"), 2)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+    self.assertEqual(plc.get_tag("HEAD_POS"), 0)
 
   def test_gui_latch_pulse_advances_stub_and_auto_clears(self):
     plc = LadderSimulatedPLC("SIM")
@@ -154,8 +150,15 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc.write(("gui_latch_pulse", 1))
 
     self.assertFalse(plc.get_tag("gui_latch_pulse"))
+    self.assertEqual(plc.get_tag("ACTUATOR_POS"), 1)
+
+    plc.write(("Z_POSITION", 418.0))
+    plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+
+    plc.write(("gui_latch_pulse", 1))
+
     self.assertEqual(plc.get_tag("ACTUATOR_POS"), 3)
-    self.assertTrue(plc.get_tag("MACHINE_SW_STAT[7]"))
 
   def test_latch_home_and_unlock_stub_update_homed_status(self):
     plc = LadderSimulatedPLC("SIM")
@@ -185,9 +188,9 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     plc = LadderSimulatedPLC("SIM")
     plc.set_tag("MACHINE_SW_STAT[17]", 0, override=True)
     plc.write(("xz_position_target", [321.0, 210.5]))
-    plc.write(("MOVE_TYPE", plc.MOVE_SEEK_XZ))
+    plc.write(("STATE_REQUEST", plc.STATE_XZ_SEEK))
 
-    self._advance(plc, 2)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") in (plc.STATE_ERROR, plc.STATE_READY))
 
     self.assertEqual(plc.get_tag("STATE"), plc.STATE_ERROR)
     self.assertEqual(plc.get_tag("ERROR_CODE"), 5003)
@@ -236,6 +239,85 @@ class LadderSimulatedPlcTests(unittest.TestCase):
     self.assertFalse(plc.get_tag("CurIssued"))
     self.assertAlmostEqual(plc.get_tag("X_axis.ActualPosition"), 125.0, places=6)
     self.assertAlmostEqual(plc.get_tag("Y_axis.ActualPosition"), 250.0, places=6)
+
+  def test_hmi_stop_request_interrupts_xy_seek_and_returns_ready(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.write(("X_POSITION", 123.4))
+    plc.write(("Y_POSITION", 456.7))
+    plc.write(("XY_SPEED", 1000.0))
+    plc.write(("XY_ACCELERATION", 1000.0))
+    plc.write(("XY_DECELERATION", 1000.0))
+    plc.write(("STATE_REQUEST", plc.STATE_XY_SEEK))
+    self._advance(plc)
+
+    plc.write(("STATE_REQUEST", plc.STATE_HMI_STOP))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_HMI_STOP)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
+    self.assertTrue(plc.get_tag("hmi_xy_stop.DN"))
+    self.assertTrue(plc.get_tag("hmi_x_axis_stop.DN"))
+    self.assertTrue(plc.get_tag("hmi_y_axis_stop.DN"))
+    self.assertTrue(plc.get_tag("hmi_z_axis_stop.DN"))
+
+  def test_hmi_stop_request_interrupts_queued_motion_and_aborts_queue(self):
+    plc = LadderSimulatedPLC("SIM")
+    self._enqueue_segment(
+      plc,
+      1,
+      MotionSegment(
+        seq=1,
+        seg_type=1,
+        x=100.0,
+        y=100.0,
+        speed=1000.0,
+        accel=2000.0,
+        decel=2000.0,
+        jerk_accel=1500.0,
+        jerk_decel=3000.0,
+        term_type=3,
+      ),
+    )
+    self._enqueue_segment(
+      plc,
+      2,
+      MotionSegment(
+        seq=2,
+        seg_type=1,
+        x=200.0,
+        y=200.0,
+        speed=1000.0,
+        accel=2000.0,
+        decel=2000.0,
+        jerk_accel=1500.0,
+        jerk_decel=3000.0,
+        term_type=3,
+      ),
+    )
+    plc.set_tag("StartQueuedPath", True)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_QUEUED_MOTION)
+
+    plc.write(("STATE_REQUEST", plc.STATE_HMI_STOP))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_HMI_STOP)
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_READY)
+
+    self.assertEqual(plc.get_tag("QueueCount"), 0)
+    self.assertFalse(plc.get_tag("CurIssued"))
+    self.assertFalse(plc.get_tag("NextIssued"))
+    self.assertEqual(plc.get_tag("PendingSeq"), 0)
+    self.assertEqual(plc.get_tag("ActiveSeq"), 0)
+    self.assertTrue(plc.get_tag("hmi_xy_stop.DN"))
+
+  def test_eot_state_request_enters_eot_recovery_state(self):
+    plc = LadderSimulatedPLC("SIM")
+    plc.set_tag("MINUS_X_EOT", False, override=True)
+    plc.write(("STATE_REQUEST", plc.STATE_EOT))
+
+    self._advance_until(plc, lambda: plc.get_tag("STATE") == plc.STATE_EOT)
+
+    self.assertEqual(plc.get_tag("STATE"), plc.STATE_EOT)
 
   def test_queue_circle_segment_executes_via_motion_queue_routine(self):
     plc = LadderSimulatedPLC("SIM")

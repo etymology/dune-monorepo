@@ -9,12 +9,15 @@ function QueuedMotionPreview(modules)
   var previewPending = false
   var decisionPending = false
   var limits = null
+  var layerCalibration = null
   var autoContinue = false
   var useMaxSpeed = false
   var useMaxSpeedPending = false
 
-  var CANVAS_HEIGHT = 320
   var PADDING = 18
+  var LEGEND_SPACE = 22
+  var MIN_VIEW_HEIGHT = 96
+  var YZ_Z_AXIS_SCALE_FACTOR = 0.6
   var AUTO_CONTINUE_STORAGE_KEY = "queuedMotionPreview.autoContinue"
 
   function readNumber(source, key, fallback)
@@ -35,6 +38,8 @@ function QueuedMotionPreview(modules)
       limitRight: readNumber( source, "limitRight", 7360.0 ),
       limitBottom: readNumber( source, "limitBottom", 0.0 ),
       limitTop: readNumber( source, "limitTop", 3000.0 ),
+      zFront: readNumber( source, "zFront", 0.0 ),
+      zBack: readNumber( source, "zBack", 400.0 ),
       transferZoneHeadMinX: readNumber( source, "transferZoneHeadMinX", 400.0 ),
       transferZoneHeadMaxX: readNumber( source, "transferZoneHeadMaxX", 500.0 ),
       transferZoneFootMinX: readNumber( source, "transferZoneFootMinX", 7100.0 ),
@@ -223,6 +228,18 @@ function QueuedMotionPreview(modules)
     decisionPending = false
   }
 
+  function measureCanvasWidth(canvasId)
+  {
+    var canvas = document.getElementById( canvasId )
+    if ( ! canvas )
+      return 0
+
+    var width = $( canvas ).innerWidth()
+    if ( ! width || width < 10 )
+      width = 620
+    return width
+  }
+
   function refreshPreview()
   {
     uiServices.call(
@@ -274,9 +291,9 @@ function QueuedMotionPreview(modules)
     )
   }
 
-  function ensureCanvas()
+  function ensureCanvas(canvasId, height)
   {
-    var canvas = document.getElementById( "queuedMotionPreviewCanvas" )
+    var canvas = document.getElementById( canvasId )
     if ( ! canvas )
       return null
 
@@ -286,35 +303,192 @@ function QueuedMotionPreview(modules)
 
     var pixelRatio = window.devicePixelRatio || 1
     canvas.width = Math.round( width * pixelRatio )
-    canvas.height = Math.round( CANVAS_HEIGHT * pixelRatio )
-    canvas.style.height = CANVAS_HEIGHT + "px"
+    canvas.height = Math.round( height * pixelRatio )
+    canvas.style.height = height + "px"
 
     var context = canvas.getContext( "2d" )
     context.setTransform( pixelRatio, 0, 0, pixelRatio, 0, 0 )
-    context.clearRect( 0, 0, width, CANVAS_HEIGHT )
+    context.clearRect( 0, 0, width, height )
 
     return {
       canvas: canvas,
       context: context,
       width: width,
-      height: CANVAS_HEIGHT
+      height: height
     }
   }
 
-  function pointToCanvas(point, geometry, width, height)
+  function plotMetrics(bounds)
   {
-    var usableWidth = Math.max( 1, width - ( 2 * PADDING ) )
-    var usableHeight = Math.max( 1, height - ( 2 * PADDING ) )
-    var xSpan = Math.max( 1, geometry.limitRight - geometry.limitLeft )
-    var ySpan = Math.max( 1, geometry.limitTop - geometry.limitBottom )
+    var xSpan = Math.max( 1, bounds.xRange.max - bounds.xRange.min )
+    var ySpan = Math.max( 1, bounds.yRange.max - bounds.yRange.min )
+    return {
+      xSpan: xSpan,
+      ySpan: ySpan
+    }
+  }
+
+  function axisRange(minValue, maxValue, fallbackMin, fallbackMax)
+  {
+    if ( ! isFinite( minValue ) )
+      minValue = fallbackMin
+    if ( ! isFinite( maxValue ) )
+      maxValue = fallbackMax
+    if ( maxValue <= minValue )
+      maxValue = minValue + Math.max( 1, fallbackMax - fallbackMin )
+    return {
+      min: minValue,
+      max: maxValue
+    }
+  }
+
+  function viewSpec(viewName, geometry)
+  {
+    var zRange = axisRange(
+      geometry.zFront,
+      geometry.zBack,
+      0.0,
+      400.0
+    )
+
+    if ( "xz" === viewName )
+    {
+      return {
+        title: "XZ Plane",
+        canvasId: "queuedMotionPreviewXZCanvas",
+        xAxisLabel: "X",
+        yAxisLabel: "Z",
+        xRange: axisRange( geometry.limitLeft, geometry.limitRight, 0.0, 7360.0 ),
+        yRange: zRange,
+        pathColor: "#38bdf8",
+        startColor: "#22d3ee",
+        headColor: "#f8fafc",
+        projected: true
+      }
+    }
+
+    if ( "yz" === viewName )
+    {
+      return {
+        title: "YZ Plane",
+        canvasId: "queuedMotionPreviewYZCanvas",
+        xAxisLabel: "Z",
+        yAxisLabel: "Y",
+        xRange: zRange,
+        yRange: axisRange( geometry.limitBottom, geometry.limitTop, 0.0, 3000.0 ),
+        reverseX: true,
+        pathColor: "#a78bfa",
+        startColor: "#c4b5fd",
+        headColor: "#f8fafc",
+        projected: true
+      }
+    }
 
     return {
-      x: PADDING + ( ( point.x - geometry.limitLeft ) / xSpan ) * usableWidth,
-      y: height - PADDING - ( ( point.y - geometry.limitBottom ) / ySpan ) * usableHeight
+      title: "XY Plane",
+      canvasId: "queuedMotionPreviewXYCanvas",
+      xAxisLabel: "X",
+      yAxisLabel: "Y",
+      xRange: axisRange( geometry.limitLeft, geometry.limitRight, 0.0, 7360.0 ),
+      yRange: axisRange( geometry.limitBottom, geometry.limitTop, 0.0, 3000.0 ),
+      pathColor: "#22d3ee",
+      startColor: "#67e8f9",
+      headColor: "#f8fafc",
+      projected: false
     }
   }
 
-  function drawBase(context, geometry, width, height)
+  function pointToCanvas(point, bounds, layout)
+  {
+    var xSpan = Math.max( 1, bounds.xRange.max - bounds.xRange.min )
+    var ySpan = Math.max( 1, bounds.yRange.max - bounds.yRange.min )
+    var xRatio = ( point.x - bounds.xRange.min ) / xSpan
+    var yRatio = ( point.y - bounds.yRange.min ) / ySpan
+
+    if ( true === bounds.reverseX )
+      xRatio = 1 - xRatio
+
+    return {
+      x: layout.plotLeft + ( xRatio * xSpan * layout.xScale ),
+      y: layout.plotBottom - ( yRatio * ySpan * layout.yScale )
+    }
+  }
+
+  function buildViewLayout(viewName, geometry, canvasWidth, xScale, yScale)
+  {
+    var spec = viewSpec( viewName, geometry )
+    var metrics = plotMetrics( spec )
+    var usableWidth = Math.max( 1, canvasWidth - ( 2 * PADDING ) )
+    var plotWidth = metrics.xSpan * xScale
+    var plotHeight = metrics.ySpan * yScale
+    var height = Math.max(
+      MIN_VIEW_HEIGHT,
+      Math.ceil( plotHeight + ( 2 * PADDING ) + LEGEND_SPACE )
+    )
+    var plotLeft = PADDING + Math.max( 0, ( usableWidth - plotWidth ) / 2 )
+    var plotBottom = height - PADDING - LEGEND_SPACE
+
+    return {
+      spec: spec,
+      width: canvasWidth,
+      height: height,
+      xScale: xScale,
+      yScale: yScale,
+      plotLeft: plotLeft,
+      plotBottom: plotBottom,
+      plotWidth: plotWidth,
+      plotHeight: plotHeight,
+      usableWidth: usableWidth
+    }
+  }
+
+  function buildViewLayouts(geometry)
+  {
+    var views = [ "xz", "xy", "yz" ]
+    var layouts = {}
+    var sharedScale = null
+
+    for ( var index = 0; index < views.length; index += 1 )
+    {
+      var viewName = views[ index ]
+      var spec = viewSpec( viewName, geometry )
+      var width = measureCanvasWidth( spec.canvasId )
+      var span = Math.max( 1, spec.xRange.max - spec.xRange.min )
+      var usableWidth = Math.max( 1, width - ( 2 * PADDING ) )
+      var candidate = ( usableWidth - 2 ) / span
+      if ( ! isFinite( candidate ) || candidate <= 0 )
+        candidate = 1
+      if ( null === sharedScale || candidate < sharedScale )
+        sharedScale = candidate
+    }
+
+    if ( null === sharedScale || ! isFinite( sharedScale ) || sharedScale <= 0 )
+      sharedScale = 1
+
+    for ( var layoutIndex = 0; layoutIndex < views.length; layoutIndex += 1 )
+    {
+      var layoutViewName = views[ layoutIndex ]
+      var layoutSpec = viewSpec( layoutViewName, geometry )
+      var layoutWidth = measureCanvasWidth( layoutSpec.canvasId )
+      var xScale = sharedScale
+      var yScale = sharedScale
+
+      if ( "yz" === layoutViewName )
+        xScale = sharedScale * YZ_Z_AXIS_SCALE_FACTOR
+
+      layouts[ layoutViewName ] = buildViewLayout(
+        layoutViewName,
+        geometry,
+        layoutWidth,
+        xScale,
+        yScale
+      )
+    }
+
+    return layouts
+  }
+
+  function drawPanelFrame(context, bounds, layout)
   {
     context.save()
     context.strokeStyle = "rgba(148, 163, 184, 0.55)"
@@ -322,104 +496,20 @@ function QueuedMotionPreview(modules)
     context.strokeRect(
       PADDING,
       PADDING,
-      width - ( 2 * PADDING ),
-      height - ( 2 * PADDING )
+      layout.width - ( 2 * PADDING ),
+      layout.height - ( 2 * PADDING )
     )
-
-    context.fillStyle = "rgba(148, 163, 184, 0.8)"
-    context.font = "12px Consolas"
-    context.fillText( "Head side", PADDING + 4, 14 )
-    context.fillText( "Foot side", width - 72, 14 )
     context.restore()
   }
 
-  function supportBars(geometry)
+  function drawAxisGuide(context, bounds, layout)
   {
-    return [
-      {
-        key: "FrameLockHeadTop",
-        x0: geometry.transferZoneHeadMinX,
-        x1: geometry.transferZoneHeadMaxX,
-        y0: geometry.supportCollisionTopMinY,
-        y1: geometry.supportCollisionTopMaxY,
-        label: "HT"
-      },
-      {
-        key: "FrameLockHeadMid",
-        x0: geometry.transferZoneHeadMinX,
-        x1: geometry.transferZoneHeadMaxX,
-        y0: geometry.supportCollisionMiddleMinY,
-        y1: geometry.supportCollisionMiddleMaxY,
-        label: "HM"
-      },
-      {
-        key: "FrameLockHeadBtm",
-        x0: geometry.transferZoneHeadMinX,
-        x1: geometry.transferZoneHeadMaxX,
-        y0: geometry.supportCollisionBottomMinY,
-        y1: geometry.supportCollisionBottomMaxY,
-        label: "HB"
-      },
-      {
-        key: "FrameLockFootTop",
-        x0: geometry.transferZoneFootMinX,
-        x1: geometry.transferZoneFootMaxX,
-        y0: geometry.supportCollisionTopMinY,
-        y1: geometry.supportCollisionTopMaxY,
-        label: "FT"
-      },
-      {
-        key: "FrameLockFootMid",
-        x0: geometry.transferZoneFootMinX,
-        x1: geometry.transferZoneFootMaxX,
-        y0: geometry.supportCollisionMiddleMinY,
-        y1: geometry.supportCollisionMiddleMaxY,
-        label: "FM"
-      },
-      {
-        key: "FrameLockFootBtm",
-        x0: geometry.transferZoneFootMinX,
-        x1: geometry.transferZoneFootMaxX,
-        y0: geometry.supportCollisionBottomMinY,
-        y1: geometry.supportCollisionBottomMaxY,
-        label: "FB"
-      }
-    ]
-  }
-
-  function drawSupportBars(context, geometry, width, height)
-  {
-    var inputs = motorStatus && motorStatus.inputs ? motorStatus.inputs : {}
-    var bars = supportBars( geometry )
-
-    for ( var index = 0; index < bars.length; index += 1 )
-    {
-      var bar = bars[ index ]
-      var topLeft = pointToCanvas( { x: bar.x0, y: bar.y1 }, geometry, width, height )
-      var bottomRight = pointToCanvas( { x: bar.x1, y: bar.y0 }, geometry, width, height )
-      var isLocked = !! inputs[ bar.key ]
-
-      context.save()
-      context.fillStyle = isLocked ? "rgba(239, 68, 68, 0.75)" : "rgba(34, 197, 94, 0.6)"
-      context.strokeStyle = isLocked ? "rgba(127, 29, 29, 0.95)" : "rgba(21, 128, 61, 0.95)"
-      context.lineWidth = 1.5
-      context.fillRect(
-        topLeft.x,
-        topLeft.y,
-        Math.max( 6, bottomRight.x - topLeft.x ),
-        Math.max( 6, bottomRight.y - topLeft.y )
-      )
-      context.strokeRect(
-        topLeft.x,
-        topLeft.y,
-        Math.max( 6, bottomRight.x - topLeft.x ),
-        Math.max( 6, bottomRight.y - topLeft.y )
-      )
-      context.fillStyle = "rgba(255, 255, 255, 0.9)"
-      context.font = "11px Consolas"
-      context.fillText( bar.label, topLeft.x + 2, topLeft.y + 12 )
-      context.restore()
-    }
+    context.save()
+    context.fillStyle = "rgba(148, 163, 184, 0.9)"
+    context.font = "11px Consolas"
+    context.fillText( bounds.xAxisLabel + " ->", PADDING + 4, layout.height - 16 )
+    context.fillText( bounds.yAxisLabel + " ^", PADDING + 4, layout.height - 5 )
+    context.restore()
   }
 
   function currentHeadPosition()
@@ -428,35 +518,140 @@ function QueuedMotionPreview(modules)
     {
       var x = parseFloat( motorStatus.motor[ "xPosition" ] )
       var y = parseFloat( motorStatus.motor[ "yPosition" ] )
-      if ( isFinite( x ) && isFinite( y ) )
-        return { x: x, y: y }
+      var z = parseFloat( motorStatus.motor[ "zPosition" ] )
+      if ( isFinite( x ) && isFinite( y ) && isFinite( z ) )
+        return { x: x, y: y, z: z }
     }
 
     if ( preview && preview.actualHead )
-      return preview.actualHead
+    {
+      var fallbackZ = 0.0
+      if ( motorStatus && motorStatus.motor )
+      {
+        fallbackZ = parseFloat( motorStatus.motor[ "zPosition" ] )
+        if ( ! isFinite( fallbackZ ) )
+          fallbackZ = 0.0
+      }
+      return {
+        x: parseFloat( preview.actualHead.x ),
+        y: parseFloat( preview.actualHead.y ),
+        z: fallbackZ
+      }
+    }
 
     return null
   }
 
-  function drawHead(context, geometry, width, height)
+  function pinNumberFromName(name)
   {
-    var head = currentHeadPosition()
-    if ( ! head )
-      return
+    var text = String( name || "" )
+    var digits = text.replace( /^[^0-9]+/, "" )
+    var value = parseInt( digits, 10 )
+    return isFinite( value ) ? value : 0
+  }
 
-    var position = pointToCanvas( head, geometry, width, height )
-    context.save()
-    context.fillStyle = "#f8fafc"
-    context.strokeStyle = "#0f172a"
-    context.lineWidth = 2
-    context.beginPath()
-    context.arc( position.x, position.y, 7, 0, 2 * Math.PI )
-    context.fill()
-    context.stroke()
-    context.fillStyle = "rgba(248, 250, 252, 0.9)"
-    context.font = "12px Consolas"
-    context.fillText( "HEAD", position.x + 10, position.y - 10 )
-    context.restore()
+  function buildCalibrationSides(calibration)
+  {
+    var sides = {
+      F: [],
+      B: []
+    }
+
+    if ( ! calibration || ! calibration.pins )
+      return sides
+
+    for ( var index = 0; index < calibration.pins.length; index += 1 )
+    {
+      var pin = calibration.pins[ index ]
+      var name = String( pin.name || "" )
+      var side = name.charAt( 0 )
+      if ( ! sides.hasOwnProperty( side ) )
+        continue
+      sides[ side ].push( {
+        name: name,
+        number: pinNumberFromName( name ),
+        x: parseFloat( pin.x ),
+        y: parseFloat( pin.y ),
+        z: parseFloat( pin.z )
+      } )
+    }
+
+    for ( var sideKey in sides )
+    {
+      sides[ sideKey ].sort( function( a, b ) {
+        if ( a.number !== b.number )
+          return a.number - b.number
+        return a.name.localeCompare( b.name )
+      } )
+    }
+
+    return sides
+  }
+
+  function sampleSidePoints(points, count)
+  {
+    if ( ! points || 0 === points.length )
+      return []
+
+    if ( points.length <= count )
+      return points.slice( 0 )
+
+    var sampled = []
+    var lastIndex = points.length - 1
+    for ( var sampleIndex = 0; sampleIndex < count; sampleIndex += 1 )
+    {
+      var ratio = count <= 1 ? 0.0 : sampleIndex / ( count - 1 )
+      var pointIndex = Math.round( ratio * lastIndex )
+      if ( pointIndex < 0 )
+        pointIndex = 0
+      if ( pointIndex > lastIndex )
+        pointIndex = lastIndex
+      sampled.push( points[ pointIndex ] )
+    }
+    return sampled
+  }
+
+  function calibrationWireframeSegments()
+  {
+    if ( ! layerCalibration || ! layerCalibration.pins )
+      return []
+
+    var sides = buildCalibrationSides( layerCalibration )
+    var front = sampleSidePoints( sides.F, 9 )
+    var back = sampleSidePoints( sides.B, 9 )
+    var segments = []
+    var count = Math.min( front.length, back.length )
+
+    if ( 0 === count )
+      return segments
+
+    for ( var index = 0; index < count; index += 1 )
+    {
+      var frontPoint = front[ index ]
+      var backPoint = back[ index ]
+
+      if ( index > 0 )
+      {
+        segments.push( {
+          kind: "front",
+          start: front[ index - 1 ],
+          end: frontPoint
+        } )
+        segments.push( {
+          kind: "back",
+          start: back[ index - 1 ],
+          end: backPoint
+        } )
+      }
+
+      segments.push( {
+        kind: "cross",
+        start: frontPoint,
+        end: backPoint
+      } )
+    }
+
+    return segments
   }
 
   function arcSweep(startAngle, endAngle, direction)
@@ -481,13 +676,9 @@ function QueuedMotionPreview(modules)
     return null
   }
 
-  function traceSegment(context, segment, geometry, width, height)
+  function segmentSourcePoints(segment)
   {
-    var start = pointToCanvas( segment.start, geometry, width, height )
-    var end = pointToCanvas( segment.end, geometry, width, height )
-
-    context.beginPath()
-    context.moveTo( start.x, start.y )
+    var points = [ segment.start ]
 
     if ( "circle" === segment.kind && segment.circle )
     {
@@ -503,61 +694,217 @@ function QueuedMotionPreview(modules)
         for ( var step = 1; step <= steps; step += 1 )
         {
           var angle = startAngle + ( sweep * ( step / steps ) )
-          var point = {
-            x: center.x + radius * Math.cos( angle ),
-            y: center.y + radius * Math.sin( angle )
-          }
-          var mapped = pointToCanvas( point, geometry, width, height )
-          context.lineTo( mapped.x, mapped.y )
+          points.push(
+            {
+              x: center.x + radius * Math.cos( angle ),
+              y: center.y + radius * Math.sin( angle )
+            }
+          )
         }
+        return points
       }
-      else
-        context.lineTo( end.x, end.y )
     }
-    else
-      context.lineTo( end.x, end.y )
 
-    context.strokeStyle = "circle" === segment.kind ? "#38bdf8" : "#f59e0b"
-    context.lineWidth = 3
-    context.stroke()
-
-    context.fillStyle = context.strokeStyle
-    context.beginPath()
-    context.arc( end.x, end.y, 3.5, 0, 2 * Math.PI )
-    context.fill()
-    context.font = "11px Consolas"
-    context.fillText( String( segment.index ), end.x + 5, end.y - 5 )
+    points.push( segment.end )
+    return points
   }
 
-  function drawPreview(context, geometry, width, height)
+  function projectPoint(point, viewName, headPosition)
+  {
+    if ( "xz" === viewName )
+      return { x: point.x, y: headPosition.z }
+
+    if ( "yz" === viewName )
+      return { x: headPosition.z, y: point.y }
+
+    return { x: point.x, y: point.y }
+  }
+
+  function projectCalibrationPoint(point, viewName)
+  {
+    if ( "xz" === viewName )
+      return { x: point.x, y: point.z }
+
+    if ( "yz" === viewName )
+      return { x: point.z, y: point.y }
+
+    return { x: point.x, y: point.y }
+  }
+
+  function drawCalibrationWireframe(context, viewName, bounds, layout)
+  {
+    var segments = calibrationWireframeSegments()
+    if ( 0 === segments.length )
+      return
+
+    context.save()
+    context.lineWidth = 1.4
+    context.setLineDash( [])
+
+    for ( var index = 0; index < segments.length; index += 1 )
+    {
+      var segment = segments[ index ]
+      var start = pointToCanvas(
+        projectCalibrationPoint( segment.start, viewName ),
+        bounds,
+        layout
+      )
+      var end = pointToCanvas(
+        projectCalibrationPoint( segment.end, viewName ),
+        bounds,
+        layout
+      )
+
+      if ( "cross" === segment.kind )
+      {
+        context.strokeStyle = "rgba(148, 163, 184, 0.5)"
+        context.setLineDash( [ 4, 4 ] )
+      }
+      else if ( "front" === segment.kind )
+      {
+        context.strokeStyle = "rgba(34, 197, 94, 0.55)"
+      }
+      else
+      {
+        context.strokeStyle = "rgba(59, 130, 246, 0.55)"
+      }
+
+      context.beginPath()
+      context.moveTo( start.x, start.y )
+      context.lineTo( end.x, end.y )
+      context.stroke()
+    }
+
+    context.restore()
+  }
+
+  function drawPath(context, viewName, bounds, layout)
   {
     if ( ! preview || ! preview.segments || 0 === preview.segments.length )
       return
 
-    var start = pointToCanvas( preview.start, geometry, width, height )
+    var head = currentHeadPosition()
+    if ( ! head )
+      return
+
+    var firstPoint = projectPoint( preview.start, viewName, head )
+    var start = pointToCanvas( firstPoint, bounds, layout )
     context.save()
-    context.strokeStyle = "#22d3ee"
-    context.lineWidth = 2
+    context.strokeStyle = bounds.startColor
+    context.lineWidth = viewName === "xy" ? 3 : 2.5
+    if ( viewName !== "xy" )
+      context.setLineDash( [ 7, 5 ] )
     context.beginPath()
-    context.arc( start.x, start.y, 9, 0, 2 * Math.PI )
+    context.arc( start.x, start.y, 8, 0, 2 * Math.PI )
     context.stroke()
     context.restore()
 
     for ( var index = 0; index < preview.segments.length; index += 1 )
-      traceSegment( context, preview.segments[ index ], geometry, width, height )
+    {
+      var segment = preview.segments[ index ]
+      var sourcePoints = segmentSourcePoints( segment )
+      var projectedPoint = pointToCanvas(
+        projectPoint( sourcePoints[ 0 ], viewName, head ),
+        bounds,
+        layout
+      )
+
+      context.save()
+      context.strokeStyle = segment.kind === "circle"
+        ? bounds.pathColor
+        : ( viewName === "xy" ? "#f59e0b" : bounds.pathColor )
+      context.lineWidth = viewName === "xy" ? 3 : 2.25
+      if ( viewName !== "xy" )
+        context.setLineDash( [ 7, 5 ] )
+      context.beginPath()
+      context.moveTo( projectedPoint.x, projectedPoint.y )
+
+      for ( var pointIndex = 1; pointIndex < sourcePoints.length; pointIndex += 1 )
+      {
+        var mapped = pointToCanvas(
+          projectPoint( sourcePoints[ pointIndex ], viewName, head ),
+          bounds,
+          layout
+        )
+        context.lineTo( mapped.x, mapped.y )
+      }
+
+      context.stroke()
+      context.fillStyle = context.strokeStyle
+      context.beginPath()
+      context.arc(
+        projectedPoint.x,
+        projectedPoint.y,
+        viewName === "xy" ? 3.5 : 3,
+        0,
+        2 * Math.PI
+      )
+      context.fill()
+
+      var finalPoint = pointToCanvas(
+        projectPoint( sourcePoints[ sourcePoints.length - 1 ], viewName, head ),
+        bounds,
+        layout
+      )
+      context.font = "11px Consolas"
+      context.fillText( String( segment.index ), finalPoint.x + 5, finalPoint.y - 5 )
+      context.restore()
+    }
+  }
+
+  function drawCurrentHead(context, viewName, bounds, layout)
+  {
+    var head = currentHeadPosition()
+    if ( ! head )
+      return
+
+    var position = pointToCanvas( projectPoint( head, viewName, head ), bounds, layout )
+    context.save()
+    context.fillStyle = bounds.headColor
+    context.strokeStyle = "#0f172a"
+    context.lineWidth = 2
+    context.beginPath()
+    context.arc( position.x, position.y, 7, 0, 2 * Math.PI )
+    context.fill()
+    context.stroke()
+    context.fillStyle = "rgba(248, 250, 252, 0.9)"
+    context.font = "12px Consolas"
+    context.fillText( "HEAD", position.x + 10, position.y - 10 )
+    if ( "xy" !== viewName )
+      context.fillText( "Z " + formatNumber( head.z, 1 ), position.x + 10, position.y + 14 )
+    context.restore()
   }
 
   function renderCanvas()
   {
-    var canvasState = ensureCanvas()
+    var geometry = activeLimits()
+    var layouts = buildViewLayouts( geometry )
+    renderViewWithLayouts( "xz", layouts )
+    renderViewWithLayouts( "xy", layouts )
+    renderViewWithLayouts( "yz", layouts )
+  }
+
+  function renderViewWithLayouts(viewName, layouts)
+  {
+    var layout = layouts[ viewName ]
+    if ( ! layout )
+      return
+
+    var spec = layout.spec
+    var canvasState = ensureCanvas( spec.canvasId, layout.height )
     if ( ! canvasState )
       return
 
-    var geometry = activeLimits()
-    drawBase( canvasState.context, geometry, canvasState.width, canvasState.height )
-    drawSupportBars( canvasState.context, geometry, canvasState.width, canvasState.height )
-    drawPreview( canvasState.context, geometry, canvasState.width, canvasState.height )
-    drawHead( canvasState.context, geometry, canvasState.width, canvasState.height )
+    drawPanelFrame( canvasState.context, spec, layout )
+    drawAxisGuide( canvasState.context, spec, layout )
+    drawCalibrationWireframe(
+      canvasState.context,
+      viewName,
+      spec,
+      layout
+    )
+    drawPath( canvasState.context, viewName, spec, layout )
+    drawCurrentHead( canvasState.context, viewName, spec, layout )
   }
 
   function submitDecision(commandName)
@@ -589,6 +936,24 @@ function QueuedMotionPreview(modules)
   {
     if ( autoContinue && previewPending && ! decisionPending )
       submitDecision( commands.process.continueQueuedMotionPreview )
+  }
+
+  function loadLayerCalibration()
+  {
+    uiServices.call(
+      commands.process.getLayerCalibration,
+      {},
+      function( data )
+      {
+        layerCalibration = data || null
+        renderCanvas()
+      },
+      function()
+      {
+        layerCalibration = null
+        renderCanvas()
+      }
+    )
   }
 
   function loadGeometry()
@@ -658,6 +1023,7 @@ function QueuedMotionPreview(modules)
       bindControls()
       updateDetails()
       loadGeometry()
+      loadLayerCalibration()
       loadUseMaxSpeed()
 
       winder.addPeriodicCallback(

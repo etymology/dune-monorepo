@@ -34,6 +34,7 @@ from dune_winder.queued_motion.segment_patterns import (
   DEFAULT_V_Y_MAX,
   DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
 )
+from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
 
@@ -443,7 +444,10 @@ class GCodeHandler(GCodeHandlerBase):
     start_xy = self._actual_xy()
     previews: list[_PreviewedQueuedLine] = []
     try:
-      current = self._preview_loaded_line(line_index)
+      try:
+        current = self._preview_loaded_line(line_index)
+      except GCodeExecutionError as exception:
+        raise self._queued_preview_execution_error(line_index, exception) from exception
       if not current.queueable or current.merge_mode is None:
         return None
       previews.append(current)
@@ -453,7 +457,10 @@ class GCodeHandler(GCodeHandlerBase):
         cursor += 1
         if cursor >= self._gCode.getLineCount():
           break
-        next_preview = self._preview_loaded_line(cursor)
+        try:
+          next_preview = self._preview_loaded_line(cursor)
+        except GCodeExecutionError as exception:
+          raise self._queued_preview_execution_error(cursor, exception) from exception
         if not next_preview.queueable:
           if next_preview.comment_only:
             continue  # skip comment-only lines; they don't affect motion state
@@ -599,6 +606,23 @@ class GCodeHandler(GCodeHandlerBase):
     }
 
   # ---------------------------------------------------------------------
+  def _queued_preview_execution_error(self, line_index, exception):
+    data = []
+    if self._gCode is not None and 0 <= int(line_index) < self._gCode.getLineCount():
+      data = [int(line_index), self._gCode.lines[int(line_index)]]
+    data.extend(list(getattr(exception, "data", [])))
+    return GCodeExecutionError(str(exception), data)
+
+  # ---------------------------------------------------------------------
+  def _apply_gcode_execution_error(self, exception):
+    self._isG_CodeError = True
+    self._isG_CodeErrorMessage = str(exception)
+    self._isG_CodeErrorData = list(getattr(exception, "data", []))
+    self._queued_preview = None
+    self._queued_session = None
+    self._queued_stop_mode = None
+
+  # ---------------------------------------------------------------------
   def _set_queued_motion_preview(self, block):
     self._queued_preview_id += 1
     self._queued_preview = _QueuedMotionPreviewState(
@@ -612,12 +636,17 @@ class GCodeHandler(GCodeHandlerBase):
       return
 
     start_sequence_id = int(self._queued_preview.block.get("start_sequence_id", self._queued_sequence_id))
-    block = self._build_queued_block(
-      int(self._queued_preview.block["start_line"]),
-      single_step_queue=bool(self._queued_preview.block.get("stop_after_block")),
-      start_seq=start_sequence_id,
-      reserve_sequence=False,
-    )
+    try:
+      block = self._build_queued_block(
+        int(self._queued_preview.block["start_line"]),
+        single_step_queue=bool(self._queued_preview.block.get("stop_after_block")),
+        start_seq=start_sequence_id,
+        reserve_sequence=False,
+      )
+    except GCodeExecutionError as exception:
+      self._apply_gcode_execution_error(exception)
+      self._queued_sequence_id = start_sequence_id
+      return
     if block is None:
       self._queued_preview = None
       self._queued_sequence_id = start_sequence_id
@@ -670,6 +699,9 @@ class GCodeHandler(GCodeHandlerBase):
   def _start_queued_block(self, line_index):
     try:
       block = self._build_queued_block(line_index, single_step_queue=self.singleStep)
+    except GCodeExecutionError as exception:
+      self._apply_gcode_execution_error(exception)
+      return True
     except ValueError:
       # If queued planning fails for this line, execute it through the legacy path.
       return False
@@ -782,8 +814,12 @@ class GCodeHandler(GCodeHandlerBase):
   def _dispatch_pending_action(self, action, velocity, *, safety_label="line"):
     moving = False
     if action == "xy":
+      current_raw_x = float(self._io.xAxis.getPosition())
+      current_effective_x = current_raw_x
+      if self._xBacklash is not None:
+        current_effective_x = self._xBacklash.getEffectiveX(current_raw_x)
       start_xy = (
-        float(self._io.xAxis.getPosition()),
+        current_effective_x,
         float(self._io.yAxis.getPosition()),
       )
       target_xy = (float(self._x), float(self._y))
@@ -805,7 +841,26 @@ class GCodeHandler(GCodeHandlerBase):
       except ValueError as exception:
         self._set_xy_safety_error(str(exception))
       else:
-        self._io.plcLogic.setXY_Position(self._x, self._y, velocity)
+        raw_target_x = float(self._x)
+        if self._xBacklash is not None:
+          raw_target_x = self._xBacklash.getCommandedRawX(current_raw_x, float(self._x))
+          safety_limits = self._motion_safety_limits()
+          if (
+            raw_target_x < float(safety_limits.limit_left)
+            or raw_target_x > float(safety_limits.limit_right)
+          ):
+            self._set_xy_safety_error(
+              "Compensated X-axis target exceeds raw axis limits ["
+              + str(float(safety_limits.limit_left))
+              + ", "
+              + str(float(safety_limits.limit_right))
+              + "]."
+            )
+            return False
+
+        self._io.plcLogic.setXY_Position(raw_target_x, self._y, velocity)
+        if self._xBacklash is not None:
+          self._xBacklash.noteCommand(current_raw_x, float(self._x))
         moving = True
     elif action == "z":
       self._io.plcLogic.setZ_Position(self._z, velocity)
@@ -839,8 +894,17 @@ class GCodeHandler(GCodeHandlerBase):
         else:
           moving = True
     elif action == "head":
-      self._io.head.setHeadPosition(self._headPosition, velocity)
-      moving = True
+      error = self._io.head.setHeadPosition(self._headPosition, velocity)
+      if error:
+        self._set_gcode_error(str(error))
+      else:
+        moving = True
+    elif action == "head_transfer":
+      error = self._io.head.setTransferPosition(self._headPosition, velocity)
+      if error:
+        self._set_gcode_error(str(error))
+      else:
+        moving = True
     elif action == "latch":
       self._io.plcLogic.move_latch()
       moving = True
@@ -863,6 +927,43 @@ class GCodeHandler(GCodeHandlerBase):
     return moving
 
   # ---------------------------------------------------------------------
+  def _manualLineCanIgnoreHeadReadiness(self):
+    """
+    Manual single-line Z/XZ moves may clear a stale queued head transfer and
+    proceed without treating the head controller as an active blocker.
+    """
+    return bool(self._pending_actions) and all(
+      action in ("z", "xz") for action in self._pending_actions
+    )
+
+  # ---------------------------------------------------------------------
+  def _apply_head_controller_error(self):
+    head = getattr(self._io, "head", None)
+    if head is None or not hasattr(head, "hasError") or not head.hasError():
+      return False
+
+    message = "Head transfer failed."
+    if hasattr(head, "consumeLastError"):
+      try:
+        last_error = str(head.consumeLastError()).strip()
+      except Exception:
+        last_error = ""
+      if last_error:
+        message = last_error
+    elif hasattr(head, "getLastError"):
+      try:
+        last_error = str(head.getLastError()).strip()
+      except Exception:
+        last_error = ""
+      if last_error:
+        message = last_error
+
+    self._set_gcode_error(message)
+    if hasattr(head, "clearQueuedTransfer"):
+      head.clearQueuedTransfer()
+    return True
+
+  # ---------------------------------------------------------------------
   def poll(self):
     """
     Update the logic for executing this line of G-Code.
@@ -880,7 +981,11 @@ class GCodeHandler(GCodeHandlerBase):
     if self._queued_session is not None:
       return self._advance_queued_motion()
 
-    if self._io.plcLogic.isReady() and self._io.head.isReady():
+    headReady = self._io.head.isReady()
+    if self._apply_head_controller_error():
+      return True
+
+    if self._io.plcLogic.isReady() and headReady:
       moving = False
 
       if not moving:
@@ -1024,7 +1129,7 @@ class GCodeHandler(GCodeHandlerBase):
 
 
   # ---------------------------------------------------------------------
-  def executeG_CodeLine(self, line: str):
+  def executeG_CodeLine(self, line: str, skip_before_execute_callback: bool = False):
     """
     Run a line of G-code.
 
@@ -1046,7 +1151,7 @@ class GCodeHandler(GCodeHandlerBase):
       "isG_CodeErrorData": list(self._isG_CodeErrorData),
     }
     try:
-      if self._beforeExecuteLineCallback:
+      if self._beforeExecuteLineCallback and not skip_before_execute_callback:
         error = self._beforeExecuteLineCallback()
         if error:
           return {"line": line, "message": str(error), "data": []}
@@ -1060,7 +1165,16 @@ class GCodeHandler(GCodeHandlerBase):
 
       # Interpret the next line.
       gCode.execute(line)
-      if self._io.plcLogic.isReady() and self._io.head.isReady():
+      headReady = self._io.head.isReady()
+      if self._apply_head_controller_error():
+        headReady = True
+      if not headReady and self._manualLineCanIgnoreHeadReadiness():
+        self._io.head.clearQueuedTransfer()
+        headReady = self._io.head.isReady()
+        if self._apply_head_controller_error():
+          headReady = True
+
+      if self._io.plcLogic.isReady() and headReady and not self._isG_CodeError:
         self._dispatch_pending_actions(safety_label="manual")
       if self._isG_CodeError:
         errorData = {
@@ -1203,10 +1317,16 @@ class GCodeHandler(GCodeHandlerBase):
       lines: New G-Code lines to use.
 
     Raises:
-      ValueError: Current execution pointers do not fit in the new file.
+      ValueError: Reload would invalidate the active execution state.
     """
+    previousLineCount = self._gCode.getLineCount() if self._gCode is not None else None
     gCode = GCodeProgramExecutor(lines, self._callbacks)
     lineCount = gCode.getLineCount()
+
+    if previousLineCount is not None and lineCount != previousLineCount:
+      raise ValueError(
+        "Updated G-Code file must contain the same number of lines as the active file."
+      )
 
     currentLine = self._currentLine
     if currentLine is not None and not (-1 <= currentLine < lineCount):
@@ -1300,7 +1420,14 @@ class GCodeHandler(GCodeHandlerBase):
 
   # ---------------------------------------------------------------------
 
-  def __init__(self, io: BaseIO, machineCalibration, headCompensation, configuration=None):
+  def __init__(
+    self,
+    io: BaseIO,
+    machineCalibration,
+    headCompensation,
+    configuration=None,
+    xBacklash: XBacklashCompensation | None = None,
+  ):
     """
     Constructor.
 
@@ -1315,6 +1442,7 @@ class GCodeHandler(GCodeHandlerBase):
 
     self._io = io
     self._configuration = configuration
+    self._xBacklash = xBacklash
 
     self._direction = 1
     self.runToLine = -1

@@ -32,6 +32,7 @@ class RecipeService:
     gCodeHandler: Optional[GCodeHandler] = None,
     log: Optional[Log] = None,
     systemTime: Optional[TimeSource] = None,
+    controlStateMachine=None,
     resetWindTime: Optional[Callable[[], None]] = None,
     getWindTime: Optional[Callable[[], float]] = None,
   ):
@@ -42,6 +43,7 @@ class RecipeService:
     self._gCodeHandler = gCodeHandler
     self._log = log
     self._systemTime = systemTime
+    self._controlStateMachine = controlStateMachine
     self._resetWindTime = resetWindTime
     self._getWindTime = getWindTime
 
@@ -150,7 +152,8 @@ class RecipeService:
       Settings.RECIPE_ARCHIVE_DIR,
       self._log,
       self._systemTime,
-      createNew,
+      controlStateMachine=self._controlStateMachine,
+      createNew=createNew,
     )
     self._workspaceSetter(workspace)
 

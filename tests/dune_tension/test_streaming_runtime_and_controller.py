@@ -9,7 +9,7 @@ import types
 import numpy as np
 
 # Ensure src is on path.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from dune_tension.streaming.analysis import (  # noqa: E402
     AsyncPitchWorker,

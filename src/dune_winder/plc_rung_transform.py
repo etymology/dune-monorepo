@@ -58,6 +58,13 @@ def _restore_protected_formula_expression(text):
   )
 
 
+def _normalize_cmp_formula_expression(text):
+  stripped = str(text).strip()
+  if len(stripped) >= 2 and stripped[0] == '"' and stripped[-1] == '"':
+    stripped = stripped[1:-1]
+  return WHITESPACE_PATTERN.sub("", stripped)
+
+
 def _extract_balanced_call(text, start_index):
   open_index = text.find("(", start_index)
   if open_index == -1:
@@ -92,8 +99,9 @@ def _extract_special_formula_call(text):
 
 def _rewrite_special_formula_call(command, arguments_text):
   if command == "CMP":
-    protected_formula = _protect_formula_expression(arguments_text.strip())
-    return command + "(" + protected_formula + ")"
+    normalized_formula = _normalize_cmp_formula_expression(arguments_text)
+    protected_formula = _protect_formula_expression(normalized_formula)
+    return command + '("' + protected_formula + '")'
 
   arguments = _split_top_level_commas(arguments_text)
   if len(arguments) < 2:
@@ -141,7 +149,8 @@ def _normalize_condition_term(term):
   if special_call is not None:
     command, arguments_text = special_call
     if command == "CMP":
-      return "CMP " + _protect_formula_expression(arguments_text.strip())
+      normalized_formula = _normalize_cmp_formula_expression(arguments_text)
+      return 'CMP "' + _protect_formula_expression(normalized_formula) + '"'
 
     arguments = _split_top_level_commas(arguments_text)
     if len(arguments) >= 2:
@@ -168,7 +177,11 @@ def _normalize_condition_term(term):
 
 
 def _replace_bracketed_conditions(content):
-  conditions = [_normalize_condition_term(part) for part in _split_top_level_commas(content) if part.strip()]
+  parts = _split_top_level_commas(content)
+  if len(parts) <= 1:
+    return "[" + content + "]"
+
+  conditions = [_normalize_condition_term(part) for part in parts if part.strip()]
   if not conditions:
     return "[" + content + "]"
 

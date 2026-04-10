@@ -5,7 +5,7 @@ import types
 
 import dune_tension.services as services_module
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from dune_tension.services import MotionService
 
@@ -93,7 +93,7 @@ def test_motion_service_spoof_flag_overrides_live_plc(monkeypatch):
 
 def test_gui_context_uses_runtime_bundle_motion(monkeypatch):
     module_path = (
-        Path(__file__).resolve().parents[1]
+        Path(__file__).resolve().parents[2]
         / "src"
         / "dune_tension"
         / "gui"

@@ -23,21 +23,36 @@ from .simulated_plc import SimulatedPLC
 
 class LadderSimulatedPLC(SimulatedPLC):
   _PLC_ROOT = PLC_ROOT
-  _LATCH_PROGRAM = "Latch_UnLatch_State_6_7_8"
+  _LATCH_PROGRAM = "state_6_latch"
+  _PROGRAM_NAME_ALIASES = {
+    "MainProgram": "main",
+    "PID_Tension_Servo": "tension_pid",
+    "Initialize": "init",
+    "Ready_State_1": "state_1_ready",
+    "MoveXY_State_2_3": "state_3_move_xy",
+    "MoveZ_State_4_5": "state_5_move_z",
+    "xz_move": "state_12_move_xz",
+    "HMI_Stop_Request_14": "state_14_hmi_stop",
+    "Error_State_10": "state_10_error",
+    "motionQueue": "queued_motion",
+    "Latch_UnLatch_State_6_7_8": "state_6_latch",
+  }
 
   _SCAN_ORDER = (
-    ("MainProgram", "main"),
-    ("PID_Tension_Servo", "main"),
-    ("Initialize", "main"),
-    ("Ready_State_1", "main"),
-    ("MoveXY_State_2_3", "main"),
-    ("MoveZ_State_4_5", "main"),
-    ("xz_move", "main"),
-    ("Error_State_10", "main"),
-    ("motionQueue", "main"),
+    ("main", "main"),
+    ("tension_pid", "main"),
+    ("init", "main"),
+    ("state_1_ready", "main"),
+    ("state_3_move_xy", "main"),
+    ("state_5_move_z", "main"),
+    ("state_12_move_xz", "main"),
+    ("state_13_move_yz", "main"),
+    ("state_14_hmi_stop", "main"),
+    ("state_10_error", "main"),
+    ("queued_motion", "main"),
   )
   _ROUTINES_TO_LOAD = _SCAN_ORDER + (
-    ("MoveXY_State_2_3", "xy_speed_regulator"),
+    ("queued_motion", "CapSegSpeed"),
   )
 
   _MOVE_TO_STATE = {
@@ -51,6 +66,18 @@ class LadderSimulatedPLC(SimulatedPLC):
     SimulatedPLC.MOVE_UNSERVO: SimulatedPLC.STATE_UNSERVO,
     SimulatedPLC.MOVE_PLC_INIT: SimulatedPLC.STATE_INIT,
     SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
+    SimulatedPLC.MOVE_SEEK_YZ: SimulatedPLC.STATE_YZ_SEEK,
+    SimulatedPLC.MOVE_HMI_STOP_REQUEST: SimulatedPLC.STATE_HMI_STOP,
+  }
+  _STATE_REQUEST_TO_MOVE_TYPE = {
+    SimulatedPLC.STATE_XY_SEEK: SimulatedPLC.MOVE_SEEK_XY,
+    SimulatedPLC.STATE_Z_SEEK: SimulatedPLC.MOVE_SEEK_Z,
+    SimulatedPLC.STATE_LATCHING: SimulatedPLC.MOVE_LATCH,
+    SimulatedPLC.STATE_UNSERVO: SimulatedPLC.MOVE_UNSERVO,
+    SimulatedPLC.STATE_EOT: SimulatedPLC.MOVE_RESET,
+    SimulatedPLC.STATE_XZ_SEEK: SimulatedPLC.MOVE_SEEK_XZ,
+    SimulatedPLC.STATE_YZ_SEEK: SimulatedPLC.MOVE_SEEK_YZ,
+    SimulatedPLC.STATE_HMI_STOP: SimulatedPLC.MOVE_HMI_STOP_REQUEST,
   }
   _LATCH_STUB_MOVE_TYPES = {
     SimulatedPLC.MOVE_LATCH,
@@ -69,8 +96,6 @@ class LadderSimulatedPLC(SimulatedPLC):
     8: ("Z_EOT",),
     9: ("Z_STAGE_PRESENT",),
     10: ("Z_FIXED_PRESENT",),
-    12: ("LATCH_ACTUATOR_TOP",),
-    13: ("LATCH_ACTUATOR_MID",),
     14: ("X_PARKED",),
     15: ("X_XFER_OK",),
     16: ("Y_MOUNT_XFER_OK",),
@@ -79,9 +104,9 @@ class LadderSimulatedPLC(SimulatedPLC):
     19: ("MINUS_Y_EOT",),
     20: ("PLUS_X_EOT",),
     21: ("MINUS_X_EOT",),
-    22: ("APA_IS_VERTICAL", "Rotation_Lock_key"),
+    22: ("APA_IS_VERTICAL",),
     23: (),
-    25: ("Light_Curtain",),
+    25: (),
     26: ("FRAME_LOC_HD_TOP",),
     27: ("FRAME_LOC_HD_MID",),
     28: ("FRAME_LOC_HD_BTM",),
@@ -95,10 +120,13 @@ class LadderSimulatedPLC(SimulatedPLC):
     for alias in aliases
   }
 
+  def _load_metadata(self):
+    return load_plc_metadata(self._PLC_ROOT)
+
   def __init__(self, ipAddress="SIM", routine_backend: str = "ast"):
     super().__init__(ipAddress)
 
-    self._metadata = load_plc_metadata(self._PLC_ROOT)
+    self._metadata = self._load_metadata()
     self._tag_store = TagStore(self._metadata, use_exported_values=True)
     self._jsr_registry = JSRRegistry()
     self._executor = RoutineExecutor()
@@ -110,6 +138,8 @@ class LadderSimulatedPLC(SimulatedPLC):
     )
     self._routines = {}
     self._scan_cycle_active = False
+    self._pending_state_request = None
+    self._pending_state_request_started = False
 
     self._load_routines()
     self._register_jsr_targets()
@@ -215,6 +245,9 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._ctx.set_value("STATE", errorState)
       self._ctx.set_value("NEXTSTATE", errorState)
       self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+      self._ctx.set_value("STATE_REQUEST", 0)
+      self._pending_state_request = None
+      self._pending_state_request_started = False
       return self._statusSnapshot()
 
   # ---------------------------------------------------------------------
@@ -223,31 +256,51 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._abort_active_motion()
       self._ctx.set_value("ERROR_CODE", 0)
       self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+      self._ctx.set_value("STATE_REQUEST", 0)
       self._ctx.set_value("STATE", self.STATE_READY)
       self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+      self._pending_state_request = None
+      self._pending_state_request_started = False
       return self._statusSnapshot()
 
   # ---------------------------------------------------------------------
   def _load_routines(self):
     parser = RllParser()
     for programName, routineName in self._ROUTINES_TO_LOAD:
-      program = self._metadata.programs[programName]
+      resolvedProgramName = self._resolve_program_name(programName)
+      if resolvedProgramName is None:
+        continue
+
+      program = self._metadata.programs[resolvedProgramName]
       routine_dir = routineName
-      if routineName == program.main_routine_name and (self._PLC_ROOT / programName / "main" / "pasteable.rll").exists():
+      if (
+        routineName == program.main_routine_name
+        and (self._PLC_ROOT / resolvedProgramName / "main" / "pasteable.rll").exists()
+      ):
         routine_dir = "main"
-      routine_path = self._PLC_ROOT / programName / routine_dir / "pasteable.rll"
+      routine_path = self._PLC_ROOT / resolvedProgramName / routine_dir / "pasteable.rll"
       if not routine_path.exists():
         continue
       routine = parser.parse_routine_text(
         routineName,
         routine_path.read_text(encoding="utf-8"),
-        program=programName,
+        program=resolvedProgramName,
         source_path=routine_path,
       )
       loaded = routine
       if self._routine_backend == "imperative":
         loaded = load_imperative_routine_from_source(transpile_routine_to_python(routine))
-      self._routines[(programName, routineName)] = loaded
+      self._routines[(resolvedProgramName, routineName)] = loaded
+
+  # ---------------------------------------------------------------------
+  def _resolve_program_name(self, programName: str) -> str | None:
+    name = str(programName)
+    if name in self._metadata.programs:
+      return name
+    alias = self._PROGRAM_NAME_ALIASES.get(name)
+    if alias in self._metadata.programs:
+      return alias
+    return None
 
   # ---------------------------------------------------------------------
   def _register_jsr_targets(self):
@@ -270,19 +323,20 @@ class LadderSimulatedPLC(SimulatedPLC):
   # ---------------------------------------------------------------------
   def _bootstrap_tags(self):
     self._reset_runtime_structures()
-    self._latchedSide = "stage"
-    self._returningToStage = False
     self._ctx.set_value("STATE", self.STATE_READY)
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+    self._ctx.set_value("STATE_REQUEST", 0)
+    self._ctx.set_value("xz_position_target", [0.0, 0.0])
+    self._ctx.set_value("yz_position_target", [0.0, 0.0])
     self._ctx.set_value("gui_latch_pulse", False)
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("INIT_DONE", True)
-    self._ctx.set_value("ACTUATOR_POS", 0)
-    self._syncVisibleLatchTags()
+    self._ctx.set_value("check_tension_stable", False)
+    self._ctx.set_value("HEAD_POS", 0)
+    self._ctx.set_value("ACTUATOR_POS", 1)
     self._ctx.set_value("LATCH_ACTUATOR_HOMED", True)
     self._ctx.set_value("MACHINE_SW_STAT[0]", True)
-    self._ctx.set_value("check_tension_stable", False)
     self._ctx.set_value("UseAasCurrent", True)
     self._ctx.set_value("QueueCtl.POS", 0, program="motionQueue")
     self._ctx.set_value("QueueCtl.EM", True, program="motionQueue")
@@ -304,32 +358,6 @@ class LadderSimulatedPLC(SimulatedPLC):
     self._ctx.set_value("xz.PhysicalAxisFault", False)
     self._ctx.set_value("xz.MovePendingStatus", False)
     self._ctx.set_value("xz.MovePendingQueueFullStatus", False)
-
-  # ---------------------------------------------------------------------
-  def _syncHiddenLatchStateFromVisible(self):
-    if hasattr(self, "_ctx"):
-      headPos = self._ctx.get_value("HEAD_POS")
-      actuatorPos = self._ctx.get_value("ACTUATOR_POS")
-    else:
-      headPos = self._tagValues.get("HEAD_POS", 0)
-      actuatorPos = self._tagValues.get("ACTUATOR_POS", 0)
-    self._latchedSide, self._returningToStage = self._inferLatchState(
-      headPos,
-      actuatorPos,
-    )
-
-  # ---------------------------------------------------------------------
-  def _syncVisibleLatchTags(self):
-    if hasattr(self, "_ctx"):
-      actuatorPos = int(self._ctx.get_value("ACTUATOR_POS"))
-      self._ctx.set_value(
-        "HEAD_POS",
-        self._projectHeadPosition(self._latchedSide, actuatorPos),
-      )
-      return
-
-    actuatorPos = int(self._tagValues.get("ACTUATOR_POS", 0))
-    self._tagValues["HEAD_POS"] = self._projectHeadPosition(self._latchedSide, actuatorPos)
 
   # ---------------------------------------------------------------------
   def _reset_runtime_structures(self):
@@ -386,7 +414,8 @@ class LadderSimulatedPLC(SimulatedPLC):
       self._cycle = self._ctx.scan_count
 
     self._sync_builtin_inputs()
-    self._execute_loaded_routine("MainProgram", "main")
+    mainProgramName, mainRoutineName = self._SCAN_ORDER[0]
+    self._execute_loaded_routine(mainProgramName, mainRoutineName)
     self._apply_logic_overrides()
     for programName, routineName in self._SCAN_ORDER[1:]:
       self._execute_loaded_routine(programName, routineName)
@@ -397,20 +426,24 @@ class LadderSimulatedPLC(SimulatedPLC):
   # ---------------------------------------------------------------------
   def _refresh_io_state(self):
     self._sync_builtin_inputs()
-    self._execute_loaded_routine("MainProgram", "main")
-    self._execute_loaded_routine(self._LATCH_PROGRAM, "main")
+    mainProgramName, mainRoutineName = self._SCAN_ORDER[0]
+    self._execute_loaded_routine(mainProgramName, mainRoutineName)
     self._apply_logic_overrides()
 
   # ---------------------------------------------------------------------
   def _execute_loaded_routine(self, programName: str, routineName: str):
-    if programName == "Initialize" and routineName == "main":
+    resolvedProgramName = self._resolve_program_name(programName)
+    if resolvedProgramName is None:
+      return
+
+    if resolvedProgramName == "init" and routineName == "main":
       if (
         int(self._ctx.get_value("STATE")) != self.STATE_INIT
         and int(self._ctx.get_value("MOVE_TYPE")) != self.MOVE_PLC_INIT
         and bool(self._ctx.get_value("INIT_DONE"))
       ):
         return
-    routine = self._routines.get((programName, routineName))
+    routine = self._routines.get((resolvedProgramName, routineName))
     if routine is not None:
       self._execute_loaded_callable(routine, self._ctx)
 
@@ -428,9 +461,6 @@ class LadderSimulatedPLC(SimulatedPLC):
     z = float(self._ctx.get_value("Z_axis.ActualPosition"))
     headPos = int(self._ctx.get_value("HEAD_POS"))
     actuatorPos = int(self._ctx.get_value("ACTUATOR_POS"))
-    stageLatched = self._latchedSide == "stage"
-    fixedLatched = self._latchedSide == "fixed"
-    topSensor, midSensor = self._actuatorSensorState(actuatorPos)
 
     zRetracted = z <= (self._limits["zFront"] + 1.0)
     zExtended = z >= (self._limits["zBack"] - 1.0)
@@ -451,15 +481,13 @@ class LadderSimulatedPLC(SimulatedPLC):
       "Local:1:I.Pt04.Data": zExtended,
       "Local:1:I.Pt06.Data": plusYEot,
       "Local:1:I.Pt07.Data": zEot,
-      "Local:1:I.Pt08.Data": not topSensor,
-      "Local:1:I.Pt09.Data": not midSensor,
       "Local:1:I.Pt10.Data": False,
-      "Local:1:I.Pt11.Data": stageLatched,
+      "Local:1:I.Pt11.Data": headPos == 0 and actuatorPos == 1,
       "Local:1:I.Pt12.Data": yTransfer,
       "Local:1:I.Pt13.Data": yTransfer,
       "Local:1:I.Pt15.Data": False,
       "Local:2:I.Pt00.Data": xTransfer,
-      "Local:2:I.Pt01.Data": fixedLatched,
+      "Local:2:I.Pt01.Data": headPos == 3 and actuatorPos == 2,
       "Local:2:I.Pt02.Data": False,
       "Local:2:I.Pt04.Data": xPark,
       "Local:2:I.Pt06.Data": False,
@@ -516,13 +544,27 @@ class LadderSimulatedPLC(SimulatedPLC):
     queueActive = bool(self._ctx.get_value("CurIssued")) or bool(self._ctx.get_value("NextIssued"))
     queueActive = queueActive or bool(self._ctx.get_value("X_Y.MovePendingStatus"))
     state = int(self._ctx.get_value("STATE"))
-    if queueActive and state not in {self.STATE_ERROR, self.STATE_EOT}:
+    if queueActive and state not in {self.STATE_ERROR, self.STATE_EOT, self.STATE_HMI_STOP}:
       self._ctx.set_value("STATE", self.STATE_QUEUED_MOTION)
       self._ctx.set_value("NEXTSTATE", self.STATE_QUEUED_MOTION)
       return
     if state == self.STATE_QUEUED_MOTION and not queueActive:
       self._ctx.set_value("STATE", self.STATE_READY)
       self._ctx.set_value("NEXTSTATE", self.STATE_READY)
+    if (
+      self._pending_state_request is not None
+      and state == self._pending_state_request
+    ):
+      self._pending_state_request_started = True
+    if (
+      self._pending_state_request is not None
+      and self._pending_state_request_started
+      and int(self._ctx.get_value("STATE")) == self.STATE_READY
+      and int(self._ctx.get_value("NEXTSTATE")) == self.STATE_READY
+    ):
+      self._ctx.set_value("STATE_REQUEST", 0)
+      self._pending_state_request = None
+      self._pending_state_request_started = False
 
   # ---------------------------------------------------------------------
   def _apply_latch_stub(self) -> bool:
@@ -546,15 +588,12 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     if moveType == self.MOVE_HOME_LATCH or state == self.STATE_LATCH_HOMEING:
       self._ctx.set_value("ACTUATOR_POS", 0)
-      if self._latchedSide is None:
-        self._latchedSide = "stage"
-      self._returningToStage = False
-      self._syncVisibleLatchTags()
+      if int(self._ctx.get_value("HEAD_POS")) == -1:
+        self._ctx.set_value("HEAD_POS", 0)
       self._ctx.set_value("LATCH_ACTUATOR_HOMED", True)
       self._ctx.set_value("MACHINE_SW_STAT[0]", True)
     elif moveType == self.MOVE_LATCH_UNLOCK or state == self.STATE_LATCH_RELEASE:
       self._ctx.set_value("ACTUATOR_POS", 2)
-      self._syncVisibleLatchTags()
       self._ctx.set_value("LATCH_ACTUATOR_HOMED", False)
       self._ctx.set_value("MACHINE_SW_STAT[0]", False)
     else:
@@ -568,19 +607,28 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     self._ctx.set_value("ERROR_CODE", 0)
     self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+    self._ctx.set_value("STATE_REQUEST", 0)
     self._ctx.set_value("NEXTSTATE", self.STATE_READY)
     return True
 
   # ---------------------------------------------------------------------
   def _advance_latch_stub(self):
     actuator = int(self._ctx.get_value("ACTUATOR_POS"))
-    actuator, self._latchedSide, self._returningToStage = self._nextLatchState(
-      actuator,
-      self._latchedSide,
-      self._returningToStage,
-    )
+    if actuator == 1:
+      actuator = 3
+    elif actuator == 3:
+      actuator = 2
+    elif actuator == 2:
+      actuator = 1
     self._ctx.set_value("ACTUATOR_POS", actuator)
-    self._syncVisibleLatchTags()
+
+    headPos = int(self._ctx.get_value("HEAD_POS"))
+    if actuator == 3 and headPos == -1:
+      self._ctx.set_value("HEAD_POS", 0)
+    elif actuator == 2 and headPos != 3:
+      self._ctx.set_value("HEAD_POS", 3)
+    elif actuator == 1 and headPos != 0:
+      self._ctx.set_value("HEAD_POS", 0)
 
   # ---------------------------------------------------------------------
   def _cap_seg_speed_jsr(self, ctx: ScanContext):
@@ -653,6 +701,18 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     if tagName == "MOVE_TYPE":
       moveType = int(value)
+      if moveType == self.MOVE_SEEK_XZ and not bool(self._readTagValue("Y_XFER_OK")):
+        self._ctx.set_value("ERROR_CODE", 5003)
+        self._ctx.set_value("STATE", self.STATE_ERROR)
+        self._ctx.set_value("NEXTSTATE", self.STATE_ERROR)
+        self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+        return
+      if moveType == self.MOVE_SEEK_YZ and not bool(self._readTagValue("X_XFER_OK")):
+        self._ctx.set_value("ERROR_CODE", 5003)
+        self._ctx.set_value("STATE", self.STATE_ERROR)
+        self._ctx.set_value("NEXTSTATE", self.STATE_ERROR)
+        self._ctx.set_value("MOVE_TYPE", self.MOVE_RESET)
+        return
       self._ctx.set_value(tagName, moveType)
       nextState = self._MOVE_TO_STATE.get(moveType)
       if nextState is not None:
@@ -662,45 +722,37 @@ class LadderSimulatedPLC(SimulatedPLC):
         self._ctx.set_value("NEXTSTATE", self.STATE_READY)
       return
 
+    if tagName == "STATE_REQUEST":
+      requestedState = int(value)
+      self._ctx.set_value(tagName, requestedState)
+      if requestedState not in self._STATE_REQUEST_TO_MOVE_TYPE:
+        return
+      self._pending_state_request = requestedState
+      self._pending_state_request_started = False
+      return
+
     if tagName == "gui_latch_pulse":
       enabled = bool(self._coerceBit(value))
       self._ctx.set_value(tagName, enabled)
       if enabled:
-        if bool(self._readTagValue("MACHINE_SW_STAT[9]")) and bool(
-          self._readTagValue("MACHINE_SW_STAT[10]")
-        ):
+        if bool(self._readTagValue("ENABLE_ACTUATOR")):
           self._advance_latch_stub()
-          self._refresh_io_state()
         self._ctx.set_value(tagName, False)
       return
 
-    if tagName in ("STATE", "NEXTSTATE", "ERROR_CODE"):
+    if tagName in ("STATE", "NEXTSTATE", "ERROR_CODE", "HEAD_POS", "ACTUATOR_POS"):
       self._ctx.set_value(tagName, int(value))
-      return
-
-    if tagName == "HEAD_POS":
-      intValue = int(value)
-      if intValue not in (-1, 0, 3):
-        raise ValueError("HEAD_POS must be one of -1, 0, or 3.")
-      self._ctx.set_value(tagName, intValue)
-      self._syncHiddenLatchStateFromVisible()
-      self._syncVisibleLatchTags()
-      self._refresh_io_state()
-      return
-
-    if tagName == "ACTUATOR_POS":
-      intValue = int(value)
-      if intValue not in (0, 1, 2, 3):
-        raise ValueError("ACTUATOR_POS must be one of 0, 1, 2, or 3.")
-      self._ctx.set_value(tagName, intValue)
-      self._syncHiddenLatchStateFromVisible()
-      self._syncVisibleLatchTags()
-      self._refresh_io_state()
       return
 
     if tagName == "xz_position_target":
       if not isinstance(value, (list, tuple)) or len(value) != 2:
         raise ValueError("xz_position_target must be a two-element sequence.")
+      self._ctx.set_value(tagName, [float(value[0]), float(value[1])])
+      return
+
+    if tagName == "yz_position_target":
+      if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError("yz_position_target must be a two-element sequence.")
       self._ctx.set_value(tagName, [float(value[0]), float(value[1])])
       return
 
@@ -710,10 +762,73 @@ class LadderSimulatedPLC(SimulatedPLC):
   def _readTagValue(self, tagName):
     if tagName in self._overrides:
       return copy.deepcopy(self._overrides[tagName])
-    bitIndex = self._ALIASES_TO_MACHINE_BITS.get(tagName)
+    if tagName == "HEAD_POS":
+      value = int(self._ctx.get_value(tagName))
+      if value == -1:
+        actuatorPos = int(self._ctx.get_value("ACTUATOR_POS"))
+        if actuatorPos in (1, 3):
+          return 0
+        if actuatorPos == 2:
+          return 3
+      return value
+    if tagName == "ENABLE_ACTUATOR":
+      return int(
+        bool(self._compatibility_machine_bit(9))
+        and bool(self._compatibility_machine_bit(10))
+        and bool(self._compatibility_machine_bit(5))
+      )
+    bitIndex = self._machineBitIndex(tagName)
     if bitIndex is not None:
-      return copy.deepcopy(self._ctx.get_value(f"MACHINE_SW_STAT[{bitIndex}]"))
+      return copy.deepcopy(self._compatibility_machine_bit(bitIndex))
     return copy.deepcopy(self._ctx.get_value(tagName))
+
+  # ---------------------------------------------------------------------
+  def _compatibility_machine_bit(self, bitIndex: int):
+    headPos = int(self._ctx.get_value("HEAD_POS"))
+    actuatorPos = int(self._ctx.get_value("ACTUATOR_POS"))
+    z = float(self._ctx.get_value("Z_axis.ActualPosition"))
+    x = float(self._ctx.get_value("X_axis.ActualPosition"))
+    y = float(self._ctx.get_value("Y_axis.ActualPosition"))
+    zRetracted = z <= (self._limits["zFront"] + 1.0)
+    zExtended = z >= (self._limits["zBack"] - 1.0)
+    xPark = abs(x - self._limits["parkX"]) <= 1.0
+    xTransfer = self._limits["transferLeft"] <= x <= self._limits["transferRight"]
+    yTransfer = self._limits["transferBottom"] <= y <= self._limits["transferTop"]
+    bits = {
+      0: actuatorPos == 0,
+      1: zRetracted,
+      2: zRetracted,
+      3: zRetracted,
+      4: zRetracted,
+      5: zExtended,
+      6: headPos == 0 and actuatorPos == 1,
+      7: headPos == 3 and actuatorPos == 2,
+      8: z <= self._limits["zLimitFront"] or z >= self._limits["zLimitRear"],
+      9: True,
+      10: True,
+      11: zExtended,
+      12: actuatorPos == 0,
+      13: actuatorPos == 1,
+      14: xPark,
+      15: xTransfer,
+      16: yTransfer,
+      17: yTransfer,
+      18: y >= self._limits["limitTop"],
+      19: y <= self._limits["limitBottom"],
+      20: x >= self._limits["limitRight"],
+      21: x <= self._limits["limitLeft"],
+      22: True,
+      23: False,
+      24: False,
+      25: True,
+      26: headPos == 0 and actuatorPos == 0,
+      27: headPos == 0 and actuatorPos == 1,
+      28: headPos == 0 and actuatorPos == 2,
+      29: headPos == 3 and actuatorPos == 0,
+      30: headPos == 3 and actuatorPos == 1,
+      31: headPos == 3 and actuatorPos == 2,
+    }
+    return 1 if bits.get(bitIndex, False) else 0
 
   # ---------------------------------------------------------------------
   def _statusSnapshot(self):
@@ -725,6 +840,7 @@ class LadderSimulatedPLC(SimulatedPLC):
       "scanCount": self._ctx.scan_count,
       "state": int(self._ctx.get_value("STATE")),
       "moveType": int(self._ctx.get_value("MOVE_TYPE")),
+      "stateRequest": int(self._ctx.get_value("STATE_REQUEST")),
       "errorCode": int(self._ctx.get_value("ERROR_CODE")),
       "headPos": int(self._ctx.get_value("HEAD_POS")),
       "actuatorPos": int(self._ctx.get_value("ACTUATOR_POS")),

@@ -249,6 +249,37 @@ function APA(modules) {
     );
   };
 
+  this.jumpWraps = function () {
+    var wrapDelta = Number($("#apaJumpWraps").val());
+    if (!isFinite(wrapDelta) || wrapDelta === 0) return;
+
+    if (!isFinite(forecastRecipePeriod) || forecastRecipePeriod < 1) return;
+
+    var currentLine = gCodeLine["currentLine"];
+    var totalLines = gCodeLine["totalLines"];
+    if (currentLine === null || totalLines === null) {
+      return;
+    }
+
+    var periodLines = Math.round(Number(forecastRecipePeriod));
+    if (!isFinite(periodLines) || periodLines <= 0) return;
+
+    var currentIndex = currentLine - 1;
+    var deltaLines = Math.round(wrapDelta * periodLines);
+    if (!isFinite(deltaLines)) return;
+
+    var totalLinesValue = Number(totalLines);
+    if (!isFinite(totalLinesValue) || totalLinesValue <= 0) return;
+
+    var targetIndex = currentIndex + deltaLines;
+    var maxIndex = totalLinesValue - 1;
+    targetIndex = Math.max(0, Math.min(maxIndex, targetIndex));
+
+    if (targetIndex === currentIndex) return;
+
+    call(commands.process.setGCodeLine, { line: targetIndex });
+  };
+
   this.refreshGCode = function () {
     // Get the layer and G-Code recipe.
     var layer = $("#layerSelection").val();
@@ -388,6 +419,12 @@ function APA(modules) {
       .off("click.apa")
       .on("click.apa", function () {
         self.gotoWrap();
+      });
+
+    $("#apaJumpWrapsButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.jumpWraps();
       });
   };
 

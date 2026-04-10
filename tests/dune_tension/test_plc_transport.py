@@ -4,7 +4,7 @@ import types
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 sys.modules.setdefault("requests", types.ModuleType("requests"))
 
@@ -89,6 +89,24 @@ def test_reset_plc_in_desktop_mode_calls_acknowledge_error(monkeypatch):
 
     assert plc.reset_plc() is True
     assert calls == [("process.acknowledge_error", {})]
+
+
+def test_reset_plc_in_server_mode_only_requests_reset_move_type(monkeypatch):
+    monkeypatch.setenv("PLC_IO_MODE", "server")
+    calls = []
+    monkeypatch.setattr(
+        plc,
+        "_write_required",
+        lambda tag_name, value: calls.append((tag_name, value)) or True,
+    )
+    monkeypatch.setattr(
+        plc,
+        "set_speed",
+        lambda *_args, **_kwargs: pytest.fail("reset_plc should not force XY speed"),
+    )
+
+    assert plc.reset_plc() is True
+    assert calls == [("MOVE_TYPE", plc.IDLE_MOVE_TYPE)]
 
 
 def test_desktop_seek_xy_acknowledges_error_after_move_timeout(monkeypatch):

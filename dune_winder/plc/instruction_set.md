@@ -36,11 +36,13 @@ The operand notes below describe the operand order seen in this codebase. Some i
 | `LIM` | Inclusive limit test. | `low, test_value, high` -> true when the test value is within the range. |
 | `MAFR` | Motion axis fault reset. | `axis, control_tag` -> sends a fault reset command to an axis and tracks status in the control tag. |
 | `MAM` | Motion axis move. | `axis, control_tag, move_type, position, speed, speed_units, accel, accel_units, decel, decel_units, profile, accel_jerk, decel_jerk, jerk_units, ...` -> issues a point-to-point move. |
+| `MAJ` | Motion axis jog. | `axis, control_tag, direction, speed, speed_units, accel, accel_units, decel, decel_units, profile, accel_jerk, decel_jerk, jerk_units, merge, merge_speed, lock_position, lock_direction` -> issues a jog until a stop instruction ends it. |
 | `MAS` | Motion axis stop. | `axis, control_tag, stop_type, decel_enable, decel, decel_units, jerk_enable, jerk, jerk_units` -> stops axis motion with configured decel/jerk behavior. |
 | `MCCD` | Motion coordinated change dynamics. | `coordinate_system, control_tag, scope, speed_enable, speed, speed_units, accel_enable, accel, accel_units, decel_enable, decel, decel_units, accel_jerk_enable, accel_jerk, decel_jerk_enable, decel_jerk, jerk_units, apply_to` -> changes active coordinated-move dynamics. |
 | `MCCM` | Motion coordinated circular move. | `coordinate_system, control_tag, move_type, end_xy, circle_type, via_or_center_xy, direction, speed, speed_units, accel, accel_units, decel, decel_units, profile, accel_jerk, decel_jerk, jerk_units, termination_type, ...` -> issues an arc move in a coordinate system. |
 | `MCLM` | Motion coordinated linear move. | `coordinate_system, control_tag, move_type, end_position_or_xy, speed, speed_units, accel, accel_units, decel, decel_units, profile, accel_jerk, decel_jerk, jerk_units, termination_type, ...` -> issues a linear coordinated move. |
 | `MCS` | Motion coordinated stop. | `coordinate_system, control_tag, stop_type, decel_enable, decel, decel_units, jerk_enable, jerk, jerk_units` -> stops coordinated motion. |
+| `MRP` | Motion registration position. | `axis, control_tag, move_type, position_reference, target` -> issues a registration-position move. |
 | `MOD` | Modulo function. | `left, right` inside an expression -> remainder after division. |
 | `MOV` | Copies one value to another. | `source, dest` -> simple assignment. |
 | `MSF` | Motion servo off. | `axis, control_tag` -> removes servo power from an axis and tracks status. |
