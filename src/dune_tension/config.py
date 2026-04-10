@@ -5,15 +5,15 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class GeometryConfig:
-    x_min: int = 1050 # 1050
-    x_max: int = 7000
-    y_min: int = 0
-    y_max: int = 2700
+    measurable_x_min: int = 1050 # 1050
+    measurable_x_max: int = 7030
+    measurable_y_min: int = 325
+    measurable_y_max: int = 2700
     g_length_m: float = 1.285
     x_length_m: float = 1.273
     comb_positions: tuple[int, ...] = (1050, 2230, 3420, 4590, 5770, 7030)
     refine_search_steps: int = 300
-    refine_clearance_threshold: float = 200.0
+    refine_clearance_threshold: float = 400.0
     taped_length_offset_mm: float = 16.0
     valid_layers: tuple[str, ...] = ("U", "V", "X", "G")
     wire_number_min: int = 1

@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 
 from dune_tension.config import LAYER_LAYOUTS
-from dune_tension.data_cache import get_dataframe
-from dune_tension.geometry import X_MAX, X_MIN, Y_MAX, Y_MIN, refine_position
+from dune_tension.data_cache import select_dataframe
+from dune_tension.geometry import MEASURABLE_X_MAX, MEASURABLE_X_MIN, MEASURABLE_Y_MAX, MEASURABLE_Y_MIN, refine_position
 from dune_tension.paths import tension_data_db_path
-from dune_tension.plc_io import is_motion_target_in_bounds
+from dune_tension.plc_io import is_in_measurable_area
 
 LOGGER = logging.getLogger(__name__)
 CONFIDENCE_SOURCES = ("neural_net", "signal_amplitude")
@@ -179,7 +179,7 @@ class WirePositionProvider:
 
     def __init__(
         self,
-        dataframe_loader: Callable[[str], Any] = get_dataframe,
+        dataframe_loader: Callable[..., Any] = select_dataframe,
     ) -> None:
         self._dataframe_loader = dataframe_loader
         self._snapshots: dict[tuple[str, str, str, str], _WirePositionSnapshot | None] = {}
@@ -199,10 +199,6 @@ class WirePositionProvider:
         self,
         config: TensiometerConfig,
     ) -> _WirePositionSnapshot | None:
-        df_all = self._dataframe_loader(config.data_path)
-        if df_all is None or getattr(df_all, "empty", True):
-            return None
-
         _data_path, apa_name, layer, _cache_side = self._snapshot_key(config)
         virtual_side = (
             {"A": "B", "B": "A"}[config.side.upper()]
@@ -210,9 +206,11 @@ class WirePositionProvider:
             else config.side.upper()
         )
 
-        df = df_all[
-            (df_all["apa_name"] == apa_name) & (df_all["layer"] == layer)
-        ].copy()
+        df = self._dataframe_loader(
+            config.data_path,
+            where_clause="apa_name = ? AND layer = ? AND side = ?",
+            params=(apa_name, layer, virtual_side),
+        )
         if getattr(df, "empty", True):
             return None
 
@@ -233,8 +231,7 @@ class WirePositionProvider:
         df["confidence"] = pd.to_numeric(df["confidence"], errors="coerce")
 
         df_side = (
-            df[df["side"].astype(str).str.upper() == virtual_side]
-            .sort_values("time")
+            df.sort_values("time")
             .drop_duplicates(subset="wire_number", keep="last")
             .sort_values("wire_number")
             .reset_index(drop=True)
@@ -448,9 +445,9 @@ def plan_measurement_poses(
             LOGGER.warning("No position data found for wire %s", wire_number)
             continue
 
-        if not is_motion_target_in_bounds(pose.x, pose.y):
+        if not is_in_measurable_area(pose.x, pose.y):
             LOGGER.warning(
-                "Skipping wire %s because motion target %s,%s is out of bounds.",
+                "Skipping wire %s because position %s,%s is outside the measurable area.",
                 wire_number,
                 pose.x,
                 pose.y,

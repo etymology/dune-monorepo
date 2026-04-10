@@ -38,6 +38,7 @@ def _build_wire_position_provider() -> Any | None:
 @dataclass(frozen=True)
 class MotionService:
     get_xy: Callable[[], tuple[float, float]]
+    get_live_xy: Callable[[], tuple[float, float]]
     goto_xy: Callable[..., bool]
     increment: Callable[[float, float], Any]
     reset_plc: Callable[..., Any]
@@ -73,16 +74,22 @@ class MotionService:
             and goto_xy is not None
         ):
             active_get_xy = get_cached_xy
+            active_get_live_xy = get_xy if get_xy is not None else get_cached_xy
             active_goto_xy = goto_xy
-        else:
-            LOGGER.warning(
-                "PLC is not available or spoof_movement enabled. Using dummy functions."
-            )
+        elif spoof_movement:
+            LOGGER.warning("spoof_movement enabled. Using dummy motion functions.")
             active_get_xy = spoof_get_xy
+            active_get_live_xy = spoof_get_xy
             active_goto_xy = spoof_goto_xy
+        else:
+            LOGGER.warning("PLC is not available. Movement disabled.")
+            active_get_xy = get_cached_xy if get_cached_xy is not None else spoof_get_xy
+            active_get_live_xy = get_xy if get_xy is not None else active_get_xy
+            active_goto_xy = lambda *_args, **_kwargs: False
 
         return cls(
             get_xy=active_get_xy,
+            get_live_xy=active_get_live_xy,
             goto_xy=active_goto_xy,
             increment=increment,
             reset_plc=reset_plc,
@@ -174,7 +181,7 @@ class ResultRepository:
         rows = self._sample_buffer
         self._sample_buffer = []
 
-        if self._scope_depth > 0:
+        if self._scope_depth > 0 or self._conn is not None:
             conn = self._ensure_connection()
             data_cache.append_results_rows(
                 self.data_path,

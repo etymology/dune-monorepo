@@ -5,10 +5,10 @@ from functools import lru_cache
 
 from dune_tension.config import GEOMETRY_CONFIG
 
-X_MIN: int = GEOMETRY_CONFIG.x_min
-X_MAX: int = GEOMETRY_CONFIG.x_max
-Y_MIN: int = GEOMETRY_CONFIG.y_min
-Y_MAX: int = GEOMETRY_CONFIG.y_max
+MEASURABLE_X_MIN: int = GEOMETRY_CONFIG.measurable_x_min
+MEASURABLE_X_MAX: int = GEOMETRY_CONFIG.measurable_x_max
+MEASURABLE_Y_MIN: int = GEOMETRY_CONFIG.measurable_y_min
+MEASURABLE_Y_MAX: int = GEOMETRY_CONFIG.measurable_y_max
 
 G_LENGTH: float = GEOMETRY_CONFIG.g_length_m
 X_LENGTH: float = GEOMETRY_CONFIG.x_length_m
@@ -21,9 +21,9 @@ def zone_lookup(x: float) -> int:
     """Return zone index in ``[1, 5]`` for coordinate ``x``.
 
     Zones are defined by the five segments between comb boundaries:
-    ``[X_MIN, 2230)``, ``[2230, 3420)``, ``[3420, 4590)``, ``[4590, 5770)``,
-    and ``[5770, X_MAX]``.
-    Coordinates outside ``[X_MIN, X_MAX]`` are clamped to the nearest edge.
+    ``[MEASURABLE_X_MIN, 2230)``, ``[2230, 3420)``, ``[3420, 4590)``, ``[4590, 5770)``,
+    and ``[5770, MEASURABLE_X_MAX]``.
+    Coordinates outside ``[MEASURABLE_X_MIN, MEASURABLE_X_MAX]`` are clamped to the nearest edge.
     """
 
     boundaries = comb_positions
@@ -39,7 +39,9 @@ def zone_lookup(x: float) -> int:
 def _load_wire_length_lut(layer: str):
     import pandas as pd
 
-    file_path = f"wire_lengths/{layer}_LUT.csv"
+    from dune_tension.paths import package_path
+
+    file_path = package_path("wire_lengths", f"{layer}_LUT.csv")
     try:
         return pd.read_csv(file_path, index_col=0)
     except FileNotFoundError as exc:
@@ -61,14 +63,14 @@ def refine_position(
     """
 
     def is_in_bounds(x_val: float, y_val: float) -> bool:
-        return X_MIN <= x_val <= X_MAX and Y_MIN <= y_val <= Y_MAX
+        return MEASURABLE_X_MIN <= x_val <= MEASURABLE_X_MAX and MEASURABLE_Y_MIN <= y_val <= MEASURABLE_Y_MAX
 
     def score(pos: tuple[float, float]) -> float:
         """Return the minimal distance of ``pos`` to any limiting line."""
         px, py = pos
         distances: list[float] = [abs(px - c) for c in comb_positions]
-        distances.append(abs(py - Y_MAX))
-        distances.append(abs(py - Y_MIN))
+        distances.append(abs(py - MEASURABLE_Y_MAX))
+        distances.append(abs(py - MEASURABLE_Y_MIN))
         return min(distances)
 
     candidates: list[tuple[float, float]] = []

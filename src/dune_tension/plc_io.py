@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from dune_tension.geometry import X_MAX, X_MIN, Y_MAX, Y_MIN, comb_positions
+from dune_tension.geometry import MEASURABLE_X_MAX, MEASURABLE_X_MIN, MEASURABLE_Y_MAX, MEASURABLE_Y_MIN, comb_positions
 from dune_tension.plc_direct import (
     PLCCommunicationError,
     PLCTagReadError,
@@ -54,9 +54,9 @@ IDLE_STATE = 1
 XY_MOVE_TYPE = 2
 XY_STATE = 3
 
-HTTP_CONNECT_TIMEOUT = 0.35
-HTTP_READ_TIMEOUT = 1.0
-HTTP_RETRIES = 1
+HTTP_CONNECT_TIMEOUT = 3
+HTTP_READ_TIMEOUT = 3
+HTTP_RETRIES = 5
 READ_RETRY_TIMEOUT = 5.0
 READ_RETRY_INTERVAL = 0.05
 STATE_POLL_INTERVAL = 0.05
@@ -217,10 +217,13 @@ def _write_required(tag_name: str, value: Any) -> bool:
     return True
 
 
-def is_motion_target_in_bounds(x_target: float, y_target: float) -> bool:
-    """Return whether the target is legal for PLC XY motion."""
+def is_in_measurable_area(x_target: float, y_target: float) -> bool:
+    """Return whether ``(x_target, y_target)`` falls within the area reachable by the tension measurement system.
 
-    return X_MIN <= float(x_target) <= X_MAX and Y_MIN <= float(y_target) <= Y_MAX
+    This is distinct from the machine's physical motion limits, which are enforced by dune_winder.
+    """
+
+    return MEASURABLE_X_MIN <= float(x_target) <= MEASURABLE_X_MAX and MEASURABLE_Y_MIN <= float(y_target) <= MEASURABLE_Y_MAX
 
 
 def _read_tag_server(tag_name: str) -> Any:
@@ -398,6 +401,7 @@ def goto_xy(
     check_comb: bool = True,
     idle_timeout: float = IDLE_WAIT_TIMEOUT,
     move_timeout: float = MOVE_WAIT_TIMEOUT,
+    wait_for_completion: bool = True,
 ) -> bool:
     """Move the winder to a given position with bounded waits."""
 
@@ -411,7 +415,7 @@ def goto_xy(
             (cur_x < c < x_target) or (x_target < c < cur_x) for c in comb_positions
         )
         if crosses:
-            transit_y = float(Y_MIN)
+            transit_y = float(MEASURABLE_Y_MIN)
             if not goto_xy(
                 cur_x,
                 transit_y,
@@ -420,6 +424,7 @@ def goto_xy(
                 check_comb=False,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
+                wait_for_completion=wait_for_completion,
             ):
                 return False
             if not goto_xy(
@@ -430,6 +435,7 @@ def goto_xy(
                 check_comb=False,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
+                wait_for_completion=wait_for_completion,
             ):
                 return False
             return goto_xy(
@@ -440,12 +446,13 @@ def goto_xy(
                 check_comb=False,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
+                wait_for_completion=wait_for_completion,
             )
 
     with _MOTION_LOCK:
-        if not is_motion_target_in_bounds(x_target, y_target):
+        if not is_in_measurable_area(x_target, y_target):
             LOGGER.warning(
-                "Motion target %s,%s out of bounds. Please enter a valid position.",
+                "Target %s,%s is outside the measurable area. Please enter a valid position.",
                 x_target,
                 y_target,
             )
@@ -485,6 +492,7 @@ def goto_xy(
                 speed,
                 move_timeout,
                 idle_timeout=idle_timeout,
+                wait_for_completion=wait_for_completion,
             ):
                 return False
         else:
@@ -522,22 +530,23 @@ def goto_xy(
                 if not _write_required(tag_name, value):
                     return False
 
-            move_deadline = time.monotonic() + move_timeout
-            while True:
-                try:
-                    move_type = get_movetype()
-                except RuntimeError as exc:
-                    LOGGER.warning(
-                        "Unable to read MOVE_TYPE while waiting for move: %s", exc
-                    )
-                    return False
-                if move_type != XY_MOVE_TYPE:
-                    break
-                if time.monotonic() >= move_deadline:
-                    _reset_stuck_xy_seek_if_stationary(start_live_x, start_live_y)
-                    LOGGER.warning("Timed out waiting for move completion.")
-                    return False
-                time.sleep(STATE_POLL_INTERVAL)
+            if wait_for_completion:
+                move_deadline = time.monotonic() + move_timeout
+                while True:
+                    try:
+                        move_type = get_movetype()
+                    except RuntimeError as exc:
+                        LOGGER.warning(
+                            "Unable to read MOVE_TYPE while waiting for move: %s", exc
+                        )
+                        return False
+                    if move_type != XY_MOVE_TYPE:
+                        break
+                    if time.monotonic() >= move_deadline:
+                        _reset_stuck_xy_seek_if_stationary(start_live_x, start_live_y)
+                        LOGGER.warning("Timed out waiting for move completion.")
+                        return False
+                    time.sleep(STATE_POLL_INTERVAL)
 
         _TRUE_XY[0] = predicted_true_x
         _TRUE_XY[1] = predicted_true_y
@@ -653,8 +662,8 @@ def spoof_get_xy() -> tuple[float, float]:
 
 def spoof_goto_xy(x_target: float, y_target: float, **_: object) -> bool:
     """Pretend to move the winder and update the spoofed position."""
-    if not is_motion_target_in_bounds(x_target, y_target):
-        LOGGER.warning("[spoof] Motion target %s,%s out of bounds.", x_target, y_target)
+    if not is_in_measurable_area(x_target, y_target):
+        LOGGER.warning("[spoof] Target %s,%s is outside the measurable area.", x_target, y_target)
 
     LOGGER.info("[spoof] Moving to %s,%s", x_target, y_target)
     _SPOOF_XY[0] = x_target

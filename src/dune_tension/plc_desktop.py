@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DESKTOP_SERVER_URL = "http://192.168.137.1:8080"
 
-HTTP_CONNECT_TIMEOUT = 0.35
+HTTP_CONNECT_TIMEOUT = 5
 HTTP_READ_TIMEOUT = 5.0
 POLL_INTERVAL = 0.1
 READY_STATE = "StopMode"
@@ -99,8 +99,9 @@ def desktop_seek_xy(
     speed: float,
     move_timeout: float,
     idle_timeout: float = 20.0,
+    wait_for_completion: bool = True,
 ) -> bool:
-    """Wait for ready, issue manual_seek_xy, then poll until StopMode or timeout."""
+    """Wait for ready, issue manual_seek_xy, then optionally wait for StopMode."""
     def _wait_for_ready(timeout: float) -> bool:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -137,6 +138,9 @@ def desktop_seek_xy(
             result.get("error") or result.get("data"),
         )
         return False
+
+    if not wait_for_completion:
+        return True
 
     deadline = time.monotonic() + move_timeout
     while time.monotonic() < deadline:

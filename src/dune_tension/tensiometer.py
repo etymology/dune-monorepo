@@ -29,7 +29,7 @@ from dune_tension.tensiometer_functions import (
     normalize_confidence_source,
     plan_measurement_poses,
 )
-from dune_tension.plc_io import is_motion_target_in_bounds
+from dune_tension.plc_io import is_in_measurable_area
 
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
@@ -113,6 +113,8 @@ def build_tensiometer(
     spoof: bool = False,
     spoof_movement: bool = False,
     wiggle_y_sigma_mm: float = MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm,
+    sweeping_wiggle: bool = False,
+    sweeping_wiggle_span_mm: float = 1.0,
     focus_wiggle_sigma_quarter_us: float = (
         MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us
     ),
@@ -252,6 +254,8 @@ def build_tensiometer(
         spoof=spoof,
         spoof_movement=spoof_movement,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
+        sweeping_wiggle=sweeping_wiggle,
+        sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         strum=active_strum,
         focus_wiggle=active_focus_wiggle,
@@ -296,6 +300,8 @@ class Tensiometer:
         spoof: bool = False,
         spoof_movement: bool = False,
         wiggle_y_sigma_mm: float = MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm,
+        sweeping_wiggle: bool = False,
+        sweeping_wiggle_span_mm: float = 1.0,
         focus_wiggle_sigma_quarter_us: float = (
             MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us
         ),
@@ -338,12 +344,16 @@ class Tensiometer:
         )
         self.snr = snr
         self.wiggle_y_sigma_mm = float(wiggle_y_sigma_mm)
+        self.sweeping_wiggle = bool(sweeping_wiggle)
+        self.sweeping_wiggle_span_mm = float(sweeping_wiggle_span_mm)
         self.focus_wiggle_sigma_quarter_us = float(focus_wiggle_sigma_quarter_us)
         self._time = time_provider or time.time
         self._now = datetime_provider or datetime.now
         self._gauss = gauss_func or gauss
         if self.wiggle_y_sigma_mm < 0:
             raise ValueError("wiggle_y_sigma_mm must be non-negative")
+        if self.sweeping_wiggle_span_mm < 0:
+            raise ValueError("sweeping_wiggle_span_mm must be non-negative")
         if self.focus_wiggle_sigma_quarter_us < 0:
             raise ValueError("focus_wiggle_sigma_quarter_us must be non-negative")
         self.motion = motion or MotionService.build(spoof_movement=spoof_movement)
@@ -354,7 +364,7 @@ class Tensiometer:
         self.samplerate = self.audio.samplerate
         self.record_audio_func = self.audio.record_audio
 
-        self.get_current_xy_position = self.motion.get_xy
+        self.get_current_xy_position = getattr(self.motion, "get_live_xy", self.motion.get_xy)
         self.goto_xy_func = self.motion.goto_xy
         self.wiggle_func = self.motion.increment
 
@@ -380,6 +390,8 @@ class Tensiometer:
         # State tracking for winder wiggle thread
         self._wiggle_event: threading.Event | None = None
         self._wiggle_thread: threading.Thread | None = None
+        self._sweeping_wiggle_event: threading.Event | None = None
+        self._sweeping_wiggle_thread: threading.Thread | None = None
 
     def _focus_wiggle_x_sign(self) -> float:
         """Return focus/X coupling sign: A is negative, B is positive."""
@@ -570,9 +582,9 @@ class Tensiometer:
             if refined is not None:
                 target_x, target_y = refined
 
-        if not is_motion_target_in_bounds(target_x, target_y):
+        if not is_in_measurable_area(target_x, target_y):
             LOGGER.warning(
-                "Auto-step pose %s,%s for wire %s is out of bounds; falling back to provider.",
+                "Auto-step pose %s,%s for wire %s is outside the measurable area; falling back to provider.",
                 target_x,
                 target_y,
                 wire_number,
@@ -680,6 +692,65 @@ class Tensiometer:
             plt.close()
         except Exception as exc:  # pragma: no cover - plotting is optional
             LOGGER.warning("Failed to plot audio sample: %s", exc)
+
+    def _start_sweeping_wiggle(
+        self,
+        *,
+        center_x: float,
+        center_y: float,
+        focus_target: int | None,
+    ) -> None:
+        if not self.sweeping_wiggle or self.sweeping_wiggle_span_mm <= 0.0:
+            return
+        self._stop_sweeping_wiggle(return_to_center=False)
+
+        stop_event = threading.Event()
+        stop_event.set()
+        self._sweeping_wiggle_event = stop_event
+
+        low_y = float(center_y - self.sweeping_wiggle_span_mm)
+        high_y = float(center_y + self.sweeping_wiggle_span_mm)
+        record_duration = max(float(self.config.record_duration), 1e-6)
+        sweep_speed_mm_s = max(
+            (3.0 * float(self.sweeping_wiggle_span_mm)) / record_duration,
+            1e-3,
+        )
+
+        def _run() -> None:
+            target_y = high_y
+            while stop_event.is_set():
+                if check_stop_event(self.stop_event, "tension measurement interrupted!"):
+                    break
+                if not self._goto_xy_with_reset_recovery(
+                    center_x,
+                    target_y,
+                    context="Sweeping wiggle",
+                    speed=sweep_speed_mm_s,
+                ):
+                    break
+                target_y = low_y if abs(target_y - high_y) < 1e-9 else high_y
+
+        self._sweeping_wiggle_thread = threading.Thread(target=_run, daemon=True)
+        self._sweeping_wiggle_thread.start()
+
+    def _stop_sweeping_wiggle(
+        self,
+        *,
+        return_to_center: bool,
+        center_x: float | None = None,
+        center_y: float | None = None,
+        focus_target: int | None = None,
+    ) -> None:
+        stop_event = self._sweeping_wiggle_event
+        if stop_event is not None:
+            stop_event.clear()
+        if self._sweeping_wiggle_thread is not None:
+            self._sweeping_wiggle_thread.join(timeout=1.0)
+        self._sweeping_wiggle_event = None
+        self._sweeping_wiggle_thread = None
+        self.motion.set_speed()
+        if return_to_center and center_x is not None and center_y is not None:
+            self._move_to_measurement_pose(center_x, center_y, focus_target)
 
     @staticmethod
     def _sample_rms(audio_sample: Any) -> float:
@@ -991,17 +1062,41 @@ class Tensiometer:
             return wire_result
 
         def _move_to_pose(x_target: float, y_target: float, focus_target: int) -> None:
+            diagonal_geometry = (
+                abs(float(self.config.dx)) > 1e-9
+                and abs(float(self.config.dy)) > 1e-9
+            )
+            y_per_x = (
+                (-float(self.config.dy) / float(self.config.dx))
+                if diagonal_geometry
+                else 0.0
+            )
             clamped_focus = self._active_focus_target(focus_target)
             if clamped_focus is None:
                 clamped_focus = self._clamp_focus_position(int(focus_target))
             current_focus = self._get_focus_position()
             delta_focus = int(clamped_focus - current_focus)
             if delta_focus != 0:
-                self._apply_focus_wiggle_with_x_compensation(delta_focus)
+                prior_x: float | None = None
+                try:
+                    prior_x, _prior_y = self.get_current_xy_position()
+                except Exception:
+                    prior_x = None
+
+                compensated_x = self._apply_focus_wiggle_with_x_compensation(delta_focus)
+                focus_x_delta = self._focus_to_x_delta_mm(delta_focus)
+                if compensated_x is not None and prior_x is not None:
+                    focus_x_delta = float(compensated_x) - float(prior_x)
+
+                if not self.use_manual_focus:
+                    x_target = float(x_target + focus_x_delta)
+                    if diagonal_geometry:
+                        y_target = float(y_target + (focus_x_delta * y_per_x))
             if not self._goto_xy_with_reset_recovery(
                 x_target,
                 y_target,
                 context=f"Optimizer pose for wire {wire_number}",
+                wait_for_completion=False,
             ):
                 raise RuntimeError(
                     f"Failed to move to optimizer pose {x_target},{y_target} for wire {wire_number}"
@@ -1010,8 +1105,21 @@ class Tensiometer:
         def _next_pose() -> tuple[float, float, int]:
             nonlocal axis_index, x_step_mm, y_step_mm, focus_step_quarter_us
 
-            target_y = float(self._gauss(best_y, y_step_mm))
+            diagonal_geometry = (
+                abs(float(self.config.dx)) > 1e-9
+                and abs(float(self.config.dy)) > 1e-9
+            )
+            y_per_x = (
+                (-float(self.config.dy) / float(self.config.dx))
+                if diagonal_geometry
+                else 0.0
+            )
+
             target_x = float(self._gauss(best_x, x_step_mm))
+            if diagonal_geometry:
+                target_y = float(best_y + ((target_x - best_x) * y_per_x))
+            else:
+                target_y = float(self._gauss(best_y, y_step_mm))
             target_focus = int(best_focus)
 
             if (
@@ -1022,7 +1130,6 @@ class Tensiometer:
                 target_focus = self._clamp_focus_position(
                     int(round(self._gauss(best_focus, focus_step_quarter_us)))
                 )
-                target_x = best_x + self._focus_to_x_delta_mm(target_focus - best_focus)
 
             axis_index += 1
             if axis_index >= 2:
@@ -1037,109 +1144,128 @@ class Tensiometer:
 
             return float(target_x), float(target_y), int(target_focus)
 
-        while (self._time() - start_time) < measuring_timeout:
-            if check_stop_event(self.stop_event, "tension measurement interrupted!"):
-                return None
-            x, y = self.get_current_xy_position()
-            self._await_quiet_background()
-
-            # Trigger a valve pulse before capturing audio.
-            self.strum_func()
-            # record audio with harmonic comb
-
-            audio_sample = acquire_audio(
-                cfg=audio_acquisition_config,
-                noise_rms=self.noise_threshold / 3,
-                timeout=0.1,
+        if self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0:
+            self._start_sweeping_wiggle(
+                center_x=float(wire_x),
+                center_y=float(wire_y),
+                focus_target=best_focus,
             )
 
-            if audio_sample is not None:
-                focus_position = self._get_focus_position()
-                if amplitude_mode:
-                    confidence = self._amplitude_confidence(
-                        audio_sample,
-                        expected_frequency,
-                    )
-                    current_sample = DeferredPitchSample(
-                        audio_sample=audio_sample,
-                        x=x,
-                        y=y,
-                        focus_position=focus_position,
-                        confidence=confidence,
-                    )
-                    is_new_best = confidence > best_confidence
-                    if is_new_best:
-                        best_confidence = confidence
-                        best_x = current_sample.x
-                        best_y = current_sample.y
-                        best_focus = (
-                            current_sample.focus_position
-                            if current_sample.focus_position is not None
-                            else best_focus
+        try:
+            while (self._time() - start_time) < measuring_timeout:
+                if check_stop_event(self.stop_event, "tension measurement interrupted!"):
+                    return None
+                x, y = self.get_current_xy_position()
+                self._await_quiet_background()
+
+                # Trigger a valve pulse before capturing audio.
+                self.strum_func()
+                # record audio with harmonic comb
+
+                audio_sample = acquire_audio(
+                    cfg=audio_acquisition_config,
+                    noise_rms=self.noise_threshold / 3,
+                    timeout=0.1,
+                )
+
+                if audio_sample is not None:
+                    focus_position = self._get_focus_position()
+                    if amplitude_mode:
+                        confidence = self._amplitude_confidence(
+                            audio_sample,
+                            expected_frequency,
                         )
-                        axis_index = 0
-
-                    if confidence >= self.config.confidence_threshold:
-                        threshold_reached = True
-                        _flush_pending_skipped_sample()
-                        wire_result = _analyze_sample(current_sample)
-                        if tension_plausible(wire_result.tension):
-                            candidate_wires.append(wire_result)
-                            break
-                    elif threshold_reached:
-                        _publish_audio_sample(audio_sample, None)
-                    elif is_new_best:
-                        _flush_pending_skipped_sample()
-                        pending_best_sample = current_sample
-                    else:
-                        _publish_audio_sample(audio_sample, None)
-                else:
-                    analysis, frequency, confidence = self._estimate_sample_pitch(
-                        audio_sample,
-                        expected_frequency,
-                    )
-                    _publish_audio_sample(audio_sample, analysis)
-                    wire_result = _build_wire_result(
-                        confidence=confidence,
-                        frequency=frequency,
-                        x=x,
-                        y=y,
-                        focus_position=focus_position,
-                    )
-                    self.repository.append_sample(wire_result)
-
-                    if tension_plausible(wire_result.tension):
-                        candidate_wires.append(wire_result)
-                        if wire_result.confidence > best_confidence:
-                            best_confidence = wire_result.confidence
-                            best_x = wire_result.x
-                            best_y = wire_result.y
+                        current_sample = DeferredPitchSample(
+                            audio_sample=audio_sample,
+                            x=x,
+                            y=y,
+                            focus_position=focus_position,
+                            confidence=confidence,
+                        )
+                        is_new_best = confidence > best_confidence
+                        if is_new_best:
+                            best_confidence = confidence
+                            best_x = current_sample.x
+                            best_y = current_sample.y
                             best_focus = (
-                                wire_result.focus_position
-                                if wire_result.focus_position is not None
+                                current_sample.focus_position
+                                if current_sample.focus_position is not None
                                 else best_focus
                             )
                             axis_index = 0
-                        if wire_result.confidence >= self.config.confidence_threshold:
-                            break
 
-            else:
-                LOGGER.info("Sample of wire %s: no audio detected.", wire_number)
-            if (self._time() - start_time) >= measuring_timeout:
-                break
+                        if confidence >= self.config.confidence_threshold:
+                            threshold_reached = True
+                            _flush_pending_skipped_sample()
+                            wire_result = _analyze_sample(current_sample)
+                            if tension_plausible(wire_result.tension):
+                                candidate_wires.append(wire_result)
+                                break
+                        elif threshold_reached:
+                            _publish_audio_sample(audio_sample, None)
+                        elif is_new_best:
+                            _flush_pending_skipped_sample()
+                            pending_best_sample = current_sample
+                        else:
+                            _publish_audio_sample(audio_sample, None)
+                    else:
+                        analysis, frequency, confidence = self._estimate_sample_pitch(
+                            audio_sample,
+                            expected_frequency,
+                        )
+                        _publish_audio_sample(audio_sample, analysis)
+                        wire_result = _build_wire_result(
+                            confidence=confidence,
+                            frequency=frequency,
+                            x=x,
+                            y=y,
+                            focus_position=focus_position,
+                        )
+                        self.repository.append_sample(wire_result)
 
-            target_x, target_y, target_focus = _next_pose()
-            LOGGER.info(
-                "Optimizer next pose: x=%s y=%s focus=%s",
-                target_x,
-                target_y,
-                target_focus,
+                        if tension_plausible(wire_result.tension):
+                            candidate_wires.append(wire_result)
+                            if wire_result.confidence > best_confidence:
+                                best_confidence = wire_result.confidence
+                                best_x = wire_result.x
+                                best_y = wire_result.y
+                                best_focus = (
+                                    wire_result.focus_position
+                                    if wire_result.focus_position is not None
+                                    else best_focus
+                                )
+                                axis_index = 0
+                            if wire_result.confidence >= self.config.confidence_threshold:
+                                break
+                else:
+                    LOGGER.info("Sample of wire %s: no audio detected.", wire_number)
+                if (self._time() - start_time) >= measuring_timeout:
+                    break
+
+                if self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0:
+                    continue
+
+                target_x, target_y, target_focus = _next_pose()
+                LOGGER.info(
+                    "Optimizer next pose: x=%s y=%s focus=%s",
+                    target_x,
+                    target_y,
+                    target_focus,
+                )
+                try:
+                    _move_to_pose(target_x, target_y, target_focus)
+                except RuntimeError as exc:
+                    LOGGER.warning("%s", exc)
+                    break
+        finally:
+            self._stop_sweeping_wiggle(
+                return_to_center=bool(
+                    self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0
+                ),
+                center_x=float(wire_x),
+                center_y=float(wire_y),
+                focus_target=best_focus,
             )
-            try:
-                _move_to_pose(target_x, target_y, target_focus)
-            except RuntimeError as exc:
-                LOGGER.warning("%s", exc)
-                break
 
         if amplitude_mode and not threshold_reached and pending_best_sample is not None:
             wire_result = _analyze_sample(pending_best_sample)
