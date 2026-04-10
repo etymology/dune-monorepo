@@ -277,6 +277,54 @@ def test_collect_samples_stops_when_confidence_threshold_is_met(monkeypatch):
     assert samples[0].confidence == pytest.approx(0.95)
 
 
+def test_collect_samples_keeps_sampling_until_legacy_tension_condition_matches(
+    monkeypatch,
+):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+    frequencies = iter([50.0, 70.0])
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: [1.0])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "estimate_pitch_from_audio",
+        lambda *_args: (next(frequencies), 0.95),
+    )
+
+    def _raise_analysis(*_args, **_kwargs):
+        raise RuntimeError("fallback to simple pitch estimate")
+
+    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_threshold=0.9,
+        measuring_duration=1.0,
+        legacy_tension_condition="t > 6",
+        datetime_provider=lambda: datetime(2026, 3, 15, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert len(repository.samples) == 2
+    assert samples is not None
+    assert len(samples) == 1
+    assert samples[0].frequency == pytest.approx(70.0)
+    assert samples[0].tension == pytest.approx(7.0)
+
+
 def test_collect_samples_waits_for_quiet_before_audio(monkeypatch):
     _patch_result_physics(monkeypatch)
     repository = DummyRepository()
@@ -687,8 +735,20 @@ def test_measure_auto_reports_estimated_time(monkeypatch):
     assert eta_updates == ["0:00:10", "0:00:00"]
     assert provider.calls == [(1, 0), (2, 0)]
     assert collected == [
-        {"wire_number": 1, "wire_x": 1.0, "wire_y": 0.0, "focus_position": 4300},
-        {"wire_number": 2, "wire_x": 2.0, "wire_y": 0.0, "focus_position": 4200},
+        {
+            "wire_number": 1,
+            "wire_x": 1.0,
+            "wire_y": 0.0,
+            "focus_position": 4300,
+            "zone": None,
+        },
+        {
+            "wire_number": 2,
+            "wire_x": 2.0,
+            "wire_y": 0.0,
+            "focus_position": 4200,
+            "zone": None,
+        },
     ]
 
 
@@ -744,12 +804,19 @@ def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
     assert provider.calls == [(10, 0)]
     assert eta_updates == ["0:00:10", "0:00:00"]
     assert collected == [
-        {"wire_number": 10, "wire_x": 100.0, "wire_y": 200.0, "focus_position": 4300},
+        {
+            "wire_number": 10,
+            "wire_x": 100.0,
+            "wire_y": 200.0,
+            "focus_position": 4300,
+            "zone": None,
+        },
         {
             "wire_number": 12,
             "wire_x": 2500.0,
             "wire_y": 1509.5833333333333,
             "focus_position": 4350,
+            "zone": None,
         },
     ]
 
@@ -797,12 +864,19 @@ def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
 
     assert provider.calls == [(10, 0)]
     assert collected == [
-        {"wire_number": 10, "wire_x": 100.0, "wire_y": 200.0, "focus_position": 4300},
+        {
+            "wire_number": 10,
+            "wire_x": 100.0,
+            "wire_y": 200.0,
+            "focus_position": 4300,
+            "zone": None,
+        },
         {
             "wire_number": 12,
             "wire_x": 2500.0,
             "wire_y": 1509.5833333333333,
             "focus_position": 4350,
+            "zone": None,
         },
     ]
 
@@ -898,8 +972,20 @@ def test_measure_auto_uv_uses_provider_pose_for_every_wire(monkeypatch):
 
     assert provider.calls == [(10, 0), (12, 0)]
     assert collected == [
-        {"wire_number": 10, "wire_x": 100.0, "wire_y": 200.0, "focus_position": 4300},
-        {"wire_number": 12, "wire_x": 300.0, "wire_y": 999.0, "focus_position": 5200},
+        {
+            "wire_number": 10,
+            "wire_x": 100.0,
+            "wire_y": 200.0,
+            "focus_position": 4300,
+            "zone": None,
+        },
+        {
+            "wire_number": 12,
+            "wire_x": 300.0,
+            "wire_y": 999.0,
+            "focus_position": 5200,
+            "zone": None,
+        },
     ]
 
 
@@ -946,8 +1032,20 @@ def test_measure_list_uv_uses_provider_pose_for_every_wire():
 
     assert provider.calls == [(10, 0), (12, 0)]
     assert collected == [
-        {"wire_number": 10, "wire_x": 100.0, "wire_y": 200.0, "focus_position": 4300},
-        {"wire_number": 12, "wire_x": 300.0, "wire_y": 999.0, "focus_position": 5200},
+        {
+            "wire_number": 10,
+            "wire_x": 100.0,
+            "wire_y": 200.0,
+            "focus_position": 4300,
+            "zone": None,
+        },
+        {
+            "wire_number": 12,
+            "wire_x": 300.0,
+            "wire_y": 999.0,
+            "focus_position": 5200,
+            "zone": None,
+        },
     ]
 
 
@@ -1230,6 +1328,11 @@ def test_goto_collect_wire_data_records_profile_stage_timings(monkeypatch):
 
 def test_goto_collect_wire_data_invokes_wire_preview_for_uv(monkeypatch):
     _patch_result_physics(monkeypatch)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "length_lookup",
+        lambda _layer, _wire_number, _zone, taped=False: 1.0,
+    )
     motion = _make_motion_service(start_x=10.0, start_y=2.0)
     preview_calls = []
     result = TensionResult.from_measurement(

@@ -1,3 +1,4 @@
+import ast
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -35,6 +36,63 @@ from dune_tension.plc_io import is_in_measurable_area
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
+
+
+def _compile_legacy_tension_condition(expr: str) -> Callable[[float], bool]:
+    """Compile a safe tension-only expression that references ``t``."""
+
+    allowed_nodes = (
+        ast.Expression,
+        ast.BoolOp,
+        ast.BinOp,
+        ast.UnaryOp,
+        ast.Compare,
+        ast.Name,
+        ast.Load,
+        ast.Constant,
+        ast.And,
+        ast.Or,
+        ast.Not,
+        ast.Add,
+        ast.Sub,
+        ast.Mult,
+        ast.Div,
+        ast.Pow,
+        ast.Mod,
+        ast.USub,
+        ast.UAdd,
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+    )
+
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError(f"invalid syntax: {exc.msg}") from exc
+
+    uses_t = False
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed_nodes):
+            raise ValueError(f"disallowed expression node: {type(node).__name__}")
+        if isinstance(node, ast.Name):
+            if node.id != "t":
+                raise ValueError("only the variable 't' is allowed in legacy tension conditions")
+            uses_t = True
+
+    if not uses_t:
+        raise ValueError("legacy tension conditions must reference the variable 't'")
+
+    code = compile(tree, "<legacy-tension-condition>", "eval")
+
+    def predicate(tension: float) -> bool:
+        result = eval(code, {"__builtins__": {}}, {"t": float(tension)})
+        return bool(result)
+
+    return predicate
 
 
 @dataclass(frozen=True)
@@ -165,6 +223,7 @@ def build_tensiometer(
     focus_wiggle: Optional[Callable[[float], None]] = None,
     focus_position_getter: Optional[Callable[[], int]] = None,
     focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
+    legacy_tension_condition: str | None = None,
     use_manual_focus: bool = False,
     manual_focus_target: int | None = None,
     quiet_waiter: Optional[Callable[[], None]] = None,
@@ -305,6 +364,7 @@ def build_tensiometer(
         focus_wiggle=active_focus_wiggle,
         focus_position_getter=active_focus_position_getter,
         focus_range_getter=active_focus_range_getter,
+        legacy_tension_condition=legacy_tension_condition,
         use_manual_focus=use_manual_focus,
         manual_focus_target=manual_focus_target,
         quiet_waiter=active_quiet_waiter,
@@ -354,6 +414,7 @@ class Tensiometer:
         focus_wiggle: Optional[Callable[[float], None]] = None,
         focus_position_getter: Optional[Callable[[], int]] = None,
         focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
+        legacy_tension_condition: str | None = None,
         use_manual_focus: bool = False,
         manual_focus_target: int | None = None,
         quiet_waiter: Optional[Callable[[], None]] = None,
@@ -406,8 +467,11 @@ class Tensiometer:
         self.motion = motion or MotionService.build(spoof_movement=spoof_movement)
         self.audio = audio or AudioCaptureService.build(spoof=spoof)
         self.repository = repository or ResultRepository(self.config.data_path)
-        self.wire_position_provider = LegacyUVWirePositionProvider(
-            wire_position_provider or WirePositionProvider()
+        provider = wire_position_provider or WirePositionProvider()
+        self.wire_position_provider = (
+            LegacyUVWirePositionProvider(provider)
+            if type(provider) is WirePositionProvider
+            else provider
         )
         self.noise_threshold = self.audio.noise_threshold
         self.samplerate = self.audio.samplerate
@@ -421,6 +485,12 @@ class Tensiometer:
         self.focus_wiggle_func = focus_wiggle or (lambda _delta: None)
         self.focus_position_getter = focus_position_getter or (lambda: 0)
         self.focus_range_getter = focus_range_getter or (lambda: (4000, 8000))
+        self.legacy_tension_condition = str(legacy_tension_condition or "").strip()
+        self._legacy_tension_condition_predicate = (
+            _compile_legacy_tension_condition(self.legacy_tension_condition)
+            if self.legacy_tension_condition
+            else None
+        )
         self.use_manual_focus = bool(use_manual_focus)
         self.manual_focus_target = (
             None if manual_focus_target is None else int(manual_focus_target)
@@ -788,14 +858,6 @@ class Tensiometer:
             last_successful_wire_number=last_successful_wire_number,
         )
 
-    def _await_quiet_background(self) -> None:
-        """Best-effort wait for ambient audio to return near the noise floor."""
-
-        try:
-            self.quiet_waiter()
-        except Exception as exc:
-            LOGGER.debug("Quiet wait failed: %s", exc)
-
     @staticmethod
     def _sample_sort_key(result: TensionResult) -> tuple[float, datetime]:
         timestamp = getattr(result, "time", None)
@@ -894,7 +956,7 @@ class Tensiometer:
         high_y = float(center_y + self.sweeping_wiggle_span_mm)
         record_duration = max(float(self.config.record_duration), 1e-6)
         sweep_speed_mm_s = max(
-            (3.0 * float(self.sweeping_wiggle_span_mm)) / record_duration,
+            (float(self.sweeping_wiggle_span_mm)) / record_duration,
             1e-3,
         )
 
@@ -1034,6 +1096,7 @@ class Tensiometer:
                 wire_number=wire_number,
                 wire_x=x,
                 wire_y=y,
+                zone=target.zone if target is not None else None,
             )
 
     def measure_auto(self) -> None:
@@ -1093,6 +1156,7 @@ class Tensiometer:
                         wire_x=target.x,
                         wire_y=target.y,
                         focus_position=target.focus_position,
+                        zone=target.zone,
                     )
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
@@ -1170,6 +1234,7 @@ class Tensiometer:
                         wire_x=target.x,
                         wire_y=target.y,
                         focus_position=target.focus_position,
+                        zone=target.zone,
                     )
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
@@ -1185,11 +1250,13 @@ class Tensiometer:
         start_time: float,
         wire_y: float,
         wire_x: float,
+        zone: int | None = None,
     ) -> list[TensionResult] | None:
         expected_frequency = wire_equation(length=length)["frequency"]
         amplitude_mode = self.config.confidence_source == "signal_amplitude"
         measuring_timeout = self.config.measuring_duration
         candidate_wires: list[TensionResult] = []
+        measured_zone = int(zone) if zone is not None else None
         audio_acquisition_config = AudioAcquisitionConfig(
             sample_rate=self.samplerate,
             max_record_seconds=self.config.record_duration,
@@ -1222,6 +1289,15 @@ class Tensiometer:
         axis_index = 0
         threshold_reached = False
         pending_best_sample: DeferredPitchSample | None = None
+        legacy_tension_condition_active = (
+            self._legacy_tension_condition_predicate is not None
+        )
+
+        def _legacy_tension_condition_ok(tension: float) -> bool:
+            predicate = self._legacy_tension_condition_predicate
+            if predicate is None:
+                return True
+            return bool(predicate(tension))
 
         def _publish_audio_sample(audio_sample: Any, analysis: Any | None) -> None:
             try:
@@ -1243,6 +1319,7 @@ class Tensiometer:
             x: float,
             y: float,
             focus_position: int | None,
+            zone: int | None,
         ) -> TensionResult:
             LOGGER.info(
                 "Sample of wire %s: measured frequency %.2f Hz %s with confidence %.2f",
@@ -1261,6 +1338,7 @@ class Tensiometer:
                 x=x,
                 y=y,
                 focus_position=focus_position,
+                zone=zone,
                 time=self._now(),
                 taped=self._is_current_side_taped(),
             )
@@ -1279,6 +1357,7 @@ class Tensiometer:
                 x=sample.x,
                 y=sample.y,
                 focus_position=sample.focus_position,
+                zone=measured_zone,
             )
             self.repository.append_sample(wire_result)
             return wire_result
@@ -1378,12 +1457,6 @@ class Tensiometer:
                 if check_stop_event(self.stop_event, "tension measurement interrupted!"):
                     return None
                 x, y = self.get_current_xy_position()
-                quiet_started = self._profile_time()
-                self._await_quiet_background()
-                self._record_wire_stage(
-                    "await_quiet_background",
-                    self._profile_time() - quiet_started,
-                )
 
                 # Trigger a valve pulse before capturing audio.
                 strum_started = self._profile_time()
@@ -1437,11 +1510,19 @@ class Tensiometer:
                             threshold_reached = True
                             _flush_pending_skipped_sample()
                             wire_result = _analyze_sample(current_sample)
-                            if tension_plausible(wire_result.tension):
+                            condition_ok = _legacy_tension_condition_ok(
+                                wire_result.tension
+                            )
+                            if not condition_ok and legacy_tension_condition_active:
+                                LOGGER.info(
+                                    "Sample of wire %s tension %.2f did not satisfy legacy tension condition %r; continuing.",
+                                    wire_number,
+                                    wire_result.tension,
+                                    self.legacy_tension_condition,
+                                )
+                            if tension_plausible(wire_result.tension) and condition_ok:
                                 candidate_wires.append(wire_result)
                                 break
-                        elif threshold_reached:
-                            _publish_audio_sample(audio_sample, None)
                         elif is_new_best:
                             _flush_pending_skipped_sample()
                             pending_best_sample = current_sample
@@ -1464,10 +1545,19 @@ class Tensiometer:
                             x=x,
                             y=y,
                             focus_position=focus_position,
+                            zone=measured_zone,
                         )
                         self.repository.append_sample(wire_result)
 
-                        if tension_plausible(wire_result.tension):
+                        condition_ok = _legacy_tension_condition_ok(wire_result.tension)
+                        if not condition_ok and legacy_tension_condition_active:
+                            LOGGER.info(
+                                "Sample of wire %s tension %.2f did not satisfy legacy tension condition %r; continuing.",
+                                wire_number,
+                                wire_result.tension,
+                                self.legacy_tension_condition,
+                            )
+                        if tension_plausible(wire_result.tension) and condition_ok:
                             candidate_wires.append(wire_result)
                             if wire_result.confidence > best_confidence:
                                 best_confidence = wire_result.confidence
@@ -1520,11 +1610,16 @@ class Tensiometer:
                 focus_target=best_focus,
             )
 
-        if amplitude_mode and not threshold_reached and pending_best_sample is not None:
-            wire_result = _analyze_sample(pending_best_sample)
-            pending_best_sample = None
-            if tension_plausible(wire_result.tension):
-                candidate_wires.append(wire_result)
+        if amplitude_mode and pending_best_sample is not None:
+            if threshold_reached and not legacy_tension_condition_active:
+                _flush_pending_skipped_sample()
+            else:
+                wire_result = _analyze_sample(pending_best_sample)
+                pending_best_sample = None
+                if tension_plausible(
+                    wire_result.tension
+                ) and _legacy_tension_condition_ok(wire_result.tension):
+                    candidate_wires.append(wire_result)
         else:
             _flush_pending_skipped_sample()
         return candidate_wires
@@ -1535,7 +1630,7 @@ class Tensiometer:
         wire_number: int,
         wire_x: float,
         wire_y: float,
-    ) -> TensionResult:
+    ) -> TensionResult | None:
         if passing_wires == []:
             return None
         return max(passing_wires, key=self._sample_sort_key)
@@ -1546,6 +1641,7 @@ class Tensiometer:
         wire_x: float,
         wire_y: float,
         focus_position: int | None = None,
+        zone: int | None = None,
     ) -> Optional[TensionResult]:
         total_started = self._profile_time()
         self.motion.reset_plc()
@@ -1553,10 +1649,11 @@ class Tensiometer:
             "reset_plc_before_move",
             self._profile_time() - total_started,
         )
+        measured_zone = int(zone) if zone is not None else zone_lookup(wire_x)
         length = length_lookup(
             self.config.layer,
             wire_number,
-            zone_lookup(wire_x),
+            measured_zone,
             taped=self._is_current_side_taped(),
         )
         if np.isnan(length):
@@ -1596,6 +1693,7 @@ class Tensiometer:
                 x=wire_x,
                 y=wire_y,
                 focus_position=self._get_focus_position(),
+                zone=measured_zone,
                 time=self._now(),
                 taped=self._is_current_side_taped(),
             )
@@ -1608,6 +1706,7 @@ class Tensiometer:
                 start_time=start_time,
                 wire_y=wire_y,
                 wire_x=wire_x,
+                zone=measured_zone,
             )
 
         finally:
@@ -1633,7 +1732,14 @@ class Tensiometer:
         )
 
         if result is None:
-            LOGGER.warning("Measurement failed for wire number %s.", wire_number)
+            if self._legacy_tension_condition_predicate is not None:
+                LOGGER.warning(
+                    "Measurement failed for wire number %s before satisfying legacy tension condition %r.",
+                    wire_number,
+                    self.legacy_tension_condition,
+                )
+            else:
+                LOGGER.warning("Measurement failed for wire number %s.", wire_number)
             return result
         if not result.tension_pass:
             LOGGER.warning("Tension failed for wire number %s.", wire_number)

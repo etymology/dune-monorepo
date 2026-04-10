@@ -133,6 +133,7 @@ class PlannedWirePose:
     x: float
     y: float
     focus_position: int | None = None
+    zone: int | None = None
 
 
 def _weighted_focus_fit(

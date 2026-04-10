@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import logging
 import math
-from typing import Any
 
 from dune_tension.config import GEOMETRY_CONFIG
 from dune_tension.geometry import length_lookup, zone_lookup
@@ -12,11 +12,12 @@ from dune_tension.layer_calibration import (
     load_layer_calibration_summary,
 )
 from dune_tension.tensiometer_functions import PlannedWirePose, WirePositionProvider
-from dune_winder.core.manual_calibration import _build_layer_metadata
+from dune_winder.core.manual_calibration import LAYER_METADATA, _build_layer_metadata
 
 LOGGER = logging.getLogger(__name__)
 
 _EPSILON = 1e-9
+_SEGMENT_LENGTH_NEAR_TIE_FRACTION = 0.10
 
 _WRAP_X_SIGNS = {
     "V": {
@@ -44,6 +45,35 @@ class PlannedUVWire:
     wire_length_m: float
 
 
+@dataclass(frozen=True)
+class _UVPlanGeometryInputs:
+    layer: str
+    side: str
+    wire_number: int
+    pin_a: str
+    pin_b: str
+    center_a: tuple[float, float]
+    center_b: tuple[float, float]
+    pin_radius_mm: float
+    tangent_sign_a: int
+    tangent_sign_b: int
+    laser_offset_x: float
+    laser_offset_y: float
+
+
+@dataclass(frozen=True)
+class _UVPlanGeometry:
+    wire_number: int
+    pin_a: str
+    pin_b: str
+    tangent_a: tuple[float, float]
+    tangent_b: tuple[float, float]
+    interval_start: tuple[float, float]
+    interval_end: tuple[float, float]
+    midpoint: tuple[float, float]
+    zone: int
+
+
 def _normalize_layer(layer: str) -> str:
     value = str(layer).strip().upper()
     if value not in {"U", "V"}:
@@ -63,18 +93,20 @@ def _wrap_inclusive(value: int, low: int, high: int) -> int:
     return int(low) + ((int(value) - int(low)) % span)
 
 
-def _wire_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
+def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
     requested_layer = _normalize_layer(layer)
+    requested_side = _normalize_side(side)
     number = int(wire_number)
     delta = 1151 - number
+    pin_family = "F" if requested_side == "A" else "B"
     if requested_layer == "V":
         return (
-            f"B{_wrap_inclusive(1199 - delta, 1, 2399)}",
-            f"B{_wrap_inclusive(1200 + delta, 1, 2399)}",
+            f"{pin_family}{_wrap_inclusive(1199 - delta, 1, 2399)}",
+            f"{pin_family}{_wrap_inclusive(1200 + delta, 1, 2399)}",
         )
     return (
-        f"B{_wrap_inclusive(1600 - delta, 1, 2401)}",
-        f"B{_wrap_inclusive(1601 + delta, 1, 2401)}",
+        f"{pin_family}{_wrap_inclusive(1600 - delta, 1, 2401)}",
+        f"{pin_family}{_wrap_inclusive(1601 + delta, 1, 2401)}",
     )
 
 
@@ -238,87 +270,141 @@ def _solve_tangent_candidates(
 def plan_uv_wire(layer: str, side: str, wire_number: int, *, taped: bool = False) -> PlannedUVWire:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
-    calibration = load_layer_calibration_summary(requested_layer)
-    offset = get_laser_offset(requested_side)
-    if offset is None:
-        raise ValueError(f"No saved laser offset exists for side {requested_side}.")
+    geometry = _build_uv_plan_geometry_inputs(requested_layer, requested_side, wire_number)
+    planned = _plan_uv_wire_geometry_cached(geometry)
+    wire_length_m = length_lookup(
+        requested_layer,
+        int(wire_number),
+        int(planned.zone),
+        taped=bool(taped),
+    )
+    return PlannedUVWire(
+        wire_number=int(planned.wire_number),
+        pin_a=planned.pin_a,
+        pin_b=planned.pin_b,
+        tangent_a=planned.tangent_a,
+        tangent_b=planned.tangent_b,
+        interval_start=planned.interval_start,
+        interval_end=planned.interval_end,
+        midpoint=planned.midpoint,
+        zone=int(planned.zone),
+        wire_length_m=float(wire_length_m),
+    )
 
-    pin_a, pin_b = _wire_pin_pair(requested_layer, int(wire_number))
+
+def plan_uv_wire_zone(layer: str, side: str, wire_number: int) -> int:
+    requested_layer = _normalize_layer(layer)
+    requested_side = _normalize_side(side)
+    geometry = _build_uv_plan_geometry_inputs(requested_layer, requested_side, wire_number)
+    return int(_plan_uv_wire_geometry_cached(geometry).zone)
+
+
+def _build_uv_plan_geometry_inputs(
+    layer: str,
+    side: str,
+    wire_number: int,
+) -> _UVPlanGeometryInputs:
+    calibration = load_layer_calibration_summary(layer)
+    offset = get_laser_offset(side)
+    if offset is None:
+        raise ValueError(f"No saved laser offset exists for side {side}.")
+
+    pin_a, pin_b = _wire_pin_pair(layer, side, int(wire_number))
     locations = calibration["locations"]
     center_a = (float(locations[pin_a]["x"]), float(locations[pin_a]["y"]))
     center_b = (float(locations[pin_b]["x"]), float(locations[pin_b]["y"]))
     pin_radius_mm = float(calibration.get("pinDiameterMm", 0.0)) / 2.0
-    metadata = _build_layer_metadata(requested_layer)
+    metadata = LAYER_METADATA.get(layer)
+    if metadata is None:
+        metadata = _build_layer_metadata(layer)
     pin_side_a = metadata["pinToBoard"][int(pin_a[1:])]["side"]
     pin_side_b = metadata["pinToBoard"][int(pin_b[1:])]["side"]
-    tangent_sign_a = _WRAP_X_SIGNS[requested_layer][requested_side][pin_side_a]
-    tangent_sign_b = _WRAP_X_SIGNS[requested_layer][requested_side][pin_side_b]
+    tangent_sign_a = _WRAP_X_SIGNS[layer][side][pin_side_a]
+    tangent_sign_b = _WRAP_X_SIGNS[layer][side][pin_side_b]
 
-    best_segment: tuple[tuple[float, float], tuple[float, float]] | None = None
-    best_tangent_a: tuple[float, float] | None = None
-    best_tangent_b: tuple[float, float] | None = None
-    best_length = -1.0
-    best_midpoint_y = float("inf")
-    for tangent_a, tangent_b in _solve_tangent_candidates(
-        center_a=center_a,
-        center_b=center_b,
-        tangent_x_sign_a=tangent_sign_a,
-        tangent_x_sign_b=tangent_sign_b,
-        radius_mm=pin_radius_mm,
-    ):
-        clipped = _clip_line_to_rectangle(tangent_a, tangent_b)
-        if clipped is None:
-            continue
-        length = _segment_length(clipped)
-        midpoint = _segment_midpoint(clipped)
-        if (
-            length > best_length + _EPSILON
-            or (
-                math.isclose(length, best_length, rel_tol=0.0, abs_tol=_EPSILON)
-                and midpoint[1] < best_midpoint_y
-            )
-        ):
-            best_segment = clipped
-            best_tangent_a = tangent_a
-            best_tangent_b = tangent_b
-            best_length = length
-            best_midpoint_y = midpoint[1]
-
-    if best_segment is None or best_tangent_a is None or best_tangent_b is None:
-        raise ValueError(
-            f"Unable to plan a measurable U/V segment for layer={requested_layer} side={requested_side} wire={wire_number}."
-        )
-
-    midpoint = _segment_midpoint(best_segment)
-    laser_midpoint = (
-        float(midpoint[0] - float(offset["x"])),
-        float(midpoint[1] - float(offset["y"])),
-    )
-    zone = zone_lookup(laser_midpoint[0])
-    wire_length_m = length_lookup(
-        requested_layer,
-        int(wire_number),
-        zone,
-        taped=bool(taped),
-    )
-    return PlannedUVWire(
+    return _UVPlanGeometryInputs(
+        layer=layer,
+        side=side,
         wire_number=int(wire_number),
         pin_a=pin_a,
         pin_b=pin_b,
+        center_a=center_a,
+        center_b=center_b,
+        pin_radius_mm=float(pin_radius_mm),
+        tangent_sign_a=int(tangent_sign_a),
+        tangent_sign_b=int(tangent_sign_b),
+        laser_offset_x=float(offset["x"]),
+        laser_offset_y=float(offset["y"]),
+    )
+
+
+@lru_cache(maxsize=4096)
+def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeometry:
+    candidate_segments: list[
+        tuple[
+            tuple[tuple[float, float], tuple[float, float]],
+            tuple[float, float],
+            tuple[float, float],
+            float,
+            tuple[float, float],
+        ]
+    ] = []
+    for tangent_a, tangent_b in _solve_tangent_candidates(
+        center_a=inputs.center_a,
+        center_b=inputs.center_b,
+        tangent_x_sign_a=inputs.tangent_sign_a,
+        tangent_x_sign_b=inputs.tangent_sign_b,
+        radius_mm=inputs.pin_radius_mm,
+    ):
+        tangent_a_laser = (
+            float(tangent_a[0] - inputs.laser_offset_x),
+            float(tangent_a[1] - inputs.laser_offset_y),
+        )
+        tangent_b_laser = (
+            float(tangent_b[0] - inputs.laser_offset_x),
+            float(tangent_b[1] - inputs.laser_offset_y),
+        )
+        clipped = _clip_line_to_rectangle(tangent_a_laser, tangent_b_laser)
+        if clipped is None:
+            continue
+        for segment in _split_segment_at_combs(*clipped):
+            length = _segment_length(segment)
+            midpoint = _segment_midpoint(segment)
+            candidate_segments.append((segment, tangent_a, tangent_b, length, midpoint))
+
+    if not candidate_segments:
+        raise ValueError(
+            f"Unable to plan a measurable U/V segment for layer={inputs.layer} side={inputs.side} wire={inputs.wire_number}."
+        )
+
+    best_length = max(candidate[3] for candidate in candidate_segments)
+    near_tie_threshold = best_length * (1.0 - _SEGMENT_LENGTH_NEAR_TIE_FRACTION)
+    near_tie_candidates = [
+        candidate
+        for candidate in candidate_segments
+        if candidate[3] + _EPSILON >= near_tie_threshold
+    ]
+    best_segment, best_tangent_a, best_tangent_b, _selected_length, midpoint = min(
+        near_tie_candidates,
+        key=lambda candidate: (candidate[4][1], -candidate[3]),
+    )
+
+    zone = zone_lookup(midpoint[0])
+    return _UVPlanGeometry(
+        wire_number=int(inputs.wire_number),
+        pin_a=inputs.pin_a,
+        pin_b=inputs.pin_b,
         tangent_a=best_tangent_a,
         tangent_b=best_tangent_b,
-        interval_start=(
-            float(best_segment[0][0] - float(offset["x"])),
-            float(best_segment[0][1] - float(offset["y"])),
-        ),
-        interval_end=(
-            float(best_segment[1][0] - float(offset["x"])),
-            float(best_segment[1][1] - float(offset["y"])),
-        ),
-        midpoint=laser_midpoint,
+        interval_start=best_segment[0],
+        interval_end=best_segment[1],
+        midpoint=midpoint,
         zone=int(zone),
-        wire_length_m=float(wire_length_m),
     )
+
+
+def clear_plan_uv_wire_cache() -> None:
+    _plan_uv_wire_geometry_cached.cache_clear()
 
 
 class LegacyUVWirePositionProvider:
@@ -348,6 +434,11 @@ class LegacyUVWirePositionProvider:
             x=float(planned.midpoint[0]),
             y=float(planned.midpoint[1]),
             focus_position=None if current_focus_position is None else int(current_focus_position),
+            zone=(
+                int(planned.zone)
+                if getattr(planned, "zone", None) is not None
+                else None
+            ),
         )
 
     def get_xy(self, config, wire_number: int):

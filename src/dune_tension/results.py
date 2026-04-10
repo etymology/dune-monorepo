@@ -20,24 +20,25 @@ def derive_tension_fields(
     wire_number: int,
     frequency: float,
     x: float,
+    zone: int | None = None,
     taped: bool = False,
 ) -> DerivedTensionFields:
-    zone = zone_lookup(x)
+    derived_zone = int(zone) if zone is not None else zone_lookup(x)
     try:
-        wire_length = length_lookup(layer, wire_number, zone, taped=taped)
+        wire_length = length_lookup(layer, wire_number, derived_zone, taped=taped)
         tension = wire_equation(wire_length, frequency)["tension"]
         tension_ok = tension_pass(tension, wire_length)
         if not math.isfinite(float(wire_length)) or not math.isfinite(float(tension)):
             raise ValueError("non-finite tension geometry")
         return DerivedTensionFields(
-            zone=int(zone),
+            zone=int(derived_zone),
             wire_length=float(wire_length),
             tension=float(tension),
             tension_pass=bool(tension_ok),
         )
     except ValueError:
         return DerivedTensionFields(
-            zone=int(zone),
+            zone=int(derived_zone),
             wire_length=0.0,
             tension=0.0,
             tension_pass=False,
@@ -79,6 +80,7 @@ class TensionResult:
         y: float,
         time: datetime,
         focus_position: int | None = None,
+        zone: int | None = None,
         taped: bool = False,
         measurement_mode: str = "legacy",
         stream_session_id: str | None = None,
@@ -88,6 +90,7 @@ class TensionResult:
             wire_number=wire_number,
             frequency=frequency,
             x=x,
+            zone=zone,
             taped=taped,
         )
         return cls(
