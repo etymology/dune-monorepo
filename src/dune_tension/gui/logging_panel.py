@@ -7,7 +7,22 @@ import logging
 from queue import Empty, SimpleQueue
 from typing import Any
 
-LOGGER_NAMES = ("dune_tension", "dune_tension.hardware", "spectrum_analysis")
+LOGGER_NAMES = ("dune_tension", "spectrum_analysis")
+
+
+class NamespaceLogFilter(logging.Filter):
+    """Restrict GUI log display to selected logger namespaces."""
+
+    def __init__(self, namespaces: tuple[str, ...]) -> None:
+        super().__init__()
+        self.namespaces = tuple(namespaces)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        name = record.name
+        return any(
+            name == namespace or name.startswith(f"{namespace}.")
+            for namespace in self.namespaces
+        )
 
 
 class TkTextLogHandler(logging.Handler):
@@ -123,16 +138,12 @@ class GuiLogBinding:
     """Track logger state so GUI logging can be detached cleanly."""
 
     handler: TkTextLogHandler
-    logger_states: tuple[tuple[logging.Logger, int, bool], ...]
 
     def close(self) -> None:
-        for logger, level, propagate in self.logger_states:
-            try:
-                logger.removeHandler(self.handler)
-            except Exception:
-                pass
-            logger.setLevel(level)
-            logger.propagate = propagate
+        try:
+            logging.getLogger().removeHandler(self.handler)
+        except Exception:
+            pass
         self.handler.close()
 
 
@@ -144,15 +155,13 @@ def configure_gui_logging(root: Any, text_widget: Any) -> GuiLogBinding | None:
 
     handler = TkTextLogHandler(root, text_widget)
     handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S")
+        logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s", "%H:%M:%S")
     )
+    handler.addFilter(NamespaceLogFilter(LOGGER_NAMES))
 
-    logger_states: list[tuple[logging.Logger, int, bool]] = []
-    for name in LOGGER_NAMES:
-        logger = logging.getLogger(name)
-        logger_states.append((logger, logger.level, logger.propagate))
-        logger.setLevel(logging.INFO)
-        logger.propagate = False
-        logger.addHandler(handler)
+    root_logger = logging.getLogger()
+    if root_logger.level in (logging.NOTSET, 0) or root_logger.level > logging.INFO:
+        root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(handler)
 
-    return GuiLogBinding(handler=handler, logger_states=tuple(logger_states))
+    return GuiLogBinding(handler=handler)
