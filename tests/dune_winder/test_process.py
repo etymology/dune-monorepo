@@ -2,6 +2,7 @@ import unittest
 import tempfile
 from pathlib import Path
 import os
+import hashlib
 
 
 from dune_winder.core.control_events import ManualModeEvent
@@ -370,8 +371,11 @@ class ProcessSnapshotTests(unittest.TestCase):
       payload = process.getLayerCalibrationJson("V")
 
       self.assertEqual(payload["calibrationFile"], "V_Calibration.json")
+      self.assertEqual(
+        payload["contentHash"],
+        hashlib.sha256(payload["content"].encode("utf-8")).hexdigest(),
+      )
       self.assertIn("\"layer\": \"V\"", payload["content"])
-=======
   def test_refresh_before_execution_returns_actionable_missing_recipe_message(self):
     from dune_winder.core.winder_workspace import WinderWorkspace
 

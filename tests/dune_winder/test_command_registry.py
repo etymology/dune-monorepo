@@ -120,6 +120,7 @@ class CommandRegistryTests(unittest.TestCase):
 
     self.assertTrue(response["ok"])
     self.assertEqual(response["data"]["calibrationFile"], "V_Calibration.json")
+    self.assertTrue(response["data"]["contentHash"])
     self.assertIn("\"layer\": \"V\"", response["data"]["content"])
 
   def test_eot_recover_command_dispatch_succeeds(self):

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from typing import Optional
@@ -504,11 +505,14 @@ class Process:
     else:
       raise ValueError("Calibration JSON content is not available for active layer " + requestedLayer + ".")
 
+    contentHash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
     return {
       "layer": requestedLayer,
       "activeLayer": self.getRecipeLayer(),
       "calibrationFile": calibrationFile,
       "source": "workspace" if self.workspace is not None else "runtime",
+      "contentHash": contentHash,
       "content": content,
     }
 

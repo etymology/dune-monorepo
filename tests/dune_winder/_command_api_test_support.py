@@ -1,4 +1,5 @@
 from dune_winder.api.commands import build_command_registry
+import hashlib
 
 
 class DummyLog:
@@ -250,12 +251,14 @@ class DummyProcess:
     }
 
   def getLayerCalibrationJson(self, layer):
+    content = "{\n  \"layer\": \"V\"\n}"
     return {
       "layer": str(layer).upper(),
       "activeLayer": "V",
       "calibrationFile": "V_Calibration.json",
       "source": "workspace",
-      "content": "{\n  \"layer\": \"V\"\n}",
+      "contentHash": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+      "content": content,
     }
 
   def getRecipePeriod(self):
