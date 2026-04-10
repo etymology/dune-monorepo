@@ -89,6 +89,29 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertTrue(set_response["data"])
     self.assertTrue(process.queuedMotionUseMaxSpeed)
 
+  def test_get_layer_calibration_command_dispatches(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.get_layer_calibration", "args": {"layer": "v"}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["layer"], "V")
+    self.assertEqual(response["data"]["activeLayer"], "V")
+    self.assertIn("B400", response["data"]["locations"])
+
+  def test_get_layer_calibration_json_command_dispatches(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.get_layer_calibration_json", "args": {"layer": "V"}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["calibrationFile"], "V_Calibration.json")
+    self.assertIn("\"layer\": \"V\"", response["data"]["content"])
+
 
 if __name__ == "__main__":
   unittest.main()

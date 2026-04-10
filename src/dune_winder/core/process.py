@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Optional
 
@@ -17,7 +18,7 @@ from dune_winder.core.control_events import (
   ManualModeEvent,
 )
 from dune_winder.core.gcode_playback_service import GCodePlaybackService
-from dune_winder.core.manual_calibration import ManualCalibration
+from dune_winder.core.manual_calibration import ManualCalibration, normalize_calibration
 from dune_winder.core.recipe_service import RecipeService
 from dune_winder.core.runtime_state_service import RuntimeStateService
 from dune_winder.core.winder_workspace import WinderWorkspace
@@ -33,6 +34,7 @@ from dune_winder.machine.settings import Settings
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.core.motion_service import MotionService
 from dune_winder.core.safety_validation_service import SafetyValidationService
+from dune_winder.machine.geometry.factory import create_layer_geometry
 
 
 class Process:
@@ -398,6 +400,100 @@ class Process:
   # ---------------------------------------------------------------------
   def getWrapSeekLine(self, wrap):
     return self._recipeService().getWrapSeekLine(wrap)
+
+  # ---------------------------------------------------------------------
+  def _getActiveLayerCalibration(self, layer):
+    requestedLayer = str(layer).strip().upper()
+    activeLayer = self.getRecipeLayer()
+    if activeLayer != requestedLayer:
+      raise ValueError(
+        "Requested layer " + requestedLayer
+        + " does not match active loaded recipe layer "
+        + str(activeLayer) + "."
+      )
+
+    calibration = None
+    if self.workspace is not None:
+      calibration = getattr(self.workspace, "_calibration", None)
+
+    if calibration is None and hasattr(self.gCodeHandler, "getLayerCalibration"):
+      calibration = self.gCodeHandler.getLayerCalibration()
+
+    if calibration is None:
+      raise ValueError("No layer calibration is loaded for active layer " + requestedLayer + ".")
+
+    calibrationLayer = getattr(calibration, "_layer", None)
+    if calibrationLayer not in (None, "", requestedLayer):
+      raise ValueError(
+        "Loaded calibration layer " + str(calibrationLayer)
+        + " does not match requested layer " + requestedLayer + "."
+      )
+
+    return calibration
+
+  # ---------------------------------------------------------------------
+  def getLayerCalibration(self, layer):
+    requestedLayer = str(layer).strip().upper()
+    calibration = self._getActiveLayerCalibration(requestedLayer)
+    normalized = normalize_calibration(calibration, requestedLayer)
+    geometry = create_layer_geometry(requestedLayer)
+
+    calibrationFile = None
+    if self.workspace is not None and hasattr(self.workspace, "getCalibrationFile"):
+      calibrationFile = self.workspace.getCalibrationFile()
+    if not calibrationFile and hasattr(calibration, "getFileName"):
+      calibrationFile = calibration.getFileName()
+
+    return {
+      "layer": requestedLayer,
+      "activeLayer": self.getRecipeLayer(),
+      "calibrationFile": calibrationFile,
+      "source": "workspace" if self.workspace is not None else "runtime",
+      "pinDiameterMm": float(geometry.pinDiameter),
+      "locations": {
+        pinName: {
+          "x": float(location.x),
+          "y": float(location.y),
+          "z": float(location.z),
+        }
+        for pinName in normalized.getPinNames()
+        for location in [normalized.getPinLocation(pinName)]
+      },
+    }
+
+  # ---------------------------------------------------------------------
+  def getLayerCalibrationJson(self, layer):
+    requestedLayer = str(layer).strip().upper()
+    calibration = self._getActiveLayerCalibration(requestedLayer)
+
+    calibrationFile = None
+    calibrationPath = None
+    if self.workspace is not None:
+      if hasattr(self.workspace, "getCalibrationFile"):
+        calibrationFile = self.workspace.getCalibrationFile()
+      if hasattr(self.workspace, "getCalibrationFullPath"):
+        calibrationPath = self.workspace.getCalibrationFullPath()
+
+    if not calibrationFile and hasattr(calibration, "getFileName"):
+      calibrationFile = calibration.getFileName()
+    if calibrationPath is None and hasattr(calibration, "getFullFileName"):
+      calibrationPath = calibration.getFullFileName()
+
+    if calibrationPath and os.path.isfile(calibrationPath):
+      with open(calibrationPath, encoding="utf-8") as handle:
+        content = handle.read()
+    elif hasattr(calibration, "_to_dict"):
+      content = json.dumps(calibration._to_dict(), indent=2)
+    else:
+      raise ValueError("Calibration JSON content is not available for active layer " + requestedLayer + ".")
+
+    return {
+      "layer": requestedLayer,
+      "activeLayer": self.getRecipeLayer(),
+      "calibrationFile": calibrationFile,
+      "source": "workspace" if self.workspace is not None else "runtime",
+      "content": content,
+    }
 
   # ---------------------------------------------------------------------
   def openRecipeInEditor(self, recipeFile=None):

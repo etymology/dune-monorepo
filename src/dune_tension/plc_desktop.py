@@ -78,6 +78,29 @@ def desktop_get_xy() -> tuple[float, float] | None:
         return None
 
 
+def desktop_get_layer_calibration(layer: str) -> dict[str, Any] | None:
+    """Return planner-friendly layer calibration metadata from dune_winder."""
+    result = _post_command("process.get_layer_calibration", {"layer": str(layer).strip().upper()})
+    if not result.get("ok"):
+        LOGGER.warning("desktop_get_layer_calibration failed: %s", result.get("error"))
+        return None
+    data = result.get("data")
+    return data if isinstance(data, dict) else None
+
+
+def desktop_get_layer_calibration_json(layer: str) -> dict[str, Any] | None:
+    """Return the authoritative layer calibration JSON payload from dune_winder."""
+    result = _post_command(
+        "process.get_layer_calibration_json",
+        {"layer": str(layer).strip().upper()},
+    )
+    if not result.get("ok"):
+        LOGGER.warning("desktop_get_layer_calibration_json failed: %s", result.get("error"))
+        return None
+    data = result.get("data")
+    return data if isinstance(data, dict) else None
+
+
 def desktop_is_ready() -> bool:
     """Return True if the desktop PC's control state machine is in StopMode."""
     result = _post_command("process.get_control_state_name", {})
@@ -149,6 +172,53 @@ def desktop_seek_xy(
         time.sleep(POLL_INTERVAL)
 
     LOGGER.warning("desktop_seek_xy timed out waiting for move completion")
+    desktop_acknowledge_error()
+    return False
+
+
+def desktop_seek_pin(pin_name: str, velocity: float) -> bool:
+    """Seek the desktop-controlled stage to a calibrated pin position."""
+    normalized_pin = str(pin_name).strip().upper()
+
+    def _wait_for_ready(timeout: float) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if desktop_is_ready():
+                return True
+            time.sleep(POLL_INTERVAL)
+        return False
+
+    if not _wait_for_ready(20.0):
+        LOGGER.warning("desktop_seek_pin: timed out waiting for ready state before seeking %s", normalized_pin)
+        if not desktop_acknowledge_error():
+            return False
+        if not _wait_for_ready(20.0):
+            LOGGER.warning(
+                "desktop_seek_pin: PLC reset did not restore ready state before seeking %s",
+                normalized_pin,
+            )
+            return False
+
+    result = _post_command(
+        "process.seek_pin",
+        {"pin": normalized_pin, "velocity": float(velocity)},
+    )
+    if not result.get("ok") or result.get("data") is True:
+        LOGGER.warning(
+            "desktop_seek_pin rejected for %s at %s: %s",
+            normalized_pin,
+            velocity,
+            result.get("error") or result.get("data"),
+        )
+        return False
+
+    deadline = time.monotonic() + 120.0
+    while time.monotonic() < deadline:
+        if desktop_is_ready():
+            return True
+        time.sleep(POLL_INTERVAL)
+
+    LOGGER.warning("desktop_seek_pin timed out waiting for move completion")
     desktop_acknowledge_error()
     return False
 

@@ -101,9 +101,16 @@ class DummySpool:
 class DummyWorkspace:
   def __init__(self):
     self._gCodeHandler = type("GCodeVars", (), {"transferLeft": 100.0, "transferRight": 200.0})()
+    self._calibrationFile = "V_Calibration.json"
 
   def loadRecipe(self, layer, recipe, line):
     return {"layer": layer, "recipe": recipe, "line": line}
+
+  def getCalibrationFile(self):
+    return self._calibrationFile
+
+  def getCalibrationFullPath(self):
+    return None
 
 
 class DummyProcess:
@@ -189,6 +196,25 @@ class DummyProcess:
 
   def getRecipeLayer(self):
     return "V"
+
+  def getLayerCalibration(self, layer):
+    return {
+      "layer": str(layer).upper(),
+      "activeLayer": "V",
+      "calibrationFile": "V_Calibration.json",
+      "source": "workspace",
+      "pinDiameterMm": 1.0,
+      "locations": {"B400": {"x": 1.0, "y": 2.0, "z": 3.0}},
+    }
+
+  def getLayerCalibrationJson(self, layer):
+    return {
+      "layer": str(layer).upper(),
+      "activeLayer": "V",
+      "calibrationFile": "V_Calibration.json",
+      "source": "workspace",
+      "content": "{\n  \"layer\": \"V\"\n}",
+    }
 
   def getRecipePeriod(self):
     return 32

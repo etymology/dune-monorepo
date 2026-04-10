@@ -41,6 +41,7 @@ class _PersistedState:
     focus_wiggle_sigma_quarter_us: str
     use_manual_focus: bool
     disable_x_compensation: bool
+    laser_offset_pin: str
 
 
 def save_state(ctx: GUIContext) -> None:
@@ -82,6 +83,7 @@ def save_state(ctx: GUIContext) -> None:
         focus_wiggle_sigma_quarter_us=w.entry_focus_wiggle_sigma.get(),
         use_manual_focus=bool(w.use_manual_focus_var.get()),
         disable_x_compensation=bool(w.disable_x_compensation_var.get()),
+        laser_offset_pin=str(w.laser_offset_pin_var.get()),
     )
 
     with open(ctx.state_file, "w", encoding="utf-8") as handle:
@@ -164,5 +166,6 @@ def load_state(ctx: GUIContext) -> None:
     )
     w.use_manual_focus_var.set(bool(data.get("use_manual_focus", False)))
     w.disable_x_compensation_var.set(bool(data.get("disable_x_compensation", False)))
+    w.laser_offset_pin_var.set(str(data.get("laser_offset_pin", "")))
 
     ctx.focus_command_var.set(str(w.focus_slider.get()))

@@ -29,6 +29,7 @@ from dune_tension.tensiometer_functions import (
     normalize_confidence_source,
     plan_measurement_poses,
 )
+from dune_tension.uv_wire_planner import LegacyUVWirePositionProvider
 from dune_tension.plc_io import is_in_measurable_area
 
 LOGGER = logging.getLogger(__name__)
@@ -359,7 +360,9 @@ class Tensiometer:
         self.motion = motion or MotionService.build(spoof_movement=spoof_movement)
         self.audio = audio or AudioCaptureService.build(spoof=spoof)
         self.repository = repository or ResultRepository(self.config.data_path)
-        self.wire_position_provider = wire_position_provider or WirePositionProvider()
+        self.wire_position_provider = LegacyUVWirePositionProvider(
+            wire_position_provider or WirePositionProvider()
+        )
         self.noise_threshold = self.audio.noise_threshold
         self.samplerate = self.audio.samplerate
         self.record_audio_func = self.audio.record_audio
@@ -562,6 +565,15 @@ class Tensiometer:
         measurement, later wire positions are stepped locally from that measured
         pose using the per-wire geometry spacing.
         """
+
+        if (
+            self.config.layer in ["V", "U"]
+        ):
+            return self.wire_position_provider.get_pose(
+                self.config,
+                wire_number,
+                self._get_focus_position(),
+            )
 
         if (
             last_successful_result is None
@@ -821,19 +833,31 @@ class Tensiometer:
         return analysis, float(frequency), float(confidence)
 
     def measure_calibrate(self, wire_number: int) -> Optional[TensionResult]:
-        xy = self.get_current_xy_position()
-        if xy is None:
-            LOGGER.warning(
-                "No position data found for wire %s. Using current position.",
-                wire_number,
+        if self.config.layer in ["U", "V"]:
+            target = self.wire_position_provider.get_pose(
+                self.config,
+                int(wire_number),
+                self._get_focus_position(),
             )
-            (
-                x,
-                y,
-            ) = self.get_current_xy_position()
-        else:
-            x, y = xy
+            if target is None:
+                LOGGER.warning("No planned position found for wire %s.", wire_number)
+                return None
+            x, y = float(target.x), float(target.y)
             self.goto_xy_func(x, y)
+        else:
+            xy = self.get_current_xy_position()
+            if xy is None:
+                LOGGER.warning(
+                    "No position data found for wire %s. Using current position.",
+                    wire_number,
+                )
+                (
+                    x,
+                    y,
+                ) = self.get_current_xy_position()
+            else:
+                x, y = xy
+                self.goto_xy_func(x, y)
 
         with self.repository.run_scope():
             return self.goto_collect_wire_data(

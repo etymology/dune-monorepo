@@ -48,6 +48,12 @@ class GUIWidgets:
     stream_focus_var: tk.StringVar
     stream_pitch_backlog_var: tk.StringVar
     stream_rescue_queue_var: tk.StringVar
+    laser_offset_frame: Any
+    laser_offset_pin_var: tk.StringVar
+    laser_offset_pin_menu: Any
+    laser_offset_readout_var: tk.StringVar
+    btn_seek_pin: Any
+    btn_capture_laser_offset: Any
 
 
 @dataclass

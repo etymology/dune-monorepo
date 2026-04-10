@@ -13,6 +13,7 @@ import re
 import threading
 from threading import Thread
 from typing import TYPE_CHECKING, Any
+import tkinter as tk
 
 from tkinter import messagebox
 
@@ -25,6 +26,15 @@ from dune_tension.data_cache import (
     update_dataframe,
 )
 from dune_tension.results import EXPECTED_COLUMNS
+from dune_tension.layer_calibration import (
+    capture_laser_offset as save_captured_laser_offset,
+    ensure_layer_calibration_ready,
+    get_bottom_pin_options,
+    get_calibrated_pin_xy,
+    get_laser_offset,
+)
+from dune_tension.plc_desktop import desktop_seek_pin
+from dune_tension.plc_io import get_plc_io_mode
 from dune_tension.tensiometer_functions import make_config, normalize_confidence_source
 from dune_tension.gui.context import GUIContext
 from dune_tension.gui.state import save_state
@@ -34,6 +44,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 FOCUS_X_MM_PER_QUARTER_US = (20.0 / 4000.0) / math.sqrt(3.0)
+DEFAULT_PIN_SEEK_VELOCITY = 25.0
 
 
 def _safe_int(value: Any, default: int) -> int:
@@ -157,6 +168,7 @@ class WorkerInputs:
     set_tension: str
     clear_range: str
     xy_text: str
+    laser_offset_pin: str
 
 
 def _show_input_error(ctx: GUIContext, message: str) -> None:
@@ -229,6 +241,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         set_tension=w.entry_set_tension.get(),
         clear_range=w.entry_clear_range.get(),
         xy_text=w.entry_xy.get(),
+        laser_offset_pin=str(getattr(w.laser_offset_pin_var, "get", lambda: "")()),
     )
 
 
@@ -252,6 +265,13 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         )
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid measurement inputs: {exc}") from exc
+
+    if _measurement_mode(inputs) == "legacy" and str(inputs.layer).upper() in {"U", "V"}:
+        ensure_layer_calibration_ready(inputs.layer)
+        if get_laser_offset(inputs.side) is None:
+            raise ValueError(
+                f"No saved laser offset exists for side {str(inputs.side).upper()}."
+            )
 
     return build_tensiometer(
         apa_name=inputs.apa_name,
@@ -293,6 +313,96 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
 
 def _measurement_mode(inputs: WorkerInputs) -> str:
     return str(getattr(inputs, "measurement_mode", "legacy")).strip().lower() or "legacy"
+
+
+def _selected_laser_offset_pin(layer: str, side: str, current_value: str | None) -> str | None:
+    options = get_bottom_pin_options(layer, side)
+    if not options:
+        return None
+    allowed_values = {value for _label, value in options}
+    normalized = str(current_value or "").strip().upper()
+    if normalized in allowed_values:
+        return normalized
+    return options[0][1]
+
+
+def _laser_offset_readout_text(side: str) -> str:
+    offset = get_laser_offset(side)
+    if offset is None:
+        return f"Side {str(side).upper()}: not set"
+    return (
+        f"Side {str(side).upper()}: "
+        f"x={float(offset['x']):.3f} mm, "
+        f"y={float(offset['y']):.3f} mm, "
+        f"pin={offset.get('captured_pin')}, "
+        f"layer={offset.get('captured_layer')}"
+    )
+
+
+def refresh_uv_laser_offset_controls(ctx: GUIContext) -> None:
+    widgets = ctx.widgets
+    layer = str(widgets.layer_var.get()).upper()
+    side = str(widgets.side_var.get()).upper()
+    mode = str(widgets.measurement_mode_var.get()).strip().lower() or "legacy"
+    show_controls = mode == "legacy" and layer in {"U", "V"}
+
+    if show_controls:
+        try:
+            widgets.laser_offset_frame.grid()
+        except Exception:
+            pass
+        options = get_bottom_pin_options(layer, side)
+        selected = _selected_laser_offset_pin(layer, side, widgets.laser_offset_pin_var.get())
+        menu = widgets.laser_offset_pin_menu["menu"]
+        menu.delete(0, "end")
+        for label, value in options:
+            menu.add_command(
+                label=label,
+                command=tk._setit(widgets.laser_offset_pin_var, value),
+            )
+        if selected is not None:
+            widgets.laser_offset_pin_var.set(selected)
+
+        sync_error: str | None = None
+        try:
+            ensure_layer_calibration_ready(layer)
+        except Exception as exc:
+            sync_error = str(exc)
+            LOGGER.warning("Layer calibration sync failed for %s: %s", layer, exc)
+
+        readout = _laser_offset_readout_text(side)
+        if sync_error:
+            readout = f"{readout} | sync error: {sync_error}"
+        widgets.laser_offset_readout_var.set(readout)
+        button_state = "normal" if sync_error is None else "disabled"
+        try:
+            widgets.btn_seek_pin.configure(state=button_state)
+            widgets.btn_capture_laser_offset.configure(state=button_state)
+        except Exception:
+            pass
+        return
+
+    try:
+        widgets.laser_offset_frame.grid_remove()
+    except Exception:
+        pass
+
+
+def _move_to_local_pin(ctx: GUIContext, layer: str, pin_name: str, velocity: float) -> bool:
+    pin_x, pin_y = get_calibrated_pin_xy(layer, pin_name)
+    goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
+    try:
+        result = goto_xy(pin_x, pin_y, speed=float(velocity))
+    except TypeError:
+        result = goto_xy(pin_x, pin_y)
+    return result is not False
+
+
+def _current_stage_xy(ctx: GUIContext) -> tuple[float, float]:
+    get_live_xy = getattr(ctx.runtime.motion, "get_live_xy", None)
+    if callable(get_live_xy):
+        return tuple(map(float, get_live_xy()))
+    return tuple(map(float, ctx.get_xy()))
 
 
 def _publish_streaming_status(ctx: GUIContext, payload: dict[str, object]) -> None:
@@ -450,15 +560,25 @@ def _run_in_thread(func=None, *, measurement: bool = False):
 
             def run() -> None:
                 ctx.stop_event.clear()
+                LOGGER.info(
+                    "Worker thread starting: %s measurement=%s",
+                    measurement_name,
+                    measurement,
+                )
                 try:
                     func(ctx, inputs, *args, **kwargs)
                 finally:
                     ctx.stop_event.clear()
                     if measurement:
                         _end_measurement(ctx)
+                    LOGGER.info("Worker thread finished: %s", measurement_name)
 
             try:
-                Thread(target=run, daemon=True).start()
+                Thread(
+                    target=run,
+                    name=f"gui-{func.__name__}",
+                    daemon=True,
+                ).start()
             except Exception:
                 if measurement:
                     _end_measurement(ctx)
@@ -487,6 +607,8 @@ def measure_calibrate(ctx: GUIContext, inputs: WorkerInputs) -> None:
         wire_number = int(inputs.wire_number)
         tensiometer.measure_calibrate(wire_number)
         LOGGER.info("Done calibrating wire %s", wire_number)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
     finally:
         _cleanup_after_measurement(ctx, tensiometer)
 
@@ -513,6 +635,9 @@ def measure_auto(ctx: GUIContext, inputs: WorkerInputs) -> None:
         tensiometer.measure_auto()
         if ctx.stop_event.is_set():
             _set_estimated_time(ctx, "Interrupted")
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+        _set_estimated_time(ctx, "Not running")
     except Exception:
         _set_estimated_time(ctx, "Not running")
         raise
@@ -572,6 +697,8 @@ def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring wires: %s", wire_list)
         tensiometer.measure_list(wire_list, preserve_order=True)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
     finally:
         _cleanup_after_measurement(ctx, tensiometer)
 
@@ -640,8 +767,74 @@ def measure_condition(ctx: GUIContext, inputs: WorkerInputs) -> None:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring wires %s matching %r", wires, expr)
         tensiometer.measure_list(wires, preserve_order=False)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
     finally:
         _cleanup_after_measurement(ctx, tensiometer)
+
+
+@_run_in_thread
+def seek_camera_to_pin(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    layer = str(inputs.layer).upper()
+    side = str(inputs.side).upper()
+    pin_name = _selected_laser_offset_pin(layer, side, inputs.laser_offset_pin)
+    if pin_name is None:
+        LOGGER.warning("No laser-offset pin is available for layer %s side %s.", layer, side)
+        return
+
+    try:
+        ensure_layer_calibration_ready(layer)
+        if get_plc_io_mode() == "desktop":
+            moved = desktop_seek_pin(pin_name, DEFAULT_PIN_SEEK_VELOCITY)
+        else:
+            moved = _move_to_local_pin(ctx, layer, pin_name, DEFAULT_PIN_SEEK_VELOCITY)
+        if not moved:
+            LOGGER.warning("Failed to seek to pin %s.", pin_name)
+            return
+        LOGGER.info("Seeked camera to %s.", pin_name)
+    except Exception as exc:
+        LOGGER.warning("Failed to seek camera to pin %s: %s", pin_name, exc)
+    finally:
+        try:
+            ctx.root.after(0, lambda: refresh_uv_laser_offset_controls(ctx))
+        except Exception:
+            pass
+
+
+@_run_in_thread
+def capture_laser_offset_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    layer = str(inputs.layer).upper()
+    side = str(inputs.side).upper()
+    pin_name = _selected_laser_offset_pin(layer, side, inputs.laser_offset_pin)
+    if pin_name is None:
+        LOGGER.warning("No laser-offset pin is available for layer %s side %s.", layer, side)
+        return
+
+    try:
+        ensure_layer_calibration_ready(layer)
+        live_x, live_y = _current_stage_xy(ctx)
+        focus_position = int(getattr(ctx.servo_controller, "focus_position", 0))
+        entry = save_captured_laser_offset(
+            layer=layer,
+            side=side,
+            pin_name=pin_name,
+            captured_stage_xy=(live_x, live_y),
+            captured_focus=focus_position,
+        )
+        LOGGER.info(
+            "Captured laser offset for side %s from %s: x=%0.3f mm y=%0.3f mm",
+            side,
+            pin_name,
+            float(entry["x"]),
+            float(entry["y"]),
+        )
+    except Exception as exc:
+        LOGGER.warning("Failed to capture laser offset from %s: %s", pin_name, exc)
+    finally:
+        try:
+            ctx.root.after(0, lambda: refresh_uv_laser_offset_controls(ctx))
+        except Exception:
+            pass
 
 
 def _parse_pairs(text: str) -> list[tuple[int, float]]:
@@ -935,7 +1128,11 @@ def monitor_tension_logs(ctx: GUIContext) -> None:
                 LOGGER.warning("Failed to update logs: %s", exc)
 
         if ctx.monitor_thread is None or not ctx.monitor_thread.is_alive():
-            ctx.monitor_thread = Thread(target=run, daemon=True)
+            ctx.monitor_thread = Thread(
+                target=run,
+                name="gui-monitor-tension-logs",
+                daemon=True,
+            )
             ctx.monitor_thread.start()
 
     ctx.root.after(1000, lambda: monitor_tension_logs(ctx))
@@ -1031,18 +1228,22 @@ def update_focus_command_indicator(ctx: GUIContext, value: int) -> None:
 
 
 def handle_close(ctx: GUIContext) -> None:
+    LOGGER.info("GUI shutdown requested.")
     ctx.stop_event.set()
-    ctx.servo_controller.stop_loop()
+    try:
+        ctx.servo_controller.stop_loop()
+    except Exception as exc:
+        LOGGER.warning("Failed to stop servo loop during shutdown: %s", exc)
     if ctx.log_binding is not None:
         try:
             ctx.log_binding.close()
         except Exception:
-            pass
+            LOGGER.exception("Failed to close GUI log binding during shutdown.")
     if ctx.valve_controller is not None:
         try:
             ctx.valve_controller.close()
         except Exception:
-            pass
+            LOGGER.exception("Failed to close valve controller during shutdown.")
     try:
         import sounddevice as sd  # type: ignore
 
@@ -1052,7 +1253,7 @@ def handle_close(ctx: GUIContext) -> None:
     try:
         ctx.root.destroy()
     except Exception:
-        pass
+        LOGGER.exception("Failed to destroy Tk root during shutdown.")
 
 
 def _make_config_from_widgets(ctx: GUIContext):

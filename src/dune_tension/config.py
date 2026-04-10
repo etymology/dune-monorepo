@@ -58,8 +58,8 @@ GEOMETRY_CONFIG = GeometryConfig()
 LAYER_LAYOUTS = {
     "G": LayerLayoutConfig(dx=0.0, dy=2300 / 480, wire_min=1, wire_max=481),
     "X": LayerLayoutConfig(dx=0.0, dy=2300 / 480, wire_min=1, wire_max=480),
-    "U": LayerLayoutConfig(dx=8.0, dy=5.75, wire_min=8, wire_max=1145),
-    "V": LayerLayoutConfig(dx=8.0, dy=5.75, wire_min=8, wire_max=1145),
+    "U": LayerLayoutConfig(dx=8.0, dy=5.75, wire_min=8, wire_max=1151),
+    "V": LayerLayoutConfig(dx=8.0, dy=5.75, wire_min=8, wire_max=1151),
 }
 MEASUREMENT_WIGGLE_CONFIG = MeasurementWiggleConfig()
 SERVO_CONFIG = ServoConfig()

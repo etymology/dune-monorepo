@@ -1,6 +1,9 @@
 import unittest
+import tempfile
+from pathlib import Path
 
 from dune_winder.core.control_events import ManualModeEvent
+from dune_winder.core.manual_calibration import build_nominal_calibration
 from dune_winder.core.motion_service import MotionService
 from dune_winder.core.process import Process
 from dune_winder.core.safety_validation_service import SafetyValidationService
@@ -189,6 +192,65 @@ class ProcessSnapshotTests(unittest.TestCase):
     self.assertEqual(process.workspace.calls, ["recipe"])
     self.assertEqual(len(process._log.entries), 1)
     self.assertEqual(process._log.entries[0][1], "GCODE_REFRESH")
+
+  def test_get_layer_calibration_returns_normalized_absolute_locations(self):
+    calibration = build_nominal_calibration("V")
+    calibration.offset.x = 12.5
+    calibration.offset.y = -7.25
+    expected = calibration.getPinLocation("B400")
+
+    process = object.__new__(Process)
+    process.workspace = type(
+      "Workspace",
+      (),
+      {
+        "getCalibrationFile": lambda self: "V_Calibration.json",
+        "_calibration": calibration,
+      },
+    )()
+    process.gCodeHandler = type("Handler", (), {"getLayerCalibration": lambda self: calibration})()
+    process.getRecipeLayer = lambda: "V"
+
+    payload = process.getLayerCalibration("V")
+
+    self.assertEqual(payload["layer"], "V")
+    self.assertEqual(payload["activeLayer"], "V")
+    self.assertEqual(payload["calibrationFile"], "V_Calibration.json")
+    self.assertAlmostEqual(payload["locations"]["B400"]["x"], expected.x + 12.5, places=6)
+    self.assertAlmostEqual(payload["locations"]["B400"]["y"], expected.y - 7.25, places=6)
+
+  def test_get_layer_calibration_rejects_wrong_active_layer(self):
+    process = object.__new__(Process)
+    process.workspace = None
+    process.gCodeHandler = type("Handler", (), {"getLayerCalibration": lambda self: None})()
+    process.getRecipeLayer = lambda: "U"
+
+    with self.assertRaisesRegex(ValueError, "active loaded recipe layer"):
+      process.getLayerCalibration("V")
+
+  def test_get_layer_calibration_json_reads_workspace_file(self):
+    calibration = build_nominal_calibration("V")
+    with tempfile.TemporaryDirectory() as temp_directory:
+      path = Path(temp_directory) / "V_Calibration.json"
+      calibration.save(str(path.parent), path.name)
+
+      process = object.__new__(Process)
+      process.workspace = type(
+        "Workspace",
+        (),
+        {
+          "getCalibrationFile": lambda self: path.name,
+          "getCalibrationFullPath": lambda self: str(path),
+          "_calibration": calibration,
+        },
+      )()
+      process.gCodeHandler = type("Handler", (), {"getLayerCalibration": lambda self: calibration})()
+      process.getRecipeLayer = lambda: "V"
+
+      payload = process.getLayerCalibrationJson("V")
+
+      self.assertEqual(payload["calibrationFile"], "V_Calibration.json")
+      self.assertIn("\"layer\": \"V\"", payload["content"])
 
 
 class _AxisForManualGCode:

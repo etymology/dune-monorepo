@@ -15,8 +15,8 @@ from dune_tension.tensiometer_functions import TensiometerConfig
 def get_expected_range(layer: str) -> range:
     """Return the expected wire range for a given layer."""
     ranges = {
-        "U": range(8, 1147),
-        "V": range(8, 1147),
+        "U": range(8, 1152),
+        "V": range(8, 1152),
         "X": range(1, 481),
         "G": range(1, 482),
     }

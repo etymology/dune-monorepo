@@ -100,8 +100,11 @@ def _build_widgets(focus_value="4807.0"):
         entry_record_duration=_FakeEntry("1"),
         entry_measuring_duration=_FakeEntry("10"),
         entry_wiggle_y_sigma=_FakeEntry("0.2"),
+        sweeping_wiggle_var=_FakeVar(False),
+        entry_sweeping_wiggle_span_mm=_FakeEntry("1.0"),
         entry_focus_wiggle_sigma=_FakeEntry("100"),
         use_manual_focus_var=_FakeVar(False),
+        laser_offset_pin_var=_FakeVar("B400"),
     )
 
 
@@ -118,6 +121,7 @@ def test_save_state_accepts_float_like_focus_slider(monkeypatch, tmp_path):
     assert data["focus_target"] == 4807
     assert data["confidence_source"] == "Signal Amplitude"
     assert data["disable_x_compensation"] is False
+    assert data["laser_offset_pin"] == "B400"
 
 
 def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
@@ -138,6 +142,7 @@ def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
     assert ctx.focus_command_var.get() == "4000"
     assert widgets.confidence_source_var.get() == "Neural Net"
     assert widgets.disable_x_compensation_var.get() is False
+    assert widgets.laser_offset_pin_var.get() == ""
 
 
 def test_load_state_restores_disable_x_compensation(monkeypatch, tmp_path):

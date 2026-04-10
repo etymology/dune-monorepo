@@ -1,0 +1,255 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+import json
+import logging
+from pathlib import Path
+import tempfile
+from typing import Any
+
+from dune_tension.paths import REPO_ROOT
+from dune_tension.plc_io import get_plc_io_mode
+from dune_tension.plc_desktop import (
+    desktop_get_layer_calibration,
+    desktop_get_layer_calibration_json,
+)
+from dune_winder.core.manual_calibration import _build_layer_metadata, normalize_calibration
+from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.machine.geometry.factory import create_layer_geometry
+
+LOGGER = logging.getLogger(__name__)
+
+UV_LAYERS = frozenset({"U", "V"})
+APA_CALIBRATION_DIR = REPO_ROOT / "config" / "APA"
+WINDER_WORKSPACE_STATE_PATH = REPO_ROOT / "cache" / "state.json"
+LASER_OFFSET_PATH = APA_CALIBRATION_DIR / "TensionLaserOffsets.json"
+
+
+@dataclass(frozen=True)
+class CalibrationSyncResult:
+    layer: str
+    calibration_file: str | None
+    source: str
+    synced_at: str
+    local_path: str
+
+
+def _normalize_layer(layer: str) -> str:
+    value = str(layer).strip().upper()
+    if value not in {"U", "V", "X", "G"}:
+        raise ValueError(f"Unsupported layer {layer!r}.")
+    return value
+
+
+def _normalize_side(side: str) -> str:
+    value = str(side).strip().upper()
+    if value not in {"A", "B"}:
+        raise ValueError(f"Unsupported side {side!r}.")
+    return value
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=path.parent,
+        delete=False,
+    ) as handle:
+        handle.write(content)
+        temp_path = Path(handle.name)
+    temp_path.replace(path)
+
+
+def _load_json_file(path: Path, *, default: Any) -> Any:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return default
+
+
+def get_local_layer_calibration_path(layer: str) -> Path:
+    return APA_CALIBRATION_DIR / f"{_normalize_layer(layer)}_Calibration.json"
+
+
+def get_active_loaded_layer() -> str | None:
+    state = _load_json_file(WINDER_WORKSPACE_STATE_PATH, default={})
+    value = state.get("_layer")
+    if value is None:
+        return None
+    return str(value).strip().upper() or None
+
+
+def ensure_local_layer_matches_active(layer: str) -> None:
+    requested_layer = _normalize_layer(layer)
+    active_layer = get_active_loaded_layer()
+    if active_layer and active_layer != requested_layer:
+        raise ValueError(
+            f"Requested layer {requested_layer} does not match active loaded layer {active_layer}."
+        )
+
+
+def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
+    requested_layer = _normalize_layer(layer)
+    payload = desktop_get_layer_calibration_json(requested_layer)
+    if payload is None:
+        raise ValueError(f"Failed to fetch layer {requested_layer} calibration JSON from desktop.")
+
+    active_layer = str(payload.get("activeLayer") or "").strip().upper()
+    if active_layer != requested_layer:
+        raise ValueError(
+            f"Desktop active layer {active_layer or '<unset>'} does not match requested layer {requested_layer}."
+        )
+
+    calibration_file = Path(
+        str(payload.get("calibrationFile") or f"{requested_layer}_Calibration.json")
+    ).name
+    local_path = APA_CALIBRATION_DIR / calibration_file
+    content = payload.get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError(f"Desktop returned empty calibration JSON for layer {requested_layer}.")
+
+    _atomic_write_text(local_path, content)
+    synced_at = datetime.now(UTC).isoformat()
+    LOGGER.info(
+        "Synced layer %s calibration from desktop to %s (file=%s).",
+        requested_layer,
+        local_path,
+        calibration_file,
+    )
+    return CalibrationSyncResult(
+        layer=requested_layer,
+        calibration_file=calibration_file,
+        source=str(payload.get("source") or "desktop"),
+        synced_at=synced_at,
+        local_path=str(local_path),
+    )
+
+
+def ensure_layer_calibration_ready(layer: str) -> CalibrationSyncResult | None:
+    requested_layer = _normalize_layer(layer)
+    if requested_layer not in UV_LAYERS:
+        return None
+
+    if get_plc_io_mode() == "desktop":
+        return sync_layer_calibration_from_desktop(requested_layer)
+
+    ensure_local_layer_matches_active(requested_layer)
+    local_path = get_local_layer_calibration_path(requested_layer)
+    if not local_path.is_file():
+        raise FileNotFoundError(f"Local calibration file not found: {local_path}")
+    return None
+
+
+def load_normalized_layer_calibration(layer: str) -> dict[str, Any]:
+    requested_layer = _normalize_layer(layer)
+    local_path = get_local_layer_calibration_path(requested_layer)
+    calibration = LayerCalibration(layer=requested_layer)
+    calibration.load(str(local_path.parent), local_path.name)
+    normalized = normalize_calibration(calibration, requested_layer)
+    geometry = create_layer_geometry(requested_layer)
+    return {
+        "layer": requested_layer,
+        "calibrationFile": local_path.name,
+        "pinDiameterMm": float(geometry.pinDiameter),
+        "locations": {
+            pin_name: {
+                "x": float(location.x),
+                "y": float(location.y),
+                "z": float(location.z),
+            }
+            for pin_name in normalized.getPinNames()
+            for location in [normalized.getPinLocation(pin_name)]
+        },
+    }
+
+
+def load_layer_calibration_summary(layer: str) -> dict[str, Any]:
+    requested_layer = _normalize_layer(layer)
+    ensure_local_layer_matches_active(requested_layer)
+    return load_normalized_layer_calibration(requested_layer)
+
+
+def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
+    requested_layer = _normalize_layer(layer)
+    normalized_pin = str(pin_name).strip().upper()
+    calibration = load_normalized_layer_calibration(requested_layer)
+    try:
+        location = calibration["locations"][normalized_pin]
+    except KeyError as exc:
+        raise ValueError(f"Pin {normalized_pin} is not present in {requested_layer} calibration.") from exc
+    return (float(location["x"]), float(location["y"]))
+
+
+def get_bottom_pin_options(layer: str, side: str) -> list[tuple[str, str]]:
+    requested_layer = _normalize_layer(layer)
+    requested_side = _normalize_side(side)
+    if requested_layer not in UV_LAYERS:
+        return []
+
+    metadata = _build_layer_metadata(requested_layer)
+    start_pin, end_pin = metadata["sideRanges"]["bottom"]
+    options = [
+        (f"Bottom first (B{start_pin})", f"B{start_pin}"),
+        (f"Bottom last (B{end_pin})", f"B{end_pin}"),
+    ]
+    LOGGER.debug(
+        "Bottom pin options for layer=%s side=%s resolved to %s.",
+        requested_layer,
+        requested_side,
+        [value for _label, value in options],
+    )
+    return options
+
+
+def _default_laser_offset_store() -> dict[str, Any]:
+    return {"A": None, "B": None}
+
+
+def load_laser_offset_store() -> dict[str, Any]:
+    data = _load_json_file(LASER_OFFSET_PATH, default=_default_laser_offset_store())
+    if not isinstance(data, dict):
+        return _default_laser_offset_store()
+    normalized = _default_laser_offset_store()
+    for side in ("A", "B"):
+        value = data.get(side)
+        normalized[side] = value if isinstance(value, dict) else None
+    return normalized
+
+
+def save_laser_offset_store(store: dict[str, Any]) -> None:
+    _atomic_write_text(LASER_OFFSET_PATH, json.dumps(store, indent=2, sort_keys=True) + "\n")
+
+
+def get_laser_offset(side: str) -> dict[str, Any] | None:
+    return load_laser_offset_store().get(_normalize_side(side))
+
+
+def capture_laser_offset(
+    *,
+    layer: str,
+    side: str,
+    pin_name: str,
+    captured_stage_xy: tuple[float, float],
+    captured_focus: int | None,
+) -> dict[str, Any]:
+    requested_layer = _normalize_layer(layer)
+    requested_side = _normalize_side(side)
+    normalized_pin = str(pin_name).strip().upper()
+    pin_x, pin_y = get_calibrated_pin_xy(requested_layer, normalized_pin)
+    stage_x = float(captured_stage_xy[0])
+    stage_y = float(captured_stage_xy[1])
+    entry = {
+        "x": float(pin_x - stage_x),
+        "y": float(pin_y - stage_y),
+        "captured_layer": requested_layer,
+        "captured_pin": normalized_pin,
+        "captured_focus": None if captured_focus is None else int(captured_focus),
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    store = load_laser_offset_store()
+    store[requested_side] = entry
+    save_laser_offset_store(store)
+    return entry

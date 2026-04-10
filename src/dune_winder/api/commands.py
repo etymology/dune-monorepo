@@ -208,6 +208,22 @@ def build_command_registry(
 
   registry.register("process.seek_pin", process_seek_pin, True)
 
+  def process_get_layer_calibration(args):
+    _validateArgs(args, required=("layer",))
+    return process.getLayerCalibration(_asString(args["layer"], "layer"))
+
+  registry.register("process.get_layer_calibration", process_get_layer_calibration, False)
+
+  def process_get_layer_calibration_json(args):
+    _validateArgs(args, required=("layer",))
+    return process.getLayerCalibrationJson(_asString(args["layer"], "layer"))
+
+  registry.register(
+    "process.get_layer_calibration_json",
+    process_get_layer_calibration_json,
+    False,
+  )
+
   def process_set_anchor_point(args):
     _validateArgs(args, required=("pin_a",), optional=("pin_b",))
     pinA = _asString(args["pin_a"], "pin_a").upper()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import partial
+import logging
 from typing import Any
 import tkinter as tk
 import tkinter.font as tkfont
@@ -11,6 +12,7 @@ from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui.actions import (
     adjust_focus_with_x_compensation,
     calibrate_background_noise,
+    capture_laser_offset_button,
     clear_range,
     erase_distribution_outliers,
     erase_outliers,
@@ -24,8 +26,15 @@ from dune_tension.gui.actions import (
     measure_list_button,
     monitor_tension_logs,
     refresh_tension_logs,
+    refresh_uv_laser_offset_controls,
+    seek_camera_to_pin,
     set_manual_tension,
     update_focus_command_indicator,
+)
+from dune_tension.gui.crash_logging import (
+    format_process_stats,
+    install_gui_crash_logging,
+    install_tk_exception_logging,
 )
 from dune_tension.gui.context import GUIContext, GUIWidgets, create_context
 from dune_tension.gui.live_plots import (
@@ -38,73 +47,123 @@ from dune_tension.gui.state import load_state
 from dune_tension.services import build_runtime_bundle, resolve_runtime_options
 from dune_tension.tensiometer_functions import make_config
 
+LOGGER = logging.getLogger(__name__)
+
 
 def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> None:
     """Launch the Tkinter GUI."""
 
-    root = root or tk.Tk()
-    root.title("Tensiometer GUI")
-    for font_name in ("TkDefaultFont", "TkTextFont", "TkFixedFont", "TkMenuFont"):
-        try:
-            tkfont.nametofont(font_name).configure(size=8)
-        except Exception:
-            pass
-    if hasattr(root, "columnconfigure"):
-        root.columnconfigure(0, weight=0)
-        root.columnconfigure(1, weight=1)
-    if hasattr(root, "rowconfigure"):
-        root.rowconfigure(0, weight=1)
-
-    focus_command_var = tk.StringVar(master=root, value="4000")
-    estimated_time_var = tk.StringVar(master=root, value="Not running")
-    (
-        widgets,
-        focus_canvas,
-        focus_dot,
-        buttons,
-        pad_buttons,
-        log_text,
-        summary_plot_frame,
-        waveform_plot_frame,
-    ) = _create_widgets(
-        root, focus_command_var, estimated_time_var
-    )
-    log_binding = configure_gui_logging(root, log_text)
-    runtime_bundle = build_runtime_bundle(resolve_runtime_options())
-    ctx = create_context(
-        root,
-        widgets,
+    crash_logging = install_gui_crash_logging()
+    LOGGER.info(
+        "Launching tensiometer GUI. state_file=%s root_provided=%s log_path=%s fault_log_path=%s",
         state_file,
-        focus_command_var=focus_command_var,
-        estimated_time_var=estimated_time_var,
-        runtime_bundle=runtime_bundle,
-    )
-    ctx.focus_command_canvas = focus_canvas
-    ctx.focus_command_dot = focus_dot
-    ctx.log_binding = log_binding
-    ctx.live_plot_manager = LivePlotManager(
-        root,
-        summary_plot_frame,
-        waveform_plot_frame,
+        root is not None,
+        crash_logging.log_path,
+        crash_logging.fault_log_path,
     )
 
-    _configure_commands(ctx, buttons, pad_buttons)
+    try:
+        if root is None:
+            LOGGER.info("Creating Tk root window.")
+        root = root or tk.Tk()
+        install_tk_exception_logging(root)
+        root.title("Tensiometer GUI")
+        for font_name in ("TkDefaultFont", "TkTextFont", "TkFixedFont", "TkMenuFont"):
+            try:
+                tkfont.nametofont(font_name).configure(size=8)
+            except Exception:
+                pass
+        if hasattr(root, "columnconfigure"):
+            root.columnconfigure(0, weight=0)
+            root.columnconfigure(1, weight=1)
+        if hasattr(root, "rowconfigure"):
+            root.rowconfigure(0, weight=1)
+        LOGGER.info("Tk root ready. %s", format_process_stats())
 
-    load_state(ctx)
-    if ctx.live_plot_manager is not None:
-        ctx.live_plot_manager.request_summary_refresh(
-            make_config(
-                apa_name=ctx.widgets.entry_apa.get(),
-                layer=ctx.widgets.layer_var.get(),
-                side=ctx.widgets.side_var.get(),
-                flipped=bool(ctx.widgets.flipped_var.get()),
-            )
+        focus_command_var = tk.StringVar(master=root, value="4000")
+        estimated_time_var = tk.StringVar(master=root, value="Not running")
+        LOGGER.info("Creating GUI widgets.")
+        (
+            widgets,
+            focus_canvas,
+            focus_dot,
+            buttons,
+            pad_buttons,
+            log_text,
+            summary_plot_frame,
+            waveform_plot_frame,
+        ) = _create_widgets(
+            root, focus_command_var, estimated_time_var
         )
-    _initialise_servo(ctx)
+        log_binding = configure_gui_logging(root, log_text)
+        LOGGER.info(
+            "GUI log panel attached. persistent_log=%s fault_log=%s",
+            crash_logging.log_path,
+            crash_logging.fault_log_path,
+        )
 
-    ctx.root.protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
-    ctx.root.after(1000, lambda: monitor_tension_logs(ctx))
-    ctx.root.mainloop()
+        runtime_options = resolve_runtime_options()
+        LOGGER.info("Resolved runtime options: %s", runtime_options)
+        runtime_bundle = build_runtime_bundle(runtime_options)
+        LOGGER.info(
+            "Runtime bundle ready. motion=%s audio_samplerate=%s servo=%s valve=%s",
+            type(runtime_bundle.motion).__name__,
+            getattr(runtime_bundle.audio, "samplerate", "unknown"),
+            type(runtime_bundle.servo_controller).__name__,
+            type(runtime_bundle.valve_controller).__name__
+            if runtime_bundle.valve_controller is not None
+            else "None",
+        )
+        ctx = create_context(
+            root,
+            widgets,
+            state_file,
+            focus_command_var=focus_command_var,
+            estimated_time_var=estimated_time_var,
+            runtime_bundle=runtime_bundle,
+        )
+        ctx.focus_command_canvas = focus_canvas
+        ctx.focus_command_dot = focus_dot
+        ctx.log_binding = log_binding
+        ctx.live_plot_manager = LivePlotManager(
+            root,
+            summary_plot_frame,
+            waveform_plot_frame,
+        )
+
+        _configure_commands(ctx, buttons, pad_buttons)
+        LOGGER.info("GUI commands configured.")
+
+        load_state(ctx)
+        LOGGER.info("Loaded GUI state from %s", state_file)
+        refresh_uv_laser_offset_controls(ctx)
+        if ctx.live_plot_manager is not None:
+            LOGGER.info("Requesting initial live summary refresh.")
+            ctx.live_plot_manager.request_summary_refresh(
+                make_config(
+                    apa_name=ctx.widgets.entry_apa.get(),
+                    layer=ctx.widgets.layer_var.get(),
+                    side=ctx.widgets.side_var.get(),
+                    flipped=bool(ctx.widgets.flipped_var.get()),
+                )
+            )
+        _initialise_servo(ctx)
+        _schedule_health_logging(ctx)
+
+        ctx.root.protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
+        ctx.root.after(1000, lambda: monitor_tension_logs(ctx))
+        LOGGER.info("Entering Tk mainloop.")
+        ctx.root.mainloop()
+        LOGGER.info("Tk mainloop exited.")
+    except Exception:
+        LOGGER.exception(
+            "Tensiometer GUI crashed during startup or runtime. persistent_log=%s fault_log=%s",
+            crash_logging.log_path,
+            crash_logging.fault_log_path,
+        )
+        raise
+    finally:
+        crash_logging.flush()
 
 
 def _initialise_servo(ctx: GUIContext) -> None:
@@ -112,14 +171,47 @@ def _initialise_servo(ctx: GUIContext) -> None:
         value = int(ctx.widgets.focus_slider.get())
     except Exception:
         value = 4000
+    LOGGER.info("Initialising servo focus command to %s", value)
     ctx.servo_controller.on_focus_command = partial(update_focus_command_indicator, ctx)
     ctx.servo_controller.focus_position = value
     try:
         ctx.servo_controller.focus_target(value)
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning("Servo focus_target(%s) failed: %s", value, exc)
         update_focus_command_indicator(ctx, value)
     else:
         update_focus_command_indicator(ctx, value)
+
+
+def _schedule_health_logging(ctx: GUIContext, *, interval_ms: int = 15000) -> None:
+    """Emit periodic breadcrumbs so abrupt exits have a recent last-known state."""
+
+    def emit() -> None:
+        try:
+            LOGGER.info(
+                "GUI heartbeat. measurement_active=%s active_measurement=%s focus=%s %s",
+                ctx.measurement_active,
+                ctx.active_measurement_name or "idle",
+                _current_focus_value(ctx),
+                format_process_stats(),
+            )
+        finally:
+            try:
+                ctx.root.after(interval_ms, emit)
+            except Exception:
+                pass
+
+    try:
+        ctx.root.after(interval_ms, emit)
+    except Exception:
+        LOGGER.exception("Failed to schedule GUI heartbeat logging.")
+
+
+def _current_focus_value(ctx: GUIContext) -> int | str:
+    try:
+        return int(ctx.widgets.focus_slider.get())
+    except Exception:
+        return "unknown"
 
 
 def _create_widgets(
@@ -373,6 +465,24 @@ def _create_widgets(
         row=17, column=1, sticky="w"
     )
 
+    laser_offset_frame = tk.LabelFrame(measure_frame, text="Laser Offset")
+    laser_offset_frame.grid(row=18, column=0, columnspan=5, sticky="ew", pady=(6, 0))
+    if hasattr(laser_offset_frame, "columnconfigure"):
+        laser_offset_frame.columnconfigure(1, weight=1)
+    tk.Label(laser_offset_frame, text="Bottom Pin:").grid(row=0, column=0, sticky="e")
+    laser_offset_pin_var = tk.StringVar(laser_offset_frame, value="")
+    laser_offset_pin_menu = tk.OptionMenu(laser_offset_frame, laser_offset_pin_var, "")
+    laser_offset_pin_menu.grid(row=0, column=1, sticky="ew")
+    btn_seek_pin = tk.Button(laser_offset_frame, text="Seek Camera To Pin")
+    btn_seek_pin.grid(row=0, column=2, padx=(6, 0))
+    btn_capture_laser_offset = tk.Button(laser_offset_frame, text="Capture Laser Offset")
+    btn_capture_laser_offset.grid(row=0, column=3, padx=(6, 0))
+    laser_offset_readout_var = tk.StringVar(laser_offset_frame, value="Side A: not set")
+    tk.Label(laser_offset_frame, textvariable=laser_offset_readout_var).grid(
+        row=1, column=0, columnspan=4, sticky="w"
+    )
+    laser_offset_frame.grid_remove()
+
     tk.Label(measure_frame, text="Clear Range:").grid(row=4, column=0, sticky="e")
     entry_clear_range = tk.Entry(measure_frame)
     entry_clear_range.grid(row=4, column=1)
@@ -491,6 +601,12 @@ def _create_widgets(
         stream_focus_var=stream_focus_var,
         stream_pitch_backlog_var=stream_pitch_backlog_var,
         stream_rescue_queue_var=stream_rescue_queue_var,
+        laser_offset_frame=laser_offset_frame,
+        laser_offset_pin_var=laser_offset_pin_var,
+        laser_offset_pin_menu=laser_offset_pin_menu,
+        laser_offset_readout_var=laser_offset_readout_var,
+        btn_seek_pin=btn_seek_pin,
+        btn_capture_laser_offset=btn_capture_laser_offset,
     )
 
     buttons = {
@@ -506,6 +622,8 @@ def _create_widgets(
         "calibrate_noise": btn_calibrate_noise,
         "manual_go": btn_manual_go,
         "refresh_plots": btn_refresh_plots,
+        "seek_pin": btn_seek_pin,
+        "capture_laser_offset": btn_capture_laser_offset,
     }
 
     _configure_root_minimum_size(root, main_frame, side_frame)
@@ -643,6 +761,10 @@ def _configure_commands(
     )
     buttons["manual_go"].configure(command=lambda: manual_goto(ctx))
     buttons["refresh_plots"].configure(command=lambda: refresh_tension_logs(ctx))
+    buttons["seek_pin"].configure(command=lambda: seek_camera_to_pin(ctx))
+    buttons["capture_laser_offset"].configure(
+        command=lambda: capture_laser_offset_button(ctx)
+    )
 
     for button, dx, dy in pad_buttons:
         button.configure(command=partial(manual_increment, ctx, dx, dy))
@@ -651,3 +773,12 @@ def _configure_commands(
     widgets.focus_slider.configure(
         command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
     )
+    for variable in (
+        widgets.layer_var,
+        widgets.side_var,
+        widgets.measurement_mode_var,
+    ):
+        variable.trace_add(
+            "write",
+            lambda *_args: refresh_uv_laser_offset_controls(ctx),
+        )

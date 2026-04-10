@@ -62,6 +62,25 @@ def _load_actions_module(monkeypatch):
     state.save_state = lambda _ctx: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.state", state)
 
+    layer_calibration = types.ModuleType("dune_tension.layer_calibration")
+    layer_calibration.capture_laser_offset = lambda **kwargs: kwargs
+    layer_calibration.ensure_layer_calibration_ready = lambda _layer: None
+    layer_calibration.get_bottom_pin_options = lambda _layer, _side: [
+        ("Bottom first (B400)", "B400"),
+        ("Bottom last (B1199)", "B1199"),
+    ]
+    layer_calibration.get_calibrated_pin_xy = lambda _layer, _pin: (100.0, 200.0)
+    layer_calibration.get_laser_offset = lambda _side: None
+    monkeypatch.setitem(sys.modules, "dune_tension.layer_calibration", layer_calibration)
+
+    plc_desktop = types.ModuleType("dune_tension.plc_desktop")
+    plc_desktop.desktop_seek_pin = lambda *_args, **_kwargs: True
+    monkeypatch.setitem(sys.modules, "dune_tension.plc_desktop", plc_desktop)
+
+    plc_io = types.ModuleType("dune_tension.plc_io")
+    plc_io.get_plc_io_mode = lambda: "desktop"
+    monkeypatch.setitem(sys.modules, "dune_tension.plc_io", plc_io)
+
     module_name = "gui_actions_under_test"
     spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
     assert spec is not None
