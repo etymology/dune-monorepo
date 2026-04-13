@@ -34,15 +34,8 @@ _REQUEST_EXCEPTION = getattr(
     Exception,
 )
 
-# Amount of travel, in mm, assumed to be lost when reversing X direction
-BACKLASH_DEADZONE = 0.5
-
-# Track our best guess of the true position, accounting for backlash
+# Track the most recently commanded XY position
 _TRUE_XY = [None, None]
-
-# Track the last X movement direction and remaining deadzone to take up
-_LAST_X_DIR = 0
-_X_DEADZONE_LEFT = 0.0
 
 DEFAULT_TENSION_SERVER_URL = "http://192.168.137.1:5000"
 TENSION_SERVER_URL = DEFAULT_TENSION_SERVER_URL
@@ -343,9 +336,7 @@ def get_cached_xy() -> tuple[float, float]:
     """Return the internally tracked XY position.
 
     ``goto_xy`` keeps ``_TRUE_XY`` updated whenever a move command is issued.
-    If no tracked state exists yet, seed it from the PLC once. Callers should
-    prefer this over ``get_xy`` when doing motion math so backlash compensation
-    stays internally consistent.
+    If no tracked state exists yet, seed it from the PLC once.
     """
 
     with PLC_LOCK:
@@ -403,15 +394,15 @@ def goto_xy(
     y_target: float,
     *,
     speed: float = 300,
-    deadzone: float = BACKLASH_DEADZONE,
     check_comb: bool = True,
+    allow_outside_measurable: bool = False,
     idle_timeout: float = IDLE_WAIT_TIMEOUT,
     move_timeout: float = MOVE_WAIT_TIMEOUT,
     wait_for_completion: bool = True,
 ) -> bool:
     """Move the winder to a given position with bounded waits."""
 
-    global _TRUE_XY, _LAST_X_DIR, _X_DEADZONE_LEFT
+    global _TRUE_XY
 
     _ensure_tracked_xy()
 
@@ -422,13 +413,13 @@ def goto_xy(
             (path_x < c < x_target) or (x_target < c < path_x) for c in comb_positions
         )
         if crosses:
-            transit_y = float(MEASURABLE_Y_MIN)
+            transit_y = 0.0
             if not goto_xy(
                 path_x,
                 transit_y,
                 speed=speed,
-                deadzone=deadzone,
                 check_comb=False,
+                allow_outside_measurable=True,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
                 wait_for_completion=wait_for_completion,
@@ -438,8 +429,8 @@ def goto_xy(
                 x_target,
                 transit_y,
                 speed=speed,
-                deadzone=deadzone,
                 check_comb=False,
+                allow_outside_measurable=True,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
                 wait_for_completion=wait_for_completion,
@@ -449,46 +440,21 @@ def goto_xy(
                 x_target,
                 y_target,
                 speed=speed,
-                deadzone=deadzone,
                 check_comb=False,
+                allow_outside_measurable=allow_outside_measurable,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
                 wait_for_completion=wait_for_completion,
             )
 
     with _MOTION_LOCK:
-        if not is_in_measurable_area(x_target, y_target):
+        if not allow_outside_measurable and not is_in_measurable_area(x_target, y_target):
             LOGGER.warning(
                 "Target %s,%s is outside the measurable area. Please enter a valid position.",
                 x_target,
                 y_target,
             )
             return False
-
-        # Compute backlash-adjusted target state but only commit after successful move.
-        delta_x = x_target - _TRUE_XY[0]
-        direction = 1 if delta_x > 0 else -1 if delta_x < 0 else 0
-        next_last_x_dir = _LAST_X_DIR
-        next_deadzone_left = _X_DEADZONE_LEFT
-
-        if direction != 0 and direction != next_last_x_dir:
-            next_deadzone_left = deadzone
-            next_last_x_dir = direction
-
-        move_x = abs(delta_x)
-        actual_move_x = 0.0
-        if direction != 0:
-            if next_deadzone_left > 0:
-                if move_x <= next_deadzone_left:
-                    next_deadzone_left -= move_x
-                else:
-                    actual_move_x = direction * (move_x - next_deadzone_left)
-                    next_deadzone_left = 0.0
-            else:
-                actual_move_x = delta_x
-
-        predicted_true_x = _TRUE_XY[0] + actual_move_x
-        predicted_true_y = y_target
 
         if get_plc_io_mode() == "desktop":
             from dune_tension.plc_desktop import desktop_seek_xy as _desktop_seek_xy
@@ -555,10 +521,8 @@ def goto_xy(
                         return False
                     time.sleep(STATE_POLL_INTERVAL)
 
-        _TRUE_XY[0] = predicted_true_x
-        _TRUE_XY[1] = predicted_true_y
-        _LAST_X_DIR = next_last_x_dir
-        _X_DEADZONE_LEFT = next_deadzone_left
+        _TRUE_XY[0] = x_target
+        _TRUE_XY[1] = y_target
         return True
 
 
