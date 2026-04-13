@@ -115,7 +115,7 @@ def length_lookup(
         wire_number < GEOMETRY_CONFIG.wire_number_min
         or wire_number > GEOMETRY_CONFIG.wire_number_max
     ):
-        raise ValueError("Wire number must be between 1 and 1151")
+        raise ValueError("Wire number must be between 1 and 1151 (geometry data available for all wires, but only 8-1146 are collected/uploaded for U/V layers)")
     if zone < 1 or zone > GEOMETRY_CONFIG.zone_count:
         raise ValueError("Zone must be between 1 and 5")
 

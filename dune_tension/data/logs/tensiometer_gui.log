@@ -3994,3 +3994,12 @@ AttributeError: 'NoneType' object has no attribute 'write'
 2026-04-13 13:15:48,796 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
 2026-04-13 13:16:03,797 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
 2026-04-13 13:16:18,798 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:16:33,799 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:16:48,801 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:17:03,802 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:17:18,802 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:17:33,803 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:17:48,804 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:18:03,805 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:18:18,806 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:18:33,807 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB

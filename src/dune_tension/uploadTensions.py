@@ -1,11 +1,15 @@
+import pandas as pd
+
 from dune_tension.m2m.common import ConnectToAPI, EditAction
-from dune_tension.summaries import get_expected_range, get_tension_series
-from dune_tension.tensiometer_functions import make_config
+from dune_tension.paths import data_path
+from dune_tension.summaries import get_expected_range
 
 
 def load_tension_summary(apa_name: str, layer: str) -> tuple[list, list]:
-    config = make_config(apa_name=apa_name, layer=layer, side="A")
-    tension_series = get_tension_series(config)
+    csv_path = data_path(
+        "tension_summaries", f"tension_summary_{apa_name}_{layer}.csv"
+    )
+    df = pd.read_csv(csv_path).set_index("wire_number")
     wire_range = list(get_expected_range(layer))
     if layer in ["X", "G", "x", "g"]:
         b_side_wire_range = list(reversed(wire_range))
@@ -13,8 +17,8 @@ def load_tension_summary(apa_name: str, layer: str) -> tuple[list, list]:
         b_side_wire_range = wire_range
     nan = float("nan")
     return (
-        [tension_series["A"].get(wire, nan) for wire in wire_range],
-        [tension_series["B"].get(wire, nan) for wire in b_side_wire_range],
+        [df["A"].get(wire, nan) for wire in wire_range],
+        [df["B"].get(wire, nan) for wire in b_side_wire_range],
     )
 
 
@@ -38,6 +42,7 @@ def uploadTensions(apa_name: str, layer: str, create_layer_action_id: str) -> No
     # print(f" Successfully performed action with ID: {create_layer_action_id}")
 
     tensions_sideA, tensions_sideB = load_tension_summary(apa_name, layer)
+    print(tensions_sideA, tensions_sideB)
     print(f" Uploading {len(tensions_sideA)} tensions for APA {apa_name} layer {layer}...")
     actionData_fields = [
         "measuredTensions_sideA",
@@ -65,7 +70,7 @@ def uploadTensions(apa_name: str, layer: str, create_layer_action_id: str) -> No
 
 
 def main() -> None:
-    uploadTensions("USAPA12", "X", r"69c55b1739ec5df0071382d7")
+    uploadTensions("APAUK007", "V", r"69d6a79b07c1c59eb7b34781")
 
 
 if __name__ == "__main__":

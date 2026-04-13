@@ -15,8 +15,8 @@ from dune_tension.tensiometer_functions import TensiometerConfig
 def get_expected_range(layer: str) -> range:
     """Return the expected wire range for a given layer."""
     ranges = {
-        "U": range(8, 1152),
-        "V": range(8, 1152),
+        "U": range(8, 1147),
+        "V": range(8, 1147),
         "X": range(1, 481),
         "G": range(1, 482),
     }
@@ -98,6 +98,21 @@ def _compute_tensions(
         )
         histogram_data.append(selected[["tension"]].assign(side_label=side_label))
     return tension_series, line_data, histogram_data, missing_wires
+
+
+def _compute_tension_stats(tensions: np.ndarray) -> dict:
+    """Return mean, sigma, and PDF mode (KDE peak) for a tension array."""
+    tensions = tensions[np.isfinite(tensions)]
+    if tensions.size < 2:
+        return {"mean": np.nan, "sigma": np.nan, "mode": np.nan}
+    mean = float(np.mean(tensions))
+    sigma = float(np.std(tensions, ddof=1))
+    from scipy.stats import gaussian_kde
+    kde = gaussian_kde(tensions)
+    # Evaluate KDE on fine grid between min and max
+    x_grid = np.linspace(tensions.min(), tensions.max(), 1000)
+    mode = float(x_grid[np.argmax(kde(x_grid))])
+    return {"mean": mean, "sigma": sigma, "mode": mode}
 
 
 def _load_summary_measurements(config: TensiometerConfig) -> pd.DataFrame:
@@ -239,6 +254,31 @@ def build_summary_plot_figure(
     hist_axis.set_ylabel("Count")
     hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
 
+    # Add mean, sigma, and PDF mode statistics per side
+    import matplotlib.pyplot as plt
+    stats_text_parts = []
+    for side_label, group in hist_df.groupby("side_label"):
+        stats = _compute_tension_stats(group["tension"].values)
+        if np.isfinite(stats["mean"]):
+            # Build stats text for this side
+            stats_text_parts.append(
+                f"{side_label}: μ={stats['mean']:.2f}, σ={stats['sigma']:.2f}, mode={stats['mode']:.2f}"
+            )
+
+    # Add a text box with all stats in the upper right
+    if stats_text_parts:
+        stats_text = "\n".join(stats_text_parts)
+        hist_axis.text(
+            0.98,
+            0.97,
+            stats_text,
+            transform=hist_axis.transAxes,
+            fontsize=7,
+            verticalalignment="top",
+            horizontalalignment="right",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+
     resid_axis.axhline(0, color="gray", linewidth=0.8, linestyle="--")
     resid_axis.set_title(f"{apa_name} - Residuals from Moving Average - Layer {layer}")
     resid_axis.set_xlabel("Wire Number")
@@ -257,6 +297,31 @@ def build_summary_plot_figure(
             common_norm=False,
             ax=resid_hist_axis,
         )
+
+        # Add sigma statistics for residuals per side (mean is always 0 by construction)
+        resid_stats_text_parts = []
+        for side_label, group in resid_df.groupby("side_label"):
+            resid_stats = _compute_tension_stats(group["residual"].values)
+            if np.isfinite(resid_stats["sigma"]):
+                # Build stats text for this side (only sigma, as mean is 0 by construction)
+                resid_stats_text_parts.append(
+                    f"{side_label}: σ={resid_stats['sigma']:.2f}"
+                )
+
+        # Add a text box with residual stats in the upper right
+        if resid_stats_text_parts:
+            resid_stats_text = "\n".join(resid_stats_text_parts)
+            resid_hist_axis.text(
+                0.98,
+                0.97,
+                resid_stats_text,
+                transform=resid_hist_axis.transAxes,
+                fontsize=7,
+                verticalalignment="top",
+                horizontalalignment="right",
+                bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+            )
+
     resid_hist_axis.axvline(0, color="gray", linewidth=0.8, linestyle="--")
     resid_hist_axis.set_title(f"{apa_name} - Residual Histogram - Layer {layer}")
     resid_hist_axis.set_xlabel("Residual")
