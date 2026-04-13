@@ -2972,3 +2972,1025 @@
 2026-04-10 17:38:34,202 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2354024 kB
 2026-04-10 17:38:49,203 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2321376 kB
 2026-04-10 17:39:04,206 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2321376 kB
+2026-04-10 17:39:19,206 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2321376 kB
+2026-04-13 01:19:40,241 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2321376 kB
+2026-04-13 01:19:55,242 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2264560 kB
+2026-04-13 01:20:10,243 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2264560 kB
+2026-04-13 01:20:25,245 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2238956 kB
+2026-04-13 01:20:40,472 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2238956 kB
+2026-04-13 01:20:55,474 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2235252 kB
+2026-04-13 01:21:11,241 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2235252 kB
+2026-04-13 01:21:26,242 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2232552 kB
+2026-04-13 01:21:41,458 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2232552 kB
+2026-04-13 01:21:56,459 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2227336 kB
+2026-04-13 01:22:12,246 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2227336 kB
+2026-04-13 01:22:27,247 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2224284 kB
+2026-04-13 01:22:42,543 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2226044 kB
+2026-04-13 01:22:57,544 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2225520 kB
+2026-04-13 01:23:12,545 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2225520 kB
+2026-04-13 01:23:27,546 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2221492 kB
+2026-04-13 01:23:42,547 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2221492 kB
+2026-04-13 01:23:57,548 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2215952 kB
+2026-04-13 01:24:12,549 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2215952 kB
+2026-04-13 01:24:27,550 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2215548 kB
+2026-04-13 01:24:42,552 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2215548 kB
+2026-04-13 01:24:57,553 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2210344 kB
+2026-04-13 01:25:12,554 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2210344 kB
+2026-04-13 01:25:27,555 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2207240 kB
+2026-04-13 01:25:42,556 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2207240 kB
+2026-04-13 01:25:57,557 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2204644 kB
+2026-04-13 01:26:12,558 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2204644 kB
+2026-04-13 01:26:27,559 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2199516 kB
+2026-04-13 01:26:42,560 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2199516 kB
+2026-04-13 01:26:57,561 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2196888 kB
+2026-04-13 01:27:12,562 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2196888 kB
+2026-04-13 01:27:27,563 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2195544 kB
+2026-04-13 01:27:42,564 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2195544 kB
+2026-04-13 01:27:57,565 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2194436 kB
+2026-04-13 01:28:12,566 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2194436 kB
+2026-04-13 01:28:27,567 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2191804 kB
+2026-04-13 01:28:42,569 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2191804 kB
+2026-04-13 01:28:57,569 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2191804 kB
+2026-04-13 01:29:12,571 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2191804 kB
+2026-04-13 01:29:27,572 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2181812 kB
+2026-04-13 01:29:42,573 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2181812 kB
+2026-04-13 01:29:57,574 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2181812 kB
+2026-04-13 01:30:12,575 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2181812 kB
+2026-04-13 01:30:27,576 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2175068 kB
+2026-04-13 01:30:42,577 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2175068 kB
+2026-04-13 01:30:57,578 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:31:12,581 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:31:27,582 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:31:42,583 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:31:57,584 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:32:12,585 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:32:27,587 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:32:42,588 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174568 kB
+2026-04-13 01:32:57,589 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174572 kB
+2026-04-13 01:33:12,590 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174572 kB
+2026-04-13 01:33:27,591 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174572 kB
+2026-04-13 01:33:42,592 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174572 kB
+2026-04-13 01:33:57,593 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174572 kB
+2026-04-13 01:34:12,594 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174572 kB
+2026-04-13 01:34:27,596 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:34:42,597 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:34:57,598 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:35:12,599 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:35:27,600 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:35:42,601 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:35:57,603 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:36:12,603 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:36:27,604 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2172332 kB
+2026-04-13 01:36:42,605 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171988 kB
+2026-04-13 01:36:57,606 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171988 kB
+2026-04-13 01:37:12,608 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171988 kB
+2026-04-13 01:37:27,609 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:37:42,610 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:37:57,611 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:38:12,612 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:38:27,613 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:38:42,614 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:38:57,615 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171992 kB
+2026-04-13 01:39:12,616 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171576 kB
+2026-04-13 01:39:27,617 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171576 kB
+2026-04-13 01:39:42,618 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171508 kB
+2026-04-13 01:39:57,619 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171508 kB
+2026-04-13 01:40:12,620 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:40:27,625 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:40:42,626 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:40:57,628 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:41:12,629 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:41:27,630 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:41:42,631 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:41:57,633 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171484 kB
+2026-04-13 01:42:12,634 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:42:27,635 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:42:42,636 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:42:57,637 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:43:12,638 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:43:27,639 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:43:42,640 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:43:57,641 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:44:12,643 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:44:27,644 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:44:42,645 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:44:57,646 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:45:12,647 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2171488 kB
+2026-04-13 01:45:27,648 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174696 kB
+2026-04-13 01:45:42,649 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174704 kB
+2026-04-13 01:45:57,651 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2174708 kB
+2026-04-13 01:46:12,652 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2179740 kB
+2026-04-13 01:46:27,653 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2195508 kB
+2026-04-13 01:46:42,654 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2198100 kB
+2026-04-13 01:46:57,655 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2198100 kB
+2026-04-13 01:47:12,657 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2198100 kB
+2026-04-13 01:47:27,658 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2198100 kB
+2026-04-13 01:47:42,659 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2203892 kB
+2026-04-13 01:47:57,660 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2230976 kB
+2026-04-13 01:48:12,661 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2234072 kB
+2026-04-13 01:48:27,662 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2236628 kB
+2026-04-13 01:48:42,663 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2236628 kB
+2026-04-13 01:48:57,664 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2236628 kB
+2026-04-13 01:49:12,666 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2236596 kB
+2026-04-13 01:49:27,667 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2236600 kB
+2026-04-13 01:49:42,668 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2241212 kB
+2026-04-13 01:49:57,669 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2243576 kB
+2026-04-13 01:50:12,670 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2245080 kB
+2026-04-13 01:50:27,671 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246696 kB
+2026-04-13 01:50:42,672 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246696 kB
+2026-04-13 01:50:57,673 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246696 kB
+2026-04-13 01:51:12,674 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246696 kB
+2026-04-13 01:51:27,675 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246700 kB
+2026-04-13 01:51:42,676 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246700 kB
+2026-04-13 01:51:57,678 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246704 kB
+2026-04-13 01:52:12,680 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246704 kB
+2026-04-13 01:52:27,681 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246704 kB
+2026-04-13 01:52:42,682 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246704 kB
+2026-04-13 01:52:57,683 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246704 kB
+2026-04-13 01:53:12,684 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246704 kB
+2026-04-13 01:53:27,685 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246712 kB
+2026-04-13 01:53:42,686 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:53:57,687 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:54:12,688 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:54:27,689 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:54:42,690 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:54:57,691 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:55:12,693 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:55:27,694 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:55:42,695 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:55:57,696 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:56:12,697 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:56:27,698 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:56:42,699 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:56:57,700 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:57:12,701 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246724 kB
+2026-04-13 01:57:27,702 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246736 kB
+2026-04-13 01:57:42,703 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246752 kB
+2026-04-13 01:57:57,704 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:58:12,705 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:58:27,706 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:58:42,707 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:58:57,708 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:59:12,710 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:59:27,711 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:59:42,712 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 01:59:57,713 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 02:00:12,714 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246760 kB
+2026-04-13 02:00:27,715 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:00:42,716 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:00:57,717 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:01:12,718 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:01:27,719 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:01:42,720 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:01:57,721 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:02:12,722 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:02:27,723 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:02:42,724 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246772 kB
+2026-04-13 02:02:57,726 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:03:12,727 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:03:27,728 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:03:42,729 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:03:57,730 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:04:12,731 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:04:27,732 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:04:42,733 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:04:57,735 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:05:12,736 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:05:27,737 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:05:42,738 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:05:57,739 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:06:12,740 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:06:27,741 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:06:42,742 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:06:57,744 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:07:12,745 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:07:27,746 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:07:42,747 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:07:57,748 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:08:12,749 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:08:27,751 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:08:42,752 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:08:57,753 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:09:12,754 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2246796 kB
+2026-04-13 02:09:27,755 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2247316 kB
+2026-04-13 02:09:42,756 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2247320 kB
+2026-04-13 02:09:57,757 INFO [pid=7968 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=10977740 kB vmhwm=5303724 kB vmrss=2247320 kB
+2026-04-13 02:10:11,781 WARNING [pid=7968 MainThread dune_tension.gui.crash] Received signal SIGHUP (1) at /usr/lib/python3.12/tkinter/__init__.py:1504 in mainloop
+2026-04-13 11:00:40,562 INFO [pid=5306 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=5306 python=3.12.3 threads=1 vmsize=1169440 kB vmhwm=186444 kB vmrss=186444 kB
+2026-04-13 11:00:40,562 INFO [pid=5306 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 11:00:40,562 INFO [pid=5306 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-04-13 11:00:40,713 INFO [pid=5306 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=1171864 kB vmhwm=190948 kB vmrss=190948 kB
+2026-04-13 11:00:40,713 INFO [pid=5306 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-04-13 11:00:40,880 INFO [pid=5306 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 11:00:40,881 INFO [pid=5306 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-04-13 11:00:40,891 WARNING [pid=5306 MainThread dune_tension.services] Unable to initialise valve controller: Unable to locate the USB relay controlling the air valve.
+2026-04-13 11:00:41,513 WARNING [pid=5306 MainThread dune_tension.maestro] Couldn't find Micro Maestro on any of /dev/ttyACM0, /dev/ttyACM1, /dev/ttyACM2. Check the connection or port.
+Traceback (most recent call last):
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialposix.py", line 322, in open
+    self.fd = os.open(self.portstr, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/dev/ttyACM2'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 69, in __init__
+    self.usb = serial.Serial(candidate_port)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialutil.py", line 244, in __init__
+    self.open()
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialposix.py", line 325, in open
+    raise SerialException(msg.errno, "could not open port {}: {}".format(self._port, msg))
+serial.serialutil.SerialException: [Errno 2] could not open port /dev/ttyACM2: [Errno 2] No such file or directory: '/dev/ttyACM2'
+2026-04-13 11:00:41,514 INFO [pid=5306 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=None
+2026-04-13 11:00:41,515 INFO [pid=5306 MainThread dune_tension.gui.app] GUI commands configured.
+2026-04-13 11:00:41,916 INFO [pid=5306 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:00:42,161 INFO [pid=5306 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:00:42,162 INFO [pid=5306 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-04-13 11:00:42,559 INFO [pid=5306 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:00:42,559 INFO [pid=5306 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-04-13 11:00:42,560 INFO [pid=5306 MainThread dune_tension.gui.app] Initialising servo focus command to 6826
+2026-04-13 11:00:42,560 WARNING [pid=5306 MainThread dune_tension.gui.app] Servo focus_target(6826) failed: 'NoneType' object has no attribute 'write'
+2026-04-13 11:00:42,560 INFO [pid=5306 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-04-13 11:00:42,575 ERROR [pid=5306 MainThread dune_tension.gui.crash] Unhandled Tk callback exception
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/tkinter/__init__.py", line 1967, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/src/dune_tension/gui/app.py", line 813, in <lambda>
+    command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/src/dune_tension/gui/actions.py", line 87, in adjust_focus_with_x_compensation
+    ctx.servo_controller.focus_target(target_int)
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 348, in focus_target
+    self.servo.setTarget(1, target)
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 157, in setTarget
+    self.sendCmd(self._make_command(target, 0x04, chan))
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 122, in sendCmd
+    self.usb.write(bytes(cmdStr, "latin-1"))
+    ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'write'
+2026-04-13 11:00:44,498 INFO [pid=5306 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer V
+2026-04-13 11:00:57,560 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:01:12,561 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:01:27,562 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:01:42,563 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:01:57,565 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:02:12,566 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:02:27,567 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:02:42,568 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:02:57,569 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:03:12,570 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:03:27,570 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:03:42,571 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:03:57,572 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:04:12,573 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:04:27,574 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:04:42,576 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:04:57,576 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:05:12,578 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:05:27,579 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:05:42,580 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:05:57,581 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:06:12,581 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:06:27,582 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:06:42,583 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:06:57,584 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:07:12,585 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:07:27,587 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:07:42,588 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:07:57,589 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:08:12,590 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:08:27,591 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:08:42,592 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:08:57,593 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287756 kB vmrss=287756 kB
+2026-04-13 11:09:12,594 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:09:27,595 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:09:42,595 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:09:57,597 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:10:12,598 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:10:27,599 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:10:42,600 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:10:57,601 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:11:12,602 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:11:27,603 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:11:42,604 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:11:57,605 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:12:12,606 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:12:27,607 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:12:42,608 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:12:57,609 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:13:12,610 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:13:27,612 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:13:42,613 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:13:57,614 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:14:12,615 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:14:27,616 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:14:42,617 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:14:57,618 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:15:12,619 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:15:27,620 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:15:42,621 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:15:57,622 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285412 kB
+2026-04-13 11:16:12,622 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=285496 kB
+2026-04-13 11:16:27,624 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=284764 kB
+2026-04-13 11:16:42,625 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=284764 kB
+2026-04-13 11:16:57,626 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=284764 kB
+2026-04-13 11:17:12,627 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1300436 kB vmhwm=287180 kB vmrss=284336 kB
+2026-04-13 11:17:18,355 INFO [pid=5306 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:17:23,166 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Worker thread starting: measure list button measurement=True
+2026-04-13 11:17:23,618 INFO [pid=5306 gui-measure_list_button dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:17:23,659 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Measuring wires: [8]
+2026-04-13 11:17:23,660 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Timing profile started for list measurement of 1 wire(s): [8]
+2026-04-13 11:17:23,748 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Measuring wire 8 at 1124.4238114635848,2646.3050697302547 focus=6826
+2026-04-13 11:17:27,628 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure list button focus=6826 threads=2 vmsize=1302500 kB vmhwm=290196 kB vmrss=290196 kB
+2026-04-13 11:17:35,315 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:35,480 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:35,652 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:35,708 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:35,862 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:36,035 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:36,153 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:36,289 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:36,462 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:36,604 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:36,758 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:36,931 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:37,035 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:37,185 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:37,358 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:37,492 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:37,654 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:37,827 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:37,987 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:38,124 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:38,296 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:38,562 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:38,721 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:38,894 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:39,006 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:39,148 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:39,320 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:39,497 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:39,660 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:39,833 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:40,262 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:17:40,428 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Timeout reached while waiting for audio event.
+2026-04-13 11:17:40,600 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: no audio detected.
+2026-04-13 11:17:42,629 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure list button focus=6826 threads=2 vmsize=1523716 kB vmhwm=290860 kB vmrss=290860 kB
+2026-04-13 11:17:42,942 WARNING [pid=5306 gui-measure_list_button dune_tension.tensiometer] Measurement failed for wire number 8 before satisfying legacy tension condition '5<t<7.5'.
+2026-04-13 11:17:42,942 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Timing profile for list wire 8: total=23.24s stages=[move_to_measurement_pose=11.43s, collect_samples=7.70s, acquire_audio=3.95s, plan_measurement_pose=0.09s, reset_plc_before_move=0.06s, reset_plc_after_collect=0.01s, strum=0.00s, merge_results=0.00s]
+2026-04-13 11:17:42,942 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Timing profile summary for list measurement: requested=1 measured=1 skipped=[] planning=0.00s avg_wire=23.24s total=23.24s stage_totals=[move_to_measurement_pose=11.43s, collect_samples=7.70s, acquire_audio=3.95s, plan_measurement_pose=0.09s, reset_plc_before_move=0.06s, reset_plc_after_collect=0.01s, strum=0.00s, merge_results=0.00s]
+2026-04-13 11:17:42,954 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Worker thread finished: measure list button
+2026-04-13 11:17:57,630 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1523700 kB vmhwm=290836 kB vmrss=290836 kB
+2026-04-13 11:18:03,910 INFO [pid=5306 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:18:09,355 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Worker thread starting: measure list button measurement=True
+2026-04-13 11:18:09,380 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Skipping already measured wires: [8]
+2026-04-13 11:18:09,380 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] All requested wires are already measured.
+2026-04-13 11:18:09,380 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Worker thread finished: measure list button
+2026-04-13 11:18:12,567 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Worker thread starting: measure list button measurement=True
+2026-04-13 11:18:12,631 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure list button focus=6826 threads=2 vmsize=1523716 kB vmhwm=291184 kB vmrss=291184 kB
+2026-04-13 11:18:12,886 INFO [pid=5306 gui-measure_list_button dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:18:12,886 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Measuring wires: [8]
+2026-04-13 11:18:12,886 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Timing profile started for list measurement of 1 wire(s): [8]
+2026-04-13 11:18:12,887 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Measuring wire 8 at 1054.120298016724,332.9864048198177 focus=6826
+2026-04-13 11:18:22,567 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:18:22,737 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Recording started.
+2026-04-13 11:18:22,910 WARNING [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Max recording length reached.
+2026-04-13 11:18:25,297 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: measured frequency 644.44 Hz {'length': 0.063, 'frequency': 644.4363403320312, 'tension': 1.0156675585092159} with confidence 0.03
+2026-04-13 11:18:25,311 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8 tension 1.02 did not satisfy legacy tension condition '5<t<7.5'; continuing.
+2026-04-13 11:18:25,417 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:18:25,564 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Recording started.
+2026-04-13 11:18:25,737 WARNING [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Max recording length reached.
+2026-04-13 11:18:26,073 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: measured frequency 510.66 Hz {'length': 0.063, 'frequency': 510.6629638671875, 'tension': 0.6377643783780872} with confidence 0.11
+2026-04-13 11:18:26,086 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8 tension 0.64 did not satisfy legacy tension condition '5<t<7.5'; continuing.
+2026-04-13 11:18:26,123 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:18:26,268 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Recording started.
+2026-04-13 11:18:26,429 WARNING [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Max recording length reached.
+2026-04-13 11:18:26,674 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: measured frequency 476.40 Hz {'length': 0.063, 'frequency': 476.4029541015625, 'tension': 0.5550606336239311} with confidence 0.05
+2026-04-13 11:18:26,754 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8 tension 0.56 did not satisfy legacy tension condition '5<t<7.5'; continuing.
+2026-04-13 11:18:26,838 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:18:26,962 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Recording started.
+2026-04-13 11:18:27,134 WARNING [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Max recording length reached.
+2026-04-13 11:18:27,363 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: measured frequency 899.25 Hz {'length': 0.063, 'frequency': 899.25048828125, 'tension': 1.9776657854055435} with confidence 0.02
+2026-04-13 11:18:27,377 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8 tension 1.98 did not satisfy legacy tension condition '5<t<7.5'; continuing.
+2026-04-13 11:18:27,402 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-04-13 11:18:27,537 INFO [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Recording started.
+2026-04-13 11:18:27,637 INFO [pid=5306 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure list button focus=6826 threads=3 vmsize=4941844 kB vmhwm=779416 kB vmrss=776016 kB
+2026-04-13 11:18:27,710 WARNING [pid=5306 gui-measure_list_button spectrum_analysis.audio_processing] Max recording length reached.
+2026-04-13 11:18:27,939 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8: measured frequency 1137.89 Hz {'length': 0.063, 'frequency': 1137.890625, 'tension': 3.1665953822358692} with confidence 0.06
+2026-04-13 11:18:27,954 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Sample of wire 8 tension 3.17 did not satisfy legacy tension condition '5<t<7.5'; continuing.
+2026-04-13 11:18:29,597 WARNING [pid=5306 gui-measure_list_button dune_tension.tensiometer] Measurement failed for wire number 8 before satisfying legacy tension condition '5<t<7.5'.
+2026-04-13 11:18:29,597 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Timing profile for list wire 8: total=21.75s stages=[move_to_measurement_pose=9.62s, collect_samples=7.04s, acquire_audio=2.55s, analyze_audio=2.48s, reset_plc_before_move=0.03s, reset_plc_after_collect=0.03s, plan_measurement_pose=0.00s, strum=0.00s, merge_results=0.00s]
+2026-04-13 11:18:29,603 INFO [pid=5306 gui-measure_list_button dune_tension.tensiometer] Timing profile summary for list measurement: requested=1 measured=1 skipped=[] planning=0.00s avg_wire=21.75s total=21.75s stage_totals=[move_to_measurement_pose=9.62s, collect_samples=7.04s, acquire_audio=2.55s, analyze_audio=2.48s, reset_plc_before_move=0.03s, reset_plc_after_collect=0.03s, plan_measurement_pose=0.00s, strum=0.00s, merge_results=0.00s]
+2026-04-13 11:18:29,609 INFO [pid=5306 gui-measure_list_button dune_tension.gui.actions] Worker thread finished: measure list button
+2026-04-13 11:18:30,590 INFO [pid=5306 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer V
+2026-04-13 11:18:34,301 INFO [pid=5306 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-04-13 11:18:34,344 INFO [pid=5306 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-04-13 11:18:34,348 INFO [pid=5306 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=4927828 kB vmhwm=854140 kB vmrss=854140 kB
+2026-04-13 11:18:40,368 INFO [pid=7799 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=7799 python=3.12.3 threads=1 vmsize=1169492 kB vmhwm=186604 kB vmrss=186604 kB
+2026-04-13 11:18:40,368 INFO [pid=7799 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 11:18:40,368 INFO [pid=7799 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-04-13 11:18:40,512 INFO [pid=7799 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=1171952 kB vmhwm=191196 kB vmrss=191196 kB
+2026-04-13 11:18:40,512 INFO [pid=7799 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-04-13 11:18:40,722 INFO [pid=7799 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 11:18:40,722 INFO [pid=7799 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-04-13 11:18:40,959 INFO [pid=7799 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/ttyACM0
+2026-04-13 11:18:40,959 INFO [pid=7799 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=ValveController
+2026-04-13 11:18:40,960 INFO [pid=7799 MainThread dune_tension.gui.app] GUI commands configured.
+2026-04-13 11:18:45,807 INFO [pid=7799 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 11:18:51,518 WARNING [pid=7799 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': "HTTPConnectionPool(host='192.168.137.1', port=8080): Read timed out. (read timeout=5.0)"}
+2026-04-13 11:18:51,518 WARNING [pid=7799 MainThread dune_tension.gui.actions] Layer calibration sync failed for V: Failed to fetch layer V calibration JSON from desktop.
+2026-04-13 11:18:51,520 INFO [pid=7799 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-04-13 11:19:17,095 WARNING [pid=7799 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': "HTTPConnectionPool(host='192.168.137.1', port=8080): Read timed out."}
+2026-04-13 11:19:17,095 WARNING [pid=7799 MainThread dune_tension.gui.actions] Layer calibration sync failed for V: Failed to fetch layer V calibration JSON from desktop.
+2026-04-13 11:19:17,095 INFO [pid=7799 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-04-13 11:19:17,096 INFO [pid=7799 MainThread dune_tension.gui.app] Initialising servo focus command to 6826
+2026-04-13 11:19:17,096 INFO [pid=7799 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-04-13 11:19:18,981 INFO [pid=7799 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer V
+2026-04-13 11:19:31,026 INFO [pid=7799 gui-measure_list_button dune_tension.gui.actions] Worker thread starting: measure list button measurement=True
+2026-04-13 11:19:32,097 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure list button focus=6826 threads=2 vmsize=1299716 kB vmhwm=286948 kB vmrss=286948 kB
+2026-04-13 11:19:36,040 WARNING [pid=7799 gui-measure_list_button dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': "HTTPConnectionPool(host='192.168.137.1', port=8080): Max retries exceeded with url: /api/v2/command (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.1', port=8080) at 0x70f8641c9190>, 'Connection to 192.168.137.1 timed out. (connect timeout=5)'))"}
+2026-04-13 11:19:36,040 WARNING [pid=7799 gui-measure_list_button dune_tension.gui.actions] Failed to fetch layer V calibration JSON from desktop.
+2026-04-13 11:19:37,347 INFO [pid=7799 gui-measure_list_button dune_tension.gui.actions] Worker thread finished: measure list button
+2026-04-13 11:19:47,098 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286936 kB vmrss=286936 kB
+2026-04-13 11:20:02,099 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286936 kB vmrss=286936 kB
+2026-04-13 11:20:17,099 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286936 kB vmrss=286936 kB
+2026-04-13 11:20:32,100 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286936 kB vmrss=286936 kB
+2026-04-13 11:20:47,102 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286936 kB vmrss=286936 kB
+2026-04-13 11:21:02,102 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:21:17,103 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:21:32,104 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:21:47,105 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:22:02,106 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:22:17,107 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:22:32,108 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:22:47,109 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:23:02,110 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:23:17,111 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:23:32,111 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:23:47,112 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:24:02,113 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:24:17,114 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:24:32,115 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:24:47,116 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:25:02,117 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:25:17,117 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:25:32,118 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:25:47,119 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:26:02,120 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:26:17,121 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:26:32,121 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:26:47,122 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:27:02,123 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:27:17,124 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:27:32,124 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:27:47,125 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:28:02,126 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:28:17,127 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:28:32,128 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:28:47,129 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:29:02,130 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:29:17,130 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:29:32,131 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:29:47,132 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:30:02,133 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:30:17,133 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:30:32,134 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:30:47,135 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:31:02,136 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:31:17,137 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:31:32,137 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:31:47,138 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:32:02,139 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:32:17,139 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:32:32,140 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:32:47,141 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:33:02,142 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:33:17,143 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:33:32,144 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:33:47,145 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:34:02,145 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:34:17,146 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:34:32,147 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:34:47,148 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:35:02,149 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:35:17,150 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:35:32,150 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:35:47,151 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:36:02,152 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:36:17,153 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:36:32,154 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:36:47,154 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:37:02,155 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:37:17,156 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:37:32,157 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:37:47,158 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:38:02,158 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:38:17,159 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:38:32,160 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:38:47,161 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:39:02,162 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:39:17,163 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:39:32,164 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:39:47,164 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:40:02,165 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:40:17,166 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:40:32,167 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:40:47,167 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:41:02,168 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:41:17,168 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:41:32,169 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:41:47,169 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:42:02,170 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:42:17,170 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:42:32,171 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:42:47,171 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:43:02,172 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:43:17,172 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:43:32,173 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:43:47,173 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:44:02,174 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:44:17,174 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:44:32,175 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:44:47,175 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:45:02,182 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:45:17,183 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:45:32,183 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:45:47,184 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:46:02,184 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:46:17,186 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:46:32,187 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:46:47,187 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:47:02,188 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:47:17,188 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:47:32,189 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:47:47,189 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:48:02,190 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:48:17,190 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:48:32,191 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:48:47,191 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:49:02,192 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:49:17,192 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:49:32,193 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:49:47,194 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:50:02,194 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:50:17,194 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:50:32,195 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:50:47,196 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:51:02,196 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:51:17,197 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:51:32,197 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:51:47,198 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:52:02,198 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:52:17,199 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:52:32,202 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:52:47,203 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:53:02,203 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:53:17,204 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:53:32,204 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:53:47,205 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:54:02,205 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:54:17,206 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:54:32,206 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:54:47,207 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:55:02,207 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:55:17,208 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:55:32,208 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:55:47,209 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:56:02,209 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:56:17,210 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:56:32,210 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:56:47,211 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:57:02,211 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:57:17,212 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:57:32,212 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:57:47,213 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:58:02,213 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:58:17,214 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:58:32,215 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:58:47,215 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:59:02,216 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:59:17,217 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:59:32,217 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 11:59:47,218 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:00:02,218 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:00:17,219 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:00:32,219 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:00:47,220 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:01:02,221 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:01:17,223 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:01:32,224 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:01:47,224 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:02:02,225 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:02:17,225 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:02:32,226 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:02:47,226 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:03:02,230 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:03:17,230 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:03:32,231 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:03:47,232 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:04:02,233 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:04:17,233 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:04:32,234 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:04:47,234 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:05:02,235 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:05:17,235 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:05:32,236 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:05:47,239 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:06:02,240 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:06:17,240 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:06:32,241 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:06:47,242 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:07:02,242 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:07:17,242 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:07:32,243 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:07:47,243 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:08:02,244 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:08:17,244 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:08:32,245 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:08:47,246 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:09:02,246 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:09:17,247 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:09:32,248 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:09:47,249 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:10:02,249 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:10:17,250 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:10:32,250 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:10:47,251 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:11:02,251 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:11:17,252 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:11:32,252 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:11:47,253 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:12:02,253 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:12:17,254 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:12:32,255 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:12:47,255 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:13:02,255 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:13:17,256 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:13:32,260 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:13:47,261 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:14:02,261 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:14:17,262 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:14:32,262 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:14:47,263 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:15:02,263 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:15:17,264 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:15:32,264 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:15:47,265 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:16:02,265 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:16:17,266 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:16:32,266 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:16:47,267 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:17:02,267 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:17:17,268 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:17:32,269 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:17:47,269 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:18:02,270 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:18:17,270 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:18:32,271 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:18:47,272 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:19:02,272 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:19:17,273 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:19:32,273 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:19:47,274 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:20:02,274 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:20:17,275 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:20:32,275 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:20:47,276 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:21:02,278 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:21:17,279 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:21:32,280 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:21:47,281 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:22:02,281 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:22:17,282 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:22:32,282 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:22:47,283 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:23:02,283 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:23:17,284 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:23:32,285 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:23:47,286 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:24:02,286 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:24:17,287 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:24:32,287 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:24:47,288 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:25:02,289 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:25:17,289 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:25:32,290 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:25:47,290 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:26:02,291 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:26:17,291 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1299700 kB vmhwm=286924 kB vmrss=286924 kB
+2026-04-13 12:26:32,292 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:26:47,292 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:27:02,293 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:27:17,294 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:27:32,294 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:27:47,295 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:28:02,296 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:28:17,296 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:28:32,297 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:28:47,298 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:29:02,298 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:29:17,299 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:29:32,299 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:29:47,300 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:30:02,300 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:30:17,301 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:30:32,301 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:30:47,302 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:31:02,302 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:31:17,303 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:31:32,306 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:31:47,307 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:32:02,307 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:32:17,308 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:32:32,308 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:32:47,309 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:33:02,309 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:33:17,309 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:33:32,310 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:33:47,310 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:34:02,311 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:34:17,311 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:34:32,312 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:34:47,312 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:35:02,313 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:35:17,313 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:35:32,314 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:35:47,314 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:36:02,315 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:36:17,315 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:36:32,316 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:36:47,317 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:37:02,317 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:37:17,318 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:37:32,318 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:37:47,319 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:38:02,319 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:38:17,320 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:38:32,321 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:38:47,321 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:39:02,322 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:39:17,322 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:39:32,323 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:39:47,324 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:40:02,325 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:40:17,325 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:40:32,326 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:40:47,327 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:41:02,329 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:41:17,330 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:41:32,331 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:41:47,332 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:42:02,332 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:42:17,333 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:42:32,334 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:42:47,334 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:43:02,335 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:43:17,335 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:43:32,336 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:43:47,336 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:44:02,337 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:44:17,337 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:44:32,338 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:44:47,339 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:45:02,339 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:45:17,340 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:45:32,340 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:45:47,340 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:46:02,341 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:46:17,341 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:46:32,342 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:46:47,342 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:47:02,343 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:47:17,343 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:47:32,344 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:47:47,345 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:48:02,346 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:48:17,346 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:48:32,347 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:48:47,347 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:49:02,348 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:49:17,348 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:49:32,349 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:49:47,353 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:50:02,354 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:50:17,355 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:50:32,355 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:50:47,356 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:51:02,356 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:51:17,357 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:51:32,357 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:51:47,359 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:52:02,360 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:52:17,360 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:52:32,361 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:52:47,361 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:53:02,362 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:53:17,362 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:53:32,363 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:53:47,363 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:54:02,364 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:54:17,364 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:54:32,365 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:54:47,366 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:55:02,366 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:55:17,367 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:55:32,368 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:55:47,368 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:56:02,369 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:56:17,369 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:56:32,369 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:56:47,370 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:57:02,370 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:57:17,371 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:57:32,373 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:57:47,374 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:58:02,375 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:58:17,376 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:58:32,376 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:58:47,379 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:59:02,380 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:59:17,380 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:59:32,381 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 12:59:47,381 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:00:02,382 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:00:17,382 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:00:32,383 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:00:47,383 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:01:02,384 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:01:17,385 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1302856 kB vmhwm=290092 kB vmrss=290092 kB
+2026-04-13 13:01:32,385 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:01:47,386 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:02:02,387 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:02:17,388 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:02:32,389 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:02:47,390 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:03:02,392 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:03:17,393 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:03:32,395 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:03:47,396 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:04:02,397 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:04:17,398 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:04:32,399 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:04:47,400 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:05:02,401 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:05:17,402 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:05:32,404 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:05:47,405 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:06:02,406 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:06:17,407 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:06:32,408 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:06:47,409 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:07:02,410 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:07:17,411 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:07:32,412 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:07:47,414 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:08:02,415 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:08:17,416 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:08:32,417 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:08:47,418 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:09:02,419 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:09:17,420 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:09:32,421 INFO [pid=7799 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1303444 kB vmhwm=290680 kB vmrss=290680 kB
+2026-04-13 13:09:37,344 INFO [pid=7799 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-04-13 13:09:37,419 INFO [pid=7799 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-04-13 13:09:37,419 INFO [pid=7799 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=1301904 kB vmhwm=289920 kB vmrss=289140 kB
+2026-04-13 13:09:50,707 INFO [pid=15009 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=15009 python=3.12.3 threads=1 vmsize=1174700 kB vmhwm=187688 kB vmrss=187688 kB
+2026-04-13 13:09:50,707 INFO [pid=15009 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 13:09:50,707 INFO [pid=15009 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-04-13 13:09:50,886 INFO [pid=15009 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=1177224 kB vmhwm=192172 kB vmrss=192172 kB
+2026-04-13 13:09:50,886 INFO [pid=15009 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-04-13 13:09:51,071 INFO [pid=15009 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 13:09:51,071 INFO [pid=15009 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-04-13 13:09:51,087 WARNING [pid=15009 MainThread dune_tension.services] Unable to initialise valve controller: Unable to locate the USB relay controlling the air valve.
+2026-04-13 13:09:51,347 WARNING [pid=15009 MainThread dune_tension.maestro] Couldn't find Micro Maestro on any of /dev/ttyACM0, /dev/ttyACM1, /dev/ttyACM2. Check the connection or port.
+Traceback (most recent call last):
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialposix.py", line 322, in open
+    self.fd = os.open(self.portstr, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/dev/ttyACM2'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 69, in __init__
+    self.usb = serial.Serial(candidate_port)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialutil.py", line 244, in __init__
+    self.open()
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialposix.py", line 325, in open
+    raise SerialException(msg.errno, "could not open port {}: {}".format(self._port, msg))
+serial.serialutil.SerialException: [Errno 2] could not open port /dev/ttyACM2: [Errno 2] No such file or directory: '/dev/ttyACM2'
+2026-04-13 13:09:51,350 INFO [pid=15009 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=None
+2026-04-13 13:09:51,351 INFO [pid=15009 MainThread dune_tension.gui.app] GUI commands configured.
+2026-04-13 13:09:51,564 INFO [pid=15009 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 13:09:51,776 INFO [pid=15009 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 13:09:51,777 INFO [pid=15009 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-04-13 13:09:51,997 INFO [pid=15009 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 13:09:51,998 INFO [pid=15009 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-04-13 13:09:51,998 INFO [pid=15009 MainThread dune_tension.gui.app] Initialising servo focus command to 6826
+2026-04-13 13:09:51,998 WARNING [pid=15009 MainThread dune_tension.gui.app] Servo focus_target(6826) failed: 'NoneType' object has no attribute 'write'
+2026-04-13 13:09:51,998 INFO [pid=15009 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-04-13 13:09:52,016 ERROR [pid=15009 MainThread dune_tension.gui.crash] Unhandled Tk callback exception
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/tkinter/__init__.py", line 1967, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/src/dune_tension/gui/app.py", line 813, in <lambda>
+    command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/src/dune_tension/gui/actions.py", line 87, in adjust_focus_with_x_compensation
+    ctx.servo_controller.focus_target(target_int)
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 348, in focus_target
+    self.servo.setTarget(1, target)
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 157, in setTarget
+    self.sendCmd(self._make_command(target, 0x04, chan))
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 122, in sendCmd
+    self.usb.write(bytes(cmdStr, "latin-1"))
+    ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'write'
+2026-04-13 13:09:54,562 INFO [pid=15009 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer V
+2026-04-13 13:10:06,999 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:10:22,000 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:10:37,001 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:10:52,003 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:11:07,004 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:11:22,004 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:11:37,005 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:11:52,006 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:12:07,007 INFO [pid=15009 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:12:12,033 INFO [pid=15009 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-04-13 13:12:12,086 INFO [pid=15009 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-04-13 13:12:12,086 INFO [pid=15009 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=1340892 kB vmhwm=292328 kB vmrss=292328 kB
+2026-04-13 13:12:16,769 INFO [pid=15247 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=15247 python=3.12.3 threads=1 vmsize=1174680 kB vmhwm=187668 kB vmrss=187668 kB
+2026-04-13 13:12:16,770 INFO [pid=15247 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 13:12:16,770 INFO [pid=15247 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-04-13 13:12:16,973 INFO [pid=15247 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=1177204 kB vmhwm=192160 kB vmrss=192160 kB
+2026-04-13 13:12:16,974 INFO [pid=15247 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-04-13 13:12:17,154 INFO [pid=15247 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/dune/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-04-13 13:12:17,155 INFO [pid=15247 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-04-13 13:12:17,166 WARNING [pid=15247 MainThread dune_tension.services] Unable to initialise valve controller: Unable to locate the USB relay controlling the air valve.
+2026-04-13 13:12:18,207 WARNING [pid=15247 MainThread dune_tension.maestro] Couldn't find Micro Maestro on any of /dev/ttyACM0, /dev/ttyACM1, /dev/ttyACM2. Check the connection or port.
+Traceback (most recent call last):
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialposix.py", line 322, in open
+    self.fd = os.open(self.portstr, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/dev/ttyACM2'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 69, in __init__
+    self.usb = serial.Serial(candidate_port)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialutil.py", line 244, in __init__
+    self.open()
+  File "/home/dune/dune-monorepo/.venv/lib/python3.12/site-packages/serial/serialposix.py", line 325, in open
+    raise SerialException(msg.errno, "could not open port {}: {}".format(self._port, msg))
+serial.serialutil.SerialException: [Errno 2] could not open port /dev/ttyACM2: [Errno 2] No such file or directory: '/dev/ttyACM2'
+2026-04-13 13:12:18,208 INFO [pid=15247 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=None
+2026-04-13 13:12:18,210 INFO [pid=15247 MainThread dune_tension.gui.app] GUI commands configured.
+2026-04-13 13:12:18,344 INFO [pid=15247 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 13:12:18,557 INFO [pid=15247 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 13:12:18,559 INFO [pid=15247 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-04-13 13:12:18,781 INFO [pid=15247 MainThread dune_tension.layer_calibration] Layer V calibration cache is current at /home/dune/dune-monorepo/config/APA/V_Calibration.json (file=V_Calibration.json hash=f50965e93baa30ba9779ea9cc7c1f63cc0a8abc480de1fbe428d24022205bb60).
+2026-04-13 13:12:18,782 INFO [pid=15247 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-04-13 13:12:18,782 INFO [pid=15247 MainThread dune_tension.gui.app] Initialising servo focus command to 6826
+2026-04-13 13:12:18,782 WARNING [pid=15247 MainThread dune_tension.gui.app] Servo focus_target(6826) failed: 'NoneType' object has no attribute 'write'
+2026-04-13 13:12:18,782 INFO [pid=15247 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-04-13 13:12:18,800 ERROR [pid=15247 MainThread dune_tension.gui.crash] Unhandled Tk callback exception
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/tkinter/__init__.py", line 1967, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/src/dune_tension/gui/app.py", line 813, in <lambda>
+    command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dune/dune-monorepo/src/dune_tension/gui/actions.py", line 87, in adjust_focus_with_x_compensation
+    ctx.servo_controller.focus_target(target_int)
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 348, in focus_target
+    self.servo.setTarget(1, target)
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 157, in setTarget
+    self.sendCmd(self._make_command(target, 0x04, chan))
+  File "/home/dune/dune-monorepo/src/dune_tension/maestro.py", line 122, in sendCmd
+    self.usb.write(bytes(cmdStr, "latin-1"))
+    ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'write'
+2026-04-13 13:12:21,431 INFO [pid=15247 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer V
+2026-04-13 13:12:33,783 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:12:48,784 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:13:03,785 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:13:18,786 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:13:33,787 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:13:48,789 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:14:03,790 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:14:18,791 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:14:33,792 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:14:48,793 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:15:03,794 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:15:18,795 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:15:33,796 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:15:48,796 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:16:03,797 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB
+2026-04-13 13:16:18,798 INFO [pid=15247 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=6826 threads=1 vmsize=1342492 kB vmhwm=293864 kB vmrss=293864 kB

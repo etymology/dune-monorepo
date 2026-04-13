@@ -1,5 +1,5 @@
 APAUK007 - Layer V, Side A:
-  Missing wire_numbers: 9, 1139, 1140, 1141, 1142, 1143, 1144, 1145, 1146, 1147, 1148, 1149, 1150, 1151
+  Missing wire_numbers: 9, 1139, 1140, 1141, 1142, 1143, 1144, 1145, 1146
 APAUK007 - Layer V, Side B:
-  Missing wire_numbers: 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 1147, 1148, 1149, 1150, 1151
+  Missing wire_numbers: 8, 9, 10, 11, 12, 13, 14, 15, 16, 18
 
