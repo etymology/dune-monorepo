@@ -34,6 +34,7 @@ dune-tension-stream-sweep = "dune_tension.streaming.cli:main_stream_sweep"
 dune-tension-stream-rescue = "dune_tension.streaming.cli:main_stream_rescue"
 dune-tension-fit-focus = "dune_tension.streaming.cli:main_fit_focus"
 dune-tension-stream-replay = "dune_tension.streaming.cli:main_stream_replay"
+dune-tension-average-profile-clouds = "dune_tension.average_profile_clouds:main"
 dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
 dune-spectrum-scroller = "spectrum_analysis.cli:main"
 

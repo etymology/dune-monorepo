@@ -33,6 +33,27 @@ def _parse_token_response(payload: str) -> tuple[str, str]:
     return access_token, token_type
 
 
+def _parse_json_list_response(payload: str) -> list:
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise M2MError("M2M list response is not valid JSON") from exc
+
+    if isinstance(parsed, list):
+        return parsed
+
+    if isinstance(parsed, str):
+        try:
+            nested = json.loads(parsed)
+        except json.JSONDecodeError:
+            nested = [item.strip() for item in parsed.strip("[]").split(",") if item.strip()]
+        if isinstance(nested, list):
+            return nested
+        raise M2MError("M2M list response did not contain a list")
+
+    raise M2MError("M2M list response did not contain a list")
+
+
 #############################################
 ## Set up a connection to the database API ##
 #############################################
@@ -303,11 +324,10 @@ def GetListOfComponents(componentTypeFormID, connection, headers):
             "GET", "/api/components/" + componentTypeFormID + "/list", headers=headers
         )
 
-        # The route response is the list of component UUIDs as a JSON formatted string (i.e. a string within a string)
+        # The route response may be either a JSON array or a string-encoded list;
+        # normalize both shapes to a plain Python list.
         responseText = connection.getresponse().read().decode("utf-8")
-
-        # Split the inner string by commas ... this will create an actual Python list of the UUID strings
-        componentUUIDs = responseText[1:-1].split(",")
+        componentUUIDs = _parse_json_list_response(responseText)
 
         # Return the list of UUIDs
         return componentUUIDs
@@ -463,11 +483,10 @@ def GetListOfActions(actionTypeFormID, connection, headers):
             "GET", "/api/actions/" + actionTypeFormID + "/list", headers=headers
         )
 
-        # The route response is the list of action IDs as a JSON formatted string (i.e. a string within a string)
+        # The route response may be either a JSON array or a string-encoded list;
+        # normalize both shapes to a plain Python list.
         responseText = connection.getresponse().read().decode("utf-8")
-
-        # Split the inner string by commas ... this will create an actual Python list of the ID strings
-        actionIDs = responseText[1:-1].split(",")
+        actionIDs = _parse_json_list_response(responseText)
 
         # Return the list of IDs
         return actionIDs
