@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sqlite3
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +25,25 @@ MIN_PLAUSIBLE_TENSION = 4.0
 MAX_PLAUSIBLE_TENSION = 8.5
 OLD_CSV_TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 SIDES = ("A", "B")
+LEGACY_SOURCE = "legacy"
+DUNEDB_SOURCE = "dunedb"
+DUNEDB_LOCATIONS = ("chicago", "daresbury")
+DEFAULT_DUNEDB_SQLITE = data_path(
+    "tension_data",
+    "dunedb_all_locations_all_apas_tension_data.sqlite",
+)
+
+
+def _should_reverse_dunedb_wire_order(
+    *, db_path: str, layer: str, side: str, location: str | None
+) -> bool:
+    db_name = Path(db_path).name
+    return (
+        db_name == "dunedb_all_locations_all_apas_tension_data.sqlite"
+        and str(location).strip().lower() == "chicago"
+        and side.upper() == "B"
+        and layer.upper() in {"X", "G"}
+    )
 
 
 def expected_wire_range(layer: str) -> range:
@@ -42,6 +64,41 @@ class SideLoadResult:
     series: pd.Series
     wire_count: int
     coverage: float
+
+
+@dataclass(frozen=True)
+class AverageProfileCloudOptions:
+    source: str = LEGACY_SOURCE
+    db_path: str | None = None
+    layers: tuple[str, ...] = ("X", "V", "U", "G")
+    min_coverage: float = 0.5
+    iterations: int = 3
+    exclude_apa_regex: str = "(?i)TEST"
+    csv_dir: str = str(data_path("tension_data"))
+    output_dir: str = str(data_path("tension_plots"))
+    bins: int = 40
+    moving_average_window: int = 15
+    no_scaling: bool = False
+    average_per_wire: bool = False
+    split_by_location: bool = False
+
+
+@dataclass(frozen=True)
+class LayerAnalysisResult:
+    layer: str
+    location_filter: str | None
+    location_label: str | None
+    location_output_tag: str
+    global_mode_value: float
+    cloud: pd.DataFrame
+    mu_by_side: dict[str, pd.Series]
+    n_by_side: dict[str, pd.Series]
+    profile_df: pd.DataFrame
+    scale_df: pd.DataFrame
+    output_path: Path
+    profile_summary_path: Path
+    scale_summary_path: Path
+    status_message: str
 
 
 def kde_mode(values: np.ndarray) -> float:
@@ -82,13 +139,176 @@ def _parse_layers(value: str) -> list[str]:
     return layers
 
 
-def _list_layer_apas(db_path: str, layer: str) -> list[str]:
+def _list_layer_apas(db_path: str, layer: str, *, source: str) -> list[str]:
     with sqlite3.connect(db_path) as conn:
-        rows = conn.execute(
-            "select distinct apa_name from tension_data where layer = ? order by apa_name",
-            (layer,),
-        ).fetchall()
+        if source == DUNEDB_SOURCE:
+            rows = conn.execute(
+                """
+                select distinct apa_name
+                from tension_actions
+                where upper(layer) = ?
+                order by apa_name
+                """,
+                (layer.upper(),),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "select distinct apa_name from tension_data where layer = ? order by apa_name",
+                (layer,),
+            ).fetchall()
     return [str(row[0]) for row in rows]
+
+
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
+    return row is not None
+
+
+def _parse_insert_time(action_json: str | None) -> pd.Timestamp:
+    if not action_json:
+        return pd.NaT
+    try:
+        payload = json.loads(action_json)
+    except json.JSONDecodeError:
+        return pd.NaT
+    insert_date = (((payload or {}).get("insertion") or {}).get("insertDate"))
+    if not insert_date:
+        return pd.NaT
+    return pd.to_datetime(insert_date, errors="coerce")
+
+
+def _parse_location(action_json: str | None) -> str | None:
+    if not action_json:
+        return None
+    try:
+        payload = json.loads(action_json)
+    except json.JSONDecodeError:
+        return None
+    location = (((payload or {}).get("data") or {}).get("location"))
+    if location is None:
+        return None
+    location = str(location).strip().lower()
+    return location or None
+
+
+def _empty_dunedb_measurements() -> pd.DataFrame:
+    return pd.DataFrame(
+        columns=[
+            "action_id",
+            "apa_name",
+            "action_version",
+            "action_time",
+            "location",
+            "side",
+            "wire_number",
+            "tension",
+        ]
+    )
+
+
+@lru_cache(maxsize=None)
+def _load_dunedb_layer_measurements(db_path: str, layer: str) -> pd.DataFrame:
+    layer_key = layer.upper()
+    expected_wires = expected_wire_range(layer_key)
+    min_wire = int(expected_wires.start)
+    max_wire = int(expected_wires.stop - 1)
+
+    with sqlite3.connect(db_path) as conn:
+        actions = pd.read_sql_query(
+            """
+            SELECT action_id, apa_name, action_version, action_json
+            FROM tension_actions
+            WHERE upper(layer) = ?
+            """,
+            conn,
+            params=(layer_key,),
+        )
+        if actions.empty:
+            return _empty_dunedb_measurements()
+
+        actions["location"] = actions["action_json"].map(_parse_location)
+        actions["action_time"] = actions["action_json"].map(_parse_insert_time)
+        action_meta = actions[
+            ["action_id", "apa_name", "action_version", "action_time", "location"]
+        ].copy()
+
+        action_ids = tuple(str(action_id) for action_id in action_meta["action_id"].tolist())
+        placeholders = ",".join("?" for _ in action_ids)
+        measurements = pd.read_sql_query(
+            f"""
+            SELECT action_id, side, wire_index, tension
+            FROM tension_measurements
+            WHERE action_id IN ({placeholders})
+              AND wire_index BETWEEN ? AND ?
+              AND tension BETWEEN ? AND ?
+            """,
+            conn,
+            params=(
+                *action_ids,
+                min_wire,
+                max_wire,
+                MIN_PLAUSIBLE_TENSION,
+                MAX_PLAUSIBLE_TENSION,
+            ),
+        )
+
+    if measurements.empty:
+        return _empty_dunedb_measurements()
+
+    measurements = measurements.rename(columns={"wire_index": "wire_number"})
+    measurements["side"] = measurements["side"].astype(str).str.upper()
+    measurements["wire_number"] = measurements["wire_number"].astype("int64", copy=False)
+    measurements["tension"] = measurements["tension"].astype("float64", copy=False)
+    measurements = measurements.merge(action_meta, on="action_id", how="inner")
+
+    reverse_mask = measurements.apply(
+        lambda row: _should_reverse_dunedb_wire_order(
+            db_path=db_path,
+            layer=layer_key,
+            side=row["side"],
+            location=row["location"],
+        ),
+        axis=1,
+    )
+    if reverse_mask.any():
+        # Chicago X-B and G-B rows in this export have wire indices stored backwards.
+        measurements.loc[reverse_mask, "wire_number"] = (
+            max_wire + min_wire - measurements.loc[reverse_mask, "wire_number"]
+        )
+
+    return measurements
+
+
+def _select_layer_side_measurements(
+    db_path: str,
+    *,
+    apa_name: str,
+    layer: str,
+    side: str,
+    source: str,
+    location_filter: str | None = None,
+) -> pd.DataFrame:
+    if source == DUNEDB_SOURCE:
+        layer_measurements = _load_dunedb_layer_measurements(db_path, layer)
+        if layer_measurements.empty:
+            return layer_measurements.copy()
+
+        mask = (layer_measurements["apa_name"] == apa_name) & (
+            layer_measurements["side"] == side.upper()
+        )
+        if location_filter is not None:
+            normalized_location = location_filter.strip().lower()
+            mask &= layer_measurements["location"] == normalized_location
+        return layer_measurements.loc[mask].copy()
+
+    return select_dataframe(
+        db_path,
+        where_clause="apa_name = ? AND layer = ? AND side = ?",
+        params=(apa_name, layer, side),
+        columns=("wire_number", "tension", "time"),
+    )
 
 
 def _parse_apa_layer_from_csv_name(path: Path) -> tuple[str, str] | None:
@@ -116,6 +336,93 @@ def _index_csv_files(csv_dir: Path) -> dict[tuple[str, str], Path]:
             continue
         mapping[parsed] = path
     return mapping
+
+
+def _build_output_tag(args: argparse.Namespace) -> str:
+    return _build_output_tag_from_options(normalize_options(args))
+
+
+def normalize_options(
+    options: AverageProfileCloudOptions | argparse.Namespace | Mapping[str, object],
+) -> AverageProfileCloudOptions:
+    if isinstance(options, AverageProfileCloudOptions):
+        normalized = options
+    elif isinstance(options, argparse.Namespace):
+        normalized = AverageProfileCloudOptions(
+            source=str(options.source),
+            db_path=None if options.db_path is None else str(options.db_path),
+            layers=tuple(_parse_layers(str(options.layers))),
+            min_coverage=float(options.min_coverage),
+            iterations=int(options.iterations),
+            exclude_apa_regex=str(options.exclude_apa_regex),
+            csv_dir=str(options.csv_dir),
+            output_dir=str(options.output_dir),
+            bins=int(options.bins),
+            moving_average_window=int(options.moving_average_window),
+            no_scaling=bool(options.no_scaling),
+            average_per_wire=bool(options.average_per_wire),
+            split_by_location=bool(options.split_by_location),
+        )
+    else:
+        data = dict(options)
+        normalized = AverageProfileCloudOptions(
+            source=str(data.get("source", LEGACY_SOURCE)),
+            db_path=None if data.get("db_path") in (None, "") else str(data["db_path"]),
+            layers=tuple(_parse_layers(str(data.get("layers", "X,V,U,G")))),
+            min_coverage=float(data.get("min_coverage", 0.5)),
+            iterations=int(data.get("iterations", 3)),
+            exclude_apa_regex=str(data.get("exclude_apa_regex", "(?i)TEST")),
+            csv_dir=str(data.get("csv_dir", data_path("tension_data"))),
+            output_dir=str(data.get("output_dir", data_path("tension_plots"))),
+            bins=int(data.get("bins", 40)),
+            moving_average_window=int(data.get("moving_average_window", 15)),
+            no_scaling=bool(data.get("no_scaling", False)),
+            average_per_wire=bool(data.get("average_per_wire", False)),
+            split_by_location=bool(data.get("split_by_location", False)),
+        )
+
+    if normalized.source not in {LEGACY_SOURCE, DUNEDB_SOURCE}:
+        raise ValueError(f"Unsupported source {normalized.source!r}")
+    if normalized.min_coverage < 0.0:
+        raise ValueError("min_coverage must be non-negative")
+    if normalized.bins <= 0:
+        raise ValueError("bins must be positive")
+    if normalized.moving_average_window <= 0:
+        raise ValueError("moving_average_window must be positive")
+    if normalized.iterations <= 0:
+        raise ValueError("iterations must be positive")
+    if normalized.split_by_location and normalized.source != DUNEDB_SOURCE:
+        raise ValueError("--split-by-location is only supported with --source dunedb")
+    return normalized
+
+
+def _build_output_tag_from_options(options: AverageProfileCloudOptions) -> str:
+    parts: list[str] = []
+    if options.no_scaling:
+        parts.append("noscale")
+    else:
+        parts.append("mode")
+    if options.average_per_wire:
+        parts.append("avgwire")
+    else:
+        parts.append("allsamples")
+    parts.append(f"cov{str(options.min_coverage).replace('.', 'p')}")
+    parts.append(f"it{options.iterations}")
+    parts.append(f"bins{options.bins}")
+    parts.append(f"win{options.moving_average_window}")
+    return "_".join(parts)
+
+
+def _resolve_db_path(options: AverageProfileCloudOptions) -> str:
+    if options.db_path:
+        return str(options.db_path)
+    if options.source == DUNEDB_SOURCE:
+        return str(DEFAULT_DUNEDB_SQLITE)
+    return str(tension_data_db_path())
+
+
+def _location_filters(options: AverageProfileCloudOptions) -> list[str | None]:
+    return list(DUNEDB_LOCATIONS) if options.split_by_location else [None]
 
 
 def _coerce_time_series(time_series: pd.Series) -> pd.Series:
@@ -260,21 +567,34 @@ def load_latest_side_series(
     layer: str,
     side: str,
     expected_wires: range,
+    source: str,
+    location_filter: str | None = None,
 ) -> SideLoadResult:
-    measurements = select_dataframe(
+    measurements = _select_layer_side_measurements(
         db_path,
-        where_clause="apa_name = ? AND layer = ? AND side = ?",
-        params=(apa_name, layer, side),
-        columns=("wire_number", "tension", "time"),
+        apa_name=apa_name,
+        layer=layer,
+        side=side,
+        source=source,
+        location_filter=location_filter,
     )
     if measurements.empty:
         return SideLoadResult(pd.Series(dtype="float64"), 0, 0.0)
 
     df = measurements.copy()
+    if "wire_number" not in df.columns and "wire_index" in df.columns:
+        df["wire_number"] = df["wire_index"]
     df["wire_number"] = pd.to_numeric(df["wire_number"], errors="coerce")
     df["tension"] = pd.to_numeric(df["tension"], errors="coerce")
-    df["time"] = pd.to_datetime(df["time"], errors="coerce")
-    df = df.dropna(subset=["wire_number", "tension", "time"])
+    if "time" in df.columns:
+        df["time"] = pd.to_datetime(df["time"], errors="coerce")
+    else:
+        df["time"] = pd.NaT
+    if "action_time" in df.columns:
+        df["action_time"] = pd.to_datetime(df["action_time"], errors="coerce")
+    else:
+        df["action_time"] = pd.NaT
+    df = df.dropna(subset=["wire_number", "tension"])
     if df.empty:
         return SideLoadResult(pd.Series(dtype="float64"), 0, 0.0)
 
@@ -285,8 +605,11 @@ def load_latest_side_series(
     if df.empty:
         return SideLoadResult(pd.Series(dtype="float64"), 0, 0.0)
 
+    sort_cols = ["action_time", "time"] if df["action_time"].notna().any() else ["time"]
+    if not df["time"].notna().any() and "action_version" in df.columns:
+        sort_cols = ["action_version"]
     df = (
-        df.sort_values("time")
+        df.sort_values(sort_cols)
         .drop_duplicates(subset="wire_number", keep="last")
         .sort_values("wire_number")
     )
@@ -304,17 +627,23 @@ def load_average_side_series(
     layer: str,
     side: str,
     expected_wires: range,
+    source: str,
+    location_filter: str | None = None,
 ) -> SideLoadResult:
-    measurements = select_dataframe(
+    measurements = _select_layer_side_measurements(
         db_path,
-        where_clause="apa_name = ? AND layer = ? AND side = ?",
-        params=(apa_name, layer, side),
-        columns=("wire_number", "tension"),
+        apa_name=apa_name,
+        layer=layer,
+        side=side,
+        source=source,
+        location_filter=location_filter,
     )
     if measurements.empty:
         return SideLoadResult(pd.Series(dtype="float64"), 0, 0.0)
 
     df = measurements.copy()
+    if "wire_number" not in df.columns and "wire_index" in df.columns:
+        df["wire_number"] = df["wire_index"]
     df["wire_number"] = pd.to_numeric(df["wire_number"], errors="coerce")
     df["tension"] = pd.to_numeric(df["tension"], errors="coerce")
     df = df.dropna(subset=["wire_number", "tension"])
@@ -393,6 +722,8 @@ def _compute_target_profiles(
 def _make_cloud_dataframe(
     series_by_apa: dict[str, dict[str, pd.Series]],
     scale_factors: dict[str, float],
+    *,
+    average_per_wire: bool,
 ) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
     for apa_name, sides in series_by_apa.items():
@@ -402,90 +733,149 @@ def _make_cloud_dataframe(
         for side, series in sides.items():
             if series.empty:
                 continue
-            scaled = (series * k).groupby(level=0).mean().rename("tension").reset_index()
+            scaled = (series * k).rename("tension").reset_index()
             scaled.columns = ["wire_number", "tension"]
             scaled["side"] = side
             scaled["apa_name"] = apa_name
             frames.append(scaled)
     if not frames:
         return pd.DataFrame(columns=["wire_number", "tension", "side", "apa_name"])
-    return pd.concat(frames, ignore_index=True)
+    cloud = pd.concat(frames, ignore_index=True)
+    if average_per_wire:
+        cloud = (
+            cloud.groupby(["side", "wire_number"], as_index=False)
+            .agg(
+                tension=("tension", "mean"),
+                apa_count=("apa_name", "nunique"),
+            )
+            .sort_values(["side", "wire_number"])
+            .reset_index(drop=True)
+        )
+    return cloud
+
+
+def _side_legend_label(side: str, subset: pd.DataFrame, *, average_per_wire: bool) -> str:
+    point_count = int(len(subset))
+    side_values = subset["tension"].astype("float64").to_numpy()
+    side_mean = float(np.mean(side_values)) if side_values.size else float("nan")
+    side_mode = kde_mode(side_values) if side_values.size else float("nan")
+
+    count_label = "wires" if average_per_wire else "points"
+    label = f"Side {side} ({count_label}={point_count}"
+    if average_per_wire and "apa_count" in subset.columns and point_count:
+        samples_per_wire = float(subset["apa_count"].astype("float64").mean())
+        label += f", samples/wire={samples_per_wire:.2f}"
+    label += f", μ={side_mean:.3f}, mode={side_mode:.3f})"
+    return label
 
 
 def _rolling_mean(values: pd.Series, window: int = 15) -> pd.Series:
     return values.rolling(window=window, center=True, min_periods=1).mean()
 
 
-def save_layer_plot(
+def _render_profile_cloud(
+    axis,
     *,
-    layer: str,
-    cloud: pd.DataFrame,
-    mu_by_side: dict[str, pd.Series],
-    output_path: Path,
-    bins: int,
-    global_mode_value: float,
+    subset: pd.DataFrame,
+    color: str,
+    average_per_wire: bool,
 ) -> None:
-    if cloud.empty:
+    point_count = int(len(subset))
+    if point_count == 0:
         return
 
-    import matplotlib
+    x_values = subset["wire_number"].to_numpy(dtype="float64", copy=False)
+    y_values = subset["tension"].to_numpy(dtype="float64", copy=False)
 
-    matplotlib.use("Agg", force=True)
-    import matplotlib.pyplot as plt
+    marker_size = 10 if average_per_wire else 7
+    marker_alpha = 0.55 if average_per_wire else 0.12
+    axis.scatter(
+        x_values,
+        y_values,
+        s=marker_size,
+        alpha=marker_alpha,
+        color=color,
+        edgecolors="none",
+    )
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-    scatter_axis, hist_axis = axes
+
+def build_layer_figure(
+    result: LayerAnalysisResult,
+    *,
+    bins: int,
+    average_per_wire: bool,
+    moving_average_window: int,
+):
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=(16, 8), constrained_layout=True)
+    grid = fig.add_gridspec(2, 2, width_ratios=[1.25, 1.0])
+    side_axes = {
+        "A": fig.add_subplot(grid[0, 0]),
+        "B": fig.add_subplot(grid[1, 0]),
+    }
+    hist_axis = fig.add_subplot(grid[:, 1])
 
     colors = {"A": "tab:blue", "B": "tab:orange"}
+    title_prefix = (
+        f"Layer {result.layer}"
+        if result.location_label is None
+        else f"Layer {result.layer} ({result.location_label})"
+    )
+    sample_counts: list[int] = []
 
     for side in SIDES:
-        subset = cloud[cloud["side"] == side].copy()
+        subset = result.cloud[result.cloud["side"] == side].copy()
         if subset.empty:
             continue
 
-        apa_count = int(subset["apa_name"].nunique())
-        point_count = int(len(subset))
-        side_values = subset["tension"].astype("float64").to_numpy()
-        side_mean = float(np.mean(side_values)) if side_values.size else float("nan")
-        side_mode = kde_mode(side_values) if side_values.size else float("nan")
-        scatter_axis.scatter(
-            subset["wire_number"],
-            subset["tension"],
-            s=10,
-            alpha=0.15,
+        sample_counts.append(int(len(subset)))
+        side_axis = side_axes[side]
+        _render_profile_cloud(
+            side_axis,
+            subset=subset,
             color=colors[side],
-            label=(
-                f"Side {side} (APAs={apa_count}, points={point_count}, "
-                f"μ={side_mean:.3f}, mode={side_mode:.3f})"
-            ),
+            average_per_wire=average_per_wire,
         )
 
-        mu = mu_by_side.get(side, pd.Series(dtype="float64"))
+        mu = result.mu_by_side.get(side, pd.Series(dtype="float64"))
         mu_frame = mu.rename("mu").reset_index()
         if not mu_frame.empty:
             mu_frame.columns = ["wire_number", "mu"]
             mu_frame = mu_frame.dropna(subset=["mu"]).sort_values("wire_number")
             if not mu_frame.empty:
-                scatter_axis.plot(
+                side_axis.plot(
                     mu_frame["wire_number"],
-                    _rolling_mean(mu_frame["mu"]),
+                    _rolling_mean(mu_frame["mu"], window=moving_average_window),
                     linewidth=2.0,
                     alpha=0.9,
                     color=colors[side],
                 )
+        side_axis.set_title(_side_legend_label(side, subset, average_per_wire=average_per_wire))
+        side_axis.set_ylabel("Scaled Tension (N)")
+        side_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
 
-    scatter_axis.set_title(f"Layer {layer}: Normalized Tension Profile Cloud")
-    scatter_axis.set_xlabel("Wire Number")
-    scatter_axis.set_ylabel("Scaled Tension (N)")
-    scatter_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
-    scatter_axis.legend(fontsize=8, loc="upper right")
-    if np.isfinite(global_mode_value):
-        scatter_axis.text(
+    non_empty_side_axes = [
+        side_axes[side] for side in SIDES if not result.cloud[result.cloud["side"] == side].empty
+    ]
+    if non_empty_side_axes:
+        non_empty_side_axes[-1].set_xlabel("Wire Number")
+    for side in SIDES[:-1]:
+        if not result.cloud[result.cloud["side"] == side].empty:
+            side_axes[side].tick_params(labelbottom=False)
+    if non_empty_side_axes:
+        non_empty_side_axes[0].text(
             0.015,
             0.98,
-            f"Global raw mode={global_mode_value:.3f}",
-            transform=scatter_axis.transAxes,
+            (
+                f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} Profile Cloud"
+                + (
+                    f"\nGlobal raw mode={result.global_mode_value:.3f}"
+                    if np.isfinite(result.global_mode_value)
+                    else ""
+                )
+            ),
+            transform=non_empty_side_axes[0].transAxes,
             va="top",
             ha="left",
             fontsize=9,
@@ -494,7 +884,7 @@ def save_layer_plot(
 
     values_by_side: dict[str, np.ndarray] = {}
     for side in SIDES:
-        values = cloud.loc[cloud["side"] == side, "tension"].astype("float64")
+        values = result.cloud.loc[result.cloud["side"] == side, "tension"].astype("float64")
         values_by_side[side] = values.values
 
     all_values = np.concatenate([values for values in values_by_side.values() if values.size])
@@ -520,7 +910,7 @@ def save_layer_plot(
             f"{side}: μ={mean:.3f}, mode={mode:.3f}, σ={std:.3f}, n={int(values.size)}"
         )
 
-    hist_axis.set_title("Scaled Tension Distribution")
+    hist_axis.set_title(f"{title_prefix}: Scaled Tension Distribution")
     hist_axis.set_xlabel("Scaled Tension (N)")
     hist_axis.set_ylabel("Count")
     hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
@@ -537,9 +927,297 @@ def save_layer_plot(
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.9),
         )
 
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=300)
-    plt.close(fig)
+    return fig
+
+
+def save_layer_plot(
+    *,
+    result: LayerAnalysisResult,
+    bins: int,
+    average_per_wire: bool,
+    moving_average_window: int,
+) -> None:
+    if result.cloud.empty:
+        return
+
+    result.output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig = build_layer_figure(
+        result,
+        bins=bins,
+        average_per_wire=average_per_wire,
+        moving_average_window=moving_average_window,
+    )
+    fig.savefig(result.output_path, dpi=300)
+
+
+def _empty_side_series() -> dict[str, pd.Series]:
+    return {side: pd.Series(dtype="float64") for side in SIDES}
+
+
+def _empty_side_counts() -> dict[str, pd.Series]:
+    return {side: pd.Series(dtype="int64") for side in SIDES}
+
+
+def compute_layer_analysis(
+    options: AverageProfileCloudOptions,
+    *,
+    layer: str,
+    location_filter: str | None = None,
+) -> LayerAnalysisResult:
+    options = normalize_options(options)
+    layer = layer.upper()
+    expected = expected_wire_range(layer)
+    expected_wires = list(expected)
+    db_path = _resolve_db_path(options)
+    csv_files = _index_csv_files(Path(options.csv_dir)) if options.source == LEGACY_SOURCE else {}
+    exclude_re = re.compile(options.exclude_apa_regex) if options.exclude_apa_regex else None
+    output_tag = f"{options.source}_{_build_output_tag_from_options(options)}"
+    location_label = None if location_filter is None else location_filter.title()
+    location_tag = None if location_filter is None else location_filter.replace(" ", "_")
+    location_output_tag = output_tag if location_tag is None else f"{output_tag}_{location_tag}"
+
+    summary_dir = data_path("tension_summaries")
+    output_path = Path(options.output_dir) / f"tension_profile_cloud_{layer}_{location_output_tag}.png"
+    profile_summary_path = summary_dir / f"average_profile_{layer}_{location_output_tag}.csv"
+    scale_summary_path = summary_dir / f"average_profile_scales_{layer}_{location_output_tag}.csv"
+
+    series_by_apa: dict[str, dict[str, pd.Series]] = {}
+    load_stats: dict[str, dict[str, SideLoadResult]] = {}
+    sources: dict[str, dict[str, str]] = {}
+
+    db_apas = set(_list_layer_apas(db_path, layer, source=options.source))
+    csv_apas = {apa for (apa, file_layer) in csv_files if file_layer == layer}
+    for apa_name in sorted(db_apas | csv_apas):
+        if exclude_re is not None and exclude_re.search(apa_name):
+            continue
+
+        csv_path = csv_files.get((apa_name, layer))
+        side_results: dict[str, SideLoadResult] = {}
+        included_sides: dict[str, pd.Series] = {}
+        side_sources: dict[str, str] = {}
+
+        for side in SIDES:
+            db_result = SideLoadResult(pd.Series(dtype="float64"), 0, 0.0)
+            if apa_name in db_apas:
+                if options.average_per_wire:
+                    db_result = load_average_side_series(
+                        db_path,
+                        apa_name=apa_name,
+                        layer=layer,
+                        side=side,
+                        expected_wires=expected,
+                        source=options.source,
+                        location_filter=location_filter,
+                    )
+                else:
+                    db_result = load_latest_side_series(
+                        db_path,
+                        apa_name=apa_name,
+                        layer=layer,
+                        side=side,
+                        expected_wires=expected,
+                        source=options.source,
+                        location_filter=location_filter,
+                    )
+
+            chosen = db_result
+            chosen_source = options.source
+            if (
+                options.source == LEGACY_SOURCE
+                and db_result.coverage < float(options.min_coverage)
+                and csv_path is not None
+            ):
+                if options.average_per_wire:
+                    csv_result = load_average_side_series_from_csv(
+                        csv_path,
+                        layer=layer,
+                        side=side,
+                        expected_wires=expected,
+                    )
+                else:
+                    csv_result = load_latest_side_series_from_csv(
+                        csv_path,
+                        layer=layer,
+                        side=side,
+                        expected_wires=expected,
+                    )
+                if csv_result.coverage >= db_result.coverage:
+                    chosen = csv_result
+                    chosen_source = "csv"
+
+            side_results[side] = chosen
+            if chosen.coverage >= float(options.min_coverage):
+                included_sides[side] = chosen.series
+                side_sources[side] = chosen_source
+
+        if not included_sides:
+            continue
+
+        series_by_apa[apa_name] = included_sides
+        load_stats[apa_name] = side_results
+        sources[apa_name] = side_sources
+
+    if not series_by_apa:
+        location_msg = "" if location_label is None else f" [{location_label}]"
+        return LayerAnalysisResult(
+            layer=layer,
+            location_filter=location_filter,
+            location_label=location_label,
+            location_output_tag=location_output_tag,
+            global_mode_value=float("nan"),
+            cloud=pd.DataFrame(columns=["wire_number", "tension", "side", "apa_name"]),
+            mu_by_side=_empty_side_series(),
+            n_by_side=_empty_side_counts(),
+            profile_df=pd.DataFrame(
+                {
+                    "wire_number": expected_wires,
+                    "mu_A": np.nan,
+                    "mu_B": np.nan,
+                    "n_A": 0,
+                    "n_B": 0,
+                }
+            ),
+            scale_df=pd.DataFrame(
+                columns=[
+                    "apa_name",
+                    "k",
+                    "raw_mode",
+                    "global_raw_mode",
+                    "coverage_A",
+                    "coverage_B",
+                    "n_A",
+                    "n_B",
+                    "source_A",
+                    "source_B",
+                ]
+            ),
+            output_path=output_path,
+            profile_summary_path=profile_summary_path,
+            scale_summary_path=scale_summary_path,
+            status_message=(
+                f"Layer {layer}{location_msg}: no APA sides met min coverage {options.min_coverage}"
+            ),
+        )
+
+    scale_factors: dict[str, float] = {}
+    raw_mode_by_apa: dict[str, float] = {}
+    if options.no_scaling:
+        global_mode_value = float("nan")
+        for apa_name in series_by_apa:
+            scale_factors[apa_name] = 1.0
+            raw_mode_by_apa[apa_name] = float("nan")
+    else:
+        raw_layer_values = np.concatenate(
+            [
+                result.series.to_numpy(dtype="float64")
+                for apa_name in series_by_apa
+                for result in load_stats[apa_name].values()
+                if not result.series.empty
+            ]
+        )
+        global_mode_value = kde_mode(raw_layer_values)
+
+        for apa_name in series_by_apa:
+            apa_values = np.concatenate(
+                [
+                    result.series.to_numpy(dtype="float64")
+                    for result in load_stats[apa_name].values()
+                    if not result.series.empty
+                ]
+            )
+            raw_mode_by_apa[apa_name] = kde_mode(apa_values)
+            k = mode_scale_factor(
+                apa_values=apa_values,
+                global_mode_value=global_mode_value,
+            )
+            scale_factors[apa_name] = float("nan") if k is None else k
+
+    mu_by_side, n_by_side = _compute_target_profiles(series_by_apa, scale_factors)
+
+    for side in SIDES:
+        mu_by_side[side] = mu_by_side.get(side, pd.Series(dtype="float64")).reindex(expected_wires)
+        counts = n_by_side.get(side, pd.Series(dtype="int64")).reindex(expected_wires)
+        n_by_side[side] = counts.fillna(0).astype("int64")
+
+    profile_df = pd.DataFrame({"wire_number": expected_wires})
+    profile_df["mu_A"] = mu_by_side["A"].values
+    profile_df["mu_B"] = mu_by_side["B"].values
+    profile_df["n_A"] = n_by_side["A"].values
+    profile_df["n_B"] = n_by_side["B"].values
+
+    scale_rows: list[dict[str, object]] = []
+    for apa_name in sorted(series_by_apa):
+        stats = load_stats[apa_name]
+        scale_rows.append(
+            {
+                "apa_name": apa_name,
+                "k": scale_factors.get(apa_name, float("nan")),
+                "raw_mode": raw_mode_by_apa.get(apa_name, float("nan")),
+                "global_raw_mode": global_mode_value,
+                "coverage_A": stats["A"].coverage,
+                "coverage_B": stats["B"].coverage,
+                "n_A": stats["A"].wire_count,
+                "n_B": stats["B"].wire_count,
+                "source_A": sources.get(apa_name, {}).get("A", ""),
+                "source_B": sources.get(apa_name, {}).get("B", ""),
+            }
+        )
+    scale_df = pd.DataFrame(scale_rows)
+
+    cloud = _make_cloud_dataframe(
+        series_by_apa,
+        scale_factors,
+        average_per_wire=options.average_per_wire,
+    )
+    location_msg = "" if location_label is None else f" [{location_label}]"
+    return LayerAnalysisResult(
+        layer=layer,
+        location_filter=location_filter,
+        location_label=location_label,
+        location_output_tag=location_output_tag,
+        global_mode_value=global_mode_value,
+        cloud=cloud,
+        mu_by_side=mu_by_side,
+        n_by_side=n_by_side,
+        profile_df=profile_df,
+        scale_df=scale_df,
+        output_path=output_path,
+        profile_summary_path=profile_summary_path,
+        scale_summary_path=scale_summary_path,
+        status_message=(
+            f"Layer {layer}{location_msg}: wrote {output_path} + {profile_summary_path}"
+            if not cloud.empty
+            else f"Layer {layer}{location_msg}: computed empty cloud"
+        ),
+    )
+
+
+def compute_average_profile_results(
+    options: AverageProfileCloudOptions | argparse.Namespace | Mapping[str, object],
+) -> dict[str, list[LayerAnalysisResult]]:
+    normalized = normalize_options(options)
+    results: dict[str, list[LayerAnalysisResult]] = {}
+    for layer in normalized.layers:
+        layer_results = [
+            compute_layer_analysis(normalized, layer=layer, location_filter=location_filter)
+            for location_filter in _location_filters(normalized)
+        ]
+        results[layer] = layer_results
+    return results
+
+
+def export_layer_analysis(result: LayerAnalysisResult, options: AverageProfileCloudOptions) -> None:
+    options = normalize_options(options)
+    result.profile_summary_path.parent.mkdir(parents=True, exist_ok=True)
+    result.profile_df.to_csv(result.profile_summary_path, index=False)
+    result.scale_df.to_csv(result.scale_summary_path, index=False)
+    if not result.cloud.empty:
+        save_layer_plot(
+            result=result,
+            bins=int(options.bins),
+            average_per_wire=options.average_per_wire,
+            moving_average_window=int(options.moving_average_window),
+        )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -547,9 +1225,21 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Create anonymized average tension-profile point clouds by layer."
     )
     parser.add_argument(
+        "--source",
+        choices=[LEGACY_SOURCE, DUNEDB_SOURCE],
+        default=LEGACY_SOURCE,
+        help=(
+            "Data source to use: 'legacy' reads tension_data.db plus CSV fallbacks, "
+            "and 'dunedb' reads the downloaded SQLite export."
+        ),
+    )
+    parser.add_argument(
         "--db-path",
-        default=str(tension_data_db_path()),
-        help="Path to the SQLite database storing tension measurements.",
+        default=None,
+        help=(
+            "Optional override for the SQLite database path. Defaults to tension_data.db "
+            "for legacy mode and the DUNE-db export for dunedb mode."
+        ),
     )
     parser.add_argument(
         "--layers",
@@ -576,7 +1266,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--csv-dir",
         default=str(data_path("tension_data")),
-        help="Directory containing legacy tension_data_*.csv exports (default: dune_tension/data/tension_data).",
+        help=(
+            "Directory containing legacy tension_data_*.csv exports "
+            "(used in legacy mode, default: dune_tension/data/tension_data)."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -590,6 +1283,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Histogram bin count (default: 40).",
     )
     parser.add_argument(
+        "--moving-average-window",
+        type=int,
+        default=15,
+        help="Rolling window size for the trendline smoothing (default: 15).",
+    )
+    parser.add_argument(
         "--no-scaling",
         action="store_true",
         help="Skip average/mode normalization and plot the raw trimmed tensions.",
@@ -599,185 +1298,26 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Average repeated samples for each wire/side pair before plotting.",
     )
+    parser.add_argument(
+        "--split-by-location",
+        action="store_true",
+        help=(
+            "For --source dunedb, write separate plot and summary files for the "
+            "Chicago and Daresbury measuring locations."
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def run(argv: list[str] | None = None) -> int:
-    args = parse_args(argv if argv is not None else sys.argv[1:])
-    layers = _parse_layers(args.layers)
-    exclude_re = re.compile(args.exclude_apa_regex) if args.exclude_apa_regex else None
-    csv_dir = Path(args.csv_dir)
-    csv_files = _index_csv_files(csv_dir)
-
-    summary_dir = data_path("tension_summaries")
-    summary_dir.mkdir(parents=True, exist_ok=True)
-
-    for layer in layers:
-        expected = expected_wire_range(layer)
-        expected_wires = list(expected)
-
-        series_by_apa: dict[str, dict[str, pd.Series]] = {}
-        load_stats: dict[str, dict[str, SideLoadResult]] = {}
-        sources: dict[str, dict[str, str]] = {}
-
-        db_apas = set(_list_layer_apas(args.db_path, layer))
-        csv_apas = {apa for (apa, file_layer) in csv_files if file_layer == layer}
-        for apa_name in sorted(db_apas | csv_apas):
-            if exclude_re is not None and exclude_re.search(apa_name):
+    options = normalize_options(parse_args(argv if argv is not None else sys.argv[1:]))
+    for layer_results in compute_average_profile_results(options).values():
+        for result in layer_results:
+            if result.cloud.empty:
+                print(result.status_message, file=sys.stderr)
                 continue
-
-            csv_path = csv_files.get((apa_name, layer))
-            side_results: dict[str, SideLoadResult] = {}
-            included_sides: dict[str, pd.Series] = {}
-            side_sources: dict[str, str] = {}
-
-            for side in SIDES:
-                db_result = SideLoadResult(pd.Series(dtype="float64"), 0, 0.0)
-                if apa_name in db_apas:
-                    if args.average_per_wire:
-                        db_result = load_average_side_series(
-                            args.db_path,
-                            apa_name=apa_name,
-                            layer=layer,
-                            side=side,
-                            expected_wires=expected,
-                        )
-                    else:
-                        db_result = load_latest_side_series(
-                            args.db_path,
-                            apa_name=apa_name,
-                            layer=layer,
-                            side=side,
-                            expected_wires=expected,
-                        )
-
-                chosen = db_result
-                chosen_source = "db"
-                if db_result.coverage < float(args.min_coverage) and csv_path is not None:
-                    if args.average_per_wire:
-                        csv_result = load_average_side_series_from_csv(
-                            csv_path,
-                            layer=layer,
-                            side=side,
-                            expected_wires=expected,
-                        )
-                    else:
-                        csv_result = load_latest_side_series_from_csv(
-                            csv_path,
-                            layer=layer,
-                            side=side,
-                            expected_wires=expected,
-                        )
-                    if csv_result.coverage >= db_result.coverage:
-                        chosen = csv_result
-                        chosen_source = "csv"
-
-                side_results[side] = chosen
-                if chosen.coverage >= float(args.min_coverage):
-                    included_sides[side] = chosen.series
-                    side_sources[side] = chosen_source
-
-            if not included_sides:
-                continue
-
-            series_by_apa[apa_name] = included_sides
-            load_stats[apa_name] = side_results
-            sources[apa_name] = side_sources
-
-        if not series_by_apa:
-            print(f"Layer {layer}: no APA sides met min coverage {args.min_coverage}", file=sys.stderr)
-            continue
-
-        scale_factors: dict[str, float] = {}
-        raw_mode_by_apa: dict[str, float] = {}
-        if args.no_scaling:
-            global_mode_value = float("nan")
-            for apa_name in series_by_apa:
-                scale_factors[apa_name] = 1.0
-                raw_mode_by_apa[apa_name] = float("nan")
-        else:
-            # Scaling is intentionally computed once per (APA, layer) and then applied
-            # to both sides, preserving any A/B tension differences after normalization.
-            # To make that robust even when one side is partially scanned, we compute
-            # KDE modes using *all available* raw samples from both sides for each APA
-            # (even if a side is not included in the point cloud due to min-coverage).
-            raw_layer_values = np.concatenate(
-                [
-                    result.series.to_numpy(dtype="float64")
-                    for apa_name in series_by_apa
-                    for result in load_stats[apa_name].values()
-                    if not result.series.empty
-                ]
-            )
-            global_mode_value = kde_mode(raw_layer_values)
-
-            for apa_name in series_by_apa:
-                apa_values = np.concatenate(
-                    [
-                        result.series.to_numpy(dtype="float64")
-                        for result in load_stats[apa_name].values()
-                        if not result.series.empty
-                    ]
-                )
-                raw_mode_by_apa[apa_name] = kde_mode(apa_values)
-                k = mode_scale_factor(
-                    apa_values=apa_values,
-                    global_mode_value=global_mode_value,
-                )
-                scale_factors[apa_name] = float("nan") if k is None else k
-
-        mu_by_side, n_by_side = _compute_target_profiles(series_by_apa, scale_factors)
-
-        for side in SIDES:
-            mu_by_side[side] = mu_by_side.get(side, pd.Series(dtype="float64")).reindex(expected_wires)
-            counts = n_by_side.get(side, pd.Series(dtype="int64")).reindex(expected_wires)
-            n_by_side[side] = counts.fillna(0).astype("int64")
-
-        profile_df = pd.DataFrame({"wire_number": expected_wires})
-        profile_df["mu_A"] = mu_by_side["A"].values
-        profile_df["mu_B"] = mu_by_side["B"].values
-        profile_df["n_A"] = n_by_side["A"].values
-        profile_df["n_B"] = n_by_side["B"].values
-        profile_df.to_csv(summary_dir / f"average_profile_{layer}.csv", index=False)
-
-        scale_rows: list[dict[str, object]] = []
-        for apa_name in sorted(series_by_apa):
-            stats = load_stats[apa_name]
-            scale_rows.append(
-                {
-                    "apa_name": apa_name,
-                    "k": scale_factors.get(apa_name, float("nan")),
-                    "raw_mode": raw_mode_by_apa.get(apa_name, float("nan")),
-                    "global_raw_mode": global_mode_value,
-                    "coverage_A": stats["A"].coverage,
-                    "coverage_B": stats["B"].coverage,
-                    "n_A": stats["A"].wire_count,
-                    "n_B": stats["B"].wire_count,
-                    "source_A": sources.get(apa_name, {}).get("A", ""),
-                    "source_B": sources.get(apa_name, {}).get("B", ""),
-                }
-            )
-        pd.DataFrame(scale_rows).to_csv(
-            summary_dir / f"average_profile_scales_{layer}.csv",
-            index=False,
-        )
-
-        cloud = _make_cloud_dataframe(series_by_apa, scale_factors)
-        output_path = Path(args.output_dir) / f"tension_profile_cloud_{layer}.png"
-        save_layer_plot(
-            layer=layer,
-            cloud=cloud,
-            mu_by_side=mu_by_side,
-            output_path=output_path,
-            bins=int(args.bins),
-            global_mode_value=global_mode_value,
-        )
-
-        print(
-            f"Layer {layer}: wrote {output_path} + {summary_dir / f'average_profile_{layer}.csv'}",
-            file=sys.stderr,
-        )
-
+            export_layer_analysis(result, options)
+            print(result.status_message, file=sys.stderr)
     return 0
 
 
