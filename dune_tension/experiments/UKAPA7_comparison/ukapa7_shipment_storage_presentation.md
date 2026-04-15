@@ -2,16 +2,15 @@
 marp: true
 paginate: true
 theme: default
+class: invert
 ---
 
 # UKAPA7 After Storage and Shipment
 
-### A quick look at what changed between the UK and Chicago measurements
-
-- Framing question: what happened to wire tensions after long storage of the APA and transatlantic shipment from the UK to Chicago?
+- What happened to wire tensions after a of the APA and transatlantic shipment from the UK to Chicago?
 - We compare UK factory measurements from December 10, 2023 against Chicago measurements from March 11, 2026.
-- Residual means `Chicago - UK`, so a negative value means the Chicago tension came out lower.
-- Headline result: Chicago tensions are lower on both G and U where measured, but the pattern differs by layer and side.
+- Headline result: Chicago tensions are on average lower (~0.5N) probably due to relaxation during storage.
+- No tensions are out of spec [4-8.5], no evidence of shipping damage.
 
 ---
 
@@ -19,52 +18,54 @@ theme: default
 
 - **G layer:** full comparison on both sides, `481` aligned wires on side A and `481` on side B.
 - **U layer:** partial Chicago coverage only, with `385` aligned wires on side A and `641` on side B.
-- That means the G-layer story is more complete, while the U-layer story should be treated as a partial-window comparison.
-- Not all U wires were accessible in Chicago, so any U-layer conclusion needs to stay provisional.
+- U layer wires were accessed through a "slit" cut in the G wires near the middle of the APA.
 
 ---
 
-# G Layer: Broadly Lower After Storage and Shipment
+# G Layer
 
-- Side A shows a clear negative shift, with mean residual `-0.376 N`.
-- Corrected side B is also negative, with mean residual `-0.200 N`.
-- Taken at face value, both sides are consistent with lower tensions after storage and shipment, although the size of the shift is not identical side to side.
-
-![w:420](../../data/tension_plots/tension_raw_A_UKAPA7_G.png)
-![w:420](../../data/tension_plots/tension_a_vs_reversed_shifted_b_UKAPA7_G.png)
+- Most wires on both sides changed by `-0.45 N` (Chicago lower).
+- On a wire-by-wire basis, differences range from `-1.63` to `+1.32` with `σ = 0.4`
+- Actual increase in tension is less likely than compounded measurement uncertainties
 
 ---
 
-# G Side B: Procedure Matters Too
-
-- The best side-B match is **reversed indexing plus shift `-1`**, which is what we would expect if the Chicago scan started from the wrong end.
-- With that correction, correlation improves from `0.232` to `0.330`.
-- The residual width also tightens from `0.419 N` to `0.394 N`.
-- So the G-layer comparison looks like a mix of real physical change and a procedural side-B mapping issue.
-
-![w:900](../../data/tension_plots/tension_b_index_model_comparison_UKAPA7_G.png)
+![g both sides](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_landscape_G.png)
 
 ---
 
-# U Layer: Lower in Chicago, but Harder to Interpret
+![G change in tension](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_change_in_tension_G.png)
 
-- Side A is lower in Chicago on average, with mean residual `-0.544 N`, but the wire-by-wire correlation is weak at `0.104`.
-- Side B is also lower, and more consistently so, with mean residual `-0.871 N` and correlation `0.509`.
-- Important caveat: not all U wires were accessible in Chicago, so this is not yet a full-layer comparison.
-- Another caveat: frame deformation after the G layer may have changed the shape of the U-layer tension distribution, which could be part of why the U behavior looks different.
+---
 
-![w:900](../../data/tension_plots/tension_residual_UKAPA7_U.png)
+# U Layer
+
+- Most wires dropped about `-0.5N` 
+- Differences from `-3.1` to `+0.68` `σ = 0.5`
+- The negative outliers suggest measurement errors in the UK data
+- Frame deformation after the G layer may have changed the shape of the U-layer tension distribution
+
+ 
+---
+
+![U both sides](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_landscape_U.png)
+
+---
+
+![U change in tension](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_change_in_tension_U.png)
 
 ---
 
 # What This Says About Storage and Shipment
 
-- U side B does **not** mainly look like a reversal problem; the best simple index model is a small shift of `-7`.
-- That shift helps, but only modestly: correlation improves from `0.509` to `0.586`, and residual width drops from `0.548 N` to `0.492 N`.
-- The dominant U-side-B effect is still a large negative offset, with the mean staying near `-0.87 N`.
-- Bottom line: storage plus shipment are consistent with lower measured tensions in Chicago, G side B also carries a procedural indexing effect, and the U-layer story remains provisional because coverage is partial and post-G frame deformation may have altered the U distribution.
-
+- ~0.5N decrease over 2.25y consistent with wire relaxation under stress
+- Probably, +0.5N isn't real but the result of combined measurement uncertainty
+- `-3N` is probably also not real, the result of mistaken measurements at Daresbury
+- Changes in tension even large ones shouldn't disqualify acceptance if the final tension is acceptable.
+ 
 ---
 
-![w:420](../../data/tension_plots/tension_residual_B_offset_comparison_UKAPA7_U.png)
-![w:420](../../data/tension_plots/tension_shift_scan_B_UKAPA7_U.png)
+![all g wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_G_mode_allsamples_cov0p5_it3_bins40.png)
+
+---
+![all u wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_U_noscale_allsamples_cov0p5_it3_bins40.png)
