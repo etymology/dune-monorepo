@@ -14,6 +14,7 @@ from typing import Any
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
     LayerAnalysisResult,
+    _save_figure_with_padding,
     build_layer_figure,
     compute_average_profile_results,
     export_layer_analysis,
@@ -28,6 +29,7 @@ DEFAULT_LAYERS = ",".join(AverageProfileCloudOptions().layers)
 class LayerTabState:
     frame: Any
     status_var: Any
+    scroll_canvas: Any
     content_frame: Any
     image_labels: list[Any] = field(default_factory=list)
     images: list[Any] = field(default_factory=list)
@@ -43,6 +45,7 @@ class AverageProfileExplorerApp:
         self._latest_options: AverageProfileCloudOptions | None = None
         self._latest_results: dict[str, list[LayerAnalysisResult]] | None = None
         self._tab_state: dict[str, LayerTabState] = {}
+        self._controls_visible = True
 
         self.source_var = tk.StringVar(master=root, value=AverageProfileCloudOptions().source)
         self.layers_var = tk.StringVar(master=root, value=DEFAULT_LAYERS)
@@ -70,6 +73,12 @@ class AverageProfileExplorerApp:
         self.split_by_location_var = tk.BooleanVar(
             master=root, value=AverageProfileCloudOptions().split_by_location
         )
+        self.show_all_locations_var = tk.BooleanVar(
+            master=root, value=AverageProfileCloudOptions().show_all_locations
+        )
+        self.split_by_side_var = tk.BooleanVar(
+            master=root, value=AverageProfileCloudOptions().split_by_side
+        )
         self.global_status_var = tk.StringVar(master=root, value="Waiting for first refresh.")
 
         self._build_layout()
@@ -87,12 +96,26 @@ class AverageProfileExplorerApp:
         if hasattr(container, "columnconfigure"):
             container.columnconfigure(0, weight=1)
         if hasattr(container, "rowconfigure"):
-            container.rowconfigure(1, weight=1)
+            container.rowconfigure(2, weight=1)
+
+        top_bar = ttk.Frame(container)
+        top_bar.grid(row=0, column=0, sticky="ew")
+        top_bar.columnconfigure(1, weight=1)
+        self.controls_toggle_button = ttk.Button(
+            top_bar,
+            text="Hide parameters",
+            command=self.toggle_parameters_panel,
+        )
+        self.controls_toggle_button.grid(row=0, column=0, sticky="w")
+        ttk.Label(top_bar, textvariable=self.global_status_var).grid(
+            row=0, column=1, padx=(12, 0), sticky="e"
+        )
 
         controls = ttk.LabelFrame(container, text="Parameters", padding=8)
-        controls.grid(row=0, column=0, sticky="ew")
+        controls.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         controls.columnconfigure(1, weight=1)
         controls.columnconfigure(3, weight=1)
+        self.controls_panel = controls
 
         self._add_labeled_entry(controls, "Source", 0, 0, variable=self.source_var, kind="combo")
         self._add_labeled_entry(controls, "Layers", 0, 2, variable=self.layers_var)
@@ -136,6 +159,19 @@ class AverageProfileExplorerApp:
             command=self.schedule_refresh,
         )
         self.split_by_location_button.grid(row=0, column=2, sticky="w")
+        self.show_all_locations_button = ttk.Checkbutton(
+            toggles,
+            text="All locations on same plot",
+            variable=self.show_all_locations_var,
+            command=self.schedule_refresh,
+        )
+        self.show_all_locations_button.grid(row=0, column=3, sticky="w", padx=(8, 0))
+        ttk.Checkbutton(
+            toggles,
+            text="Split by side (A/B)",
+            variable=self.split_by_side_var,
+            command=self.schedule_refresh,
+        ).grid(row=0, column=4, sticky="w", padx=(8, 0))
 
         actions = ttk.Frame(controls)
         actions.grid(row=5, column=0, columnspan=4, sticky="ew", pady=(8, 0))
@@ -148,13 +184,22 @@ class AverageProfileExplorerApp:
         ttk.Button(actions, text="Export All", command=self.export_all).grid(
             row=0, column=2, sticky="w"
         )
-        ttk.Label(actions, textvariable=self.global_status_var).grid(
-            row=0, column=3, padx=(12, 0), sticky="w"
-        )
         actions.columnconfigure(3, weight=1)
 
         self.notebook = ttk.Notebook(container)
-        self.notebook.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+        self.notebook.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+
+    def toggle_parameters_panel(self) -> None:
+        self._set_controls_panel_visible(not self._controls_visible)
+
+    def _set_controls_panel_visible(self, visible: bool) -> None:
+        self._controls_visible = visible
+        if visible:
+            self.controls_panel.grid()
+            self.controls_toggle_button.configure(text="Hide parameters")
+        else:
+            self.controls_panel.grid_remove()
+            self.controls_toggle_button.configure(text="Show parameters")
 
     def _add_labeled_entry(
         self,
@@ -191,8 +236,13 @@ class AverageProfileExplorerApp:
             self.exclude_regex_var,
             self.bins_var,
             self.moving_average_var,
+            self.show_all_locations_var,
+            self.split_by_side_var,
         ]:
             variable.trace_add("write", lambda *_args: self.schedule_refresh())
+        self.split_by_location_var.trace_add(
+            "write", lambda *_args: self._sync_split_by_location_state()
+        )
 
     def _on_source_changed(self) -> None:
         self._sync_split_by_location_state()
@@ -202,8 +252,12 @@ class AverageProfileExplorerApp:
         enabled = self.source_var.get() == "dunedb"
         if not enabled:
             self.split_by_location_var.set(False)
+        show_all_enabled = enabled and self.split_by_location_var.get()
+        if not show_all_enabled:
+            self.show_all_locations_var.set(False)
         try:
             self.split_by_location_button.state(["!disabled"] if enabled else ["disabled"])
+            self.show_all_locations_button.state(["!disabled"] if show_all_enabled else ["disabled"])
         except Exception:
             pass
 
@@ -266,7 +320,13 @@ class AverageProfileExplorerApp:
         total_plots = 0
         for layer, layer_results in results.items():
             self._render_layer_results(layer, layer_results, options)
-            total_plots += sum(1 for result in layer_results if not result.cloud.empty)
+            if options.split_by_side:
+                total_plots += sum(
+                    sum(1 for side in ("A", "B") if not result.cloud.empty and (result.cloud["side"] == side).any())
+                    for result in layer_results
+                )
+            else:
+                total_plots += sum(1 for result in layer_results if not result.cloud.empty)
         self.global_status_var.set(f"Ready. Rendered {total_plots} plot(s).")
 
     def collect_options(self) -> AverageProfileCloudOptions:
@@ -284,6 +344,8 @@ class AverageProfileExplorerApp:
                 "no_scaling": self.no_scaling_var.get(),
                 "average_per_wire": self.average_per_wire_var.get(),
                 "split_by_location": self.split_by_location_var.get(),
+                "show_all_locations": self.show_all_locations_var.get(),
+                "split_by_side": self.split_by_side_var.get(),
             }
         )
 
@@ -303,13 +365,41 @@ class AverageProfileExplorerApp:
             frame.rowconfigure(1, weight=1)
             status_var = tk.StringVar(master=self.root, value="Waiting for data.")
             ttk.Label(frame, textvariable=status_var).grid(row=0, column=0, sticky="w", pady=(0, 6))
-            content_frame = ttk.Frame(frame)
-            content_frame.grid(row=1, column=0, sticky="nsew")
+            viewport = ttk.Frame(frame)
+            viewport.grid(row=1, column=0, sticky="nsew")
+            viewport.columnconfigure(0, weight=1)
+            viewport.rowconfigure(0, weight=1)
+
+            scroll_canvas = tk.Canvas(viewport, highlightthickness=0)
+            scroll_canvas.grid(row=0, column=0, sticky="nsew")
+            y_scrollbar = ttk.Scrollbar(viewport, orient="vertical", command=scroll_canvas.yview)
+            y_scrollbar.grid(row=0, column=1, sticky="ns")
+            x_scrollbar = ttk.Scrollbar(viewport, orient="horizontal", command=scroll_canvas.xview)
+            x_scrollbar.grid(row=1, column=0, sticky="ew")
+            scroll_canvas.configure(
+                yscrollcommand=y_scrollbar.set,
+                xscrollcommand=x_scrollbar.set,
+            )
+
+            content_frame = ttk.Frame(scroll_canvas)
             content_frame.columnconfigure(0, weight=1)
+            window_id = scroll_canvas.create_window((0, 0), window=content_frame, anchor="nw")
+            content_frame.bind(
+                "<Configure>",
+                lambda _event, canvas=scroll_canvas: canvas.configure(scrollregion=canvas.bbox("all")),
+            )
+            scroll_canvas.bind(
+                "<Configure>",
+                lambda event, canvas=scroll_canvas, item=window_id: canvas.itemconfigure(
+                    item,
+                    width=max(event.width, 1),
+                ),
+            )
             self.notebook.add(frame, text=layer)
             self._tab_state[layer] = LayerTabState(
                 frame=frame,
                 status_var=status_var,
+                scroll_canvas=scroll_canvas,
                 content_frame=content_frame,
             )
 
@@ -343,26 +433,59 @@ class AverageProfileExplorerApp:
                 placeholder.grid(row=row * 2 + 1, column=0, sticky="w")
                 continue
 
-            figure = build_layer_figure(
-                result,
-                bins=options.bins,
-                average_per_wire=options.average_per_wire,
-                moving_average_window=options.moving_average_window,
-            )
-            image = self._figure_to_photo_image(figure)
-            widget = ttk.Label(state.content_frame, image=image)
-            widget.image = image
-            widget.grid(row=row * 2 + 1, column=0, sticky="nsew")
-            state.images.append(image)
-            state.image_labels.append(widget)
-            rendered_count += 1
+            if options.split_by_side:
+                content = ttk.Frame(state.content_frame)
+                content.grid(row=row * 2 + 1, column=0, sticky="nsew")
+                content.columnconfigure(0, weight=1)
+
+                inner_row = 0
+                for side in ("A", "B"):
+                    if not (result.cloud["side"] == side).any():
+                        continue
+                    ttk.Label(content, text=f"Side {side}").grid(
+                        row=inner_row, column=0, sticky="w", pady=(0, 2)
+                    )
+                    inner_row += 1
+                    figure = build_layer_figure(
+                        result,
+                        bins=options.bins,
+                        average_per_wire=options.average_per_wire,
+                        moving_average_window=options.moving_average_window,
+                        side_filter=side,
+                    )
+                    image = self._figure_to_photo_image(figure)
+                    widget = ttk.Label(content, image=image)
+                    widget.image = image
+                    widget.grid(row=inner_row, column=0, sticky="nsew", pady=(0, 8))
+                    inner_row += 1
+                    state.images.append(image)
+                    state.image_labels.append(widget)
+                    rendered_count += 1
+                if inner_row == 0:
+                    ttk.Label(content, text=result.status_message).grid(
+                        row=0, column=0, sticky="w"
+                    )
+            else:
+                figure = build_layer_figure(
+                    result,
+                    bins=options.bins,
+                    average_per_wire=options.average_per_wire,
+                    moving_average_window=options.moving_average_window,
+                )
+                image = self._figure_to_photo_image(figure)
+                widget = ttk.Label(state.content_frame, image=image)
+                widget.image = image
+                widget.grid(row=row * 2 + 1, column=0, sticky="nsew")
+                state.images.append(image)
+                state.image_labels.append(widget)
+                rendered_count += 1
 
         if rendered_count == 0 and not layer_results:
             ttk.Label(state.content_frame, text="No results.").grid(row=0, column=0, sticky="w")
 
     def _figure_to_photo_image(self, figure: Any) -> Any:
         png_buffer = BytesIO()
-        figure.savefig(png_buffer, format="png", dpi=100)
+        _save_figure_with_padding(figure, png_buffer, format="png", dpi=100)
         encoded = base64.b64encode(png_buffer.getvalue()).decode("ascii")
         return tk.PhotoImage(master=self.root, data=encoded)
 

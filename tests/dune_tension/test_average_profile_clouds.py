@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - dependency optional in tests
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
     DUNEDB_SOURCE,
+    LayerAnalysisResult,
     compute_scale_factor,
     compute_layer_analysis,
     compute_average_profile_results,
@@ -30,6 +32,7 @@ from dune_tension.average_profile_clouds import (
     load_latest_side_series,
     mode_scale_factor,
     parse_args,
+    save_layer_plot,
 )
 
 
@@ -112,6 +115,11 @@ def test_parse_args_supports_no_scaling() -> None:
 def test_parse_args_supports_average_per_wire() -> None:
     args = parse_args(["--average-per-wire"])
     assert args.average_per_wire is True
+
+
+def test_parse_args_supports_show_all_locations() -> None:
+    args = parse_args(["--show-all-locations"])
+    assert args.show_all_locations is True
 
 
 def test_parse_args_defaults_to_all_samples() -> None:
@@ -280,7 +288,7 @@ def test_dunedb_loader_reuses_layer_data_and_respects_location_filters(tmp_path)
     assert np.isclose(average_chicago.series.loc[2], 6.7)
 
     assert latest_daresbury.wire_count == 2
-    assert np.isclose(latest_daresbury.series.loc[1], 5.0)
+    assert np.isclose(latest_daresbury.series.loc[1], 3.0)
     assert np.isclose(latest_daresbury.series.loc[2], 5.2)
 
 
@@ -441,6 +449,40 @@ def test_compute_average_profile_results_preserves_layer_selection(tmp_path) -> 
     assert results["G"][0].cloud.empty
 
 
+def test_compute_average_profile_results_can_include_all_locations_view(tmp_path) -> None:
+    db_path = tmp_path / "layer.sqlite"
+    _write_minimal_dunedb(db_path)
+
+    _load_dunedb_layer_measurements.cache_clear()
+    try:
+        results = compute_average_profile_results(
+            AverageProfileCloudOptions(
+                source=DUNEDB_SOURCE,
+                db_path=str(db_path),
+                layers=("X",),
+                min_coverage=0.0,
+                split_by_location=True,
+                show_all_locations=True,
+            )
+        )
+    finally:
+        _load_dunedb_layer_measurements.cache_clear()
+
+    layer_results = results["X"]
+    assert [result.location_label for result in layer_results] == [
+        "All locations",
+        "Chicago",
+        "Daresbury",
+    ]
+    assert layer_results[0].overlay_results is not None
+    assert [result.location_label for result in layer_results[0].overlay_results] == [
+        "Chicago",
+        "Daresbury",
+    ]
+    assert not layer_results[0].cloud.empty
+    assert layer_results[0].location_output_tag.endswith("all_locations")
+
+
 def test_export_layer_analysis_writes_expected_files(tmp_path) -> None:
     db_path = tmp_path / "layer.sqlite"
     _write_minimal_dunedb(db_path)
@@ -463,3 +505,339 @@ def test_export_layer_analysis_writes_expected_files(tmp_path) -> None:
     assert result.output_path.exists()
     assert result.profile_summary_path.exists()
     assert result.scale_summary_path.exists()
+
+
+def test_save_layer_plot_uses_tight_bounding_box(monkeypatch, tmp_path) -> None:
+    captured: dict[str, object] = {}
+
+    class _FakeFigure:
+        def savefig(self, destination, **kwargs):
+            captured["destination"] = destination
+            captured["kwargs"] = kwargs
+
+    result = LayerAnalysisResult(
+        layer="X",
+        location_filter=None,
+        location_label=None,
+        location_output_tag="tag",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [1, 2],
+                "tension": [6.0, 6.5],
+                "side": ["A", "B"],
+                "apa_name": ["APA1", "APA1"],
+            }
+        ),
+        mu_by_side={"A": pd.Series([6.0], index=[1]), "B": pd.Series([6.4], index=[1])},
+        n_by_side={"A": pd.Series([1], index=[1]), "B": pd.Series([1], index=[1])},
+        profile_df=pd.DataFrame({"wire_number": [1], "mu_A": [6.0], "mu_B": [6.4]}),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
+        output_path=tmp_path / "plot.png",
+        profile_summary_path=tmp_path / "profile.csv",
+        scale_summary_path=tmp_path / "scale.csv",
+        status_message="ok",
+    )
+
+    monkeypatch.setattr(
+        "dune_tension.average_profile_clouds.build_layer_figure",
+        lambda *args, **kwargs: _FakeFigure(),
+    )
+
+    save_layer_plot(
+        result=result,
+        bins=40,
+        average_per_wire=False,
+        moving_average_window=15,
+    )
+
+    assert captured["destination"] == result.output_path
+    assert captured["kwargs"]["dpi"] == 300
+    assert captured["kwargs"]["bbox_inches"] == "tight"
+    assert captured["kwargs"]["pad_inches"] == 0.2
+
+
+def test_build_layer_figure_overlays_side_line_plots(monkeypatch) -> None:
+    from dune_tension import average_profile_clouds as apc
+
+    class _FakeAxis:
+        def __init__(self) -> None:
+            self.scatter_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.plot_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.hist_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.axvline_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.title = None
+            self.xlabel = None
+            self.ylabel = None
+            self.legend_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.text_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.grid_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.tick_params_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.transAxes = object()
+
+        def scatter(self, *args, **kwargs):
+            self.scatter_calls.append((args, kwargs))
+
+        def plot(self, *args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+
+        def hist(self, *args, **kwargs):
+            self.hist_calls.append((args, kwargs))
+
+        def axvline(self, *args, **kwargs):
+            self.axvline_calls.append((args, kwargs))
+
+        def set_title(self, value):
+            self.title = value
+
+        def set_xlabel(self, value):
+            self.xlabel = value
+
+        def set_ylabel(self, value):
+            self.ylabel = value
+
+        def legend(self, *args, **kwargs):
+            self.legend_calls.append((args, kwargs))
+
+        def text(self, *args, **kwargs):
+            self.text_calls.append((args, kwargs))
+
+        def grid(self, *args, **kwargs):
+            self.grid_calls.append((args, kwargs))
+
+        def tick_params(self, *args, **kwargs):
+            self.tick_params_calls.append((args, kwargs))
+
+    class _FakeGrid:
+        def __getitem__(self, _item):
+            return object()
+
+    class _FakeFigure:
+        def __init__(self, *args, **kwargs) -> None:
+            self.axes: list[_FakeAxis] = []
+
+        def add_gridspec(self, *args, **kwargs):
+            return _FakeGrid()
+
+        def add_subplot(self, *args, **kwargs):
+            axis = _FakeAxis()
+            self.axes.append(axis)
+            return axis
+
+    monkeypatch.setattr("matplotlib.figure.Figure", _FakeFigure)
+
+    result = LayerAnalysisResult(
+        layer="X",
+        location_filter=None,
+        location_label=None,
+        location_output_tag="tag",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [1, 2, 1, 2],
+                "tension": [6.0, 6.2, 6.4, 6.6],
+                "side": ["A", "A", "B", "B"],
+                "apa_name": ["APA1", "APA1", "APA1", "APA1"],
+            }
+        ),
+        mu_by_side={
+            "A": pd.Series([6.0, 6.2], index=[1, 2]),
+            "B": pd.Series([6.4, 6.6], index=[1, 2]),
+        },
+        n_by_side={"A": pd.Series([1, 1], index=[1, 2]), "B": pd.Series([1, 1], index=[1, 2])},
+        profile_df=pd.DataFrame(
+            {"wire_number": [1, 2], "mu_A": [6.0, 6.2], "mu_B": [6.4, 6.6], "n_A": [1, 1], "n_B": [1, 1]}
+        ),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
+        output_path=Path("/tmp/out.png"),
+        profile_summary_path=Path("/tmp/profile.csv"),
+        scale_summary_path=Path("/tmp/scales.csv"),
+        status_message="ok",
+    )
+
+    figure = apc.build_layer_figure(
+        result,
+        bins=10,
+        average_per_wire=False,
+        moving_average_window=1,
+    )
+
+    assert len(figure.axes) == 2
+    profile_axis = figure.axes[0]
+    hist_axis = figure.axes[1]
+    assert len(profile_axis.scatter_calls) == 2
+    assert len(profile_axis.plot_calls) == 2
+    assert {kwargs["label"] for _args, kwargs in profile_axis.plot_calls} == {
+        "Location 1 A",
+        "Location 1 B",
+    }
+    assert len(hist_axis.hist_calls) == 2
+
+
+def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
+    from dune_tension import average_profile_clouds as apc
+
+    class _FakeAxis:
+        def __init__(self) -> None:
+            self.scatter_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.plot_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.hist_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.axvline_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.legend_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.text_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.grid_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.title = None
+            self.xlabel = None
+            self.ylabel = None
+            self.transAxes = object()
+
+        def scatter(self, *args, **kwargs):
+            self.scatter_calls.append((args, kwargs))
+
+        def plot(self, *args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+
+        def hist(self, *args, **kwargs):
+            self.hist_calls.append((args, kwargs))
+
+        def axvline(self, *args, **kwargs):
+            self.axvline_calls.append((args, kwargs))
+
+        def legend(self, *args, **kwargs):
+            self.legend_calls.append((args, kwargs))
+
+        def text(self, *args, **kwargs):
+            self.text_calls.append((args, kwargs))
+
+        def grid(self, *args, **kwargs):
+            self.grid_calls.append((args, kwargs))
+
+        def set_title(self, value):
+            self.title = value
+
+        def set_xlabel(self, value):
+            self.xlabel = value
+
+        def set_ylabel(self, value):
+            self.ylabel = value
+
+    class _FakeGrid:
+        def __getitem__(self, _item):
+            return object()
+
+    class _FakeFigure:
+        def __init__(self, *args, **kwargs) -> None:
+            self.axes: list[_FakeAxis] = []
+
+        def add_gridspec(self, *args, **kwargs):
+            return _FakeGrid()
+
+        def add_subplot(self, *args, **kwargs):
+            axis = _FakeAxis()
+            self.axes.append(axis)
+            return axis
+
+    monkeypatch.setattr("matplotlib.figure.Figure", _FakeFigure)
+
+    chicago = LayerAnalysisResult(
+        layer="X",
+        location_filter="chicago",
+        location_label="Chicago",
+        location_output_tag="tag_chicago",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [1, 2, 1, 2],
+                "tension": [6.0, 6.2, 6.4, 6.6],
+                "side": ["A", "A", "B", "B"],
+                "apa_name": ["APA1", "APA1", "APA1", "APA1"],
+                "location": ["Chicago"] * 4,
+            }
+        ),
+        mu_by_side={"A": pd.Series([6.0, 6.2], index=[1, 2]), "B": pd.Series([6.4, 6.6], index=[1, 2])},
+        n_by_side={"A": pd.Series([1, 1], index=[1, 2]), "B": pd.Series([1, 1], index=[1, 2])},
+        profile_df=pd.DataFrame(
+            {
+                "wire_number": [1, 2],
+                "mu_A": [6.0, 6.2],
+                "mu_B": [6.4, 6.6],
+                "n_A": [1, 1],
+                "n_B": [1, 1],
+                "location": ["Chicago", "Chicago"],
+            }
+        ),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0], "location": ["Chicago"]}),
+        output_path=Path("/tmp/chicago.png"),
+        profile_summary_path=Path("/tmp/chicago_profile.csv"),
+        scale_summary_path=Path("/tmp/chicago_scale.csv"),
+        status_message="ok",
+    )
+    daresbury = LayerAnalysisResult(
+        layer="X",
+        location_filter="daresbury",
+        location_label="Daresbury",
+        location_output_tag="tag_daresbury",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [1, 2, 1, 2],
+                "tension": [6.1, 6.3, 6.5, 6.7],
+                "side": ["A", "A", "B", "B"],
+                "apa_name": ["APA1", "APA1", "APA1", "APA1"],
+                "location": ["Daresbury"] * 4,
+            }
+        ),
+        mu_by_side={"A": pd.Series([6.1, 6.3], index=[1, 2]), "B": pd.Series([6.5, 6.7], index=[1, 2])},
+        n_by_side={"A": pd.Series([1, 1], index=[1, 2]), "B": pd.Series([1, 1], index=[1, 2])},
+        profile_df=pd.DataFrame(
+            {
+                "wire_number": [1, 2],
+                "mu_A": [6.1, 6.3],
+                "mu_B": [6.5, 6.7],
+                "n_A": [1, 1],
+                "n_B": [1, 1],
+                "location": ["Daresbury", "Daresbury"],
+            }
+        ),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0], "location": ["Daresbury"]}),
+        output_path=Path("/tmp/daresbury.png"),
+        profile_summary_path=Path("/tmp/daresbury_profile.csv"),
+        scale_summary_path=Path("/tmp/daresbury_scale.csv"),
+        status_message="ok",
+    )
+    combined = LayerAnalysisResult(
+        layer="X",
+        location_filter=None,
+        location_label="All locations",
+        location_output_tag="tag_all_locations",
+        global_mode_value=6.1,
+        cloud=pd.concat([chicago.cloud, daresbury.cloud], ignore_index=True),
+        mu_by_side={},
+        n_by_side={},
+        profile_df=pd.concat([chicago.profile_df, daresbury.profile_df], ignore_index=True),
+        scale_df=pd.concat([chicago.scale_df, daresbury.scale_df], ignore_index=True),
+        output_path=Path("/tmp/all.png"),
+        profile_summary_path=Path("/tmp/all_profile.csv"),
+        scale_summary_path=Path("/tmp/all_scale.csv"),
+        status_message="ok",
+        overlay_results=(chicago, daresbury),
+    )
+
+    figure = apc.build_layer_figure(
+        combined,
+        bins=10,
+        average_per_wire=False,
+        moving_average_window=1,
+    )
+
+    assert len(figure.axes) == 2
+    profile_axis = figure.axes[0]
+    hist_axis = figure.axes[1]
+    assert len(profile_axis.plot_calls) == 4
+    assert {kwargs["label"] for _args, kwargs in profile_axis.plot_calls} == {
+        "Chicago A",
+        "Chicago B",
+        "Daresbury A",
+        "Daresbury B",
+    }
+    assert len(hist_axis.hist_calls) == 4

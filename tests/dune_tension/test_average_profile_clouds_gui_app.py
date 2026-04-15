@@ -46,10 +46,18 @@ class _FakeWidget:
         self.children = []
         self.state_calls = []
         self.bindings = []
+        self.grid_calls = 0
+        self.grid_remove_calls = 0
         if master is not None and hasattr(master, "children"):
             master.children.append(self)
 
     def grid(self, *args, **kwargs):
+        self.grid_calls += 1
+        self.kwargs.update(kwargs)
+        return None
+
+    def grid_remove(self):
+        self.grid_remove_calls += 1
         return None
 
     def columnconfigure(self, *args, **kwargs):
@@ -73,6 +81,35 @@ class _FakeWidget:
 
     def configure(self, **kwargs):
         self.kwargs.update(kwargs)
+
+
+class _FakeCanvas(_FakeWidget):
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master=master, **kwargs)
+        self.created_windows = []
+        self.itemconfigure_calls = []
+
+    def create_window(self, coords, window=None, anchor=None):
+        window_id = len(self.created_windows) + 1
+        self.created_windows.append((window_id, coords, window, anchor))
+        return window_id
+
+    def bbox(self, _tag):
+        return (0, 0, 1600, 900)
+
+    def itemconfigure(self, item, **kwargs):
+        self.itemconfigure_calls.append((item, kwargs))
+
+    def yview(self, *args, **kwargs):
+        return None
+
+    def xview(self, *args, **kwargs):
+        return None
+
+
+class _FakeScrollbar(_FakeWidget):
+    def set(self, *args, **kwargs):
+        return None
 
 
 class _FakeNotebook(_FakeWidget):
@@ -128,6 +165,7 @@ def _load_module(monkeypatch):
     tk_module.StringVar = _FakeVar
     tk_module.BooleanVar = _FakeVar
     tk_module.PhotoImage = _FakePhotoImage
+    tk_module.Canvas = _FakeCanvas
     monkeypatch.setitem(sys.modules, "tkinter", tk_module)
 
     ttk_module = types.ModuleType("tkinter.ttk")
@@ -139,6 +177,7 @@ def _load_module(monkeypatch):
     ttk_module.Checkbutton = _FakeWidget
     ttk_module.Combobox = _FakeWidget
     ttk_module.Notebook = _FakeNotebook
+    ttk_module.Scrollbar = _FakeScrollbar
     monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk_module)
     tk_module.ttk = ttk_module
 
@@ -197,6 +236,40 @@ def test_schedule_refresh_debounces_existing_callback(monkeypatch):
     assert app.global_status_var.get() == "Refresh scheduled..."
 
 
+def test_sync_split_by_location_state_disables_all_locations_when_not_split(monkeypatch):
+    module = _load_module(monkeypatch)
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.source_var = _FakeVar(value="legacy")
+    app.split_by_location_var = _FakeVar(value=True)
+    app.show_all_locations_var = _FakeVar(value=True)
+    app.split_by_location_button = _FakeWidget()
+    app.show_all_locations_button = _FakeWidget()
+
+    module.AverageProfileExplorerApp._sync_split_by_location_state(app)
+
+    assert app.split_by_location_var.get() is False
+    assert app.show_all_locations_var.get() is False
+    assert app.split_by_location_button.state_calls[-1] == ("disabled",)
+    assert app.show_all_locations_button.state_calls[-1] == ("disabled",)
+
+
+def test_sync_split_by_location_state_enables_all_locations_when_split(monkeypatch):
+    module = _load_module(monkeypatch)
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.source_var = _FakeVar(value="dunedb")
+    app.split_by_location_var = _FakeVar(value=True)
+    app.show_all_locations_var = _FakeVar(value=False)
+    app.split_by_location_button = _FakeWidget()
+    app.show_all_locations_button = _FakeWidget()
+
+    module.AverageProfileExplorerApp._sync_split_by_location_state(app)
+
+    assert app.split_by_location_var.get() is True
+    assert app.show_all_locations_var.get() is False
+    assert app.split_by_location_button.state_calls[-1] == ("!disabled",)
+    assert app.show_all_locations_button.state_calls[-1] == ("!disabled",)
+
+
 def test_ensure_layer_tabs_creates_one_tab_per_layer(monkeypatch):
     module = _load_module(monkeypatch)
     app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
@@ -208,6 +281,7 @@ def test_ensure_layer_tabs_creates_one_tab_per_layer(monkeypatch):
 
     assert [text for _frame, text in app.notebook.tabs] == ["X", "V", "U", "G"]
     assert set(app._tab_state) == {"X", "V", "U", "G"}
+    assert all(state.scroll_canvas.created_windows for state in app._tab_state.values())
 
 
 def test_apply_refresh_success_updates_status_and_renders(monkeypatch):
@@ -239,8 +313,18 @@ def test_apply_refresh_error_sets_all_tab_statuses(monkeypatch):
     app._refresh_generation = 3
     app.global_status_var = _FakeVar(value="")
     app._tab_state = {
-        "X": module.LayerTabState(frame=object(), status_var=_FakeVar(value=""), content_frame=_FakeWidget()),
-        "G": module.LayerTabState(frame=object(), status_var=_FakeVar(value=""), content_frame=_FakeWidget()),
+        "X": module.LayerTabState(
+            frame=object(),
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        ),
+        "G": module.LayerTabState(
+            frame=object(),
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        ),
     }
 
     module.AverageProfileExplorerApp._apply_refresh_error(app, 3, "boom")
@@ -264,8 +348,18 @@ def test_export_current_uses_selected_tab(monkeypatch):
     frame_g = object()
     app.notebook = types.SimpleNamespace(select=lambda: str(frame_g))
     app._tab_state = {
-        "X": module.LayerTabState(frame=frame_x, status_var=_FakeVar(value=""), content_frame=_FakeWidget()),
-        "G": module.LayerTabState(frame=frame_g, status_var=_FakeVar(value=""), content_frame=_FakeWidget()),
+        "X": module.LayerTabState(
+            frame=frame_x,
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        ),
+        "G": module.LayerTabState(
+            frame=frame_g,
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        ),
     }
     app.global_status_var = _FakeVar(value="")
     options = AverageProfileCloudOptions(layers=("X", "G"))
@@ -277,3 +371,71 @@ def test_export_current_uses_selected_tab(monkeypatch):
 
     assert exported == [("G", ("X", "G"))]
     assert app.global_status_var.get() == "Exported G."
+
+
+def test_toggle_parameters_panel_hides_and_restores_controls(monkeypatch):
+    module = _load_module(monkeypatch)
+    app = module.AverageProfileExplorerApp(_FakeRoot())
+
+    assert app._controls_visible is True
+    assert app.controls_toggle_button.kwargs["text"] == "Hide parameters"
+
+    module.AverageProfileExplorerApp.toggle_parameters_panel(app)
+
+    assert app._controls_visible is False
+    assert app.controls_panel.grid_remove_calls == 1
+    assert app.controls_toggle_button.kwargs["text"] == "Show parameters"
+
+    module.AverageProfileExplorerApp.toggle_parameters_panel(app)
+
+    assert app._controls_visible is True
+    assert app.controls_panel.grid_calls >= 2
+    assert app.controls_toggle_button.kwargs["text"] == "Hide parameters"
+
+
+def test_figure_to_photo_image_saves_with_tight_padding(monkeypatch):
+    module = _load_module(monkeypatch)
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.root = _FakeRoot()
+    captured = {}
+
+    class _FakeFigure:
+        def savefig(self, destination, **kwargs):
+            destination.write(b"png-bytes")
+            captured["kwargs"] = kwargs
+
+    image = module.AverageProfileExplorerApp._figure_to_photo_image(app, _FakeFigure())
+
+    assert captured["kwargs"]["dpi"] == 100
+    assert captured["kwargs"]["format"] == "png"
+    assert captured["kwargs"]["bbox_inches"] == "tight"
+    assert captured["kwargs"]["pad_inches"] == 0.2
+    assert image.data
+
+
+def test_render_layer_results_split_by_side_builds_two_figures(monkeypatch):
+    module = _load_module(monkeypatch)
+    calls = []
+
+    def _fake_build_layer_figure(_result, **kwargs):
+        calls.append(kwargs.get("side_filter"))
+        return object()
+
+    monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
+
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.root = _FakeRoot()
+    app._tab_state = {
+        "X": module.LayerTabState(
+            frame=_FakeWidget(),
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        )
+    }
+    app._figure_to_photo_image = lambda _figure: object()
+
+    options = AverageProfileCloudOptions(split_by_side=True)
+    module.AverageProfileExplorerApp._render_layer_results(app, "X", [_make_result("X")], options)
+
+    assert calls == ["A", "B"]
