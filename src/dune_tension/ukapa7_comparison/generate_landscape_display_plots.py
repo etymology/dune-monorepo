@@ -44,11 +44,11 @@ def _stats_text(values: pd.Series) -> str:
     arr = values.to_numpy(dtype=float)
     arr = arr[np.isfinite(arr)]
     if arr.size < 2:
-        return "μ=nan, σ=nan, mode=nan"
+        return "μ=nan, σ=nan, mode=nan, min=nan, max=nan"
     mean = float(np.mean(arr))
     sigma = float(np.std(arr, ddof=1))
     mode = _kde_mode(arr)
-    return f"μ={mean:.2f}, σ={sigma:.2f}, mode={mode:.2f}"
+    return f"μ={mean:.2f}, σ={sigma:.2f}, mode={mode:.2f}, min={arr.min():.2f}, max={arr.max():.2f}"
 
 
 def _plot_side_raw(
@@ -231,7 +231,7 @@ def _plot_layer_residuals(
             color=colors[side],
             label=label,
         )
-        bottom_ax.axvline(float(residual.mean()), color=colors[side], linewidth=1.5)
+        # Intentionally omit vertical reference lines for display clarity.
 
     if not plotted:
         top_ax.text(
@@ -248,18 +248,39 @@ def _plot_layer_residuals(
         return
 
     top_ax.axhline(0.0, color="black", linestyle="--", linewidth=1)
-    top_ax.set_title(f"Layer {layer} Residuals by Wire (Chicago - UK)")
+    top_ax.set_title(f"Layer {layer} Change in Tension by Wire (Chicago - UK)")
     top_ax.set_xlabel("Wire Number")
-    top_ax.set_ylabel("Residual (N)")
+    top_ax.set_ylabel("Change in Tension (N)")
     top_ax.grid(True, linestyle=":", linewidth=0.5, color="gray")
     top_ax.legend(fontsize=8, loc="upper right")
 
-    bottom_ax.axvline(0.0, color="black", linestyle="--", linewidth=1)
-    bottom_ax.set_title("Residual Distribution")
-    bottom_ax.set_xlabel("Residual (N)")
+    bottom_ax.set_title("Change in Tension Distribution")
+    bottom_ax.set_xlabel("Change in Tension (N)")
     bottom_ax.set_ylabel("Count")
     bottom_ax.grid(True, linestyle=":", linewidth=0.5, color="gray")
     bottom_ax.legend(fontsize=8, loc="upper left")
+
+
+def save_layer_change_in_tension_plot(
+    *,
+    action_json: Path,
+    summary_csv: Path,
+    layer: str,
+    output_path: Path,
+) -> None:
+    """Save a 2x1 change-in-tension plot for a single layer, using best B mapping."""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    comp = build_comparison_frame(action_json, summary_csv)
+    corrected_b, _model = _best_b_mapping(
+        layer=layer, action_json=action_json, summary_csv=summary_csv
+    )
+
+    fig, axes = plt.subplots(2, 1, figsize=(16, 9), constrained_layout=True)
+    _plot_layer_residuals(axes, comp, layer=layer, corrected_b=corrected_b)
+    fig.suptitle(f"UKAPA7 Layer {layer}: Change in Tension (Chicago - UK)")
+    fig.savefig(output_path, dpi=300)
+    plt.close(fig)
 
 
 def save_residuals_g_vs_u_landscape_plot(
@@ -329,6 +350,19 @@ def main() -> int:
         action_json_u=args.action_json_u,
         summary_csv_u=args.summary_csv_u,
         output_path=output_dir / "ukapa7_residuals_G_vs_U.png",
+    )
+
+    save_layer_change_in_tension_plot(
+        action_json=args.action_json_g,
+        summary_csv=args.summary_csv_g,
+        layer="G",
+        output_path=output_dir / "ukapa7_change_in_tension_G.png",
+    )
+    save_layer_change_in_tension_plot(
+        action_json=args.action_json_u,
+        summary_csv=args.summary_csv_u,
+        layer="U",
+        output_path=output_dir / "ukapa7_change_in_tension_U.png",
     )
     return 0
 
