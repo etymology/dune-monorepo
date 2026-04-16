@@ -72,6 +72,26 @@ class WirePathModel:
     return self._anchorPoint
 
   # ---------------------------------------------------------------------
+  def anchorOffset(self):
+    """
+    Return the currently active tangent offset from the anchor point.
+
+    Returns:
+      Location object describing the offset applied after pin compensation.
+    """
+    return self._anchorOffset.copy()
+
+  # ---------------------------------------------------------------------
+  def compensatedAnchorPoint(self):
+    """
+    Return the effective anchor point after pin compensation.
+
+    Returns:
+      Location object with the anchor point and current tangent offset applied.
+    """
+    return self._anchorPoint.add(self._anchorOffset)
+
+  # ---------------------------------------------------------------------
   def pinCompensation(self, endPoint):
     """
     Get the anchor position while compensating for the pin radius.

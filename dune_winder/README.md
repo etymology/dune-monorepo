@@ -102,6 +102,20 @@ Apply special input overrides:
 uv run uv run python -m dune_winder.recipes.v_template_gcode gc_files/V-layer.gc --recipe --special transferPause=true --special head_a_offset=7
 ```
 
+### UV tangency analysis utility
+
+Replay a rendered U/V wrap site and inspect commanded vs actual wire geometry:
+
+```bash
+uv run python -m dune_winder.analysis.uv_tangency_analysis --layer U --wrap 71 --site top_a_head_end
+```
+
+Compare the same site across both UV layers:
+
+```bash
+uv run python -m dune_winder.analysis.uv_tangency_analysis --layer U --wrap 71 --site top_a_head_end --compare-layer V
+```
+
 ### X/G-layer generator (Python API)
 
 ```python
