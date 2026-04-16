@@ -668,6 +668,17 @@ def build_command_registry(
     lambda args: (_validateArgs(args), process.getRecipePeriod())[1],
     False,
   )
+
+  def process_set_recipe_layer(args):
+    _validateArgs(args, required=("layer",))
+    if process.workspace is None:
+      raise ValueError("No workspace is loaded.")
+    layer = _asString(args["layer"], "layer")
+    process.workspace.setLayer(layer)
+    return None
+
+  registry.register("process.set_recipe_layer", process_set_recipe_layer, True)
+
   registry.register(
     "process.get_workspace_state",
     lambda args: (_validateArgs(args), process.getWorkspaceState())[1],

@@ -33,6 +33,7 @@
       getRecipes: "process.get_recipes",
       getRecipeName: "process.get_recipe_name",
       getRecipeLayer: "process.get_recipe_layer",
+      setRecipeLayer: "process.set_recipe_layer",
       getRecipePeriod: "process.get_recipe_period",
       getLayerCalibration: "process.get_layer_calibration",
       getAPADetailedList: "process.get_apa_detailed_list",

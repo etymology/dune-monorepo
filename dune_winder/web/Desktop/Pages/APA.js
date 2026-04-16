@@ -157,6 +157,9 @@ function APA(modules) {
       if (matchedRecipe) {
         $("#gCodeSelection").val(matchedRecipe);
         self.selectG_Code();
+      } else {
+        // No recipe for this layer — update the active layer only.
+        call(commands.process.setRecipeLayer, { layer: layer });
       }
     });
   };

@@ -191,6 +191,15 @@ class WinderWorkspace:
     self._y = y
     self._headLocation = headLocation
 
+  def setLayer(self, layer):
+    self._layer = layer
+    self._calibrationFile = self._layer + "_Calibration.json" if self._layer is not None else None
+    if self._calibrationFile:
+      self._loadCalibrationFromDisk()
+    else:
+      self._useCalibration(None)
+    self._saveState()
+
   def _loadState(self):
     if self._systemTime:
       self._loadStart = self._systemTime.get()
