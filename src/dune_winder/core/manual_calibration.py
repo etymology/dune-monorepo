@@ -351,6 +351,23 @@ def build_nominal_calibration(layer):
       xValue -= xIncrement
       yValue -= yIncrement
 
+  if layer in ("U", "V"):
+    if "U" == layer:
+      targetB1X = 570.0
+      targetB1Y = 2455.0
+    else:
+      targetB1X = 635.0
+      targetB1Y = 2350.0
+    b1Location = calibration.getPinLocation("B1")
+    deltaX = targetB1X - b1Location.x
+    deltaY = targetB1Y - b1Location.y
+    for pinName in calibration.getPinNames():
+      location = calibration.getPinLocation(pinName)
+      calibration.setPinLocation(
+        pinName,
+        Location(location.x + deltaX, location.y + deltaY, location.z),
+      )
+
   return calibration
 
 
