@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 import dune_tension.layer_calibration as layer_calibration
 
@@ -151,6 +152,89 @@ def test_get_calibrated_pin_xy_for_side_uses_resolved_pin_name(monkeypatch) -> N
 
     assert layer_calibration.get_calibrated_pin_xy_for_side("V", "A", "B400") == (3.0, 4.0)
     assert layer_calibration.get_calibrated_pin_xy_for_side("V", "B", "F2399") == (1.0, 2.0)
+
+
+def test_ensure_local_layer_calibration_file_generates_default_when_missing(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    calibration_dir = tmp_path / "config" / "APA"
+    monkeypatch.setattr(layer_calibration, "APA_CALIBRATION_DIR", calibration_dir)
+
+    generated = []
+
+    class _FakeDefaultLayerCalibration:
+        def __init__(self, output_file_path, output_file_name, layer_name):
+            generated.append((output_file_path, output_file_name, layer_name))
+            target = calibration_dir / output_file_name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('{\n  "layer": "' + layer_name + '"\n}\n', encoding="utf-8")
+
+    monkeypatch.setattr(
+        layer_calibration,
+        "DefaultLayerCalibration",
+        _FakeDefaultLayerCalibration,
+    )
+
+    path = layer_calibration.ensure_local_layer_calibration_file("V")
+
+    assert path == calibration_dir / "V_Calibration.json"
+    assert path.read_text(encoding="utf-8") == '{\n  "layer": "V"\n}\n'
+    assert generated == [(str(calibration_dir), "V_Calibration.json", "V")]
+
+
+def test_load_normalized_layer_calibration_uses_generated_default_when_missing(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    calibration_dir = tmp_path / "config" / "APA"
+    monkeypatch.setattr(layer_calibration, "APA_CALIBRATION_DIR", calibration_dir)
+
+    class _FakeDefaultLayerCalibration:
+        def __init__(self, output_file_path, output_file_name, layer_name):
+            target = Path(output_file_path) / output_file_name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('{\n  "layer": "' + layer_name + '"\n}\n', encoding="utf-8")
+
+    class _FakeLayerCalibration:
+        def __init__(self, layer):
+            self.layer = layer
+            self.loaded = None
+
+        def load(self, directory, filename):
+            self.loaded = (directory, filename)
+
+    class _FakeNormalizedCalibration:
+        def getPinNames(self):
+            return ["B1"]
+
+        def getPinLocation(self, pin_name):
+            assert pin_name == "B1"
+            return type("Location", (), {"x": 1.0, "y": 2.0, "z": 3.0})()
+
+    monkeypatch.setattr(
+        layer_calibration,
+        "DefaultLayerCalibration",
+        _FakeDefaultLayerCalibration,
+    )
+    monkeypatch.setattr(layer_calibration, "LayerCalibration", _FakeLayerCalibration)
+    monkeypatch.setattr(
+        layer_calibration,
+        "normalize_calibration",
+        lambda calibration, requested_layer: _FakeNormalizedCalibration(),
+    )
+    monkeypatch.setattr(
+        layer_calibration,
+        "create_layer_geometry",
+        lambda _layer: type("Geometry", (), {"pinDiameter": 2.43})(),
+    )
+
+    payload = layer_calibration.load_normalized_layer_calibration("V")
+
+    assert payload["layer"] == "V"
+    assert payload["calibrationFile"] == "V_Calibration.json"
+    assert payload["pinDiameterMm"] == 2.43
+    assert payload["locations"]["B1"] == {"x": 1.0, "y": 2.0, "z": 3.0}
 
 
 def test_bottom_back_pin_to_front_pin_uses_uv_translation_formula() -> None:

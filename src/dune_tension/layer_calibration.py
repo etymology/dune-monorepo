@@ -17,6 +17,7 @@ from dune_tension.plc_desktop import (
     desktop_get_layer_calibration_json,
 )
 from dune_winder.core.manual_calibration import _build_layer_metadata, normalize_calibration
+from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.factory import create_layer_geometry
 from dune_winder.machine.geometry.layer_functions import LayerFunctions
@@ -89,6 +90,23 @@ def _hash_file(path: Path) -> str | None:
 
 def get_local_layer_calibration_path(layer: str) -> Path:
     return APA_CALIBRATION_DIR / f"{_normalize_layer(layer)}_Calibration.json"
+
+
+def ensure_local_layer_calibration_file(layer: str) -> Path:
+    requested_layer = _normalize_layer(layer)
+    local_path = get_local_layer_calibration_path(requested_layer)
+    if local_path.is_file():
+        return local_path
+
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    DefaultLayerCalibration(str(local_path.parent), local_path.name, requested_layer)
+    clear_layer_calibration_cache()
+    LOGGER.warning(
+        "Local calibration file missing for layer %s; generated default calibration at %s.",
+        requested_layer,
+        local_path,
+    )
+    return local_path
 
 
 def get_active_loaded_layer() -> str | None:
@@ -171,15 +189,13 @@ def ensure_layer_calibration_ready(layer: str) -> CalibrationSyncResult | None:
         return sync_layer_calibration_from_desktop(requested_layer)
 
     ensure_local_layer_matches_active(requested_layer)
-    local_path = get_local_layer_calibration_path(requested_layer)
-    if not local_path.is_file():
-        raise FileNotFoundError(f"Local calibration file not found: {local_path}")
+    ensure_local_layer_calibration_file(requested_layer)
     return None
 
 
 def load_normalized_layer_calibration(layer: str) -> dict[str, Any]:
     requested_layer = _normalize_layer(layer)
-    local_path = get_local_layer_calibration_path(requested_layer)
+    local_path = ensure_local_layer_calibration_file(requested_layer)
     calibration = LayerCalibration(layer=requested_layer)
     calibration.load(str(local_path.parent), local_path.name)
     normalized = normalize_calibration(calibration, requested_layer)

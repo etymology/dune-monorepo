@@ -14,10 +14,11 @@ import numpy as np
 import pandas as pd
 from pandas.errors import ParserError
 from scipy.ndimage import gaussian_filter1d
-from scipy.stats import gaussian_kde
+from scipy.stats import gaussian_kde, pearsonr, spearmanr
 
 from dune_tension.data_cache import select_dataframe
 from dune_tension.paths import data_path, tension_data_db_path
+from dune_tension.uv_wire_recipe_map import build_uv_wire_recipe_maps
 
 
 # Trim all tension values outside this band.
@@ -32,6 +33,29 @@ DUNEDB_LOCATIONS = ("chicago", "daresbury")
 DEFAULT_DUNEDB_SQLITE = data_path(
     "tension_data",
     "dunedb_all_locations_all_apas_tension_data.sqlite",
+)
+PLOT_MODE_WIRE_NUMBER = "wire_number"
+PLOT_MODE_WRAP_NUMBER = "wrap_number"
+PLOT_MODE_APPLIED_LENGTH = "applied_length_mm"
+PLOT_MODE_ENDPOINT_MAPPING = "endpoint_side_mapping"
+PLOT_MODE_ENDPOINT_CATEGORIES = "endpoint_categories"
+PLOT_MODE_LABELS = {
+    PLOT_MODE_WIRE_NUMBER: "Wire Number",
+    PLOT_MODE_WRAP_NUMBER: "Wrap Number",
+    PLOT_MODE_APPLIED_LENGTH: "Applied Length (mm)",
+    PLOT_MODE_ENDPOINT_MAPPING: "Endpoint Side Mapping",
+    PLOT_MODE_ENDPOINT_CATEGORIES: "Endpoint Categories",
+}
+UV_METADATA_COLUMNS = (
+    "wrap_number",
+    "applied_length_mm",
+    "start_side",
+    "end_side",
+    "endpoint_side_mapping",
+    "start_endpoint_kind",
+    "end_endpoint_kind",
+    "uv_path_family",
+    "uv_terminal_group",
 )
 
 
@@ -903,6 +927,395 @@ def _rolling_mean(values: pd.Series, window: int = 15) -> pd.Series:
     return values.rolling(window=window, center=True, min_periods=1).mean()
 
 
+def plot_mode_supported_for_layer(layer: str, plot_mode: str) -> bool:
+    if str(plot_mode).strip() == PLOT_MODE_WIRE_NUMBER:
+        return True
+    return str(layer).strip().upper() in {"U", "V"}
+
+
+def _normalize_endpoint_kind(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return normalized or None
+
+
+def _normalize_measurement_side(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().upper()
+    return normalized or None
+
+
+def _classify_uv_endpoint_path(
+    start_side: str | None,
+    end_side: str | None,
+) -> tuple[str | None, str | None]:
+    start_kind = _normalize_endpoint_kind(start_side)
+    end_kind = _normalize_endpoint_kind(end_side)
+    if start_kind is None or end_kind is None:
+        return None, None
+
+    endpoint_kinds = {start_kind, end_kind}
+    if endpoint_kinds == {"top", "bottom"}:
+        if end_kind == "top":
+            return "top_bottom", "ends_at_top"
+        if end_kind == "bottom":
+            return "top_bottom", "ends_at_bottom"
+        return "top_bottom", None
+
+    if "head" in endpoint_kinds or "foot" in endpoint_kinds:
+        if start_kind in {"head", "foot"}:
+            return "head_foot", "starts_on_head_or_foot"
+        if end_kind in {"head", "foot"}:
+            return "head_foot", "ends_on_head_or_foot"
+        return "head_foot", None
+
+    return None, None
+
+
+def _canonical_endpoint_side_mapping(
+    start_side: str | None,
+    end_side: str | None,
+) -> tuple[str, ...] | None:
+    if None in {start_side, end_side}:
+        return None
+    ordered = []
+    for side in (start_side, end_side):
+        normalized = str(side).strip().lower()
+        if normalized and normalized not in ordered:
+            ordered.append(normalized)
+    return tuple(ordered) or None
+
+
+@lru_cache(maxsize=2)
+def _uv_recipe_maps(layer: str):
+    return build_uv_wire_recipe_maps(layer)
+
+
+def _enrich_cloud_with_uv_recipe_metadata(cloud: pd.DataFrame, *, layer: str) -> pd.DataFrame:
+    enriched = cloud.copy()
+    if enriched.empty:
+        for column in UV_METADATA_COLUMNS:
+            enriched[column] = pd.Series(
+                dtype="float64" if column in {"wrap_number", "applied_length_mm"} else "object"
+            )
+        return enriched
+
+    if str(layer).strip().upper() not in {"U", "V"}:
+        enriched["wrap_number"] = np.nan
+        enriched["applied_length_mm"] = np.nan
+        enriched["start_side"] = None
+        enriched["end_side"] = None
+        enriched["endpoint_side_mapping"] = None
+        enriched["start_endpoint_kind"] = None
+        enriched["end_endpoint_kind"] = None
+        enriched["uv_path_family"] = None
+        enriched["uv_terminal_group"] = None
+        return enriched
+
+    recipe_maps = _uv_recipe_maps(layer)
+    wrap_numbers: list[float] = []
+    applied_lengths: list[float] = []
+    start_sides: list[str | None] = []
+    end_sides: list[str | None] = []
+    endpoint_mappings: list[str | None] = []
+    start_endpoint_kinds: list[str | None] = []
+    end_endpoint_kinds: list[str | None] = []
+    uv_path_families: list[str | None] = []
+    uv_terminal_groups: list[str | None] = []
+    measurement_sides = (
+        enriched["side"]
+        if "side" in enriched.columns
+        else pd.Series([None] * len(enriched), index=enriched.index, dtype="object")
+    )
+    for raw_wire_number, raw_measurement_side in zip(
+        pd.to_numeric(enriched["wire_number"], errors="coerce"),
+        measurement_sides,
+        strict=False,
+    ):
+        if not np.isfinite(raw_wire_number):
+            wrap_numbers.append(float("nan"))
+            applied_lengths.append(float("nan"))
+            start_sides.append(None)
+            end_sides.append(None)
+            endpoint_mappings.append(None)
+            start_endpoint_kinds.append(None)
+            end_endpoint_kinds.append(None)
+            uv_path_families.append(None)
+            uv_terminal_groups.append(None)
+            continue
+        wire_number = int(raw_wire_number)
+        wrap_ref = recipe_maps.wire_to_wrap.get(wire_number)
+        endpoint_sides = recipe_maps.wire_to_endpoint_sides.get(wire_number)
+        wrap_numbers.append(float("nan") if wrap_ref is None else float(wrap_ref.wrap_number))
+        applied_lengths.append(
+            float(recipe_maps.wire_to_applied_length_mm.get(wire_number, float("nan")))
+        )
+        if endpoint_sides is None:
+            start_sides.append(None)
+            end_sides.append(None)
+            endpoint_mappings.append(None)
+            start_endpoint_kinds.append(None)
+            end_endpoint_kinds.append(None)
+            uv_path_families.append(None)
+            uv_terminal_groups.append(None)
+            continue
+        start_side, end_side = endpoint_sides
+        measurement_side = _normalize_measurement_side(raw_measurement_side)
+        if measurement_side == "A":
+            start_side, end_side = end_side, start_side
+        start_kind = _normalize_endpoint_kind(start_side)
+        end_kind = _normalize_endpoint_kind(end_side)
+        path_family, terminal_group = _classify_uv_endpoint_path(start_kind, end_kind)
+        start_sides.append(start_side)
+        end_sides.append(end_side)
+        endpoint_mappings.append(_canonical_endpoint_side_mapping(start_side, end_side))
+        start_endpoint_kinds.append(start_kind)
+        end_endpoint_kinds.append(end_kind)
+        uv_path_families.append(path_family)
+        uv_terminal_groups.append(terminal_group)
+
+    enriched["wrap_number"] = pd.Series(wrap_numbers, index=enriched.index, dtype="float64")
+    enriched["applied_length_mm"] = pd.Series(
+        applied_lengths, index=enriched.index, dtype="float64"
+    )
+    enriched["start_side"] = pd.Series(start_sides, index=enriched.index, dtype="object")
+    enriched["end_side"] = pd.Series(end_sides, index=enriched.index, dtype="object")
+    enriched["endpoint_side_mapping"] = pd.Series(
+        endpoint_mappings, index=enriched.index, dtype="object"
+    )
+    enriched["start_endpoint_kind"] = pd.Series(
+        start_endpoint_kinds, index=enriched.index, dtype="object"
+    )
+    enriched["end_endpoint_kind"] = pd.Series(
+        end_endpoint_kinds, index=enriched.index, dtype="object"
+    )
+    enriched["uv_path_family"] = pd.Series(
+        uv_path_families, index=enriched.index, dtype="object"
+    )
+    enriched["uv_terminal_group"] = pd.Series(
+        uv_terminal_groups, index=enriched.index, dtype="object"
+    )
+    return enriched
+
+
+def _aggregate_cloud_for_endpoint_categories(
+    cloud: pd.DataFrame,
+    *,
+    average_per_wire: bool,
+) -> pd.DataFrame:
+    aggregated = cloud.copy()
+    if aggregated.empty:
+        return aggregated
+    if not average_per_wire:
+        return aggregated
+
+    group_columns = [
+        "wire_number",
+        "wrap_number",
+        "applied_length_mm",
+        "start_side",
+        "end_side",
+        "endpoint_side_mapping",
+        "start_endpoint_kind",
+        "end_endpoint_kind",
+        "uv_path_family",
+        "uv_terminal_group",
+    ]
+    present_group_columns = [column for column in group_columns if column in aggregated.columns]
+    if not present_group_columns:
+        return aggregated
+    return (
+        aggregated.groupby(present_group_columns, as_index=False, dropna=False)
+        .agg(tension=("tension", "mean"))
+        .sort_values(["uv_path_family", "uv_terminal_group", "wire_number"], na_position="last")
+        .reset_index(drop=True)
+    )
+
+
+def _render_endpoint_categories_view(
+    figure,
+    *,
+    result: LayerAnalysisResult,
+    average_per_wire: bool,
+    moving_average_window: int,
+):
+    colors = {
+        "ends_at_top": "tab:blue",
+        "ends_at_bottom": "tab:orange",
+        "starts_on_head_or_foot": "tab:green",
+        "ends_on_head_or_foot": "tab:red",
+    }
+    labels = {
+        "ends_at_top": "Ends At Top",
+        "ends_at_bottom": "Ends At Bottom",
+        "starts_on_head_or_foot": "Starts On Head/Foot",
+        "ends_on_head_or_foot": "Ends On Head/Foot",
+    }
+    title_prefix = (
+        f"Layer {result.layer}"
+        if result.location_label is None
+        else f"Layer {result.layer} ({result.location_label})"
+    )
+
+    grid = figure.add_gridspec(2, 2)
+    top_bottom_axis = figure.add_subplot(grid[0, 0])
+    head_foot_wrap_axis = figure.add_subplot(grid[0, 1])
+    head_foot_length_axis = figure.add_subplot(grid[1, 0])
+    summary_axis = figure.add_subplot(grid[1, 1])
+
+    aggregated = _aggregate_cloud_for_endpoint_categories(
+        result.cloud,
+        average_per_wire=average_per_wire,
+    )
+    numeric_columns = ["wrap_number", "applied_length_mm", "tension"]
+    for column in numeric_columns:
+        if column in aggregated.columns:
+            aggregated[column] = pd.to_numeric(aggregated[column], errors="coerce")
+
+    panels = [
+        (
+            top_bottom_axis,
+            aggregated[
+                (aggregated["uv_path_family"] == "top_bottom")
+                & (aggregated["uv_terminal_group"].isin(["ends_at_top", "ends_at_bottom"]))
+            ],
+            "wrap_number",
+            ["ends_at_top", "ends_at_bottom"],
+            "Top-Bottom Wires vs Wrap Number",
+            "Wrap Number",
+        ),
+        (
+            head_foot_wrap_axis,
+            aggregated[
+                (aggregated["uv_path_family"] == "head_foot")
+                & (
+                    aggregated["uv_terminal_group"].isin(
+                        ["starts_on_head_or_foot", "ends_on_head_or_foot"]
+                    )
+                )
+            ],
+            "wrap_number",
+            ["starts_on_head_or_foot", "ends_on_head_or_foot"],
+            "Head/Foot Wires vs Wrap Number",
+            "Wrap Number",
+        ),
+        (
+            head_foot_length_axis,
+            aggregated[
+                (aggregated["uv_path_family"] == "head_foot")
+                & (
+                    aggregated["uv_terminal_group"].isin(
+                        ["starts_on_head_or_foot", "ends_on_head_or_foot"]
+                    )
+                )
+            ],
+            "applied_length_mm",
+            ["starts_on_head_or_foot", "ends_on_head_or_foot"],
+            "Head/Foot Wires vs Applied Length",
+            "Applied Length (mm)",
+        ),
+    ]
+
+    summary_lines = [
+        f"{title_prefix}: Endpoint Categories",
+        f"Global raw mode={result.global_mode_value:.3f}"
+        if np.isfinite(result.global_mode_value)
+        else "Global raw mode=nan",
+    ]
+
+    for axis, panel_df, x_column, groups, title, xlabel in panels:
+        plotted_groups = 0
+        for group in groups:
+            subset = panel_df[panel_df["uv_terminal_group"] == group].copy()
+            subset = subset[[x_column, "tension"]].dropna()
+            if subset.empty:
+                continue
+            plotted_groups += 1
+            subset = subset.sort_values(x_column)
+            color = colors[group]
+            axis.scatter(
+                subset[x_column].to_numpy(dtype="float64", copy=False),
+                subset["tension"].to_numpy(dtype="float64", copy=False),
+                s=10 if average_per_wire else 7,
+                alpha=0.55 if average_per_wire else 0.18,
+                color=color,
+                edgecolors="none",
+                label=labels[group],
+            )
+            axis.plot(
+                subset[x_column],
+                _rolling_mean(subset["tension"], window=moving_average_window),
+                linewidth=2.0,
+                alpha=0.9,
+                color=color,
+                label=f"{labels[group]} Trend",
+            )
+            pearson_value, spearman_value = _correlation_stats(subset, x_column=x_column)
+            summary_lines.append(
+                f"{labels[group]} ({xlabel}): "
+                f"Pearson={pearson_value:.3f}, Spearman={spearman_value:.3f}, n={len(subset)}"
+            )
+
+        axis.set_title(f"{title_prefix}: {title}")
+        axis.set_xlabel(xlabel)
+        axis.set_ylabel("Scaled Tension (N)")
+        axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+        if plotted_groups:
+            axis.legend(loc="upper right", fontsize=8, frameon=True)
+
+    summary_axis.set_axis_off()
+    summary_axis.text(
+        0.02,
+        0.98,
+        "\n".join(summary_lines),
+        transform=summary_axis.transAxes,
+        va="top",
+        ha="left",
+        fontsize=9,
+        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.9},
+    )
+
+    return figure
+
+
+def _correlation_stats(subset: pd.DataFrame, *, x_column: str) -> tuple[float, float]:
+    numeric = subset[[x_column, "tension"]].apply(pd.to_numeric, errors="coerce").dropna()
+    if len(numeric) < 2:
+        return float("nan"), float("nan")
+    if numeric[x_column].nunique() < 2 or numeric["tension"].nunique() < 2:
+        return float("nan"), float("nan")
+    return (
+        float(pearsonr(numeric[x_column], numeric["tension"]).statistic),
+        float(spearmanr(numeric[x_column], numeric["tension"]).statistic),
+    )
+
+
+def _render_numeric_profile_cloud(
+    axis,
+    *,
+    subset: pd.DataFrame,
+    color: str,
+    average_per_wire: bool,
+    x_column: str,
+) -> None:
+    numeric = subset[[x_column, "tension"]].apply(pd.to_numeric, errors="coerce").dropna()
+    if numeric.empty:
+        return
+
+    marker_size = 10 if average_per_wire else 7
+    marker_alpha = 0.55 if average_per_wire else 0.12
+    axis.scatter(
+        numeric[x_column].to_numpy(dtype="float64", copy=False),
+        numeric["tension"].to_numpy(dtype="float64", copy=False),
+        s=marker_size,
+        alpha=marker_alpha,
+        color=color,
+        edgecolors="none",
+    )
+
+
 def _render_profile_cloud(
     axis,
     *,
@@ -910,23 +1323,99 @@ def _render_profile_cloud(
     color: str,
     average_per_wire: bool,
 ) -> None:
-    point_count = int(len(subset))
-    if point_count == 0:
-        return
-
-    x_values = subset["wire_number"].to_numpy(dtype="float64", copy=False)
-    y_values = subset["tension"].to_numpy(dtype="float64", copy=False)
-
-    marker_size = 10 if average_per_wire else 7
-    marker_alpha = 0.55 if average_per_wire else 0.12
-    axis.scatter(
-        x_values,
-        y_values,
-        s=marker_size,
-        alpha=marker_alpha,
+    _render_numeric_profile_cloud(
+        axis,
+        subset=subset,
         color=color,
-        edgecolors="none",
+        average_per_wire=average_per_wire,
+        x_column="wire_number",
     )
+
+
+def _render_endpoint_mapping_view(
+    axis,
+    *,
+    overlay_results: list[LayerAnalysisResult],
+    sides_to_plot: tuple[str, ...],
+    average_per_wire: bool,
+    side_filter: str | None,
+    title_prefix: str,
+) -> list[str]:
+    colors = {"A": "tab:blue", "B": "tab:orange"}
+    entries: list[tuple[str, str, str, pd.DataFrame]] = []
+    for location_index, location_result in enumerate(overlay_results):
+        location_label = location_result.location_label or f"Location {location_index + 1}"
+        for side in sides_to_plot:
+            subset = location_result.cloud[location_result.cloud["side"] == side].copy()
+            subset = subset.dropna(subset=["tension"])
+            if subset.empty:
+                continue
+            category_rows: list[pd.DataFrame] = []
+            for endpoint_column in ("start_side", "end_side"):
+                endpoint_subset = subset.dropna(subset=[endpoint_column]).copy()
+                if endpoint_subset.empty:
+                    continue
+                endpoint_subset["plot_category"] = (
+                    endpoint_subset[endpoint_column].astype(str).str.strip().str.lower()
+                )
+                category_rows.append(endpoint_subset)
+            if not category_rows:
+                continue
+            subset = pd.concat(category_rows, ignore_index=True)
+            if len(overlay_results) > 1:
+                subset["plot_category"] = subset["plot_category"] + "\n" + location_label
+            entries.append((location_label, side, colors[side], subset))
+
+    categories = sorted(
+        {str(category) for _location, _side, _color, subset in entries for category in subset["plot_category"].unique()}
+    )
+    if not categories:
+        axis.set_title(f"{title_prefix}: Endpoint Side Mapping")
+        return []
+
+    category_positions = {label: index + 1 for index, label in enumerate(categories)}
+    side_offsets = {"A": -0.18, "B": 0.18}
+    plotted_sides: list[str] = []
+    for location_label, side, color, subset in entries:
+        grouped = subset.groupby("plot_category")["tension"]
+        plotted_sides.append(side)
+        for category, values in grouped:
+            values_array = values.astype("float64").to_numpy()
+            if values_array.size == 0:
+                continue
+            position = category_positions[str(category)] + side_offsets.get(side, 0.0)
+            axis.boxplot(
+                [values_array.tolist()],
+                positions=[position],
+                widths=0.28,
+                patch_artist=True,
+                boxprops={"facecolor": color, "alpha": 0.25, "edgecolor": color},
+                medianprops={"color": color},
+                whiskerprops={"color": color},
+                capprops={"color": color},
+            )
+            jitter = np.linspace(-0.04, 0.04, num=values_array.size) if values_array.size > 1 else np.asarray([0.0])
+            marker_alpha = 0.55 if average_per_wire else 0.18
+            axis.scatter(
+                np.full(values_array.size, position, dtype="float64") + jitter,
+                values_array,
+                s=12 if average_per_wire else 8,
+                alpha=marker_alpha,
+                color=color,
+                edgecolors="none",
+                label=location_label if side_filter is not None else f"{location_label} {side}",
+            )
+
+    axis.set_xticks([category_positions[label] for label in categories])
+    axis.set_xticklabels(categories, rotation=20, ha="right")
+    axis.set_xlabel(PLOT_MODE_LABELS[PLOT_MODE_ENDPOINT_MAPPING])
+    axis.set_ylabel("Scaled Tension (N)")
+    axis.set_title(
+        f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} Endpoint Mapping"
+    )
+    axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+    axis.legend(loc="upper right", fontsize=8, frameon=True)
+    return plotted_sides
 
 
 def build_layer_figure(
@@ -936,12 +1425,24 @@ def build_layer_figure(
     average_per_wire: bool,
     moving_average_window: int,
     side_filter: str | None = None,
+    plot_mode: str = PLOT_MODE_WIRE_NUMBER,
 ):
   from matplotlib.figure import Figure
 
   side_filter = None if side_filter is None else str(side_filter).strip().upper()
   if side_filter is not None and side_filter not in SIDES:
     raise ValueError(f"Unsupported side {side_filter!r}; expected one of {SIDES}")
+  plot_mode = str(plot_mode).strip()
+
+  if plot_mode == PLOT_MODE_ENDPOINT_CATEGORIES:
+    fig = Figure(figsize=(16, 10), constrained_layout=True)
+    return _render_endpoint_categories_view(
+      fig,
+      result=result,
+      average_per_wire=average_per_wire,
+      moving_average_window=moving_average_window,
+    )
+
   sides_to_plot = (side_filter,) if side_filter is not None else SIDES
 
   fig = Figure(figsize=(16, 8), constrained_layout=True)
@@ -959,57 +1460,77 @@ def build_layer_figure(
   if side_filter is not None:
     title_prefix = f"{title_prefix} Side {side_filter}"
   plotted_sides: list[str] = []
+  profile_stats_lines: list[str] = []
+  if plot_mode == PLOT_MODE_ENDPOINT_MAPPING:
+    plotted_sides = _render_endpoint_mapping_view(
+      profile_axis,
+      overlay_results=overlay_results,
+      sides_to_plot=sides_to_plot,
+      average_per_wire=average_per_wire,
+      side_filter=side_filter,
+      title_prefix=title_prefix,
+    )
+  else:
+    x_column = "wire_number" if plot_mode == PLOT_MODE_WIRE_NUMBER else plot_mode
+    for location_index, location_result in enumerate(overlay_results):
+      location_label = location_result.location_label or f"Location {location_index + 1}"
+      linestyle = _location_line_style(location_index)
+      for side in sides_to_plot:
+        subset = location_result.cloud[location_result.cloud["side"] == side].copy()
+        if subset.empty:
+          continue
 
-  for location_index, location_result in enumerate(overlay_results):
-    location_label = location_result.location_label or f"Location {location_index + 1}"
-    linestyle = _location_line_style(location_index)
-    for side in sides_to_plot:
-      subset = location_result.cloud[location_result.cloud["side"] == side].copy()
-      if subset.empty:
-        continue
+        plotted_sides.append(side)
+        _render_numeric_profile_cloud(
+          profile_axis,
+          subset=subset,
+          color=colors[side],
+          average_per_wire=average_per_wire,
+          x_column=x_column,
+        )
 
-      plotted_sides.append(side)
-      _render_profile_cloud(
-        profile_axis,
-        subset=subset,
-        color=colors[side],
-        average_per_wire=average_per_wire,
-      )
-
-      mu = location_result.mu_by_side.get(side, pd.Series(dtype="float64"))
-      mu_frame = mu.rename("mu").reset_index()
-      if not mu_frame.empty:
-        mu_frame.columns = ["wire_number", "mu"]
-        mu_frame = mu_frame.dropna(subset=["mu"]).sort_values("wire_number")
-        if not mu_frame.empty:
+        numeric_subset = subset[[x_column, "tension"]].apply(pd.to_numeric, errors="coerce").dropna()
+        numeric_subset = numeric_subset.sort_values(x_column)
+        if not numeric_subset.empty:
           profile_axis.plot(
-            mu_frame["wire_number"],
-            _rolling_mean(mu_frame["mu"], window=moving_average_window),
+            numeric_subset[x_column],
+            _rolling_mean(numeric_subset["tension"], window=moving_average_window),
             linewidth=2.0,
             alpha=0.9,
             color=colors[side],
             linestyle=linestyle,
             label=location_label if side_filter is not None else f"{location_label} {side}",
           )
+        if plot_mode != PLOT_MODE_WIRE_NUMBER:
+          pearson_value, spearman_value = _correlation_stats(subset, x_column=x_column)
+          profile_stats_lines.append(
+            (
+              f"{location_label}: Pearson={pearson_value:.3f}, Spearman={spearman_value:.3f}"
+              if side_filter is not None
+              else f"{location_label} {side}: Pearson={pearson_value:.3f}, Spearman={spearman_value:.3f}"
+            )
+          )
   if plotted_sides:
-    profile_axis.set_xlabel("Wire Number")
-    profile_axis.set_ylabel("Scaled Tension (N)")
-    profile_axis.set_title(
-      f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} "
-      "Profile Cloud (location overlay)"
-    )
-    profile_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
-    profile_axis.legend(loc="upper right", fontsize=8, frameon=True)
+    if plot_mode != PLOT_MODE_ENDPOINT_MAPPING:
+      profile_axis.set_xlabel(PLOT_MODE_LABELS.get(plot_mode, "Wire Number"))
+      profile_axis.set_ylabel("Scaled Tension (N)")
+      profile_axis.set_title(
+        f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} "
+        f"{PLOT_MODE_LABELS.get(plot_mode, 'Wire Number')} Correlation (location overlay)"
+      )
+      profile_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+      profile_axis.legend(loc="upper right", fontsize=8, frameon=True)
     profile_axis.text(
       0.015,
       0.98,
       (
-        f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} Profile Cloud"
+        f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} {PLOT_MODE_LABELS.get(plot_mode, 'Wire Number')} View"
         + (
           f"\nGlobal raw mode={result.global_mode_value:.3f}"
           if np.isfinite(result.global_mode_value)
           else ""
         )
+        + ("\n" + "\n".join(profile_stats_lines) if profile_stats_lines else "")
       ),
       transform=profile_axis.transAxes,
       va="top",
@@ -1020,7 +1541,7 @@ def build_layer_figure(
   else:
     profile_axis.set_title(
       f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} "
-      "Profile Cloud"
+      f"{PLOT_MODE_LABELS.get(plot_mode, 'Wire Number')} View"
     )
 
   values_by_location_and_side: dict[tuple[str, str], np.ndarray] = {}
@@ -1063,9 +1584,6 @@ def build_layer_figure(
       mean = float(np.mean(values))
       std = float(np.std(values, ddof=0))
       mode = kde_mode(values)
-      hist_axis.axvline(
-        mean, color=colors[side], linewidth=1.2, alpha=0.8, linestyle=linestyle
-      )
       stats_lines.append(
         (
           f"{location_label}: μ={mean:.3f}, mode={mode:.3f}, σ={std:.3f}, n={int(values.size)}"
@@ -1116,6 +1634,7 @@ def save_layer_plot(
     moving_average_window: int,
     side_filter: str | None = None,
     output_path: Path | None = None,
+    plot_mode: str = PLOT_MODE_WIRE_NUMBER,
 ) -> None:
   if result.cloud.empty:
     return
@@ -1128,6 +1647,7 @@ def save_layer_plot(
     average_per_wire=average_per_wire,
     moving_average_window=moving_average_window,
     side_filter=side_filter,
+    plot_mode=plot_mode,
   )
   _save_figure_with_padding(fig, destination, dpi=300)
 
@@ -1392,6 +1912,7 @@ def compute_layer_analysis(
     scale_factors,
     average_per_wire=options.average_per_wire,
   )
+  cloud = _enrich_cloud_with_uv_recipe_metadata(cloud, layer=layer)
   location_msg = "" if location_label is None else f" [{location_label}]"
   sides_present = tuple(sorted({str(side).strip().upper() for side in cloud.get("side", [])}))
   if options.split_by_side and sides_present:

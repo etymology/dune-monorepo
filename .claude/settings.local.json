@@ -16,7 +16,11 @@
       "Bash(python -m pytest tests/dune_tension/test_summaries.py -xvs)",
       "Bash(python -m py_compile src/dune_tension/summaries.py)",
       "Bash(python -c \"from dune_tension.paths import data_path; print\\(data_path\\(\\)\\)\")",
-      "Bash(python)"
+      "Bash(python)",
+      "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -x -q)",
+      "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -q)",
+      "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py tests/dune_tension/test_average_profile_clouds_gui_app.py -q --tb=short)",
+      "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -xvs)"
     ]
   }
 }

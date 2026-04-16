@@ -93,21 +93,29 @@ def _wrap_inclusive(value: int, low: int, high: int) -> int:
     return int(low) + ((int(value) - int(low)) % span)
 
 
-def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
+def wire_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
+    """Return the canonical B-family endpoint pins for a U/V wire number."""
+
     requested_layer = _normalize_layer(layer)
-    requested_side = _normalize_side(side)
     number = int(wire_number)
     delta = 1151 - number
-    pin_family = "F" if requested_side == "A" else "B"
     if requested_layer == "V":
         return (
-            f"{pin_family}{_wrap_inclusive(1199 - delta, 1, 2399)}",
-            f"{pin_family}{_wrap_inclusive(1200 + delta, 1, 2399)}",
+            f"B{_wrap_inclusive(1199 - delta, 1, 2399)}",
+            f"B{_wrap_inclusive(1200 + delta, 1, 2399)}",
         )
     return (
-        f"{pin_family}{_wrap_inclusive(1600 - delta, 1, 2401)}",
-        f"{pin_family}{_wrap_inclusive(1601 + delta, 1, 2401)}",
+        f"B{_wrap_inclusive(1600 - delta, 1, 2401)}",
+        f"B{_wrap_inclusive(1601 + delta, 1, 2401)}",
     )
+
+
+def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
+    requested_side = _normalize_side(side)
+    start_pin, end_pin = wire_pin_pair(layer, wire_number)
+    if requested_side == "B":
+        return (start_pin, end_pin)
+    return (f"F{start_pin[1:]}", f"F{end_pin[1:]}")
 
 
 def _vector_sub(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]:

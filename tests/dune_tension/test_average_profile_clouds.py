@@ -16,6 +16,12 @@ from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
     DUNEDB_SOURCE,
     LayerAnalysisResult,
+    PLOT_MODE_APPLIED_LENGTH,
+    PLOT_MODE_ENDPOINT_CATEGORIES,
+    PLOT_MODE_ENDPOINT_MAPPING,
+    PLOT_MODE_WRAP_NUMBER,
+    _classify_uv_endpoint_path,
+    _enrich_cloud_with_uv_recipe_metadata,
     compute_scale_factor,
     compute_layer_analysis,
     compute_average_profile_results,
@@ -841,3 +847,567 @@ def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
         "Daresbury B",
     }
     assert len(hist_axis.hist_calls) == 4
+
+
+def test_enrich_cloud_with_uv_metadata_adds_recipe_columns(monkeypatch) -> None:
+    class _FakeMaps:
+        wire_to_wrap = {
+            401: type("WrapRef", (), {"wrap_number": 50})(),
+            402: type("WrapRef", (), {"wrap_number": 51})(),
+        }
+        wire_to_applied_length_mm = {401: 1234.5, 402: 1235.5}
+        wire_to_endpoint_sides = {401: ("bottom", "top"), 402: ("head", "foot")}
+
+    monkeypatch.setattr(
+        "dune_tension.average_profile_clouds._uv_recipe_maps",
+        lambda _layer: _FakeMaps(),
+    )
+    cloud = pd.DataFrame(
+        {
+            "wire_number": [401, 402],
+            "tension": [6.0, 6.1],
+            "side": ["A", "B"],
+            "apa_name": ["APA1", "APA1"],
+        }
+    )
+
+    enriched = _enrich_cloud_with_uv_recipe_metadata(cloud, layer="V")
+
+    assert list(enriched["wrap_number"]) == [50.0, 51.0]
+    assert list(enriched["applied_length_mm"]) == [1234.5, 1235.5]
+    assert list(enriched["start_side"]) == ["top", "head"]
+    assert list(enriched["end_side"]) == ["bottom", "foot"]
+    assert list(enriched["endpoint_side_mapping"]) == [("top", "bottom"), ("head", "foot")]
+    assert list(enriched["start_endpoint_kind"]) == ["top", "head"]
+    assert list(enriched["end_endpoint_kind"]) == ["bottom", "foot"]
+    assert list(enriched["uv_path_family"]) == ["top_bottom", "head_foot"]
+    assert list(enriched["uv_terminal_group"]) == ["ends_at_bottom", "starts_on_head_or_foot"]
+
+
+def test_enrich_cloud_with_uv_metadata_reverses_direction_for_side_a(monkeypatch) -> None:
+    class _FakeMaps:
+        wire_to_wrap = {
+            401: type("WrapRef", (), {"wrap_number": 50})(),
+            402: type("WrapRef", (), {"wrap_number": 51})(),
+        }
+        wire_to_applied_length_mm = {401: 1234.5, 402: 1235.5}
+        wire_to_endpoint_sides = {401: ("bottom", "top"), 402: ("head", "top")}
+
+    monkeypatch.setattr(
+        "dune_tension.average_profile_clouds._uv_recipe_maps",
+        lambda _layer: _FakeMaps(),
+    )
+    cloud = pd.DataFrame(
+        {
+            "wire_number": [401, 401, 402, 402],
+            "tension": [6.0, 6.1, 6.2, 6.3],
+            "side": ["A", "B", "A", "B"],
+            "apa_name": ["APA1", "APA1", "APA1", "APA1"],
+        }
+    )
+
+    enriched = _enrich_cloud_with_uv_recipe_metadata(cloud, layer="V")
+
+    assert list(enriched["start_side"]) == ["top", "bottom", "top", "head"]
+    assert list(enriched["end_side"]) == ["bottom", "top", "head", "top"]
+    assert list(enriched["uv_terminal_group"]) == [
+        "ends_at_bottom",
+        "ends_at_top",
+        "ends_on_head_or_foot",
+        "starts_on_head_or_foot",
+    ]
+
+
+def test_enrich_cloud_with_uv_metadata_leaves_x_layer_empty() -> None:
+    cloud = pd.DataFrame(
+        {
+            "wire_number": [1],
+            "tension": [6.0],
+            "side": ["A"],
+            "apa_name": ["APA1"],
+        }
+    )
+
+    enriched = _enrich_cloud_with_uv_recipe_metadata(cloud, layer="X")
+
+    assert np.isnan(enriched["wrap_number"].iloc[0])
+    assert np.isnan(enriched["applied_length_mm"].iloc[0])
+    assert enriched["endpoint_side_mapping"].iloc[0] is None
+    assert enriched["uv_path_family"].iloc[0] is None
+    assert enriched["uv_terminal_group"].iloc[0] is None
+
+
+@pytest.mark.parametrize(
+    ("start_side", "end_side", "expected"),
+    [
+        ("bottom", "top", ("top_bottom", "ends_at_top")),
+        ("top", "bottom", ("top_bottom", "ends_at_bottom")),
+        ("head", "top", ("head_foot", "starts_on_head_or_foot")),
+        ("top", "foot", ("head_foot", "ends_on_head_or_foot")),
+    ],
+)
+def test_classify_uv_endpoint_path(start_side, end_side, expected) -> None:
+    assert _classify_uv_endpoint_path(start_side, end_side) == expected
+
+
+def test_classify_uv_endpoint_path_covers_real_recipe_maps() -> None:
+    from dune_tension.uv_wire_recipe_map import build_uv_wire_recipe_maps
+
+    for layer in ("U", "V"):
+        maps = build_uv_wire_recipe_maps(layer)
+        families = set()
+        terminal_groups = set()
+        for start_side, end_side in maps.wire_to_endpoint_sides.values():
+            path_family, terminal_group = _classify_uv_endpoint_path(start_side, end_side)
+            assert path_family in {"top_bottom", "head_foot"}
+            assert terminal_group in {
+                "ends_at_top",
+                "ends_at_bottom",
+                "starts_on_head_or_foot",
+                "ends_on_head_or_foot",
+            }
+            families.add(path_family)
+            terminal_groups.add(terminal_group)
+        assert "top_bottom" in families
+        assert "head_foot" in families
+        assert terminal_groups
+
+
+def test_build_layer_figure_wrap_mode_uses_wrap_axis_and_stats(monkeypatch) -> None:
+    from dune_tension import average_profile_clouds as apc
+
+    class _FakeAxis:
+        def __init__(self) -> None:
+            self.scatter_calls = []
+            self.plot_calls = []
+            self.hist_calls = []
+            self.axvline_calls = []
+            self.legend_calls = []
+            self.text_calls = []
+            self.grid_calls = []
+            self.xlabel = None
+            self.ylabel = None
+            self.title = None
+            self.transAxes = object()
+
+        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
+        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
+        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
+        def axvline(self, *args, **kwargs): self.axvline_calls.append((args, kwargs))
+        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
+        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
+        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
+        def set_title(self, value): self.title = value
+        def set_xlabel(self, value): self.xlabel = value
+        def set_ylabel(self, value): self.ylabel = value
+
+    class _FakeGrid:
+        def __getitem__(self, _item): return object()
+
+    class _FakeFigure:
+        def __init__(self, *args, **kwargs) -> None:
+            self.axes = []
+        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+        def add_subplot(self, *args, **kwargs):
+            axis = _FakeAxis()
+            self.axes.append(axis)
+            return axis
+
+    monkeypatch.setattr("matplotlib.figure.Figure", _FakeFigure)
+    result = LayerAnalysisResult(
+        layer="V",
+        location_filter=None,
+        location_label=None,
+        location_output_tag="tag",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [401, 402, 401, 402],
+                "wrap_number": [50, 51, 50, 51],
+                "applied_length_mm": [1200.0, 1210.0, 1200.0, 1210.0],
+                "start_side": ["bottom", "bottom", "bottom", "bottom"],
+                "end_side": ["top", "top", "top", "top"],
+                "endpoint_side_mapping": [("bottom", "top")] * 4,
+                "tension": [6.0, 6.3, 6.4, 6.7],
+                "side": ["A", "A", "B", "B"],
+                "apa_name": ["APA1", "APA1", "APA1", "APA1"],
+            }
+        ),
+        mu_by_side={"A": pd.Series(dtype="float64"), "B": pd.Series(dtype="float64")},
+        n_by_side={"A": pd.Series(dtype="int64"), "B": pd.Series(dtype="int64")},
+        profile_df=pd.DataFrame(),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
+        output_path=Path("/tmp/out.png"),
+        profile_summary_path=Path("/tmp/profile.csv"),
+        scale_summary_path=Path("/tmp/scales.csv"),
+        status_message="ok",
+    )
+
+    figure = apc.build_layer_figure(
+        result,
+        bins=10,
+        average_per_wire=False,
+        moving_average_window=1,
+        plot_mode=PLOT_MODE_WRAP_NUMBER,
+    )
+
+    profile_axis = figure.axes[0]
+    assert profile_axis.xlabel == "Wrap Number"
+    assert len(profile_axis.scatter_calls) == 2
+    assert "Pearson=" in profile_axis.text_calls[0][0][2]
+    assert "Spearman=" in profile_axis.text_calls[0][0][2]
+
+
+def test_build_layer_figure_applied_length_mode_uses_length_axis(monkeypatch) -> None:
+    from dune_tension import average_profile_clouds as apc
+
+    class _FakeAxis:
+        def __init__(self) -> None:
+            self.scatter_calls = []
+            self.plot_calls = []
+            self.hist_calls = []
+            self.axvline_calls = []
+            self.legend_calls = []
+            self.text_calls = []
+            self.grid_calls = []
+            self.xlabel = None
+            self.ylabel = None
+            self.title = None
+            self.transAxes = object()
+
+        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
+        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
+        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
+        def axvline(self, *args, **kwargs): self.axvline_calls.append((args, kwargs))
+        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
+        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
+        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
+        def set_title(self, value): self.title = value
+        def set_xlabel(self, value): self.xlabel = value
+        def set_ylabel(self, value): self.ylabel = value
+
+    class _FakeGrid:
+        def __getitem__(self, _item): return object()
+
+    class _FakeFigure:
+        def __init__(self, *args, **kwargs) -> None:
+            self.axes = []
+        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+        def add_subplot(self, *args, **kwargs):
+            axis = _FakeAxis()
+            self.axes.append(axis)
+            return axis
+
+    monkeypatch.setattr("matplotlib.figure.Figure", _FakeFigure)
+    result = LayerAnalysisResult(
+        layer="U",
+        location_filter=None,
+        location_label=None,
+        location_output_tag="tag",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [801, 802],
+                "wrap_number": [50, 51],
+                "applied_length_mm": [1500.0, 1510.0],
+                "start_side": ["top", "top"],
+                "end_side": ["foot", "foot"],
+                "endpoint_side_mapping": [("top", "foot")] * 2,
+                "tension": [6.0, 6.2],
+                "side": ["A", "A"],
+                "apa_name": ["APA1", "APA1"],
+            }
+        ),
+        mu_by_side={"A": pd.Series(dtype="float64"), "B": pd.Series(dtype="float64")},
+        n_by_side={"A": pd.Series(dtype="int64"), "B": pd.Series(dtype="int64")},
+        profile_df=pd.DataFrame(),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
+        output_path=Path("/tmp/out.png"),
+        profile_summary_path=Path("/tmp/profile.csv"),
+        scale_summary_path=Path("/tmp/scales.csv"),
+        status_message="ok",
+    )
+
+    figure = apc.build_layer_figure(
+        result,
+        bins=10,
+        average_per_wire=False,
+        moving_average_window=1,
+        plot_mode=PLOT_MODE_APPLIED_LENGTH,
+    )
+
+    assert figure.axes[0].xlabel == "Applied Length (mm)"
+
+
+def test_build_layer_figure_endpoint_mapping_renders_grouped_distributions(monkeypatch) -> None:
+    from dune_tension import average_profile_clouds as apc
+
+    class _FakeAxis:
+        def __init__(self) -> None:
+            self.scatter_calls = []
+            self.plot_calls = []
+            self.hist_calls = []
+            self.boxplot_calls = []
+            self.axvline_calls = []
+            self.legend_calls = []
+            self.text_calls = []
+            self.grid_calls = []
+            self.xticks = None
+            self.xticklabels = None
+            self.xlabel = None
+            self.ylabel = None
+            self.title = None
+            self.transAxes = object()
+
+        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
+        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
+        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
+        def boxplot(self, *args, **kwargs): self.boxplot_calls.append((args, kwargs))
+        def axvline(self, *args, **kwargs): self.axvline_calls.append((args, kwargs))
+        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
+        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
+        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
+        def set_xticks(self, value): self.xticks = value
+        def set_xticklabels(self, value, **kwargs): self.xticklabels = value
+        def set_title(self, value): self.title = value
+        def set_xlabel(self, value): self.xlabel = value
+        def set_ylabel(self, value): self.ylabel = value
+
+    class _FakeGrid:
+        def __getitem__(self, _item): return object()
+
+    class _FakeFigure:
+        def __init__(self, *args, **kwargs) -> None:
+            self.axes = []
+        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+        def add_subplot(self, *args, **kwargs):
+            axis = _FakeAxis()
+            self.axes.append(axis)
+            return axis
+
+    monkeypatch.setattr("matplotlib.figure.Figure", _FakeFigure)
+    result = LayerAnalysisResult(
+        layer="V",
+        location_filter=None,
+        location_label="All locations",
+        location_output_tag="tag",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [401, 402, 403, 404],
+                "wrap_number": [50, 51, 52, 53],
+                "applied_length_mm": [1200.0, 1210.0, 1220.0, 1230.0],
+                "start_side": ["bottom", "bottom", "head", "head"],
+                "end_side": ["top", "top", "foot", "foot"],
+                "endpoint_side_mapping": [
+                    ("bottom", "top"),
+                    ("bottom", "top"),
+                    ("head", "foot"),
+                    ("head", "foot"),
+                ],
+                "tension": [6.0, 6.2, 6.5, 6.7],
+                "side": ["A", "A", "B", "B"],
+                "apa_name": ["APA1", "APA1", "APA1", "APA1"],
+                "location": ["Chicago", "Chicago", "Daresbury", "Daresbury"],
+            }
+        ),
+        mu_by_side={},
+        n_by_side={},
+        profile_df=pd.DataFrame(),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
+        output_path=Path("/tmp/out.png"),
+        profile_summary_path=Path("/tmp/profile.csv"),
+        scale_summary_path=Path("/tmp/scales.csv"),
+        status_message="ok",
+        overlay_results=(
+            LayerAnalysisResult(
+                layer="V",
+                location_filter="chicago",
+                location_label="Chicago",
+                location_output_tag="chi",
+                global_mode_value=6.1,
+                cloud=pd.DataFrame(
+                    {
+                        "wire_number": [401, 402],
+                        "wrap_number": [50, 51],
+                        "applied_length_mm": [1200.0, 1210.0],
+                        "start_side": ["bottom", "bottom"],
+                        "end_side": ["top", "top"],
+                        "endpoint_side_mapping": [("bottom", "top"), ("bottom", "top")],
+                        "tension": [6.0, 6.2],
+                        "side": ["A", "A"],
+                        "apa_name": ["APA1", "APA1"],
+                    }
+                ),
+                mu_by_side={},
+                n_by_side={},
+                profile_df=pd.DataFrame(),
+                scale_df=pd.DataFrame(),
+                output_path=Path("/tmp/chi.png"),
+                profile_summary_path=Path("/tmp/chi_profile.csv"),
+                scale_summary_path=Path("/tmp/chi_scale.csv"),
+                status_message="ok",
+            ),
+            LayerAnalysisResult(
+                layer="V",
+                location_filter="daresbury",
+                location_label="Daresbury",
+                location_output_tag="dar",
+                global_mode_value=6.1,
+                cloud=pd.DataFrame(
+                    {
+                        "wire_number": [403, 404],
+                        "wrap_number": [52, 53],
+                        "applied_length_mm": [1220.0, 1230.0],
+                        "start_side": ["head", "head"],
+                        "end_side": ["foot", "foot"],
+                        "endpoint_side_mapping": [("head", "foot"), ("head", "foot")],
+                        "tension": [6.5, 6.7],
+                        "side": ["B", "B"],
+                        "apa_name": ["APA1", "APA1"],
+                    }
+                ),
+                mu_by_side={},
+                n_by_side={},
+                profile_df=pd.DataFrame(),
+                scale_df=pd.DataFrame(),
+                output_path=Path("/tmp/dar.png"),
+                profile_summary_path=Path("/tmp/dar_profile.csv"),
+                scale_summary_path=Path("/tmp/dar_scale.csv"),
+                status_message="ok",
+            ),
+        ),
+    )
+
+    figure = apc.build_layer_figure(
+        result,
+        bins=10,
+        average_per_wire=False,
+        moving_average_window=1,
+        plot_mode=PLOT_MODE_ENDPOINT_MAPPING,
+    )
+
+    profile_axis = figure.axes[0]
+    assert profile_axis.xlabel == "Endpoint Side Mapping"
+    assert len(profile_axis.boxplot_calls) >= 2
+    assert profile_axis.plot_calls == []
+
+
+def test_build_layer_figure_endpoint_categories_aggregates_ab(monkeypatch) -> None:
+    from dune_tension import average_profile_clouds as apc
+
+    class _FakeAxis:
+        def __init__(self) -> None:
+            self.scatter_calls = []
+            self.plot_calls = []
+            self.hist_calls = []
+            self.boxplot_calls = []
+            self.legend_calls = []
+            self.text_calls = []
+            self.grid_calls = []
+            self.xlabel = None
+            self.ylabel = None
+            self.title = None
+            self.axis_off = False
+            self.transAxes = object()
+
+        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
+        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
+        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
+        def boxplot(self, *args, **kwargs): self.boxplot_calls.append((args, kwargs))
+        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
+        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
+        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
+        def set_title(self, value): self.title = value
+        def set_xlabel(self, value): self.xlabel = value
+        def set_ylabel(self, value): self.ylabel = value
+        def set_axis_off(self): self.axis_off = True
+
+    class _FakeGrid:
+        def __getitem__(self, _item): return object()
+
+    class _FakeFigure:
+        def __init__(self, *args, **kwargs) -> None:
+            self.axes = []
+        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+        def add_subplot(self, *args, **kwargs):
+            axis = _FakeAxis()
+            self.axes.append(axis)
+            return axis
+
+    monkeypatch.setattr("matplotlib.figure.Figure", _FakeFigure)
+    result = LayerAnalysisResult(
+        layer="V",
+        location_filter=None,
+        location_label=None,
+        location_output_tag="tag",
+        global_mode_value=6.1,
+        cloud=pd.DataFrame(
+            {
+                "wire_number": [401, 401, 402, 403, 403, 404],
+                "wrap_number": [50, 50, 51, 52, 52, 53],
+                "applied_length_mm": [1200.0, 1200.0, 1210.0, 1220.0, 1220.0, 1230.0],
+                "start_side": ["bottom", "bottom", "top", "head", "head", "top"],
+                "end_side": ["top", "top", "bottom", "top", "top", "foot"],
+                "endpoint_side_mapping": [
+                    ("bottom", "top"),
+                    ("bottom", "top"),
+                    ("top", "bottom"),
+                    ("head", "top"),
+                    ("head", "top"),
+                    ("top", "foot"),
+                ],
+                "start_endpoint_kind": ["bottom", "bottom", "top", "head", "head", "top"],
+                "end_endpoint_kind": ["top", "top", "bottom", "top", "top", "foot"],
+                "uv_path_family": [
+                    "top_bottom",
+                    "top_bottom",
+                    "top_bottom",
+                    "head_foot",
+                    "head_foot",
+                    "head_foot",
+                ],
+                "uv_terminal_group": [
+                    "ends_at_top",
+                    "ends_at_top",
+                    "ends_at_bottom",
+                    "starts_on_head_or_foot",
+                    "starts_on_head_or_foot",
+                    "ends_on_head_or_foot",
+                ],
+                "tension": [6.0, 6.4, 6.2, 6.5, 6.7, 6.9],
+                "side": ["A", "B", "A", "A", "B", "A"],
+                "apa_name": ["APA1"] * 6,
+            }
+        ),
+        mu_by_side={"A": pd.Series(dtype="float64"), "B": pd.Series(dtype="float64")},
+        n_by_side={"A": pd.Series(dtype="int64"), "B": pd.Series(dtype="int64")},
+        profile_df=pd.DataFrame(),
+        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
+        output_path=Path("/tmp/out.png"),
+        profile_summary_path=Path("/tmp/profile.csv"),
+        scale_summary_path=Path("/tmp/scales.csv"),
+        status_message="ok",
+    )
+
+    figure = apc.build_layer_figure(
+        result,
+        bins=10,
+        average_per_wire=True,
+        moving_average_window=1,
+        plot_mode=PLOT_MODE_ENDPOINT_CATEGORIES,
+    )
+
+    assert len(figure.axes) == 4
+    top_bottom_axis = figure.axes[0]
+    head_foot_wrap_axis = figure.axes[1]
+    head_foot_length_axis = figure.axes[2]
+    summary_axis = figure.axes[3]
+    assert top_bottom_axis.xlabel == "Wrap Number"
+    assert head_foot_wrap_axis.xlabel == "Wrap Number"
+    assert head_foot_length_axis.xlabel == "Applied Length (mm)"
+    assert len(top_bottom_axis.scatter_calls) == 2
+    assert len(head_foot_wrap_axis.scatter_calls) == 2
+    top_group_x = top_bottom_axis.scatter_calls[0][0][0]
+    assert list(top_group_x) == [50.0]
+    assert summary_axis.axis_off is True

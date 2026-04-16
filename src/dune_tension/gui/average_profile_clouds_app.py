@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass, field
 from io import BytesIO
+from pathlib import Path
 import threading
 import traceback
 import tkinter as tk
@@ -14,15 +15,29 @@ from typing import Any
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
     LayerAnalysisResult,
+    PLOT_MODE_APPLIED_LENGTH,
+    PLOT_MODE_ENDPOINT_CATEGORIES,
+    PLOT_MODE_ENDPOINT_MAPPING,
+    PLOT_MODE_LABELS,
+    PLOT_MODE_WIRE_NUMBER,
+    PLOT_MODE_WRAP_NUMBER,
     _save_figure_with_padding,
     build_layer_figure,
     compute_average_profile_results,
     export_layer_analysis,
     normalize_options,
+    plot_mode_supported_for_layer,
 )
 
 
 DEFAULT_LAYERS = ",".join(AverageProfileCloudOptions().layers)
+PLOT_MODE_SUFFIXES = {
+    PLOT_MODE_WIRE_NUMBER: "",
+    PLOT_MODE_WRAP_NUMBER: "_by_wrap",
+    PLOT_MODE_APPLIED_LENGTH: "_by_applied_length",
+    PLOT_MODE_ENDPOINT_MAPPING: "_by_endpoint_mapping",
+    PLOT_MODE_ENDPOINT_CATEGORIES: "_by_endpoint_categories",
+}
 
 
 @dataclass
@@ -79,6 +94,7 @@ class AverageProfileExplorerApp:
         self.split_by_side_var = tk.BooleanVar(
             master=root, value=AverageProfileCloudOptions().split_by_side
         )
+        self.plot_mode_var = tk.StringVar(master=root, value=PLOT_MODE_WIRE_NUMBER)
         self.global_status_var = tk.StringVar(master=root, value="Waiting for first refresh.")
 
         self._build_layout()
@@ -137,9 +153,18 @@ class AverageProfileExplorerApp:
             variable=self.moving_average_var,
             width=12,
         )
+        self._add_labeled_entry(
+            controls,
+            "Plot Mode",
+            4,
+            2,
+            variable=self.plot_mode_var,
+            kind="plot_mode_combo",
+            width=24,
+        )
 
         toggles = ttk.Frame(controls)
-        toggles.grid(row=4, column=2, columnspan=2, sticky="w")
+        toggles.grid(row=5, column=0, columnspan=4, sticky="w")
         ttk.Checkbutton(
             toggles,
             text="No scaling",
@@ -174,7 +199,7 @@ class AverageProfileExplorerApp:
         ).grid(row=0, column=4, sticky="w", padx=(8, 0))
 
         actions = ttk.Frame(controls)
-        actions.grid(row=5, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        actions.grid(row=6, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         ttk.Button(actions, text="Refresh", command=self.refresh_now).grid(
             row=0, column=0, padx=(0, 6), sticky="w"
         )
@@ -222,6 +247,15 @@ class AverageProfileExplorerApp:
                 width=14,
             )
             widget.bind("<<ComboboxSelected>>", lambda _event: self._on_source_changed())
+        elif kind == "plot_mode_combo":
+            widget = ttk.Combobox(
+                parent,
+                textvariable=variable,
+                values=list(PLOT_MODE_LABELS),
+                state="readonly",
+                width=width,
+            )
+            widget.bind("<<ComboboxSelected>>", lambda _event: self.schedule_refresh())
         else:
             widget = ttk.Entry(parent, textvariable=variable, width=width)
         widget.grid(row=row, column=column + 1, sticky="ew", padx=(0, 12), pady=2)
@@ -236,6 +270,7 @@ class AverageProfileExplorerApp:
             self.exclude_regex_var,
             self.bins_var,
             self.moving_average_var,
+            self.plot_mode_var,
             self.show_all_locations_var,
             self.split_by_side_var,
         ]:
@@ -318,9 +353,11 @@ class AverageProfileExplorerApp:
         self._latest_options = options
         self._latest_results = results
         total_plots = 0
+        plot_mode = self._selected_plot_mode()
         for layer, layer_results in results.items():
             self._render_layer_results(layer, layer_results, options)
-            if options.split_by_side:
+            split_by_side = self._should_split_by_side_for_mode(options, plot_mode=plot_mode)
+            if split_by_side:
                 total_plots += sum(
                     sum(1 for side in ("A", "B") if not result.cloud.empty and (result.cloud["side"] == side).any())
                     for result in layer_results
@@ -407,12 +444,45 @@ class AverageProfileExplorerApp:
         for state in self._tab_state.values():
             state.status_var.set(message)
 
+    def _selected_plot_mode(self) -> str:
+        plot_mode_var = getattr(self, "plot_mode_var", None)
+        if plot_mode_var is None:
+            return PLOT_MODE_WIRE_NUMBER
+        return str(plot_mode_var.get()).strip() or PLOT_MODE_WIRE_NUMBER
+
+    def _metadata_mode_placeholder(self, layer: str) -> str:
+        label = PLOT_MODE_LABELS.get(self._selected_plot_mode(), self._selected_plot_mode())
+        return f"Layer {layer}: {label} is currently supported for U/V layers only."
+
+    def _should_split_by_side_for_mode(
+        self,
+        options: AverageProfileCloudOptions,
+        *,
+        plot_mode: str,
+    ) -> bool:
+        return bool(options.split_by_side and plot_mode != PLOT_MODE_ENDPOINT_CATEGORIES)
+
+    def _exploratory_output_path(
+        self,
+        output_path: Path,
+        *,
+        plot_mode: str,
+        side_filter: str | None = None,
+    ) -> Path:
+        suffix = output_path.suffix or ".png"
+        stem = output_path.name[: -len(suffix)] if output_path.name.endswith(suffix) else output_path.stem
+        if side_filter is not None:
+            stem = f"{stem}_side{side_filter}"
+        mode_suffix = PLOT_MODE_SUFFIXES.get(plot_mode, "")
+        return output_path.with_name(f"{stem}{mode_suffix}{suffix}")
+
     def _render_layer_results(
         self,
         layer: str,
         layer_results: list[LayerAnalysisResult],
         options: AverageProfileCloudOptions,
     ) -> None:
+        plot_mode = self._selected_plot_mode()
         state = self._tab_state[layer]
         state.status_var.set(self._summarize_layer_results(layer_results))
         state.image_labels.clear()
@@ -422,18 +492,27 @@ class AverageProfileExplorerApp:
             child.destroy()
 
         rendered_count = 0
+        split_by_side = self._should_split_by_side_for_mode(options, plot_mode=plot_mode)
         for row, result in enumerate(layer_results):
             header_text = result.location_label or "All locations"
             header = ttk.Label(state.content_frame, text=header_text)
             header.grid(row=row * 2, column=0, sticky="w", pady=(0 if row == 0 else 8, 4))
             state.location_labels.append(header)
 
+            if not plot_mode_supported_for_layer(result.layer, plot_mode):
+                placeholder = ttk.Label(
+                    state.content_frame,
+                    text=self._metadata_mode_placeholder(result.layer),
+                )
+                placeholder.grid(row=row * 2 + 1, column=0, sticky="w")
+                continue
+
             if result.cloud.empty:
                 placeholder = ttk.Label(state.content_frame, text=result.status_message)
                 placeholder.grid(row=row * 2 + 1, column=0, sticky="w")
                 continue
 
-            if options.split_by_side:
+            if split_by_side:
                 content = ttk.Frame(state.content_frame)
                 content.grid(row=row * 2 + 1, column=0, sticky="nsew")
                 content.columnconfigure(0, weight=1)
@@ -452,6 +531,7 @@ class AverageProfileExplorerApp:
                         average_per_wire=options.average_per_wire,
                         moving_average_window=options.moving_average_window,
                         side_filter=side,
+                        plot_mode=plot_mode,
                     )
                     image = self._figure_to_photo_image(figure)
                     widget = ttk.Label(content, image=image)
@@ -471,6 +551,7 @@ class AverageProfileExplorerApp:
                     bins=options.bins,
                     average_per_wire=options.average_per_wire,
                     moving_average_window=options.moving_average_window,
+                    plot_mode=plot_mode,
                 )
                 image = self._figure_to_photo_image(figure)
                 widget = ttk.Label(state.content_frame, image=image)
@@ -504,24 +585,72 @@ class AverageProfileExplorerApp:
 
     def export_current(self) -> None:
         options, results = self._results_for_export()
+        plot_mode = self._selected_plot_mode()
         current = self.notebook.select()
         for layer, state in self._tab_state.items():
             if str(state.frame) != str(current):
                 continue
             for result in results.get(layer, []):
                 export_layer_analysis(result, options)
+                if plot_mode != PLOT_MODE_WIRE_NUMBER:
+                    self._export_exploratory_pngs(result, options, plot_mode=plot_mode)
             self.global_status_var.set(f"Exported {layer}.")
             return
         self.global_status_var.set("No active tab to export.")
 
     def export_all(self) -> None:
         options, results = self._results_for_export()
+        plot_mode = self._selected_plot_mode()
         export_count = 0
         for layer_results in results.values():
             for result in layer_results:
                 export_layer_analysis(result, options)
+                if plot_mode != PLOT_MODE_WIRE_NUMBER:
+                    self._export_exploratory_pngs(result, options, plot_mode=plot_mode)
                 export_count += 1
         self.global_status_var.set(f"Exported {export_count} result set(s).")
+
+    def _export_exploratory_pngs(
+        self,
+        result: LayerAnalysisResult,
+        options: AverageProfileCloudOptions,
+        *,
+        plot_mode: str,
+    ) -> None:
+        if result.cloud.empty or not plot_mode_supported_for_layer(result.layer, plot_mode):
+            return
+        output_paths: list[tuple[str | None, Path]] = []
+        split_by_side = self._should_split_by_side_for_mode(options, plot_mode=plot_mode)
+        if split_by_side:
+            for side in ("A", "B"):
+                if not (result.cloud["side"] == side).any():
+                    continue
+                output_paths.append(
+                    (
+                        side,
+                        self._exploratory_output_path(
+                            result.output_path,
+                            plot_mode=plot_mode,
+                            side_filter=side,
+                        ),
+                    )
+                )
+        else:
+            output_paths.append(
+                (None, self._exploratory_output_path(result.output_path, plot_mode=plot_mode))
+            )
+
+        for side_filter, destination in output_paths:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            figure = build_layer_figure(
+                result,
+                bins=options.bins,
+                average_per_wire=options.average_per_wire,
+                moving_average_window=options.moving_average_window,
+                side_filter=side_filter,
+                plot_mode=plot_mode,
+            )
+            _save_figure_with_padding(figure, destination, format="png", dpi=300)
 
 
 def run_average_profile_clouds_app(root: tk.Misc | None = None) -> AverageProfileExplorerApp:

@@ -12,7 +12,15 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     pytest.skip("pandas required", allow_module_level=True)
 
-from dune_tension.average_profile_clouds import AverageProfileCloudOptions, LayerAnalysisResult
+from dune_tension.average_profile_clouds import (
+    AverageProfileCloudOptions,
+    LayerAnalysisResult,
+    PLOT_MODE_APPLIED_LENGTH,
+    PLOT_MODE_ENDPOINT_CATEGORIES,
+    PLOT_MODE_ENDPOINT_MAPPING,
+    PLOT_MODE_WIRE_NUMBER,
+    PLOT_MODE_WRAP_NUMBER,
+)
 
 
 MODULE_PATH = (
@@ -192,7 +200,17 @@ def _load_module(monkeypatch):
 
 
 def _make_result(layer: str, *, empty: bool = False, label: str | None = None) -> LayerAnalysisResult:
-    cloud = pd.DataFrame(columns=["wire_number", "tension", "side", "apa_name"])
+    cloud = pd.DataFrame(
+        columns=[
+            "wire_number",
+            "tension",
+            "side",
+            "apa_name",
+            "wrap_number",
+            "applied_length_mm",
+            "endpoint_side_mapping",
+        ]
+    )
     if not empty:
         cloud = pd.DataFrame(
             {
@@ -200,6 +218,9 @@ def _make_result(layer: str, *, empty: bool = False, label: str | None = None) -
                 "tension": [6.0, 6.5],
                 "side": ["A", "B"],
                 "apa_name": ["APA1", "APA1"],
+                "wrap_number": [50, 51],
+                "applied_length_mm": [1200.0, 1210.0],
+                "endpoint_side_mapping": ["bottom→top", "head→foot"],
             }
         )
     return LayerAnalysisResult(
@@ -362,6 +383,7 @@ def test_export_current_uses_selected_tab(monkeypatch):
         ),
     }
     app.global_status_var = _FakeVar(value="")
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_WIRE_NUMBER)
     options = AverageProfileCloudOptions(layers=("X", "G"))
     app.collect_options = lambda: options
     app._latest_options = options
@@ -425,6 +447,7 @@ def test_render_layer_results_split_by_side_builds_two_figures(monkeypatch):
 
     app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
     app.root = _FakeRoot()
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_WIRE_NUMBER)
     app._tab_state = {
         "X": module.LayerTabState(
             frame=_FakeWidget(),
@@ -439,3 +462,188 @@ def test_render_layer_results_split_by_side_builds_two_figures(monkeypatch):
     module.AverageProfileExplorerApp._render_layer_results(app, "X", [_make_result("X")], options)
 
     assert calls == ["A", "B"]
+
+
+def test_render_layer_results_endpoint_categories_ignores_split_by_side(monkeypatch):
+    module = _load_module(monkeypatch)
+    calls = []
+
+    def _fake_build_layer_figure(_result, **kwargs):
+        calls.append(kwargs.get("side_filter"))
+        return object()
+
+    monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
+
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.root = _FakeRoot()
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_ENDPOINT_CATEGORIES)
+    app._tab_state = {
+        "V": module.LayerTabState(
+            frame=_FakeWidget(),
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        )
+    }
+    app._figure_to_photo_image = lambda _figure: object()
+
+    options = AverageProfileCloudOptions(split_by_side=True)
+    module.AverageProfileExplorerApp._render_layer_results(app, "V", [_make_result("V")], options)
+
+    assert calls == [None]
+
+
+def test_plot_mode_control_is_created(monkeypatch):
+    module = _load_module(monkeypatch)
+    app = module.AverageProfileExplorerApp(_FakeRoot())
+
+    assert app.plot_mode_var.get() == PLOT_MODE_WIRE_NUMBER
+
+
+def test_render_layer_results_passes_plot_mode(monkeypatch):
+    module = _load_module(monkeypatch)
+    calls = []
+
+    def _fake_build_layer_figure(_result, **kwargs):
+        calls.append((kwargs.get("plot_mode"), kwargs.get("side_filter")))
+        return object()
+
+    monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
+
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.root = _FakeRoot()
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_WRAP_NUMBER)
+    app._tab_state = {
+        "V": module.LayerTabState(
+            frame=_FakeWidget(),
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        )
+    }
+    app._figure_to_photo_image = lambda _figure: object()
+
+    module.AverageProfileExplorerApp._render_layer_results(
+        app,
+        "V",
+        [_make_result("V")],
+        AverageProfileCloudOptions(),
+    )
+
+    assert calls == [(PLOT_MODE_WRAP_NUMBER, None)]
+
+
+def test_render_layer_results_unsupported_mode_shows_placeholder(monkeypatch):
+    module = _load_module(monkeypatch)
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    app.root = _FakeRoot()
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_ENDPOINT_MAPPING)
+    content_frame = _FakeWidget()
+    app._tab_state = {
+        "X": module.LayerTabState(
+            frame=_FakeWidget(),
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=content_frame,
+        )
+    }
+    app._figure_to_photo_image = lambda _figure: object()
+
+    module.AverageProfileExplorerApp._render_layer_results(
+        app,
+        "X",
+        [_make_result("X")],
+        AverageProfileCloudOptions(),
+    )
+
+    texts = [child.kwargs.get("text") for child in content_frame.children if "text" in child.kwargs]
+    assert any("supported for U/V layers only" in str(text) for text in texts)
+
+
+def test_export_current_writes_exploratory_png_suffix(monkeypatch, tmp_path):
+    module = _load_module(monkeypatch)
+    exported_paths = []
+
+    monkeypatch.setattr(module, "export_layer_analysis", lambda result, options: None)
+    monkeypatch.setattr(
+        module,
+        "_save_figure_with_padding",
+        lambda _figure, destination, **kwargs: exported_paths.append(Path(destination)),
+    )
+    monkeypatch.setattr(module, "build_layer_figure", lambda *args, **kwargs: object())
+
+    result = _make_result("V")
+    result = LayerAnalysisResult(
+        **{**result.__dict__, "output_path": tmp_path / "plot.png"}
+    )
+
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    frame_v = object()
+    app.root = _FakeRoot()
+    app.notebook = types.SimpleNamespace(select=lambda: str(frame_v))
+    app._tab_state = {
+        "V": module.LayerTabState(
+            frame=frame_v,
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        )
+    }
+    app.global_status_var = _FakeVar(value="")
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_APPLIED_LENGTH)
+    options = AverageProfileCloudOptions(layers=("V",))
+    app.collect_options = lambda: options
+    app._latest_options = options
+    app._latest_results = {"V": [result]}
+
+    module.AverageProfileExplorerApp.export_current(app)
+
+    assert exported_paths == [tmp_path / "plot_by_applied_length.png"]
+
+
+def test_export_current_endpoint_categories_ignores_split_by_side(monkeypatch, tmp_path):
+    module = _load_module(monkeypatch)
+    exported_paths = []
+    build_calls = []
+
+    monkeypatch.setattr(module, "export_layer_analysis", lambda result, options: None)
+    monkeypatch.setattr(
+        module,
+        "_save_figure_with_padding",
+        lambda _figure, destination, **kwargs: exported_paths.append(Path(destination)),
+    )
+
+    def _fake_build_layer_figure(*args, **kwargs):
+        build_calls.append(kwargs.get("side_filter"))
+        return object()
+
+    monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
+
+    result = _make_result("V")
+    result = LayerAnalysisResult(
+        **{**result.__dict__, "output_path": tmp_path / "plot.png"}
+    )
+
+    app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
+    frame_v = object()
+    app.root = _FakeRoot()
+    app.notebook = types.SimpleNamespace(select=lambda: str(frame_v))
+    app._tab_state = {
+        "V": module.LayerTabState(
+            frame=frame_v,
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        )
+    }
+    app.global_status_var = _FakeVar(value="")
+    app.plot_mode_var = _FakeVar(value=PLOT_MODE_ENDPOINT_CATEGORIES)
+    options = AverageProfileCloudOptions(layers=("V",), split_by_side=True)
+    app.collect_options = lambda: options
+    app._latest_options = options
+    app._latest_results = {"V": [result]}
+
+    module.AverageProfileExplorerApp.export_current(app)
+
+    assert build_calls == [None]
+    assert exported_paths == [tmp_path / "plot_by_endpoint_categories.png"]
