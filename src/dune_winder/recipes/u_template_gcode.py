@@ -43,12 +43,15 @@ PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN")
 DEFAULT_PULL_INS = {
   "Y_PULL_IN": Y_PULL_IN,
   "X_PULL_IN": X_PULL_IN,
+  "Y_HOVER": 5.0,
 }
 PULL_IN_NAME_ALIASES = {
   "Y_PULL_IN": "Y_PULL_IN",
   "X_PULL_IN": "X_PULL_IN",
+  "Y_HOVER": "Y_HOVER",
   "y_pull_in": "Y_PULL_IN",
   "x_pull_in": "X_PULL_IN",
+  "y_hover": "Y_HOVER",
 }
 
 OFFSET_IDS = (
@@ -89,38 +92,39 @@ SPECIAL_OFFSET_ALIASES = {
 }
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
-_PIN_PAIR_RE = re.compile(r"\bG103\s+P[BF](\d+)\s+P[BF](\d+)\b")
+_PIN_PAIR_RE = re.compile(r"\bG103\s+(P[BF])(\d+)\s+(P[BF])(\d+)\b")
 
 U_WRAP_SCRIPT = compile_template_script(
   (
     "emit (------------------STARTING LOOP ${wrap}------------------)",
     "emit G113 PPRECISE G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
     "transfer b_to_a_transfer",
-    "emit G113 PPRECISE G109 PB${1200 + wrap} PLT G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${conditional_offset('PX', offsets[1], 12 + offsets[1])} (Top A corner - foot end)",
-    "emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PXY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PXY G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G113 PPRECISE G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Bottom A corner - head end)",
+    "emit G113 PPRECISE G109 PB${2002 - wrap} PLT G103 PF${800 + wrap} PF${801 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[1], offsets[1])} (Top A corner - foot end)",
+    "emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(800 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PPRECISE G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PX', offsets[2])} G102 G108 (Bottom A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY ${offset('PY', offsets[3])} (Bottom B corner - head end, rewind)",
-    "emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PXY G105 ${coord('PY', Y_PULL_IN)}",
+    "emit G113 PPRECISE G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[3])} (Bottom B corner - head end, rewind)",
+    "emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(400 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
     "transfer b_to_a_transfer",
     "emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
-    "emit G113 PTOLERANT G103 PF${1 + wrap} PF${wrap} PXY G105 ${coord('PX', X_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PF${1 + wrap} PF${wrap} PX G105 ${coord('PX', X_PULL_IN)}",
     "emit G113 PPRECISE G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY ${conditional_offset('PX', offsets[7], offsets[7] - 12)} (Top B corner - head end)",
-    "emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PXY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PXY G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G113 PPRECISE G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Bottom B corner - foot end)",
+    "emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[7], offsets[7])} (Top B corner - head end)",
+    "emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(2002 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PPRECISE G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PX', offsets[8])} G102 G108 (Bottom B corner - foot end)",
     "transfer b_to_a_transfer",
-    "emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY ${offset('PY', offsets[9])} (Bottom A corner - foot end, rewind)",
-    "emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PXY G105 ${coord('PY', Y_PULL_IN)}",
-    "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PXY G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[9])} (Bottom A corner - foot end, rewind)",
+    "emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
-    "emit G113 PTOLERANT G103 PB${1201 + wrap} PB${1200 + wrap} PXY G105 ${coord('PX', -X_PULL_IN)}",
+    "emit G113 PTOLERANT G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
   )
 )
 
@@ -141,7 +145,7 @@ def _are_consecutive_pins(first_pin, second_pin):
   )
 
 
-def _should_add_foot_pause(first_pin, second_pin):
+def _should_add_foot_pause(first_prefix, first_pin, second_prefix, second_pin):
   if not _are_consecutive_pins(first_pin, second_pin):
     return False
 
@@ -155,6 +159,23 @@ def _should_add_foot_pause(first_pin, second_pin):
   second_board = LAYER_METADATA["U"]["pinToBoard"].get(second_pin)
   if first_board is None or second_board is None:
     return False
+
+  if (
+    first_prefix == "PF"
+    and second_prefix == "PF"
+    and first_board["side"] == "foot"
+    and second_board["side"] == "foot"
+  ):
+    # U-layer Foot A corner lines traverse descending F pins. For those lines
+    # the physical board gap is reached at the foot-board start pin, one wrap
+    # before pinToBoard switches boardIndex.
+    lower_pin = min(first_pin, second_pin)
+    lower_endpoint = LAYER_METADATA["U"]["endpointInfo"].get(lower_pin)
+    return (
+      lower_endpoint is not None
+      and lower_endpoint["side"] == "foot"
+      and lower_endpoint["endpoint"] == "start"
+    )
 
   return first_board["boardIndex"] != second_board["boardIndex"]
 
@@ -188,9 +209,11 @@ def _apply_add_foot_pauses(lines):
       updated_lines.append(line)
       continue
 
-    first_pin = int(match.group(1))
-    second_pin = int(match.group(2))
-    if _should_add_foot_pause(first_pin, second_pin):
+    first_prefix = match.group(1)
+    first_pin = int(match.group(2))
+    second_prefix = match.group(3)
+    second_pin = int(match.group(4))
+    if _should_add_foot_pause(first_prefix, first_pin, second_prefix, second_pin):
       updated_lines.append(
         _append_command_before_trailing_comments(line, "G111 (board gap)")
       )
@@ -448,6 +471,7 @@ def _render_wrap_lines(
     "near_comb": _near_comb,
     "Y_PULL_IN": pull_ins["Y_PULL_IN"],
     "X_PULL_IN": pull_ins["X_PULL_IN"],
+    "Y_HOVER": pull_ins["Y_HOVER"],
     "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
   }
 
@@ -736,8 +760,10 @@ class UTemplateProgrammaticGenerator:
       "include lead mode": self.include_lead_mode,
       "Y_PULL_IN": self.pull_ins["Y_PULL_IN"],
       "X_PULL_IN": self.pull_ins["X_PULL_IN"],
+      "Y_HOVER": self.pull_ins["Y_HOVER"],
       "y_pull_in": self.pull_ins["Y_PULL_IN"],
       "x_pull_in": self.pull_ins["X_PULL_IN"],
+      "y_hover": self.pull_ins["Y_HOVER"],
     }
     for index, offset_id in enumerate(OFFSET_IDS):
       values[offset_id] = self.offsets[index]
