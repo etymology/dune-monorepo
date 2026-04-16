@@ -58,7 +58,7 @@ class MachineGeometry(object):
     # winder head arm.
     self.headRollerRadius = 6.35  # 1/4"
     self.headRollerGap = 1.27  # 0.05"
-    self.headArmLength = 125.71424938
+    self.headArmLength = 77
 
     # Lines defining the where a Z hand-off can take place.  Used for intercept
     # calculations.

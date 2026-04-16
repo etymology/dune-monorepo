@@ -42,6 +42,7 @@ def offset_fragment(axis, value, *, coord_fn):
 
 
 def conditional_offset_fragment(axis, condition_value, rendered_value, *, coord_fn):
+  _ = rendered_value
   if abs(float(condition_value)) < 1e-9:
     return None
   return "G105 " + coord_fn(axis, rendered_value)

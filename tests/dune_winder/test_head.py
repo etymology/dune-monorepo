@@ -40,6 +40,8 @@ class _PLCLogic:
     self._error = False
     self.z_moves = []
     self.latch_moves = 0
+    self.latch_results = []
+    self.auto_advance_to_safe_pos = True
     self.stop_requests = 0
     self._latch_settle_until = None
 
@@ -55,6 +57,11 @@ class _PLCLogic:
 
   def move_latch(self):
     self.latch_moves += 1
+    if self.latch_results:
+      result = bool(self.latch_results.pop(0))
+      if result and self.auto_advance_to_safe_pos and self._actuatorPosition.get() != 2:
+        self._actuatorPosition.set(2)
+      return result
     return True
 
   def set_current_time(self, time_value):
@@ -169,6 +176,69 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(plc.z_moves[-1], (150.0, 275))
     self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
 
+  def test_same_side_fixed_move_proceeds_immediately_when_actuator_already_safe(self):
+    head, plc, _clock = self._build_head(
+      stage_present=True,
+      fixed_present=True,
+      stage_latched=False,
+      fixed_latched=True,
+      actuator_pos=2,
+      z_position=0.0,
+    )
+
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    self.assertEqual(plc.z_moves, [(0.0, 400)])
+    self.assertEqual(plc.latch_moves, 0)
+
+  def test_same_side_fixed_move_recovers_latch_before_commanding_z(self):
+    head, plc, _clock = self._build_head(
+      stage_present=True,
+      fixed_present=True,
+      stage_latched=False,
+      fixed_latched=True,
+      actuator_pos=3,
+      z_position=0.0,
+    )
+    plc.latch_results = [True]
+
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    self.assertEqual(plc.latch_moves, 1)
+    self.assertEqual(plc.z_moves, [(0.0, 400)])
+    self.assertEqual(plc._actuatorPosition.get(), 2)
+
+  def test_same_side_fixed_move_fails_after_three_unsuccessful_recovery_attempts(self):
+    head, plc, _clock = self._build_head(
+      stage_present=True,
+      fixed_present=True,
+      stage_latched=False,
+      fixed_latched=True,
+      actuator_pos=3,
+      z_position=0.0,
+    )
+    plc.latch_results = [False, False, False]
+
+    error = head.setTransferPosition(Head.FIXED_SIDE, 400)
+
+    self.assertIsNotNone(error)
+    self.assertEqual(plc.latch_moves, 3)
+    self.assertEqual(plc.z_moves, [])
+    self.assertIn("actuator reaches position 2", error)
+
+  def test_same_side_fixed_move_succeeds_on_third_recovery_attempt(self):
+    head, plc, _clock = self._build_head(
+      stage_present=True,
+      fixed_present=True,
+      stage_latched=False,
+      fixed_latched=True,
+      actuator_pos=3,
+      z_position=0.0,
+    )
+    plc.latch_results = [False, False, True]
+
+    self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+    self.assertEqual(plc.latch_moves, 3)
+    self.assertEqual(plc.z_moves, [(0.0, 400)])
+
   def test_g206_waits_for_extension_and_enable_before_latching(self):
     head, plc, clock = self._build_head(
       stage_present=True,
@@ -207,7 +277,7 @@ class HeadControllerTests(unittest.TestCase):
     self.assertEqual(plc.z_moves, [])
     self.assertTrue(head.hasError())
 
-  def test_fixed_latched_with_wrong_actuator_blocks_z_motion(self):
+  def test_fixed_latched_with_wrong_actuator_blocks_z_motion_when_recovery_cannot_fix_state(self):
     head, plc, _clock = self._build_head(
       stage_present=True,
       fixed_present=True,
@@ -216,12 +286,15 @@ class HeadControllerTests(unittest.TestCase):
       actuator_pos=3,
       z_position=0.0,
     )
+    plc.auto_advance_to_safe_pos = False
+    plc.latch_results = [True, True, True]
 
     error = head.setTransferPosition(Head.LEVEL_A_SIDE, 200)
 
     self.assertIsNotNone(error)
     self.assertEqual(plc.z_moves, [])
-    self.assertIn("valid stable starting state", error)
+    self.assertEqual(plc.latch_moves, 3)
+    self.assertIn("actuator reaches position 2", error)
 
   def test_g206_extension_timeout_errors_and_clears_state(self):
     head, plc, clock = self._build_head(

@@ -14,6 +14,9 @@ dune_tension/data/streaming_runs/*
 shadow_plc_errors.log
 .DS_Store
 
+# LibreOffice temporary lock files
+~$*.ods
+
 # SQLite database files and temporary files
 *.sqlite
 *.sqlite-shm
