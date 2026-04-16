@@ -45,6 +45,7 @@ class Head:
     self._headLatchTarget = -1
     self._latchRetryIntervalSeconds = 1
     self._latchTimeoutSeconds = 10.0
+    self._preemptiveLatchRetryCount = 3
     self._clock = time.monotonic
     self._activeTransferMode = None
     self._lastError = ""
@@ -154,6 +155,18 @@ class Head:
 
     return self.HEAD_ABSENT
 
+  def _getCurrentTransferSide(self, state):
+    if not state["stagePresent"] and not state["fixedPresent"]:
+      return self.HEAD_ABSENT
+
+    if state["fixedPresent"] and state["fixedLatched"] and not state["stageLatched"]:
+      return self.FIXED_SIDE
+
+    if state["stagePresent"] and state["stageLatched"] and not state["fixedLatched"]:
+      return self.STAGE_SIDE
+
+    return self.HEAD_ABSENT
+
   def _isStrictStageSideState(self, state):
     return (
       state["stagePresent"]
@@ -199,12 +212,47 @@ class Head:
   def _isCloseToTargetZ(self, actual, target):
     return abs(float(actual) - float(target)) <= 1.0
 
-  def _commandZMove(self, target_z, next_state):
+  def _isFixedLatchSafeForZMove(self, state):
+    return (not bool(state["fixedLatched"])) or int(state["actuatorPos"]) == 2
+
+  def _ensureSafeFixedLatchForZMove(self):
     state = self._readTransferStateNow()
-    if state["fixedLatched"] and int(state["actuatorPos"]) != 2:
-      self._setHeadError(
-        "Cannot move Z while fixed-latched unless actuator is at position 2."
-      )
+    if self._isFixedLatchSafeForZMove(state):
+      return True
+
+    for attempt in range(self._preemptiveLatchRetryCount):
+      if not self._plcLogic.move_latch():
+        if attempt + 1 >= self._preemptiveLatchRetryCount:
+          break
+        time.sleep(self._latchRetryIntervalSeconds)
+        state = self._readTransferStateNow()
+        if self._isFixedLatchSafeForZMove(state):
+          return True
+        continue
+
+      deadline = self._clock() + self._latchTimeoutSeconds
+      while self._clock() < deadline:
+        if self._plcLogic.isError():
+          self._setHeadError("PLC entered error state during latch recovery before Z move.")
+          return False
+        if self._plcLogic.isReady():
+          break
+        time.sleep(self._latchRetryIntervalSeconds)
+
+      state = self._readTransferStateNow()
+      if self._isFixedLatchSafeForZMove(state):
+        return True
+
+      if attempt + 1 < self._preemptiveLatchRetryCount:
+        time.sleep(self._latchRetryIntervalSeconds)
+
+    self._setHeadError(
+      "Cannot move Z while fixed-latched unless actuator reaches position 2."
+    )
+    return False
+
+  def _commandZMove(self, target_z, next_state):
+    if not self._ensureSafeFixedLatchForZMove():
       return False
     self._plcLogic.setZ_Position(target_z, self._velocity)
     self._headState = next_state
@@ -407,15 +455,10 @@ class Head:
     self._headZTarget, self._headLatchTarget = target_lookup[head_position_target]
 
     state = self._readTransferStateNow()
-    currentSide = self._getCurrentStrictTransferSide(state)
+    currentSide = self._getCurrentTransferSide(state)
     if currentSide == self.HEAD_ABSENT:
       return self._failTransferRequest(
         "Head transfer requires a valid stable starting state."
-      )
-
-    if currentSide == self.FIXED_SIDE and int(state["actuatorPos"]) != 2:
-      return self._failTransferRequest(
-        "Fixed-latched transfers require ACTUATOR_POS 2."
       )
 
     if currentSide == self.STAGE_SIDE and int(state["actuatorPos"]) != 1:
