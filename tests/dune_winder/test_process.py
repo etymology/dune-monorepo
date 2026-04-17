@@ -223,6 +223,12 @@ class _ReloadGuardFakeAxis:
 
 
 class _ReloadGuardFakeHead:
+  def __init__(self):
+    self.front_back = None
+
+  def setFrontAndBack(self, front, back):
+    self.front_back = (float(front), float(back))
+
   def getTargetAxisPosition(self):
     return 0.0
 
@@ -400,6 +406,15 @@ class ProcessSnapshotTests(unittest.TestCase):
 
     with self.assertRaisesRegex(ValueError, "same number of lines"):
       handler.reloadG_Code(["G1 X1"])
+
+  def test_load_gcode_sets_head_front_and_back_from_calibration(self):
+    io = _ReloadGuardFakeIO()
+    handler = GCodeHandler(io, _ReloadGuardFakeCalibration(), None)
+
+    calibration = type("Calibration", (), {"zFront": 123.4, "zBack": 567.8})()
+    handler.loadG_Code(["G1 X1"], calibration=calibration)
+
+    self.assertEqual(io.head.front_back, (123.4, 567.8))
 
   def test_refresh_before_execution_returns_error_when_recipe_line_count_changes(self):
     from dune_winder.core.winder_workspace import WinderWorkspace

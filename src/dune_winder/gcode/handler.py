@@ -1300,7 +1300,11 @@ class GCodeHandler(GCodeHandlerBase):
     self._queued_preview = None
 
     # Setup the front and back head locations.
-    # self._io.head.setFrontAndBack(calibration.zFront, calibration.zBack)
+    if calibration is not None:
+      z_front = getattr(calibration, "zFront", None)
+      z_back = getattr(calibration, "zBack", None)
+      if z_front is not None and z_back is not None:
+        self._io.head.setFrontAndBack(float(z_front), float(z_back))
 
     # Use current X/Y/Z position as starting points.
     # (These will be moved to self.lastN when the next line is executed.)
