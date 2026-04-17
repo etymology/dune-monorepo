@@ -416,6 +416,15 @@ class ProcessSnapshotTests(unittest.TestCase):
 
     self.assertEqual(io.head.front_back, (123.4, 567.8))
 
+  def test_use_layer_calibration_updates_head_front_and_back(self):
+    io = _ReloadGuardFakeIO()
+    handler = GCodeHandler(io, _ReloadGuardFakeCalibration(), None)
+
+    calibration = type("Calibration", (), {"zFront": 145.0, "zBack": 270.0})()
+    handler.useLayerCalibration(calibration)
+
+    self.assertEqual(io.head.front_back, (145.0, 270.0))
+
   def test_refresh_before_execution_returns_error_when_recipe_line_count_changes(self):
     from dune_winder.core.winder_workspace import WinderWorkspace
 

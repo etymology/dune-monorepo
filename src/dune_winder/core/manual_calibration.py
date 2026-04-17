@@ -17,6 +17,10 @@ from dune_winder.recipes.xg_template_gcode import (
   write_xg_template_file,
 )
 from dune_winder.machine.geometry.factory import create_layer_geometry
+from dune_winder.machine.calibration.defaults import (
+  apply_layer_z_defaults,
+  get_layer_z_defaults,
+)
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.layer_functions import LayerFunctions
 from dune_winder.machine.settings import Settings
@@ -298,28 +302,25 @@ def _absolute_location(calibration, pinName):
 
 def normalize_calibration(calibration, layer):
   normalized = LayerCalibration(layer=layer)
-  normalized.zFront = calibration.zFront
-  normalized.zBack = calibration.zBack
   normalized.offset = SerializableLocation(0.0, 0.0, 0.0)
 
   for pinName in calibration.getPinNames():
     location = _absolute_location(calibration, pinName)
     normalized.setPinLocation(pinName, location)
 
-  return normalized
+  return apply_layer_z_defaults(normalized, layer)
 
 
 def build_nominal_calibration(layer):
   geometry = create_layer_geometry(layer)
   calibration = LayerCalibration(layer=layer)
-  calibration.zFront = geometry.mostlyRetract
-  calibration.zBack = geometry.mostlyExtend
+  calibration.zFront, calibration.zBack = get_layer_z_defaults(layer, geometry)
   calibration.offset = SerializableLocation(0.0, 0.0, 0.0)
 
   origin = geometry.apaLocation.add(geometry.apaOffset)
   grids = [
-    ("F", geometry.gridBack, geometry.mostlyRetract, geometry.startPinBack, geometry.directionBack),
-    ("B", geometry.gridFront, geometry.mostlyExtend, geometry.startPinFront, geometry.directionFront),
+    ("F", geometry.gridBack, calibration.zFront, geometry.startPinBack, geometry.directionBack),
+    ("B", geometry.gridFront, calibration.zBack, geometry.startPinFront, geometry.directionFront),
   ]
 
   for side, grid, depth, startPin, direction in grids:
@@ -2120,8 +2121,6 @@ class ManualCalibration:
       os.makedirs(calibrationDirectory)
 
     calibration = LayerCalibration(layer=layer, archivePath=self._archivePath())
-    calibration.zFront = session.baselineCalibration.zFront
-    calibration.zBack = session.baselineCalibration.zBack
     calibration.offset = SerializableLocation(0.0, 0.0, 0.0)
 
     for pinName in session.baselineCalibration.getPinNames():
@@ -2138,6 +2137,8 @@ class ManualCalibration:
         calibration.setPinLocation(
           pinName, Location(baselineLocation.x, baselineLocation.y, baselineLocation.z)
         )
+
+    apply_layer_z_defaults(calibration, layer)
 
     savedFromSource = session.baselineSource
     fileName = self._liveFileName(layer)

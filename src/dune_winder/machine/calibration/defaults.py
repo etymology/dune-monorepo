@@ -17,6 +17,38 @@ from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv import UV_LayerGeometry
 
 
+LAYER_Z_DEFAULTS = {
+  "U": (145.0, 270.0),
+  "V": (150.0, 265.0),
+  "X": (155.0, 260.0),
+  "G": (140.0, 275.0),
+}
+
+
+def get_layer_z_defaults(layer_name, geometry=None):
+  normalized = str(layer_name).upper()
+  if normalized in LAYER_Z_DEFAULTS:
+    return LAYER_Z_DEFAULTS[normalized]
+  if geometry is None:
+    geometry = create_layer_geometry(normalized)
+  return (geometry.mostlyRetract, geometry.mostlyExtend)
+
+
+def apply_layer_z_defaults(calibration, layer_name, geometry=None):
+  z_front, z_back = get_layer_z_defaults(layer_name, geometry)
+  calibration.zFront = z_front
+  calibration.zBack = z_back
+
+  for pin_name in calibration.getPinNames():
+    location = calibration.getPinLocation(pin_name)
+    if pin_name.startswith("F"):
+      location.z = z_front
+    elif pin_name.startswith("B"):
+      location.z = z_back
+
+  return calibration
+
+
 def _populate_nominal_locations(calibration, geometry):
   """
   Populate the calibration map with nominal pin locations from geometry.
@@ -29,14 +61,14 @@ def _populate_nominal_locations(calibration, geometry):
     (
       "F",
       geometry.gridFront,
-      geometry.mostlyExtend,
+      calibration.zFront,
       geometry.startPinFront,
       geometry.directionFront,
     ),
     (
       "B",
       geometry.gridBack,
-      geometry.mostlyRetract,
+      calibration.zBack,
       geometry.startPinBack,
       geometry.directionBack,
     ),
@@ -165,8 +197,7 @@ class DefaultLayerCalibration(LayerCalibration):
     LayerCalibration.__init__(self, layerName)
     self.offset = geometry.apaLocation.add(geometry.apaOffset)
     self.offset = SerializableLocation.fromLocation(self.offset)
-    self.zFront = geometry.mostlyRetract
-    self.zBack = geometry.mostlyExtend
+    self.zFront, self.zBack = get_layer_z_defaults(layerName, geometry)
 
     _populate_nominal_locations(self, geometry)
 

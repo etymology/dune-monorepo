@@ -1,6 +1,10 @@
+import json
 import math
+import os
+import tempfile
 import unittest
 
+import dune_winder.gcode.handler_base as handler_base_module
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.gcode.runtime import GCodeProgramExecutor
 from dune_winder.library.Geometry.circle import Circle
@@ -26,6 +30,14 @@ class _GCodeHandlerBaseTestDouble(GCodeHandlerBase):
 
 
 class EmbeddedModuleTests(unittest.TestCase):
+  def test_default_layer_calibration_uses_layer_specific_z_defaults(self):
+    calibration = DefaultLayerCalibration(None, None, "V")
+
+    self.assertEqual(calibration.zFront, 150.0)
+    self.assertEqual(calibration.zBack, 265.0)
+    self.assertEqual(calibration.getPinLocation("F1").z, 150.0)
+    self.assertEqual(calibration.getPinLocation("B1").z, 265.0)
+
   def test_gcode_handler_base_main_block_cases(self):
     handler = _GCodeHandlerBaseTestDouble()
     gcode = GCodeProgramExecutor(
@@ -169,6 +181,112 @@ class EmbeddedModuleTests(unittest.TestCase):
 
     newTarget = headCompensation.pinCompensation(targetPosition)
     self.assertIsNone(newTarget)
+
+  def test_g109_g103_lines_emit_motion_trace_logging(self):
+    handler = _GCodeHandlerBaseTestDouble()
+    handler._x = 0.0
+    handler._y = 0.0
+    handler._z = 0.0
+    handler._headPosition = 1
+    line = "G109 PF1200 PTR G103 PF1199 PF1198 PXY G105 PX5"
+
+    with self.assertLogs("dune_winder.gcode.handler_base", level="INFO") as captured:
+      GCodeProgramExecutor([line], handler._callbacks).executeNextLine(0)
+
+    payload = json.loads(captured.output[0].split("GCODE_MOTION_TRACE ", 1)[1])
+
+    anchor = next(pin for pin in payload["pins"] if pin["role"] == "anchor")
+    pin_a = next(pin for pin in payload["pins"] if pin["role"] == "pinA")
+    pin_b = next(pin for pin in payload["pins"] if pin["role"] == "pinB")
+
+    expected_anchor = handler.layerCalibration.getPinLocation("F1200")
+    expected_pin_a = handler.layerCalibration.getPinLocation("F1199")
+    expected_pin_b = handler.layerCalibration.getPinLocation("F1198")
+    expected_center = expected_pin_a.center(expected_pin_b).add(handler.layerCalibration.offset)
+
+    self.assertEqual(payload["line"], line)
+    self.assertEqual(payload["anchorOrientation"], "TR")
+    self.assertEqual(anchor["pin"], "F1200")
+    self.assertEqual(anchor["orientation"], "TR")
+    self.assertAlmostEqual(anchor["calibrationSpace"]["x"], expected_anchor.x, places=6)
+    self.assertAlmostEqual(
+      anchor["wireSpace"]["x"],
+      expected_anchor.x + handler.layerCalibration.offset.x,
+      places=6,
+    )
+    self.assertAlmostEqual(pin_a["calibrationSpace"]["x"], expected_pin_a.x, places=6)
+    self.assertAlmostEqual(pin_b["calibrationSpace"]["x"], expected_pin_b.x, places=6)
+    self.assertEqual(payload["pinCenter"]["axes"], "XY")
+    self.assertAlmostEqual(payload["pinCenter"]["wireSpace"]["x"], expected_center.x, places=6)
+    self.assertAlmostEqual(payload["resultingTarget"]["x"], expected_center.x + 5.0, places=6)
+    self.assertAlmostEqual(payload["resultingTarget"]["y"], expected_center.y, places=6)
+    self.assertIsNotNone(payload["resultingWireTarget"])
+
+  def test_g109_g103_motion_trace_is_written_to_log_file(self):
+    handler = _GCodeHandlerBaseTestDouble()
+    handler._x = 0.0
+    handler._y = 0.0
+    handler._z = 0.0
+    handler._headPosition = 1
+    line = "G109 PF1200 PTR G103 PF1199 PF1198 PXY"
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      log_path = os.path.join(temp_directory, "gcode_motion_trace.log")
+      previous_env = os.environ.get(handler_base_module._MOTION_TRACE_LOG_ENV)
+      previous_handler = handler_base_module._MOTION_TRACE_FILE_HANDLER
+      previous_file_path = handler_base_module._MOTION_TRACE_FILE_PATH
+
+      if previous_handler is not None:
+        handler_base_module.LOGGER.removeHandler(previous_handler)
+        previous_handler.close()
+      handler_base_module._MOTION_TRACE_FILE_HANDLER = None
+      handler_base_module._MOTION_TRACE_FILE_PATH = None
+      os.environ[handler_base_module._MOTION_TRACE_LOG_ENV] = log_path
+
+      try:
+        GCodeProgramExecutor([line], handler._callbacks).executeNextLine(0)
+      finally:
+        active_handler = handler_base_module._MOTION_TRACE_FILE_HANDLER
+        if active_handler is not None:
+          active_handler.flush()
+          handler_base_module.LOGGER.removeHandler(active_handler)
+          active_handler.close()
+        handler_base_module._MOTION_TRACE_FILE_HANDLER = None
+        handler_base_module._MOTION_TRACE_FILE_PATH = None
+        if previous_env is None:
+          os.environ.pop(handler_base_module._MOTION_TRACE_LOG_ENV, None)
+        else:
+          os.environ[handler_base_module._MOTION_TRACE_LOG_ENV] = previous_env
+        if previous_handler is not None:
+          handler_base_module.LOGGER.addHandler(previous_handler)
+          handler_base_module._MOTION_TRACE_FILE_HANDLER = previous_handler
+          handler_base_module._MOTION_TRACE_FILE_PATH = previous_file_path
+
+      with open(log_path, encoding="utf-8") as input_file:
+        lines = [entry.strip() for entry in input_file.readlines() if entry.strip()]
+
+    self.assertEqual(len(lines), 1)
+    self.assertIn("GCODE_MOTION_TRACE", lines[0])
+    payload = json.loads(lines[0].split("GCODE_MOTION_TRACE ", 1)[1])
+    self.assertEqual(payload["line"], line)
+
+  def test_g109_g103_motion_trace_callback_receives_payload(self):
+    handler = _GCodeHandlerBaseTestDouble()
+    handler._x = 0.0
+    handler._y = 0.0
+    handler._z = 0.0
+    handler._headPosition = 1
+    seen = []
+    handler.setInstructionTraceCallback(lambda payload: seen.append(payload))
+
+    GCodeProgramExecutor(
+      ["G109 PF1200 PTR G103 PF1199 PF1198 PXY"],
+      handler._callbacks,
+    ).executeNextLine(0)
+
+    self.assertEqual(len(seen), 1)
+    self.assertEqual(seen[0]["line"], "G109 PF1200 PTR G103 PF1199 PF1198 PXY")
+    self.assertEqual(seen[0]["anchorOrientation"], "TR")
 
 
 if __name__ == "__main__":
