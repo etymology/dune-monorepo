@@ -106,7 +106,7 @@ U_WRAP_SCRIPT = compile_template_script(
     "transfer a_to_b_transfer",
     "emit G113 PPRECISE G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[3])} (Bottom B corner - head end, rewind)",
     "emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-    "if near_comb(400 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "if near_comb(400 + wrap): emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
     "transfer b_to_a_transfer",
     "emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
