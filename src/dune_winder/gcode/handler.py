@@ -60,6 +60,20 @@ class _QueuedMotionPreviewState:
 
 class GCodeHandler(GCodeHandlerBase):
   # ---------------------------------------------------------------------
+  def useLayerCalibration(self, layerCalibration):
+    GCodeHandlerBase.useLayerCalibration(self, layerCalibration)
+
+    if layerCalibration is None:
+      return
+
+    z_front = getattr(layerCalibration, "zFront", None)
+    z_back = getattr(layerCalibration, "zBack", None)
+    if z_front is None or z_back is None:
+      return
+
+    self._io.head.setFrontAndBack(float(z_front), float(z_back))
+
+  # ---------------------------------------------------------------------
   def _queued_motion_collision_state(self):
     def _input_enabled(name):
       io_point = getattr(self._io, name, None)
