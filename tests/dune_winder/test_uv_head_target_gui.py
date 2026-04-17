@@ -94,13 +94,18 @@ def _load_gui_module(monkeypatch):
 
 
 def _sample_result() -> UvHeadTargetResult:
-  request = UvHeadTargetRequest("U", "B1201", "B2002", "B2003", "front")
+  request = UvHeadTargetRequest("U", "B1201", "B2001", "front")
   return UvHeadTargetResult(
     request=request,
+    site_label="Top B corner - foot end",
+    site_side="B",
+    site_position="top",
+    wrap_side="-x",
     orientation_token="RT",
     anchor_pin_point=Point3D(0.0, 0.0, 1.0),
-    near_pin_point=Point3D(10.0, 5.0, 1.0),
-    target_pair_pin_point=Point3D(12.0, 7.0, 1.0),
+    wrapped_pin_point=Point3D(10.0, 5.0, 1.0),
+    inferred_pair_pin="B2002",
+    inferred_pair_pin_point=Point3D(12.0, 7.0, 1.0),
     midpoint_point=Point3D(11.0, 6.0, 1.0),
     transfer_point=Point2D(15.0, 8.0),
     effective_anchor_point=Point3D(1.0, 0.5, 1.0),
@@ -121,8 +126,7 @@ def test_build_request_from_form(monkeypatch):
     layer_var=_FakeVar(value="V"),
     head_z_mode_var=_FakeVar(value="back"),
     anchor_pin_var=_FakeVar(value="F1"),
-    near_pin_var=_FakeVar(value="F2"),
-    target_pair_pin_var=_FakeVar(value="F3"),
+    wrapped_pin_var=_FakeVar(value="F2"),
     error_var=_FakeVar(value=""),
     summary_var=_FakeVar(value=""),
     canvas=_FakeCanvas(),
@@ -130,7 +134,7 @@ def test_build_request_from_form(monkeypatch):
 
   request = gui.build_request_from_form(form)
 
-  assert request == UvHeadTargetRequest("V", "F1", "F2", "F3", "back")
+  assert request == UvHeadTargetRequest("V", "F1", "F2", "back")
 
 
 def test_calculate_and_render_updates_summary_and_canvas(monkeypatch):
@@ -141,8 +145,7 @@ def test_calculate_and_render_updates_summary_and_canvas(monkeypatch):
     layer_var=_FakeVar(value="U"),
     head_z_mode_var=_FakeVar(value="front"),
     anchor_pin_var=_FakeVar(value="B1201"),
-    near_pin_var=_FakeVar(value="B2002"),
-    target_pair_pin_var=_FakeVar(value="B2003"),
+    wrapped_pin_var=_FakeVar(value="B2001"),
     error_var=_FakeVar(value=""),
     summary_var=_FakeVar(value=""),
     canvas=_FakeCanvas(),
@@ -155,7 +158,8 @@ def test_calculate_and_render_updates_summary_and_canvas(monkeypatch):
   returned = gui.calculate_and_render(form, compute_fn=compute_fn)
 
   assert returned == result
-  assert seen == [UvHeadTargetRequest("U", "B1201", "B2002", "B2003", "front")]
+  assert seen == [UvHeadTargetRequest("U", "B1201", "B2001", "front")]
+  assert "Wrap side: -x" in form.summary_var.get()
   assert "Orientation: RT" in form.summary_var.get()
   assert form.error_var.get() == ""
   assert any(call[0] == "create_line" for call in form.canvas.calls)
@@ -167,8 +171,7 @@ def test_calculate_and_render_surfaces_validation_error(monkeypatch):
     layer_var=_FakeVar(value="U"),
     head_z_mode_var=_FakeVar(value="front"),
     anchor_pin_var=_FakeVar(value="bad"),
-    near_pin_var=_FakeVar(value="B2"),
-    target_pair_pin_var=_FakeVar(value="B3"),
+    wrapped_pin_var=_FakeVar(value="B2"),
     error_var=_FakeVar(value=""),
     summary_var=_FakeVar(value="summary"),
     canvas=_FakeCanvas(),
