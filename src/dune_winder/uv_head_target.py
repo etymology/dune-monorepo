@@ -58,7 +58,6 @@ class TransferBounds:
 class RecipeSite:
   anchor_pin: str
   orientation_token: str
-  wrapped_pin: str
   recipe_pair_pin_a: str
   recipe_pair_pin_b: str
   site_label: str
@@ -183,6 +182,13 @@ def _parse_site_label(site_label: str) -> tuple[str, str]:
   raise UvHeadTargetError(f"Could not determine site position from {site_label!r}.")
 
 
+def _strip_p_prefix(pin_name: str) -> str:
+  value = str(pin_name).strip().upper()
+  if value.startswith("P"):
+    return value[1:]
+  return value
+
+
 def _render_lines_for_layer(layer: str) -> list[str]:
   if layer == "U":
     return render_u_template_lines(strip_g113_params=True)
@@ -190,42 +196,28 @@ def _render_lines_for_layer(layer: str) -> list[str]:
 
 
 @lru_cache(maxsize=2)
-def _recipe_sites_by_anchor_and_wrapped(layer: str) -> dict[tuple[str, str], RecipeSite]:
-  result: dict[tuple[str, str], RecipeSite] = {}
+def _recipe_sites_by_anchor(layer: str) -> dict[str, list[RecipeSite]]:
+  result: dict[str, list[RecipeSite]] = {}
   for line in _render_lines_for_layer(layer):
     match = _RECIPE_SITE_RE.search(line)
     if match is None:
       continue
     anchor_pin, orientation_token, pair_pin_a, pair_pin_b, site_label = match.groups()
+    anchor_pin = _strip_p_prefix(anchor_pin)
+    pair_pin_a = _strip_p_prefix(pair_pin_a)
+    pair_pin_b = _strip_p_prefix(pair_pin_b)
     side, position = _parse_site_label(site_label)
-    for wrapped_pin in (pair_pin_a, pair_pin_b):
-      key = (anchor_pin, wrapped_pin)
-      candidate = RecipeSite(
-        anchor_pin=anchor_pin,
-        orientation_token=orientation_token,
-        wrapped_pin=wrapped_pin,
-        recipe_pair_pin_a=pair_pin_a,
-        recipe_pair_pin_b=pair_pin_b,
-        site_label=site_label,
-        side=side,
-        position=position,
-      )
-      existing = result.get(key)
-      if existing is not None and existing != candidate:
-        raise UvHeadTargetError(
-          f"Ambiguous recipe site for anchor {anchor_pin} and wrapped pin {wrapped_pin}."
-        )
-      result[key] = candidate
+    candidate = RecipeSite(
+      anchor_pin=anchor_pin,
+      orientation_token=orientation_token,
+      recipe_pair_pin_a=pair_pin_a,
+      recipe_pair_pin_b=pair_pin_b,
+      site_label=site_label,
+      side=side,
+      position=position,
+    )
+    result.setdefault(anchor_pin, []).append(candidate)
   return result
-
-
-def _lookup_recipe_site(layer: str, anchor_pin: str, wrapped_pin: str) -> RecipeSite:
-  try:
-    return _recipe_sites_by_anchor_and_wrapped(layer)[(anchor_pin, wrapped_pin)]
-  except KeyError as exc:
-    raise UvHeadTargetError(
-      f"No U/V recipe site matches anchor pin {anchor_pin} and wrapped pin {wrapped_pin}."
-    ) from exc
 
 
 def _infer_pair_pin_from_wrap_side(
@@ -269,6 +261,48 @@ def _infer_pair_pin_from_wrap_side(
   return best_pin
 
 
+def _resolve_site_wrapped_pin(
+  layer: str,
+  layer_calibration: LayerCalibration,
+  site: RecipeSite,
+) -> str:
+  wrap_side_value = wrap_side(layer, site.side, site.position)
+  matches = []
+  for wrapped_pin, other_pin in (
+    (site.recipe_pair_pin_a, site.recipe_pair_pin_b),
+    (site.recipe_pair_pin_b, site.recipe_pair_pin_a),
+  ):
+    try:
+      inferred = _infer_pair_pin_from_wrap_side(layer_calibration, wrapped_pin, wrap_side_value)
+    except UvHeadTargetError:
+      continue
+    if inferred == other_pin:
+      matches.append(wrapped_pin)
+  if len(matches) != 1:
+    raise UvHeadTargetError(
+      f"Could not resolve the wrapped pin for site {site.site_label!r} on layer {layer}."
+    )
+  return matches[0]
+
+
+def _lookup_recipe_site(
+  layer: str,
+  layer_calibration: LayerCalibration,
+  anchor_pin: str,
+  wrapped_pin: str,
+) -> RecipeSite:
+  matches = []
+  for site in _recipe_sites_by_anchor(layer).get(anchor_pin, ()):
+    resolved_wrapped_pin = _resolve_site_wrapped_pin(layer, layer_calibration, site)
+    if resolved_wrapped_pin == wrapped_pin:
+      matches.append(site)
+  if len(matches) != 1:
+    raise UvHeadTargetError(
+      f"No U/V recipe site matches anchor pin {anchor_pin} and wrapped pin {wrapped_pin}."
+    )
+  return matches[0]
+
+
 def _initial_handler(
   machine_calibration: MachineCalibration,
   layer_calibration: LayerCalibration,
@@ -306,9 +340,12 @@ def compute_uv_head_target(
     normalized_request.layer,
     layer_calibration_path,
   )
+  anchor_point = _wire_space_pin(layer_calibration, normalized_request.anchor_pin)
+  wrapped_point = _wire_space_pin(layer_calibration, normalized_request.wrapped_pin)
 
   recipe_site = _lookup_recipe_site(
     normalized_request.layer,
+    layer_calibration,
     normalized_request.anchor_pin,
     normalized_request.wrapped_pin,
   )
@@ -322,9 +359,6 @@ def compute_uv_head_target(
     normalized_request.wrapped_pin,
     wrap_side_value,
   )
-
-  anchor_point = _wire_space_pin(layer_calibration, normalized_request.anchor_pin)
-  wrapped_point = _wire_space_pin(layer_calibration, normalized_request.wrapped_pin)
   inferred_pair_point = _wire_space_pin(layer_calibration, inferred_pair_pin)
 
   head_position = 1 if normalized_request.head_z_mode == "front" else 2

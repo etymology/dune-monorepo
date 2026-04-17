@@ -189,10 +189,10 @@ def _build_form(root: tk.Misc) -> _FormState:
   viewer.columnconfigure(0, weight=1)
   viewer.rowconfigure(1, weight=1)
 
-  layer_var = tk.StringVar(master=root, value="U")
+  layer_var = tk.StringVar(master=root, value="V")
   head_z_mode_var = tk.StringVar(master=root, value="front")
-  anchor_pin_var = tk.StringVar(master=root, value="B1201")
-  wrapped_pin_var = tk.StringVar(master=root, value="B2001")
+  anchor_pin_var = tk.StringVar(master=root, value="B400")
+  wrapped_pin_var = tk.StringVar(master=root, value="B1999")
   error_var = tk.StringVar(master=root, value="")
   summary_var = tk.StringVar(master=root, value="")
 

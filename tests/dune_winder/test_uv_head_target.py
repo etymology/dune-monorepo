@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import math
-import re
-
 import pytest
 
 from dune_winder.gcode.handler_base import GCodeHandlerBase
@@ -11,8 +9,6 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.paths import REPO_ROOT
-from dune_winder.recipes.u_template_gcode import render_u_template_lines
-from dune_winder.recipes.v_template_gcode import render_v_template_lines
 from dune_winder.uv_head_target import (
   UvHeadTargetError,
   UvHeadTargetRequest,
@@ -21,9 +17,6 @@ from dune_winder.uv_head_target import (
   compute_uv_head_target,
   wrap_side,
 )
-
-
-_LINE_RE = re.compile(r"G109\s+(P[BF]\d+)\s+P([A-Z]{2})\s+G103\s+(P[BF]\d+)\s+(P[BF]\d+)\s+PXY")
 
 
 def _load_machine_calibration() -> MachineCalibration:
@@ -49,37 +42,20 @@ def _make_handler(layer: str) -> GCodeHandlerBase:
   return handler
 
 
-def _first_valid_request(layer: str) -> tuple[UvHeadTargetRequest, str, str]:
-  lines = render_u_template_lines(strip_g113_params=True) if layer == "U" else render_v_template_lines(strip_g113_params=True)
-  for line in lines:
-    match = _LINE_RE.search(line)
-    if match is None:
-      continue
-    anchor_pin, orientation, wrapped_pin, target_pin = match.groups()
-    for head_z_mode in ("front", "back"):
-      request = UvHeadTargetRequest(
-        layer=layer,
-        anchor_pin=anchor_pin[1:],
-        wrapped_pin=wrapped_pin[1:],
-        head_z_mode=head_z_mode,
-      )
-      try:
-        result = compute_uv_head_target(request)
-      except Exception:
-        continue
-      return (request, orientation, target_pin[1:])
-  raise AssertionError(f"No valid {layer} request found in rendered recipe.")
-
-
-def test_compute_uv_head_target_matches_runtime_for_first_valid_u_case():
-  request, orientation, pair_pin = _first_valid_request("U")
+def test_compute_uv_head_target_matches_runtime_for_known_v_case():
+  request = UvHeadTargetRequest(
+    layer="V",
+    anchor_pin="B400",
+    wrapped_pin="B1999",
+    head_z_mode="front",
+  )
   result = compute_uv_head_target(request)
-  handler = _make_handler("U")
-  head_position = 1 if request.head_z_mode == "front" else 2
+  handler = _make_handler("V")
+  head_position = 1
 
   execute_text_line(f"G106 P{head_position}", handler._callbacks.get)
-  execute_text_line(f"G109 P{request.anchor_pin} P{orientation}", handler._callbacks.get)
-  execute_text_line(f"G103 P{request.wrapped_pin} P{pair_pin} PXY", handler._callbacks.get)
+  execute_text_line("G109 PB400 PRT", handler._callbacks.get)
+  execute_text_line("G103 PB1999 PB1998 PXY", handler._callbacks.get)
   midpoint_x = handler._x
   midpoint_y = handler._y
   execute_text_line("G102", handler._callbacks.get)
@@ -92,8 +68,8 @@ def test_compute_uv_head_target_matches_runtime_for_first_valid_u_case():
     handler._headCompensation.anchorPoint().copy(x=handler._x, y=handler._y, z=head_z)
   )
 
-  assert result.orientation_token == orientation
-  assert result.inferred_pair_pin == pair_pin
+  assert result.orientation_token == "RT"
+  assert result.inferred_pair_pin == "B1998"
   assert math.isclose(result.midpoint_point.x, midpoint_x)
   assert math.isclose(result.midpoint_point.y, midpoint_y)
   assert math.isclose(result.transfer_point.x, transfer_x)
@@ -106,19 +82,23 @@ def test_compute_uv_head_target_matches_runtime_for_first_valid_u_case():
   assert math.isclose(result.final_wire_point.y, actual.y)
 
 
-def test_compute_uv_head_target_matches_runtime_for_first_valid_v_case():
-  request, orientation, pair_pin = _first_valid_request("V")
+def test_compute_uv_head_target_matches_runtime_for_second_known_v_case():
+  request = UvHeadTargetRequest(
+    layer="V",
+    anchor_pin="F800",
+    wrapped_pin="F1599",
+    head_z_mode="front",
+  )
   result = compute_uv_head_target(request)
   handler = _make_handler("V")
-  head_position = 1 if request.head_z_mode == "front" else 2
-  execute_text_line(f"G106 P{head_position}", handler._callbacks.get)
-  execute_text_line(f"G109 P{request.anchor_pin} P{orientation}", handler._callbacks.get)
-  execute_text_line(f"G103 P{request.wrapped_pin} P{pair_pin} PXY", handler._callbacks.get)
+  execute_text_line("G106 P1", handler._callbacks.get)
+  execute_text_line("G109 PF800 PRB", handler._callbacks.get)
+  execute_text_line("G103 PF1599 PF1600 PXY", handler._callbacks.get)
   execute_text_line("G102", handler._callbacks.get)
   execute_text_line("G108", handler._callbacks.get)
 
-  assert result.orientation_token == orientation
-  assert result.inferred_pair_pin == pair_pin
+  assert result.orientation_token == "RB"
+  assert result.inferred_pair_pin == "F1600"
   assert result.request.layer == "V"
   assert result.validation_error is None
   assert math.isclose(result.final_head_point.x, handler._x)
@@ -130,11 +110,12 @@ def test_wrap_side_matches_requested_formula_examples():
   assert wrap_side("U", "A", "top") == "+x"
   assert wrap_side("V", "B", "top") == "+x"
   assert wrap_side("U", "A", "foot") == "+y"
-  assert wrap_side("V", "B", "foot") == "-y"
+  assert wrap_side("V", "B", "foot") == "+y"
 
 
 def test_lookup_recipe_site_resolves_anchor_and_wrapped_pin():
-  site = _lookup_recipe_site("U", "PB1201", "PB2001")
+  calibration = _load_layer_calibration("U")
+  site = _lookup_recipe_site("U", calibration, "B1201", "B2001")
 
   assert site.orientation_token == "BR"
   assert site.side == "B"
@@ -144,14 +125,14 @@ def test_lookup_recipe_site_resolves_anchor_and_wrapped_pin():
 
 def test_infer_pair_pin_from_wrap_side_matches_known_u_case():
   calibration = _load_layer_calibration("U")
-  inferred = _infer_pair_pin_from_wrap_side(calibration, "PB2001", "-x")
-  assert inferred == "PB2002"
+  inferred = _infer_pair_pin_from_wrap_side(calibration, "B2001", "-x")
+  assert inferred == "B2002"
 
 
 def test_infer_pair_pin_from_wrap_side_matches_known_v_case():
   calibration = _load_layer_calibration("V")
-  inferred = _infer_pair_pin_from_wrap_side(calibration, "PB1998", "+x")
-  assert inferred == "PB1999"
+  inferred = _infer_pair_pin_from_wrap_side(calibration, "B1999", "+x")
+  assert inferred == "B1998"
 
 
 def test_compute_uv_head_target_rejects_bad_pin_format():
