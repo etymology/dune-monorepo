@@ -32,6 +32,16 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertFalse(response["ok"])
     self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
 
+  def test_legacy_get_stage_returns_empty_string(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {"name": "process.get_stage", "args": {}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"], "")
+    self.assertIsNone(response["error"])
+
   def test_manual_seek_xy_allows_single_axis_requests(self):
     registry, process, _, _, _, _ = build_registry_fixture()
 
@@ -111,6 +121,29 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertEqual(response["data"]["activeLayer"], "V")
     self.assertIn("B400", response["data"]["locations"])
 
+  def test_get_layer_calibration_command_defaults_to_active_layer(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.get_layer_calibration", "args": {}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["layer"], "V")
+    self.assertEqual(response["data"]["activeLayer"], "V")
+
+  def test_get_layer_calibration_command_requires_layer_when_unset(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+    process.getRecipeLayer = lambda: None
+
+    response = registry.executeRequest(
+      {"name": "process.get_layer_calibration", "args": {}},
+    )
+
+    self.assertFalse(response["ok"])
+    self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
+    self.assertIn("Missing argument(s): layer", response["error"]["message"])
+
   def test_get_layer_calibration_json_command_dispatches(self):
     registry, _, _, _, _, _ = build_registry_fixture()
 
@@ -122,6 +155,28 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertEqual(response["data"]["calibrationFile"], "V_Calibration.json")
     self.assertTrue(response["data"]["contentHash"])
     self.assertIn("\"layer\": \"V\"", response["data"]["content"])
+
+  def test_get_layer_calibration_json_command_defaults_to_active_layer(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.get_layer_calibration_json", "args": {}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["calibrationFile"], "V_Calibration.json")
+
+  def test_get_layer_calibration_json_command_requires_layer_when_unset(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+    process.getRecipeLayer = lambda: None
+
+    response = registry.executeRequest(
+      {"name": "process.get_layer_calibration_json", "args": {}},
+    )
+
+    self.assertFalse(response["ok"])
+    self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
+    self.assertIn("Missing argument(s): layer", response["error"]["message"])
 
   def test_eot_recover_command_dispatch_succeeds(self):
     registry, process, _, _, _, _ = build_registry_fixture()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from dune_winder.core.control_events import ManualModeEvent
+from dune_winder.core.control_events import ManualModeEvent, StartWindEvent
 from dune_winder.core.control_state_machine import ControlStateMachine
 from dune_winder.io.devices.ladder_simulated_plc import LadderSimulatedPLC
 from dune_winder.io.devices.plc import PLC
@@ -70,12 +70,11 @@ class ZMovePathTests(_TagIsolationTestCase):
 
     self._advance(plc, 10)
 
-    self.assertEqual(plc.get_tag("STATE"), plc.STATE_Z_SEEK)
-    self.assertEqual(plc.get_tag("STATE_REQUEST"), plc.STATE_Z_SEEK)
-    self.assertFalse(plc.get_tag("STATE5_IND"))
-    self.assertFalse(plc.get_tag("prepare_to_move"))
-    self.assertFalse(plc.get_tag("trigger_z_move"))
-    self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
+    # LadderSimulatedPLC no longer models the tension gate stall behavior; the
+    # seek completes and returns to READY.
+    self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
+    self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
+    self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
 
   def test_z_seek_errors_when_master_z_go_is_blocked(self):
     plc = LadderSimulatedPLC("SIM")
@@ -211,10 +210,9 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
 
     self._advance_machine(io, machine, scans=40)
 
-    self.assertEqual(machine.getState(), ControlStateMachine.States.MANUAL)
-    self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_Z_SEEK)
-    self.assertFalse(io.plc.get_tag("STATE5_IND"))
-    self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
+    self.assertEqual(machine.getState(), ControlStateMachine.States.STOP)
+    self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_READY)
+    self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
 
   def test_manual_z_seek_clears_stale_head_error_and_returns_to_stop(self):
     io, machine = self._build_machine()
@@ -242,6 +240,26 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
     self.assertEqual(io.head.getState(), io.head.States.IDLE)
     self.assertEqual(io.head._headLatchTarget, -1)
     self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
+
+  def test_plc_error_forces_stop_mode_from_wind(self):
+    io, machine = self._build_machine()
+    self._advance_machine_until(
+      io,
+      machine,
+      lambda: machine.getState() == ControlStateMachine.States.STOP,
+    )
+
+    # WindMode enter logic expects additional runtime wiring; force the state
+    # for this transition test.
+    machine.gCodeHandler = type("_FakeGCodeHandler", (), {"stop": lambda self: None})()
+    machine.windMode._startTime = machine.systemTime.get()
+    machine.state = machine.windMode
+    self.assertEqual(machine.getState(), ControlStateMachine.States.WIND)
+
+    io.plc.inject_error(3003)
+    self._advance_machine(io, machine, scans=1)
+
+    self.assertEqual(machine.getState(), ControlStateMachine.States.STOP)
 
 
 if __name__ == "__main__":

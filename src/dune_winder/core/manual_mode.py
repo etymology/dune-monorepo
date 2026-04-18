@@ -47,6 +47,7 @@ class ManualMode(StateMachineState):
     self._awaitPlcReady = False
     self._awaitHeadReady = False
     self._plcObservedInFlight = False
+    self._plcReadyStableCount = 0
     self._request: Optional[ManualModeEvent] = None
     self._subState = self.SubStates.IDLE
 
@@ -97,6 +98,7 @@ class ManualMode(StateMachineState):
     self._awaitPlcReady = False
     self._awaitHeadReady = False
     self._plcObservedInFlight = False
+    self._plcReadyStableCount = 0
     self._subState = self.SubStates.IDLE
 
     request = self._request
@@ -188,6 +190,16 @@ class ManualMode(StateMachineState):
       plcBusy = (not plcReadySignal) or axisBusy
       if plcBusy:
         self._plcObservedInFlight = True
+        self._plcReadyStableCount = 0
+      elif not self._plcObservedInFlight:
+        # Some PLC simulations report "ready" continuously and never expose
+        # per-axis "seeking" bits. Allow a couple of stable ready/not-busy
+        # observations to count as completion so manual mode can return to STOP,
+        # without breaking real PLC transitions where "ready" briefly starts
+        # high before going busy.
+        self._plcReadyStableCount += 1
+        if self._plcReadyStableCount >= 2:
+          self._plcObservedInFlight = True
       plcReady = self._plcObservedInFlight and not plcBusy
 
     headReady = (not self._awaitHeadReady) or self._io.head.isReady()

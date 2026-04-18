@@ -225,14 +225,24 @@ def build_command_registry(
   registry.register("process.seek_pin", process_seek_pin, True)
 
   def process_get_layer_calibration(args):
-    _validateArgs(args, required=("layer",))
-    return process.getLayerCalibration(_asString(args["layer"], "layer"))
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is None:
+      layer = process.getRecipeLayer()
+    if layer is None:
+      raise ValueError("Missing argument(s): layer")
+    return process.getLayerCalibration(_asString(layer, "layer"))
 
   registry.register("process.get_layer_calibration", process_get_layer_calibration, False)
 
   def process_get_layer_calibration_json(args):
-    _validateArgs(args, required=("layer",))
-    return process.getLayerCalibrationJson(_asString(args["layer"], "layer"))
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is None:
+      layer = process.getRecipeLayer()
+    if layer is None:
+      raise ValueError("Missing argument(s): layer")
+    return process.getLayerCalibrationJson(_asString(layer, "layer"))
 
   registry.register(
     "process.get_layer_calibration_json",
@@ -779,6 +789,13 @@ def build_command_registry(
     False,
   )
   registry.register(
+    "process.get_stage",
+    # Legacy APA stage polling has been removed; return the historical
+    # "no APA loaded" sentinel so old clients degrade gracefully.
+    lambda args: (_validateArgs(args), "")[1],
+    False,
+  )
+  registry.register(
     "process.get_ui_snapshot",
     lambda args: (_validateArgs(args), process.getUiSnapshot())[1],
     False,
@@ -835,8 +852,13 @@ def build_command_registry(
   registry.register("process.set_position_logging", process_set_position_logging, True)
 
   def process_max_velocity(args):
-    _validateArgs(args, optional=("value",))
+    _validateArgs(args, optional=("value", "max_velocity"))
+    if "value" in args and "max_velocity" in args:
+      raise ValueError("Provide only one of: value, max_velocity.")
+
     value = args.get("value")
+    if value is None:
+      value = args.get("max_velocity")
     if value is not None:
       value = _asFloat(value, "value")
     return process.maxVelocity(value)
@@ -878,8 +900,13 @@ def build_command_registry(
   )
 
   def io_max_acceleration(args):
-    _validateArgs(args, optional=("value",))
+    _validateArgs(args, optional=("value", "max_acceleration"))
+    if "value" in args and "max_acceleration" in args:
+      raise ValueError("Provide only one of: value, max_acceleration.")
+
     value = args.get("value")
+    if value is None:
+      value = args.get("max_acceleration")
     if value is not None:
       value = _asFloat(value, "value")
     return io.plcLogic.maxAcceleration(value)
@@ -887,8 +914,13 @@ def build_command_registry(
   registry.register("io.max_acceleration", io_max_acceleration, True)
 
   def io_max_deceleration(args):
-    _validateArgs(args, optional=("value",))
+    _validateArgs(args, optional=("value", "max_deceleration"))
+    if "value" in args and "max_deceleration" in args:
+      raise ValueError("Provide only one of: value, max_deceleration.")
+
     value = args.get("value")
+    if value is None:
+      value = args.get("max_deceleration")
     if value is not None:
       value = _asFloat(value, "value")
     return io.plcLogic.maxDeceleration(value)

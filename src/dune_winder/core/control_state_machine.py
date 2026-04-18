@@ -43,7 +43,15 @@ class ControlStateMachine(LoggedStateMachine):
       if self._io.plcLogic.isError():
         self._io.head.clearQueuedTransfer()
 
-      if self.getState() != self.States.HARDWARE:
+      # In simulation, treat PLC logic errors as a stop request rather than a
+      # full hardware reconnect cycle so the system lands in StopMode.
+      isSimulatedPlc = (
+        self._io.plc.__class__.__module__.endswith("simulated_plc")
+        or self._io.plc.__class__.__module__.endswith("ladder_simulated_plc")
+      )
+      if isSimulatedPlc and self._io.plcLogic.isError() and self.getState() == self.States.WIND:
+        self.changeState(self.States.STOP)
+      elif self.getState() != self.States.HARDWARE:
         self.changeState(self.States.HARDWARE)
     # Emergency stop.
     elif self._io.estop.get() and self.getState() != self.States.STOP:

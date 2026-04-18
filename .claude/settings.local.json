@@ -20,7 +20,10 @@
       "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -x -q)",
       "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -q)",
       "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py tests/dune_tension/test_average_profile_clouds_gui_app.py -q --tb=short)",
-      "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -xvs)"
+      "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -xvs)",
+      "Bash(python -m py_compile src/dune_winder/core/winder_workspace.py src/dune_winder/api/commands.py)",
+      "Bash(node -c dune_winder/web/Scripts/CommandCatalog.js)",
+      "Bash(uv run:*)"
     ]
   }
 }

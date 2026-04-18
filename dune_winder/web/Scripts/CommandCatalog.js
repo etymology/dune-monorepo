@@ -58,7 +58,7 @@
       setQueuedMotionUseMaxSpeed: "process.set_queued_motion_use_max_speed",
       getPositionLogging: "process.get_position_logging",
       setPositionLogging: "process.set_position_logging",
-      getStage: "process.get_stage",
+      getStage: "process.get_ui_snapshot",
       vTemplateGetState: "process.v_template.get_state",
       vTemplateSetOffset: "process.v_template.set_offset",
       vTemplateSetPullIn: "process.v_template.set_pull_in",

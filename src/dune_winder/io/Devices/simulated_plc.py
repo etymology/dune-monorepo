@@ -192,6 +192,27 @@ class SimulatedPLC(PLC):
       return {"cleared": 1 if cleared else 0, "name": tagName}
 
   # ---------------------------------------------------------------------
+  def update_limits(self, limits: dict[str, Any] | None = None, **kwargs):
+    """
+    Update simulator travel/transfer limits.
+
+    This keeps the in-memory PLC simulator consistent with the machine
+    calibration used elsewhere in the stack (e.g. Z retract/extend sensors and
+    XY limit checks).
+    """
+    if limits is None:
+      limits = {}
+    merged: dict[str, Any] = dict(limits)
+    merged.update(kwargs)
+
+    with self._lock:
+      for key, value in merged.items():
+        if key not in self._limits or value is None:
+          continue
+        self._limits[key] = float(value)
+      return dict(self._limits)
+
+  # ---------------------------------------------------------------------
   def inject_error(self, code=3003, state=None):
     with self._lock:
       errorCode = int(code)
