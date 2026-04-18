@@ -11,9 +11,13 @@
 ###############################################################################
 
 import copy
+import json
+import logging
+import os
 
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.gcode.model import CommandWord, Comment, FunctionCall, Opcode, ProgramLine
+from dune_winder.gcode.renderer import render_line
 from dune_winder.gcode.runtime import (
   GCodeCallbacks,
   GCodeExecutionError,
@@ -27,10 +31,144 @@ from dune_winder.library.Geometry.segment import Segment
 
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
+from dune_winder.machine.settings import Settings
+
+
+LOGGER = logging.getLogger(__name__)
+_MOTION_TRACE_LOG_ENV = "DUNE_GCODE_MOTION_TRACE_LOG"
+_MOTION_TRACE_LOG_DEFAULT = os.path.join(Settings.CACHE_DIR, "gcode_motion_trace.log")
+_MOTION_TRACE_FILE_HANDLER = None
+_MOTION_TRACE_FILE_PATH = None
+
+
+def _motion_trace_log_path():
+  configured = os.environ.get(_MOTION_TRACE_LOG_ENV)
+  if configured:
+    return os.path.abspath(configured)
+  return os.path.abspath(_MOTION_TRACE_LOG_DEFAULT)
+
+
+def _ensure_motion_trace_file_handler():
+  global _MOTION_TRACE_FILE_HANDLER, _MOTION_TRACE_FILE_PATH
+
+  file_path = _motion_trace_log_path()
+  if _MOTION_TRACE_FILE_HANDLER is not None and _MOTION_TRACE_FILE_PATH == file_path:
+    return
+
+  if _MOTION_TRACE_FILE_HANDLER is not None:
+    try:
+      LOGGER.removeHandler(_MOTION_TRACE_FILE_HANDLER)
+    except Exception:
+      pass
+    try:
+      _MOTION_TRACE_FILE_HANDLER.close()
+    except Exception:
+      pass
+    _MOTION_TRACE_FILE_HANDLER = None
+    _MOTION_TRACE_FILE_PATH = None
+
+  os.makedirs(os.path.dirname(file_path), exist_ok=True)
+  handler = logging.FileHandler(file_path, encoding="utf-8")
+  handler.setLevel(logging.INFO)
+  handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+  LOGGER.addHandler(handler)
+  if LOGGER.level in (logging.NOTSET, 0) or LOGGER.level > logging.INFO:
+    LOGGER.setLevel(logging.INFO)
+  _MOTION_TRACE_FILE_HANDLER = handler
+  _MOTION_TRACE_FILE_PATH = file_path
 
 
 class GCodeHandlerBase:
   DEBUG_UNIT = False
+
+  # ---------------------------------------------------------------------
+  @staticmethod
+  def _location_to_dict(location):
+    if location is None:
+      return None
+    return {
+      "x": float(location.x),
+      "y": float(location.y),
+      "z": float(location.z),
+    }
+
+  # ---------------------------------------------------------------------
+  def _wire_space_location(self, location):
+    if location is None:
+      return None
+    offset = getattr(self._layerCalibration, "offset", None)
+    if offset is None:
+      return location.copy()
+    return location.add(offset)
+
+  # ---------------------------------------------------------------------
+  def _build_pin_trace(self, *, role, pin_name, location, extra=None):
+    payload = {
+      "role": str(role),
+      "pin": str(pin_name),
+      "calibrationSpace": self._location_to_dict(location),
+      "wireSpace": self._location_to_dict(self._wire_space_location(location)),
+    }
+    if extra:
+      payload.update(extra)
+    return payload
+
+  # ---------------------------------------------------------------------
+  def _record_instruction_trace_pin(self, *, role, pin_name, location, extra=None):
+    if self._instruction_trace is None:
+      return
+    self._instruction_trace["pins"].append(
+      self._build_pin_trace(
+        role=role,
+        pin_name=pin_name,
+        location=location,
+        extra=extra,
+      )
+    )
+
+  # ---------------------------------------------------------------------
+  def _resolve_head_target_z(self):
+    head_position = getattr(self, "_headPosition", None)
+    if head_position is None or head_position == -1:
+      return None
+    try:
+      return float(self._getHeadPosition(head_position))
+    except GCodeExecutionError:
+      return None
+
+  # ---------------------------------------------------------------------
+  def _log_instruction_trace(self, line: ProgramLine):
+    if not self._instruction_trace or not self._instruction_trace["enabled"]:
+      return
+
+    _ensure_motion_trace_file_handler()
+    rendered_line = render_line(line)
+    head_z = self._resolve_head_target_z()
+    resulting_wire_target = None
+    if head_z is not None and self._x is not None and self._y is not None:
+      try:
+        resulting_wire_target = self._headCompensation.getActualLocation(
+          Location(self._x, self._y, head_z)
+        )
+      except Exception:
+        resulting_wire_target = None
+
+    payload = {
+      "line": rendered_line,
+      "resultingTarget": {
+        "x": float(self._x) if self._x is not None else None,
+        "y": float(self._y) if self._y is not None else None,
+        "pinZ": float(self._z) if self._z is not None else None,
+        "headZ": head_z,
+      },
+      "resultingWireTarget": self._location_to_dict(resulting_wire_target),
+      "pins": list(self._instruction_trace["pins"]),
+      "pinCenter": self._instruction_trace.get("pinCenter"),
+      "anchorOrientation": self._instruction_trace.get("anchorOrientation"),
+    }
+    LOGGER.info("GCODE_MOTION_TRACE %s", json.dumps(payload, sort_keys=True))
+    if self._instruction_trace_callback is not None:
+      self._instruction_trace_callback(dict(payload))
 
   # ---------------------------------------------------------------------
   def _setVelocity(self, velocity):
@@ -178,6 +316,7 @@ class GCodeHandlerBase:
   # ---------------------------------------------------------------------
   def handle_instruction(self, line: ProgramLine):
     """Handle one complete parsed G-code instruction line atomically."""
+    self._instruction_trace = {"enabled": False, "pins": []}
     self._instruction_request_xy = False
     self._instruction_request_z = False
     self._instruction_request_head = False
@@ -200,6 +339,7 @@ class GCodeHandlerBase:
         self._runFunction(item.as_legacy_parameter_list())
 
     self._queue_instruction_actions()
+    self._log_instruction_trace(line)
 
   # ---------------------------------------------------------------------
   def _resolve_z_target(self, value):
@@ -405,7 +545,16 @@ class GCodeHandlerBase:
     pinA = self._getPin(pinNumberA)
     pinB = self._getPin(pinNumberB)
     center = pinA.center(pinB)
-    center = center.add(self._layerCalibration.offset)
+    wire_center = center.add(self._layerCalibration.offset)
+    self._instruction_trace["enabled"] = True
+    self._record_instruction_trace_pin(role="pinA", pin_name=pinNumberA, location=pinA)
+    self._record_instruction_trace_pin(role="pinB", pin_name=pinNumberB, location=pinB)
+    self._instruction_trace["pinCenter"] = {
+      "axes": str(axies),
+      "calibrationSpace": self._location_to_dict(center),
+      "wireSpace": self._location_to_dict(wire_center),
+    }
+    center = wire_center
     if GCodeHandlerBase.DEBUG_UNIT:
       print(pinA, pinB, center)
 
@@ -529,6 +678,14 @@ class GCodeHandlerBase:
 
     # Get pin center.
     pin = self._getPin(pinNumber)
+    self._instruction_trace["enabled"] = True
+    self._instruction_trace["anchorOrientation"] = orientation
+    self._record_instruction_trace_pin(
+      role="anchor",
+      pin_name=pinNumber,
+      location=pin,
+      extra={"orientation": str(orientation)},
+    )
     pin = pin.add(self._layerCalibration.offset)
 
     if "0" == orientation:
@@ -764,6 +921,17 @@ class GCodeHandlerBase:
     return self._layerCalibration
 
   # ---------------------------------------------------------------------
+  def setInstructionTraceCallback(self, callback):
+    """
+    Register a callback invoked with the structured motion-trace payload after
+    a traced instruction is interpreted.
+
+    Args:
+      callback: Callable taking one payload dict argument, or None to clear.
+    """
+    self._instruction_trace_callback = callback
+
+  # ---------------------------------------------------------------------
   def setInitialLocation(self, x, y, headLocation):
     """
     Set the last machine location.  This is needed when loading a new recipe
@@ -833,6 +1001,8 @@ class GCodeHandlerBase:
     self._layerCalibration = None
     self._machineCalibration = machineCalibration
     self._headCompensation = headCompensation
+    self._instruction_trace = None
+    self._instruction_trace_callback = None
 
     self._startLocationX = None
     self._startLocationY = None

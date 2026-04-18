@@ -99,6 +99,7 @@ class _Head:
   def __init__(self):
     self.clear_calls = 0
     self._ready = True
+    self.front_back = None
 
   def isReady(self):
     return self._ready
@@ -123,6 +124,9 @@ class _Head:
 
   def getTargetAxisPosition(self):
     return 0.0
+
+  def setFrontAndBack(self, front, back):
+    self.front_back = (float(front), float(back))
 
   def clearQueuedTransfer(self):
     self.clear_calls += 1

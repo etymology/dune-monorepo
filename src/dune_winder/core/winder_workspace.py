@@ -16,6 +16,7 @@ from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.hash import Hash
 from dune_winder.library.log import Log
 from dune_winder.library.time_source import TimeSource
+from dune_winder.machine.calibration.defaults import get_layer_z_defaults
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.recipe import Recipe
@@ -997,8 +998,9 @@ class WinderWorkspace:
 
   def setupBlankCalibration(self, layer, geometry):
     self._calibration = LayerCalibration()
-    self._calibration.zFront = geometry.mostlyRetract
-    self._calibration.zBack = geometry.mostlyExtend
+    self._calibration.zFront, self._calibration.zBack = get_layer_z_defaults(
+      layer, geometry
+    )
     self._calibrationFile = layer + "_Calibration.json"
     self._calibration.save(self._calibrationDirectory, self._calibrationFile)
     self._useCalibration(self._calibration)

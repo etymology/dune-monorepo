@@ -60,6 +60,20 @@ class _QueuedMotionPreviewState:
 
 class GCodeHandler(GCodeHandlerBase):
   # ---------------------------------------------------------------------
+  def useLayerCalibration(self, layerCalibration):
+    GCodeHandlerBase.useLayerCalibration(self, layerCalibration)
+
+    if layerCalibration is None:
+      return
+
+    z_front = getattr(layerCalibration, "zFront", None)
+    z_back = getattr(layerCalibration, "zBack", None)
+    if z_front is None or z_back is None:
+      return
+
+    self._io.head.setFrontAndBack(float(z_front), float(z_back))
+
+  # ---------------------------------------------------------------------
   def _queued_motion_collision_state(self):
     def _input_enabled(name):
       io_point = getattr(self._io, name, None)
@@ -1300,7 +1314,11 @@ class GCodeHandler(GCodeHandlerBase):
     self._queued_preview = None
 
     # Setup the front and back head locations.
-    # self._io.head.setFrontAndBack(calibration.zFront, calibration.zBack)
+    if calibration is not None:
+      z_front = getattr(calibration, "zFront", None)
+      z_back = getattr(calibration, "zBack", None)
+      if z_front is not None and z_back is not None:
+        self._io.head.setFrontAndBack(float(z_front), float(z_back))
 
     # Use current X/Y/Z position as starting points.
     # (These will be moved to self.lastN when the next line is executed.)

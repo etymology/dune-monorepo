@@ -45,6 +45,15 @@ class CalibrationNotLoadedError(ValueError):
 
 class Process:
   # ---------------------------------------------------------------------
+  def _recordInstructionTrace(self, payload):
+    self._log.add(
+      "GCodeTrace",
+      "GCODE_MOTION_TRACE",
+      "Traced G-code motion target.",
+      [json.dumps(payload, sort_keys=True)],
+    )
+
+  # ---------------------------------------------------------------------
   def _motionService(self):
     motion = getattr(self, "_motion", None)
     if motion is None:
@@ -168,6 +177,7 @@ class Process:
       configuration=configuration,
       xBacklash=self._xBacklash,
     )
+    self.gCodeHandler.setInstructionTraceCallback(self._recordInstructionTrace)
     self.controlStateMachine.gCodeHandler = self.gCodeHandler
 
     maxVelocity = float(configuration.maxVelocity)
