@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
+
 
 @dataclass(frozen=True)
 class GeometryConfig:
@@ -55,11 +57,23 @@ class ServoConfig:
 
 
 GEOMETRY_CONFIG = GeometryConfig()
+_U_LAYOUT = get_uv_layout("U")
+_V_LAYOUT = get_uv_layout("V")
 LAYER_LAYOUTS = {
     "G": LayerLayoutConfig(dx=0.0, dy=2300 / 480, wire_min=1, wire_max=481),
     "X": LayerLayoutConfig(dx=0.0, dy=2300 / 480, wire_min=1, wire_max=480),
-    "U": LayerLayoutConfig(dx=8.0, dy=5.75, wire_min=8, wire_max=1146),
-    "V": LayerLayoutConfig(dx=8.0, dy=5.75, wire_min=8, wire_max=1146),
+    "U": LayerLayoutConfig(
+        dx=_U_LAYOUT.pitch_dx,
+        dy=_U_LAYOUT.pitch_dy,
+        wire_min=_U_LAYOUT.wire_min,
+        wire_max=_U_LAYOUT.wire_max,
+    ),
+    "V": LayerLayoutConfig(
+        dx=_V_LAYOUT.pitch_dx,
+        dy=_V_LAYOUT.pitch_dy,
+        wire_min=_V_LAYOUT.wire_min,
+        wire_max=_V_LAYOUT.wire_max,
+    ),
 }
 MEASUREMENT_WIGGLE_CONFIG = MeasurementWiggleConfig()
 SERVO_CONFIG = ServoConfig()

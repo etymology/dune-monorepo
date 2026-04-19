@@ -16,11 +16,14 @@ from dune_tension.plc_desktop import (
     desktop_get_layer_calibration,
     desktop_get_layer_calibration_json,
 )
-from dune_winder.core.manual_calibration import _build_layer_metadata, normalize_calibration
 from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.factory import create_layer_geometry
 from dune_winder.machine.geometry.layer_functions import LayerFunctions
+from dune_winder.machine.geometry.uv_calibration import (
+    normalize_layer_calibration_to_absolute,
+)
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +31,7 @@ UV_LAYERS = frozenset({"U", "V"})
 APA_CALIBRATION_DIR = REPO_ROOT / "config" / "APA"
 WINDER_WORKSPACE_STATE_PATH = REPO_ROOT / "cache" / "state.json"
 LASER_OFFSET_PATH = APA_CALIBRATION_DIR / "TensionLaserOffsets.json"
+normalize_calibration = normalize_layer_calibration_to_absolute
 
 
 @dataclass(frozen=True)
@@ -257,7 +261,7 @@ def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
 
 def _normalize_pin_name(pin_name: str) -> str:
     value = str(pin_name).strip().upper()
-    if len(value) < 2 or value[0] not in {"B", "F"} or not value[1:].isdigit():
+    if len(value) < 2 or value[0] not in {"A", "B"} or not value[1:].isdigit():
         raise ValueError(f"Unsupported pin name {pin_name!r}.")
     return value
 
@@ -266,10 +270,16 @@ def _translate_pin_name_family(layer: str, pin_name: str, target_family: str) ->
     requested_layer = _normalize_layer(layer)
     normalized_pin = _normalize_pin_name(pin_name)
     desired_family = str(target_family).strip().upper()
-    if desired_family not in {"B", "F"}:
+    if desired_family not in {"A", "B"}:
         raise ValueError(f"Unsupported target pin family {target_family!r}.")
     if normalized_pin[0] == desired_family:
         return normalized_pin
+
+    if requested_layer in UV_LAYERS:
+        return get_uv_layout(requested_layer).translate_pin(
+            normalized_pin,
+            target_family=desired_family,
+        )
 
     geometry = create_layer_geometry(requested_layer)
     translated_pin = int(LayerFunctions.translateFrontBack(geometry, int(normalized_pin[1:])))
@@ -278,7 +288,7 @@ def _translate_pin_name_family(layer: str, pin_name: str, target_family: str) ->
 
 def resolve_pin_name_for_side(layer: str, side: str, pin_name: str) -> str:
     requested_side = _normalize_side(side)
-    target_family = "F" if requested_side == "A" else "B"
+    target_family = "A" if requested_side == "A" else "B"
     return _translate_pin_name_family(layer, pin_name, target_family)
 
 
@@ -287,8 +297,8 @@ def get_calibrated_pin_xy_for_side(layer: str, side: str, pin_name: str) -> tupl
     return get_calibrated_pin_xy(layer, resolved_pin)
 
 
-def _bottom_back_pin_to_front_pin(layer: str, back_pin: int) -> int:
-    translated = _translate_pin_name_family(layer, f"B{int(back_pin)}", "F")
+def _bottom_back_pin_to_a_pin(layer: str, back_pin: int) -> int:
+    translated = _translate_pin_name_family(layer, f"B{int(back_pin)}", "A")
     return int(translated[1:])
 
 
@@ -298,12 +308,12 @@ def get_bottom_pin_options(layer: str, side: str) -> list[tuple[str, str]]:
     if requested_layer not in UV_LAYERS:
         return []
 
-    metadata = _build_layer_metadata(requested_layer)
-    back_start_pin, back_end_pin = metadata["sideRanges"]["bottom"]
+    layout = get_uv_layout(requested_layer)
+    back_start_pin, back_end_pin = layout.side_ranges["bottom"]
     if requested_side == "A":
-        start_pin = _bottom_back_pin_to_front_pin(requested_layer, back_start_pin)
-        end_pin = _bottom_back_pin_to_front_pin(requested_layer, back_end_pin)
-        pin_family = "F"
+        start_pin = _bottom_back_pin_to_a_pin(requested_layer, back_start_pin)
+        end_pin = _bottom_back_pin_to_a_pin(requested_layer, back_end_pin)
+        pin_family = "A"
     else:
         start_pin = back_start_pin
         end_pin = back_end_pin

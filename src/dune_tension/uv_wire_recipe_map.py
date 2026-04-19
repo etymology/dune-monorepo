@@ -7,7 +7,7 @@ import re
 
 from dune_tension.layer_calibration import load_normalized_layer_calibration
 from dune_tension.uv_wire_planner import wire_pin_pair
-from dune_winder.core.manual_calibration import LAYER_METADATA, _build_layer_metadata
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.recipes.u_template_gcode import WRAP_COUNT as U_WRAP_COUNT, render_u_template_lines
 from dune_winder.recipes.v_template_gcode import WRAP_COUNT as V_WRAP_COUNT, render_v_template_lines
 
@@ -107,11 +107,7 @@ def _canonical_segment_comments(layer: str) -> dict[int, str]:
 
 @lru_cache(maxsize=2)
 def _layer_metadata(layer: str) -> dict[str, object]:
-    requested_layer = _normalize_layer(layer)
-    metadata = LAYER_METADATA.get(requested_layer)
-    if metadata is None:
-        metadata = _build_layer_metadata(requested_layer)
-    return metadata
+    return get_uv_layout(_normalize_layer(layer)).legacy_metadata()
 
 
 @lru_cache(maxsize=2)
@@ -146,7 +142,7 @@ def build_wrap_to_wire_numbers(layer: str) -> dict[int, list[int]]:
 def build_uv_wire_recipe_maps(layer: str) -> UvWireRecipeMaps:
     requested_layer = _normalize_layer(layer)
     comments = _canonical_segment_comments(requested_layer)
-    metadata = _layer_metadata(requested_layer)
+    layout = get_uv_layout(requested_layer)
     calibration = _layer_calibration(requested_layer)
     wrap_to_wire_numbers = build_wrap_to_wire_numbers(requested_layer)
 
@@ -154,7 +150,6 @@ def build_uv_wire_recipe_maps(layer: str) -> UvWireRecipeMaps:
     wire_to_applied_length_mm: dict[int, float] = {}
     wire_to_endpoint_sides: dict[int, tuple[str, str]] = {}
 
-    pin_to_board = metadata["pinToBoard"]
     for wrap_number, wire_numbers in wrap_to_wire_numbers.items():
         for segment_index, wire_number in enumerate(wire_numbers, start=1):
             if wire_number < VALID_WIRE_MIN or wire_number > VALID_WIRE_MAX:
@@ -166,10 +161,8 @@ def build_uv_wire_recipe_maps(layer: str) -> UvWireRecipeMaps:
 
             segment_line = CANONICAL_SEGMENT_LINES[segment_index - 1]
             start_pin, end_pin = wire_pin_pair(requested_layer, wire_number)
-            start_pin_number = int(start_pin[1:])
-            end_pin_number = int(end_pin[1:])
-            start_side = str(pin_to_board[start_pin_number]["side"])
-            end_side = str(pin_to_board[end_pin_number]["side"])
+            start_side = layout.face_for_pin(start_pin)
+            end_side = layout.face_for_pin(end_pin)
             start_xyz = _pin_location_xyz(calibration, start_pin)
             end_xyz = _pin_location_xyz(calibration, end_pin)
 
