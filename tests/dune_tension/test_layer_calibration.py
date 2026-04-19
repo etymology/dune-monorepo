@@ -110,15 +110,15 @@ def test_capture_laser_offset_uses_front_pin_family_for_a_side(monkeypatch, tmp_
     )
 
     saved = json.loads(offset_path.read_text(encoding="utf-8"))
-    assert looked_up_pins == ["F2399"]
-    assert entry["captured_pin"] == "F2399"
-    assert saved["A"]["captured_pin"] == "F2399"
+    assert looked_up_pins == ["A2399"]
+    assert entry["captured_pin"] == "A2399"
+    assert saved["A"]["captured_pin"] == "A2399"
 
 
 def test_get_bottom_pin_options_returns_first_and_last_bottom_pins() -> None:
     assert layer_calibration.get_bottom_pin_options("U", "A") == [
-        ("Bottom first (F2401)", "F2401"),
-        ("Bottom last (F1602)", "F1602"),
+        ("Bottom first (A2401)", "A2401"),
+        ("Bottom last (A1602)", "A1602"),
     ]
     assert layer_calibration.get_bottom_pin_options("V", "B") == [
         ("Bottom first (B400)", "B400"),
@@ -128,14 +128,14 @@ def test_get_bottom_pin_options_returns_first_and_last_bottom_pins() -> None:
 
 def test_get_bottom_pin_options_uses_front_family_for_a_side() -> None:
     assert layer_calibration.get_bottom_pin_options("V", "A") == [
-        ("Bottom first (F2399)", "F2399"),
-        ("Bottom last (F1600)", "F1600"),
+        ("Bottom first (A2399)", "A2399"),
+        ("Bottom last (A1600)", "A1600"),
     ]
 
 
 def test_resolve_pin_name_for_side_uses_requested_family() -> None:
-    assert layer_calibration.resolve_pin_name_for_side("V", "A", "B400") == "F2399"
-    assert layer_calibration.resolve_pin_name_for_side("V", "B", "F2399") == "B400"
+    assert layer_calibration.resolve_pin_name_for_side("V", "A", "B400") == "A2399"
+    assert layer_calibration.resolve_pin_name_for_side("V", "B", "A2399") == "B400"
 
 
 def test_get_calibrated_pin_xy_for_side_uses_resolved_pin_name(monkeypatch) -> None:
@@ -145,13 +145,13 @@ def test_get_calibrated_pin_xy_for_side_uses_resolved_pin_name(monkeypatch) -> N
         lambda _layer: {
             "locations": {
                 "B400": {"x": 1.0, "y": 2.0},
-                "F2399": {"x": 3.0, "y": 4.0},
+                "A2399": {"x": 3.0, "y": 4.0},
             }
         },
     )
 
     assert layer_calibration.get_calibrated_pin_xy_for_side("V", "A", "B400") == (3.0, 4.0)
-    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "B", "F2399") == (1.0, 2.0)
+    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "B", "A2399") == (1.0, 2.0)
 
 
 def test_ensure_local_layer_calibration_file_generates_default_when_missing(
@@ -237,8 +237,8 @@ def test_load_normalized_layer_calibration_uses_generated_default_when_missing(
     assert payload["locations"]["B1"] == {"x": 1.0, "y": 2.0, "z": 3.0}
 
 
-def test_bottom_back_pin_to_front_pin_uses_uv_translation_formula() -> None:
-    assert layer_calibration._bottom_back_pin_to_front_pin("V", 400) == 2399
-    assert layer_calibration._bottom_back_pin_to_front_pin("V", 1199) == 1600
-    assert layer_calibration._bottom_back_pin_to_front_pin("U", 401) == 2401
-    assert layer_calibration._bottom_back_pin_to_front_pin("U", 1200) == 1602
+def test_bottom_back_pin_to_a_pin_uses_uv_translation_formula() -> None:
+    assert layer_calibration._bottom_back_pin_to_a_pin("V", 400) == 2399
+    assert layer_calibration._bottom_back_pin_to_a_pin("V", 1199) == 1600
+    assert layer_calibration._bottom_back_pin_to_a_pin("U", 401) == 2401
+    assert layer_calibration._bottom_back_pin_to_a_pin("U", 1200) == 1602

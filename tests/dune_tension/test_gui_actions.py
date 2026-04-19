@@ -570,14 +570,14 @@ def test_selected_laser_offset_pin_uses_side_specific_pin_family(monkeypatch):
         actions,
         "get_bottom_pin_options",
         lambda _layer, side: (
-            [("Bottom first (F400)", "F400"), ("Bottom last (F1199)", "F1199")]
+            [("Bottom first (A400)", "A400"), ("Bottom last (A1199)", "A1199")]
             if side == "A"
             else [("Bottom first (B400)", "B400"), ("Bottom last (B1199)", "B1199")]
         ),
     )
 
-    assert actions._selected_laser_offset_pin("V", "A", "B400") == "F400"
-    assert actions._selected_laser_offset_pin("V", "B", "F400") == "B400"
+    assert actions._selected_laser_offset_pin("V", "A", "B400") == "A400"
+    assert actions._selected_laser_offset_pin("V", "B", "A400") == "B400"
 
 
 def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
@@ -593,7 +593,7 @@ def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
         goto_xy=lambda x, y, **_kwargs: moves.append((x, y)) or True,
     )
 
-    assert actions._move_laser_to_pin(ctx, "V", "A", "F2399") is True
+    assert actions._move_laser_to_pin(ctx, "V", "A", "A2399") is True
     assert moves == [(97.5, 201.0)]
 
 

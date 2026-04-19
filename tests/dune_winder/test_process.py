@@ -481,7 +481,7 @@ class ProcessSnapshotTests(unittest.TestCase):
       calibrationPath = os.path.join(tempDir, "V_Calibration.json")
 
       with open(recipePath, "w", encoding="utf-8") as outputFile:
-        outputFile.write("N1 G1 X1\nN2 G103 PF10 PB20\nN3 G1 X2\nN4 G103 PF30 PB40\n")
+        outputFile.write("N1 G1 X1\nN2 G103 PA10 PB20\nN3 G1 X2\nN4 G103 PA30 PB40\n")
       with open(calibrationPath, "w", encoding="utf-8") as outputFile:
         outputFile.write("{}\n")
 
@@ -504,14 +504,14 @@ class ProcessSnapshotTests(unittest.TestCase):
         {
           "getLines": lambda self: [
             "N1 G1 X1",
-            "N2 G103 PF10 PB20",
+            "N2 G103 PA10 PB20",
             "N3 G1 X2",
-            "N4 G103 PF30 PB40",
+            "N4 G103 PA30 PB40",
           ]
         },
       )()
       process.workspace._gCodeHandler.loadG_Code(
-        ["N1 G1 X1", "N2 G103 PF10 PB20", "N3 G1 X2", "N4 G103 PF30 PB40"],
+        ["N1 G1 X1", "N2 G103 PA10 PB20", "N3 G1 X2", "N4 G103 PA30 PB40"],
         calibration=None,
       )
       process.workspace._gCodeHandler.setLine(3)
@@ -523,7 +523,7 @@ class ProcessSnapshotTests(unittest.TestCase):
 
       with open(recipePath, "w", encoding="utf-8") as outputFile:
         outputFile.write(
-          "N1 G1 X1\nN2 G103 PF10 PB20\nN3 G1 X2\nN4 G1 X3\nN5 G103 PF30 PB40\nN6 G1 X4\n"
+          "N1 G1 X1\nN2 G103 PA10 PB20\nN3 G1 X2\nN4 G1 X3\nN5 G103 PA30 PB40\nN6 G1 X4\n"
         )
 
       result = process._refreshCalibrationBeforeExecution()
@@ -777,15 +777,15 @@ class ProcessManualGCodeTests(unittest.TestCase):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
     process._safety._maxVelocity = 1200.0
 
-    error = process.executeG_CodeLine("F1200")
+    error = process.executeG_CodeLine("A1200")
 
     self.assertIsNone(error)
-    self.assertEqual(process.gCodeHandler.lines, ["F1200"])
+    self.assertEqual(process.gCodeHandler.lines, ["A1200"])
 
   def test_execute_manual_gcode_rejects_feed_above_max_velocity(self):
     process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
 
-    error = process.executeG_CodeLine("F301")
+    error = process.executeG_CodeLine("A301")
 
     self.assertIn("Invalid F-axis Speed, exceeding limit", error)
     self.assertEqual(process.gCodeHandler.lines, [])

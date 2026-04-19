@@ -35,7 +35,7 @@ class EmbeddedModuleTests(unittest.TestCase):
 
     self.assertEqual(calibration.zFront, 150.0)
     self.assertEqual(calibration.zBack, 265.0)
-    self.assertEqual(calibration.getPinLocation("F1").z, 150.0)
+    self.assertEqual(calibration.getPinLocation("A1").z, 150.0)
     self.assertEqual(calibration.getPinLocation("B1").z, 265.0)
 
   def test_gcode_handler_base_main_block_cases(self):
@@ -43,8 +43,8 @@ class EmbeddedModuleTests(unittest.TestCase):
     gcode = GCodeProgramExecutor(
       [
         "X10 Y10 Z10",
-        "G103 PF800 PF800 PXY",
-        "G109 PF1200 PTR G103 PF1199 PF1198 PXY G102",
+        "G103 PA800 PA800 PXY",
+        "G109 PA1200 PTR G103 PA1199 PA1198 PXY G102",
       ],
       handler._callbacks,
     )
@@ -53,7 +53,7 @@ class EmbeddedModuleTests(unittest.TestCase):
     self.assertEqual(Location(handler._x, handler._y, handler._z), Location(10, 10, 10))
 
     gcode.executeNextLine(1)
-    pin_location = handler.layerCalibration.getPinLocation("F800")
+    pin_location = handler.layerCalibration.getPinLocation("A800")
     pin_location = pin_location.add(handler.layerCalibration.offset)
     pin_location.z = 0
     self.assertEqual(pin_location, Location(handler._x, handler._y))
@@ -188,7 +188,7 @@ class EmbeddedModuleTests(unittest.TestCase):
     handler._y = 0.0
     handler._z = 0.0
     handler._headPosition = 1
-    line = "G109 PF1200 PTR G103 PF1199 PF1198 PXY G105 PX5"
+    line = "G109 PA1200 PTR G103 PA1199 PA1198 PXY G105 PX5"
 
     with self.assertLogs("dune_winder.gcode.handler_base", level="INFO") as captured:
       GCodeProgramExecutor([line], handler._callbacks).executeNextLine(0)
@@ -199,14 +199,14 @@ class EmbeddedModuleTests(unittest.TestCase):
     pin_a = next(pin for pin in payload["pins"] if pin["role"] == "pinA")
     pin_b = next(pin for pin in payload["pins"] if pin["role"] == "pinB")
 
-    expected_anchor = handler.layerCalibration.getPinLocation("F1200")
-    expected_pin_a = handler.layerCalibration.getPinLocation("F1199")
-    expected_pin_b = handler.layerCalibration.getPinLocation("F1198")
+    expected_anchor = handler.layerCalibration.getPinLocation("A1200")
+    expected_pin_a = handler.layerCalibration.getPinLocation("A1199")
+    expected_pin_b = handler.layerCalibration.getPinLocation("A1198")
     expected_center = expected_pin_a.center(expected_pin_b).add(handler.layerCalibration.offset)
 
     self.assertEqual(payload["line"], line)
     self.assertEqual(payload["anchorOrientation"], "TR")
-    self.assertEqual(anchor["pin"], "F1200")
+    self.assertEqual(anchor["pin"], "A1200")
     self.assertEqual(anchor["orientation"], "TR")
     self.assertAlmostEqual(anchor["calibrationSpace"]["x"], expected_anchor.x, places=6)
     self.assertAlmostEqual(
@@ -228,7 +228,7 @@ class EmbeddedModuleTests(unittest.TestCase):
     handler._y = 0.0
     handler._z = 0.0
     handler._headPosition = 1
-    line = "G109 PF1200 PTR G103 PF1199 PF1198 PXY"
+    line = "G109 PA1200 PTR G103 PA1199 PA1198 PXY"
 
     with tempfile.TemporaryDirectory() as temp_directory:
       log_path = os.path.join(temp_directory, "gcode_motion_trace.log")
@@ -280,12 +280,12 @@ class EmbeddedModuleTests(unittest.TestCase):
     handler.setInstructionTraceCallback(lambda payload: seen.append(payload))
 
     GCodeProgramExecutor(
-      ["G109 PF1200 PTR G103 PF1199 PF1198 PXY"],
+      ["G109 PA1200 PTR G103 PA1199 PA1198 PXY"],
       handler._callbacks,
     ).executeNextLine(0)
 
     self.assertEqual(len(seen), 1)
-    self.assertEqual(seen[0]["line"], "G109 PF1200 PTR G103 PF1199 PF1198 PXY")
+    self.assertEqual(seen[0]["line"], "G109 PA1200 PTR G103 PA1199 PA1198 PXY")
     self.assertEqual(seen[0]["anchorOrientation"], "TR")
 
 

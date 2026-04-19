@@ -71,7 +71,7 @@ class CommandValidationTests(unittest.TestCase):
     response = registry.executeRequest(
       {
         "name": "process.seek_pin",
-        "args": {"pin": "F1", "velocity": 10, "extra": 1},
+        "args": {"pin": "A1", "velocity": 10, "extra": 1},
       },
     )
 

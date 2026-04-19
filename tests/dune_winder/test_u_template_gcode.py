@@ -29,8 +29,8 @@ class UTemplateGCodeTests(unittest.TestCase):
 
   def test_pb_pf_tokens_wrap_back_into_valid_pin_range(self):
     self.assertEqual(
-      _normalize_pin_tokens("G103 PB2401 PF2402 PB0 PF-1 PF-2 PF1 PBL PRT"),
-      "G103 PB2401 PF1 PB2401 PF2400 PF2399 PF1 PBL PRT",
+      _normalize_pin_tokens("G103 PB2401 PA2402 PB0 PF-1 PF-2 PA1 PBL PRT"),
+      "G103 PB2401 PA1 PB2401 PA2400 PA2399 PA1 PBL PRT",
     )
 
   def test_default_render_matches_expected_spec_edges(self):
@@ -51,9 +51,9 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(
       lines[-4:],
       [
-        "N10036 " + self.MERGE + "(400,22) G109 PF2001 PRT G103 PF1201 PF1200 PXY G102 G108 (Foot A corner)",
+        "N10036 " + self.MERGE + "(400,22) G109 PA2001 PRT G103 PA1201 PA1200 PXY G102 G108 (Foot A corner)",
         "N10037 (400,23) G206 P3",
-        "N10038 " + self.MERGE + "(400,24) G109 PF1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
+        "N10038 " + self.MERGE + "(400,24) G109 PA1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
         "N10039 "
         + self.TOLERANT
         + "(400,25) G103 PB1601 PB1600 PX G105 "
@@ -84,7 +84,7 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertIn(
       "N15 "
       + self.TOLERANT
-      + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
+      + "(1,12) G109 PB400 PLT G103 PA1 PA2401 PXY G105 PY7 (Head A corner, rewind)",
       special_lines,
     )
 
@@ -97,13 +97,13 @@ class UTemplateGCodeTests(unittest.TestCase):
     )
 
     self.assertIn(
-      "N8 " + self.TOLERANT + "(1,5) G103 PF801 PF802 PY G105 " + self._coord("PY", -212.5),
+      "N8 " + self.TOLERANT + "(1,5) G103 PA801 PA802 PY G105 " + self._coord("PY", -212.5),
       lines,
     )
     self.assertIn(
       "N16 "
       + self.TOLERANT
-      + "(1,13) G103 PF2 PF1 PX G105 "
+      + "(1,13) G103 PA2 PA1 PX G105 "
       + self._coord("PX", 187.5),
       lines,
     )
@@ -116,24 +116,24 @@ class UTemplateGCodeTests(unittest.TestCase):
 
     expected_first_wrap = [
       "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
-      "N7 " + self.MERGE + "(1,4) G109 PB1201 PLT G103 PF801 PF802 PXY G105 PY5 G105 PX2 (Top A corner - foot end)",
-      "N9 " + self.MERGE + "(1,6) G109 PF801 PLB G103 PF2401 PF1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
-      "N11 " + self.MERGE + "(1,8) G109 PF2401 PBR G103 PB401 PB402 PXY G105 PY-5 G105 PY4 (Bottom B corner - head end, rewind)",
+      "N7 " + self.MERGE + "(1,4) G109 PB1201 PLT G103 PA801 PA802 PXY G105 PY5 G105 PX2 (Top A corner - foot end)",
+      "N9 " + self.MERGE + "(1,6) G109 PA801 PLB G103 PA2401 PA1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
+      "N11 " + self.MERGE + "(1,8) G109 PA2401 PBR G103 PB401 PB402 PXY G105 PY-5 G105 PY4 (Bottom B corner - head end, rewind)",
       "N13 " + self.MERGE + "(1,10) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
-      "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
-      "N17 " + self.MERGE + "(1,14) G109 PF2 PRT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
-      "N19 " + self.MERGE + "(1,16) G109 PF799 PRT G103 PB2003 PB2004 PXY G105 PY5 G105 PX8 (Top B corner - head end)",
+      "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PA1 PA2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N17 " + self.MERGE + "(1,14) G109 PA2 PRT G103 PA799 PA798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
+      "N19 " + self.MERGE + "(1,16) G109 PA799 PRT G103 PB2003 PB2004 PXY G105 PY5 G105 PX8 (Top B corner - head end)",
       "N21 " + self.MERGE + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
-      "N23 " + self.MERGE + "(1,20) G109 PB1200 PBL G103 PF1602 PF1603 PXY G105 PY-5 G105 PY10 (Bottom A corner - foot end, rewind)",
-      "N25 " + self.MERGE + "(1,22) G109 PF1602 PRT G103 PF1600 PF1599 PXY G105 PY11 G102 G108 (Foot A corner)",
-      "N27 " + self.MERGE + "(1,24) G109 PF1600 PRT G103 PB1202 PB1201 PXY G105 PY13 (Foot B corner, rewind)",
+      "N23 " + self.MERGE + "(1,20) G109 PB1200 PBL G103 PA1602 PA1603 PXY G105 PY-5 G105 PY10 (Bottom A corner - foot end, rewind)",
+      "N25 " + self.MERGE + "(1,22) G109 PA1602 PRT G103 PA1600 PA1599 PXY G105 PY11 G102 G108 (Foot A corner)",
+      "N27 " + self.MERGE + "(1,24) G109 PA1600 PRT G103 PB1202 PB1201 PXY G105 PY13 (Foot B corner, rewind)",
     ]
     for expected_line in expected_first_wrap:
       self.assertIn(expected_line, lines)
 
     self.assertEqual(
       generator.get_value("AC", 16),
-      "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY6 (Head A corner, rewind)",
+      "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PA1 PA2401 PXY G105 PY6 (Head A corner, rewind)",
     )
 
   def test_transfer_pause_adds_all_optional_pause_lines(self):
@@ -162,7 +162,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       self.assertIn(
         "N15 "
         + self.TOLERANT
-        + "(1,12) G109 PB400 PLT G103 PF1 PF2401 PXY G105 PY7 (Head A corner, rewind)",
+        + "(1,12) G109 PB400 PLT G103 PA1 PA2401 PXY G105 PY7 (Head A corner, rewind)",
         plain_lines,
       )
 
@@ -205,13 +205,13 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertIn(
       "N975 "
       + self.MERGE
-      + "(39,22) G109 PF1640 PRT G103 PF1562 PF1561 PXY G102 G108 G111 (board gap) (Foot A corner)",
+      + "(39,22) G109 PA1640 PRT G103 PA1562 PA1561 PXY G102 G108 G111 (board gap) (Foot A corner)",
       paused_lines,
     )
     self.assertIn(
       "N1000 "
       + self.MERGE
-      + "(40,22) G109 PF1641 PRT G103 PF1561 PF1560 PXY G102 G108 (Foot A corner)",
+      + "(40,22) G109 PA1641 PRT G103 PA1561 PA1560 PXY G102 G108 (Foot A corner)",
       paused_lines,
     )
 
@@ -224,17 +224,17 @@ class UTemplateGCodeTests(unittest.TestCase):
     ]
 
     expected_pairs = [
-      "PF1562 PF1561",
-      "PF1522 PF1521",
-      "PF1482 PF1481",
-      "PF1442 PF1441",
-      "PF1402 PF1401",
-      "PF1362 PF1361",
-      "PF1322 PF1321",
-      "PF1282 PF1281",
-      "PF1242 PF1241",
-      "PF1202 PF1201",
-      "PF1201 PF1200",
+      "PA1562 PA1561",
+      "PA1522 PA1521",
+      "PA1482 PA1481",
+      "PA1442 PA1441",
+      "PA1402 PA1401",
+      "PA1362 PA1361",
+      "PA1322 PA1321",
+      "PA1282 PA1281",
+      "PA1242 PA1241",
+      "PA1202 PA1201",
+      "PA1201 PA1200",
     ]
 
     self.assertEqual(len(foot_a_gap_lines), len(expected_pairs))
@@ -245,10 +245,10 @@ class UTemplateGCodeTests(unittest.TestCase):
       )
 
     self.assertFalse(
-      any("PF1561 PF1560" in line and "G111 (board gap)" in line for line in paused_lines)
+      any("PA1561 PA1560" in line and "G111 (board gap)" in line for line in paused_lines)
     )
     self.assertFalse(
-      any("PF1521 PF1520" in line and "G111 (board gap)" in line for line in paused_lines)
+      any("PA1521 PA1520" in line and "G111 (board gap)" in line for line in paused_lines)
     )
 
   def test_add_foot_pauses_is_reported_in_recipe_metadata(self):

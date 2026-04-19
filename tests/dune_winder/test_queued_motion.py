@@ -534,7 +534,7 @@ class QueuedMotionTests(unittest.TestCase):
 
     for line in (
       "G113 PPRECISE G109",
-      "G113 PPRECISE G103 PF799",
+      "G113 PPRECISE G103 PA799",
     ):
       with self.subTest(line=line):
         handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
@@ -703,13 +703,13 @@ class QueuedMotionTests(unittest.TestCase):
     handler.useLayerCalibration(
       _LayerCalibration(
         {
-          "F799": Location(510.0, 1000.0, 40.0),
-          "F798": Location(530.0, 1000.0, 60.0),
+          "A799": Location(510.0, 1000.0, 40.0),
+          "A798": Location(530.0, 1000.0, 60.0),
         }
       )
     )
 
-    error = handler.executeG_CodeLine("G103 PF799 PF798 Z0 PXZ")
+    error = handler.executeG_CodeLine("G103 PA799 PA798 Z0 PXZ")
 
     self.assertIsNone(error)
     self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
@@ -722,13 +722,13 @@ class QueuedMotionTests(unittest.TestCase):
     handler.useLayerCalibration(
       _LayerCalibration(
         {
-          "F799": Location(510.0, 1000.0, 40.0),
-          "F798": Location(530.0, 1000.0, 60.0),
+          "A799": Location(510.0, 1000.0, 40.0),
+          "A798": Location(530.0, 1000.0, 60.0),
         }
       )
     )
 
-    error = handler.executeG_CodeLine("G103 PF799 PF798 ZEXTEND PXZ G105 PX5")
+    error = handler.executeG_CodeLine("G103 PA799 PA798 ZEXTEND PXZ G105 PX5")
 
     self.assertIsNone(error)
     self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
@@ -890,4 +890,3 @@ class QueuedMotionTests(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
-
