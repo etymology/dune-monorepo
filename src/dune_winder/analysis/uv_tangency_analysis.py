@@ -123,13 +123,13 @@ _SENSITIVITY_SPECS = (
   ),
   _CalibrationPerturbationSpec(
     "front_x_shift",
-    "Translate only the front pin family in +X.",
+    "Translate only the A pin family in +X.",
     1.0,
     front_a0=1.0,
   ),
   _CalibrationPerturbationSpec(
     "front_y_shift",
-    "Translate only the front pin family in +Y.",
+    "Translate only the A pin family in +Y.",
     1.0,
     front_b0=1.0,
   ),
@@ -466,7 +466,7 @@ def _apply_calibration_perturbation(
     delta_x = a0 + (a1 * source_x) + (a2 * source_y)
     delta_y = b0 + (b1 * source_x) + (b2 * source_y)
 
-    if pin_name.startswith("F"):
+    if pin_name.startswith("A"):
       delta_x += front_a0
       delta_y += front_b0
     elif pin_name.startswith("B"):
