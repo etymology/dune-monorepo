@@ -26,6 +26,20 @@ def _dict_to_loc(d: dict) -> Location:
   return Location(d["x"], d["y"], d["z"])
 
 
+def _xml_export_pin_name(pin_name: str) -> str:
+  normalized = str(pin_name)
+  if normalized.startswith("A"):
+    return "F" + normalized[1:]
+  return normalized
+
+
+def _xml_import_pin_name(pin_name: str) -> str:
+  normalized = str(pin_name)
+  if normalized.startswith("F"):
+    return "A" + normalized[1:]
+  return normalized
+
+
 class LayerCalibration:
   """
   Layer calibration is just a map that has an adjusted location for each
@@ -164,6 +178,38 @@ class LayerCalibration:
     }
 
   # -------------------------------------------------------------------
+  def _legacy_xml_without_hash(self) -> str:
+    parts = [f'<LayerCalibration layer="{self._layer}">']
+    parts.append(f'<float name="zFront">{self.zFront}</float>')
+    parts.append(f'<float name="zBack">{self.zBack}</float>')
+    parts.append('<SerializableLocation name="Offset">')
+    parts.append(f'<float name="x">{self.offset.x}</float>')
+    parts.append(f'<float name="y">{self.offset.y}</float>')
+    parts.append(f'<float name="z">{self.offset.z}</float>')
+    parts.append("</SerializableLocation>")
+    for pin_name in sorted(self._locations.keys()):
+      location = self._locations[pin_name]
+      parts.append(f'<SerializableLocation name="{_xml_export_pin_name(pin_name)}">')
+      parts.append(f'<float name="x">{location.x}</float>')
+      parts.append(f'<float name="y">{location.y}</float>')
+      parts.append(f'<float name="z">{location.z}</float>')
+      parts.append("</SerializableLocation>")
+    parts.append("</LayerCalibration>")
+    return "".join(parts)
+
+  # -------------------------------------------------------------------
+  def _legacy_xml_content(self) -> str:
+    body_without_hash = self._legacy_xml_without_hash()
+    hash_value = Hash.singleLine(body_without_hash)
+    root_end = body_without_hash.find(">")
+    hash_fragment = f'<str name="hashValue">{hash_value}</str>'
+    return (
+      body_without_hash[: root_end + 1]
+      + hash_fragment
+      + body_without_hash[root_end + 1 :]
+    )
+
+  # -------------------------------------------------------------------
   def archive(self):
     """Archive this calibration file if the archive copy does not yet exist."""
     if not (self._archivePath and self.hashValue and self._filePath and self._fileName):
@@ -213,6 +259,19 @@ class LayerCalibration:
     except Exception:
       try:
         os.unlink(tmp)
+      except OSError:
+        pass
+      raise
+
+    xml_path = path.with_suffix(".xml")
+    xml_fd, xml_tmp = tempfile.mkstemp(dir=str(xml_path.parent))
+    try:
+      with os.fdopen(xml_fd, "w") as f:
+        f.write(self._legacy_xml_content())
+      os.replace(xml_tmp, str(xml_path))
+    except Exception:
+      try:
+        os.unlink(xml_tmp)
       except OSError:
         pass
       raise
@@ -312,7 +371,7 @@ class LayerCalibration:
       if loc_name == "Offset":
         self.offset = SerializableLocation(loc.x, loc.y, loc.z)
       else:
-        self._locations[loc_name] = loc
+        self._locations[_xml_import_pin_name(loc_name)] = loc
 
     # Hash validation on XML source.
     with xml_path.open() as f:

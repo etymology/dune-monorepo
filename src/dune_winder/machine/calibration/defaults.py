@@ -41,7 +41,7 @@ def apply_layer_z_defaults(calibration, layer_name, geometry=None):
 
   for pin_name in calibration.getPinNames():
     location = calibration.getPinLocation(pin_name)
-    if pin_name.startswith("F"):
+    if pin_name.startswith("A"):
       location.z = z_front
     elif pin_name.startswith("B"):
       location.z = z_back
@@ -59,7 +59,7 @@ def _populate_nominal_locations(calibration, geometry):
   """
   grids = [
     (
-      "F",
+      "A",
       geometry.gridFront,
       calibration.zFront,
       geometry.startPinFront,
