@@ -1,6 +1,4 @@
-BtoF(b_pin) converts B pin to the opposite F pin.
-
-When choosing the tangent, always choose the tangent closer to the APA center.
+BtoA(b_pin) converts a B pin to the opposite A pin using modular arithmetic.
 
 400 wraps, here numbered n \in [0,399] but in the recipes numbered 1-400
 On wrap n
@@ -16,13 +14,13 @@ let head_top_end = B1
 for n \in [0,399]
 foot_bottom_end + n
 top_foot_end + 399 - n
-BtoF(top_foot_end + 399 - n)
-BtoF(bottom_head_end+n)
+BtoA(top_foot_end + 399 - n)
+BtoA(bottom_head_end+n)
 bottom_head_end+n
 head_bottom_end+n
-BtoF(head_bottom_end+n)
-BtoF(top_head_end-399+n)
+BtoA(head_bottom_end+n)
+BtoA(top_head_end-399+n)
 top_head_end-399+n
 bottom_foot_end-n
-BtoF(bottom_foot_end-n)
-BtoF(foot_bottom_end + n + 1)
+BtoA(bottom_foot_end-n)
+BtoA(foot_bottom_end + n + 1)
