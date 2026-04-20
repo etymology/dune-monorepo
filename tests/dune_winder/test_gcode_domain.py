@@ -14,18 +14,18 @@ from dune_winder.recipes.gcode_functions import head_transfer, pin_center
 
 class GCodeParserTests(unittest.TestCase):
   def test_p_parameters_bind_to_previous_word(self):
-    line = parse_line_text("G103 PF800 PF799 PXY")
+    line = parse_line_text("G103 PA800 PA799 PXY")
     function = line.items[0]
 
     self.assertIsInstance(function, FunctionCall)
     self.assertEqual(function.opcode, "103")
-    self.assertEqual(function.parameters, ["F800", "F799", "XY"])
+    self.assertEqual(function.parameters, ["A800", "A799", "XY"])
 
   def test_parse_rejects_unassigned_parameter(self):
     with self.assertRaises(GCodeParseError) as context:
-      parse_line_text("PF100")
+      parse_line_text("PA100")
 
-    self.assertEqual(str(context.exception), "Unassigned parameter F100")
+    self.assertEqual(str(context.exception), "Unassigned parameter A100")
 
   def test_parse_rejects_unknown_code(self):
     with self.assertRaises(GCodeParseError) as context:
@@ -38,11 +38,11 @@ class GCodeParserTests(unittest.TestCase):
     self.assertEqual(render_line(line), "N1 X1 ( hello ) Y2")
 
   def test_parser_supports_symbolic_z_extend_with_pxz_recipe_order(self):
-    line = parse_line_text("G103 PF800 PF799 ZEXTEND PXZ")
+    line = parse_line_text("G103 PA800 PA799 ZEXTEND PXZ")
 
-    self.assertEqual(render_line(line), "G103 PF800 PF799 PXZ ZEXTEND")
+    self.assertEqual(render_line(line), "G103 PA800 PA799 PXZ ZEXTEND")
     self.assertIsInstance(line.items[0], FunctionCall)
-    self.assertEqual(line.items[0].parameters, ["F800", "F799", "XZ"])
+    self.assertEqual(line.items[0].parameters, ["A800", "A799", "XZ"])
     self.assertEqual(line.items[1].letter, "Z")
     self.assertEqual(line.items[1].value, "EXTEND")
 
@@ -52,7 +52,7 @@ class GCodeRuntimeTests(unittest.TestCase):
     seen = []
     callbacks = {"on_instruction": lambda line: seen.append(line)}
 
-    line = parse_line_text("X10 Y11 F120 G103 PF1 PF2 PXY N7 ( note )")
+    line = parse_line_text("X10 Y11 F120 G103 PA1 PA2 PXY N7 ( note )")
     execute_program_line(line, callbacks.get)
 
     self.assertEqual(seen, [line])
@@ -69,11 +69,11 @@ class GCodeDomainTests(unittest.TestCase):
     self.assertEqual(int(Opcode.HEAD_TRANSFER), 206)
 
   def test_recipe_function_helpers_build_canonical_calls(self):
-    function = pin_center(["F1", "F2"], "XY")
+    function = pin_center(["A1", "A2"], "XY")
 
     self.assertIsInstance(function, FunctionCall)
     self.assertEqual(function.opcode, int(Opcode.PIN_CENTER))
-    self.assertEqual(function.parameters, ["F1", "F2", "XY"])
+    self.assertEqual(function.parameters, ["A1", "A2", "XY"])
 
     transfer = head_transfer(3)
     self.assertIsInstance(transfer, FunctionCall)
@@ -110,10 +110,10 @@ class GCodeDomainTests(unittest.TestCase):
     gCode = GCodeProgramExecutor([], callbacks)
 
     with self.assertRaises(GCodeExecutionError) as context:
-      gCode.execute("PF100")
+      gCode.execute("PA100")
 
-    self.assertEqual(str(context.exception), "Unassigned parameter F100")
-    self.assertEqual(context.exception.data, ["PF100", "P", "F100"])
+    self.assertEqual(str(context.exception), "Unassigned parameter A100")
+    self.assertEqual(context.exception.data, ["PA100", "P", "A100"])
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ from dune_tension.data_cache import select_dataframe
 from dune_tension.geometry import MEASURABLE_X_MAX, MEASURABLE_X_MIN, MEASURABLE_Y_MAX, MEASURABLE_Y_MIN, refine_position
 from dune_tension.paths import tension_data_db_path
 from dune_tension.plc_io import is_in_measurable_area
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
 CONFIDENCE_SOURCES = ("neural_net", "signal_amplitude")
@@ -90,10 +91,8 @@ def make_config(
     wire_min = layer_layout.wire_min
     wire_max = layer_layout.wire_max
 
-    if layer in ["U", "V"] and (
-        (layer == "U" and side == "A") or (layer == "V" and side == "B")
-    ):
-        dy = -dy
+    if layer in ["U", "V"]:
+        _dx, dy = get_uv_layout(layer).measurement_pitch(side)
     if flipped:
         dy = -dy
     return TensiometerConfig(

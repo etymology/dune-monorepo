@@ -157,6 +157,9 @@ function APA(modules) {
       if (matchedRecipe) {
         $("#gCodeSelection").val(matchedRecipe);
         self.selectG_Code();
+      } else {
+        // No recipe for this layer — update the active layer only.
+        call(commands.process.setRecipeLayer, { layer: layer });
       }
     });
   };
@@ -455,31 +458,10 @@ function APA(modules) {
     "totalLines",
   );
 
-  // Special periodic for current APA stage.
-  winder.addPeriodicCallback(commands.process.getStage, function (value) {
-    var STAGES = [
-      "Uninitialized",
-      "X first",
-      "X second",
-      "V first",
-      "V second",
-      "U first",
-      "U second",
-      "G first",
-      "G second",
-      "Sign off",
-      "Complete",
-    ];
-
-    // If there is no APA loaded, the value will be an empty string and
-    // the options to change the stage need to be disabled.
-    var isDisabled = false;
-    if ("" === value) {
-      stage = "(no APA loaded)";
-      isDisabled = true;
-    }
-    // Translate the stage name.
-    else stage = STAGES[value];
+  // APA stage has been deprecated; keep the old display path disabled.
+  winder.addPeriodicCallback(commands.process.getStage, function (_value) {
+    stage = "(deprecated)";
+    var isDisabled = true;
 
     // Enable/disable APA stage control interface.
     $("#apaStageSelect").prop("disabled", isDisabled);

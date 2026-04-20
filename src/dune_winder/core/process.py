@@ -39,6 +39,10 @@ from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 from dune_winder.machine.geometry.factory import create_layer_geometry
 
 
+class CalibrationNotLoadedError(ValueError):
+  pass
+
+
 class Process:
   # ---------------------------------------------------------------------
   def _recordInstructionTrace(self, payload):
@@ -188,6 +192,24 @@ class Process:
 
     # Setup extended/retracted positions for head.
     io.head.setExtendedAndRetracted(machineCalibration.zFront, machineCalibration.zBack)
+    # Keep simulated PLCs consistent with calibration-derived travel limits.
+    if hasattr(io.plc, "update_limits"):
+      io.plc.update_limits(
+        parkX=getattr(machineCalibration, "parkX", None),
+        parkY=getattr(machineCalibration, "parkY", None),
+        transferLeft=getattr(machineCalibration, "transferLeft", None),
+        transferRight=getattr(machineCalibration, "transferRight", None),
+        transferBottom=getattr(machineCalibration, "transferBottom", None),
+        transferTop=getattr(machineCalibration, "transferTop", None),
+        limitLeft=getattr(machineCalibration, "limitLeft", None),
+        limitRight=getattr(machineCalibration, "limitRight", None),
+        limitBottom=getattr(machineCalibration, "limitBottom", None),
+        limitTop=getattr(machineCalibration, "limitTop", None),
+        zFront=getattr(machineCalibration, "zFront", None),
+        zBack=getattr(machineCalibration, "zBack", None),
+        zLimitFront=getattr(machineCalibration, "zLimitFront", None),
+        zLimitRear=getattr(machineCalibration, "zLimitRear", None),
+      )
 
     # By default, the G-Code handler will use maximum velocity.
     self.gCodeHandler.setLimitVelocity(maxVelocity)
@@ -448,7 +470,9 @@ class Process:
       calibration = self.gCodeHandler.getLayerCalibration()
 
     if calibration is None:
-      raise ValueError("No layer calibration is loaded for active layer " + requestedLayer + ".")
+      raise CalibrationNotLoadedError(
+        "No layer calibration is loaded for active layer " + requestedLayer + "."
+      )
 
     calibrationLayer = getattr(calibration, "_layer", None)
     if calibrationLayer not in (None, "", requestedLayer):
@@ -460,9 +484,28 @@ class Process:
     return calibration
 
   # ---------------------------------------------------------------------
+  def _getUnloadedLayerCalibrationResponse(self, layer):
+    requestedLayer = str(layer).strip().upper()
+    geometry = create_layer_geometry(requestedLayer)
+
+    return {
+      "layer": requestedLayer,
+      "activeLayer": self.getRecipeLayer(),
+      "loaded": False,
+      "calibrationFile": None,
+      "source": "workspace" if self.workspace is not None else "runtime",
+      "pinDiameterMm": float(geometry.pinDiameter),
+      "locations": {},
+    }
+
+  # ---------------------------------------------------------------------
   def getLayerCalibration(self, layer):
     requestedLayer = str(layer).strip().upper()
-    calibration = self._getActiveLayerCalibration(requestedLayer)
+    try:
+      calibration = self._getActiveLayerCalibration(requestedLayer)
+    except CalibrationNotLoadedError:
+      return self._getUnloadedLayerCalibrationResponse(requestedLayer)
+
     normalized = normalize_calibration(calibration, requestedLayer)
     geometry = create_layer_geometry(requestedLayer)
 
@@ -475,6 +518,7 @@ class Process:
     return {
       "layer": requestedLayer,
       "activeLayer": self.getRecipeLayer(),
+      "loaded": True,
       "calibrationFile": calibrationFile,
       "source": "workspace" if self.workspace is not None else "runtime",
       "pinDiameterMm": float(geometry.pinDiameter),
@@ -492,7 +536,13 @@ class Process:
   # ---------------------------------------------------------------------
   def getLayerCalibrationJson(self, layer):
     requestedLayer = str(layer).strip().upper()
-    calibration = self._getActiveLayerCalibration(requestedLayer)
+    try:
+      calibration = self._getActiveLayerCalibration(requestedLayer)
+    except CalibrationNotLoadedError:
+      response = self._getUnloadedLayerCalibrationResponse(requestedLayer)
+      response["contentHash"] = None
+      response["content"] = None
+      return response
 
     calibrationFile = None
     calibrationPath = None
@@ -520,6 +570,7 @@ class Process:
     return {
       "layer": requestedLayer,
       "activeLayer": self.getRecipeLayer(),
+      "loaded": True,
       "calibrationFile": calibrationFile,
       "source": "workspace" if self.workspace is not None else "runtime",
       "contentHash": contentHash,

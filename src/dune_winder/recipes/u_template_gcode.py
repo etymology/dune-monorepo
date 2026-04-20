@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import re
 from pathlib import Path
 
@@ -92,7 +93,7 @@ SPECIAL_OFFSET_ALIASES = {
 }
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
-_PIN_PAIR_RE = re.compile(r"\bG103\s+(P[BF])(\d+)\s+(P[BF])(\d+)\b")
+_PIN_PAIR_RE = re.compile(r"\bG103\s+(P[AB])(\d+)\s+(P[AB])(\d+)\b")
 
 U_WRAP_SCRIPT = compile_template_script(
   (
@@ -161,12 +162,12 @@ def _should_add_foot_pause(first_prefix, first_pin, second_prefix, second_pin):
     return False
 
   if (
-    first_prefix == "PF"
-    and second_prefix == "PF"
+    first_prefix == "PA"
+    and second_prefix == "PA"
     and first_board["side"] == "foot"
     and second_board["side"] == "foot"
   ):
-    # U-layer Foot A corner lines traverse descending F pins. For those lines
+    # U-layer Foot A corner lines traverse descending A pins. For those lines
     # the physical board gap is reached at the foot-board start pin, one wrap
     # before pinToBoard switches boardIndex.
     lower_pin = min(first_pin, second_pin)
@@ -225,6 +226,16 @@ def _apply_add_foot_pauses(lines):
 
 class UTemplateInputError(ValueError):
   pass
+
+
+@dataclass(frozen=True)
+class UWrapPrimarySite:
+  wrap_number: int
+  wrap_line_number: int
+  anchor_pin: str
+  orientation_token: str
+  g103_pin_a: str
+  g103_pin_b: str
 
 
 def _format_number(value):
@@ -440,6 +451,124 @@ def _annotate_wrap_lines(wrap_number, lines):
 
 def _number_lines(lines):
   return template_gcode_common.number_lines(lines, line_builder=_line)
+
+
+def _token_line(*parts):
+  return tuple(_normalize_pin_tokens(str(part)) for part in parts)
+
+
+def _normalize_pin_token(token):
+  normalized = str(token).strip().upper()
+  if normalized.startswith("P"):
+    normalized = normalized[1:]
+  return normalized
+
+
+def _extract_primary_site(tokens):
+  try:
+    g109_index = tokens.index("G109")
+    g103_index = tokens.index("G103")
+  except ValueError:
+    return None
+  if g109_index + 2 >= len(tokens) or g103_index + 2 >= len(tokens):
+    return None
+  anchor_pin = _normalize_pin_token(tokens[g109_index + 1])
+  orientation_token = str(tokens[g109_index + 2]).strip().upper()
+  pin_a = _normalize_pin_token(tokens[g103_index + 1])
+  pin_b = _normalize_pin_token(tokens[g103_index + 2])
+  if not anchor_pin or not pin_a or not pin_b:
+    return None
+  if anchor_pin[:1] not in ("A", "B") or pin_a[:1] not in ("A", "B") or pin_b[:1] not in ("A", "B"):
+    return None
+  return (anchor_pin, orientation_token, pin_a, pin_b)
+
+
+def _extract_g103_segment(tokens):
+  try:
+    command_index = tokens.index("G103")
+  except ValueError:
+    return None
+  if command_index + 2 >= len(tokens):
+    return None
+  pin_a = _normalize_pin_token(tokens[command_index + 1])
+  pin_b = _normalize_pin_token(tokens[command_index + 2])
+  if not pin_a or not pin_b:
+    return None
+  if pin_a[:1] not in ("A", "B") or pin_b[:1] not in ("A", "B"):
+    return None
+  return (pin_a, pin_b)
+
+
+def iter_u_wrap_primary_sites(
+  *,
+  named_inputs=None,
+  special_inputs=None,
+  cell_overrides=None,
+):
+  (
+    resolved_offsets,
+    transfer_pause_value,
+    _add_foot_pauses_value,
+    include_lead_mode_value,
+    pull_ins,
+  ) = _resolve_render_state(
+    named_inputs=named_inputs,
+    special_inputs=special_inputs,
+    cell_overrides=cell_overrides,
+  )
+
+  segments = []
+  for wrap_number in range(1, WRAP_COUNT + 1):
+    wrap_lines = []
+    transfers = {
+      "b_to_a_transfer": lambda output: append_b_to_a_transfer(
+        output,
+        line_builder=_token_line,
+        transfer_pause=transfer_pause_value,
+        include_lead_mode=include_lead_mode_value,
+      ),
+      "a_to_b_transfer": lambda output: append_a_to_b_transfer(
+        output,
+        line_builder=_token_line,
+        transfer_pause=transfer_pause_value,
+        include_lead_mode=include_lead_mode_value,
+      ),
+    }
+    environment = {
+      "wrap": wrap_number,
+      "offsets": resolved_offsets,
+      "coord": _coord,
+      "offset": _offset_fragment,
+      "conditional_offset": _conditional_offset_fragment,
+      "near_comb": _near_comb,
+      "Y_PULL_IN": pull_ins["Y_PULL_IN"],
+      "X_PULL_IN": pull_ins["X_PULL_IN"],
+      "Y_HOVER": pull_ins["Y_HOVER"],
+      "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
+    }
+    execute_template_script(
+      U_WRAP_SCRIPT,
+      environment=environment,
+      output_lines=wrap_lines,
+      line_builder=_token_line,
+      transfers=transfers,
+    )
+    for wrap_line_number, tokens in enumerate(wrap_lines, start=1):
+      primary_site = _extract_primary_site(tokens)
+      if primary_site is None:
+        continue
+      segments.append(
+        UWrapPrimarySite(
+          wrap_number=wrap_number,
+          wrap_line_number=wrap_line_number,
+          anchor_pin=primary_site[0],
+          orientation_token=primary_site[1],
+          g103_pin_a=primary_site[2],
+          g103_pin_b=primary_site[3],
+        )
+      )
+
+  return tuple(segments)
 
 
 def _render_wrap_lines(

@@ -279,7 +279,7 @@ queued motion path.
 
 | Token shape | Used with | Meaning |
 | --- | --- | --- |
-| `PB123`, `PF123` | `G103`, `G109` | Pin identifier in the active layer calibration |
+| `PB123`, `PA123` | `G103`, `G109` | Pin identifier in the active layer calibration |
 | `PXY` | `G103` | Update both X and Y from the pin center |
 | `PX` | `G103` | Update only X from the pin center |
 | `PY` | `G103` | Update only Y from the pin center |

@@ -12,24 +12,13 @@ from dune_tension.layer_calibration import (
     load_layer_calibration_summary,
 )
 from dune_tension.tensiometer_functions import PlannedWirePose, WirePositionProvider
-from dune_winder.core.manual_calibration import LAYER_METADATA, _build_layer_metadata
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
 
 _EPSILON = 1e-9
 _SEGMENT_LENGTH_NEAR_TIE_FRACTION = 0.10
-
-_WRAP_X_SIGNS = {
-    "V": {
-        "A": {"top": -1, "foot": -1, "head": 1, "bottom": 1},
-        "B": {"top": 1, "foot": -1, "bottom": -1, "head": 1},
-    },
-    "U": {
-        "A": {"foot": -1, "head": 1, "top": 1, "bottom": -1},
-        "B": {"foot": -1, "head": 1, "top": -1, "bottom": 1},
-    },
-}
-
+LAYER_METADATA: dict[str, object] = {}
 
 @dataclass(frozen=True)
 class PlannedUVWire:
@@ -88,6 +77,10 @@ def _normalize_side(side: str) -> str:
     return value
 
 
+def _layout_for_layer(layer: str):
+    return get_uv_layout(_normalize_layer(layer))
+
+
 def _wrap_inclusive(value: int, low: int, high: int) -> int:
     span = int(high) - int(low) + 1
     return int(low) + ((int(value) - int(low)) % span)
@@ -97,25 +90,16 @@ def wire_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
     """Return the canonical B-family endpoint pins for a U/V wire number."""
 
     requested_layer = _normalize_layer(layer)
-    number = int(wire_number)
-    delta = 1151 - number
-    if requested_layer == "V":
-        return (
-            f"B{_wrap_inclusive(1199 - delta, 1, 2399)}",
-            f"B{_wrap_inclusive(1200 + delta, 1, 2399)}",
-        )
-    return (
-        f"B{_wrap_inclusive(1600 - delta, 1, 2401)}",
-        f"B{_wrap_inclusive(1601 + delta, 1, 2401)}",
-    )
+    return _layout_for_layer(requested_layer).wire_endpoints(int(wire_number), family="B")
 
 
 def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
     requested_side = _normalize_side(side)
-    start_pin, end_pin = wire_pin_pair(layer, wire_number)
-    if requested_side == "B":
-        return (start_pin, end_pin)
-    return (f"F{start_pin[1:]}", f"F{end_pin[1:]}")
+    requested_layer = _normalize_layer(layer)
+    return _layout_for_layer(requested_layer).wire_endpoints(
+        int(wire_number),
+        family=requested_side,
+    )
 
 
 def _vector_sub(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]:
@@ -312,6 +296,7 @@ def _build_uv_plan_geometry_inputs(
     side: str,
     wire_number: int,
 ) -> _UVPlanGeometryInputs:
+    layout = _layout_for_layer(layer)
     calibration = load_layer_calibration_summary(layer)
     offset = get_laser_offset(side)
     if offset is None:
@@ -322,13 +307,8 @@ def _build_uv_plan_geometry_inputs(
     center_a = (float(locations[pin_a]["x"]), float(locations[pin_a]["y"]))
     center_b = (float(locations[pin_b]["x"]), float(locations[pin_b]["y"]))
     pin_radius_mm = float(calibration.get("pinDiameterMm", 0.0)) / 2.0
-    metadata = LAYER_METADATA.get(layer)
-    if metadata is None:
-        metadata = _build_layer_metadata(layer)
-    pin_side_a = metadata["pinToBoard"][int(pin_a[1:])]["side"]
-    pin_side_b = metadata["pinToBoard"][int(pin_b[1:])]["side"]
-    tangent_sign_a = _WRAP_X_SIGNS[layer][side][pin_side_a]
-    tangent_sign_b = _WRAP_X_SIGNS[layer][side][pin_side_b]
+    tangent_sign_a = layout.wrap_orientation(pin_a).x_sign
+    tangent_sign_b = layout.wrap_orientation(pin_b).x_sign
 
     return _UVPlanGeometryInputs(
         layer=layer,

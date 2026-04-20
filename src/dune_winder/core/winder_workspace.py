@@ -11,13 +11,13 @@ import re
 import tempfile
 from typing import Optional
 
-from dune_winder.core.manual_calibration import LAYER_METADATA, build_nominal_calibration
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.hash import Hash
 from dune_winder.library.log import Log
 from dune_winder.library.time_source import TimeSource
 from dune_winder.machine.calibration.defaults import get_layer_z_defaults
 from dune_winder.machine.calibration.layer import LayerCalibration
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes.u_template_gcode import write_u_template_file
@@ -28,8 +28,8 @@ from dune_winder.recipes.xg_template_gcode import write_xg_template_file
 class WinderWorkspace:
   FILE_NAME = "state.json"
   LOG_FILE = "workspace_history.csv"
-  _PIN_PAIR_RE = re.compile(r"\bG103\s+P[BF](\d+)\s+P[BF](\d+)\b")
-  _UV_PIN_PAIR_RE = re.compile(r"\bG103\s+(P([BF])(\d+))\s+(P([BF])(\d+))\b", re.IGNORECASE)
+  _PIN_PAIR_RE = re.compile(r"\bG103\s+P[AB](\d+)\s+P[AB](\d+)\b")
+  _UV_PIN_PAIR_RE = re.compile(r"\bG103\s+(P([AB])(\d+))\s+(P([AB])(\d+))\b", re.IGNORECASE)
   _UV_WRAP_START_RE = re.compile(r"\(\s*\d+\s*,\s*1\b", re.IGNORECASE)
   _UV_TRANSFER_RE = re.compile(r"\bG(?:106|206)\b", re.IGNORECASE)
   _OPPOSITE_FAMILY_PIN_CACHE = {}
@@ -191,6 +191,15 @@ class WinderWorkspace:
     self._x = x
     self._y = y
     self._headLocation = headLocation
+
+  def setLayer(self, layer):
+    self._layer = layer
+    self._calibrationFile = self._layer + "_Calibration.json" if self._layer is not None else None
+    if self._calibrationFile:
+      self._loadCalibrationFromDisk()
+    else:
+      self._useCalibration(None)
+    self._saveState()
 
   def _loadState(self):
     if self._systemTime:
@@ -428,24 +437,11 @@ class WinderWorkspace:
     if layer in cache:
       return cache[layer]
 
-    calibration = build_nominal_calibration(layer)
-    pinMax = LAYER_METADATA[layer]["pinMax"]
-    frontPins = []
-    for pin in range(1, pinMax + 1):
-      location = calibration.getPinLocation("F" + str(pin))
-      frontPins.append((location.x, location.y, pin))
-
-    mapping = {}
-    for pin in range(1, pinMax + 1):
-      location = calibration.getPinLocation("B" + str(pin))
-      bestPin = None
-      bestDistance = None
-      for frontX, frontY, frontPin in frontPins:
-        distance = (location.x - frontX) ** 2 + (location.y - frontY) ** 2
-        if bestDistance is None or distance < bestDistance:
-          bestDistance = distance
-          bestPin = frontPin
-      mapping[pin] = bestPin
+    layout = get_uv_layout(layer)
+    mapping = {
+      pin: int(layout.translate_pin(f"B{pin}", target_family="A")[1:])
+      for pin in range(1, layout.pin_max + 1)
+    }
 
     cache[layer] = mapping
     return mapping
@@ -459,41 +455,14 @@ class WinderWorkspace:
     normalizedBoardNumber = self._coercePositiveInt(boardNumber, "board_number")
     normalizedPinNumber = self._coercePositiveInt(pinNumberOnBoard, "pin_number")
 
-    metadata = LAYER_METADATA[self._layer]
-    sideBoards = [board for board in metadata["boards"] if board["side"] == normalizedBoardSide]
-    if normalizedBoardNumber > len(sideBoards):
-      raise ValueError(
-        "board_number "
-        + str(normalizedBoardNumber)
-        + " is outside the "
-        + normalizedBoardSide
-        + " side range for layer "
-        + self._layer
-        + "."
-      )
-
-    board = sideBoards[normalizedBoardNumber - 1]
-    boardSpan = board["endPin"] - board["startPin"] + 1
-    if normalizedPinNumber > boardSpan:
-      raise ValueError(
-        "pin_number "
-        + str(normalizedPinNumber)
-        + " is outside board "
-        + str(normalizedBoardNumber)
-        + " on the "
-        + normalizedBoardSide
-        + " side for layer "
-        + self._layer
-        + "."
-      )
-
-    physicalPin = board["startPin"] + normalizedPinNumber - 1
-    if normalizedSide == "B":
-      resolvedPin = physicalPin
-      pinFamily = "PB"
-    else:
-      resolvedPin = self._getOppositeFamilyPinMap(self._layer)[physicalPin]
-      pinFamily = "PF"
+    layout = get_uv_layout(self._layer)
+    board_pin = layout.board_lookup(
+      normalizedSide,
+      normalizedBoardSide,
+      normalizedBoardNumber,
+      normalizedPinNumber,
+    )
+    pinFamily = "P" + normalizedSide
 
     return {
       "layer": self._layer,
@@ -501,11 +470,11 @@ class WinderWorkspace:
       "boardSide": normalizedBoardSide,
       "boardNumber": normalizedBoardNumber,
       "pinNumberOnBoard": normalizedPinNumber,
-      "boardIndex": board["boardIndex"],
-      "physicalPin": physicalPin,
+      "boardIndex": board_pin.board_index,
+      "physicalPin": board_pin.physical_pin,
       "pinFamily": pinFamily,
-      "pin": resolvedPin,
-      "pinName": pinFamily + str(resolvedPin),
+      "pin": board_pin.pin_number,
+      "pinName": "P" + board_pin.pin_name,
     }
 
   @classmethod

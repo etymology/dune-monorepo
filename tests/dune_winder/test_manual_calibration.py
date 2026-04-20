@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -186,6 +187,32 @@ class ManualCalibrationTests(unittest.TestCase):
     self.assertAlmostEqual(pointA[0], pointB[0], places=6)
     self.assertAlmostEqual(pointA[1], pointB[1], places=6)
 
+  def test_calibration_save_writes_legacy_xml_with_f_labels(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      calibration = build_nominal_calibration("U")
+
+      calibration.save(rootDirectory, "U_Calibration.xml", "LayerCalibration")
+
+      jsonPath = os.path.join(rootDirectory, "U_Calibration.json")
+      xmlPath = os.path.join(rootDirectory, "U_Calibration.xml")
+      self.assertTrue(os.path.isfile(jsonPath))
+      self.assertTrue(os.path.isfile(xmlPath))
+
+      with open(jsonPath, encoding="utf-8") as inputFile:
+        savedJson = json.load(inputFile)
+      self.assertIn("A1", savedJson["locations"])
+      self.assertNotIn("F1", savedJson["locations"])
+
+      with open(xmlPath, encoding="utf-8") as inputFile:
+        savedXml = inputFile.read()
+      self.assertIn('SerializableLocation name="F1"', savedXml)
+      self.assertNotIn('SerializableLocation name="A1"', savedXml)
+
+      reloaded = LayerCalibration(layer="U")
+      reloaded.load(rootDirectory, "U_Calibration.xml")
+      self.assertTrue(reloaded.getPinExists("A1"))
+      self.assertFalse(reloaded.getPinExists("F1"))
+
   def test_layer_metadata_uses_expected_pin_counts_and_bootstrap(self):
     self.assertEqual(LAYER_METADATA["U"]["pinMax"], 2401)
     self.assertEqual(LAYER_METADATA["V"]["pinMax"], 2399)
@@ -195,7 +222,7 @@ class ManualCalibrationTests(unittest.TestCase):
     )
     self.assertEqual(
       LAYER_METADATA["V"]["bootstrapPins"],
-      [1, 199, 399, 400, 805, 1199, 1200, 1399, 1599, 1600, 1993, 2399],
+      [1, 200, 399, 400, 805, 1199, 1200, 1399, 1599, 1600, 1993, 2399],
     )
 
     for layer in ("U", "V"):
@@ -232,7 +259,7 @@ class ManualCalibrationTests(unittest.TestCase):
   def test_nominal_calibration_assigns_back_labels_to_back_side_geometry(self):
     for layer in ("U", "V"):
       calibration = build_nominal_calibration(layer)
-      frontPin = calibration.getPinLocation("F1")
+      frontPin = calibration.getPinLocation("A1")
       backPin = calibration.getPinLocation("B1")
       self.assertGreater(backPin.y, frontPin.y)
       self.assertAlmostEqual(backPin.x, frontPin.x, places=6)
@@ -249,7 +276,7 @@ class ManualCalibrationTests(unittest.TestCase):
       calibration = build_nominal_calibration(layer)
       self.assertEqual(calibration.zFront, z_front)
       self.assertEqual(calibration.zBack, z_back)
-      self.assertEqual(calibration.getPinLocation("F1").z, z_front)
+      self.assertEqual(calibration.getPinLocation("A1").z, z_front)
       self.assertEqual(calibration.getPinLocation("B1").z, z_back)
 
   def test_default_session_starts_nominal_and_recalibration_uses_live_geometry(self):
@@ -363,7 +390,7 @@ class ManualCalibrationTests(unittest.TestCase):
       service.startNew()
       session = service._getSession("U")
       baselineBack = session.baselineCalibration.getPinLocation("B1")
-      baselineFront = session.baselineCalibration.getPinLocation("F400")
+      baselineFront = session.baselineCalibration.getPinLocation("A400")
 
       service.updateMeasuredPin(1, baselineBack.x + 10.0, baselineBack.y + 5.0)
       context = service._buildPredictionContext(session)
@@ -418,7 +445,7 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(savedCalibration.zBack, 270.0)
       self.assertAlmostEqual(savedCalibration.offset.x, 0.0)
       self.assertAlmostEqual(savedCalibration.offset.y, 0.0)
-      self.assertAlmostEqual(savedCalibration.getPinLocation("F1").z, 145.0)
+      self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").y, baselineBack.y - 3.0, places=6)
@@ -433,7 +460,7 @@ class ManualCalibrationTests(unittest.TestCase):
       calibration.zBack = 269.35
       for pinName in calibration.getPinNames():
         location = calibration.getPinLocation(pinName)
-        if pinName.startswith("F"):
+        if pinName.startswith("A"):
           location.z = 164.65
         elif pinName.startswith("B"):
           location.z = 269.35
@@ -450,7 +477,7 @@ class ManualCalibrationTests(unittest.TestCase):
       savedCalibration.load(process._workspaceCalibrationDirectory, "U_Calibration.json")
       self.assertAlmostEqual(savedCalibration.zFront, 145.0)
       self.assertAlmostEqual(savedCalibration.zBack, 270.0)
-      self.assertAlmostEqual(savedCalibration.getPinLocation("F1").z, 145.0)
+      self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
 
   def test_draft_persists_without_overwriting_live_calibration(self):

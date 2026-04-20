@@ -129,7 +129,7 @@ class GCodePlaybackService:
 
     def pin_sort_key(name):
       text = str(name)
-      prefix_rank = 0 if text.startswith("F") else 1 if text.startswith("B") else 2
+      prefix_rank = 0 if text.startswith("A") else 1 if text.startswith("B") else 2
       suffix = text[1:]
       try:
         pin_number = int(suffix)

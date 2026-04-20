@@ -124,6 +124,24 @@ class ManualModeTests(unittest.TestCase):
     mode.update()
     self.assertEqual(machine.changed_to, ["STOP"])
 
+  def test_plc_seek_returns_to_stop_when_plc_stays_ready_and_axes_never_report_busy(self):
+    io = _FakeIO(
+      ready_states=[True, True, True],
+      axis_seeking_states=[False, False, False],
+    )
+    machine = _FakeStateMachine()
+    mode = ManualMode(machine, "MANUAL", io, _FakeLog())
+    mode.setRequest(ManualModeEvent(seekZ=43.0, velocity=100.0))
+
+    self.assertFalse(mode.enter())
+    self.assertEqual(io.plcLogic.z_moves, [(43.0, 100.0)])
+
+    mode.update()
+    self.assertEqual(machine.changed_to, [])
+
+    mode.update()
+    self.assertEqual(machine.changed_to, ["STOP"])
+
   def test_plc_seek_returns_to_stop_after_eot_recovery_without_axis_busy_bits(self):
     io = _FakeIO(
       ready_states=[False, True],

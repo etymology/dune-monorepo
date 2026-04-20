@@ -40,9 +40,9 @@ class UvPinSegmentSearchTests(unittest.TestCase):
 
     self.assertEqual(workspace._resolveUvBoardPin("B", "head", 1, 40)["pinName"], "PB40")
     self.assertEqual(workspace._resolveUvBoardPin("B", "head", 10, 39)["pinName"], "PB399")
-    self.assertEqual(workspace._resolveUvBoardPin("A", "head", 10, 39)["pinName"], "PF1")
+    self.assertEqual(workspace._resolveUvBoardPin("A", "head", 10, 39)["pinName"], "PA1")
     self.assertEqual(workspace._resolveUvBoardPin("B", "bottom", 1, 1)["pinName"], "PB400")
-    self.assertEqual(workspace._resolveUvBoardPin("A", "bottom", 1, 1)["pinName"], "PF2399")
+    self.assertEqual(workspace._resolveUvBoardPin("A", "bottom", 1, 1)["pinName"], "PA2399")
 
   def test_u_board_pin_resolution_uses_active_layer_mapping(self):
     workspace = self._workspace("U", render_u_template_lines())
@@ -51,12 +51,12 @@ class UvPinSegmentSearchTests(unittest.TestCase):
     self.assertEqual(workspace._resolveUvBoardPin("B", "head", 10, 39)["pinName"], "PB399")
     self.assertEqual(
       workspace._resolveUvBoardPin("A", "head", 10, 39)["pinName"],
-      "PF" + str(self._expected_u_a_pin(399)),
+      "PA" + str(self._expected_u_a_pin(399)),
     )
     self.assertEqual(workspace._resolveUvBoardPin("B", "bottom", 1, 1)["pinName"], "PB401")
     self.assertEqual(
       workspace._resolveUvBoardPin("A", "bottom", 1, 1)["pinName"],
-      "PF" + str(self._expected_u_a_pin(401)),
+      "PA" + str(self._expected_u_a_pin(401)),
     )
 
   def test_find_v_pin_segment_reports_preamble_segment(self):
@@ -80,21 +80,21 @@ class UvPinSegmentSearchTests(unittest.TestCase):
     self.assertEqual(result["pinName"], "PB40")
     self.assertEqual(result["pinRole"], "end")
     self.assertEqual(result["segmentSide"], "B")
-    self.assertEqual(result["segmentStartLine"], 9062)
-    self.assertEqual(result["matchedLine"], 9062)
-    self.assertEqual(result["segmentEndLine"], 9062)
+    self.assertEqual(result["segmentStartLine"], 9032)
+    self.assertEqual(result["matchedLine"], 9032)
+    self.assertEqual(result["segmentEndLine"], 9032)
 
-  def test_find_v_pin_segment_reports_interior_role(self):
+  def test_find_v_pin_segment_reports_interior_role_for_b_family(self):
     workspace = self._workspace("V", render_v_template_lines())
 
-    result = workspace.findUvPinSegment("A", "head", 1, 1)
+    result = workspace.findUvPinSegment("B", "foot", 1, 2)
 
-    self.assertEqual(result["segmentSide"], "A")
     self.assertEqual(result["pinRole"], "interior")
-    self.assertEqual(result["pinName"], "PF399")
-    self.assertEqual(result["segmentStartLine"], 10014)
-    self.assertEqual(result["matchedLine"], 10014)
-    self.assertEqual(result["segmentEndLine"], 10016)
+    self.assertEqual(result["pinName"], "PB1201")
+    self.assertEqual(result["segmentSide"], "B")
+    self.assertEqual(result["segmentStartLine"], 11)
+    self.assertEqual(result["matchedLine"], 11)
+    self.assertEqual(result["segmentEndLine"], 13)
 
   def test_find_u_pin_segment_respects_transfer_boundaries_with_same_family_lines(self):
     workspace = self._workspace("U", render_u_template_lines())

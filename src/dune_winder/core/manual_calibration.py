@@ -17,6 +17,11 @@ from dune_winder.recipes.xg_template_gcode import (
   write_xg_template_file,
 )
 from dune_winder.machine.geometry.factory import create_layer_geometry
+from dune_winder.machine.geometry.uv_calibration import (
+  build_nominal_uv_calibration,
+  normalize_layer_calibration_to_absolute,
+)
+from dune_winder.machine.geometry.uv_layout import FACE_ORDER as UV_FACE_ORDER, get_uv_layout
 from dune_winder.machine.calibration.defaults import (
   apply_layer_z_defaults,
   get_layer_z_defaults,
@@ -31,7 +36,7 @@ from dune_winder.core.process_context import ProcessContext
 UV_LAYERS = ("U", "V")
 GX_LAYERS = ("X", "G")
 SUPPORTED_LAYERS = UV_LAYERS + GX_LAYERS
-SIDE_ORDER = ("head", "bottom", "foot", "top")
+SIDE_ORDER = UV_FACE_ORDER
 EPSILON = 1e-9
 
 CAMERA_OFFSET_DEFAULTS = {
@@ -57,47 +62,13 @@ GX_REFERENCE_DEFAULT_WIRE_POSITIONS = {
 GX_OFFSET_IDS = ("headA", "headB", "footA", "footB")
 
 SIDE_RANGES = {
-  "U": {
-    "head": (1, 400),
-    "bottom": (401, 1200),
-    "foot": (1201, 1601),
-    "top": (1602, 2401),
-  },
-  "V": {
-    "head": (1, 399),
-    "bottom": (400, 1199),
-    "foot": (1200, 1599),
-    "top": (1600, 2399),
-  },
+  layer_name: dict(get_uv_layout(layer_name).side_ranges)
+  for layer_name in UV_LAYERS
 }
 
 LAYER_ENDPOINTS = {
-  "U": (
-    1, 40, 41, 80, 81, 120, 121, 160, 161, 200, 201, 240, 241, 280, 281, 320,
-    321, 360, 361, 400, 401, 424, 425, 449, 450, 473, 474, 510, 511, 547, 548,
-    584, 585, 621, 622, 658, 659, 695, 696, 732, 733, 769, 770, 806,
-    807, 843, 844, 880, 881, 917, 918, 954, 955, 991, 992, 1028, 1029, 1065,
-    1066, 1102, 1103, 1139, 1140, 1176, 1177, 1200, 1201, 1240, 1241, 1280,
-    1281, 1320, 1321, 1360, 1361, 1400, 1401, 1440, 1441, 1480, 1481, 1520,
-    1521, 1560, 1561, 1601, 1602, 1625, 1626, 1662, 1663, 1699, 1700, 1736,
-    1737, 1773, 1774, 1810, 1811, 1847, 1848, 1884, 1885, 1921, 1922, 1958,
-    1959, 1995, 1996, 2032, 2033, 2069, 2070, 2106, 2107, 2143,
-    2144, 2180, 2181, 2217, 2218, 2254, 2255, 2291, 2292, 2328, 2329, 2352,
-    2353, 2377, 2378, 2401,
-  ),
-  "V": (
-    1, 40, 41, 80, 81, 120, 121, 160, 161, 200, 201, 240, 241, 280, 281, 320,
-    321, 360, 361, 399, 400, 423, 424, 448, 449, 472, 473, 509, 510, 546, 547,
-    583, 584, 620, 621, 657, 658, 694, 695, 731, 732, 768, 769, 805,
-    806, 842, 843, 879, 880, 916, 917, 953, 954, 990, 991, 1027, 1028, 1064,
-    1065, 1101, 1102, 1138, 1139, 1175, 1176, 1199, 1200, 1239, 1240, 1279,
-    1280, 1319, 1320, 1359, 1360, 1399, 1400, 1439, 1440, 1479, 1480, 1519,
-    1520, 1559, 1560, 1599, 1600, 1623, 1624, 1660, 1661, 1697, 1698, 1734,
-    1735, 1771, 1772, 1808, 1809, 1845, 1846, 1882, 1883, 1919, 1920, 1956,
-    1957, 1993, 1994, 2030, 2031, 2067, 2068, 2104, 2105, 2141,
-    2142, 2178, 2179, 2215, 2216, 2252, 2253, 2289, 2290, 2326, 2327, 2350,
-    2351, 2375, 2376, 2399,
-  ),
+  layer_name: tuple(get_uv_layout(layer_name).endpoint_pins)
+  for layer_name in UV_LAYERS
 }
 
 
@@ -130,7 +101,7 @@ def _safe_float(value, defaultValue):
 def _normalize_pin(pin):
   if isinstance(pin, str):
     pin = pin.strip().upper()
-    if pin.startswith("B") or pin.startswith("F"):
+    if pin.startswith("A") or pin.startswith("B"):
       pin = pin[1:]
     pin = int(float(pin))
   else:
@@ -301,17 +272,13 @@ def _absolute_location(calibration, pinName):
 
 
 def normalize_calibration(calibration, layer):
-  normalized = LayerCalibration(layer=layer)
-  normalized.offset = SerializableLocation(0.0, 0.0, 0.0)
-
-  for pinName in calibration.getPinNames():
-    location = _absolute_location(calibration, pinName)
-    normalized.setPinLocation(pinName, location)
-
-  return apply_layer_z_defaults(normalized, layer)
+  return normalize_layer_calibration_to_absolute(calibration, layer)
 
 
 def build_nominal_calibration(layer):
+  if layer in UV_LAYERS:
+    return build_nominal_uv_calibration(layer)
+
   geometry = create_layer_geometry(layer)
   calibration = LayerCalibration(layer=layer)
   calibration.zFront, calibration.zBack = get_layer_z_defaults(layer, geometry)
@@ -319,7 +286,7 @@ def build_nominal_calibration(layer):
 
   origin = geometry.apaLocation.add(geometry.apaOffset)
   grids = [
-    ("F", geometry.gridBack, calibration.zFront, geometry.startPinBack, geometry.directionBack),
+    ("A", geometry.gridBack, calibration.zFront, geometry.startPinBack, geometry.directionBack),
     ("B", geometry.gridFront, calibration.zBack, geometry.startPinFront, geometry.directionFront),
   ]
 
@@ -352,33 +319,11 @@ def build_nominal_calibration(layer):
       xValue -= xIncrement
       yValue -= yIncrement
 
-  if layer in ("U", "V"):
-    if "U" == layer:
-      targetB1X = 570.0
-      targetB1Y = 2455.0
-    else:
-      targetB1X = 635.0
-      targetB1Y = 2350.0
-    b1Location = calibration.getPinLocation("B1")
-    deltaX = targetB1X - b1Location.x
-    deltaY = targetB1Y - b1Location.y
-    for pinName in calibration.getPinNames():
-      location = calibration.getPinLocation(pinName)
-      calibration.setPinLocation(
-        pinName,
-        Location(location.x + deltaX, location.y + deltaY, location.z),
-      )
-
   return calibration
 
 
 def _side_for_pin(layer, pin):
-  for side in SIDE_ORDER:
-    startPin, endPin = SIDE_RANGES[layer][side]
-    if startPin <= pin <= endPin:
-      return side
-
-  raise ValueError("Pin " + str(pin) + " is outside " + str(layer) + " metadata.")
+  return get_uv_layout(layer).face_for_pin(int(pin))
 
 
 def _bootstrap_pins_for_side(sideBoards):
@@ -395,70 +340,7 @@ def _bootstrap_pins_for_side(sideBoards):
 
 
 def _build_layer_metadata(layer):
-  geometry = create_layer_geometry(layer)
-  pinMax = int(geometry.pins)
-  endpoints = LAYER_ENDPOINTS[layer]
-  if endpoints[-1] != pinMax:
-    raise ValueError("Endpoint metadata does not match geometry for layer " + layer + ".")
-
-  boards = []
-  endpointInfo = {}
-  pinToBoard = {}
-  sideBoardCounts = {}
-  sideBoards = {}
-  for side in SIDE_ORDER:
-    sideBoardCounts[side] = 0
-    sideBoards[side] = []
-
-  for boardIndex, (startPin, endPin) in enumerate(_pairwise(endpoints), start=1):
-    side = _side_for_pin(layer, startPin)
-    sideBoardCounts[side] += 1
-    sideIndex = sideBoardCounts[side]
-
-    board = {
-      "boardIndex": boardIndex,
-      "side": side,
-      "sideIndex": sideIndex,
-      "startPin": startPin,
-      "endPin": endPin,
-    }
-    boards.append(board)
-    sideBoards[side].append(board)
-
-    endpointInfo[startPin] = {
-      "pin": startPin,
-      "boardIndex": boardIndex,
-      "side": side,
-      "sideIndex": sideIndex,
-      "endpoint": "start",
-    }
-    endpointInfo[endPin] = {
-      "pin": endPin,
-      "boardIndex": boardIndex,
-      "side": side,
-      "sideIndex": sideIndex,
-      "endpoint": "end",
-    }
-
-    for pin in range(startPin, endPin + 1):
-      pinToBoard[pin] = board
-
-  bootstrapPins = []
-  for side in SIDE_ORDER:
-    bootstrapPins.extend(_bootstrap_pins_for_side(sideBoards[side]))
-
-  return {
-    "layer": layer,
-    "pinMax": pinMax,
-    "geometry": geometry,
-    "boards": boards,
-    "endpointInfo": endpointInfo,
-    "endpointPins": list(endpoints),
-    "pinToBoard": pinToBoard,
-    "bootstrapPins": bootstrapPins,
-    "bootstrapSet": set(bootstrapPins),
-    "sideRanges": SIDE_RANGES[layer],
-  }
+  return get_uv_layout(layer).legacy_metadata()
 
 
 LAYER_METADATA = {}
@@ -1191,7 +1073,7 @@ class ManualCalibration:
 
   # -------------------------------------------------------------------
   def _predictFrontPin(self, session, context, pin):
-    baselineFront = self._getBaselineLocation(session, "F", pin)
+    baselineFront = self._getBaselineLocation(session, "A", pin)
     transformedFrontX, transformedFrontY = _apply_transform(
       context["transform"], baselineFront.x, baselineFront.y
     )
@@ -2129,7 +2011,7 @@ class ManualCalibration:
         pin = int(pinName[1:])
         wireX, wireY, _ = self._predictBackPin(session, context, pin)
         calibration.setPinLocation(pinName, Location(wireX, wireY, baselineLocation.z))
-      elif pinName.startswith("F"):
+      elif pinName.startswith("A"):
         pin = int(pinName[1:])
         wireX, wireY, _ = self._predictFrontPin(session, context, pin)
         calibration.setPinLocation(pinName, Location(wireX, wireY, baselineLocation.z))

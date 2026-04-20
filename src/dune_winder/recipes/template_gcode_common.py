@@ -7,7 +7,7 @@
 import re
 
 
-_PIN_TOKEN_RE = re.compile(r"\b(P[BF])(-?\d+)\b")
+_PIN_TOKEN_RE = re.compile(r"\b(P[AB])(-?\d+)\b")
 
 
 def format_number(value):

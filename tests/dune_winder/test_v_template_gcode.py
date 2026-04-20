@@ -29,8 +29,8 @@ class VTemplateGCodeTests(unittest.TestCase):
 
   def test_pb_pf_tokens_wrap_back_into_valid_pin_range(self):
     self.assertEqual(
-      _normalize_pin_tokens("G103 PB2401 PF2402 PB0 PF-1 PF1 PBL PRT"),
-      "G103 PB1 PF2 PB2400 PF2400 PF1 PBL PRT",
+      _normalize_pin_tokens("G103 PB2401 PA2402 PB0 PF-1 PA1 PBL PRT"),
+      "G103 PB1 PA2 PB2400 PA2400 PA1 PBL PRT",
     )
 
   def test_default_render_matches_expected_spec_edges(self):
@@ -51,7 +51,7 @@ class VTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(
       lines[-8:],
         [
-          "N" + str(tail_start) + " " + self.TOLERANT + "(400,16) G109 PF400 PRT G103 PB2398 PB2399 PX (Top B corner - head end)",
+          "N" + str(tail_start) + " " + self.TOLERANT + "(400,16) G109 PA400 PRT G103 PB2398 PB2399 PX (Top B corner - head end)",
           "N" + str(tail_start + 1) + " " + self.TOLERANT + "(400,17) G103 PB2398 PB2399 PY G105 " + self._coord("PY", -Y_PULL_IN),
           "N" + str(tail_start + 2) + " " + self.MERGE + "(400,18) G103 PB2398 PB2399 PY G105 PY0 G111",
         "N" + str(tail_start + 3) + " " + self.MERGE + "(400,19) X440 Y2315 F300",
@@ -83,7 +83,7 @@ class VTemplateGCodeTests(unittest.TestCase):
 
     special_lines = render_v_template_text_lines(special_inputs={"head_a_offset": 7})
     self.assertIn(
-      "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PF1 PF2 PXY G105 PY7 (Head A corner)",
+      "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PA1 PA2 PXY G105 PY7 (Head A corner)",
       special_lines,
     )
 
@@ -96,7 +96,7 @@ class VTemplateGCodeTests(unittest.TestCase):
     )
 
     self.assertIn(
-      "N8 " + self.TOLERANT + "(1,5) G103 PF800 PF799 PY G105 " + self._coord("PY", -82.5),
+      "N8 " + self.TOLERANT + "(1,5) G103 PA800 PA799 PY G105 " + self._coord("PY", -82.5),
       lines,
     )
     self.assertIn(
@@ -109,7 +109,7 @@ class VTemplateGCodeTests(unittest.TestCase):
 
     self.assertEqual(
       lines[7],
-      "N7 " + self.MERGE + "(1,4) G109 PB1999 PLT G103 PF800 PF799 Z0 PXZ (Top A corner - foot end)",
+      "N7 " + self.MERGE + "(1,4) G109 PB1999 PLT G103 PA800 PA799 Z0 PXZ (Top A corner - foot end)",
     )
     self.assertEqual(lines[8], "N8 (1,5) G206 P0")
     self.assertIn("ZEXTEND PXZ", "\n".join(lines))
@@ -126,44 +126,44 @@ class VTemplateGCodeTests(unittest.TestCase):
       + "(1,2) G109 PB400 PRT G103 PB1998 PB1999 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
       "N7 "
       + self.MERGE
-      + "(1,4) G109 PB1999 PLT G103 PF800 PF799 PX G105 PX2 (Top A corner - foot end)",
+      + "(1,4) G109 PB1999 PLT G103 PA800 PA799 PX G105 PX2 (Top A corner - foot end)",
       "N9 "
       + self.MERGE
-      + "(1,6) G109 PF800 PRB G103 PF1600 PF1599 PXY G105 PY3 G102 G108 (Foot A corner)",
+      + "(1,6) G109 PA800 PRB G103 PA1600 PA1599 PXY G105 PY3 G102 G108 (Foot A corner)",
       "N11 "
       + self.MERGE
-      + "(1,8) G109 PF1599 PBL G103 PB1200 PB1201 PY G105 PY4 (Foot B corner)",
+      + "(1,8) G109 PA1599 PBL G103 PB1200 PB1201 PY G105 PY4 (Foot B corner)",
       "N13 "
       + self.MERGE
       + "(1,10) G109 PB1200 PTR G103 PB1199 PB1198 PXY G105 PX5 G102 G108 (Bottom B corner - foot end)",
       "N15 "
       + self.MERGE
-      + "(1,12) G109 PB1199 PBR G103 PF1599 PF1600 PX G105 PX6 (Bottom A corner - foot end)",
+      + "(1,12) G109 PB1199 PBR G103 PA1599 PA1600 PX G105 PX6 (Bottom A corner - foot end)",
       "N17 "
       + self.MERGE
-      + "(1,14) G109 PF1600 PLT G103 PF799 PF798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
+      + "(1,14) G109 PA1600 PLT G103 PA799 PA798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
       "N19 "
       + self.TOLERANT
-      + "(1,16) G109 PF799 PRT G103 PB1999 PB2000 PX G105 PX8 (Top B corner - head end)",
+      + "(1,16) G109 PA799 PRT G103 PB1999 PB2000 PX G105 PX8 (Top B corner - head end)",
       "N21 "
       + self.MERGE
       + "(1,18) (HEAD RESTART) G109 PB2000 PLB G103 PB400 PB399 PXY G105 PY9 G102 G108 (Head B corner)",
       "N23 "
       + self.TOLERANT
-      + "(1,20) G109 PB399 PBR G103 PF1 PF2 PXY G105 PY10 (Head A corner)",
+      + "(1,20) G109 PB399 PBR G103 PA1 PA2 PXY G105 PY10 (Head A corner)",
       "N25 "
       + self.MERGE
-      + "(1,22) G109 PF1 PTL G103 PF2398 PF2397 PXY G105 PX11 G102 G108 (Bottom A corner - head end)",
+      + "(1,22) G109 PA1 PTL G103 PA2398 PA2397 PXY G105 PX11 G102 G108 (Bottom A corner - head end)",
       "N27 "
       + self.MERGE
-      + "(1,24) G109 PF2398 PBL G103 PB400 PB401 PX G105 PX13 (Bottom B corner - head end)",
+      + "(1,24) G109 PA2398 PBL G103 PB400 PB401 PX G105 PX13 (Bottom B corner - head end)",
     ]
     for expected_line in expected_first_wrap:
       self.assertIn(expected_line, lines)
 
     self.assertEqual(
       generator.get_value("AC", 24),
-      "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PF1 PF2 PXY G105 PY10 (Head A corner)",
+      "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PA1 PA2 PXY G105 PY10 (Head A corner)",
     )
 
   def test_transfer_pause_adds_all_optional_pause_lines(self):
@@ -190,7 +190,7 @@ class VTemplateGCodeTests(unittest.TestCase):
       write_v_template_text_file(plain_output, special_inputs={"head_a_offset": 7})
       plain_lines = plain_output.read_text(encoding="utf-8").splitlines()
       self.assertIn(
-        "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PF1 PF2 PXY G105 PY7 (Head A corner)",
+        "N23 " + self.TOLERANT + "(1,20) G109 PB399 PBR G103 PA1 PA2 PXY G105 PY7 (Head A corner)",
         plain_lines,
       )
 
@@ -220,13 +220,13 @@ class VTemplateGCodeTests(unittest.TestCase):
       paused_lines[9],
       "N9 "
       + self.MERGE
-      + "(1,6) G109 PF800 PRB G103 PF1600 PF1599 PXY G102 G108 G111 (board gap) (Foot A corner)",
+      + "(1,6) G109 PA800 PRB G103 PA1600 PA1599 PXY G102 G108 G111 (board gap) (Foot A corner)",
     )
     self.assertEqual(
       paused_lines[16],
       "N16 "
       + self.TOLERANT
-      + "(1,13) G103 PF1599 PF1600 PY G105 "
+      + "(1,13) G103 PA1599 PA1600 PY G105 "
       + self._coord("PY", Y_PULL_IN)
       + " G111 (board gap)",
     )

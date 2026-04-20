@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src" / "dune_winder"
 PACKAGE_ROOT = REPO_ROOT / "dune_winder"
+FRAME_GEOMETRY_CONFIG_DIR = REPO_ROOT / "config" / "frame_geometry"
 WEB_ROOT = PACKAGE_ROOT / "web"
 PLC_ROOT = PACKAGE_ROOT / "plc"
 MONOROUTINE_PLC_ROOT = PACKAGE_ROOT / "plc_monoroutine"
