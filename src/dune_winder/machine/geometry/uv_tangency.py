@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from dune_winder.uv_head_target import (
+from dune_winder.machine.geometry.uv_wrap_geometry import (
   LineEquation,
   Point2D,
   Point3D,
-  RecipeSite,
   RectBounds,
-  UvHeadTargetError,
+  UvWrapGeometryError,
+  matches_tangent_sides,
+  plan_wrap_transition,
+  tangent_sides,
+)
+from dune_winder.uv_head_target import (
+  RecipeSite,
   UvHeadTargetRequest,
   UvHeadTargetResult,
   UvTangentViewRequest,
@@ -15,10 +20,11 @@ from dune_winder.uv_head_target import (
   compute_uv_head_target,
   compute_uv_tangent_view,
   iter_uv_wrap_primary_sites,
-  matches_tangent_sides,
   resolve_wrapped_pin_from_g103_pair,
-  tangent_sides,
 )
+
+
+UvHeadTargetError = UvWrapGeometryError
 
 
 __all__ = [
@@ -28,6 +34,7 @@ __all__ = [
   "RecipeSite",
   "RectBounds",
   "UvHeadTargetError",
+  "UvWrapGeometryError",
   "UvHeadTargetRequest",
   "UvHeadTargetResult",
   "UvTangentViewRequest",
@@ -37,6 +44,7 @@ __all__ = [
   "compute_uv_tangent_view",
   "iter_uv_wrap_primary_sites",
   "matches_tangent_sides",
+  "plan_wrap_transition",
   "resolve_wrapped_pin_from_g103_pair",
   "tangent_sides",
 ]

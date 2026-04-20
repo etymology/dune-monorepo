@@ -825,9 +825,29 @@ class GCodeHandler(GCodeHandlerBase):
     return velocity
 
   # ---------------------------------------------------------------------
+  def _pending_action_kind(self, action):
+    if isinstance(action, dict):
+      return action.get("kind")
+    return action
+
+  # ---------------------------------------------------------------------
+  def _pending_action_value(self, action, key, default):
+    if not isinstance(action, dict):
+      return default
+    if key not in action:
+      return default
+    return action[key]
+
+  # ---------------------------------------------------------------------
   def _dispatch_pending_action(self, action, velocity, *, safety_label="line"):
+    action_kind = self._pending_action_kind(action)
     moving = False
-    if action == "xy":
+    if action_kind == "wrap_state":
+      self._lastWrappedPin = str(action.get("target_pin"))
+      self._wrapAnchorPin = None
+      return False
+
+    if action_kind == "xy":
       current_raw_x = float(self._io.xAxis.getPosition())
       current_effective_x = current_raw_x
       if self._xBacklash is not None:
@@ -836,7 +856,10 @@ class GCodeHandler(GCodeHandlerBase):
         current_effective_x,
         float(self._io.yAxis.getPosition()),
       )
-      target_xy = (float(self._x), float(self._y))
+      target_xy = (
+        float(self._pending_action_value(action, "x", self._x)),
+        float(self._pending_action_value(action, "y", self._y)),
+      )
       is_noop_xy_move = (
         math.hypot(target_xy[0] - start_xy[0], target_xy[1] - start_xy[1])
         < _COMMAND_POSITION_RESOLUTION_MM
@@ -855,9 +878,9 @@ class GCodeHandler(GCodeHandlerBase):
       except ValueError as exception:
         self._set_xy_safety_error(str(exception))
       else:
-        raw_target_x = float(self._x)
+        raw_target_x = float(target_xy[0])
         if self._xBacklash is not None:
-          raw_target_x = self._xBacklash.getCommandedRawX(current_raw_x, float(self._x))
+          raw_target_x = self._xBacklash.getCommandedRawX(current_raw_x, float(target_xy[0]))
           safety_limits = self._motion_safety_limits()
           if (
             raw_target_x < float(safety_limits.limit_left)
@@ -872,16 +895,19 @@ class GCodeHandler(GCodeHandlerBase):
             )
             return False
 
-        self._io.plcLogic.setXY_Position(raw_target_x, self._y, velocity)
+        self._io.plcLogic.setXY_Position(raw_target_x, target_xy[1], velocity)
         if self._xBacklash is not None:
-          self._xBacklash.noteCommand(current_raw_x, float(self._x))
+          self._xBacklash.noteCommand(current_raw_x, float(target_xy[0]))
         moving = True
-    elif action == "z":
-      self._io.plcLogic.setZ_Position(self._z, velocity)
+    elif action_kind == "z":
+      self._io.plcLogic.setZ_Position(
+        float(self._pending_action_value(action, "z", self._z)),
+        velocity,
+      )
       moving = True
-    elif action == "xz":
-      target_x = float(self._x)
-      target_z = float(self._z)
+    elif action_kind == "xz":
+      target_x = float(self._pending_action_value(action, "x", self._x))
+      target_z = float(self._pending_action_value(action, "z", self._z))
       x_limits = self._motion_safety_limits()
       z_front, z_rear = self._z_motion_limits()
       if target_x < x_limits.limit_left or target_x > x_limits.limit_right:
@@ -907,19 +933,25 @@ class GCodeHandler(GCodeHandlerBase):
           self._set_gcode_error(str(exception))
         else:
           moving = True
-    elif action == "head":
-      error = self._io.head.setHeadPosition(self._headPosition, velocity)
+    elif action_kind == "head":
+      error = self._io.head.setHeadPosition(
+        int(self._pending_action_value(action, "head_position", self._headPosition)),
+        velocity,
+      )
       if error:
         self._set_gcode_error(str(error))
       else:
         moving = True
-    elif action == "head_transfer":
-      error = self._io.head.setTransferPosition(self._headPosition, velocity)
+    elif action_kind == "head_transfer":
+      error = self._io.head.setTransferPosition(
+        int(self._pending_action_value(action, "head_position", self._headPosition)),
+        velocity,
+      )
       if error:
         self._set_gcode_error(str(error))
       else:
         moving = True
-    elif action == "latch":
+    elif action_kind == "latch":
       self._io.plcLogic.move_latch()
       moving = True
 
@@ -947,7 +979,8 @@ class GCodeHandler(GCodeHandlerBase):
     proceed without treating the head controller as an active blocker.
     """
     return bool(self._pending_actions) and all(
-      action in ("z", "xz") for action in self._pending_actions
+      self._pending_action_kind(action) in ("z", "xz")
+      for action in self._pending_actions
     )
 
   # ---------------------------------------------------------------------
@@ -1201,9 +1234,6 @@ class GCodeHandler(GCodeHandlerBase):
     finally:
       if errorData is not None:
         self._restore_interpreter_state(interpreter_snapshot)
-      else:
-        self._pending_actions = []
-        self._pending_stop_request = False
       self._line = execution_snapshot["line"]
       self._functions = execution_snapshot["functions"]
       self._stopNextMove = execution_snapshot["stopNextMove"]
@@ -1292,6 +1322,8 @@ class GCodeHandler(GCodeHandlerBase):
     self._currentLine = -1
     self._nextLine = -1
     self._firstMove = True
+    self._wrapAnchorPin = None
+    self._lastWrappedPin = None
     self._queued_session = None
     self._queued_preview = None
     self.useLayerCalibration(None)
@@ -1310,6 +1342,8 @@ class GCodeHandler(GCodeHandlerBase):
     self._currentLine = -1
     self._nextLine = -1
     self._firstMove = True
+    self._wrapAnchorPin = None
+    self._lastWrappedPin = None
     self._queued_session = None
     self._queued_preview = None
 
@@ -1355,6 +1389,8 @@ class GCodeHandler(GCodeHandlerBase):
       raise ValueError("Next G-Code line is outside the reloaded file.")
 
     self._gCode = gCode
+    self._wrapAnchorPin = None
+    self._lastWrappedPin = None
     self._queued_session = None
     self._queued_preview = None
 

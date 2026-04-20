@@ -14,7 +14,10 @@ from dune_winder.machine.geometry.uv_tangency import (
   compute_uv_tangent_view,
   matches_tangent_sides,
 )
-from dune_winder.uv_head_target import iter_uv_wrap_primary_sites
+from dune_winder.uv_head_target import (
+  clear_uv_head_target_caches,
+  iter_uv_wrap_primary_sites,
+)
 
 
 CANVAS_WIDTH = 900
@@ -1540,6 +1543,7 @@ def calculate_and_render(
   compute_fn=compute_uv_tangent_view,
 ) -> UvTangentViewResult | None:
   try:
+    clear_uv_head_target_caches(layer_calibration=True, machine_calibration=False)
     request = build_request_from_form(form)
     result = compute_fn(request)
   except UvHeadTargetError as exc:

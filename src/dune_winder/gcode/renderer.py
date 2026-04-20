@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .model import CommandWord, Comment, FunctionCall, Program, ProgramLine
+from .model import CommandWord, Comment, FunctionCall, MacroCall, Program, ProgramLine
 
 
 def _render_comment(comment: Comment) -> str:
@@ -26,6 +26,8 @@ def render_line(line: ProgramLine) -> str:
   for item in line.items:
     if isinstance(item, Comment):
       rendered.append(_render_comment(item))
+    elif isinstance(item, MacroCall):
+      rendered.append("~" + str(item.text))
     elif isinstance(item, FunctionCall):
       rendered.append(render_function_call(item))
     elif isinstance(item, CommandWord):

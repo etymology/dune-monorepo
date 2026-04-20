@@ -91,3 +91,33 @@ def queue_merge_precise():
 
 def queue_merge_tolerant():
   return queue_merge("TOLERANT")
+
+
+def wrap_goto(x=None, y=None):
+  parameters = []
+  if x is not None:
+    parameters.append("X" + str(x))
+  if y is not None:
+    parameters.append("Y" + str(y))
+  return _function(Opcode.WRAP_GOTO, parameters)
+
+
+def wrap_increment(x=None, y=None):
+  parameters = []
+  if x is not None:
+    parameters.append("X" + str(x))
+  if y is not None:
+    parameters.append("Y" + str(y))
+  return _function(Opcode.WRAP_INCREMENT, parameters)
+
+
+def wrap_anchor(pin):
+  return _function(Opcode.WRAP_ANCHOR, [pin])
+
+
+def wrap_b(pin):
+  return _function(Opcode.WRAP_B, [pin])
+
+
+def wrap_b_to_a(pin):
+  return _function(Opcode.WRAP_B_TO_A, [pin])

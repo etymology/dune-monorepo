@@ -89,8 +89,8 @@ class UV_LayerGeometry(LayerGeometry):
 
     # Travel for partial Z.  Should place head level with board and below pin
     # height.
-    self.mostlyRetract = (self.zTravel - self.depth) / (2 * self.scale)
-    self.mostlyExtend = (self.zTravel + self.depth) / (2 * self.scale)
+    self.mostlyRetract = (self.zTravel - self.depth) / 2
+    self.mostlyExtend = (self.zTravel + self.depth) / 2
 
     self.startPinFront = start_pin_front
     self.directionFront = -1

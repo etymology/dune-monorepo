@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dune_winder.recipes.u_template_gcode import (
   DEFAULT_U_TEMPLATE_ROW_COUNT,
+  SCRIPT_VARIANT_WRAPPING,
   WRAP_COUNT,
   UTemplateProgrammaticGenerator,
   X_PULL_IN,
@@ -48,16 +49,31 @@ class UTemplateGCodeTests(unittest.TestCase):
         "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G102 G108 (Top B corner - foot end)",
       ],
     )
+
+  def test_wrapping_variant_emits_parallel_wrap_commands(self):
+    lines = render_u_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
+
+    self.assertEqual(
+      lines[:5],
+      [
+        "N0 ( U Layer )",
+        "N1 ~goto(7174,0)",
+        "N2 (1,1) ~anchorToTarget(A1601,B1201) (Foot bottom start)",
+        "N3 (1,2) ~increment(-200,0)",
+        "N4 (1,3) ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
+      ],
+    )
+    self.assertIn("~anchorToTarget(B2001,A801)", lines[5])
+    self.assertTrue(lines[-2].endswith("~anchorToTarget(A1201,B1601)"))
+    self.assertTrue(lines[-1].endswith("~increment(200,0)"))
+    self.assertTrue(all("G103" not in line and "G11" not in line for line in lines))
     self.assertEqual(
       lines[-4:],
       [
-        "N10036 " + self.MERGE + "(400,22) G109 PA2001 PRT G103 PA1201 PA1200 PXY G102 G108 (Foot A corner)",
-        "N10037 (400,23) G206 P3",
-        "N10038 " + self.MERGE + "(400,24) G109 PA1201 PRT G103 PB1601 PB1600 PXY (Foot B corner, rewind)",
-        "N10039 "
-        + self.TOLERANT
-        + "(400,25) G103 PB1601 PB1600 PX G105 "
-        + self._coord("PX", -X_PULL_IN),
+        "N7248 (400,17) ~increment(0,200)",
+        "N7249 (400,18) ~anchorToTarget(A2001,A1201) (Foot A corner)",
+        "N7250 ~anchorToTarget(A1201,B1601)",
+        "N7251 ~increment(200,0)",
       ],
     )
 
@@ -116,15 +132,15 @@ class UTemplateGCodeTests(unittest.TestCase):
 
     expected_first_wrap = [
       "N5 " + self.MERGE + "(1,2) G109 PB1201 PBR G103 PB2001 PB2002 PXY G105 PX1 G102 G108 (Top B corner - foot end)",
-      "N7 " + self.MERGE + "(1,4) G109 PB1201 PLT G103 PA801 PA802 PXY G105 PY5 G105 PX2 (Top A corner - foot end)",
-      "N9 " + self.MERGE + "(1,6) G109 PA801 PLB G103 PA2401 PA1 PXY G105 PY3 G102 G108 (Bottom A corner - head end)",
-      "N11 " + self.MERGE + "(1,8) G109 PA2401 PBR G103 PB401 PB402 PXY G105 PY-5 G105 PY4 (Bottom B corner - head end, rewind)",
+      "N7 " + self.MERGE + "(1,4) G109 PB2001 PLT G103 PA801 PA802 PXY G105 PY5 G105 PX2 (Top A corner - foot end)",
+      "N9 " + self.MERGE + "(1,6) G109 PA801 PLB G103 PA2401 PA1 PXY G105 PX3 G102 G108 (Bottom A corner - head end)",
+      "N11 " + self.MERGE + "(1,8) G109 PA2401 PBR G103 PB401 PB402 PXY G105 PY-5 G105 PX4 (Bottom B corner - head end, rewind)",
       "N13 " + self.MERGE + "(1,10) (HEAD RESTART) G109 PB401 PLT G103 PB400 PB399 PXY G105 PY5 G102 G108 (Head B corner)",
       "N15 " + self.TOLERANT + "(1,12) G109 PB400 PLT G103 PA1 PA2401 PXY G105 PY6 (Head A corner, rewind)",
       "N17 " + self.MERGE + "(1,14) G109 PA2 PRT G103 PA799 PA798 PXY G105 PX7 G102 G108 (Top A corner - head end)",
       "N19 " + self.MERGE + "(1,16) G109 PA799 PRT G103 PB2003 PB2004 PXY G105 PY5 G105 PX8 (Top B corner - head end)",
-      "N21 " + self.MERGE + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PY9 G102 G108 (Bottom B corner - foot end)",
-      "N23 " + self.MERGE + "(1,20) G109 PB1200 PBL G103 PA1602 PA1603 PXY G105 PY-5 G105 PY10 (Bottom A corner - foot end, rewind)",
+      "N21 " + self.MERGE + "(1,18) G109 PB2002 PRB G103 PB1200 PB1201 PXY G105 PX9 G102 G108 (Bottom B corner - foot end)",
+      "N23 " + self.MERGE + "(1,20) G109 PB1200 PBL G103 PA1602 PA1603 PXY G105 PY-5 G105 PX10 (Bottom A corner - foot end, rewind)",
       "N25 " + self.MERGE + "(1,22) G109 PA1602 PRT G103 PA1600 PA1599 PXY G105 PY11 G102 G108 (Foot A corner)",
       "N27 " + self.MERGE + "(1,24) G109 PA1600 PRT G103 PB1202 PB1201 PXY G105 PY13 (Foot B corner, rewind)",
     ]
@@ -183,6 +199,17 @@ class UTemplateGCodeTests(unittest.TestCase):
     self.assertEqual(recipe["fileName"], "U-layer.gc")
     self.assertEqual(recipe["pullIns"]["Y_PULL_IN"], 212.5)
     self.assertEqual(recipe["pullIns"]["X_PULL_IN"], 187.5)
+
+  def test_write_u_template_file_supports_wrapping_variant(self):
+    with tempfile.TemporaryDirectory() as directory:
+      recipe = write_u_template_file(
+        Path(directory) / "U-layer.gc",
+        script_variant=SCRIPT_VARIANT_WRAPPING,
+      )
+
+    self.assertEqual(recipe["scriptVariant"], SCRIPT_VARIANT_WRAPPING)
+    self.assertTrue(any(line.endswith("~goto(7174,0)") for line in recipe["lines"]))
+    self.assertTrue(any("~anchorToTarget(" in line for line in recipe["lines"]))
 
   def test_add_foot_pauses_appends_g111_only_on_qualifying_lines(self):
     base_lines = render_u_template_text_lines()

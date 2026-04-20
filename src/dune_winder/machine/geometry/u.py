@@ -22,7 +22,7 @@ class U_LayerGeometry(UV_LayerGeometry):
       pins=2 * self.rows + 2 * self.columns + 1,
       front_back_offset=self.rows,
       front_back_modulus=2 * self.rows + 2 * self.columns,
-      depth_mm=104.7,
+      depth_mm=130,
       start_pin_front=400,
     )
 

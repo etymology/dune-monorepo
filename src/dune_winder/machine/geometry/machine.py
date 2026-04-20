@@ -48,7 +48,7 @@ class MachineGeometry(object):
     self.zWindow = 20
 
     # Amount of distance the Z-axis can travel.
-    self.zTravel = 434
+    self.zTravel = 417.7
 
     # Locations for extended and retracted.
     self.retracted = 0
@@ -56,8 +56,8 @@ class MachineGeometry(object):
 
     # Distance from the inner pulley edge to the outer roller edge on the
     # winder head arm.
-    self.headRollerRadius = 6.35  # 1/4"
-    self.headRollerGap = 1.27  # 0.05"
+    self.headRollerRadius = 6.5  # 1/4"
+    self.headRollerGap = 1  # 0.05"
     self.headArmLength = 77
 
     # Lines defining the where a Z hand-off can take place.  Used for intercept

@@ -957,6 +957,31 @@ function GCodeGeneration( modules )
     return actions
   }
 
+  function generateURecipe( commandName, successMessage )
+  {
+    var actions = buildUSaveActions()
+    if ( ! actions )
+      return
+
+    runSequentialPageActions
+    (
+      actions,
+      function()
+      {
+        pageAction
+        (
+          commandName,
+          {},
+          function()
+          {
+            setMessage( successMessage, "success" )
+            refreshUStateOnce()
+          }
+        )
+      }
+    )
+  }
+
   function applyVOffsetInput( offsetId )
   {
     if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
@@ -1455,26 +1480,21 @@ function GCodeGeneration( modules )
     (
       function()
       {
-        var actions = buildUSaveActions()
-        if ( ! actions )
-          return
+        generateURecipe(
+          commands.process.uTemplateGenerateRecipeFile,
+          "Generated the live U-layer.gc recipe."
+        )
+      }
+    )
 
-        runSequentialPageActions
-        (
-          actions,
-          function()
-          {
-            pageAction
-            (
-              commands.process.uTemplateGenerateRecipeFile,
-              {},
-              function()
-              {
-                setMessage( "Generated the live U-layer.gc recipe.", "success" )
-                refreshUStateOnce()
-              }
-            )
-          }
+  $( "#gCodeGenerationUGenerateWrappingButton" )
+    .click
+    (
+      function()
+      {
+        generateURecipe(
+          commands.process.uTemplateGenerateRecipeFileWrapping,
+          "Generated the live U-layer.gc wrapping recipe."
         )
       }
     )

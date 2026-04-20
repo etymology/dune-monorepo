@@ -77,6 +77,7 @@
       uTemplateSetStripG113Params: "process.u_template.set_strip_g113_params",
       uTemplateResetDraft: "process.u_template.reset_draft",
       uTemplateGenerateRecipeFile: "process.u_template.generate_recipe_file",
+      uTemplateGenerateRecipeFileWrapping: "process.u_template.generate_recipe_file_wrapping",
       manualCalibrationGetState: "process.manual_calibration.get_state",
       manualCalibrationSetCornerOffset: "process.manual_calibration.set_corner_offset",
       manualCalibrationSetTransferPause: "process.manual_calibration.set_transfer_pause",

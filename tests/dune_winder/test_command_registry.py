@@ -109,6 +109,19 @@ class CommandRegistryTests(unittest.TestCase):
     self.assertTrue(set_response["data"])
     self.assertTrue(process.queuedMotionUseMaxSpeed)
 
+  def test_u_wrapping_recipe_command_dispatches_script_variant(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+
+    response = registry.executeRequest(
+      {"name": "process.u_template.generate_recipe_file_wrapping", "args": {}},
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(
+      response["data"]["data"]["scriptVariant"],
+      "wrapping",
+    )
+
   def test_get_layer_calibration_command_dispatches(self):
     registry, _, _, _, _, _ = build_registry_fixture()
 

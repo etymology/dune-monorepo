@@ -63,6 +63,7 @@ class GCodePlaybackService:
   # ---------------------------------------------------------------------
   def start(self):
     if self._controlStateMachine.isReadyForMovement():
+      self.refreshCalibrationBeforeExecution()
       self._controlStateMachine.dispatch(StartWindEvent())
 
   def stop(self):
@@ -79,6 +80,7 @@ class GCodePlaybackService:
       self._controlStateMachine.isReadyForMovement()
       and self._gCodeHandler.isG_CodeLoaded()
     ):
+      self.refreshCalibrationBeforeExecution()
       self._gCodeHandler.singleStep = True
       self._controlStateMachine.dispatch(StartWindEvent())
 

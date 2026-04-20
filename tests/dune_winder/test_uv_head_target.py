@@ -193,13 +193,13 @@ def test_compute_uv_head_target_rejects_unknown_pin():
 def test_default_layer_calibration_path_prefers_dune_winder_copy_for_u():
   path = _default_layer_calibration_path("U")
 
-  assert path == REPO_ROOT / "config" / "frame_geometry" / "U_Calibration.json"
+  assert path == REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"
 
 
-def test_default_layer_calibration_path_uses_frame_geometry_config_for_v():
+def test_default_layer_calibration_path_prefers_dune_winder_copy_for_v():
   path = _default_layer_calibration_path("V")
 
-  assert path == REPO_ROOT / "config" / "frame_geometry" / "V_Calibration.json"
+  assert path == REPO_ROOT / "dune_winder" / "config" / "APA" / "V_Calibration.json"
 
 
 @pytest.mark.parametrize(

@@ -22,7 +22,7 @@ class V_LayerGeometry(UV_LayerGeometry):
       pins=2 * self.rows + 2 * self.columns - 1,
       front_back_offset=self.rows - 1,
       front_back_modulus=2 * self.rows + 2 * self.columns - 1,
-      depth_mm=95.2,
+      depth_mm=120,
       start_pin_front=399,
     )
 

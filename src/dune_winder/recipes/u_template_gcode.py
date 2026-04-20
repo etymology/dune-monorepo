@@ -16,6 +16,7 @@ from dune_winder.recipes.recipe_template_language import (
   compile_template_script,
   execute_template_script,
 )
+from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes import template_gcode_common
 from dune_winder.gcode.renderer import normalize_line_text
@@ -94,38 +95,66 @@ SPECIAL_OFFSET_ALIASES = {
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
 _PIN_PAIR_RE = re.compile(r"\bG103\s+(P[AB])(\d+)\s+(P[AB])(\d+)\b")
+SCRIPT_VARIANT_DEFAULT = "default"
+SCRIPT_VARIANT_WRAPPING = "wrapping"
 
 U_WRAP_SCRIPT = compile_template_script(
   (
     "emit (------------------STARTING LOOP ${wrap}------------------)",
     "emit G113 PPRECISE G109 PB${1200 + wrap} PBR G103 PB${2002 - wrap} PB${2003 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
     "transfer b_to_a_transfer",
-    "emit G113 PPRECISE G109 PB${2002 - wrap} PLT G103 PF${800 + wrap} PF${801 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[1], offsets[1])} (Top A corner - foot end)",
-    "emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-    "if near_comb(800 + wrap): emit G113 PTOLERANT G103 PF${800 + wrap} PF${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G113 PPRECISE G109 PF${800 + wrap} PLB G103 PF${2402 - wrap} PF${2403 - wrap} PXY ${offset('PX', offsets[2])} G102 G108 (Bottom A corner - head end)",
+    "emit G113 PPRECISE G109 PB${2002 - wrap} PLT G103 PA${800 + wrap} PA${801 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[1], offsets[1])} (Top A corner - foot end)",
+    "emit G113 PTOLERANT G103 PA${800 + wrap} PA${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(800 + wrap): emit G113 PTOLERANT G103 PA${800 + wrap} PA${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PPRECISE G109 PA${800 + wrap} PLB G103 PA${2402 - wrap} PA${2403 - wrap} PXY ${offset('PX', offsets[2])} G102 G108 (Bottom A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[3])} (Bottom B corner - head end, rewind)",
+    "emit G113 PPRECISE G109 PA${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[3])} (Bottom B corner - head end, rewind)",
     "emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
     "if near_comb(400 + wrap): emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
     "transfer b_to_a_transfer",
-    "emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PF${wrap} PF${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
-    "emit G113 PTOLERANT G103 PF${1 + wrap} PF${wrap} PX G105 ${coord('PX', X_PULL_IN)}",
-    "emit G113 PPRECISE G109 PF${1 + wrap} PRT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+    "emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PA${wrap} PA${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
+    "emit G113 PTOLERANT G103 PA${1 + wrap} PA${wrap} PX G105 ${coord('PX', X_PULL_IN)}",
+    "emit G113 PPRECISE G109 PA${1 + wrap} PRT G103 PA${800 - wrap} PA${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[7], offsets[7])} (Top B corner - head end)",
+    "emit G113 PPRECISE G109 PA${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[7], offsets[7])} (Top B corner - head end)",
     "emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
     "if near_comb(2002 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
     "emit G113 PPRECISE G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PX', offsets[8])} G102 G108 (Bottom B corner - foot end)",
     "transfer b_to_a_transfer",
-    "emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PF${1601 + wrap} PF${1602 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[9])} (Bottom A corner - foot end, rewind)",
-    "emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-    "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PF${1601 + wrap} PF${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
-    "emit G113 PPRECISE G109 PF${1601 + wrap} PRT G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
+    "emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PA${1601 + wrap} PA${1602 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[9])} (Bottom A corner - foot end, rewind)",
+    "emit G113 PTOLERANT G103 PA${1601 + wrap} PA${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PA${1601 + wrap} PA${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
+    "emit G113 PPRECISE G109 PA${1601 + wrap} PRT G103 PA${1601 - wrap} PA${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
     "transfer a_to_b_transfer",
-    "emit G113 PPRECISE G109 PF${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
+    "emit G113 PPRECISE G109 PA${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
     "emit G113 PTOLERANT G103 PB${1201 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)}",
+  )
+)
+
+U_WRAP_WRAPPING_SCRIPT = compile_template_script(
+  (
+    "emit G115 ${coord('PX', -X_PULL_IN)} ${coord('PY', 0)}",
+    "emit G117 PB${2002 - wrap} (Top B corner - foot end)",
+    "emit G118 PB${2002 - wrap} (Top A corner - foot end)",
+    "emit G115 ${coord('PX', 0)} ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(2002 - wrap): emit G115 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+    "emit G118 PB${400 + wrap} (Bottom A corner - head end)",
+    "emit G117 PB${400 + wrap} (Bottom B corner - head end)",
+    "emit G115 ${coord('PX', 0)} ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(400 + wrap): emit G115 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+    "emit G117 PB${401 - wrap} (Head B corner)",
+    "emit G118 PB${401 - wrap} (Head A corner)",
+    "emit G115 ${coord('PX', X_PULL_IN)} ${coord('PY', 0)}",
+    "emit G118 PB${2001 + wrap} (Top A corner - head end)",
+    "emit G117 PB${2001 + wrap} (Top B corner - head end)",
+    "emit G115 ${coord('PX', 0)} ${coord('PY', -Y_PULL_IN)}",
+    "if near_comb(2001 + wrap): emit G115 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+    "emit G117 PB${1201 - wrap} (Bottom B corner - foot end)",
+    "emit G118 PB${1201 - wrap} (Bottom A corner - foot end)",
+    "emit G115 ${coord('PX', 0)} ${coord('PY', Y_PULL_IN)}",
+    "if near_comb(1201 - wrap): emit G115 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+    "emit G118 PB${1201 + wrap} (Foot A corner)",
   )
 )
 
@@ -137,6 +166,18 @@ def _apply_strip_g113_params(lines):
   return [
     re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
   ]
+
+
+def _normalize_script_variant(script_variant):
+  if script_variant is None:
+    return SCRIPT_VARIANT_DEFAULT
+
+  normalized = str(script_variant).strip().lower()
+  if normalized in ("", "default", "normal", "standard"):
+    return SCRIPT_VARIANT_DEFAULT
+  if normalized == SCRIPT_VARIANT_WRAPPING:
+    return SCRIPT_VARIANT_WRAPPING
+  raise UTemplateInputError("Unsupported U script variant: " + repr(script_variant))
 
 
 def _are_consecutive_pins(first_pin, second_pin):
@@ -478,7 +519,11 @@ def _extract_primary_site(tokens):
   pin_b = _normalize_pin_token(tokens[g103_index + 2])
   if not anchor_pin or not pin_a or not pin_b:
     return None
-  if anchor_pin[:1] not in ("A", "B") or pin_a[:1] not in ("A", "B") or pin_b[:1] not in ("A", "B"):
+  if (
+    anchor_pin[:1] not in ("A", "B")
+    or pin_a[:1] not in ("A", "B")
+    or pin_b[:1] not in ("A", "B")
+  ):
     return None
   return (anchor_pin, orientation_token, pin_a, pin_b)
 
@@ -615,6 +660,100 @@ def _render_wrap_lines(
   return _annotate_wrap_lines(wrap_number, lines)
 
 
+def _render_wrapping_wrap_lines(wrap_number, pull_ins):
+  n = int(wrap_number) - 1
+
+  def b_pin(pin_number):
+    return "B" + str(_wrap_pin_number(pin_number))
+
+  def a_from_b(pin_number):
+    return b_to_a_pin("U", b_pin(pin_number))
+
+  def anchor_to_target(anchor_pin, target_pin, label=None):
+    parts = [f"~anchorToTarget({anchor_pin},{target_pin})"]
+    if label:
+      parts.append("(" + str(label) + ")")
+    return _line(*parts)
+
+  lines = [
+    anchor_to_target(a_from_b(1201 + n), b_pin(1201 + n), "Foot bottom start"),
+    _line("~increment(" + _coord("", -pull_ins["X_PULL_IN"]) + ",0)"),
+    anchor_to_target(
+      b_pin(1201 + n), b_pin(1602 + (399 - n)), "Top B corner - foot end"
+    ),
+    anchor_to_target(
+      b_pin(1602 + (399 - n)),
+      a_from_b(1602 + (399 - n)),
+      "Top A corner - foot end",
+    ),
+    _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
+  ]
+  if _near_comb(1602 + (399 - n)):
+    lines.append(
+      _line(
+        "~increment(" + _coord("", -(pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR)) + ",0)",
+        "(comb pull)",
+      )
+    )
+  lines.extend(
+    [
+      anchor_to_target(
+        a_from_b(1602 + (399 - n)),
+        a_from_b(401 + n),
+        "Bottom A corner - head end",
+      ),
+      anchor_to_target(a_from_b(401 + n), b_pin(401 + n), "Bottom B corner - head end"),
+      _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
+    ]
+  )
+  if _near_comb(401 + n):
+    lines.append(
+      _line(
+        "~increment(" + _coord("", -(pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR)) + ",0)",
+        "(comb pull)",
+      )
+    )
+  lines.extend(
+    [
+      anchor_to_target(b_pin(401 + n), b_pin(400 - n), "Head B corner"),
+      anchor_to_target(b_pin(400 - n), a_from_b(400 - n), "Head A corner"),
+      _line("~increment(" + _coord("", pull_ins["X_PULL_IN"]) + ",0)"),
+      anchor_to_target(a_from_b(400 - n), a_from_b(n - 399), "Top A corner - head end"),
+      anchor_to_target(a_from_b(n - 399), b_pin(n - 399), "Top B corner - head end"),
+      _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
+    ]
+  )
+  if _near_comb(_wrap_pin_number(n - 399)):
+    lines.append(
+      _line(
+        "~increment(" + _coord("", (pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR)) + ",0)",
+        "(comb pull)",
+      )
+    )
+  lines.extend(
+    [
+      anchor_to_target(
+        b_pin(1 - 399 + n), b_pin(1200 - n), "Bottom B corner - foot end"
+      ),
+      anchor_to_target(
+        b_pin(1200 - n), a_from_b(1200 - n), "Bottom A corner - foot end"
+      ),
+      _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
+    ]
+  )
+  if _near_comb(_wrap_pin_number(1200 - n)):
+    lines.append(
+      _line(
+        "~increment(" + _coord("", (pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR)) + ",0)",
+        "(comb pull)",
+      )
+    )
+  lines.append(
+    anchor_to_target(a_from_b(1200 - n), a_from_b(1201 + n + 1), "Foot A corner")
+  )
+  return _annotate_wrap_lines(wrap_number, lines)
+
+
 def render_u_template_lines(
   *,
   offsets=None,
@@ -622,6 +761,7 @@ def render_u_template_lines(
   add_foot_pauses=False,
   include_lead_mode=False,
   strip_g113_params=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
   cell_overrides=None,
@@ -641,39 +781,55 @@ def render_u_template_lines(
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
   )
+  script_variant = _normalize_script_variant(script_variant)
 
-  lines = [
-    "( U Layer )",
-    _line(
-      "G113 PPRECISE",
-      _coord("X", PREAMBLE_X),
-      _coord("Y", PREAMBLE_Y),
-      "F300",
-      "(load new calibration file)",
-    ),
-    _line("F300", _g106(3)),
-    _line(
-      "G113 PPRECISE",
-      "(0, )",
-      "F300",
-      "G103",
-      "PB1201",
-      "PB1200",
-      "PXY",
-      "G105 " + _coord("PX", PREAMBLE_BOARD_GAP_PULL),
-    ),
-  ]
-
-  for wrap_number in range(1, WRAP_COUNT + 1):
+  if script_variant == SCRIPT_VARIANT_WRAPPING:
+    final_anchor_pin = b_to_a_pin("U", "B1601")
+    lines = [
+      "( U Layer )",
+      _line("~goto(" + _coord("", PREAMBLE_X) + ",0)"),
+    ]
+    for wrap_number in range(1, WRAP_COUNT + 1):
+      lines.extend(_render_wrapping_wrap_lines(wrap_number, pull_ins))
     lines.extend(
-      _render_wrap_lines(
-        wrap_number,
-        resolved_offsets,
-        transfer_pause_value,
-        include_lead_mode_value,
-        pull_ins,
-      )
+      [
+        _line("~anchorToTarget(" + final_anchor_pin + ",B1601)"),
+        _line("~increment(" + _coord("", pull_ins["X_PULL_IN"]) + ",0)"),
+      ]
     )
+  else:
+    lines = [
+      "( U Layer )",
+      _line(
+        "G113 PPRECISE",
+        _coord("X", PREAMBLE_X),
+        _coord("Y", PREAMBLE_Y),
+        "F300",
+        "(load new calibration file)",
+      ),
+      _line("F300", _g106(3)),
+      _line(
+        "G113 PPRECISE",
+        "(0, )",
+        "F300",
+        "G103",
+        "PB1201",
+        "PB1200",
+        "PXY",
+        "G105 " + _coord("PX", PREAMBLE_BOARD_GAP_PULL),
+      ),
+    ]
+
+    for wrap_number in range(1, WRAP_COUNT + 1):
+      lines.extend(
+        _render_wrap_lines(
+          wrap_number,
+          resolved_offsets,
+          transfer_pause_value,
+          include_lead_mode_value,
+          pull_ins,
+        )
+      )
 
   if add_foot_pauses_value:
     lines = _apply_add_foot_pauses(lines)
@@ -688,11 +844,13 @@ def render_u_template_text_lines(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   return render_u_template_lines(
     add_foot_pauses=add_foot_pauses,
+    script_variant=script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
     cell_overrides=cell_overrides,
@@ -750,12 +908,14 @@ def write_u_template_text_file(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   output = Path(output_path)
   lines = render_u_template_text_lines(
     add_foot_pauses=add_foot_pauses,
+    script_variant=script_variant,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -791,11 +951,13 @@ def write_u_template_file(
   add_foot_pauses=False,
   include_lead_mode=False,
   strip_g113_params=False,
+  script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
   archive_directory=None,
   parent_hash=None,
 ):
+  resolved_script_variant = _normalize_script_variant(script_variant)
   (
     resolved_offsets,
     resolved_transfer_pause,
@@ -816,6 +978,7 @@ def write_u_template_file(
     add_foot_pauses=add_foot_pauses,
     include_lead_mode=include_lead_mode,
     strip_g113_params=strip_g113_params,
+    script_variant=resolved_script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
@@ -836,6 +999,7 @@ def write_u_template_file(
     "addFootPauses": resolved_add_foot_pauses,
     "includeLeadMode": resolved_include_lead_mode,
     "pullIns": dict(resolved_pull_ins),
+    "scriptVariant": resolved_script_variant,
     "wrapCount": WRAP_COUNT,
   }
 

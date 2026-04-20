@@ -20,6 +20,11 @@ class Opcode(IntEnum):
   BREAK_POINT = 111
   TENSION_TESTING = 112
   QUEUE_MERGE = 113
+  WRAP_GOTO = 114
+  WRAP_INCREMENT = 115
+  WRAP_ANCHOR = 116
+  WRAP_B = 117
+  WRAP_B_TO_A = 118
   HEAD_TRANSFER = 206
 
 
@@ -58,7 +63,12 @@ class FunctionCall:
     return int(self.opcode)
 
 
-LineItem = CommandWord | FunctionCall | Comment
+@dataclass
+class MacroCall:
+  text: str
+
+
+LineItem = CommandWord | FunctionCall | Comment | MacroCall
 
 
 @dataclass
@@ -106,6 +116,36 @@ _OPCODE_SPECS = (
     "QUEUE_MERGE",
     "mode",
     "Mark the current XY waypoint as mergeable for queued motion.",
+  ),
+  OpcodeSpec(
+    Opcode.WRAP_GOTO,
+    "WRAP_GOTO",
+    "axis+target...",
+    "Absolute XY move for wrap-mode recipes.",
+  ),
+  OpcodeSpec(
+    Opcode.WRAP_INCREMENT,
+    "WRAP_INCREMENT",
+    "axis+delta...",
+    "Relative XY move for wrap-mode recipes.",
+  ),
+  OpcodeSpec(
+    Opcode.WRAP_ANCHOR,
+    "WRAP_ANCHOR",
+    "pin",
+    "Set the wrap anchor pin without moving.",
+  ),
+  OpcodeSpec(
+    Opcode.WRAP_B,
+    "WRAP_B",
+    "pin",
+    "Wrap a B-side pin using the current wrap anchor.",
+  ),
+  OpcodeSpec(
+    Opcode.WRAP_B_TO_A,
+    "WRAP_B_TO_A",
+    "pin",
+    "Translate a B-side pin to A and wrap it using the current wrap anchor.",
   ),
   OpcodeSpec(
     Opcode.HEAD_TRANSFER,

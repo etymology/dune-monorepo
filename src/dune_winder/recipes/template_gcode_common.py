@@ -7,7 +7,7 @@
 import re
 
 
-_PIN_TOKEN_RE = re.compile(r"\b(P[AB])(-?\d+)\b")
+_PIN_TOKEN_RE = re.compile(r"\b(P[ABF])(-?\d+)\b")
 
 
 def format_number(value):
@@ -19,7 +19,10 @@ def format_number(value):
 
 def normalize_pin_tokens(text, wrap_pin_number):
   def replace(match):
-    return match.group(1) + str(wrap_pin_number(match.group(2)))
+    prefix = match.group(1)
+    if prefix == "PF":
+      prefix = "PA"
+    return prefix + str(wrap_pin_number(match.group(2)))
 
   return _PIN_TOKEN_RE.sub(replace, text)
 

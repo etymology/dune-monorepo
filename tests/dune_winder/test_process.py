@@ -164,6 +164,11 @@ class FakeWorkspaceForRefreshMessages:
       return None
     return self._calibrationSignature
 
+  def _getCalibrationHashValueFromFile(self):
+    from dune_winder.core.winder_workspace import WinderWorkspace
+
+    return WinderWorkspace._getCalibrationHashValueFromFile(self)
+
   def refreshRecipeIfChanged(self):
     from dune_winder.core.winder_workspace import WinderWorkspace
 

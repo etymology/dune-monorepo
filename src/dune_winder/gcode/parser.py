@@ -3,7 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from .model import CommandWord, Comment, FunctionCall, Program, ProgramLine, SUPPORTED_COMMAND_LETTERS
+from .model import (
+  CommandWord,
+  Comment,
+  FunctionCall,
+  MacroCall,
+  Program,
+  ProgramLine,
+  SUPPORTED_COMMAND_LETTERS,
+)
 
 
 @dataclass
@@ -21,6 +29,25 @@ def _tokenize_line(line: str) -> list[tuple[str, str]]:
   index = 0
   while index < len(line):
     character = line[index]
+
+    if "~" == character:
+      if current:
+        tokens.append(("token", "".join(current)))
+        current = []
+      macro_start = index
+      index += 1
+      depth = 0
+      while index < len(line):
+        macro_character = line[index]
+        if macro_character == "(":
+          depth += 1
+        elif macro_character == ")":
+          depth = max(0, depth - 1)
+        elif macro_character.isspace() and depth == 0:
+          break
+        index += 1
+      tokens.append(("token", line[macro_start:index]))
+      continue
 
     if "(" == character:
       if current:
@@ -93,6 +120,13 @@ def parse_line_text(line: str) -> ProgramLine:
       continue
 
     command_string = token_value
+    if command_string.startswith("~"):
+      item = MacroCall(command_string[1:])
+      program_line.append(item)
+      previous_item = last_item
+      last_item = None
+      continue
+
     code = command_string[:1]
     parameter = command_string[1:]
 

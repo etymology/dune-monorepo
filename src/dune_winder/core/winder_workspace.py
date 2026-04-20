@@ -750,6 +750,19 @@ class WinderWorkspace:
 
     return str(hashValue)
 
+  def _getCalibrationHashValueFromFile(self):
+    """Read the hashValue field from the calibration JSON file for quick freshness check."""
+    calibFullPath = self._getCalibrationFullPath()
+    if calibFullPath is None or not os.path.isfile(calibFullPath):
+      return None
+
+    try:
+      with open(calibFullPath) as inputFile:
+        data = json.load(inputFile)
+      return data.get("hashValue", "")
+    except (json.JSONDecodeError, IOError, OSError):
+      return None
+
   def _calculateCalibrationSignature(self):
     calibFullPath = self._getCalibrationFullPath()
     if calibFullPath is None or not os.path.isfile(calibFullPath):
@@ -824,23 +837,23 @@ class WinderWorkspace:
     if calibFullPath is None or not os.path.isfile(calibFullPath):
       raise FileNotFoundError(self._missingCalibrationMessage(calibFullPath))
 
-    currentSignature = self._calculateCalibrationSignature()
-    if currentSignature is None:
-      return
-
     if self._calibration is None:
       self._loadCalibrationFromDisk("no calibration was active in the G-Code system")
       return
 
-    if self._calibrationSignature != currentSignature:
-      calibFullPath = self._getCalibrationFullPath()
+    fileHashValue = self._getCalibrationHashValueFromFile()
+    if fileHashValue is None or fileHashValue == "":
+      return
+
+    cachedHashValue = getattr(self._calibration, "hashValue", "")
+    if fileHashValue != cachedHashValue:
       self._log.add(
         self.__class__.__name__,
         "CALIBRATION_CHANGE",
         "Detected calibration file change for " + calibFullPath + ".",
-        [calibFullPath, self._calibrationSignature, currentSignature],
+        [calibFullPath, cachedHashValue, fileHashValue],
       )
-      self._loadCalibrationFromDisk("the calibration JSON changed on disk")
+      self._loadCalibrationFromDisk("the calibration hashValue changed on disk")
 
   def refreshRecipeIfChanged(self):
     if not self._recipeFile:

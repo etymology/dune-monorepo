@@ -23,7 +23,11 @@
       "Bash(python -m pytest tests/dune_tension/test_average_profile_clouds.py -xvs)",
       "Bash(python -m py_compile src/dune_winder/core/winder_workspace.py src/dune_winder/api/commands.py)",
       "Bash(node -c dune_winder/web/Scripts/CommandCatalog.js)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(python -m pytest tests/dune_winder/test_uv_head_target.py -v)",
+      "Bash(python -m pytest tests/dune_winder/gcode/ -v -k \"wrap\")",
+      "Bash(python -m pytest tests/dune_winder/test_wrap_runtime.py -v)",
+      "Bash(python -m pytest tests/dune_winder/test_manual_calibration.py tests/dune_winder/test_template_recipe_persistence.py -xvs)"
     ]
   }
 }

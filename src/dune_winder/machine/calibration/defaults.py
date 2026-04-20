@@ -27,18 +27,14 @@ LAYER_Z_DEFAULTS = {
 
 def get_layer_z_defaults(layer_name, geometry=None):
   normalized = str(layer_name).upper()
-  if normalized in LAYER_Z_DEFAULTS:
-    return LAYER_Z_DEFAULTS[normalized]
-  if geometry is None:
-    geometry = create_layer_geometry(normalized)
-  return (geometry.mostlyRetract, geometry.mostlyExtend)
+  return LAYER_Z_DEFAULTS[normalized]
 
 
 def apply_layer_z_defaults(calibration, layer_name, geometry=None):
   z_front, z_back = get_layer_z_defaults(layer_name, geometry)
   calibration.zFront = z_front
   calibration.zBack = z_back
-
+  
   for pin_name in calibration.getPinNames():
     location = calibration.getPinLocation(pin_name)
     if pin_name.startswith("A"):
@@ -172,6 +168,7 @@ class DefaultMachineCalibration(MachineCalibration):
 
     if outputFilePath and outputFileName:
       import pathlib
+
       json_path = pathlib.Path(outputFilePath) / outputFileName
       xml_path = json_path.with_suffix(".xml")
       if json_path.exists() or xml_path.exists():

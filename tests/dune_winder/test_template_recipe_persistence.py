@@ -113,6 +113,21 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertTrue(result["ok"])
       self.assertTrue(os.path.isfile(os.path.join(process.workspace._recipeDirectory, "U-layer.gc")))
 
+  def test_u_recipe_generation_supports_wrapping_script_variant(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("U", rootDirectory)
+      service = UTemplateRecipe(process)
+
+      result = service.generateRecipeFile(scriptVariant="wrapping")
+
+      self.assertTrue(result["ok"])
+      recipePath = os.path.join(process.workspace._recipeDirectory, "U-layer.gc")
+      self.assertTrue(os.path.isfile(recipePath))
+      with open(recipePath, encoding="utf-8") as handle:
+        recipeText = handle.read()
+      self.assertIn("~goto(7174,0)", recipeText)
+      self.assertIn("~anchorToTarget(B1201,B2001)", recipeText)
+
   def test_u_recipe_draft_persists_after_service_restart(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = FakeProcess("U", rootDirectory)

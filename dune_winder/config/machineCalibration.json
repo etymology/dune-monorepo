@@ -23,6 +23,6 @@
   "zLimitRear": 425,
   "headArmLength": 77,
   "headRollerRadius": 6.5,
-  "headRollerGap": 1.27,
-  "pinDiameter": 2.42814880401
+  "headRollerGap": 1,
+  "pinDiameter": 2.6
 }
