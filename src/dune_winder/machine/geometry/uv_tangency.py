@@ -11,12 +11,14 @@ from dune_winder.machine.geometry.uv_wrap_geometry import (
   tangent_sides,
 )
 from dune_winder.uv_head_target import (
+  PinPairTangentGeometry,
   RecipeSite,
   UvHeadTargetRequest,
   UvHeadTargetResult,
   UvTangentViewRequest,
   UvTangentViewResult,
   WrappedPinResolution,
+  compute_pin_pair_tangent_geometry,
   compute_uv_head_target,
   compute_uv_tangent_view,
   iter_uv_wrap_primary_sites,
@@ -29,6 +31,7 @@ UvHeadTargetError = UvWrapGeometryError
 
 __all__ = [
   "LineEquation",
+  "PinPairTangentGeometry",
   "Point2D",
   "Point3D",
   "RecipeSite",
@@ -40,6 +43,7 @@ __all__ = [
   "UvTangentViewRequest",
   "UvTangentViewResult",
   "WrappedPinResolution",
+  "compute_pin_pair_tangent_geometry",
   "compute_uv_head_target",
   "compute_uv_tangent_view",
   "iter_uv_wrap_primary_sites",
