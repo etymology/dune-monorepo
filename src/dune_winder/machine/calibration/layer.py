@@ -173,7 +173,7 @@ class LayerCalibration:
     offset_d = data.get("offset", {"x": 0.0, "y": 0.0, "z": 0.0})
     self.offset = SerializableLocation(offset_d["x"], offset_d["y"], offset_d["z"])
     self._locations = {
-      pin: Location(d["x"], d["y"], d["z"])
+      _xml_import_pin_name(pin): Location(d["x"], d["y"], d["z"])
       for pin, d in data.get("locations", {}).items()
     }
 

@@ -286,8 +286,8 @@ def build_nominal_calibration(layer):
 
   origin = geometry.apaLocation.add(geometry.apaOffset)
   grids = [
-    ("A", geometry.gridBack, calibration.zFront, geometry.startPinBack, geometry.directionBack),
-    ("B", geometry.gridFront, calibration.zBack, geometry.startPinFront, geometry.directionFront),
+    ("A", geometry.gridFront, calibration.zFront, geometry.startPinFront, geometry.directionFront),
+    ("B", geometry.gridBack, calibration.zBack, geometry.startPinBack, geometry.directionBack),
   ]
 
   for side, grid, depth, startPin, direction in grids:
