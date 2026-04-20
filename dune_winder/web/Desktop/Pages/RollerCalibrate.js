@@ -1,7 +1,6 @@
 function RollerCalibrate(modules) {
   try {
     var uiServices = modules.get("UiServices");
-    var commands = uiServices.getCommands();
   } catch (e) {
     console.error("Failed to initialize RollerCalibrate: " + e.message);
     return;
@@ -9,6 +8,24 @@ function RollerCalibrate(modules) {
 
   var calibrationState = null;
   var lastComputedResult = null;
+
+  function pageAction(commandName, args, callback) {
+    uiServices.call(
+      commandName,
+      args,
+      function(data) {
+        if (callback) callback(data);
+      },
+      function(response) {
+        var errorMessage = "Command failed.";
+        if (response && response.error && response.error.message)
+          errorMessage = response.error.message;
+        $("#rollerCalibrateError")
+          .text("Error: " + errorMessage)
+          .removeClass("hidden");
+      }
+    );
+  }
 
   function formatNumber(value, decimals) {
     if (!$.isNumeric(value)) return "-";
@@ -96,15 +113,12 @@ function RollerCalibrate(modules) {
   }
 
   function loadCalibration() {
-    commands.execute(
+    pageAction(
       "machine.get_roller_arm_calibration",
       {},
       function (result) {
         calibrationState = result;
         updateUI();
-      },
-      function (error) {
-        console.error("Failed to load roller arm calibration:", error);
       }
     );
   }
@@ -123,7 +137,7 @@ function RollerCalibrate(modules) {
       return;
     }
 
-    commands.execute(
+    pageAction(
       "machine.compute_roller_y_cal",
       {
         gcode_line: gcodeLine,
@@ -146,11 +160,6 @@ function RollerCalibrate(modules) {
 
         $("#rollerCalibrateResultText").text(yCalText);
         $("#rollerCalibrateResult").removeClass("hidden");
-      },
-      function (error) {
-        $("#rollerCalibrateError")
-          .text("Error: " + (error.message || error))
-          .removeClass("hidden");
       }
     );
   }
@@ -168,7 +177,7 @@ function RollerCalibrate(modules) {
     var actualY = parseFloat($("#rollerCalibrateActualY").val());
     var layer = $("#rollerCalibrateLayer").val();
 
-    commands.execute(
+    pageAction(
       "machine.add_roller_arm_measurement",
       {
         gcode_line: gcodeLine,
@@ -184,11 +193,6 @@ function RollerCalibrate(modules) {
         $("#rollerCalibrateActualY").val("");
         $("#rollerCalibrateResult").addClass("hidden");
         lastComputedResult = null;
-      },
-      function (error) {
-        $("#rollerCalibrateError")
-          .text("Error adding measurement: " + (error.message || error))
-          .removeClass("hidden");
       }
     );
   }
@@ -229,15 +233,12 @@ function RollerCalibrate(modules) {
         arm_tilt_rad: theta,
       };
 
-      commands.execute(
+      pageAction(
         "machine.save_calibration",
         {},
         function () {
           calibrationState = updatedCal;
           updateUI();
-        },
-        function (error) {
-          console.error("Failed to save:", error);
         }
       );
     }
@@ -246,23 +247,18 @@ function RollerCalibrate(modules) {
   function clearCalibration() {
     if (!confirm("Clear all measurements?")) return;
 
-    commands.execute(
+    pageAction(
       "machine.clear_roller_arm_calibration",
       {},
       function (result) {
         calibrationState = result;
         updateUI();
-      },
-      function (error) {
-        $("#rollerCalibrateError")
-          .text("Error clearing: " + (error.message || error))
-          .removeClass("hidden");
       }
     );
   }
 
   function saveCalibration() {
-    commands.execute(
+    pageAction(
       "machine.save_calibration",
       {},
       function () {
@@ -270,11 +266,6 @@ function RollerCalibrate(modules) {
           .addClass("hidden")
           .removeClass("hidden")
           .html("<h3>✓ Calibration saved.</h3>");
-      },
-      function (error) {
-        $("#rollerCalibrateError")
-          .text("Error saving: " + (error.message || error))
-          .removeClass("hidden");
       }
     );
   }
