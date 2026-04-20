@@ -1,6 +1,11 @@
 function RollerCalibrate(modules) {
-  var uiServices = modules.get("UiServices");
-  var commands = uiServices.getCommands();
+  try {
+    var uiServices = modules.get("UiServices");
+    var commands = uiServices.getCommands();
+  } catch (e) {
+    console.error("Failed to initialize RollerCalibrate: " + e.message);
+    return;
+  }
 
   var calibrationState = null;
   var lastComputedResult = null;
@@ -319,10 +324,14 @@ function RollerCalibrate(modules) {
     return yCals;
   }
 
-  $("#rollerCalibrateComputeButton").on("click", computeYCal);
-  $("#rollerCalibrateAddButton").on("click", addMeasurement);
-  $("#rollerCalibrateClearButton").on("click", clearCalibration);
-  $("#rollerCalibrateSaveButton").on("click", saveCalibration);
+  try {
+    $("#rollerCalibrateComputeButton").on("click", computeYCal);
+    $("#rollerCalibrateAddButton").on("click", addMeasurement);
+    $("#rollerCalibrateClearButton").on("click", clearCalibration);
+    $("#rollerCalibrateSaveButton").on("click", saveCalibration);
 
-  loadCalibration();
+    loadCalibration();
+  } catch (e) {
+    console.error("Failed to bind RollerCalibrate controls: " + e.message);
+  }
 }
