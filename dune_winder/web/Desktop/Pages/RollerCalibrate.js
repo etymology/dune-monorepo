@@ -319,16 +319,10 @@ function RollerCalibrate(modules) {
     return yCals;
   }
 
-  function initUI() {
-    $("#rollerCalibrateComputeButton").on("click", computeYCal);
-    $("#rollerCalibrateAddButton").on("click", addMeasurement);
-    $("#rollerCalibrateClearButton").on("click", clearCalibration);
-    $("#rollerCalibrateSaveButton").on("click", saveCalibration);
+  $("#rollerCalibrateComputeButton").on("click", computeYCal);
+  $("#rollerCalibrateAddButton").on("click", addMeasurement);
+  $("#rollerCalibrateClearButton").on("click", clearCalibration);
+  $("#rollerCalibrateSaveButton").on("click", saveCalibration);
 
-    loadCalibration();
-  }
-
-  return {
-    initialize: initUI,
-  };
+  loadCalibration();
 }
