@@ -1250,6 +1250,7 @@ def _probe_runtime_orientation(
   machine_calibration: MachineCalibration,
   layer_calibration: LayerCalibration,
   transfer_bounds: RectBounds,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> (
   tuple[
     str,
@@ -1593,6 +1594,7 @@ def compute_uv_tangent_view(
     machine_calibration=machine_calibration,
     layer_calibration=layer_calibration,
     transfer_bounds=transfer_bounds,
+    roller_arm_y_offsets=roller_arm_y_offsets,
   )
   if runtime_candidate is not None:
     (
