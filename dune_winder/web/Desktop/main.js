@@ -145,6 +145,7 @@ var PAGE_NAME_MAP =
   log: "Log",
   io: "IO",
   calibrate: "Calibrate",
+  rollercalibrate: "RollerCalibrate",
   gcodegeneration: "GCodeGeneration",
   configuration: "Configuration",
   manualmovepopup: "ManualMovePopup"
