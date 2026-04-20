@@ -984,32 +984,32 @@ def build_command_registry(
       raise ValueError("gcode_line must match ~anchorToTarget(pinA,pinB)")
     anchor_pin, target_pin = match.groups()
 
-    tangent_view = compute_uv_tangent_view(
-      UvTangentViewRequest(layer=layer, pin_a=anchor_pin, pin_b=target_pin)
-    )
+    try:
+      tangent_view = compute_uv_tangent_view(
+        UvTangentViewRequest(layer=layer, pin_a=anchor_pin, pin_b=target_pin)
+      )
+    except Exception as e:
+      raise ValueError(f"Failed to compute tangent view: {str(e)}")
 
-    if tangent_view.arm_corrected_available is False:
+    if not tangent_view.arm_corrected_available:
       raise ValueError(
         f"Arm correction not available: {tangent_view.arm_corrected_error}"
       )
 
-    tangent_point_a = tangent_view.runtime_tangent_point
-    if tangent_point_a is None:
-      tangent_point_a = tangent_view.clipped_segment_start
-    direction = Point2D(
-      tangent_view.clipped_segment_end.x - tangent_view.clipped_segment_start.x,
-      tangent_view.clipped_segment_end.y - tangent_view.clipped_segment_start.y,
-    )
+    tangent_a = tangent_view.clipped_segment_start
+    tangent_b = tangent_view.clipped_segment_end
+    direction = Point2D(tangent_b.x - tangent_a.x, tangent_b.y - tangent_a.y)
     dir_len = (direction.x**2 + direction.y**2) ** 0.5
+    if dir_len < 1e-9:
+      raise ValueError("Tangent line is degenerate")
     unit_direction = Point2D(direction.x / dir_len, direction.y / dir_len)
     normal_candidates = (
       Point2D(-unit_direction.y, unit_direction.x),
       Point2D(unit_direction.y, -unit_direction.x),
     )
-    target_y_diff = (
-      tangent_view.runtime_target_point.y - tangent_view.pin_a_point.y
+    tangent_y_side = (
+      1 if (tangent_view.pin_b_point.y - tangent_view.pin_a_point.y) < 0 else -1
     )
-    tangent_y_side = 1 if target_y_diff < 0 else -1
     normal = next(
       (n for n in normal_candidates if (n.y > 0) == (tangent_y_side > 0)),
       normal_candidates[0],
@@ -1018,30 +1018,33 @@ def build_command_registry(
     roller_index = tangent_view.arm_corrected_selected_roller_index
     y_sign = -1 if roller_index in (0, 2) else 1
 
-    y_cal = compute_y_cal(
-      actual_pos=Point2D(actual_x, actual_y),
-      tangent_point_a=tangent_point_a,
-      unit_direction=unit_direction,
-      normal=normal,
-      roller_index=roller_index,
-      head_arm_length=float(machineCalibration.headArmLength),
-      head_roller_radius=float(machineCalibration.headRollerRadius),
-      y_sign=y_sign,
-    )
+    try:
+      y_cal = compute_y_cal(
+        actual_pos=Point2D(actual_x, actual_y),
+        tangent_point_a=tangent_a,
+        unit_direction=unit_direction,
+        normal=normal,
+        roller_index=roller_index,
+        head_arm_length=float(machineCalibration.headArmLength),
+        head_roller_radius=float(machineCalibration.headRollerRadius),
+        y_sign=y_sign,
+      )
+    except Exception as e:
+      raise ValueError(f"Failed to compute y_cal: {str(e)}")
 
     nominal_y = (float(machineCalibration.headRollerGap) / 2.0) + float(
       machineCalibration.headRollerRadius
     )
     y_cal_delta = y_cal - nominal_y
 
-    quadrant_names = {
-      (0, -1): "+x,-y",
-      (0, 1): "+x,+y",
-      (1, -1): "-x,-y",
-      (1, 1): "-x,+y",
+    quadrant_map = {
+      (1, -1): "+x,-y",
+      (1, 1): "+x,+y",
+      (-1, -1): "-x,-y",
+      (-1, 1): "-x,+y",
     }
     x_sign = -1 if roller_index in (0, 1) else 1
-    quadrant = quadrant_names.get((x_sign, y_sign), "unknown")
+    quadrant = quadrant_map.get((x_sign, y_sign), "unknown")
 
     return {
       "roller_index": roller_index,
