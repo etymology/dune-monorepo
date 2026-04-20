@@ -963,8 +963,7 @@ def build_command_registry(
 
   def machine_compute_roller_y_cal(args):
     from dune_winder.machine.geometry.uv_tangency import (
-      compute_uv_tangent_view,
-      UvTangentViewRequest,
+      compute_pin_pair_tangent_geometry,
       Point2D,
     )
     from dune_winder.machine.calibration.roller_arm import (
@@ -981,56 +980,30 @@ def build_command_registry(
 
     match = re.match(r"~anchorToTarget\(([A-B]\d+),([A-B]\d+)\)", gcode_line)
     if not match:
-      raise ValueError("gcode_line must match ~anchorToTarget(pinA,pinB)")
+      raise ValueError(
+        f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB)"
+      )
     anchor_pin, target_pin = match.groups()
 
-    try:
-      tangent_view = compute_uv_tangent_view(
-        UvTangentViewRequest(layer=layer, pin_a=anchor_pin, pin_b=target_pin)
-      )
-    except Exception as e:
-      raise ValueError(f"Failed to compute tangent view: {str(e)}")
-
-    if not tangent_view.arm_corrected_available:
-      raise ValueError(
-        f"Arm correction not available: {tangent_view.arm_corrected_error}"
-      )
-
-    tangent_a = tangent_view.clipped_segment_start
-    tangent_b = tangent_view.clipped_segment_end
-    direction = Point2D(tangent_b.x - tangent_a.x, tangent_b.y - tangent_a.y)
-    dir_len = (direction.x**2 + direction.y**2) ** 0.5
-    if dir_len < 1e-9:
-      raise ValueError("Tangent line is degenerate")
-    unit_direction = Point2D(direction.x / dir_len, direction.y / dir_len)
-    normal_candidates = (
-      Point2D(-unit_direction.y, unit_direction.x),
-      Point2D(unit_direction.y, -unit_direction.x),
-    )
-    tangent_y_side = (
-      1 if (tangent_view.pin_b_point.y - tangent_view.pin_a_point.y) < 0 else -1
-    )
-    normal = next(
-      (n for n in normal_candidates if (n.y > 0) == (tangent_y_side > 0)),
-      normal_candidates[0],
+    geom = compute_pin_pair_tangent_geometry(
+      layer=layer,
+      pin_a=anchor_pin,
+      pin_b=target_pin,
     )
 
-    roller_index = tangent_view.arm_corrected_selected_roller_index
+    roller_index = geom.roller_index
     y_sign = -1 if roller_index in (0, 2) else 1
 
-    try:
-      y_cal = compute_y_cal(
-        actual_pos=Point2D(actual_x, actual_y),
-        tangent_point_a=tangent_a,
-        unit_direction=unit_direction,
-        normal=normal,
-        roller_index=roller_index,
-        head_arm_length=float(machineCalibration.headArmLength),
-        head_roller_radius=float(machineCalibration.headRollerRadius),
-        y_sign=y_sign,
-      )
-    except Exception as e:
-      raise ValueError(f"Failed to compute y_cal: {str(e)}")
+    y_cal = compute_y_cal(
+      actual_pos=Point2D(actual_x, actual_y),
+      tangent_point_a=geom.tangent_point_a,
+      unit_direction=geom.unit_direction,
+      normal=geom.normal,
+      roller_index=roller_index,
+      head_arm_length=float(machineCalibration.headArmLength),
+      head_roller_radius=float(machineCalibration.headRollerRadius),
+      y_sign=y_sign,
+    )
 
     nominal_y = (float(machineCalibration.headRollerGap) / 2.0) + float(
       machineCalibration.headRollerRadius
