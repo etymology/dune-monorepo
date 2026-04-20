@@ -18,6 +18,12 @@ from dune_winder.uv_head_target import (
   UvHeadTargetError,
   UvHeadTargetRequest,
   UvTangentViewRequest,
+  _arm_correction_head_shift_signs,
+  _arm_correction_tangent_y_side,
+  _compute_arm_corrected_outbound,
+  _distance_point_to_line,
+  _roller_index_for_head_shift_signs,
+  _roller_offset_for_index,
   _b_side_equivalent_pin,
   _is_on_wrap_side,
   _matches_tangent_sides,
@@ -203,13 +209,13 @@ def test_compute_uv_head_target_rejects_unknown_pin():
 def test_default_layer_calibration_path_prefers_dune_winder_copy_for_u():
   path = _default_layer_calibration_path("U")
 
-  assert path == REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"
+  assert path == REPO_ROOT / "config" / "frame_geometry" / "U_Calibration.json"
 
 
-def test_default_layer_calibration_path_falls_back_for_v_when_missing():
+def test_default_layer_calibration_path_uses_frame_geometry_config_for_v():
   path = _default_layer_calibration_path("V")
 
-  assert path == REPO_ROOT / "config" / "APA" / "V_Calibration.json"
+  assert path == REPO_ROOT / "config" / "frame_geometry" / "V_Calibration.json"
 
 
 @pytest.mark.parametrize(
@@ -393,6 +399,28 @@ def test_compute_uv_tangent_view_probes_runtime_orientation_for_non_recipe_pair(
   )
 
 
+def test_compute_uv_tangent_view_preserves_explicit_adjacent_pin():
+  request = UvTangentViewRequest(
+    layer="U",
+    pin_a="B401",
+    pin_b="B400",
+    g103_adjacent_pin="B399",
+  )
+
+  result = compute_uv_tangent_view(request)
+
+  assert result.request == request
+  assert result.runtime_target_point is not None
+  assert result.runtime_target_point.x < 1000.0
+
+
+def test_compute_uv_tangent_view_prefers_nearby_local_adjacent_pin_for_runtime_probe():
+  result = compute_uv_tangent_view(UvTangentViewRequest(layer="V", pin_a="A1", pin_b="A2398"))
+
+  assert result.runtime_target_point is not None
+  assert result.runtime_target_point.x < 1000.0
+
+
 def test_compute_uv_tangent_view_builds_alternating_projection_for_yz_face():
   result = compute_uv_tangent_view(UvTangentViewRequest(layer="U", pin_a="B1201", pin_b="A1201"))
 
@@ -462,6 +490,148 @@ def test_compute_uv_tangent_view_returns_arm_geometry_from_machine_config():
     round(abs(roller.y - result.arm_head_center.y), 6)
     for roller in result.roller_centers
   } == {round(expected_y_offset, 6)}
+
+
+@pytest.mark.parametrize(
+  ("anchor_point", "target_point", "tangent_y_side"),
+  (
+    (Point2D(0.0, 0.0), Point2D(-1.0, -1.0), 1),
+    (Point2D(0.0, 0.0), Point2D(-1.0, 1.0), -1),
+    (Point2D(0.0, 0.0), Point2D(1.0, -1.0), 1),
+    (Point2D(0.0, 0.0), Point2D(1.0, 1.0), -1),
+  ),
+)
+def test_arm_correction_tangent_side_follows_pin_y_ordering(
+  anchor_point, target_point, tangent_y_side
+):
+  assert _arm_correction_tangent_y_side(
+    anchor_pin_point=anchor_point,
+    target_pin_point=target_point,
+  ) == tangent_y_side
+
+
+@pytest.mark.parametrize(
+  ("anchor_point", "target_point", "head_shift_signs", "roller_index"),
+  (
+    (Point2D(0.0, 0.0), Point2D(-1.0, -1.0), (-1, -1), 0),
+    (Point2D(0.0, 0.0), Point2D(-1.0, 1.0), (-1, 1), 1),
+    (Point2D(0.0, 0.0), Point2D(1.0, -1.0), (1, -1), 2),
+    (Point2D(0.0, 0.0), Point2D(1.0, 1.0), (1, 1), 3),
+  ),
+)
+def test_arm_correction_head_shift_signs_follow_anchor_to_target_direction(
+  anchor_point, target_point, head_shift_signs, roller_index
+):
+  assert _arm_correction_head_shift_signs(
+    anchor_pin_point=anchor_point,
+    target_pin_point=target_point,
+  ) == head_shift_signs
+  assert _roller_index_for_head_shift_signs(*head_shift_signs) == roller_index
+
+
+@pytest.mark.parametrize(
+  ("anchor_point", "target_point"),
+  (
+    (Point2D(0.0, 0.0), Point2D(1.0, 0.0)),
+    (Point2D(0.0, 0.0), Point2D(0.0, 1.0)),
+  ),
+)
+def test_arm_correction_pin_direction_is_unavailable_on_axes(anchor_point, target_point):
+  assert (
+    _arm_correction_head_shift_signs(
+      anchor_pin_point=anchor_point,
+      target_pin_point=target_point,
+    )
+    is None
+  )
+
+
+def test_compute_arm_corrected_outbound_returns_transfer_edge_point_for_selected_quarter_arc():
+  head_arm_length = 6.0
+  head_roller_radius = 1.0
+  head_roller_gap = 1.0
+  corrected_outbound, corrected_head_center, roller_index, quadrant = (
+    _compute_arm_corrected_outbound(
+      anchor_pin_point=Point2D(0.0, 0.0),
+      target_pin_point=Point2D(10.0, 10.0),
+      tangent_point_a=Point2D(0.0, 0.0),
+      tangent_point_b=Point2D(10.0, 10.0),
+      transfer_bounds=RectBounds(left=-20.0, top=20.0, right=20.0, bottom=-20.0),
+      head_arm_length=head_arm_length,
+      head_roller_radius=head_roller_radius,
+      head_roller_gap=head_roller_gap,
+    )
+  )
+
+  assert quadrant == "NE"
+  assert roller_index == 3
+  assert corrected_outbound == corrected_head_center
+  assert (
+    math.isclose(corrected_outbound.x, 20.0, abs_tol=1e-6)
+    or math.isclose(corrected_outbound.y, 20.0, abs_tol=1e-6)
+  )
+  roller_offset = _roller_offset_for_index(
+    roller_index,
+    head_arm_length=head_arm_length,
+    head_roller_radius=head_roller_radius,
+    head_roller_gap=head_roller_gap,
+  )
+  roller_center = Point2D(
+    corrected_head_center.x + roller_offset.x,
+    corrected_head_center.y + roller_offset.y,
+  )
+  assert math.isclose(
+    _distance_point_to_line(
+      roller_center,
+      line_point=Point2D(0.0, 0.0),
+      line_direction=Point2D(10.0, 10.0),
+    ),
+    head_roller_radius,
+    abs_tol=1e-6,
+  )
+
+
+def test_compute_arm_corrected_outbound_rejects_indeterminate_quadrant():
+  with pytest.raises(UvHeadTargetError, match="pin direction is indeterminate"):
+    _compute_arm_corrected_outbound(
+      anchor_pin_point=Point2D(0.0, 0.0),
+      target_pin_point=Point2D(2.0, 0.0),
+      tangent_point_a=Point2D(0.0, 0.0),
+      tangent_point_b=Point2D(2.0, 0.0),
+      transfer_bounds=RectBounds(left=-20.0, top=20.0, right=20.0, bottom=-20.0),
+      head_arm_length=6.0,
+      head_roller_radius=1.0,
+      head_roller_gap=1.0,
+    )
+
+
+def test_compute_uv_tangent_view_includes_arm_corrected_overlay_for_same_side_pair():
+  result = compute_uv_tangent_view(UvTangentViewRequest(layer="U", pin_a="B1201", pin_b="B2001"))
+
+  assert result.outbound_intercept is not None
+  assert result.arm_corrected_available is True
+  assert result.arm_corrected_outbound_point is not None
+  assert result.arm_corrected_head_center is not None
+  assert result.arm_corrected_selected_roller_index is not None
+  assert result.arm_corrected_quadrant in {"NW", "NE", "SW", "SE"}
+  assert result.arm_corrected_error is None
+  assert (
+    math.isclose(result.arm_corrected_outbound_point.x, result.transfer_bounds.left, abs_tol=1e-6)
+    or math.isclose(result.arm_corrected_outbound_point.x, result.transfer_bounds.right, abs_tol=1e-6)
+    or math.isclose(result.arm_corrected_outbound_point.y, result.transfer_bounds.bottom, abs_tol=1e-6)
+    or math.isclose(result.arm_corrected_outbound_point.y, result.transfer_bounds.top, abs_tol=1e-6)
+  )
+
+
+def test_compute_uv_tangent_view_marks_arm_correction_unavailable_when_quadrant_is_indeterminate():
+  result = compute_uv_tangent_view(UvTangentViewRequest(layer="U", pin_a="B1201", pin_b="A1201"))
+
+  assert result.arm_corrected_available is False
+  assert result.arm_corrected_outbound_point is None
+  assert result.arm_corrected_head_center is None
+  assert result.arm_corrected_selected_roller_index is None
+  assert result.arm_corrected_quadrant is None
+  assert result.arm_corrected_error is None
 
 
 def test_clip_infinite_line_to_bounds_handles_vertical_line():

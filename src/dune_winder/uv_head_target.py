@@ -13,7 +13,7 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.machine.head_compensation import WirePathModel
-from dune_winder.paths import REPO_ROOT
+from dune_winder.paths import FRAME_GEOMETRY_CONFIG_DIR, REPO_ROOT
 from dune_winder.queued_motion.filleted_path import (
   WaypointCircle,
   circle_pair_tangent_pairs,
@@ -33,10 +33,7 @@ _RECIPE_SITE_RE = re.compile(
   r"G109\s+(P[AB]\d+)\s+P([A-Z]{2})\s+G103\s+(P[AB]\d+)\s+(P[AB]\d+).*?\(([^()]*)\)"
 )
 _DEFAULT_MACHINE_CALIBRATION_PATH = REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"
-_DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (
-  REPO_ROOT / "dune_winder" / "config" / "APA",
-  REPO_ROOT / "config" / "APA",
-)
+_DEFAULT_LAYER_CALIBRATION_DIRECTORY = FRAME_GEOMETRY_CONFIG_DIR
 _AXIS_EPSILON = 1e-9
 _ORIENTATION_TOKENS = ("BR", "BL", "LT", "LB", "RT", "RB", "TR", "TL")
 
@@ -160,6 +157,12 @@ class UvTangentViewResult:
   arm_left_endpoint: Point2D | None = None
   arm_right_endpoint: Point2D | None = None
   roller_centers: tuple[Point2D, ...] = ()
+  arm_corrected_outbound_point: Point2D | None = None
+  arm_corrected_head_center: Point2D | None = None
+  arm_corrected_selected_roller_index: int | None = None
+  arm_corrected_quadrant: str | None = None
+  arm_corrected_available: bool = False
+  arm_corrected_error: str | None = None
   head_arm_length: float = 0.0
   head_roller_radius: float = 0.0
   head_roller_gap: float = 0.0
@@ -214,11 +217,7 @@ def _normalize_pin_name(pin_name: str, label: str) -> str:
 
 def _default_layer_calibration_path(layer: str) -> Path:
   file_name = f"{layer}_Calibration.json"
-  for directory in _DEFAULT_LAYER_CALIBRATION_DIRECTORIES:
-    candidate = directory / file_name
-    if candidate.exists():
-      return candidate
-  return _DEFAULT_LAYER_CALIBRATION_DIRECTORIES[0] / file_name
+  return _DEFAULT_LAYER_CALIBRATION_DIRECTORY / file_name
 
 
 @lru_cache(maxsize=4)
@@ -633,6 +632,81 @@ def _infer_pair_pin_from_wrap_side(
   return best_pin
 
 
+def _infer_local_pair_pin_from_wrap_side(
+  layer_calibration: LayerCalibration,
+  wrapped_pin: str,
+  tangent_sides_value: tuple[str, str],
+) -> str:
+  wrapped_pin_name = (
+    wrapped_pin[1:] if str(wrapped_pin).upper().startswith("P") else wrapped_pin
+  )
+  wrapped_location = _wire_space_pin(layer_calibration, wrapped_pin_name)
+  family_pins = [
+    pin_name
+    for pin_name in layer_calibration.getPinNames()
+    if pin_name.startswith(wrapped_pin_name[0]) and pin_name != wrapped_pin_name
+  ]
+  if not family_pins:
+    raise UvHeadTargetError(f"No same-family candidate pins found for {wrapped_pin}.")
+
+  def best_match(candidate_pins: list[str]) -> str | None:
+    best_pin = None
+    best_score = None
+    wrapped_point = Point2D(float(wrapped_location.x), float(wrapped_location.y))
+    for pin_name in candidate_pins:
+      location = _wire_space_pin(layer_calibration, pin_name)
+      delta_x = float(location.x - wrapped_location.x)
+      delta_y = float(location.y - wrapped_location.y)
+      candidate_point = Point2D(float(location.x), float(location.y))
+      x_match = _is_on_wrap_side(
+        candidate_point,
+        wrapped_point,
+        "x",
+        tangent_sides_value[0],
+      )
+      y_match = _is_on_wrap_side(
+        candidate_point,
+        wrapped_point,
+        "y",
+        tangent_sides_value[1],
+      )
+      if not (x_match or y_match):
+        continue
+      match_count = int(x_match) + int(y_match)
+      orthogonal_error = min(
+        abs(delta_y) if x_match else math.inf,
+        abs(delta_x) if y_match else math.inf,
+      )
+      distance = math.hypot(delta_x, delta_y)
+      pin_number_gap = abs(_pin_number(pin_name) - _pin_number(wrapped_pin_name))
+      score = (
+        pin_number_gap,
+        orthogonal_error,
+        distance,
+        -match_count,
+      )
+      if best_score is None or score < best_score:
+        best_score = score
+        best_pin = pin_name
+    return best_pin
+
+  wrapped_face = _face_for_pin(layer_calibration.getLayerNames(), wrapped_pin_name)
+  same_face_pins = [
+    pin_name
+    for pin_name in family_pins
+    if _face_for_pin(layer_calibration.getLayerNames(), pin_name) == wrapped_face
+  ]
+  best_pin = best_match(same_face_pins) or best_match(family_pins)
+  if best_pin is None:
+    raise UvHeadTargetError(
+      "Could not infer a nearby G103 pair pin from wrapped pin "
+      f"{wrapped_pin} and tangent sides {_format_tangent_sides(tangent_sides_value)}."
+    )
+  if str(wrapped_pin).upper().startswith("P"):
+    return f"P{best_pin}"
+  return best_pin
+
+
 def resolve_wrapped_pin_from_g103_pair(
   layer: str,
   g103_pin_a: str,
@@ -981,6 +1055,176 @@ def _build_arm_geometry(
   return (left_endpoint, right_endpoint, rollers)
 
 
+def _sign_with_epsilon(value: float, *, epsilon: float = _AXIS_EPSILON) -> int:
+  if value > epsilon:
+    return 1
+  if value < -epsilon:
+    return -1
+  return 0
+
+
+def _arm_correction_tangent_y_side(
+  *,
+  anchor_pin_point: Point2D,
+  target_pin_point: Point2D,
+) -> int | None:
+  sign_y = _sign_with_epsilon(target_pin_point.y - anchor_pin_point.y)
+  if sign_y == 0:
+    return None
+  return -1 if sign_y > 0 else 1
+
+
+def _arm_correction_head_shift_signs(
+  *,
+  anchor_pin_point: Point2D,
+  target_pin_point: Point2D,
+) -> tuple[int, int] | None:
+  sign_x = _sign_with_epsilon(anchor_pin_point.x - target_pin_point.x)
+  sign_y = _sign_with_epsilon(anchor_pin_point.y - target_pin_point.y)
+  if sign_x == 0 or sign_y == 0:
+    return None
+  return (sign_x, sign_y)
+
+
+def _roller_index_for_head_shift_signs(sign_x: int, sign_y: int) -> int:
+  mapping = {
+    (-1, -1): 0,
+    (-1, 1): 1,
+    (1, -1): 2,
+    (1, 1): 3,
+  }
+  return mapping[(sign_x, sign_y)]
+
+
+def _roller_offset_for_index(
+  roller_index: int,
+  *,
+  head_arm_length: float,
+  head_roller_radius: float,
+  head_roller_gap: float,
+) -> Point2D:
+  y_offset = (head_roller_gap / 2.0) + head_roller_radius
+  offsets = (
+    Point2D(-head_arm_length, -y_offset),
+    Point2D(-head_arm_length, y_offset),
+    Point2D(head_arm_length, -y_offset),
+    Point2D(head_arm_length, y_offset),
+  )
+  return offsets[roller_index]
+
+
+def _distance_point_to_line(
+  point: Point2D,
+  *,
+  line_point: Point2D,
+  line_direction: Point2D,
+) -> float:
+  numerator = abs(
+    ((point.x - line_point.x) * line_direction.y)
+    - ((point.y - line_point.y) * line_direction.x)
+  )
+  denominator = _length_2d(line_direction)
+  if denominator <= _AXIS_EPSILON:
+    raise UvHeadTargetError("Cannot measure distance to a degenerate line.")
+  return numerator / denominator
+
+
+def _compute_arm_corrected_outbound(
+  *,
+  anchor_pin_point: Point2D,
+  target_pin_point: Point2D,
+  tangent_point_a: Point2D,
+  tangent_point_b: Point2D,
+  transfer_bounds: RectBounds,
+  head_arm_length: float,
+  head_roller_radius: float,
+  head_roller_gap: float,
+) -> tuple[Point2D, Point2D, int, str]:
+  tangent_y_side = _arm_correction_tangent_y_side(
+    anchor_pin_point=anchor_pin_point,
+    target_pin_point=target_pin_point,
+  )
+  head_shift_signs = _arm_correction_head_shift_signs(
+    anchor_pin_point=anchor_pin_point,
+    target_pin_point=target_pin_point,
+  )
+  if tangent_y_side is None or head_shift_signs is None:
+    raise UvHeadTargetError(
+      "Arm correction is unavailable because the anchor-to-target pin direction is indeterminate."
+    )
+  sign_x, sign_y = head_shift_signs
+  roller_index = _roller_index_for_head_shift_signs(sign_x, sign_y)
+  quadrant = {
+    (-1, -1): "SW",
+    (-1, 1): "NW",
+    (1, -1): "SE",
+    (1, 1): "NE",
+  }[(sign_x, sign_y)]
+  roller_offset = _roller_offset_for_index(
+    roller_index,
+    head_arm_length=head_arm_length,
+    head_roller_radius=head_roller_radius,
+    head_roller_gap=head_roller_gap,
+  )
+  direction = Point2D(
+    tangent_point_b.x - tangent_point_a.x,
+    tangent_point_b.y - tangent_point_a.y,
+  )
+  direction_length = _length_2d(direction)
+  if direction_length <= _AXIS_EPSILON:
+    raise UvHeadTargetError("Arm correction requires a non-degenerate tangent line.")
+  unit_direction = Point2D(
+    direction.x / direction_length, direction.y / direction_length
+  )
+  candidate_normals = (
+    Point2D(-unit_direction.y, unit_direction.x),
+    Point2D(unit_direction.y, -unit_direction.x),
+  )
+  matching_normals = [
+    normal
+    for normal in candidate_normals
+    if _sign_with_epsilon(normal.y) == tangent_y_side
+  ]
+  if len(matching_normals) != 1:
+    raise UvHeadTargetError(
+      "Arm correction could not determine a unique tangent side for the selected roller."
+    )
+  normal = matching_normals[0]
+  locus_origin = Point2D(
+    tangent_point_a.x + (normal.x * head_roller_radius) - roller_offset.x,
+    tangent_point_a.y + (normal.y * head_roller_radius) - roller_offset.y,
+  )
+  clipped = _clip_infinite_line_to_bounds(locus_origin, direction, transfer_bounds)
+  if clipped is None:
+    raise UvHeadTargetError(
+      "Arm correction could not find a transfer-zone point tangent to the selected roller."
+    )
+  corrected_outbound = _choose_outbound_intercept(
+    locus_origin,
+    Point2D(locus_origin.x + direction.x, locus_origin.y + direction.y),
+    clipped[0],
+    clipped[1],
+  )
+  corrected_head_center = corrected_outbound
+  selected_roller_center = Point2D(
+    corrected_head_center.x + roller_offset.x,
+    corrected_head_center.y + roller_offset.y,
+  )
+  if not math.isclose(
+    _distance_point_to_line(
+      selected_roller_center,
+      line_point=tangent_point_a,
+      line_direction=direction,
+    ),
+    head_roller_radius,
+    abs_tol=1e-6,
+  ):
+    raise UvHeadTargetError(
+      "Arm correction did not place the selected roller tangent to the outbound line."
+    )
+  return (corrected_outbound, corrected_head_center, roller_index, quadrant)
+
+
 def _probe_runtime_orientation(
   *,
   layer: str,
@@ -1210,6 +1454,11 @@ def compute_uv_tangent_view(
     layer=_normalize_layer(request.layer),
     pin_a=_normalize_pin_name(request.pin_a, "Pin A"),
     pin_b=_normalize_pin_name(request.pin_b, "Pin B"),
+    g103_adjacent_pin=(
+      _normalize_pin_name(request.g103_adjacent_pin, "Adjacent pin")
+      if request.g103_adjacent_pin is not None
+      else None
+    ),
   )
   if normalized_request.pin_a == normalized_request.pin_b:
     raise UvHeadTargetError("Pin A and Pin B must be different pins.")
@@ -1282,7 +1531,7 @@ def compute_uv_tangent_view(
   if normalized_request.g103_adjacent_pin is not None:
     inferred_pair_pin = _normalize_pin_name(normalized_request.g103_adjacent_pin, "Adjacent pin")
   else:
-    inferred_pair_pin = _infer_pair_pin_from_wrap_side(
+    inferred_pair_pin = _infer_local_pair_pin_from_wrap_side(
       layer_calibration,
       normalized_request.pin_b,
       wrapped_tangent_sides,
@@ -1298,6 +1547,12 @@ def compute_uv_tangent_view(
   arm_left_endpoint = None
   arm_right_endpoint = None
   roller_centers: tuple[Point2D, ...] = ()
+  arm_corrected_outbound_point = None
+  arm_corrected_head_center = None
+  arm_corrected_selected_roller_index = None
+  arm_corrected_quadrant = None
+  arm_corrected_available = False
+  arm_corrected_error = None
   head_arm_length = float(machine_calibration.headArmLength)
   head_roller_radius = float(machine_calibration.headRollerRadius)
   head_roller_gap = float(machine_calibration.headRollerGap)
@@ -1349,6 +1604,26 @@ def compute_uv_tangent_view(
       arm_right_endpoint,
       roller_centers,
     ) = runtime_candidate
+  if alternating_plane is None:
+    try:
+      (
+        arm_corrected_outbound_point,
+        arm_corrected_head_center,
+        arm_corrected_selected_roller_index,
+        arm_corrected_quadrant,
+      ) = _compute_arm_corrected_outbound(
+        anchor_pin_point=Point2D(pin_a_point.x, pin_a_point.y),
+        target_pin_point=Point2D(pin_b_point.x, pin_b_point.y),
+        tangent_point_a=tangent_point_a,
+        tangent_point_b=tangent_point_b,
+        transfer_bounds=transfer_bounds,
+        head_arm_length=head_arm_length,
+        head_roller_radius=head_roller_radius,
+        head_roller_gap=head_roller_gap,
+      )
+      arm_corrected_available = True
+    except UvHeadTargetError as exc:
+      arm_corrected_error = str(exc)
   if alternating_plane is not None:
     if runtime_orientation_token is None:
       raise UvHeadTargetError(
@@ -1413,6 +1688,12 @@ def compute_uv_tangent_view(
     arm_left_endpoint=arm_left_endpoint,
     arm_right_endpoint=arm_right_endpoint,
     roller_centers=roller_centers,
+    arm_corrected_outbound_point=arm_corrected_outbound_point,
+    arm_corrected_head_center=arm_corrected_head_center,
+    arm_corrected_selected_roller_index=arm_corrected_selected_roller_index,
+    arm_corrected_quadrant=arm_corrected_quadrant,
+    arm_corrected_available=arm_corrected_available,
+    arm_corrected_error=arm_corrected_error,
     head_arm_length=head_arm_length,
     head_roller_radius=head_roller_radius,
     head_roller_gap=head_roller_gap,

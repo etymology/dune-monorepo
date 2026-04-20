@@ -13,6 +13,7 @@ from dune_winder.library.Geometry.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
+from dune_winder.paths import FRAME_GEOMETRY_CONFIG_DIR
 from dune_winder.recipes.u_template_gcode import render_u_template_lines
 from dune_winder.recipes.v_template_gcode import render_v_template_lines
 
@@ -48,10 +49,7 @@ class _CalibrationPerturbationSpec:
 _RENDERED_LINE_NUMBER_RE = re.compile(r"^N(\d+)\b")
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_MACHINE_CALIBRATION_PATH = _REPO_ROOT / "dune_winder/config/machineCalibration.json"
-_DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (
-  _REPO_ROOT / "dune_winder/config/APA",
-  _REPO_ROOT / "config/APA",
-)
+_DEFAULT_LAYER_CALIBRATION_DIRECTORY = FRAME_GEOMETRY_CONFIG_DIR
 
 _SITE_SPECS = {
   "U": (
@@ -207,11 +205,7 @@ def _normalize_sensitivity_names(
 
 def _default_layer_calibration_path(layer: str) -> Path:
   file_name = "{}_Calibration.json".format(layer)
-  for directory in _DEFAULT_LAYER_CALIBRATION_DIRECTORIES:
-    candidate = directory / file_name
-    if candidate.exists():
-      return candidate
-  return _DEFAULT_LAYER_CALIBRATION_DIRECTORIES[0] / file_name
+  return _DEFAULT_LAYER_CALIBRATION_DIRECTORY / file_name
 
 
 def _load_machine_calibration(path: str | Path | None) -> tuple[MachineCalibration, Path | None]:
@@ -235,7 +229,7 @@ def _load_layer_calibration(
     resolved_path = Path(path).expanduser().resolve()
 
   calibration = LayerCalibration()
-  calibration.load(str(resolved_path.parent), resolved_path.name)
+  calibration.load(str(resolved_path.parent), resolved_path.name, exceptionForMismatch=False)
   return calibration, resolved_path
 
 

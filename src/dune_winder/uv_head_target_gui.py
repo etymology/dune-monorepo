@@ -12,10 +12,9 @@ from dune_winder.machine.geometry.uv_tangency import (
   UvTangentViewRequest,
   UvTangentViewResult,
   compute_uv_tangent_view,
-  iter_uv_wrap_primary_sites,
   matches_tangent_sides,
-  resolve_wrapped_pin_from_g103_pair,
 )
+from dune_winder.uv_head_target import iter_uv_wrap_primary_sites
 
 
 CANVAS_WIDTH = 900
@@ -32,66 +31,186 @@ def _format_tangent_sides(tangent_sides_value: tuple[str, str] | None) -> str:
   return f"x={x_side}, y={y_side}"
 
 
+_TOTAL_WRAPS = 400
+_SEGMENTS_PER_WRAP = 12
+
+
+@lru_cache(maxsize=1)
+def _u_pin_sequence() -> tuple[str, ...]:
+  """Pin trajectory for the U layer: 400 wraps * 12 positions per wrap."""
+  bottom_foot_end = 1200
+  bottom_head_end = 401
+  top_foot_end = 1602
+  top_head_end = 2401
+  foot_bottom_end = 1201
+  head_bottom_end = 400
+  head_top_end = 1
+
+  def b_to_a(pin: int) -> str:
+    return f"A{1 + ((400 - pin) % 2401)}"
+
+  def b(pin: int) -> str:
+    return f"B{pin}"
+
+  pins: list[str] = []
+  for n in range(_TOTAL_WRAPS):
+    pins.append(b(foot_bottom_end + n))
+    pins.append(b(top_foot_end + 399 - n))
+    pins.append(b_to_a(top_foot_end + 399 - n))
+    pins.append(b_to_a(bottom_head_end + n))
+    pins.append(b(bottom_head_end + n))
+    pins.append(b(head_bottom_end - n))
+    pins.append(b_to_a(head_bottom_end - n))
+    pins.append(b_to_a(top_head_end - 399 + n))
+    pins.append(b(top_head_end - 399 + n))
+    pins.append(b(bottom_foot_end - n))
+    pins.append(b_to_a(bottom_foot_end - n))
+    pins.append(b_to_a(foot_bottom_end + n + 1))
+  return tuple(pins)
+
+
+@lru_cache(maxsize=1)
+def _v_pin_sequence() -> tuple[str, ...]:
+  """Pin trajectory for the V layer: 400 wraps * 12 positions per wrap."""
+  bottom_foot_end = 1199
+  bottom_head_end = 400
+  top_foot_end = 1600
+  top_head_end = 2399
+  foot_bottom_end = 1200
+  head_bottom_end = 399
+
+  def b_to_a(pin: int) -> str:
+    return f"A{1 + ((399 - pin) % 2399)}"
+
+  def b(pin: int) -> str:
+    return f"B{pin}"
+
+  pins: list[str] = []
+  for n in range(_TOTAL_WRAPS):
+    pins.append(b(bottom_head_end + n))
+    pins.append(b(top_foot_end + 399 - n))
+    pins.append(b_to_a(top_foot_end + 399 - n))
+    pins.append(b_to_a(foot_bottom_end + n))
+    pins.append(b(foot_bottom_end + n))
+    pins.append(b(bottom_foot_end - n))
+    pins.append(b_to_a(bottom_foot_end - n))
+    pins.append(b_to_a(top_head_end - 399 + n))
+    pins.append(b(top_head_end - 399 + n))
+    pins.append(b(head_bottom_end - n))
+    pins.append(b_to_a(head_bottom_end - n))
+    pins.append(b_to_a(bottom_head_end + n + 1))
+  return tuple(pins)
+
+
+def _pin_sequence_for_layer(layer: str) -> tuple[str, ...]:
+  layer_value = str(layer).strip().upper()
+  if layer_value == "U":
+    return _u_pin_sequence()
+  if layer_value == "V":
+    return _v_pin_sequence()
+  raise UvHeadTargetError("Layer must be 'U' or 'V'.")
+
+
 @dataclass(frozen=True)
 class _RecipeSegment:
-  layer: str
   wrap_number: int
   segment_number: int
-  wrap_line_number: int
   anchor_pin: str
-  orientation_token: str
   wrapped_pin: str
-  adjacent_pin: str
-  g103_pin_a: str
-  g103_pin_b: str
+  g103_adjacent_pin: str | None
+
+
+@lru_cache(maxsize=2)
+def _primary_sites_by_anchor_wrapped(
+  layer: str,
+) -> dict[tuple[str, str], tuple[str, str]]:
+  result: dict[tuple[str, str], tuple[str, str]] = {}
+  for site in iter_uv_wrap_primary_sites(layer):
+    result[(site.anchor_pin, site.g103_pin_a)] = (
+      site.g103_pin_b,
+      site.orientation_token,
+    )
+  return result
+
+
+@lru_cache(maxsize=2)
+def _primary_site_metadata_by_segment(
+  layer: str,
+) -> dict[tuple[int, int], tuple[str, str, str]]:
+  """
+  Return the recipe-site metadata keyed by wrap/segment coordinates.
+
+  The wrap/segment picker should stay aligned with the recipe generator rather
+  than inferring the adjacent pin from the synthetic pin trajectory.
+  """
+  result: dict[tuple[int, int], tuple[str, str, str]] = {}
+  for site in iter_uv_wrap_primary_sites(layer):
+    result[(site.wrap_number, site.wrap_line_number // 2)] = (
+      site.anchor_pin,
+      site.g103_pin_a,
+      site.g103_pin_b,
+    )
+  return result
 
 
 @lru_cache(maxsize=2)
 def _segments_for_layer(layer: str) -> tuple[_RecipeSegment, ...]:
   layer_value = str(layer).strip().upper()
-  if layer_value not in {"U", "V"}:
-    raise UvHeadTargetError("Layer must be 'U' or 'V'.")
-
-  raw_segments = iter_uv_wrap_primary_sites(layer_value)
+  sequence = _pin_sequence_for_layer(layer_value)
+  primary_sites = _primary_sites_by_anchor_wrapped(layer_value)
+  primary_site_metadata = _primary_site_metadata_by_segment(layer_value)
   segments: list[_RecipeSegment] = []
-  current_wrap: int | None = None
-  current_segment_number = 0
-  for site in raw_segments:
-    if current_wrap != site.wrap_number:
-      current_wrap = site.wrap_number
-      current_segment_number = 0
-    resolution = resolve_wrapped_pin_from_g103_pair(
-      layer_value,
-      site.g103_pin_a,
-      site.g103_pin_b,
-      preferred_wrapped_pin=site.g103_pin_a,
+  for global_index in range(len(sequence) - 1):
+    anchor_pin = sequence[global_index]
+    wrapped_pin = sequence[global_index + 1]
+    wrap_number = (global_index // _SEGMENTS_PER_WRAP) + 1
+    segment_number = (global_index % _SEGMENTS_PER_WRAP) + 1
+    recipe_site = primary_site_metadata.get((wrap_number, segment_number))
+    adjacent_pin = (
+      primary_sites.get((anchor_pin, wrapped_pin), (None, None))[0]
+      if recipe_site is None
+      else recipe_site[2]
     )
-
-    current_segment_number += 1
     segments.append(
       _RecipeSegment(
-        layer=layer_value,
-        wrap_number=current_wrap,
-        segment_number=current_segment_number,
-        wrap_line_number=site.wrap_line_number,
-        anchor_pin=site.anchor_pin,
-        orientation_token=site.orientation_token,
-        wrapped_pin=resolution.wrapped_pin,
-        adjacent_pin=resolution.adjacent_pin,
-        g103_pin_a=site.g103_pin_a,
-        g103_pin_b=site.g103_pin_b,
+        wrap_number=wrap_number,
+        segment_number=segment_number,
+        anchor_pin=anchor_pin,
+        wrapped_pin=wrapped_pin,
+        g103_adjacent_pin=adjacent_pin,
       )
     )
-
   return tuple(segments)
 
 
 @lru_cache(maxsize=2)
+def _segments_by_wrap(layer: str) -> dict[int, tuple[_RecipeSegment, ...]]:
+  grouped: dict[int, list[_RecipeSegment]] = {}
+  for segment in _segments_for_layer(layer):
+    grouped.setdefault(segment.wrap_number, []).append(segment)
+  return {wrap_number: tuple(items) for wrap_number, items in grouped.items()}
+
+
+@lru_cache(maxsize=2)
 def _segment_index_by_wrap_segment(layer: str) -> dict[tuple[int, int], int]:
-  index: dict[tuple[int, int], int] = {}
-  for global_index, segment in enumerate(_segments_for_layer(layer)):
-    index[(segment.wrap_number, segment.segment_number)] = global_index
-  return index
+  return {
+    (segment.wrap_number, segment.segment_number): index
+    for index, segment in enumerate(_segments_for_layer(layer))
+  }
+
+
+def _segment_pin_pair(
+  layer: str, wrap_number: int, segment_number: int
+) -> tuple[str, str, str | None]:
+  if wrap_number < 1 or wrap_number > _TOTAL_WRAPS:
+    raise UvHeadTargetError(f"Wrap number must be between 1 and {_TOTAL_WRAPS}.")
+  matching_segments = _segments_by_wrap(layer).get(wrap_number, ())
+  if segment_number < 1 or segment_number > len(matching_segments):
+    raise UvHeadTargetError(
+      f"Segment number must be between 1 and {len(matching_segments)}."
+    )
+  segment = matching_segments[segment_number - 1]
+  return (segment.anchor_pin, segment.wrapped_pin, segment.g103_adjacent_pin)
 
 
 @dataclass
@@ -121,18 +240,14 @@ def build_request_from_form(form: _FormState) -> UvTangentViewRequest:
     except ValueError as exc:
       raise UvHeadTargetError("Wrap # and Segment # must be integers.") from exc
 
-    segments = _segments_for_layer(layer)
-    index = _segment_index_by_wrap_segment(layer).get((wrap_number, segment_number))
-    if index is None:
-      raise UvHeadTargetError(
-        f"No primary site found for wrap {wrap_number}, segment {segment_number}."
-      )
-    segment = segments[index]
+    pin_a, pin_b, g103_adjacent_pin = _segment_pin_pair(
+      layer, wrap_number, segment_number
+    )
     return UvTangentViewRequest(
       layer=layer,
-      pin_a=segment.anchor_pin,
-      pin_b=segment.wrapped_pin,
-      g103_adjacent_pin=segment.adjacent_pin,
+      pin_a=pin_a,
+      pin_b=pin_b,
+      g103_adjacent_pin=g103_adjacent_pin,
     )
 
   return UvTangentViewRequest(
@@ -191,6 +306,38 @@ def format_result_summary(result: UvTangentViewResult) -> str:
       result.outbound_intercept.x - result.runtime_target_point.x,
       result.outbound_intercept.y - result.runtime_target_point.y,
     )
+  runtime_outbound_delta = None
+  if result.runtime_outbound_intercept is not None:
+    runtime_outbound_delta = Point2D(
+      result.outbound_intercept.x - result.runtime_outbound_intercept.x,
+      result.outbound_intercept.y - result.runtime_outbound_intercept.y,
+    )
+  arm_minus_runtime_delta = None
+  if (
+    result.arm_corrected_outbound_point is not None
+    and result.runtime_outbound_intercept is not None
+  ):
+    arm_minus_runtime_delta = Point2D(
+      result.arm_corrected_outbound_point.x - result.runtime_outbound_intercept.x,
+      result.arm_corrected_outbound_point.y - result.runtime_outbound_intercept.y,
+    )
+  arm_minus_g108_delta = None
+  if (
+    result.arm_corrected_outbound_point is not None
+    and result.runtime_target_point is not None
+  ):
+    arm_minus_g108_delta = Point2D(
+      result.arm_corrected_outbound_point.x - result.runtime_target_point.x,
+      result.arm_corrected_outbound_point.y - result.runtime_target_point.y,
+    )
+  corrected_outbound_summary = (
+    f"({result.arm_corrected_outbound_point.x:.3f}, {result.arm_corrected_outbound_point.y:.3f})"
+    if result.arm_corrected_available
+    and result.arm_corrected_outbound_point is not None
+    else f"unavailable ({result.arm_corrected_error})"
+    if result.arm_corrected_error
+    else "unavailable"
+  )
   return "\n".join(
     (
       f"Layer: {result.request.layer}",
@@ -202,6 +349,22 @@ def format_result_summary(result: UvTangentViewResult) -> str:
       (
         "Outbound transfer intercept: "
         f"({result.outbound_intercept.x:.3f}, {result.outbound_intercept.y:.3f})"
+      ),
+      (
+        "Runtime outbound intercept: "
+        + (
+          f"({result.runtime_outbound_intercept.x:.3f}, {result.runtime_outbound_intercept.y:.3f})"
+          if result.runtime_outbound_intercept is not None
+          else "unavailable"
+        )
+      ),
+      (
+        "Outbound minus runtime outbound: "
+        + (
+          f"({runtime_outbound_delta.x:.3f}, {runtime_outbound_delta.y:.3f})"
+          if runtime_outbound_delta is not None
+          else "unavailable"
+        )
       ),
       (
         "G108 target: "
@@ -216,6 +379,23 @@ def format_result_summary(result: UvTangentViewResult) -> str:
         + (
           f"({target_delta.x:.3f}, {target_delta.y:.3f})"
           if target_delta is not None
+          else "unavailable"
+        )
+      ),
+      f"Arm-corrected outbound: {corrected_outbound_summary}",
+      (
+        "Arm-corrected minus runtime outbound: "
+        + (
+          f"({arm_minus_runtime_delta.x:.3f}, {arm_minus_runtime_delta.y:.3f})"
+          if arm_minus_runtime_delta is not None
+          else "unavailable"
+        )
+      ),
+      (
+        "Arm-corrected minus G108 target: "
+        + (
+          f"({arm_minus_g108_delta.x:.3f}, {arm_minus_g108_delta.y:.3f})"
+          if arm_minus_g108_delta is not None
           else "unavailable"
         )
       ),
@@ -261,6 +441,8 @@ def _collect_draw_points(result: UvTangentViewResult) -> list[Point2D]:
     result.arm_head_center,
     result.arm_left_endpoint,
     result.arm_right_endpoint,
+    result.arm_corrected_outbound_point,
+    result.arm_corrected_head_center,
   ) + tuple(result.roller_centers)
   for point in optional_points:
     if point is not None:
@@ -500,6 +682,22 @@ def _draw_clipped_line(
   )
 
 
+def _roller_centers_for_head_center(
+  head_center: Point2D,
+  *,
+  head_arm_length: float,
+  head_roller_radius: float,
+  head_roller_gap: float,
+) -> tuple[Point2D, ...]:
+  y_offset = (head_roller_gap / 2.0) + head_roller_radius
+  return (
+    Point2D(head_center.x - head_arm_length, head_center.y - y_offset),
+    Point2D(head_center.x - head_arm_length, head_center.y + y_offset),
+    Point2D(head_center.x + head_arm_length, head_center.y - y_offset),
+    Point2D(head_center.x + head_arm_length, head_center.y + y_offset),
+  )
+
+
 def _runtime_anchor_tangent_point(result: UvTangentViewResult) -> Point2D | None:
   """
   Build a tangent-from-anchor-to-runtime-target line, selecting the tangent point
@@ -676,9 +874,20 @@ def _draw_outbound_zoom(canvas: tk.Canvas, result: UvTangentViewResult) -> None:
     result.arm_left_endpoint,
     result.arm_right_endpoint,
     result.runtime_target_point,
+    result.arm_corrected_outbound_point,
+    result.arm_corrected_head_center,
   ]
   focus_points.extend(point for point in optional_points if point is not None)
   focus_points.extend(result.roller_centers)
+  if result.arm_corrected_head_center is not None:
+    focus_points.extend(
+      _roller_centers_for_head_center(
+        result.arm_corrected_head_center,
+        head_arm_length=result.head_arm_length,
+        head_roller_radius=result.head_roller_radius,
+        head_roller_gap=result.head_roller_gap,
+      )
+    )
 
   padding = max(result.pin_radius * 4.0, result.head_roller_radius * 3.0, 15.0)
   local_bounds = _fit_bounds(focus_points, padding, padding)
@@ -761,12 +970,56 @@ def _draw_outbound_zoom(canvas: tk.Canvas, result: UvTangentViewResult) -> None:
         y + scaled_roller_radius,
         outline="#0f172a",
       )
+  corrected_roller_centers: tuple[Point2D, ...] = ()
+  if result.arm_corrected_head_center is not None:
+    corrected_roller_centers = _roller_centers_for_head_center(
+      result.arm_corrected_head_center,
+      head_arm_length=result.head_arm_length,
+      head_roller_radius=result.head_roller_radius,
+      head_roller_gap=result.head_roller_gap,
+    )
+    if result.arm_corrected_selected_roller_index is not None:
+      selected_roller_center = corrected_roller_centers[
+        result.arm_corrected_selected_roller_index
+      ]
+      selected_x, selected_y = project(selected_roller_center)
+      scaled_roller_radius = max(result.head_roller_radius * scale, 2.0)
+      canvas.create_oval(
+        selected_x - scaled_roller_radius,
+        selected_y - scaled_roller_radius,
+        selected_x + scaled_roller_radius,
+        selected_y + scaled_roller_radius,
+        outline="#0ea5e9",
+        width=3,
+      )
+      _draw_labeled_point(
+        canvas,
+        project,
+        selected_roller_center,
+        label="used roller",
+        color="#0ea5e9",
+        radius=2.0,
+        text_dx=8.0,
+        text_dy=-10.0,
+        text_anchor="w",
+      )
+    _draw_labeled_point(
+      canvas,
+      project,
+      result.arm_corrected_head_center,
+      label="wire head",
+      color="#22c55e",
+      radius=2.0,
+      text_dx=8.0,
+      text_dy=12.0,
+      text_anchor="w",
+    )
 
   _draw_labeled_point(
     canvas,
     project,
     result.outbound_intercept,
-    label="selected outbound",
+    label="",
     color="#7c3aed",
     radius=2.0,
     text_dx=8.0,
@@ -785,10 +1038,64 @@ def _draw_outbound_zoom(canvas: tk.Canvas, result: UvTangentViewResult) -> None:
       text_dy=12.0,
       text_anchor="w",
     )
+  if result.arm_corrected_outbound_point is not None:
+    _draw_labeled_point(
+      canvas,
+      project,
+      result.arm_corrected_outbound_point,
+      label="arm-corrected",
+      color="#0ea5e9",
+      radius=2.0,
+      text_dx=8.0,
+      text_dy=-10.0,
+      text_anchor="w",
+    )
+  if (
+    result.arm_corrected_outbound_point is not None
+    and result.runtime_outbound_intercept is not None
+  ):
+    start_xy = project(result.runtime_outbound_intercept)
+    end_xy = project(result.arm_corrected_outbound_point)
+    canvas.create_line(
+      start_xy[0],
+      start_xy[1],
+      end_xy[0],
+      end_xy[1],
+      fill="#0ea5e9",
+      dash=(2, 2),
+    )
   text_lines = [
     "Transfer zone",
     f"Outbound: ({result.outbound_intercept.x:.3f}, {result.outbound_intercept.y:.3f})",
+    (
+      "Arm-corrected: "
+      + (
+        f"({result.arm_corrected_outbound_point.x:.3f}, {result.arm_corrected_outbound_point.y:.3f})"
+        if result.arm_corrected_available
+        and result.arm_corrected_outbound_point is not None
+        else "unavailable"
+      )
+    ),
   ]
+  if result.runtime_outbound_intercept is not None:
+    delta = (
+      Point2D(
+        result.arm_corrected_outbound_point.x - result.runtime_outbound_intercept.x,
+        result.arm_corrected_outbound_point.y - result.runtime_outbound_intercept.y,
+      )
+      if result.arm_corrected_outbound_point is not None
+      else None
+    )
+    text_lines.append(
+      f"Runtime outbound: ({result.runtime_outbound_intercept.x:.3f}, {result.runtime_outbound_intercept.y:.3f})"
+    )
+    text_lines.append(
+      "Arm - runtime: "
+      + (f"({delta.x:.3f}, {delta.y:.3f})" if delta is not None else "unavailable")
+    )
+  else:
+    text_lines.append("Runtime outbound: unavailable")
+    text_lines.append("Arm - runtime: unavailable")
   if result.runtime_target_point is not None:
     delta = Point2D(
       result.outbound_intercept.x - result.runtime_target_point.x,
@@ -803,14 +1110,14 @@ def _draw_outbound_zoom(canvas: tk.Canvas, result: UvTangentViewResult) -> None:
   else:
     text_lines.append("G108 target: unavailable")
     text_lines.append("Outbound - G108: unavailable")
-  canvas.create_text(
-    10,
-    10,
-    anchor="nw",
-    fill="#222222",
-    text="\n".join(text_lines),
-    justify="left",
-  )
+  # canvas.create_text(
+  #   10,
+  #   10,
+  #   anchor="nw",
+  #   fill="#222222",
+  #   text="\n".join(text_lines),
+  #   justify="left",
+  # )
 
 
 def _build_alternating_canvas_transform(
@@ -1160,6 +1467,30 @@ def draw_result(canvas: tk.Canvas, result: UvTangentViewResult) -> None:
     color="#7c3aed",
     radius=2.0,
   )
+  if result.runtime_outbound_intercept is not None:
+    _draw_labeled_point(
+      canvas,
+      project,
+      result.runtime_outbound_intercept,
+      label="runtime outbound",
+      color="#ea580c",
+      radius=2.0,
+      text_dx=8.0,
+      text_dy=12.0,
+      text_anchor="w",
+    )
+  if result.arm_corrected_outbound_point is not None:
+    _draw_labeled_point(
+      canvas,
+      project,
+      result.arm_corrected_outbound_point,
+      label="arm-corrected",
+      color="#0ea5e9",
+      radius=2.0,
+      text_dx=8.0,
+      text_dy=-12.0,
+      text_anchor="w",
+    )
   if result.runtime_target_point is not None:
     _draw_labeled_point(
       canvas,
@@ -1357,18 +1688,17 @@ def _build_form(root: tk.Misc) -> _FormState:
       wrap_number = int(str(wrap_var.get()).strip())
       segment_number = int(str(segment_var.get()).strip())
     except ValueError:
-      derived_pins_var.set("Site: (enter wrap + segment)")
+      derived_pins_var.set("Segment: (enter wrap + segment)")
       return
-    index = _segment_index_by_wrap_segment(layer).get((wrap_number, segment_number))
-    if index is None:
-      derived_pins_var.set("Site: (no primary site for that wrap/segment)")
+    try:
+      pin_a, pin_b, g103_adjacent_pin = _segment_pin_pair(
+        layer, wrap_number, segment_number
+      )
+    except UvHeadTargetError as exc:
+      derived_pins_var.set(f"Segment: ({exc})")
       return
-    segment = _segments_for_layer(layer)[index]
-    derived_pins_var.set(
-      "Anchor: "
-      f"{segment.anchor_pin}  Wrapped: {segment.wrapped_pin}  "
-      f"Neighbor: {segment.adjacent_pin}  (wrap line {segment.wrap_line_number})"
-    )
+    adjacent_text = f"  Adjacent: {g103_adjacent_pin}" if g103_adjacent_pin else ""
+    derived_pins_var.set(f"Source: {pin_a}  Target: {pin_b}{adjacent_text}")
 
   def step_segment(delta: int) -> None:
     if str(mode_var.get()).strip().lower() != "wrap/segment":
@@ -1380,23 +1710,27 @@ def _build_form(root: tk.Misc) -> _FormState:
     except ValueError:
       error_var.set("Wrap # and Segment # must be integers.")
       return
-    index = _segment_index_by_wrap_segment(layer).get((wrap_number, segment_number))
-    if index is None:
-      error_var.set(
-        f"No primary site found for wrap {wrap_number}, segment {segment_number}."
-      )
+    if wrap_number < 1 or wrap_number > _TOTAL_WRAPS:
+      error_var.set(f"Wrap number must be between 1 and {_TOTAL_WRAPS}.")
       return
     segments = _segments_for_layer(layer)
-    new_index = index + delta
+    max_segment = len(_segments_by_wrap(layer).get(wrap_number, ()))
+    if segment_number < 1 or segment_number > max_segment:
+      error_var.set(f"Segment number must be between 1 and {max_segment}.")
+      return
+    global_index = _segment_index_by_wrap_segment(layer)[(wrap_number, segment_number)]
+    max_global_index = len(segments) - 1
+    new_index = global_index + delta
     if new_index < 0:
       error_var.set("Already at first segment for this layer.")
       return
-    if new_index >= len(segments):
+    if new_index > max_global_index:
       error_var.set("Already at last segment for this layer.")
       return
-    next_segment = segments[new_index]
-    wrap_var.set(str(next_segment.wrap_number))
-    segment_var.set(str(next_segment.segment_number))
+    new_wrap = segments[new_index].wrap_number
+    new_segment = segments[new_index].segment_number
+    wrap_var.set(str(new_wrap))
+    segment_var.set(str(new_segment))
     update_derived_pins()
     calculate_and_render(form)
 
@@ -1411,7 +1745,9 @@ def _build_form(root: tk.Misc) -> _FormState:
   tk.Label(
     controls, textvariable=error_var, fg="#b91c1c", justify="left", wraplength=240
   ).grid(row=7, column=0, sticky="ew", pady=(10, 0))
-  tk.Label(viewer, textvariable=summary_var, justify="left", anchor="w").grid(row=0, column=0, sticky="ew", pady=(0, 10))
+  tk.Label(
+    controls, textvariable=summary_var, justify="left", anchor="w", wraplength=240
+  ).grid(row=8, column=0, sticky="ew", pady=(12, 0))
 
   mode_var.trace_add(
     "write", lambda *_: (update_mode_visibility(), update_derived_pins())

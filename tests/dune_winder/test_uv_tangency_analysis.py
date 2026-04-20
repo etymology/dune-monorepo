@@ -14,8 +14,8 @@ from dune_winder.analysis.uv_tangency_analysis import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _MACHINE_CALIBRATION_PATH = _REPO_ROOT / "dune_winder/config/machineCalibration.json"
-_U_LAYER_CALIBRATION_PATH = _REPO_ROOT / "dune_winder/config/APA/U_Calibration.json"
-_V_LAYER_CALIBRATION_PATH = _REPO_ROOT / "dune_winder/config/APA/V_Calibration.json"
+_U_LAYER_CALIBRATION_PATH = _REPO_ROOT / "config/frame_geometry/U_Calibration.json"
+_V_LAYER_CALIBRATION_PATH = _REPO_ROOT / "config/frame_geometry/V_Calibration.json"
 
 
 class UVTangencyAnalysisTests(unittest.TestCase):

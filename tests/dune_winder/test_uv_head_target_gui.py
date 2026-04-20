@@ -65,8 +65,12 @@ class _FakeCanvas:
 
 
 class _FakeWidget:
+  instances = []
+
   def __init__(self, *args, **kwargs):
-    pass
+    self.args = args
+    self.kwargs = kwargs
+    _FakeWidget.instances.append(self)
 
   def grid(self, *args, **kwargs):
     return None
@@ -79,6 +83,7 @@ class _FakeWidget:
 
 
 def _load_gui_module(monkeypatch):
+  _FakeWidget.instances = []
   tk_stub = types.ModuleType("tkinter")
   tk_stub.Misc = object
   tk_stub.StringVar = _FakeVar
@@ -155,6 +160,12 @@ def _sample_result() -> UvTangentViewResult:
       Point2D(24.0, 10.0),
       Point2D(24.0, 13.0),
     ),
+    arm_corrected_outbound_point=Point2D(23.0, 14.0),
+    arm_corrected_head_center=Point2D(23.0, 14.0),
+    arm_corrected_selected_roller_index=3,
+    arm_corrected_quadrant="NE",
+    arm_corrected_available=True,
+    arm_corrected_error=None,
     head_arm_length=6.0,
     head_roller_radius=1.0,
     head_roller_gap=1.0,
@@ -197,6 +208,12 @@ def _sample_alternating_result() -> UvTangentViewResult:
     runtime_clipped_segment_start=Point2D(-5.0, -3.277777),
     runtime_clipped_segment_end=Point2D(25.0, 15.055555),
     runtime_outbound_intercept=Point2D(25.0, 15.055555),
+    arm_corrected_outbound_point=None,
+    arm_corrected_head_center=None,
+    arm_corrected_selected_roller_index=None,
+    arm_corrected_quadrant=None,
+    arm_corrected_available=False,
+    arm_corrected_error=None,
     alternating_plane="yz",
     alternating_face="foot",
     alternating_anchor_center=Point2D(270.0, 44.6),
@@ -280,10 +297,16 @@ def test_calculate_and_render_updates_summary_and_canvas(monkeypatch):
   assert "Runtime comparison: different lines" in form.summary_var.get()
   assert "G108 target: (20.000, 12.000)" in form.summary_var.get()
   assert "Outbound minus G108 target: (5.000, 3.000)" in form.summary_var.get()
+  assert "Arm-corrected outbound: (23.000, 14.000)" in form.summary_var.get()
   assert form.error_var.get() == ""
   assert any(call[0] == "create_line" for call in form.canvas.calls)
   assert any(call[0] == "create_rectangle" for call in form.canvas.calls)
   assert any(call[0] == "create_text" and call[2].get("text") == "g108 target" for call in form.canvas.calls if len(call) > 2)
+  assert not any(
+    call[0] == "create_text" and call[2].get("text") == form.summary_var.get()
+    for call in form.canvas.calls
+    if len(call) > 2
+  )
   assert any(call[0] == "create_oval" for call in form.pin_a_zoom_canvas.calls)
   assert any(call[0] == "create_oval" for call in form.pin_b_zoom_canvas.calls)
   assert any(call[0] == "create_line" for call in form.pin_a_zoom_canvas.calls)
@@ -306,16 +329,18 @@ def test_calculate_and_render_updates_summary_and_canvas(monkeypatch):
   assert any(call[0] == "create_text" and call[2].get("text") == "+y" for call in form.pin_b_zoom_canvas.calls if len(call) > 2)
   assert any(call[0] == "create_rectangle" and call[2].get("dash") == (4, 4) for call in form.outbound_zoom_canvas.calls if len(call) > 2)
   assert any(call[0] == "create_text" and "Outbound:" in call[2].get("text", "") for call in form.outbound_zoom_canvas.calls if len(call) > 2)
+  assert any(call[0] == "create_text" and "Arm-corrected:" in call[2].get("text", "") for call in form.outbound_zoom_canvas.calls if len(call) > 2)
   assert any(call[0] == "create_text" and "G108 target:" in call[2].get("text", "") for call in form.outbound_zoom_canvas.calls if len(call) > 2)
   assert any(call[0] == "create_text" and "Outbound - G108:" in call[2].get("text", "") for call in form.outbound_zoom_canvas.calls if len(call) > 2)
-  assert any(call[0] == "create_text" and call[2].get("text") == "selected outbound" for call in form.outbound_zoom_canvas.calls if len(call) > 2)
-  assert any(call[0] == "create_text" and call[2].get("text") == "runtime outbound" for call in form.outbound_zoom_canvas.calls if len(call) > 2)
+  assert any(call[0] == "create_text" and call[2].get("text") == "used roller" for call in form.outbound_zoom_canvas.calls if len(call) > 2)
+  assert any(call[0] == "create_text" and call[2].get("text") == "wire head" for call in form.outbound_zoom_canvas.calls if len(call) > 2)
   assert not any(
     call[0] == "create_text" and "touch" in call[2].get("text", "").lower()
     for call in form.pin_a_zoom_canvas.calls + form.pin_b_zoom_canvas.calls
     if len(call) > 2
   )
   assert sum(1 for call in form.outbound_zoom_canvas.calls if call[0] == "create_oval") >= 6
+  assert sum(1 for call in form.outbound_zoom_canvas.calls if call[0] == "create_line") >= 5
 
 
 def test_calculate_and_render_surfaces_validation_error(monkeypatch):
@@ -350,17 +375,37 @@ def test_calculate_and_render_surfaces_validation_error(monkeypatch):
   assert form.outbound_zoom_canvas.calls[0][0] == "delete"
 
 
-def test_segments_for_layer_tracks_primary_sites_for_current_recipe(monkeypatch):
+def test_segments_for_layer_tracks_full_wrap_sequence(monkeypatch):
   gui = _load_gui_module(monkeypatch)
 
   segments = gui._segments_for_layer("U")
 
   assert segments[0].anchor_pin == "B1201"
   assert segments[0].wrapped_pin == "B2001"
-  assert all(segment.anchor_pin[:1] == segment.wrapped_pin[:1] for segment in segments)
+  assert segments[1].anchor_pin == "B2001"
+  assert segments[1].wrapped_pin == "A801"
+  assert segments[4].anchor_pin == "B401"
+  assert segments[4].wrapped_pin == "B400"
+  assert len([segment for segment in segments if segment.wrap_number == 1]) == 12
 
 
-def test_build_request_from_wrap_segment_uses_current_recipe_segment(monkeypatch):
+def test_segments_for_v_layer_track_full_wrap_sequence(monkeypatch):
+  gui = _load_gui_module(monkeypatch)
+
+  segments = gui._segments_for_layer("V")
+
+  assert segments[0].anchor_pin == "B400"
+  assert segments[0].wrapped_pin == "B1999"
+  assert segments[1].anchor_pin == "B1999"
+  assert segments[1].wrapped_pin == "A800"
+  assert segments[4].anchor_pin == "B1200"
+  assert segments[4].wrapped_pin == "B1199"
+  assert segments[8].anchor_pin == "B2000"
+  assert segments[8].wrapped_pin == "B399"
+  assert len([segment for segment in segments if segment.wrap_number == 1]) == 12
+
+
+def test_build_request_from_wrap_segment_includes_alternating_side_segments(monkeypatch):
   gui = _load_gui_module(monkeypatch)
   form = gui._FormState(
     mode_var=_FakeVar(value="Wrap/Segment"),
@@ -380,7 +425,138 @@ def test_build_request_from_wrap_segment_uses_current_recipe_segment(monkeypatch
 
   request = gui.build_request_from_form(form)
 
+  assert request == UvTangentViewRequest("U", "B2001", "A801", g103_adjacent_pin=None)
+
+
+def test_build_request_from_wrap_segment_preserves_adjacent_pin_for_recipe_transfer(monkeypatch):
+  gui = _load_gui_module(monkeypatch)
+  form = gui._FormState(
+    mode_var=_FakeVar(value="Wrap/Segment"),
+    layer_var=_FakeVar(value="U"),
+    pin_a_var=_FakeVar(value=""),
+    pin_b_var=_FakeVar(value=""),
+    wrap_var=_FakeVar(value="1"),
+    segment_var=_FakeVar(value="5"),
+    derived_pins_var=_FakeVar(value=""),
+    error_var=_FakeVar(value=""),
+    summary_var=_FakeVar(value=""),
+    canvas=_FakeCanvas(),
+    pin_a_zoom_canvas=_FakeCanvas(),
+    pin_b_zoom_canvas=_FakeCanvas(),
+    outbound_zoom_canvas=_FakeCanvas(),
+  )
+
+  request = gui.build_request_from_form(form)
+
   assert request == UvTangentViewRequest("U", "B401", "B400", g103_adjacent_pin="B399")
+
+
+def test_build_request_from_v_wrap_segment_includes_alternating_side_segments(monkeypatch):
+  gui = _load_gui_module(monkeypatch)
+  form = gui._FormState(
+    mode_var=_FakeVar(value="Wrap/Segment"),
+    layer_var=_FakeVar(value="V"),
+    pin_a_var=_FakeVar(value=""),
+    pin_b_var=_FakeVar(value=""),
+    wrap_var=_FakeVar(value="1"),
+    segment_var=_FakeVar(value="2"),
+    derived_pins_var=_FakeVar(value=""),
+    error_var=_FakeVar(value=""),
+    summary_var=_FakeVar(value=""),
+    canvas=_FakeCanvas(),
+    pin_a_zoom_canvas=_FakeCanvas(),
+    pin_b_zoom_canvas=_FakeCanvas(),
+    outbound_zoom_canvas=_FakeCanvas(),
+  )
+
+  request = gui.build_request_from_form(form)
+
+  assert request == UvTangentViewRequest("V", "B1999", "A800", g103_adjacent_pin=None)
+
+
+def test_build_request_from_v_wrap_segment_preserves_adjacent_pin_for_recipe_transfer(
+  monkeypatch,
+):
+  gui = _load_gui_module(monkeypatch)
+  form = gui._FormState(
+    mode_var=_FakeVar(value="Wrap/Segment"),
+    layer_var=_FakeVar(value="V"),
+    pin_a_var=_FakeVar(value=""),
+    pin_b_var=_FakeVar(value=""),
+    wrap_var=_FakeVar(value="1"),
+    segment_var=_FakeVar(value="5"),
+    derived_pins_var=_FakeVar(value=""),
+    error_var=_FakeVar(value=""),
+    summary_var=_FakeVar(value=""),
+    canvas=_FakeCanvas(),
+    pin_a_zoom_canvas=_FakeCanvas(),
+    pin_b_zoom_canvas=_FakeCanvas(),
+    outbound_zoom_canvas=_FakeCanvas(),
+  )
+
+  request = gui.build_request_from_form(form)
+
+  assert request == UvTangentViewRequest("V", "B1200", "B1199", g103_adjacent_pin="B1198")
+
+
+def test_build_request_from_wrap_segment_preserves_adjacent_pin_on_wrap_5_and_11(monkeypatch):
+  gui = _load_gui_module(monkeypatch)
+  form_5 = gui._FormState(
+    mode_var=_FakeVar(value="Wrap/Segment"),
+    layer_var=_FakeVar(value="U"),
+    pin_a_var=_FakeVar(value=""),
+    pin_b_var=_FakeVar(value=""),
+    wrap_var=_FakeVar(value="5"),
+    segment_var=_FakeVar(value="5"),
+    derived_pins_var=_FakeVar(value=""),
+    error_var=_FakeVar(value=""),
+    summary_var=_FakeVar(value=""),
+    canvas=_FakeCanvas(),
+    pin_a_zoom_canvas=_FakeCanvas(),
+    pin_b_zoom_canvas=_FakeCanvas(),
+    outbound_zoom_canvas=_FakeCanvas(),
+  )
+  form_11 = gui._FormState(
+    mode_var=_FakeVar(value="Wrap/Segment"),
+    layer_var=_FakeVar(value="U"),
+    pin_a_var=_FakeVar(value=""),
+    pin_b_var=_FakeVar(value=""),
+    wrap_var=_FakeVar(value="11"),
+    segment_var=_FakeVar(value="5"),
+    derived_pins_var=_FakeVar(value=""),
+    error_var=_FakeVar(value=""),
+    summary_var=_FakeVar(value=""),
+    canvas=_FakeCanvas(),
+    pin_a_zoom_canvas=_FakeCanvas(),
+    pin_b_zoom_canvas=_FakeCanvas(),
+    outbound_zoom_canvas=_FakeCanvas(),
+  )
+
+  assert gui.build_request_from_form(form_5) == UvTangentViewRequest(
+    "U", "B405", "B396", g103_adjacent_pin="B395"
+  )
+  assert gui.build_request_from_form(form_11) == UvTangentViewRequest(
+    "U", "B411", "B390", g103_adjacent_pin="B389"
+  )
+
+
+def test_outbound_zoom_draws_used_roller_and_wire_head(monkeypatch):
+  gui = _load_gui_module(monkeypatch)
+  result = _sample_result()
+  canvas = _FakeCanvas()
+
+  gui._draw_outbound_zoom(canvas, result)
+
+  assert any(
+    call[0] == "create_text" and call[2].get("text") == "used roller"
+    for call in canvas.calls
+    if len(call) > 2
+  )
+  assert any(
+    call[0] == "create_text" and call[2].get("text") == "wire head"
+    for call in canvas.calls
+    if len(call) > 2
+  )
 
 
 def test_calculate_and_render_draws_alternating_side_view(monkeypatch):
