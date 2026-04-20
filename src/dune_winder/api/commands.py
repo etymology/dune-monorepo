@@ -1079,7 +1079,7 @@ def build_command_registry(
     machineCalibration.rollerArmCalibration = new_cal
     machineCalibration.save()
 
-    return machine_get_roller_arm_calibration(args)
+    return machine_get_roller_arm_calibration({})
 
   registry.register(
     "machine.add_roller_arm_measurement",

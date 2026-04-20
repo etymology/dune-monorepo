@@ -172,13 +172,27 @@ class MachineCalibration:
 
   # ---------------------------------------------------------------------
   def _to_dict(self) -> dict:
-    return {field: getattr(self, field) for field in _FIELDS}
+    from dune_winder.machine.calibration.roller_arm import roller_arm_calibration_to_dict
+
+    result = {}
+    for field in _FIELDS:
+      value = getattr(self, field)
+      if field == "rollerArmCalibration" and value is not None:
+        value = roller_arm_calibration_to_dict(value)
+      result[field] = value
+    return result
 
   # ---------------------------------------------------------------------
   def _from_dict(self, data: dict) -> None:
+    from dune_winder.machine.calibration.roller_arm import roller_arm_calibration_from_dict
+
     for field in _FIELDS:
-      if field in data:
-        setattr(self, field, data[field])
+      if field not in data:
+        continue
+      value = data[field]
+      if field == "rollerArmCalibration" and isinstance(value, dict):
+        value = roller_arm_calibration_from_dict(value)
+      setattr(self, field, value)
 
   # ---------------------------------------------------------------------
   def save(self):
