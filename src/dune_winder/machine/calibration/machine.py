@@ -60,6 +60,7 @@ _FIELDS = (
     "pinDiameter",
     "v_x_max",
     "v_y_max",
+    "rollerArmCalibration",
 )
 
 
@@ -141,6 +142,9 @@ class MachineCalibration:
     # Maximum axis component velocities for queued motion (mm/min).
     self.v_x_max = None
     self.v_y_max = None
+
+    # Calibrated roller arm offsets.
+    self.rollerArmCalibration = None
 
   # ---------------------------------------------------------------------
   def set(self, item, value):

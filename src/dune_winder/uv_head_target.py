@@ -13,7 +13,7 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.machine.head_compensation import WirePathModel
-from dune_winder.paths import FRAME_GEOMETRY_CONFIG_DIR, REPO_ROOT
+from dune_winder.paths import FRAME_GEOMETRY_CONFIG_DIR, PACKAGE_ROOT, REPO_ROOT
 from dune_winder.queued_motion.filleted_path import (
   WaypointCircle,
   circle_pair_tangent_pairs,
@@ -33,7 +33,11 @@ _RECIPE_SITE_RE = re.compile(
   r"G109\s+(P[AB]\d+)\s+P([A-Z]{2})\s+G103\s+(P[AB]\d+)\s+(P[AB]\d+).*?\(([^()]*)\)"
 )
 _DEFAULT_MACHINE_CALIBRATION_PATH = REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"
-_DEFAULT_LAYER_CALIBRATION_DIRECTORY = FRAME_GEOMETRY_CONFIG_DIR
+_DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (
+  PACKAGE_ROOT / "config" / "APA",
+  REPO_ROOT / "config" / "APA",
+  FRAME_GEOMETRY_CONFIG_DIR,
+)
 _AXIS_EPSILON = 1e-9
 _ORIENTATION_TOKENS = ("BR", "BL", "LT", "LB", "RT", "RB", "TR", "TL")
 
@@ -216,7 +220,11 @@ def _normalize_pin_name(pin_name: str, label: str) -> str:
 
 def _default_layer_calibration_path(layer: str) -> Path:
   file_name = f"{layer}_Calibration.json"
-  return _DEFAULT_LAYER_CALIBRATION_DIRECTORY / file_name
+  for directory in _DEFAULT_LAYER_CALIBRATION_DIRECTORIES:
+    candidate = directory / file_name
+    if candidate.exists():
+      return candidate
+  return _DEFAULT_LAYER_CALIBRATION_DIRECTORIES[0] / file_name
 
 
 @lru_cache(maxsize=4)
@@ -233,6 +241,13 @@ def _load_layer_calibration(layer: str, path: str | Path | None = None) -> Layer
   calibration = LayerCalibration(layer)
   calibration.load(str(resolved_path.parent), resolved_path.name, exceptionForMismatch=False)
   return calibration
+
+
+def clear_uv_head_target_caches(*, layer_calibration: bool = True, machine_calibration: bool = False) -> None:
+  if layer_calibration:
+    _load_layer_calibration.cache_clear()
+  if machine_calibration:
+    _load_machine_calibration.cache_clear()
 
 
 def _location_to_point3(location: Location) -> Point3D:
@@ -1034,15 +1049,20 @@ def _build_arm_geometry(
   head_arm_length: float,
   head_roller_radius: float,
   head_roller_gap: float,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> tuple[Point2D, Point2D, tuple[Point2D, ...]]:
-  y_offset = (head_roller_gap / 2.0) + head_roller_radius
+  if roller_arm_y_offsets is not None:
+    y_offsets = roller_arm_y_offsets
+  else:
+    y_nom = (head_roller_gap / 2.0) + head_roller_radius
+    y_offsets = (y_nom, y_nom, y_nom, y_nom)
   left_endpoint = Point2D(head_center.x - head_arm_length, head_center.y)
   right_endpoint = Point2D(head_center.x + head_arm_length, head_center.y)
   rollers = (
-    Point2D(left_endpoint.x, head_center.y - y_offset),
-    Point2D(left_endpoint.x, head_center.y + y_offset),
-    Point2D(right_endpoint.x, head_center.y - y_offset),
-    Point2D(right_endpoint.x, head_center.y + y_offset),
+    Point2D(left_endpoint.x, head_center.y - y_offsets[0]),
+    Point2D(left_endpoint.x, head_center.y + y_offsets[1]),
+    Point2D(right_endpoint.x, head_center.y - y_offsets[2]),
+    Point2D(right_endpoint.x, head_center.y + y_offsets[3]),
   )
   return (left_endpoint, right_endpoint, rollers)
 
@@ -1094,15 +1114,15 @@ def _roller_offset_for_index(
   head_arm_length: float,
   head_roller_radius: float,
   head_roller_gap: float,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> Point2D:
-  y_offset = (head_roller_gap / 2.0) + head_roller_radius
-  offsets = (
-    Point2D(-head_arm_length, -y_offset),
-    Point2D(-head_arm_length, y_offset),
-    Point2D(head_arm_length, -y_offset),
-    Point2D(head_arm_length, y_offset),
-  )
-  return offsets[roller_index]
+  if roller_arm_y_offsets is not None:
+    y_offset = roller_arm_y_offsets[roller_index]
+  else:
+    y_offset = (head_roller_gap / 2.0) + head_roller_radius
+  y_sign = -1 if roller_index in (0, 2) else 1
+  x_offset = -head_arm_length if roller_index in (0, 1) else head_arm_length
+  return Point2D(x_offset, y_sign * y_offset)
 
 
 def _distance_point_to_line(
@@ -1131,6 +1151,7 @@ def _compute_arm_corrected_outbound(
   head_arm_length: float,
   head_roller_radius: float,
   head_roller_gap: float,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> tuple[Point2D, Point2D, int, str]:
   tangent_y_side = _arm_correction_tangent_y_side(
     anchor_pin_point=anchor_pin_point,
@@ -1157,6 +1178,7 @@ def _compute_arm_corrected_outbound(
     head_arm_length=head_arm_length,
     head_roller_radius=head_roller_radius,
     head_roller_gap=head_roller_gap,
+    roller_arm_y_offsets=roller_arm_y_offsets,
   )
   direction = Point2D(
     tangent_point_b.x - tangent_point_a.x,
@@ -1307,6 +1329,7 @@ def _probe_runtime_orientation(
         head_arm_length=float(machine_calibration.headArmLength),
         head_roller_radius=float(machine_calibration.headRollerRadius),
         head_roller_gap=float(machine_calibration.headRollerGap),
+        roller_arm_y_offsets=roller_arm_y_offsets,
       )
     except UvHeadTargetError:
       continue
@@ -1353,6 +1376,7 @@ def compute_uv_head_target(
   *,
   machine_calibration_path: str | Path | None = None,
   layer_calibration_path: str | Path | None = None,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> UvHeadTargetResult:
   normalized_request = UvHeadTargetRequest(
     layer=_normalize_layer(request.layer),
@@ -1441,6 +1465,7 @@ def compute_uv_tangent_view(
   *,
   machine_calibration_path: str | Path | None = None,
   layer_calibration_path: str | Path | None = None,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> UvTangentViewResult:
   normalized_request = UvTangentViewRequest(
     layer=_normalize_layer(request.layer),
@@ -1493,21 +1518,8 @@ def compute_uv_tangent_view(
       raise UvHeadTargetError(
         "Alternating-side view requires exactly one B pin and one A pin."
       )
-    pin_a_b_side_face = _b_side_face_for_pin(
-      normalized_request.layer, normalized_request.pin_a
-    )
-    pin_b_b_side_face = _b_side_face_for_pin(
-      normalized_request.layer, normalized_request.pin_b
-    )
-    if pin_a_b_side_face != pin_b_b_side_face:
-      raise UvHeadTargetError(
-        "Alternating-side view requires A/B pins to share the same face after converting "
-        "the A pin to the B side; "
-        f"got {normalized_request.pin_a} -> {pin_a_b_side_face} and "
-        f"{normalized_request.pin_b} -> {pin_b_b_side_face}."
-      )
-    alternating_face = pin_a_b_side_face
-    alternating_plane = _alternating_plane_for_face(pin_a_b_side_face)
+    alternating_face = pin_b_face
+    alternating_plane = _alternating_plane_for_face(pin_b_face)
   anchor_side = _pin_family_side(normalized_request.pin_a)
   anchor_face = pin_a_face
   anchor_tangent_sides = tangent_sides(
@@ -1612,6 +1624,7 @@ def compute_uv_tangent_view(
         head_arm_length=head_arm_length,
         head_roller_radius=head_roller_radius,
         head_roller_gap=head_roller_gap,
+        roller_arm_y_offsets=roller_arm_y_offsets,
       )
       arm_corrected_available = True
     except UvHeadTargetError as exc:
@@ -1794,6 +1807,7 @@ __all__ = [
   "UvTangentViewRequest",
   "UvTangentViewResult",
   "WrappedPinResolution",
+  "clear_uv_head_target_caches",
   "compute_uv_head_target",
   "compute_uv_tangent_view",
   "iter_uv_wrap_primary_sites",

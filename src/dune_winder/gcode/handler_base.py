@@ -11,12 +11,21 @@
 ###############################################################################
 
 import copy
+import ast
 import json
 import logging
 import os
+import re
 
 from dune_winder.library.math_extra import MathExtra
-from dune_winder.gcode.model import CommandWord, Comment, FunctionCall, Opcode, ProgramLine
+from dune_winder.gcode.model import (
+  CommandWord,
+  Comment,
+  FunctionCall,
+  MacroCall,
+  Opcode,
+  ProgramLine,
+)
 from dune_winder.gcode.renderer import render_line
 from dune_winder.gcode.runtime import (
   GCodeCallbacks,
@@ -31,6 +40,11 @@ from dune_winder.library.Geometry.segment import Segment
 
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
+from dune_winder.machine.geometry.uv_wrap_geometry import (
+  Point2D,
+  UvWrapGeometryError,
+  b_to_a_pin,
+)
 from dune_winder.machine.settings import Settings
 
 
@@ -39,6 +53,7 @@ _MOTION_TRACE_LOG_ENV = "DUNE_GCODE_MOTION_TRACE_LOG"
 _MOTION_TRACE_LOG_DEFAULT = os.path.join(Settings.CACHE_DIR, "gcode_motion_trace.log")
 _MOTION_TRACE_FILE_HANDLER = None
 _MOTION_TRACE_FILE_PATH = None
+_MACRO_CALL_RE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\((?P<args>.*)\)$")
 
 
 def _motion_trace_log_path():
@@ -203,6 +218,436 @@ class GCodeHandlerBase:
     self._instruction_request_stop = True
 
   # ---------------------------------------------------------------------
+  def _append_pending_action(self, action, **kwargs):
+    if not kwargs:
+      self._pending_actions.append(action)
+      return
+    spec = {"kind": str(action)}
+    spec.update(kwargs)
+    self._pending_actions.append(spec)
+
+  # ---------------------------------------------------------------------
+  def _split_macro_arguments(self, text):
+    parts = []
+    current = []
+    depth = 0
+    for character in str(text):
+      if character == "," and depth == 0:
+        parts.append("".join(current).strip())
+        current = []
+        continue
+      if character == "(":
+        depth += 1
+      elif character == ")":
+        depth -= 1
+        if depth < 0:
+          raise GCodeExecutionError("Malformed ~ macro call.", [str(text)])
+      current.append(character)
+    if depth != 0:
+      raise GCodeExecutionError("Malformed ~ macro call.", [str(text)])
+    tail = "".join(current).strip()
+    if tail:
+      parts.append(tail)
+    return parts
+
+  # ---------------------------------------------------------------------
+  def _wrap_symbolic_numbers(self):
+    layer = None
+    if self._layerCalibration is not None:
+      layer = str(self._layerCalibration.getLayerNames()).strip().upper()
+    values = {
+      "x_pull_in": 200.0,
+      "y_pull_in": 200.0,
+      "comb_pull_factor": 3.0,
+    }
+    if layer == "U":
+      values.update(
+        {
+          "bottom_foot_end": 1200,
+          "bottom_head_end": 401,
+          "top_foot_end": 1602,
+          "top_head_end": 2401,
+          "foot_bottom_end": 1201,
+          "foot_top_end": 1601,
+          "head_bottom_end": 400,
+          "head_top_end": 1,
+        }
+      )
+    return values
+
+  # ---------------------------------------------------------------------
+  def _eval_numeric_macro_expr(self, expression):
+    names = self._wrap_symbolic_numbers()
+
+    def _evaluate(node):
+      if isinstance(node, ast.Expression):
+        return _evaluate(node.body)
+      if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+      if isinstance(node, ast.Name):
+        if node.id not in names:
+          raise GCodeExecutionError("Unknown ~ macro symbol " + str(node.id) + ".", [expression])
+        return float(names[node.id])
+      if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        value = _evaluate(node.operand)
+        return value if isinstance(node.op, ast.UAdd) else -value
+      if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub)):
+        left = _evaluate(node.left)
+        right = _evaluate(node.right)
+        return left + right if isinstance(node.op, ast.Add) else left - right
+      raise GCodeExecutionError("Unsupported ~ macro expression.", [expression])
+
+    try:
+      parsed = ast.parse(str(expression).strip(), mode="eval")
+    except SyntaxError as exc:
+      raise GCodeExecutionError("Invalid ~ macro expression.", [expression]) from exc
+    return _evaluate(parsed)
+
+  # ---------------------------------------------------------------------
+  def _eval_pin_macro_expr(self, expression):
+    text = str(expression).strip()
+    normalized = text.upper()
+    if normalized.startswith(("PA", "PB", "PF", "A", "B", "F")) and normalized.replace("P", "", 1)[1:].isdigit():
+      return self._normalize_wrap_pin(text, label="~ macro pin")
+
+    match = _MACRO_CALL_RE.match(text)
+    if match is None:
+      raise GCodeExecutionError("Invalid ~ macro pin expression.", [expression])
+
+    name = match.group("name")
+    arguments = self._split_macro_arguments(match.group("args"))
+    if len(arguments) != 1:
+      raise GCodeExecutionError("~ pin macro requires exactly one argument.", [expression])
+    pin_number = int(round(self._eval_numeric_macro_expr(arguments[0])))
+    layer = self._layerCalibration.getLayerNames()
+    if name == "B":
+      return self._normalize_wrap_pin("B" + str(pin_number), label="~ macro pin")
+    if name == "BtoA":
+      return b_to_a_pin(layer, "B" + str(pin_number))
+    raise GCodeExecutionError("Unknown ~ pin macro " + str(name) + ".", [expression])
+
+  # ---------------------------------------------------------------------
+  def _nearest_transfer_xy(self, current_xy):
+    bounds = self._machineCalibration
+    return Point2D(
+      min(max(float(current_xy.x), float(bounds.transferLeft)), float(bounds.transferRight)),
+      min(max(float(current_xy.y), float(bounds.transferBottom)), float(bounds.transferTop)),
+    )
+
+  # ---------------------------------------------------------------------
+  def _tangent_view_final_xy(self, tangent_view, target_pin):
+    target_family = str(target_pin).strip().upper()[:1]
+    if tangent_view.alternating_plane == "xz":
+      plane_point = (
+        tangent_view.alternating_wrap_line_start
+        if target_family == "A"
+        else tangent_view.alternating_wrap_line_end
+      )
+      return Point2D(
+        float(plane_point.x),
+        float((tangent_view.pin_a_point.y + tangent_view.pin_b_point.y) / 2.0),
+      )
+    if tangent_view.alternating_plane == "yz":
+      plane_point = (
+        tangent_view.alternating_wrap_line_start
+        if target_family == "A"
+        else tangent_view.alternating_wrap_line_end
+      )
+      return Point2D(
+        float((tangent_view.pin_a_point.x + tangent_view.pin_b_point.x) / 2.0),
+        float(plane_point.y),
+      )
+    raise GCodeExecutionError("Alternating-side wrap did not produce a projection plane.", [target_pin])
+
+  # ---------------------------------------------------------------------
+  def _wire_space_pin_location(self, pin_name):
+    if self._layerCalibration is None:
+      raise GCodeExecutionError(
+        "G-Code request for calibrated move, but no layer calibration to use."
+      )
+    try:
+      pin = self._layerCalibration.getPinLocation(pin_name)
+    except KeyError:
+      data = [str(pin_name)]
+      raise GCodeExecutionError("Unknown pin " + str(pin_name) + ".", data)
+    return pin.add(self._layerCalibration.offset)
+
+  # ---------------------------------------------------------------------
+  def _normalize_wrap_pin(self, value, *, default_family=None, label="pin"):
+    text = str(value).strip().upper()
+    if text.startswith("P"):
+      text = text[1:]
+    if default_family is not None and text.isdigit():
+      text = str(default_family).strip().upper() + text
+    if text.startswith("F"):
+      text = "A" + text[1:]
+    if len(text) < 2 or text[:1] not in ("A", "B") or not text[1:].isdigit():
+      data = [str(value)]
+      raise GCodeExecutionError(
+        "G-Code " + str(label) + " must be a pin name like PA1601 or PB1201.",
+        data,
+      )
+    return text
+
+  # ---------------------------------------------------------------------
+  def _wrap_head_position(self, pin_name):
+    if str(pin_name).strip().upper().startswith("B"):
+      return 2
+    return 1
+
+  # ---------------------------------------------------------------------
+  def _effective_wrap_anchor_pin(self):
+    if self._wrapAnchorPin is not None:
+      return self._wrapAnchorPin
+    return self._lastWrappedPin
+
+  # ---------------------------------------------------------------------
+  def _set_wrap_anchor_pin(self, pin_name):
+    self._wrapAnchorPin = str(pin_name)
+
+  # ---------------------------------------------------------------------
+  def _queue_wrap_state_update(self, target_pin):
+    self._append_pending_action("wrap_state", target_pin=str(target_pin))
+
+  # ---------------------------------------------------------------------
+  def _parse_wrap_axis_parameters(self, function, *, operation):
+    result = {}
+    for parameter in function[1:]:
+      text = str(parameter).strip().upper()
+      if len(text) < 2 or text[:1] not in ("X", "Y"):
+        data = [str(parameter)]
+        raise GCodeExecutionError(
+          "G-Code " + str(operation) + " parameter must be PX... or PY...",
+          data,
+        )
+      axis = text[:1]
+      try:
+        value = float(text[1:])
+      except ValueError as exc:
+        data = [str(parameter)]
+        raise GCodeExecutionError(
+          "G-Code " + str(operation) + " parameter must be numeric.",
+          data,
+        ) from exc
+      result[axis] = value
+    if not result:
+      raise GCodeExecutionError(
+        "G-Code " + str(operation) + " requires at least one axis parameter.",
+        list(function),
+      )
+    return result
+
+  # ---------------------------------------------------------------------
+  def _plan_wrap_transition(self, target_pin):
+    anchor_pin = self._effective_wrap_anchor_pin()
+    if anchor_pin is None:
+      raise GCodeExecutionError(
+        "Wrap command requires an anchor pin set by G116 or a prior wrap.",
+        [str(target_pin)],
+      )
+
+    anchor_location = self._wire_space_pin_location(anchor_pin)
+    target_location = self._wire_space_pin_location(target_pin)
+    current_xy = None
+    if self._x is not None and self._y is not None:
+      current_xy = Point2D(float(self._x), float(self._y))
+
+    try:
+      plan = plan_wrap_transition(
+        layer=self._layerCalibration.getLayerNames(),
+        anchor_pin=anchor_pin,
+        target_pin=target_pin,
+        anchor_pin_point=Point3D(
+          float(anchor_location.x),
+          float(anchor_location.y),
+          float(anchor_location.z),
+        ),
+        target_pin_point=Point3D(
+          float(target_location.x),
+          float(target_location.y),
+          float(target_location.z),
+        ),
+        transfer_bounds=RectBounds(
+          left=float(self._machineCalibration.transferLeft),
+          top=float(self._machineCalibration.transferTop),
+          right=float(self._machineCalibration.transferRight),
+          bottom=float(self._machineCalibration.transferBottom),
+        ),
+        z_front=float(self._machineCalibration.zFront),
+        z_back=float(self._machineCalibration.zBack),
+        pin_radius=float(self._machineCalibration.pinDiameter) / 2.0,
+        head_arm_length=float(self._machineCalibration.headArmLength),
+        head_roller_radius=float(self._machineCalibration.headRollerRadius),
+        head_roller_gap=float(self._machineCalibration.headRollerGap),
+        current_xy=current_xy,
+      )
+    except UvWrapGeometryError as exc:
+      raise GCodeExecutionError(str(exc), [str(anchor_pin), str(target_pin)]) from exc
+
+    self._instruction_trace["enabled"] = True
+    self._record_instruction_trace_pin(
+      role="wrapAnchor",
+      pin_name=anchor_pin,
+      location=anchor_location,
+    )
+    self._record_instruction_trace_pin(
+      role="wrapTarget",
+      pin_name=target_pin,
+      location=target_location,
+    )
+
+    self._x = float(plan.final_xy.x)
+    self._y = float(plan.final_xy.y)
+    self._z = float(target_location.z)
+    self._headPosition = int(plan.head_position)
+    self._instruction_contains_x = True
+    self._instruction_contains_y = True
+    self._instruction_request_xy = True
+    self._instruction_request_head = True
+
+    if plan.transfer_required and plan.transfer_xy is not None:
+      self._append_pending_action(
+        "xy",
+        x=float(plan.transfer_xy.x),
+        y=float(plan.transfer_xy.y),
+      )
+      self._append_pending_action("head", head_position=int(plan.head_position))
+      self._append_pending_action(
+        "xy",
+        x=float(plan.final_xy.x),
+        y=float(plan.final_xy.y),
+      )
+    else:
+      self._append_pending_action(
+        "xy",
+        x=float(plan.final_xy.x),
+        y=float(plan.final_xy.y),
+      )
+      self._append_pending_action("head", head_position=int(plan.head_position))
+
+    self._queue_wrap_state_update(target_pin)
+
+  # ---------------------------------------------------------------------
+  def _plan_explicit_wrap_transition(self, anchor_pin, target_pin):
+    from dune_winder.machine.geometry.uv_tangency import (
+      compute_uv_tangent_view,
+      UvTangentViewRequest,
+    )
+
+    if self._layerCalibration is None:
+      raise GCodeExecutionError(
+        "G-Code request for calibrated move, but no layer calibration to use."
+      )
+
+    normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
+    normalized_target = self._normalize_wrap_pin(target_pin, label="target pin")
+
+    roller_arm_y_offsets = None
+    if (
+      self._machineCalibration is not None
+      and self._machineCalibration.rollerArmCalibration is not None
+    ):
+      roller_arm_y_offsets = self._machineCalibration.rollerArmCalibration.fitted_y_cals
+
+    tangent_view = compute_uv_tangent_view(
+      UvTangentViewRequest(
+        layer=self._layerCalibration.getLayerNames(),
+        pin_a=normalized_anchor,
+        pin_b=normalized_target,
+      ),
+      roller_arm_y_offsets=roller_arm_y_offsets,
+    )
+
+    self._instruction_trace["enabled"] = True
+    anchor_location = self._wire_space_pin_location(normalized_anchor)
+    target_location = self._wire_space_pin_location(normalized_target)
+    self._record_instruction_trace_pin(
+      role="wrapAnchor",
+      pin_name=normalized_anchor,
+      location=anchor_location,
+    )
+    self._record_instruction_trace_pin(
+      role="wrapTarget",
+      pin_name=normalized_target,
+      location=target_location,
+    )
+
+    head_position = 1 if normalized_target.startswith("A") else 2
+    clearance_position = 0 if normalized_target.startswith("A") else 3
+
+    if tangent_view.alternating_plane is None:
+      if tangent_view.arm_corrected_outbound_point is None:
+        raise GCodeExecutionError(
+          "Same-side wrap did not produce an arm-corrected outbound point.",
+          [normalized_anchor, normalized_target],
+        )
+      final_xy = Point2D(
+        float(tangent_view.arm_corrected_outbound_point.x),
+        float(tangent_view.arm_corrected_outbound_point.y),
+      )
+      self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+      self._append_pending_action("head_transfer", head_position=head_position)
+    else:
+      self._append_pending_action("head_transfer", head_position=clearance_position)
+      final_xy = self._tangent_view_final_xy(tangent_view, normalized_target)
+      self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+
+    self._x = float(final_xy.x)
+    self._y = float(final_xy.y)
+    self._z = float(self._getHeadPosition(
+      head_position if tangent_view.alternating_plane is None else clearance_position
+    ))
+    self._headPosition = int(
+      head_position if tangent_view.alternating_plane is None else clearance_position
+    )
+    self._instruction_contains_x = True
+    self._instruction_contains_y = True
+    self._instruction_request_xy = True
+    self._instruction_request_head = True
+
+  # ---------------------------------------------------------------------
+  def _run_macro_call(self, text):
+    raw_text = str(text).strip()
+    match = _MACRO_CALL_RE.match(raw_text)
+    if match is None:
+      raise GCodeExecutionError("Malformed ~ macro call.", [raw_text])
+    name = match.group("name")
+    arguments = self._split_macro_arguments(match.group("args"))
+
+    if name == "goto":
+      if len(arguments) != 2:
+        raise GCodeExecutionError("~goto requires two arguments.", [raw_text])
+      self._x = float(self._eval_numeric_macro_expr(arguments[0]))
+      self._y = float(self._eval_numeric_macro_expr(arguments[1]))
+      self._instruction_contains_x = True
+      self._instruction_contains_y = True
+      self._request_xy_move()
+      return
+
+    if name == "increment":
+      if len(arguments) != 2:
+        raise GCodeExecutionError("~increment requires two arguments.", [raw_text])
+      if self._x is None or self._y is None:
+        raise GCodeExecutionError("~increment requires a known current XY position.", [raw_text])
+      self._x += float(self._eval_numeric_macro_expr(arguments[0]))
+      self._y += float(self._eval_numeric_macro_expr(arguments[1]))
+      self._instruction_contains_x = True
+      self._instruction_contains_y = True
+      self._request_xy_move()
+      return
+
+    if name == "anchorToTarget":
+      if len(arguments) != 2:
+        raise GCodeExecutionError("~anchorToTarget requires two arguments.", [raw_text])
+      self._plan_explicit_wrap_transition(
+        self._eval_pin_macro_expr(arguments[0]),
+        self._eval_pin_macro_expr(arguments[1]),
+      )
+      return
+
+    raise GCodeExecutionError("Unknown ~ macro call " + str(name) + ".", [raw_text])
+
+  # ---------------------------------------------------------------------
   def _snapshot_interpreter_state(self):
     return {
       "_x": self._x,
@@ -232,6 +677,8 @@ class GCodeHandlerBase:
       "_wireLength": self._wireLength,
       "_maxVelocity": self._maxVelocity,
       "_velocity": self._velocity,
+      "_wrapAnchorPin": self._wrapAnchorPin,
+      "_lastWrappedPin": self._lastWrappedPin,
       "_functions": list(self._functions),
       "_headCompensation": copy.deepcopy(self._headCompensation),
     }
@@ -275,6 +722,13 @@ class GCodeHandlerBase:
 
   # ---------------------------------------------------------------------
   def _queue_instruction_actions(self):
+    if self._pending_actions:
+      if self._instruction_request_latch:
+        self._append_pending_action("latch")
+      if self._instruction_request_stop:
+        self._pending_stop_request = True
+      return
+
     if (
       self._instruction_request_xy
       and self._instruction_request_z
@@ -282,7 +736,7 @@ class GCodeHandlerBase:
       and not self._instruction_contains_y
       and self._instruction_contains_z
     ):
-      self._pending_actions.append("xz")
+      self._append_pending_action("xz")
       return
 
     if (
@@ -292,23 +746,23 @@ class GCodeHandlerBase:
       and not self._instruction_contains_x
       and self._instruction_contains_z
     ):
-      self._pending_actions.append("yz")
+      self._append_pending_action("yz")
       return
 
     if self._instruction_request_xy:
-      self._pending_actions.append("xy")
+      self._append_pending_action("xy")
 
     if self._instruction_request_z:
-      self._pending_actions.append("z")
+      self._append_pending_action("z")
 
     if self._instruction_request_head:
-      self._pending_actions.append("head")
+      self._append_pending_action("head")
 
     if self._instruction_request_head_transfer:
-      self._pending_actions.append("head_transfer")
+      self._append_pending_action("head_transfer")
 
     if self._instruction_request_latch:
-      self._pending_actions.append("latch")
+      self._append_pending_action("latch")
 
     if self._instruction_request_stop:
       self._pending_stop_request = True
@@ -331,6 +785,9 @@ class GCodeHandlerBase:
 
     for item in line.items:
       if isinstance(item, Comment):
+        continue
+      if isinstance(item, MacroCall):
+        self._run_macro_call(item.text)
         continue
       if isinstance(item, CommandWord):
         self._consume_command_word(item)
@@ -832,6 +1289,74 @@ class GCodeHandlerBase:
     self._instruction_queue_merge_mode = mode
 
   # ---------------------------------------------------------------------
+  def _wrapGoto(self, function):
+    parameters = self._parse_wrap_axis_parameters(function, operation="wrap goto")
+    if "X" in parameters:
+      self._x = float(parameters["X"])
+      self._instruction_contains_x = True
+    if "Y" in parameters:
+      self._y = float(parameters["Y"])
+      self._instruction_contains_y = True
+    self._request_xy_move()
+
+  # ---------------------------------------------------------------------
+  def _wrapIncrement(self, function):
+    if self._x is None or self._y is None:
+      raise GCodeExecutionError(
+        "Wrap increment requires a known current XY position.",
+        list(function),
+      )
+    parameters = self._parse_wrap_axis_parameters(function, operation="wrap increment")
+    if "X" in parameters:
+      self._x += float(parameters["X"])
+      self._instruction_contains_x = True
+    if "Y" in parameters:
+      self._y += float(parameters["Y"])
+      self._instruction_contains_y = True
+    self._request_xy_move()
+
+  # ---------------------------------------------------------------------
+  def _wrapAnchor(self, function):
+    raw_pin = self._parameterExtract(function, 1, None, str, "wrap anchor")
+    pin_name = self._normalize_wrap_pin(raw_pin, label="wrap anchor")
+    self._wire_space_pin_location(pin_name)
+    self._set_wrap_anchor_pin(pin_name)
+
+  # ---------------------------------------------------------------------
+  def _wrapB(self, function):
+    raw_pin = self._parameterExtract(function, 1, None, str, "wrap B")
+    target_pin = self._normalize_wrap_pin(raw_pin, default_family="B", label="wrap B")
+    if not target_pin.startswith("B"):
+      raise GCodeExecutionError(
+        "Wrap B requires a B-side pin.",
+        [str(raw_pin)],
+      )
+    self._plan_wrap_transition(target_pin)
+
+  # ---------------------------------------------------------------------
+  def _wrapBToA(self, function):
+    if self._layerCalibration is None:
+      raise GCodeExecutionError(
+        "G-Code request for calibrated move, but no layer calibration to use."
+      )
+    raw_pin = self._parameterExtract(function, 1, None, str, "wrap BtoA")
+    b_pin = self._normalize_wrap_pin(
+      raw_pin,
+      default_family="B",
+      label="wrap BtoA",
+    )
+    if not b_pin.startswith("B"):
+      raise GCodeExecutionError(
+        "Wrap BtoA requires a B-side pin.",
+        [str(raw_pin)],
+      )
+    try:
+      target_pin = b_to_a_pin(self._layerCalibration.getLayerNames(), b_pin)
+    except UvWrapGeometryError as exc:
+      raise GCodeExecutionError(str(exc), [str(b_pin)]) from exc
+    self._plan_wrap_transition(target_pin)
+
+  # ---------------------------------------------------------------------
 
   # ------------------------------------
   # Look-up table of all G-Code functions.
@@ -852,6 +1377,11 @@ class GCodeHandlerBase:
     Opcode.BREAK_POINT: _break,
     Opcode.TENSION_TESTING: _tensionTesting,
     Opcode.QUEUE_MERGE: _queueMerge,
+    Opcode.WRAP_GOTO: _wrapGoto,
+    Opcode.WRAP_INCREMENT: _wrapIncrement,
+    Opcode.WRAP_ANCHOR: _wrapAnchor,
+    Opcode.WRAP_B: _wrapB,
+    Opcode.WRAP_B_TO_A: _wrapBToA,
   }
 
   # ---------------------------------------------------------------------
@@ -997,6 +1527,8 @@ class GCodeHandlerBase:
     # Velocity.
     self._maxVelocity = float("inf")  # <- No limit.
     self._velocity = float("inf")
+    self._wrapAnchorPin = None
+    self._lastWrappedPin = None
 
     self._layerCalibration = None
     self._machineCalibration = machineCalibration

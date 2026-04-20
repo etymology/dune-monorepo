@@ -625,6 +625,14 @@ def build_command_registry(
     lambda args: (_validateArgs(args), process.uTemplateRecipe.generateRecipeFile())[1],
     True,
   )
+  registry.register(
+    "process.u_template.generate_recipe_file_wrapping",
+    lambda args: (
+      _validateArgs(args),
+      process.uTemplateRecipe.generateRecipeFile(scriptVariant="wrapping"),
+    )[1],
+    True,
+  )
 
   # ---------------------------------------------------------------------------
   # Additional commands used by migrated UI pages.
@@ -950,6 +958,191 @@ def build_command_registry(
   registry.register(
     "machine.save_calibration",
     lambda args: (_validateArgs(args), machineCalibration.save())[1],
+    True,
+  )
+
+  def machine_compute_roller_y_cal(args):
+    from dune_winder.gcode.model import Opcode
+    from dune_winder.machine.geometry.uv_tangency import (
+      compute_uv_tangent_view,
+      UvTangentViewRequest,
+      Point2D,
+    )
+    from dune_winder.machine.calibration.roller_arm import (
+      compute_roller_y_cal as compute_y_cal,
+    )
+    import re
+
+    _validateArgs(args, required=("gcode_line", "actual_x", "actual_y", "layer"))
+
+    gcode_line = _asString(args["gcode_line"], "gcode_line")
+    actual_x = _asFloat(args["actual_x"], "actual_x")
+    actual_y = _asFloat(args["actual_y"], "actual_y")
+    layer = _asString(args["layer"], "layer").upper()
+
+    match = re.match(r"~anchorToTarget\(([A-B]\d+),([A-B]\d+)\)", gcode_line)
+    if not match:
+      raise ValueError("gcode_line must match ~anchorToTarget(pinA,pinB)")
+    anchor_pin, target_pin = match.groups()
+
+    tangent_view = compute_uv_tangent_view(
+      UvTangentViewRequest(layer=layer, pin_a=anchor_pin, pin_b=target_pin)
+    )
+
+    if tangent_view.arm_corrected_available is False:
+      raise ValueError(
+        f"Arm correction not available: {tangent_view.arm_corrected_error}"
+      )
+
+    tangent_point_a = tangent_view.runtime_tangent_point
+    if tangent_point_a is None:
+      tangent_point_a = tangent_view.clipped_segment_start
+    direction = Point2D(
+      tangent_view.clipped_segment_end.x - tangent_view.clipped_segment_start.x,
+      tangent_view.clipped_segment_end.y - tangent_view.clipped_segment_start.y,
+    )
+    dir_len = (direction.x**2 + direction.y**2) ** 0.5
+    unit_direction = Point2D(direction.x / dir_len, direction.y / dir_len)
+    normal_candidates = (
+      Point2D(-unit_direction.y, unit_direction.x),
+      Point2D(unit_direction.y, -unit_direction.x),
+    )
+    tangent_y_side = 1 if (tangent_view.runtime_target_point.y - tangent_view.pin_a_point.y) < 0 else -1
+    normal = next(
+      (n for n in normal_candidates if (n.y > 0) == (tangent_y_side > 0)),
+      normal_candidates[0],
+    )
+
+    roller_index = tangent_view.arm_corrected_selected_roller_index
+    y_sign = -1 if roller_index in (0, 2) else 1
+
+    y_cal = compute_y_cal(
+      actual_pos=Point2D(actual_x, actual_y),
+      tangent_point_a=tangent_point_a,
+      unit_direction=unit_direction,
+      normal=normal,
+      roller_index=roller_index,
+      head_arm_length=float(machineCalibration.headArmLength),
+      head_roller_radius=float(machineCalibration.headRollerRadius),
+      y_sign=y_sign,
+    )
+
+    nominal_y = (float(machineCalibration.headRollerGap) / 2.0) + float(
+      machineCalibration.headRollerRadius
+    )
+    y_cal_delta = y_cal - nominal_y
+
+    quadrant_names = {
+      (0, -1): "+x,-y",
+      (0, 1): "+x,+y",
+      (1, -1): "-x,-y",
+      (1, 1): "-x,+y",
+    }
+    x_sign = -1 if roller_index in (0, 1) else 1
+    quadrant = quadrant_names.get((x_sign, y_sign), "unknown")
+
+    return {
+      "roller_index": roller_index,
+      "quadrant": quadrant,
+      "y_cal": y_cal,
+      "y_cal_delta": y_cal_delta,
+      "y_sign": y_sign,
+      "anchor_pin": anchor_pin,
+      "target_pin": target_pin,
+    }
+
+  registry.register(
+    "machine.compute_roller_y_cal",
+    machine_compute_roller_y_cal,
+    False,
+  )
+
+  def machine_add_roller_arm_measurement(args):
+    from dune_winder.machine.calibration.roller_arm import (
+      RollerArmMeasurement,
+      fit_roller_arm,
+      RollerArmCalibration,
+    )
+
+    result = machine_compute_roller_y_cal(args)
+    gcode_line = _asString(args["gcode_line"], "gcode_line")
+    layer = _asString(args["layer"], "layer").upper()
+
+    measurement = RollerArmMeasurement(
+      gcode_line=gcode_line,
+      layer=layer,
+      actual_x=_asFloat(args["actual_x"], "actual_x"),
+      actual_y=_asFloat(args["actual_y"], "actual_y"),
+      roller_index=result["roller_index"],
+      y_cal=result["y_cal"],
+    )
+
+    current_cal = machineCalibration.rollerArmCalibration
+    if current_cal is None:
+      measurements = [measurement]
+    else:
+      measurements = list(current_cal.measurements) + [measurement]
+
+    nominal_y = (float(machineCalibration.headRollerGap) / 2.0) + float(
+      machineCalibration.headRollerRadius
+    )
+    fitted_y_cals, center_displacement, arm_tilt = fit_roller_arm(
+      measurements,
+      head_arm_length=float(machineCalibration.headArmLength),
+      nominal_y=nominal_y,
+    )
+
+    new_cal = RollerArmCalibration(
+      measurements=measurements,
+      fitted_y_cals=fitted_y_cals,
+      center_displacement=center_displacement,
+      arm_tilt_rad=arm_tilt,
+    )
+    machineCalibration.rollerArmCalibration = new_cal
+    machineCalibration.save()
+
+    return machine_get_roller_arm_calibration(args)
+
+  registry.register(
+    "machine.add_roller_arm_measurement",
+    machine_add_roller_arm_measurement,
+    True,
+  )
+
+  def machine_get_roller_arm_calibration(args):
+    from dune_winder.machine.calibration.roller_arm import (
+      roller_arm_calibration_to_dict,
+    )
+
+    _validateArgs(args)
+    if machineCalibration.rollerArmCalibration is None:
+      return {
+        "measurements": [],
+        "fitted_y_cals": [
+          (float(machineCalibration.headRollerGap) / 2.0)
+          + float(machineCalibration.headRollerRadius)
+        ]
+        * 4,
+        "center_displacement": 0.0,
+        "arm_tilt_rad": 0.0,
+      }
+    return roller_arm_calibration_to_dict(machineCalibration.rollerArmCalibration)
+
+  registry.register(
+    "machine.get_roller_arm_calibration",
+    machine_get_roller_arm_calibration,
+    False,
+  )
+
+  def machine_clear_roller_arm_calibration(args):
+    _validateArgs(args)
+    machineCalibration.rollerArmCalibration = None
+    machineCalibration.save()
+    return machine_get_roller_arm_calibration(args)
+
+  registry.register(
+    "machine.clear_roller_arm_calibration",
+    machine_clear_roller_arm_calibration,
     True,
   )
 
