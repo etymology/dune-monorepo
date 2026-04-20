@@ -962,7 +962,6 @@ def build_command_registry(
   )
 
   def machine_compute_roller_y_cal(args):
-    from dune_winder.gcode.model import Opcode
     from dune_winder.machine.geometry.uv_tangency import (
       compute_uv_tangent_view,
       UvTangentViewRequest,
@@ -1007,7 +1006,10 @@ def build_command_registry(
       Point2D(-unit_direction.y, unit_direction.x),
       Point2D(unit_direction.y, -unit_direction.x),
     )
-    tangent_y_side = 1 if (tangent_view.runtime_target_point.y - tangent_view.pin_a_point.y) < 0 else -1
+    target_y_diff = (
+      tangent_view.runtime_target_point.y - tangent_view.pin_a_point.y
+    )
+    tangent_y_side = 1 if target_y_diff < 0 else -1
     normal = next(
       (n for n in normal_candidates if (n.y > 0) == (tangent_y_side > 0)),
       normal_candidates[0],
@@ -1083,9 +1085,9 @@ def build_command_registry(
     else:
       measurements = list(current_cal.measurements) + [measurement]
 
-    nominal_y = (float(machineCalibration.headRollerGap) / 2.0) + float(
-      machineCalibration.headRollerRadius
-    )
+    head_roller_radius = float(machineCalibration.headRollerRadius)
+    head_roller_gap = float(machineCalibration.headRollerGap)
+    nominal_y = (head_roller_gap / 2.0) + head_roller_radius
     fitted_y_cals, center_displacement, arm_tilt = fit_roller_arm(
       measurements,
       head_arm_length=float(machineCalibration.headArmLength),
@@ -1116,17 +1118,18 @@ def build_command_registry(
 
     _validateArgs(args)
     if machineCalibration.rollerArmCalibration is None:
+      head_roller_radius = float(machineCalibration.headRollerRadius)
+      head_roller_gap = float(machineCalibration.headRollerGap)
+      nominal_y_offset = (head_roller_gap / 2.0) + head_roller_radius
       return {
         "measurements": [],
-        "fitted_y_cals": [
-          (float(machineCalibration.headRollerGap) / 2.0)
-          + float(machineCalibration.headRollerRadius)
-        ]
-        * 4,
+        "fitted_y_cals": [nominal_y_offset] * 4,
         "center_displacement": 0.0,
         "arm_tilt_rad": 0.0,
       }
-    return roller_arm_calibration_to_dict(machineCalibration.rollerArmCalibration)
+    return roller_arm_calibration_to_dict(
+      machineCalibration.rollerArmCalibration
+    )
 
   registry.register(
     "machine.get_roller_arm_calibration",

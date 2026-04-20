@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
-import math
 from typing import NamedTuple
 
 
@@ -71,7 +69,8 @@ def compute_roller_y_cal(
   denominator = normal.y * y_sign
 
   if abs(denominator) < 1e-9:
-    raise ValueError(f"Cannot solve y_cal: degenerate normal (n.y={normal.y}, y_sign={y_sign})")
+    msg = f"Cannot solve y_cal: degenerate normal (n.y={normal.y}, y_sign={y_sign})"
+    raise ValueError(msg)
 
   return numerator / denominator
 
@@ -156,7 +155,11 @@ def roller_arm_calibration_from_dict(data: dict) -> RollerArmCalibration:
     )
     for m in data.get("measurements", [])
   ]
-  fitted_y_cals = tuple(float(y) for y in data.get("fitted_y_cals", [0.0, 0.0, 0.0, 0.0]))
+  raw_y_cals = data.get("fitted_y_cals", [0.0, 0.0, 0.0, 0.0])
+  fitted_y_cals_list = [float(y) for y in raw_y_cals]
+  while len(fitted_y_cals_list) < 4:
+    fitted_y_cals_list.append(0.0)
+  fitted_y_cals = tuple(fitted_y_cals_list[:4])
   return RollerArmCalibration(
     measurements=measurements,
     fitted_y_cals=fitted_y_cals,
@@ -185,12 +188,12 @@ def _predict_all_rollers(
   y_cal[i] = nominal_y + dy[i]
   dy[i] = -delta_y + head_arm_length * theta * y_sign[i]
   """
-  y_cals = []
+  y_cals: list[float] = []
   for roller_index in range(4):
     y_sign = _y_sign_for_index(roller_index)
     dy = -delta_y + head_arm_length * theta * y_sign
     y_cals.append(nominal_y + dy)
-  return tuple(y_cals)
+  return (y_cals[0], y_cals[1], y_cals[2], y_cals[3])
 
 
 def _least_squares_fit(A: list[list[float]], b: list[float]) -> tuple[float, float]:
@@ -201,8 +204,6 @@ def _least_squares_fit(A: list[list[float]], b: list[float]) -> tuple[float, flo
   """
   if not A or not b:
     return 0.0, 0.0
-
-  At = [[A[i][j] for i in range(len(A))] for j in range(2)]
 
   ATA_00 = sum(A[i][0] * A[i][0] for i in range(len(A)))
   ATA_01 = sum(A[i][0] * A[i][1] for i in range(len(A)))
