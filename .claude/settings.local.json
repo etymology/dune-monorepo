@@ -1,4 +1,9 @@
 {
+  "env": {
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1"
+  },
   "permissions": {
     "allow": [
       "Bash(for d:*)",
@@ -28,12 +33,8 @@
       "Bash(python -m pytest tests/dune_winder/gcode/ -v -k \"wrap\")",
       "Bash(python -m pytest tests/dune_winder/test_wrap_runtime.py -v)",
       "Bash(python -m pytest tests/dune_winder/test_manual_calibration.py tests/dune_winder/test_template_recipe_persistence.py -xvs)",
-      "Skill(glm-plan-usage:usage-query-skill)"
+      "Skill(glm-plan-usage:usage-query-skill)",
+      "Bash(git add *)"
     ]
-  },
-  "env": {
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1"
   }
 }
