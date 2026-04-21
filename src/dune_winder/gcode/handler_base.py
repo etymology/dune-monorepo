@@ -44,6 +44,7 @@ from dune_winder.machine.geometry.uv_wrap_geometry import (
   Point2D,
   Point3D,
   RectBounds,
+  alternating_side_hover_y_offset,
   plan_wrap_transition,
   UvWrapGeometryError,
   b_to_a_pin,
@@ -363,6 +364,18 @@ class GCodeHandlerBase:
     raise GCodeExecutionError("Alternating-side wrap did not produce a projection plane.", [target_pin])
 
   # ---------------------------------------------------------------------
+  def _apply_alternating_hover_offset(self, tangent_view, final_xy):
+    if tangent_view.alternating_plane is None:
+      return final_xy
+    if tangent_view.alternating_face is None:
+      raise GCodeExecutionError(
+        "Alternating-side wrap did not produce a face for hover handling.",
+        [tangent_view.request.pin_a, tangent_view.request.pin_b],
+      )
+    hover_offset_y = alternating_side_hover_y_offset(tangent_view.alternating_face)
+    return Point2D(float(final_xy.x), float(final_xy.y) + float(hover_offset_y))
+
+  # ---------------------------------------------------------------------
   def _wire_space_pin_location(self, pin_name):
     if self._layerCalibration is None:
       raise GCodeExecutionError(
@@ -531,7 +544,13 @@ class GCodeHandlerBase:
     self._queue_wrap_state_update(target_pin)
 
   # ---------------------------------------------------------------------
-  def _plan_explicit_wrap_transition(self, anchor_pin, target_pin, target_offset=None):
+  def _plan_explicit_wrap_transition(
+    self,
+    anchor_pin,
+    target_pin,
+    target_offset=None,
+    hover=False,
+  ):
     if self._layerCalibration is None:
       raise GCodeExecutionError(
         "G-Code request for calibrated move, but no layer calibration to use."
@@ -606,6 +625,8 @@ class GCodeHandlerBase:
     else:
       self._append_pending_action("head_transfer", head_position=clearance_position)
       final_xy = self._tangent_view_final_xy(tangent_view, normalized_target)
+      if hover:
+        final_xy = self._apply_alternating_hover_offset(tangent_view, final_xy)
       self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
 
     self._x = float(final_xy.x)
@@ -655,39 +676,61 @@ class GCodeHandlerBase:
       return
 
     if name == "anchorToTarget":
-      if len(arguments) not in (2, 3):
+      if len(arguments) < 2:
         raise GCodeExecutionError(
-          "~anchorToTarget requires two pin arguments and an optional offset keyword.",
+          "~anchorToTarget requires two pin arguments and optional hover/offset keywords.",
           [raw_text],
         )
       target_offset = None
-      if len(arguments) == 3:
-        keyword = str(arguments[2]).strip()
-        if not keyword.lower().startswith("offset="):
+      hover = False
+      for keyword in arguments[2:]:
+        keyword_text = str(keyword).strip()
+        if "=" not in keyword_text:
           raise GCodeExecutionError(
-            "~anchorToTarget third argument must be offset=(x,y).",
+            "~anchorToTarget keyword arguments must be written as name=value.",
             [raw_text],
           )
-        offset_expression = keyword.split("=", 1)[1].strip()
-        if not offset_expression.startswith("(") or not offset_expression.endswith(")"):
+        keyword_name, keyword_value = keyword_text.split("=", 1)
+        keyword_name = keyword_name.strip().lower()
+        keyword_value = keyword_value.strip()
+        if keyword_name == "offset":
+          if not keyword_value.startswith("(") or not keyword_value.endswith(")"):
+            raise GCodeExecutionError(
+              "~anchorToTarget offset must be written as offset=(x,y).",
+              [raw_text],
+            )
+          offset_values = self._split_macro_arguments(keyword_value[1:-1])
+          if len(offset_values) != 2:
+            raise GCodeExecutionError(
+              "~anchorToTarget offset requires exactly two values.",
+              [raw_text],
+            )
+          target_offset = (
+            float(self._eval_numeric_macro_expr(offset_values[0])),
+            float(self._eval_numeric_macro_expr(offset_values[1])),
+          )
+          continue
+        if keyword_name == "hover":
+          hover_value = keyword_value.lower()
+          if hover_value in ("true", "1", "yes", "on"):
+            hover = True
+            continue
+          if hover_value in ("false", "0", "no", "off"):
+            hover = False
+            continue
           raise GCodeExecutionError(
-            "~anchorToTarget offset must be written as offset=(x,y).",
+            "~anchorToTarget hover must be written as hover=True or hover=False.",
             [raw_text],
           )
-        offset_values = self._split_macro_arguments(offset_expression[1:-1])
-        if len(offset_values) != 2:
-          raise GCodeExecutionError(
-            "~anchorToTarget offset requires exactly two values.",
-            [raw_text],
-          )
-        target_offset = (
-          float(self._eval_numeric_macro_expr(offset_values[0])),
-          float(self._eval_numeric_macro_expr(offset_values[1])),
+        raise GCodeExecutionError(
+          "~anchorToTarget only supports offset and hover keyword arguments.",
+          [raw_text],
         )
       self._plan_explicit_wrap_transition(
         self._eval_pin_macro_expr(arguments[0]),
         self._eval_pin_macro_expr(arguments[1]),
         target_offset=target_offset,
+        hover=hover,
       )
       return
 

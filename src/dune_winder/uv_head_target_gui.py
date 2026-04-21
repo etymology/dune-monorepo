@@ -5,6 +5,7 @@ from functools import lru_cache
 import math
 import tkinter as tk
 
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.machine.geometry.uv_tangency import (
   Point2D,
   RectBounds,
@@ -41,16 +42,17 @@ _SEGMENTS_PER_WRAP = 12
 @lru_cache(maxsize=1)
 def _u_pin_sequence() -> tuple[str, ...]:
   """Pin trajectory for the U layer: 400 wraps * 12 positions per wrap."""
-  bottom_foot_end = 1200
-  bottom_head_end = 401
-  top_foot_end = 1602
-  top_head_end = 2401
-  foot_bottom_end = 1201
-  head_bottom_end = 400
-  head_top_end = 1
+  layout = get_uv_layout("U")
+  np = layout.named_pins
+  foot_bottom_end = np["foot_bottom_end"]
+  top_foot_end = np["top_foot_end"]
+  bottom_head_end = np["bottom_head_end"]
+  bottom_foot_end = np["bottom_foot_end"]
+  head_bottom_end = np["head_bottom_end"]
+  top_head_end = np["top_head_end"]
 
   def b_to_a(pin: int) -> str:
-    return f"A{1 + ((400 - pin) % 2401)}"
+    return f"A{layout.b_to_a_pin_number(pin)}"
 
   def b(pin: int) -> str:
     return f"B{pin}"
@@ -75,15 +77,17 @@ def _u_pin_sequence() -> tuple[str, ...]:
 @lru_cache(maxsize=1)
 def _v_pin_sequence() -> tuple[str, ...]:
   """Pin trajectory for the V layer: 400 wraps * 12 positions per wrap."""
-  bottom_foot_end = 1199
-  bottom_head_end = 400
-  top_foot_end = 1600
-  top_head_end = 2399
-  foot_bottom_end = 1200
-  head_bottom_end = 399
+  layout = get_uv_layout("V")
+  np = layout.named_pins
+  bottom_foot_end = np["bottom_foot_end"]
+  bottom_head_end = np["bottom_head_end"]
+  top_foot_end = np["top_foot_end"]
+  top_head_end = np["top_head_end"]
+  foot_bottom_end = np["foot_bottom_end"]
+  head_bottom_end = np["head_bottom_end"]
 
   def b_to_a(pin: int) -> str:
-    return f"A{1 + ((399 - pin) % 2399)}"
+    return f"A{layout.b_to_a_pin_number(pin)}"
 
   def b(pin: int) -> str:
     return f"B{pin}"
