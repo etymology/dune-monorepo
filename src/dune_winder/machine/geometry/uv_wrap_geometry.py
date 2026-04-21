@@ -11,6 +11,7 @@ from dune_winder.queued_motion.filleted_path import (
 
 
 _AXIS_EPSILON = 1e-9
+ALTERNATING_SIDE_HOVER_Y = 5.0
 
 
 class UvWrapGeometryError(ValueError):
@@ -137,6 +138,15 @@ def _alternating_plane_for_face(face: str) -> str:
   if face_value in ("head", "foot"):
     return "yz"
   raise UvWrapGeometryError(f"Unsupported face {face!r} for alternating-side view.")
+
+
+def alternating_side_hover_y_offset(face: str, hover_y: float = ALTERNATING_SIDE_HOVER_Y) -> float:
+  face_value = str(face).strip().lower()
+  if face_value in ("top", "head"):
+    return float(hover_y)
+  if face_value in ("bottom", "foot"):
+    return -float(hover_y)
+  raise UvWrapGeometryError(f"Unsupported face {face!r} for alternating-side hover.")
 
 
 def _project_point3_to_plane(point: Point3D, plane: str) -> Point2D:
@@ -769,6 +779,7 @@ __all__ = [
   "Point3D",
   "RectBounds",
   "UvWrapGeometryError",
+  "ALTERNATING_SIDE_HOVER_Y",
   "WrapTransitionPlan",
   "_arm_correction_head_shift_signs",
   "_arm_correction_tangent_y_side",
@@ -785,6 +796,7 @@ __all__ = [
   "_select_tangent_solution",
   "_tangent_candidates_for_pin_pair",
   "b_to_a_pin",
+  "alternating_side_hover_y_offset",
   "face_for_pin",
   "matches_tangent_sides",
   "pin_family",
