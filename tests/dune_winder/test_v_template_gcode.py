@@ -30,7 +30,7 @@ class VTemplateGCodeTests(unittest.TestCase):
   def test_pb_pf_tokens_wrap_back_into_valid_pin_range(self):
     self.assertEqual(
       _normalize_pin_tokens("G103 PB2401 PA2402 PB0 PF-1 PA1 PBL PRT"),
-      "G103 PB1 PA2 PB2400 PA2400 PA1 PBL PRT",
+      "G103 PB2 PA3 PB2399 PA2398 PA1 PBL PRT",
     )
 
   def test_default_render_matches_expected_spec_edges(self):

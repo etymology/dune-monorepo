@@ -96,3 +96,59 @@ def test_build_nominal_uv_calibration_matches_layout_nominal_positions():
     nominal["B1"].y,
     nominal["B1"].z,
   )
+
+
+def test_named_pins_derived_from_side_ranges():
+  u_np = get_uv_layout("U").named_pins
+  v_np = get_uv_layout("V").named_pins
+
+  assert u_np == {
+    "bottom_foot_end": 1200,
+    "bottom_head_end": 401,
+    "top_foot_end": 1602,
+    "top_head_end": 2401,
+    "foot_bottom_end": 1201,
+    "foot_top_end": 1601,
+    "head_bottom_end": 400,
+    "head_top_end": 1,
+  }
+  assert v_np == {
+    "bottom_foot_end": 1199,
+    "bottom_head_end": 400,
+    "top_foot_end": 1600,
+    "top_head_end": 2399,
+    "foot_bottom_end": 1200,
+    "foot_top_end": 1599,
+    "head_bottom_end": 399,
+    "head_top_end": 1,
+  }
+
+
+def test_wrap_pin_wraps_into_valid_range():
+  u_layout = get_uv_layout("U")
+  v_layout = get_uv_layout("V")
+
+  assert u_layout.wrap_pin(1) == 1
+  assert u_layout.wrap_pin(2401) == 2401
+  assert u_layout.wrap_pin(2402) == 1
+  assert u_layout.wrap_pin(0) == 2401
+  assert u_layout.wrap_pin(-1) == 2400
+
+  assert v_layout.wrap_pin(1) == 1
+  assert v_layout.wrap_pin(2399) == 2399
+  assert v_layout.wrap_pin(2400) == 1
+  assert v_layout.wrap_pin(0) == 2399
+  assert v_layout.wrap_pin(-1) == 2398
+
+
+def test_b_to_a_pin_number_matches_recipe_formula():
+  u_layout = get_uv_layout("U")
+  v_layout = get_uv_layout("V")
+
+  assert u_layout.b_to_a_pin_number(400) == 1
+  assert u_layout.b_to_a_pin_number(1) == 400
+  assert u_layout.b_to_a_pin_number(401) == 2401
+
+  assert v_layout.b_to_a_pin_number(399) == 1
+  assert v_layout.b_to_a_pin_number(1) == 399
+  assert v_layout.b_to_a_pin_number(400) == 2399
