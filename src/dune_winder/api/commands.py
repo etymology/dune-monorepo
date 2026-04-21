@@ -978,10 +978,13 @@ def build_command_registry(
     actual_y = _asFloat(args["actual_y"], "actual_y")
     layer = _asString(args["layer"], "layer").upper()
 
-    match = re.match(r"~anchorToTarget\(([A-B]\d+),([A-B]\d+)\)", gcode_line)
+    match = re.match(
+      r"~anchorToTarget\(([A-B]\d+),([A-B]\d+)(?:,offset=\([^)]+\))?\)",
+      gcode_line,
+    )
     if not match:
       raise ValueError(
-        f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB)"
+        f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)])"
       )
     anchor_pin, target_pin = match.groups()
 

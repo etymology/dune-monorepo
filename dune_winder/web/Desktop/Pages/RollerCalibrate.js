@@ -63,7 +63,15 @@ function RollerCalibrate(modules) {
         if (lines && lines.length > 0 && lines[0]) {
           lineText = lines[0];
         }
-        $("#rollerCalibrateGCodeLine").val(lineText);
+        var match = lineText.match(/~anchorToTarget\((.*)\)/);
+        if (!match) {
+          $("#rollerCalibrateError")
+            .text("Last G-code line does not contain an ~anchorToTarget command.")
+            .removeClass("hidden");
+          return;
+        }
+        $("#rollerCalibrateError").addClass("hidden");
+        $("#rollerCalibrateGCodeLine").val(match[0]);
       });
     });
   }
