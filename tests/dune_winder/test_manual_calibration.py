@@ -69,7 +69,9 @@ class FakeGCodeHandler:
 
 
 class FakeAPA:
-  def __init__(self, layer, path, calibrationDirectory, recipeDirectory, recipeArchiveDirectory):
+  def __init__(
+    self, layer, path, calibrationDirectory, recipeDirectory, recipeArchiveDirectory
+  ):
     self._layer = layer
     self._path = path
     self._calibrationDirectory = calibrationDirectory
@@ -141,7 +143,9 @@ class FakeProcess:
     self.controlStateMachine = FakeControlStateMachine(True)
     self._io = FakeIO()
     self.gCodeHandler = FakeGCodeHandler()
-    self.workspace = FakeAPA(layer, apaPath, calibrationDirectory, recipeDirectory, recipeArchiveDirectory)
+    self.workspace = FakeAPA(
+      layer, apaPath, calibrationDirectory, recipeDirectory, recipeArchiveDirectory
+    )
     self.workspace._gCodeHandler = self.gCodeHandler
     self.seekCalls = []
     self._xBacklash = XBacklashCompensation(configuration.xBacklashCompensationMm)
@@ -149,7 +153,14 @@ class FakeProcess:
   def getRecipeLayer(self):
     return self.workspace.getLayer()
 
-  def manualSeekXY(self, xPosition=None, yPosition=None, velocity=None, acceleration=None, deceleration=None):
+  def manualSeekXY(
+    self,
+    xPosition=None,
+    yPosition=None,
+    velocity=None,
+    acceleration=None,
+    deceleration=None,
+  ):
     self.seekCalls.append((xPosition, yPosition, velocity, acceleration, deceleration))
     return False
 
@@ -165,12 +176,15 @@ def _create_process(layer, rootDirectory):
   os.makedirs(recipeArchiveDirectory, exist_ok=True)
 
   import pathlib
+
   configuration = AppConfig.load(pathlib.Path(rootDirectory) / "configuration.toml")
   configuration.save()
 
   if layer in ("U", "V"):
     liveCalibration = build_nominal_calibration(layer)
-    liveCalibration.save(calibrationDirectory, layer + "_Calibration.xml", "LayerCalibration")
+    liveCalibration.save(
+      calibrationDirectory, layer + "_Calibration.xml", "LayerCalibration"
+    )
 
   return FakeProcess(
     layer,
@@ -266,10 +280,10 @@ class ManualCalibrationTests(unittest.TestCase):
 
   def test_nominal_calibration_uses_layer_specific_z_defaults(self):
     expected = {
-      "U": (145.0, 270.0),
-      "V": (150.0, 265.0),
-      "X": (155.0, 260.0),
-      "G": (140.0, 275.0),
+      "G": (145.0, 285.0),
+      "U": (150.0, 280.0),
+      "V": (155.0, 275.0),
+      "X": (160.0, 270.0),
     }
 
     for layer, (z_front, z_back) in expected.items():
@@ -288,7 +302,9 @@ class ManualCalibrationTests(unittest.TestCase):
         "B1",
         SerializableLocation(livePin.x + 50.0, livePin.y - 25.0, livePin.z),
       )
-      liveCalibration.save(process._workspaceCalibrationDirectory, "U_Calibration.xml", "LayerCalibration")
+      liveCalibration.save(
+        process._workspaceCalibrationDirectory, "U_Calibration.xml", "LayerCalibration"
+      )
 
       service = ManualCalibration(process)
       nominalPin = build_nominal_calibration("U").getPinLocation("B1")
@@ -315,7 +331,9 @@ class ManualCalibrationTests(unittest.TestCase):
       baselineBack = calibration.getPinLocation("B1")
       calibration.setPinLocation(
         "B1",
-        SerializableLocation(baselineBack.x + 25.0, baselineBack.y - 12.0, baselineBack.z),
+        SerializableLocation(
+          baselineBack.x + 25.0, baselineBack.y - 12.0, baselineBack.z
+        ),
       )
       process.workspace._useCalibration(calibration, "U_Custom_Calibration.xml")
 
@@ -433,22 +451,30 @@ class ManualCalibrationTests(unittest.TestCase):
       saveResult = service.saveLive()
       self.assertTrue(saveResult["ok"])
 
-      savedPath = os.path.join(process._workspaceCalibrationDirectory, "U_Calibration.json")
+      savedPath = os.path.join(
+        process._workspaceCalibrationDirectory, "U_Calibration.json"
+      )
       self.assertTrue(os.path.isfile(savedPath))
       self.assertIsNotNone(process.gCodeHandler.currentCalibration)
       self.assertEqual(process.workspace._calibrationFile, "U_Calibration.json")
       self.assertEqual(process.workspace.loadReasons, ["manual calibration save"])
 
       savedCalibration = LayerCalibration(layer="U")
-      savedCalibration.load(process._workspaceCalibrationDirectory, "U_Calibration.json")
+      savedCalibration.load(
+        process._workspaceCalibrationDirectory, "U_Calibration.json"
+      )
       self.assertAlmostEqual(savedCalibration.zFront, 145.0)
       self.assertAlmostEqual(savedCalibration.zBack, 270.0)
       self.assertAlmostEqual(savedCalibration.offset.x, 0.0)
       self.assertAlmostEqual(savedCalibration.offset.y, 0.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
-      self.assertAlmostEqual(savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6)
-      self.assertAlmostEqual(savedCalibration.getPinLocation("B1").y, baselineBack.y - 3.0, places=6)
+      self.assertAlmostEqual(
+        savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6
+      )
+      self.assertAlmostEqual(
+        savedCalibration.getPinLocation("B1").y, baselineBack.y - 3.0, places=6
+      )
       self.assertFalse(service.getState()["dirty"])
 
   def test_save_live_rewrites_loaded_live_z_values_to_layer_defaults(self):
@@ -474,7 +500,9 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertTrue(saveResult["ok"])
 
       savedCalibration = LayerCalibration(layer="U")
-      savedCalibration.load(process._workspaceCalibrationDirectory, "U_Calibration.json")
+      savedCalibration.load(
+        process._workspaceCalibrationDirectory, "U_Calibration.json"
+      )
       self.assertAlmostEqual(savedCalibration.zFront, 145.0)
       self.assertAlmostEqual(savedCalibration.zBack, 270.0)
       self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
@@ -494,12 +522,18 @@ class ManualCalibrationTests(unittest.TestCase):
 
       draftDirectory = os.path.join(process.workspace.getPath(), "ManualCalibration")
       self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_Draft.json")))
-      self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "U_DraftBaseline.json")))
+      self.assertTrue(
+        os.path.isfile(os.path.join(draftDirectory, "U_DraftBaseline.json"))
+      )
 
       liveCalibration = LayerCalibration(layer="U")
       liveCalibration.load(process._workspaceCalibrationDirectory, "U_Calibration.json")
-      self.assertAlmostEqual(liveCalibration.getPinLocation("B1").x, baselineBack.x, places=6)
-      self.assertAlmostEqual(liveCalibration.getPinLocation("B1").y, baselineBack.y, places=6)
+      self.assertAlmostEqual(
+        liveCalibration.getPinLocation("B1").x, baselineBack.x, places=6
+      )
+      self.assertAlmostEqual(
+        liveCalibration.getPinLocation("B1").y, baselineBack.y, places=6
+      )
 
       reloadedService = ManualCalibration(process)
       state = reloadedService.getState()
@@ -665,7 +699,9 @@ class ManualCalibrationTests(unittest.TestCase):
 
       draftDirectory = os.path.join(process.workspace.getPath(), "ManualCalibration")
       self.assertTrue(os.path.isfile(os.path.join(draftDirectory, "G_Draft.json")))
-      self.assertFalse(os.path.isfile(os.path.join(process.workspace._recipeDirectory, "G-layer.gc")))
+      self.assertFalse(
+        os.path.isfile(os.path.join(process.workspace._recipeDirectory, "G-layer.gc"))
+      )
 
       reloadedService = ManualCalibration(process)
       state = reloadedService.getState()
@@ -713,7 +749,9 @@ class ManualCalibrationTests(unittest.TestCase):
       updated = build_nominal_calibration("U")
       updated.setPinLocation(
         "B1",
-        SerializableLocation(baselineBack.x + 12.0, baselineBack.y - 4.0, baselineBack.z),
+        SerializableLocation(
+          baselineBack.x + 12.0, baselineBack.y - 4.0, baselineBack.z
+        ),
       )
       updated.save(calibrationDirectory, "U_Calibration.xml", "LayerCalibration")
 
@@ -725,7 +763,9 @@ class ManualCalibrationTests(unittest.TestCase):
       self.assertAlmostEqual(refreshedBack.y, baselineBack.y - 4.0, places=6)
       self.assertNotEqual(apa._calibrationSignature, previousSignature)
       self.assertTrue(
-        any("Detected calibration file change" in entry[2] for entry in apa._log.entries)
+        any(
+          "Detected calibration file change" in entry[2] for entry in apa._log.entries
+        )
       )
       self.assertTrue(
         any("Reloaded calibration file" in entry[2] for entry in apa._log.entries)

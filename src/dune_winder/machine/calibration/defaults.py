@@ -16,12 +16,14 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv import UV_LayerGeometry
 
+U_ZFRONT = 145
+U_ZBACK = 145 + 130
 
 LAYER_Z_DEFAULTS = {
-  "U": (145.0, 270.0),
-  "V": (150.0, 265.0),
-  "X": (155.0, 260.0),
-  "G": (140.0, 275.0),
+  "G": (U_ZFRONT - 5, U_ZBACK + 5),
+  "U": (U_ZFRONT, U_ZBACK),
+  "V": (U_ZFRONT + 5, U_ZBACK - 5),
+  "X": (U_ZFRONT + 10, U_ZBACK - 10),
 }
 
 
@@ -34,7 +36,7 @@ def apply_layer_z_defaults(calibration, layer_name, geometry=None):
   z_front, z_back = get_layer_z_defaults(layer_name, geometry)
   calibration.zFront = z_front
   calibration.zBack = z_back
-  
+
   for pin_name in calibration.getPinNames():
     location = calibration.getPinLocation(pin_name)
     if pin_name.startswith("A"):
