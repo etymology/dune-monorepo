@@ -126,7 +126,8 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       with open(recipePath, encoding="utf-8") as handle:
         recipeText = handle.read()
       self.assertIn("~goto(7174,0)", recipeText)
-      self.assertIn("~anchorToTarget(B1201,B2001)", recipeText)
+      self.assertIn("~anchorToTarget(B2001,A801,hover=True)", recipeText)
+      self.assertNotIn("~increment(0,5)", recipeText)
 
   def test_u_recipe_draft_persists_after_service_restart(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
@@ -143,6 +144,8 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertTrue(result["ok"])
       result = service.setPullIn("X_PULL_IN", 187.5)
       self.assertTrue(result["ok"])
+      result = service.setPullIn("Y_HOVER", 0.0)
+      self.assertTrue(result["ok"])
 
       draftPath = os.path.join(process.workspace.getPath(), "TemplateRecipe", "U_Draft.json")
       self.assertTrue(os.path.isfile(draftPath))
@@ -154,6 +157,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertTrue(state["addFootPauses"])
       self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 212.5, places=6)
       self.assertAlmostEqual(state["pullIns"]["X_PULL_IN"], 187.5, places=6)
+      self.assertAlmostEqual(state["pullIns"]["Y_HOVER"], 0.0, places=6)
       self.assertTrue(state["dirty"])
 
   def test_v_recipe_draft_persists_after_service_restart(self):

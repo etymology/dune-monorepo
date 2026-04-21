@@ -14,6 +14,7 @@ from dune_winder.recipes.u_template_gcode import (
   WRAP_COUNT as U_WRAP_COUNT,
   X_PULL_IN as DEFAULT_X_PULL_IN,
   Y_PULL_IN as DEFAULT_Y_PULL_IN,
+  DEFAULT_PULL_INS,
   get_u_recipe_file_name,
   write_u_template_file,
 )
@@ -37,11 +38,13 @@ OFFSET_LABELS = {
 PULL_IN_LABELS = {
   "Y_PULL_IN": "Y Pull-In",
   "X_PULL_IN": "X Pull-In",
+  "Y_HOVER": "Y Hover",
 }
 
 PULL_IN_DEFAULTS = {
   "Y_PULL_IN": DEFAULT_Y_PULL_IN,
   "X_PULL_IN": DEFAULT_X_PULL_IN,
+  "Y_HOVER": DEFAULT_PULL_INS["Y_HOVER"],
 }
 
 _HEADER_HASH_RE = re.compile(r"^\(\s*U-layer\s+([A-Z0-9-]+)\s*\)")
