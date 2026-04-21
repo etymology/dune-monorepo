@@ -58,7 +58,7 @@ class UTemplateGCodeTests(unittest.TestCase):
       [
         "N0 ( U Layer )",
         "N1 ~goto(7174,0)",
-        "N2 (1,1) ~anchorToTarget(A1601,B1201) (Foot bottom start)",
+        "N2 (1,1) ~anchorToTarget(A1601,B1201) (Foot B corner)",
         "N3 (1,2) ~increment(-200,0)",
         "N4 (1,3) ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
       ],
@@ -75,6 +75,30 @@ class UTemplateGCodeTests(unittest.TestCase):
         "N7250 ~anchorToTarget(A1201,B1601)",
         "N7251 ~increment(200,0)",
       ],
+    )
+
+  def test_wrapping_variant_includes_offset_keyword_when_offset_is_non_zero(self):
+    lines = render_u_template_text_lines(
+      script_variant=SCRIPT_VARIANT_WRAPPING,
+      named_inputs={"line 1 (Top B corner - foot end)": 2.0},
+    )
+
+    self.assertIn(
+      "~anchorToTarget(B1201,B2001,offset=(2,0))",
+      lines[4],
+    )
+
+  def test_wrapping_variant_includes_foot_b_offset_keyword_when_non_zero(self):
+    lines = render_u_template_text_lines(
+      script_variant=SCRIPT_VARIANT_WRAPPING,
+      named_inputs={"line 12 (Foot B corner)": 3.5},
+    )
+
+    self.assertTrue(
+      any(
+        "~anchorToTarget(A1601,B1201,offset=(0,3.5))" in line
+        for line in lines
+      )
     )
 
   def test_cached_reader_is_now_the_programmatic_default(self):

@@ -660,7 +660,7 @@ def _render_wrap_lines(
   return _annotate_wrap_lines(wrap_number, lines)
 
 
-def _render_wrapping_wrap_lines(wrap_number, pull_ins):
+def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
   n = int(wrap_number) - 1
 
   def b_pin(pin_number):
@@ -669,22 +669,41 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins):
   def a_from_b(pin_number):
     return b_to_a_pin("U", b_pin(pin_number))
 
-  def anchor_to_target(anchor_pin, target_pin, label=None):
+  def anchor_to_target(anchor_pin, target_pin, label=None, offset=None):
     parts = [f"~anchorToTarget({anchor_pin},{target_pin})"]
+    if offset is not None:
+      offset_x, offset_y = offset
+      if abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9:
+        parts[0] = (
+          f"~anchorToTarget({anchor_pin},{target_pin},offset=("
+          + _coord("", offset_x)
+          + ","
+          + _coord("", offset_y)
+          + "))"
+        )
     if label:
       parts.append("(" + str(label) + ")")
     return _line(*parts)
 
   lines = [
-    anchor_to_target(a_from_b(1201 + n), b_pin(1201 + n), "Foot bottom start"),
+    anchor_to_target(
+      a_from_b(1201 + n),
+      b_pin(1201 + n),
+      "Foot B corner",
+      offset=(0.0, offsets[11]),
+    ),
     _line("~increment(" + _coord("", -pull_ins["X_PULL_IN"]) + ",0)"),
     anchor_to_target(
-      b_pin(1201 + n), b_pin(1602 + (399 - n)), "Top B corner - foot end"
+      b_pin(1201 + n),
+      b_pin(1602 + (399 - n)),
+      "Top B corner - foot end",
+      offset=(offsets[0], 0.0),
     ),
     anchor_to_target(
       b_pin(1602 + (399 - n)),
       a_from_b(1602 + (399 - n)),
       "Top A corner - foot end",
+      offset=(offsets[1], 0.0),
     ),
     _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
   ]
@@ -701,8 +720,14 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins):
         a_from_b(1602 + (399 - n)),
         a_from_b(401 + n),
         "Bottom A corner - head end",
+        offset=(offsets[2], 0.0),
       ),
-      anchor_to_target(a_from_b(401 + n), b_pin(401 + n), "Bottom B corner - head end"),
+      anchor_to_target(
+        a_from_b(401 + n),
+        b_pin(401 + n),
+        "Bottom B corner - head end",
+        offset=(offsets[3], 0.0),
+      ),
       _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
     ]
   )
@@ -715,11 +740,31 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins):
     )
   lines.extend(
     [
-      anchor_to_target(b_pin(401 + n), b_pin(400 - n), "Head B corner"),
-      anchor_to_target(b_pin(400 - n), a_from_b(400 - n), "Head A corner"),
+      anchor_to_target(
+        b_pin(401 + n),
+        b_pin(400 - n),
+        "Head B corner",
+        offset=(0.0, offsets[4]),
+      ),
+      anchor_to_target(
+        b_pin(400 - n),
+        a_from_b(400 - n),
+        "Head A corner",
+        offset=(0.0, offsets[5]),
+      ),
       _line("~increment(" + _coord("", pull_ins["X_PULL_IN"]) + ",0)"),
-      anchor_to_target(a_from_b(400 - n), a_from_b(n - 399), "Top A corner - head end"),
-      anchor_to_target(a_from_b(n - 399), b_pin(n - 399), "Top B corner - head end"),
+      anchor_to_target(
+        a_from_b(400 - n),
+        a_from_b(n - 399),
+        "Top A corner - head end",
+        offset=(offsets[6], 0.0),
+      ),
+      anchor_to_target(
+        a_from_b(n - 399),
+        b_pin(n - 399),
+        "Top B corner - head end",
+        offset=(offsets[7], 0.0),
+      ),
       _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
     ]
   )
@@ -733,10 +778,16 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins):
   lines.extend(
     [
       anchor_to_target(
-        b_pin(1 - 399 + n), b_pin(1200 - n), "Bottom B corner - foot end"
+        b_pin(1 - 399 + n),
+        b_pin(1200 - n),
+        "Bottom B corner - foot end",
+        offset=(0.0, offsets[8]),
       ),
       anchor_to_target(
-        b_pin(1200 - n), a_from_b(1200 - n), "Bottom A corner - foot end"
+        b_pin(1200 - n),
+        a_from_b(1200 - n),
+        "Bottom A corner - foot end",
+        offset=(0.0, offsets[9]),
       ),
       _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
     ]
@@ -749,7 +800,12 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins):
       )
     )
   lines.append(
-    anchor_to_target(a_from_b(1200 - n), a_from_b(1201 + n + 1), "Foot A corner")
+    anchor_to_target(
+      a_from_b(1200 - n),
+      a_from_b(1201 + n + 1),
+      "Foot A corner",
+      offset=(0.0, offsets[10]),
+    )
   )
   return _annotate_wrap_lines(wrap_number, lines)
 
@@ -790,7 +846,7 @@ def render_u_template_lines(
       _line("~goto(" + _coord("", PREAMBLE_X) + ",0)"),
     ]
     for wrap_number in range(1, WRAP_COUNT + 1):
-      lines.extend(_render_wrapping_wrap_lines(wrap_number, pull_ins))
+      lines.extend(_render_wrapping_wrap_lines(wrap_number, pull_ins, resolved_offsets))
     lines.extend(
       [
         _line("~anchorToTarget(" + final_anchor_pin + ",B1601)"),

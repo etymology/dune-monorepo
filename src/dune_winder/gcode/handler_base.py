@@ -42,6 +42,9 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv_wrap_geometry import (
   Point2D,
+  Point3D,
+  RectBounds,
+  plan_wrap_transition,
   UvWrapGeometryError,
   b_to_a_pin,
 )
@@ -528,26 +531,30 @@ class GCodeHandlerBase:
     self._queue_wrap_state_update(target_pin)
 
   # ---------------------------------------------------------------------
-  def _plan_explicit_wrap_transition(self, anchor_pin, target_pin):
-    from dune_winder.machine.geometry.uv_tangency import (
-      compute_uv_tangent_view,
-      UvTangentViewRequest,
-    )
-
+  def _plan_explicit_wrap_transition(self, anchor_pin, target_pin, target_offset=None):
     if self._layerCalibration is None:
       raise GCodeExecutionError(
         "G-Code request for calibrated move, but no layer calibration to use."
       )
 
+    from dune_winder.machine.geometry.uv_tangency import (
+      compute_uv_tangent_view,
+      UvTangentViewRequest,
+    )
+
     normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
     normalized_target = self._normalize_wrap_pin(target_pin, label="target pin")
 
-    roller_arm_y_offsets = None
-    if (
-      self._machineCalibration is not None
-      and self._machineCalibration.rollerArmCalibration is not None
-    ):
-      roller_arm_y_offsets = self._machineCalibration.rollerArmCalibration.fitted_y_cals
+    anchor_location = self._wire_space_pin_location(normalized_anchor)
+    target_location = self._wire_space_pin_location(normalized_target)
+    if target_offset is not None:
+      offset_x = float(target_offset[0])
+      offset_y = float(target_offset[1])
+      target_location = Location(
+        float(target_location.x) + offset_x,
+        float(target_location.y) + offset_y,
+        float(target_location.z),
+      )
 
     tangent_view = compute_uv_tangent_view(
       UvTangentViewRequest(
@@ -555,12 +562,22 @@ class GCodeHandlerBase:
         pin_a=normalized_anchor,
         pin_b=normalized_target,
       ),
-      roller_arm_y_offsets=roller_arm_y_offsets,
+      pin_b_point_override=Point3D(
+        float(target_location.x),
+        float(target_location.y),
+        float(target_location.z),
+      ),
+      roller_arm_y_offsets=(
+        self._machineCalibration.rollerArmCalibration.fitted_y_cals
+        if (
+          self._machineCalibration is not None
+          and self._machineCalibration.rollerArmCalibration is not None
+        )
+        else None
+      ),
     )
 
     self._instruction_trace["enabled"] = True
-    anchor_location = self._wire_space_pin_location(normalized_anchor)
-    target_location = self._wire_space_pin_location(normalized_target)
     self._record_instruction_trace_pin(
       role="wrapAnchor",
       pin_name=normalized_anchor,
@@ -571,7 +588,6 @@ class GCodeHandlerBase:
       pin_name=normalized_target,
       location=target_location,
     )
-
     head_position = 1 if normalized_target.startswith("A") else 2
     clearance_position = 0 if normalized_target.startswith("A") else 3
 
@@ -594,9 +610,11 @@ class GCodeHandlerBase:
 
     self._x = float(final_xy.x)
     self._y = float(final_xy.y)
-    self._z = float(self._getHeadPosition(
-      head_position if tangent_view.alternating_plane is None else clearance_position
-    ))
+    self._z = float(
+      self._getHeadPosition(
+        head_position if tangent_view.alternating_plane is None else clearance_position
+      )
+    )
     self._headPosition = int(
       head_position if tangent_view.alternating_plane is None else clearance_position
     )
@@ -637,11 +655,39 @@ class GCodeHandlerBase:
       return
 
     if name == "anchorToTarget":
-      if len(arguments) != 2:
-        raise GCodeExecutionError("~anchorToTarget requires two arguments.", [raw_text])
+      if len(arguments) not in (2, 3):
+        raise GCodeExecutionError(
+          "~anchorToTarget requires two pin arguments and an optional offset keyword.",
+          [raw_text],
+        )
+      target_offset = None
+      if len(arguments) == 3:
+        keyword = str(arguments[2]).strip()
+        if not keyword.lower().startswith("offset="):
+          raise GCodeExecutionError(
+            "~anchorToTarget third argument must be offset=(x,y).",
+            [raw_text],
+          )
+        offset_expression = keyword.split("=", 1)[1].strip()
+        if not offset_expression.startswith("(") or not offset_expression.endswith(")"):
+          raise GCodeExecutionError(
+            "~anchorToTarget offset must be written as offset=(x,y).",
+            [raw_text],
+          )
+        offset_values = self._split_macro_arguments(offset_expression[1:-1])
+        if len(offset_values) != 2:
+          raise GCodeExecutionError(
+            "~anchorToTarget offset requires exactly two values.",
+            [raw_text],
+          )
+        target_offset = (
+          float(self._eval_numeric_macro_expr(offset_values[0])),
+          float(self._eval_numeric_macro_expr(offset_values[1])),
+        )
       self._plan_explicit_wrap_transition(
         self._eval_pin_macro_expr(arguments[0]),
         self._eval_pin_macro_expr(arguments[1]),
+        target_offset=target_offset,
       )
       return
 

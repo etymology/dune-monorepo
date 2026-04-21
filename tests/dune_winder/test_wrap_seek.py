@@ -98,6 +98,24 @@ class WrapSeekTests(unittest.TestCase):
 
     self.assertIsNone(workspace.getWrapSeekLine(2))
 
+  def test_get_wrap_seek_line_targets_head_b_corner_line_when_present(self):
+    lines = [
+      "N1 preamble\n",
+      "N2 (1,1) start wrap 1\n",
+      "N3 (1,2) move\n",
+      "N4 (1,3) move\n",
+      "N5 (2,1) start wrap 2\n",
+      "N6 (2,2) move\n",
+      "N7 (2,10) (HEAD RESTART) (Head B corner)\n",
+      "N8 (2,11) move\n",
+    ]
+
+    workspace = object.__new__(WinderWorkspace)
+    workspace._layer = None
+    workspace._recipe = FakeRecipe(8, lines)
+
+    self.assertEqual(workspace.getWrapSeekLine(2), 5)
+
 
 class ProcessWrapSeekTests(unittest.TestCase):
   def test_get_wrap_seek_line_proxies_to_loaded_workspace(self):
