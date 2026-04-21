@@ -513,6 +513,26 @@ class UvLayerLayout:
   def bootstrap_pins(self) -> tuple[int, ...]:
     return self._bootstrap_pins
 
+  def wrap_pin(self, value: int) -> int:
+    return _wrap_inclusive(int(value), 1, self.pin_max)
+
+  @property
+  def named_pins(self) -> dict[str, int]:
+    return {
+      "bottom_foot_end": self.side_ranges["bottom"][1],
+      "bottom_head_end": self.side_ranges["bottom"][0],
+      "top_foot_end": self.side_ranges["top"][0],
+      "top_head_end": self.side_ranges["top"][1],
+      "foot_bottom_end": self.side_ranges["foot"][0],
+      "foot_top_end": self.side_ranges["foot"][1],
+      "head_bottom_end": self.side_ranges["head"][1],
+      "head_top_end": self.side_ranges["head"][0],
+    }
+
+  def b_to_a_pin_number(self, b_pin: int) -> int:
+    head_end = self.side_ranges["head"][1]
+    return 1 + ((head_end - int(b_pin)) % self.pin_max)
+
   def legacy_metadata(self) -> dict[str, object]:
     boards = [
       {
