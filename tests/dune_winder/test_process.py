@@ -134,7 +134,11 @@ class FakeWorkspaceForRefreshMessages:
     self._recipeDirectory = "C:/recipes"
     self._calibrationDirectory = "C:/config/APA"
     self._recipe = object()
-    self._calibration = object()
+    self._calibration = type(
+      "StableCalibration",
+      (),
+      {"refreshIfChanged": lambda self: False},
+    )()
     self._recipeSignature = "recipe-signature"
     self._calibrationSignature = "calibration-signature"
 
@@ -184,10 +188,15 @@ class FakeWorkspaceForRefreshMessages:
 
     return WinderWorkspace._isActiveWindReload(self)
 
-  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines):
+  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines, cachedPinPair=None):
     from dune_winder.core.winder_workspace import WinderWorkspace
 
-    return WinderWorkspace._reloadRecipeWhileStopped(self, previousLines, reloadedLines)
+    return WinderWorkspace._reloadRecipeWhileStopped(
+      self,
+      previousLines,
+      reloadedLines,
+      cachedPinPair=cachedPinPair,
+    )
 
   def _findReloadLineByPinPair(self, previousLines, reloadedLines, currentLine):
     from dune_winder.core.winder_workspace import WinderWorkspace
@@ -535,6 +544,135 @@ class ProcessSnapshotTests(unittest.TestCase):
 
       self.assertIsNone(result)
       self.assertEqual(process.workspace._gCodeHandler.getLine(), 4)
+      self.assertEqual(len(process._log.entries), 0)
+
+  def test_extract_pin_pair_supports_anchor_to_target_lines(self):
+    process = object.__new__(Process)
+    process.workspace = FakeWorkspaceForRefreshMessages(
+      recipePath="C:/recipes/U-layer.gc",
+      calibrationPath="C:/config/APA/U_Calibration.json",
+    )
+
+    result = process.workspace._extractPinPair(
+      "N42 ~anchorToTarget(PA1601,PB1201,offset=(0,3.5),hover=True) (Foot B corner)"
+    )
+
+    self.assertEqual(result, ("anchorToTarget", "A1601", "B1201"))
+
+  def test_refresh_before_execution_reseeks_anchor_to_target_by_pin_pair_when_line_count_matches(self):
+    with tempfile.TemporaryDirectory() as tempDir:
+      recipePath = os.path.join(tempDir, "U-layer.gc")
+      calibrationPath = os.path.join(tempDir, "U_Calibration.json")
+
+      originalLines = [
+        "N1 ~goto(1,0)",
+        "N2 ~anchorToTarget(A1601,B1201) (Foot B corner)",
+        "N3 ~increment(-1,0)",
+        "N4 ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
+      ]
+      reloadedLines = [
+        "N1 ~goto(1,0)",
+        "N2 ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
+        "N3 ~increment(-1,0)",
+        "N4 ~anchorToTarget(A1601,B1201) (Foot B corner)",
+      ]
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("\n".join(originalLines) + "\n")
+      with open(calibrationPath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("{}\n")
+
+      process = object.__new__(Process)
+      process.workspace = FakeWorkspaceForRefreshMessages(
+        recipePath=recipePath,
+        calibrationPath=calibrationPath,
+      )
+      process.workspace._log = FakeLog()
+      process.workspace._recipeDirectory = tempDir
+      process.workspace._recipeArchiveDirectory = tempDir
+      process.workspace._gCodeHandler = GCodeHandler(
+        _ReloadGuardFakeIO(),
+        _ReloadGuardFakeCalibration(),
+        None,
+      )
+      process.workspace._recipe = type(
+        "LoadedRecipe",
+        (),
+        {"getLines": lambda self: list(originalLines)},
+      )()
+      process.workspace._gCodeHandler.loadG_Code(originalLines, calibration=None)
+      process.workspace._gCodeHandler.setLine(1)
+      process.workspace._controlStateMachine = _ReloadGuardControlStateMachine(StopMode())
+      process._log = FakeLog()
+
+      process.workspace._recipeSignature = "before"
+      process.workspace._calculateRecipeSignature = lambda: "after"
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("\n".join(reloadedLines) + "\n")
+
+      result = process._refreshCalibrationBeforeExecution()
+
+      self.assertIsNone(result)
+      self.assertEqual(process.workspace._gCodeHandler.getLine(), 3)
+      self.assertEqual(len(process._log.entries), 0)
+
+  def test_refresh_before_execution_anchor_to_target_uses_last_pin_pair_when_current_line_has_none(self):
+    with tempfile.TemporaryDirectory() as tempDir:
+      recipePath = os.path.join(tempDir, "U-layer.gc")
+      calibrationPath = os.path.join(tempDir, "U_Calibration.json")
+
+      originalLines = [
+        "N1 ~goto(1,0)",
+        "N2 ~anchorToTarget(A1601,B1201) (Foot B corner)",
+        "N3 ~increment(-1,0)",
+        "N4 ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
+      ]
+      reloadedLines = [
+        "N1 ~goto(1,0)",
+        "N2 ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
+        "N3 ~anchorToTarget(A1601,B1201) (Foot B corner)",
+        "N4 ~increment(-1,0)",
+      ]
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("\n".join(originalLines) + "\n")
+      with open(calibrationPath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("{}\n")
+
+      process = object.__new__(Process)
+      process.workspace = FakeWorkspaceForRefreshMessages(
+        recipePath=recipePath,
+        calibrationPath=calibrationPath,
+      )
+      process.workspace._log = FakeLog()
+      process.workspace._recipeDirectory = tempDir
+      process.workspace._recipeArchiveDirectory = tempDir
+      process.workspace._gCodeHandler = GCodeHandler(
+        _ReloadGuardFakeIO(),
+        _ReloadGuardFakeCalibration(),
+        None,
+      )
+      process.workspace._recipe = type(
+        "LoadedRecipe",
+        (),
+        {"getLines": lambda self: list(originalLines)},
+      )()
+      process.workspace._gCodeHandler.loadG_Code(originalLines, calibration=None)
+      process.workspace._gCodeHandler.setLine(2)
+      process.workspace._controlStateMachine = _ReloadGuardControlStateMachine(StopMode())
+      process._log = FakeLog()
+
+      process.workspace._recipeSignature = "before"
+      process.workspace._calculateRecipeSignature = lambda: "after"
+
+      with open(recipePath, "w", encoding="utf-8") as outputFile:
+        outputFile.write("\n".join(reloadedLines) + "\n")
+
+      result = process._refreshCalibrationBeforeExecution()
+
+      self.assertIsNone(result)
+      self.assertEqual(process.workspace._gCodeHandler.getLine(), 2)
       self.assertEqual(len(process._log.entries), 0)
 
   def test_refresh_before_execution_returns_actionable_missing_calibration_message(self):

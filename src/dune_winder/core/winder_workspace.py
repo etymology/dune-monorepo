@@ -28,7 +28,12 @@ from dune_winder.recipes.xg_template_gcode import write_xg_template_file
 class WinderWorkspace:
   FILE_NAME = "state.json"
   LOG_FILE = "workspace_history.csv"
-  _PIN_PAIR_RE = re.compile(r"\bG103\s+P[AB](\d+)\s+P[AB](\d+)\b")
+  _PIN_PAIR_RE = re.compile(r"\bG103\s+(P?[AB]\d+)\s+(P?[AB]\d+)\b", re.IGNORECASE)
+  _ANCHOR_TO_TARGET_RE = re.compile(
+    r"~anchorToTarget\((P?[AB]\d+),(P?[AB]\d+)"
+    r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}\)",
+    re.IGNORECASE,
+  )
   _UV_PIN_PAIR_RE = re.compile(r"\bG103\s+(P([AB])(\d+))\s+(P([AB])(\d+))\b", re.IGNORECASE)
   _UV_WRAP_START_RE = re.compile(r"\(\s*\d+\s*,\s*1\b", re.IGNORECASE)
   _UV_TRANSFER_RE = re.compile(r"\bG(?:106|206)\b", re.IGNORECASE)
@@ -864,6 +869,10 @@ class WinderWorkspace:
       reloadedRecipe = Recipe(recipeFullPath, self._recipeArchiveDirectory)
       previousLines = self._recipe.getLines()
       reloadedLines = reloadedRecipe.getLines()
+      cachedPinPair = self._getMostRecentPinPair(
+        previousLines,
+        self._gCodeHandler.getLine(),
+      )
       if self._isActiveWindReload():
         try:
           self._gCodeHandler.reloadG_Code(reloadedLines)
@@ -872,7 +881,11 @@ class WinderWorkspace:
             "Updated G-Code file must preserve the active execution state and keep the same number of lines."
           ) from exception
       else:
-        self._reloadRecipeWhileStopped(previousLines, reloadedLines)
+        self._reloadRecipeWhileStopped(
+          previousLines,
+          reloadedLines,
+          cachedPinPair=cachedPinPair,
+        )
 
       self._recipe = reloadedRecipe
       self._recipePeriod = self._recipe.getDetectedPeriod()
@@ -890,7 +903,7 @@ class WinderWorkspace:
     state = getattr(stateMachine, "state", None)
     return getattr(state.__class__, "__name__", None) == "WindMode"
 
-  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines):
+  def _reloadRecipeWhileStopped(self, previousLines, reloadedLines, cachedPinPair=None):
     previousLineCount = len(previousLines)
     reloadedLineCount = len(reloadedLines)
     currentLine = self._gCodeHandler.getLine()
@@ -898,7 +911,13 @@ class WinderWorkspace:
     self._gCodeHandler.loadG_Code(reloadedLines, self._calibration)
 
     targetLine = currentLine
-    if previousLineCount != reloadedLineCount:
+    if cachedPinPair is not None:
+      targetLine = self._findClosestPinPairLine(
+        reloadedLines,
+        cachedPinPair,
+        currentLine,
+      )
+    elif previousLineCount != reloadedLineCount:
       targetLine = self._findReloadLineByPinPair(previousLines, reloadedLines, currentLine)
 
     if targetLine is None or targetLine < -1 or targetLine >= reloadedLineCount:
@@ -947,9 +966,29 @@ class WinderWorkspace:
   @classmethod
   def _extractPinPair(cls, line):
     match = cls._PIN_PAIR_RE.search(line)
-    if match is None:
-      return None
-    return int(match.group(1)), int(match.group(2))
+    if match is not None:
+      return (
+        "G103",
+        cls._normalizePinReference(match.group(1)),
+        cls._normalizePinReference(match.group(2)),
+      )
+
+    match = cls._ANCHOR_TO_TARGET_RE.search(line)
+    if match is not None:
+      return (
+        "anchorToTarget",
+        cls._normalizePinReference(match.group(1)),
+        cls._normalizePinReference(match.group(2)),
+      )
+
+    return None
+
+  @staticmethod
+  def _normalizePinReference(pin):
+    normalized = str(pin).strip().upper()
+    if normalized.startswith("P"):
+      normalized = normalized[1:]
+    return normalized
 
   def setupBlankCalibration(self, layer, geometry):
     self._calibration = LayerCalibration()

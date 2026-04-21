@@ -395,7 +395,19 @@ class DummyLowLevelIO:
 
 
 class DummyMachineCalibration:
-  zBack = 123.45
+  def __init__(self):
+    self.zBack = 123.45
+    self.headArmLength = 80.0
+    self.headRollerRadius = 9.0
+    self.headRollerGap = 24.0
+    self.rollerArmCalibration = None
+
+  def set(self, key, value):
+    setattr(self, str(key), value)
+    return {"key": key, "value": value}
+
+  def save(self):
+    return None
 
 
 def build_registry_fixture(sim_plc=False):
