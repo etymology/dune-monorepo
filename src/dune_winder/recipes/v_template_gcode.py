@@ -16,6 +16,7 @@ from dune_winder.recipes.recipe_template_language import (
   compile_template_script,
   execute_template_script,
 )
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes import template_gcode_common
 from dune_winder.gcode.renderer import normalize_line_text
@@ -33,9 +34,6 @@ X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 3.0
 PREAMBLE_BOARD_GAP_PULL = 30.0
 COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
-PIN_MIN = 1
-PIN_MAX = 2400
-PIN_SPAN = PIN_MAX - PIN_MIN + 1
 DEFAULT_OFFSETS = (0.0,) * 12
 DEFAULT_V_TEMPLATE_WORKBOOK = None
 DEFAULT_V_TEMPLATE_SHEET = None
@@ -302,10 +300,7 @@ def _format_number(value):
 
 
 def _wrap_pin_number(value):
-  pin_number = int(value)
-  if pin_number < PIN_MIN:
-    return PIN_MAX
-  return ((pin_number - PIN_MIN) % PIN_SPAN) + PIN_MIN
+  return get_uv_layout("V").wrap_pin(value)
 
 
 def _normalize_pin_tokens(text):

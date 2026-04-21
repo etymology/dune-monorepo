@@ -41,7 +41,7 @@ PIN_SPAN = PIN_MAX - PIN_MIN + 1
 DEFAULT_OFFSETS = (0.0,) * 12
 DEFAULT_U_TEMPLATE_WORKBOOK = None
 DEFAULT_U_TEMPLATE_SHEET = None
-PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN")
+PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN", "Y_HOVER")
 DEFAULT_PULL_INS = {
   "Y_PULL_IN": Y_PULL_IN,
   "X_PULL_IN": X_PULL_IN,
@@ -669,18 +669,22 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
   def a_from_b(pin_number):
     return b_to_a_pin("U", b_pin(pin_number))
 
-  def anchor_to_target(anchor_pin, target_pin, label=None, offset=None):
-    parts = [f"~anchorToTarget({anchor_pin},{target_pin})"]
+  def anchor_to_target(anchor_pin, target_pin, label=None, offset=None, hover=False):
+    call = f"~anchorToTarget({anchor_pin},{target_pin}"
     if offset is not None:
       offset_x, offset_y = offset
       if abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9:
-        parts[0] = (
-          f"~anchorToTarget({anchor_pin},{target_pin},offset=("
+        call += (
+          ",offset=("
           + _coord("", offset_x)
           + ","
           + _coord("", offset_y)
-          + "))"
+          + ")"
         )
+    if hover:
+      call += ",hover=True"
+    call += ")"
+    parts = [call]
     if label:
       parts.append("(" + str(label) + ")")
     return _line(*parts)
@@ -704,6 +708,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
       a_from_b(1602 + (399 - n)),
       "Top A corner - foot end",
       offset=(offsets[1], 0.0),
+      hover=True,
     ),
     _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
   ]
@@ -727,6 +732,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         b_pin(401 + n),
         "Bottom B corner - head end",
         offset=(offsets[3], 0.0),
+        hover=True,
       ),
       _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
     ]
@@ -764,6 +770,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         b_pin(n - 399),
         "Top B corner - head end",
         offset=(offsets[7], 0.0),
+        hover=True,
       ),
       _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
     ]
@@ -788,6 +795,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         a_from_b(1200 - n),
         "Bottom A corner - foot end",
         offset=(0.0, offsets[9]),
+        hover=True,
       ),
       _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
     ]
@@ -1109,10 +1117,8 @@ class UTemplateProgrammaticGenerator:
       "include lead mode": self.include_lead_mode,
       "Y_PULL_IN": self.pull_ins["Y_PULL_IN"],
       "X_PULL_IN": self.pull_ins["X_PULL_IN"],
-      "Y_HOVER": self.pull_ins["Y_HOVER"],
       "y_pull_in": self.pull_ins["Y_PULL_IN"],
       "x_pull_in": self.pull_ins["X_PULL_IN"],
-      "y_hover": self.pull_ins["Y_HOVER"],
     }
     for index, offset_id in enumerate(OFFSET_IDS):
       values[offset_id] = self.offsets[index]
