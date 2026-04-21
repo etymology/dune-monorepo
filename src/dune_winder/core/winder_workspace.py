@@ -150,7 +150,6 @@ class WinderWorkspace:
     self._recipeSignature = None
     self._recipePeriod = None
     self._calibration = None
-    self._calibrationSignature = None
     self._z = None
 
     for var, value in self._defaultState().items():
@@ -255,7 +254,6 @@ class WinderWorkspace:
     if self._calibrationFile:
       self._calibrationFile = None
       self._calibration = None
-      self._calibrationSignature = None
       self._gCodeHandler.useLayerCalibration(None)
 
     if self._recipeFile:
@@ -636,6 +634,11 @@ class WinderWorkspace:
     if len(lines) == 0:
       return None
 
+    headBCornerLine = self._getWrapLabeledLine(wrap, "Head B corner")
+    if headBCornerLine is not None:
+      targetLine = max(1, min(headBCornerLine, len(lines)))
+      return targetLine - 2
+
     if self._layer in ("U", "V"):
       targetLine = self._getUvWrapSeekLine(wrap)
       if targetLine is None:
@@ -655,6 +658,20 @@ class WinderWorkspace:
 
     targetLine = max(1, min(targetLine, len(lines)))
     return targetLine - 2
+
+  def _getWrapLabeledLine(self, wrap, label):
+    if self._recipe is None:
+      return None
+
+    expression = re.compile(
+      r"\(\s*" + str(int(wrap)) + r"\s*,\s*\d+\b.*" + re.escape(str(label)) + r"\b",
+      re.IGNORECASE,
+    )
+    for index, line in enumerate(self._recipe.getLines(), start=1):
+      if expression.search(line):
+        return index
+
+    return None
 
   def _getUvWrapSeekLine(self, wrap):
     if self._recipe is None:
@@ -750,43 +767,12 @@ class WinderWorkspace:
 
     return str(hashValue)
 
-  def _getCalibrationHashValueFromFile(self):
-    """Read the hashValue field from the calibration JSON file for quick freshness check."""
-    calibFullPath = self._getCalibrationFullPath()
-    if calibFullPath is None or not os.path.isfile(calibFullPath):
-      return None
-
-    try:
-      with open(calibFullPath) as inputFile:
-        data = json.load(inputFile)
-      return data.get("hashValue", "")
-    except (json.JSONDecodeError, IOError, OSError):
-      return None
-
-  def _calculateCalibrationSignature(self):
-    calibFullPath = self._getCalibrationFullPath()
-    if calibFullPath is None or not os.path.isfile(calibFullPath):
-      return None
-
-    with open(calibFullPath) as inputFile:
-      content = inputFile.read()
-
-    try:
-      data = json.loads(content)
-      data.pop("hashValue", None)
-      canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
-    except json.JSONDecodeError:
-      canonical = content
-
-    return Hash.singleLine(canonical)
-
   def _useCalibration(self, calibration, calibrationFile=None):
     if calibrationFile is not None:
       self._calibrationFile = calibrationFile
 
     self._calibration = calibration
     self._gCodeHandler.useLayerCalibration(calibration)
-    self._calibrationSignature = self._calculateCalibrationSignature()
 
   def _loadCalibrationFromDisk(self, reloadReason=None):
     archivePath = self.getPath() + "/Calibration"
@@ -826,7 +812,7 @@ class WinderWorkspace:
       self.__class__.__name__,
       "LOAD",
       message,
-      [calibFullPath, self._calibration.hashValue, self._calibrationSignature],
+      [calibFullPath],
     )
 
   def refreshCalibrationIfChanged(self):
@@ -841,19 +827,15 @@ class WinderWorkspace:
       self._loadCalibrationFromDisk("no calibration was active in the G-Code system")
       return
 
-    fileHashValue = self._getCalibrationHashValueFromFile()
-    if fileHashValue is None or fileHashValue == "":
-      return
-
-    cachedHashValue = getattr(self._calibration, "hashValue", "")
-    if fileHashValue != cachedHashValue:
+    if self._calibration.refreshIfChanged():
+      calibFullPath = self._getCalibrationFullPath()
       self._log.add(
         self.__class__.__name__,
         "CALIBRATION_CHANGE",
         "Detected calibration file change for " + calibFullPath + ".",
-        [calibFullPath, cachedHashValue, fileHashValue],
+        [calibFullPath],
       )
-      self._loadCalibrationFromDisk("the calibration hashValue changed on disk")
+      self._loadCalibrationFromDisk("the calibration file changed on disk")
 
   def refreshRecipeIfChanged(self):
     if not self._recipeFile:

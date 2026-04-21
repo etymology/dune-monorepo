@@ -227,6 +227,7 @@ class Process:
     self._playback = GCodePlaybackService(
       self.gCodeHandler, self.controlStateMachine, log, io,
       self._safety, self._xBacklash, lambda: self.workspace,
+      lambda: self._machineCalibration,
     )
     self.gCodeHandler.setBeforeExecuteLineCallback(self._playback.refreshCalibrationBeforeExecution)
 

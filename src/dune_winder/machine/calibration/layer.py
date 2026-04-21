@@ -5,6 +5,7 @@
 # Author(s):
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
+import hashlib
 import json
 import os
 import os.path
@@ -86,6 +87,11 @@ class LayerCalibration:
 
     # Content hash — used for change detection and archive naming.
     self.hashValue = ""
+
+    # Cached file metadata for efficient freshness checks (raw-file hash).
+    self._file_mtime = None
+    self._file_size = None
+    self._file_content_hash = None
 
   # -------------------------------------------------------------------
   def copy(self):
@@ -222,6 +228,57 @@ class LayerCalibration:
       shutil.copy2(source, archive_file)
 
   # -------------------------------------------------------------------
+  def _file_path(self):
+    """Return the resolved Path for the calibration file, or None."""
+    if self._filePath and self._fileName:
+      return pathlib.Path(self._filePath) / pathlib.Path(self._fileName).with_suffix(".json")
+    return None
+
+  # -------------------------------------------------------------------
+  def _compute_file_hash(self):
+    """Compute an MD5 hex digest of the raw file bytes."""
+    path = self._file_path()
+    if path is None or not path.exists():
+      return None
+    return hashlib.md5(path.read_bytes()).hexdigest()
+
+  # -------------------------------------------------------------------
+  def _cache_file_stats(self):
+    """Stat the on-disk file and cache mtime, size, and content hash."""
+    path = self._file_path()
+    if path is None or not path.exists():
+      return
+    stat = path.stat()
+    self._file_mtime = stat.st_mtime
+    self._file_size = stat.st_size
+    self._file_content_hash = self._compute_file_hash()
+
+  # -------------------------------------------------------------------
+  def refreshIfChanged(self):
+    """Check if the on-disk file changed and reload if so.
+
+    Uses a two-tier check: stat (O(1)) first, then full content hash
+    only when mtime or size changed.  Returns True if the file was
+    reloaded.
+    """
+    path = self._file_path()
+    if path is None or not path.exists():
+      return False
+
+    stat = path.stat()
+    if stat.st_mtime == self._file_mtime and stat.st_size == self._file_size:
+      return False
+
+    current_hash = self._compute_file_hash()
+    if current_hash == self._file_content_hash:
+      self._file_mtime = stat.st_mtime
+      self._file_size = stat.st_size
+      return False
+
+    self.load(exceptionForMismatch=False)
+    return True
+
+  # -------------------------------------------------------------------
   def _file_name_setup(self, filePath, fileName):
     if filePath is None and fileName is None:
       filePath = self._filePath
@@ -327,6 +384,7 @@ class LayerCalibration:
       raise FileNotFoundError(f"Calibration file not found: {json_path}")
 
     self.archive()
+    self._cache_file_stats()
     return is_error
 
   # -------------------------------------------------------------------

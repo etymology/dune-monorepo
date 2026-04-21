@@ -22,6 +22,7 @@ if TYPE_CHECKING:
   from dune_winder.gcode.handler import GCodeHandler
   from dune_winder.io.maps.base_io import BaseIO
   from dune_winder.library.log import Log
+  from dune_winder.machine.calibration.machine import MachineCalibration
   from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 LOG_NAME = "GCodePlaybackService"
@@ -39,6 +40,7 @@ class GCodePlaybackService:
     safety: SafetyValidationService,
     xBacklash: XBacklashCompensation,
     workspaceGetter: Callable[[], Optional[WinderWorkspace]],
+    machineCalibrationGetter: Callable[[], Optional[MachineCalibration]] = lambda: None,
   ):
     self._gCodeHandler = gCodeHandler
     self._controlStateMachine = controlStateMachine
@@ -47,6 +49,7 @@ class GCodePlaybackService:
     self._safety = safety
     self._xBacklash = xBacklash
     self._workspaceGetter = workspaceGetter
+    self._machineCalibrationGetter = machineCalibrationGetter
 
   # -- run control ---------------------------------------------------------
 
@@ -335,6 +338,9 @@ class GCodePlaybackService:
     try:
       workspace.refreshRecipeIfChanged()
       workspace.refreshCalibrationIfChanged()
+      machine_calibration = self._machineCalibrationGetter()
+      if machine_calibration is not None:
+        machine_calibration.refreshIfChanged()
     except Exception as exception:
       self._log.add(
         LOG_NAME,

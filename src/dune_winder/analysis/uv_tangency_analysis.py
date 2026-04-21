@@ -13,7 +13,6 @@ from dune_winder.library.Geometry.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
-from dune_winder.paths import FRAME_GEOMETRY_CONFIG_DIR
 from dune_winder.recipes.u_template_gcode import render_u_template_lines
 from dune_winder.recipes.v_template_gcode import render_v_template_lines
 
@@ -49,7 +48,7 @@ class _CalibrationPerturbationSpec:
 _RENDERED_LINE_NUMBER_RE = re.compile(r"^N(\d+)\b")
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_MACHINE_CALIBRATION_PATH = _REPO_ROOT / "dune_winder/config/machineCalibration.json"
-_DEFAULT_LAYER_CALIBRATION_DIRECTORY = FRAME_GEOMETRY_CONFIG_DIR
+_DEFAULT_LAYER_CALIBRATION_DIRECTORY = _REPO_ROOT / "dune_winder/config/APA"
 
 _SITE_SPECS = {
   "U": (

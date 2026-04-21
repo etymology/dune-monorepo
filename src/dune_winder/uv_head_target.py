@@ -13,7 +13,7 @@ from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.machine.head_compensation import WirePathModel
-from dune_winder.paths import FRAME_GEOMETRY_CONFIG_DIR, PACKAGE_ROOT, REPO_ROOT
+from dune_winder.paths import PACKAGE_ROOT, REPO_ROOT
 from dune_winder.queued_motion.filleted_path import (
   WaypointCircle,
   circle_pair_tangent_pairs,
@@ -35,8 +35,6 @@ _RECIPE_SITE_RE = re.compile(
 _DEFAULT_MACHINE_CALIBRATION_PATH = REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"
 _DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (
   PACKAGE_ROOT / "config" / "APA",
-  REPO_ROOT / "config" / "APA",
-  FRAME_GEOMETRY_CONFIG_DIR,
 )
 _AXIS_EPSILON = 1e-9
 _ORIENTATION_TOKENS = ("BR", "BL", "LT", "LB", "RT", "RB", "TR", "TL")
@@ -590,6 +588,30 @@ def _recipe_sites_by_anchor(layer: str) -> dict[str, list[RecipeSite]]:
     )
     result.setdefault(anchor_pin, []).append(candidate)
   return result
+
+
+def _lookup_recipe_site(
+  layer: str,
+  anchor_pin: str,
+  wrapped_pin: str,
+) -> RecipeSite:
+  normalized_layer = _normalize_layer(layer)
+  normalized_anchor_pin = _strip_p_prefix(_normalize_pin_name(anchor_pin, "Anchor pin"))
+  normalized_wrapped_pin = _strip_p_prefix(_normalize_pin_name(wrapped_pin, "Wrapped pin"))
+
+  candidates = _recipe_sites_by_anchor(normalized_layer).get(normalized_anchor_pin, [])
+  if not candidates:
+    raise UvHeadTargetError(
+      f"No recipe site found for anchor pin {normalized_anchor_pin} in layer {normalized_layer}."
+    )
+
+  for candidate in candidates:
+    if normalized_wrapped_pin in {candidate.recipe_pair_pin_a, candidate.recipe_pair_pin_b}:
+      return candidate
+
+  raise UvHeadTargetError(
+    f"No recipe site found for anchor pin {normalized_anchor_pin} and wrapped pin {normalized_wrapped_pin} in layer {normalized_layer}."
+  )
 
 
 def _infer_pair_pin_from_wrap_side(
@@ -1466,6 +1488,7 @@ def compute_uv_tangent_view(
   *,
   machine_calibration_path: str | Path | None = None,
   layer_calibration_path: str | Path | None = None,
+  pin_b_point_override: Point3D | None = None,
   roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> UvTangentViewResult:
   normalized_request = UvTangentViewRequest(
@@ -1488,9 +1511,16 @@ def compute_uv_tangent_view(
   )
 
   pin_a_location = _wire_space_pin(layer_calibration, normalized_request.pin_a)
-  pin_b_location = _wire_space_pin(layer_calibration, normalized_request.pin_b)
   pin_a_point = _location_to_point3(pin_a_location)
-  pin_b_point = _location_to_point3(pin_b_location)
+  if pin_b_point_override is None:
+    pin_b_location = _wire_space_pin(layer_calibration, normalized_request.pin_b)
+    pin_b_point = _location_to_point3(pin_b_location)
+  else:
+    pin_b_point = Point3D(
+      float(pin_b_point_override.x),
+      float(pin_b_point_override.y),
+      float(pin_b_point_override.z),
+    )
   pin_radius = float(machine_calibration.pinDiameter) / 2.0
   transfer_bounds = RectBounds(
     left=float(machine_calibration.transferLeft),
@@ -1927,6 +1957,7 @@ __all__ = [
   "compute_uv_head_target",
   "compute_uv_tangent_view",
   "iter_uv_wrap_primary_sites",
+  "_lookup_recipe_site",
   "matches_tangent_sides",
   "resolve_wrapped_pin_from_g103_pair",
   "tangent_sides",

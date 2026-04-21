@@ -6,6 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+import hashlib
 import json
 import os
 import pathlib
@@ -146,6 +147,11 @@ class MachineCalibration:
     # Calibrated roller arm offsets.
     self.rollerArmCalibration = None
 
+    # Cached file metadata for efficient freshness checks.
+    self._file_mtime = None
+    self._file_size = None
+    self._file_content_hash = None
+
   # ---------------------------------------------------------------------
   def set(self, item, value):
     """
@@ -195,6 +201,57 @@ class MachineCalibration:
       setattr(self, field, value)
 
   # ---------------------------------------------------------------------
+  def _file_path(self):
+    """Return the resolved Path for the calibration file, or None."""
+    if self._outputFilePath and self._outputFileName:
+      return pathlib.Path(self._outputFilePath) / self._outputFileName
+    return None
+
+  # ---------------------------------------------------------------------
+  def _compute_file_hash(self):
+    """Compute an MD5 hex digest of the raw file bytes."""
+    path = self._file_path()
+    if path is None or not path.exists():
+      return None
+    return hashlib.md5(path.read_bytes()).hexdigest()
+
+  # ---------------------------------------------------------------------
+  def _cache_file_stats(self):
+    """Stat the on-disk file and cache mtime, size, and content hash."""
+    path = self._file_path()
+    if path is None or not path.exists():
+      return
+    stat = path.stat()
+    self._file_mtime = stat.st_mtime
+    self._file_size = stat.st_size
+    self._file_content_hash = self._compute_file_hash()
+
+  # ---------------------------------------------------------------------
+  def refreshIfChanged(self):
+    """Check if the on-disk file changed and reload if so.
+
+    Uses a two-tier check: stat (O(1)) first, then full content hash
+    only when mtime or size changed.  Returns True if the file was
+    reloaded.
+    """
+    path = self._file_path()
+    if path is None or not path.exists():
+      return False
+
+    stat = path.stat()
+    if stat.st_mtime == self._file_mtime and stat.st_size == self._file_size:
+      return False
+
+    current_hash = self._compute_file_hash()
+    if current_hash == self._file_content_hash:
+      self._file_mtime = stat.st_mtime
+      self._file_size = stat.st_size
+      return False
+
+    self.load()
+    return True
+
+  # ---------------------------------------------------------------------
   def save(self):
     """Save calibration data to JSON atomically."""
     if not (self._outputFilePath and self._outputFileName):
@@ -231,6 +288,8 @@ class MachineCalibration:
       if xml_path.exists():
         self._load_from_xml(xml_path)
         self.save()  # Persist as JSON.
+
+    self._cache_file_stats()
 
   # ---------------------------------------------------------------------
   def _load_from_xml(self, xml_path: pathlib.Path) -> None:
