@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 import pytest
 
 from dune_winder.gcode.handler_base import GCodeHandlerBase

@@ -10,7 +10,12 @@ from dune_winder.machine.geometry.uv_wrap_geometry import (
   Point2D,
   Point3D,
   RectBounds,
+  alternating_side_hover_y_offset,
   plan_wrap_transition,
+)
+from dune_winder.machine.geometry.uv_tangency import (
+  UvTangentViewRequest,
+  compute_uv_tangent_view,
 )
 from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.paths import REPO_ROOT
@@ -192,6 +197,78 @@ class WrapRuntimeTests(unittest.TestCase):
       current_xy=current_xy,
     )
 
+  def _expected_explicit_wrap_final_xy(
+    self,
+    *,
+    layer_calibration,
+    machine_calibration,
+    anchor_pin,
+    target_pin,
+    offset_x=0.0,
+    offset_y=0.0,
+    hover=False,
+  ):
+    anchor_location = layer_calibration.getPinLocation(anchor_pin).add(layer_calibration.offset)
+    target_location = layer_calibration.getPinLocation(target_pin).add(layer_calibration.offset)
+    target_location = Location(
+      float(target_location.x) + float(offset_x),
+      float(target_location.y) + float(offset_y),
+      float(target_location.z),
+    )
+    tangent_view = compute_uv_tangent_view(
+      UvTangentViewRequest(
+        layer=layer_calibration.getLayerNames(),
+        pin_a=anchor_pin,
+        pin_b=target_pin,
+      ),
+      pin_b_point_override=Point3D(
+        float(target_location.x),
+        float(target_location.y),
+        float(target_location.z),
+      ),
+      roller_arm_y_offsets=(
+        machine_calibration.rollerArmCalibration.fitted_y_cals
+        if machine_calibration.rollerArmCalibration is not None
+        else None
+      ),
+    )
+    if tangent_view.alternating_plane is None:
+      self.assertIsNotNone(tangent_view.arm_corrected_outbound_point)
+      final_xy = Point2D(
+        float(tangent_view.arm_corrected_outbound_point.x),
+        float(tangent_view.arm_corrected_outbound_point.y),
+      )
+      return final_xy, tangent_view
+
+    target_family = str(target_pin).strip().upper()[:1]
+    if tangent_view.alternating_plane == "xz":
+      plane_point = (
+        tangent_view.alternating_wrap_line_start
+        if target_family == "A"
+        else tangent_view.alternating_wrap_line_end
+      )
+      final_xy = Point2D(
+        float(plane_point.x),
+        float((tangent_view.pin_a_point.y + tangent_view.pin_b_point.y) / 2.0),
+      )
+    else:
+      plane_point = (
+        tangent_view.alternating_wrap_line_start
+        if target_family == "A"
+        else tangent_view.alternating_wrap_line_end
+      )
+      final_xy = Point2D(
+        float((tangent_view.pin_a_point.x + tangent_view.pin_b_point.x) / 2.0),
+        float(plane_point.y),
+      )
+    if hover:
+      self.assertIsNotNone(tangent_view.alternating_face)
+      final_xy = Point2D(
+        float(final_xy.x),
+        float(final_xy.y + alternating_side_hover_y_offset(tangent_view.alternating_face)),
+      )
+    return final_xy, tangent_view
+
   def test_tilde_goto_and_increment_move_xy_without_wrap_state(self):
     handler, io, _machine_calibration, _layer_calibration = self._build_handler(500.0, 500.0)
 
@@ -251,6 +328,75 @@ class WrapRuntimeTests(unittest.TestCase):
     self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
     self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(plan.final_xy.x), places=3)
     self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(plan.final_xy.y), places=3)
+
+  def test_anchor_to_target_hover_keyword_offsets_alternating_side_final_y(self):
+    handler, io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+    anchor_pin = "B2001"
+    target_pin = "A800"
+
+    final_xy, tangent_view = self._expected_explicit_wrap_final_xy(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin=anchor_pin,
+      target_pin=target_pin,
+      hover=True,
+    )
+    self.assertEqual(tangent_view.alternating_face, "top")
+
+    error = handler.executeG_CodeLine("~anchorToTarget(B2001,A800,hover=True)")
+
+    self.assertIsNone(error)
+    while handler._dispatch_pending_actions(safety_label="manual"):
+      pass
+    self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(final_xy.x), places=3)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(final_xy.y), places=3)
+
+  def test_anchor_to_target_hover_keyword_offsets_bottom_alternating_side_final_y(self):
+    handler, io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+    anchor_pin = "A2401"
+    target_pin = "B401"
+
+    final_xy, tangent_view = self._expected_explicit_wrap_final_xy(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin=anchor_pin,
+      target_pin=target_pin,
+      hover=True,
+    )
+    self.assertEqual(tangent_view.alternating_face, "bottom")
+
+    error = handler.executeG_CodeLine("~anchorToTarget(A2401,B401,hover=True)")
+
+    self.assertIsNone(error)
+    while handler._dispatch_pending_actions(safety_label="manual"):
+      pass
+    self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(final_xy.x), places=3)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(final_xy.y), places=3)
+
+  def test_anchor_to_target_hover_keyword_does_not_change_same_side_final_xy(self):
+    handler, io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+    anchor_pin = "B1201"
+    target_pin = "B2001"
+
+    final_xy, tangent_view = self._expected_explicit_wrap_final_xy(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin=anchor_pin,
+      target_pin=target_pin,
+      hover=True,
+    )
+    self.assertIsNone(tangent_view.alternating_plane)
+
+    error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001,hover=True)")
+
+    self.assertIsNone(error)
+    while handler._dispatch_pending_actions(safety_label="manual"):
+      pass
+    self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(final_xy.x), places=3)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(final_xy.y), places=3)
 
 
 if __name__ == "__main__":
