@@ -10,11 +10,20 @@
       <div class="rollerCalibrateInputGroup">
         <div class="rollerCalibrateFieldRow">
           <label for="rollerCalibrateGCodeLine">G-Code Line</label>
-          <input
-            type="text"
-            id="rollerCalibrateGCodeLine"
-            placeholder="~anchorToTarget(B1201,B2001)"
-          />
+          <div class="rollerCalibrateFieldActionRow">
+            <input
+              type="text"
+              id="rollerCalibrateGCodeLine"
+              placeholder="~anchorToTarget(B1201,B2001)"
+            />
+            <button
+              type="button"
+              id="rollerCalibrateUseGCodeButton"
+              class="rollerCalibrateButton rollerCalibrateInlineButton"
+            >
+              Use Last Line
+            </button>
+          </div>
         </div>
 
         <div class="rollerCalibrateFieldRow">
@@ -27,7 +36,16 @@
 
         <div class="rollerCalibrateFieldRow">
           <label for="rollerCalibrateActualX">Actual X Position</label>
-          <input type="number" id="rollerCalibrateActualX" step="0.001" />
+          <div class="rollerCalibrateFieldActionRow">
+            <input type="number" id="rollerCalibrateActualX" step="0.001" />
+            <button
+              type="button"
+              id="rollerCalibrateUsePositionButton"
+              class="rollerCalibrateButton rollerCalibrateInlineButton"
+            >
+              Use Current Position
+            </button>
+          </div>
         </div>
 
         <div class="rollerCalibrateFieldRow">
@@ -55,6 +73,8 @@
           Add Measurement
         </button>
       </div>
+
+      <div id="rollerCalibrateMotorStatus" class="hidden"></div>
 
       <div id="rollerCalibrateError" class="rollerCalibrateError hidden"></div>
     </article>

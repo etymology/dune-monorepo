@@ -1113,6 +1113,31 @@ def build_command_registry(
     False,
   )
 
+  def machine_set_roller_arm_calibration(args):
+    from dune_winder.machine.calibration.roller_arm import (
+      RollerArmCalibration,
+      roller_arm_calibration_from_dict,
+    )
+
+    _validateArgs(args, required=("calibration",))
+    calibration = args["calibration"]
+    if isinstance(calibration, RollerArmCalibration):
+      machineCalibration.rollerArmCalibration = calibration
+    elif isinstance(calibration, dict):
+      machineCalibration.rollerArmCalibration = roller_arm_calibration_from_dict(
+        calibration
+      )
+    else:
+      raise TypeError("calibration must be a calibration dict")
+    machineCalibration.save()
+    return machine_get_roller_arm_calibration({})
+
+  registry.register(
+    "machine.set_roller_arm_calibration",
+    machine_set_roller_arm_calibration,
+    True,
+  )
+
   def machine_clear_roller_arm_calibration(args):
     _validateArgs(args)
     machineCalibration.rollerArmCalibration = None

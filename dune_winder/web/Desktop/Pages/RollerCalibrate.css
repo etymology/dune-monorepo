@@ -75,6 +75,21 @@
   background-color: #0f0f0f;
 }
 
+.rollerCalibrateFieldActionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rollerCalibrateFieldActionRow input {
+  flex: 1;
+}
+
+.rollerCalibrateInlineButton {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
 .rollerCalibrateButton {
   padding: 8px 12px;
   background-color: #0066cc;
