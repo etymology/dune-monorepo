@@ -54,6 +54,42 @@ class CommandValidationTests(unittest.TestCase):
     self.assertEqual(response["data"]["data"]["pullInId"], "Y_PULL_IN")
     self.assertEqual(response["data"]["data"]["value"], 212.5)
 
+  def test_machine_compute_roller_y_cal_accepts_hover_keyword(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "machine.compute_roller_y_cal",
+        "args": {
+          "gcode_line": "~anchorToTarget(B1201,B2001,hover=True)",
+          "actual_x": 3297.0,
+          "actual_y": 2683.0,
+          "layer": "U",
+        },
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["anchor_pin"], "B1201")
+    self.assertEqual(response["data"]["target_pin"], "B2001")
+
+  def test_machine_compute_roller_y_cal_accepts_offset_and_hover_keywords(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "machine.compute_roller_y_cal",
+        "args": {
+          "gcode_line": "~anchorToTarget(B1201,B2001,offset=(1.5,-2),hover=True)",
+          "actual_x": 3297.0,
+          "actual_y": 2683.0,
+          "layer": "U",
+        },
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(response["data"]["anchor_pin"], "B1201")
+    self.assertEqual(response["data"]["target_pin"], "B2001")
+
   def test_v_template_xz_generate_command_is_registered(self):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(

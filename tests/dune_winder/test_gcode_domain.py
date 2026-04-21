@@ -68,6 +68,13 @@ class GCodeParserTests(unittest.TestCase):
     self.assertIsInstance(line.items[1], MacroCall)
     self.assertEqual(line.items[1].text, "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))")
 
+  def test_parser_and_renderer_support_anchor_to_target_hover_keyword(self):
+    line = parse_line_text("N9 ~anchorToTarget(B1201,B2001,hover=True)")
+
+    self.assertEqual(render_line(line), "N9 ~anchorToTarget(B1201,B2001,hover=True)")
+    self.assertIsInstance(line.items[1], MacroCall)
+    self.assertEqual(line.items[1].text, "anchorToTarget(B1201,B2001,hover=True)")
+
 
 class GCodeRuntimeTests(unittest.TestCase):
   def test_runtime_delivers_one_callback_per_instruction(self):
