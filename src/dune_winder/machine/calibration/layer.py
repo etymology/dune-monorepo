@@ -17,6 +17,10 @@ import tempfile
 from dune_winder.library.hash import Hash
 from dune_winder.library.serializable_location import SerializableLocation
 from dune_winder.library.Geometry.location import Location
+from dune_winder.machine.calibration.z_plane import (
+  layer_z_plane_calibration_from_dict,
+  layer_z_plane_calibration_to_dict,
+)
 
 
 def _loc_to_dict(loc: Location) -> dict:
@@ -77,6 +81,7 @@ class LayerCalibration:
     # Z-positions to level with front/back of pins.
     self.zFront = None
     self.zBack = None
+    self.zPlaneCalibration = None
 
     # Look-up table that correlates pin names to their locations.
     self._locations: dict[str, Location] = {}
@@ -100,6 +105,10 @@ class LayerCalibration:
     newLayer.offset = self.offset
     newLayer.zFront = self.zFront
     newLayer.zBack = self.zBack
+    if self.zPlaneCalibration is not None:
+      newLayer.zPlaneCalibration = layer_z_plane_calibration_from_dict(
+        layer_z_plane_calibration_to_dict(self.zPlaneCalibration)
+      )
     for pinName, location in self._locations.items():
       newLayer._locations[pinName] = location.copy()
     return newLayer
@@ -165,6 +174,11 @@ class LayerCalibration:
       "layer": self._layer,
       "zFront": self.zFront,
       "zBack": self.zBack,
+      "zPlaneCalibration": (
+        None
+        if self.zPlaneCalibration is None
+        else layer_z_plane_calibration_to_dict(self.zPlaneCalibration)
+      ),
       "hashValue": self.hashValue,
       "offset": _loc_to_dict(self.offset),
       "locations": {pin: _loc_to_dict(loc) for pin, loc in self._locations.items()},
@@ -175,6 +189,12 @@ class LayerCalibration:
     self._layer = data.get("layer", self._layer)
     self.zFront = data.get("zFront")
     self.zBack = data.get("zBack")
+    if data.get("zPlaneCalibration") is None:
+      self.zPlaneCalibration = None
+    else:
+      self.zPlaneCalibration = layer_z_plane_calibration_from_dict(
+        data["zPlaneCalibration"]
+      )
     self.hashValue = data.get("hashValue", "")
     offset_d = data.get("offset", {"x": 0.0, "y": 0.0, "z": 0.0})
     self.offset = SerializableLocation(offset_d["x"], offset_d["y"], offset_d["z"])

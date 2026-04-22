@@ -260,6 +260,140 @@ def build_command_registry(
     False,
   )
 
+  def _resolve_process_layer(args):
+    layer = args.get("layer")
+    if layer is None:
+      layer = process.getRecipeLayer()
+    if layer is None:
+      raise ValueError("Missing argument(s): layer")
+    return _asString(layer, "layer").upper()
+
+  def _active_layer_calibration_or_raise(layer):
+    if hasattr(process, "_getActiveLayerCalibration"):
+      try:
+        return process._getActiveLayerCalibration(layer)
+      except Exception as exc:
+        raise ValueError(str(exc)) from exc
+
+    handler = getattr(process, "gCodeHandler", None)
+    if handler is not None and hasattr(handler, "getLayerCalibration"):
+      calibration = handler.getLayerCalibration()
+      if calibration is not None and str(calibration.getLayerNames()).strip().upper() == layer:
+        return calibration
+
+    raise ValueError("No layer calibration is loaded for active layer " + str(layer) + ".")
+
+  def _sync_layer_calibration_handlers(calibration):
+    handlers = []
+    direct_handler = getattr(process, "gCodeHandler", None)
+    if direct_handler is not None:
+      handlers.append(direct_handler)
+    workspace_handler = getattr(getattr(process, "workspace", None), "_gCodeHandler", None)
+    if workspace_handler is not None and workspace_handler not in handlers:
+      handlers.append(workspace_handler)
+
+    for handler in handlers:
+      if not hasattr(handler, "useLayerCalibration"):
+        continue
+      loaded = None
+      if hasattr(handler, "getLayerCalibration"):
+        loaded = handler.getLayerCalibration()
+      if loaded is calibration or (
+        loaded is not None
+        and str(loaded.getLayerNames()).strip().upper()
+        == str(calibration.getLayerNames()).strip().upper()
+      ):
+        handler.useLayerCalibration(calibration)
+
+  def _machine_calibration_path():
+    output_path = getattr(machineCalibration, "_outputFilePath", None)
+    output_name = getattr(machineCalibration, "_outputFileName", None)
+    if output_path is None or output_name is None:
+      return None
+    import pathlib
+
+    return str(pathlib.Path(output_path) / output_name)
+
+  def process_get_layer_z_plane_calibration(args):
+    from dune_winder.machine.calibration.z_plane import (
+      empty_layer_z_plane_calibration,
+      layer_z_plane_calibration_to_dict,
+    )
+
+    _validateArgs(args, optional=("layer",))
+    layer = _resolve_process_layer(args)
+    calibration = _active_layer_calibration_or_raise(layer)
+    z_plane_calibration = getattr(calibration, "zPlaneCalibration", None)
+    if z_plane_calibration is None:
+      z_plane_calibration = empty_layer_z_plane_calibration()
+    return layer_z_plane_calibration_to_dict(z_plane_calibration)
+
+  registry.register(
+    "process.get_layer_z_plane_calibration",
+    process_get_layer_z_plane_calibration,
+    False,
+  )
+
+  def process_add_layer_z_plane_measurement(args):
+    from dune_winder.machine.calibration.z_plane import (
+      LayerZPlaneMeasurement,
+    )
+    from dune_winder.machine.calibration.z_plane_solver import (
+      apply_layer_z_plane_calibration,
+      fit_layer_z_plane,
+    )
+
+    _validateArgs(
+      args,
+      required=("gcode_line", "actual_x", "actual_y", "actual_z"),
+      optional=("layer",),
+    )
+    layer = _resolve_process_layer(args)
+    calibration = _active_layer_calibration_or_raise(layer)
+
+    measurement = LayerZPlaneMeasurement(
+      gcode_line=_asString(args["gcode_line"], "gcode_line"),
+      layer=layer,
+      actual_x=_asFloat(args["actual_x"], "actual_x"),
+      actual_y=_asFloat(args["actual_y"], "actual_y"),
+      actual_z=_asFloat(args["actual_z"], "actual_z"),
+    )
+    current = getattr(calibration, "zPlaneCalibration", None)
+    measurements = [] if current is None else list(current.measurements)
+    measurements.append(measurement)
+
+    fitted = fit_layer_z_plane(
+      measurements,
+      machine_calibration_path=_machine_calibration_path(),
+      layer_calibration_path=calibration.getFullFileName(),
+    )
+    calibration.zPlaneCalibration = fitted
+    apply_layer_z_plane_calibration(calibration, fitted)
+    calibration.save()
+    _sync_layer_calibration_handlers(calibration)
+    return process_get_layer_z_plane_calibration({"layer": layer})
+
+  registry.register(
+    "process.add_layer_z_plane_measurement",
+    process_add_layer_z_plane_measurement,
+    True,
+  )
+
+  def process_clear_layer_z_plane_calibration(args):
+    _validateArgs(args, optional=("layer",))
+    layer = _resolve_process_layer(args)
+    calibration = _active_layer_calibration_or_raise(layer)
+    calibration.zPlaneCalibration = None
+    calibration.save()
+    _sync_layer_calibration_handlers(calibration)
+    return process_get_layer_z_plane_calibration({"layer": layer})
+
+  registry.register(
+    "process.clear_layer_z_plane_calibration",
+    process_clear_layer_z_plane_calibration,
+    True,
+  )
+
   def process_set_anchor_point(args):
     _validateArgs(args, required=("pin_a",), optional=("pin_b",))
     pinA = _asString(args["pin_a"], "pin_a").upper()
