@@ -15,9 +15,6 @@ from typing import Optional
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
-from dune_winder.core.control_events import (
-  ManualModeEvent,
-)
 from dune_winder.core.gcode_playback_service import GCodePlaybackService
 from dune_winder.core.manual_calibration import ManualCalibration, normalize_calibration
 from dune_winder.core.recipe_service import RecipeService
@@ -101,8 +98,12 @@ class Process:
         log=getattr(self, "_log", None),
         systemTime=getattr(self, "_systemTime", None),
         controlStateMachine=getattr(self, "controlStateMachine", None),
-        resetWindTime=getattr(getattr(self, "controlStateMachine", None), "resetWindTime", None),
-        getWindTime=getattr(getattr(self, "controlStateMachine", None), "getWindTime", None),
+        resetWindTime=getattr(
+          getattr(self, "controlStateMachine", None), "resetWindTime", None
+        ),
+        getWindTime=getattr(
+          getattr(self, "controlStateMachine", None), "getWindTime", None
+        ),
       )
       self._recipe = recipe
     return recipe
@@ -216,20 +217,35 @@ class Process:
 
     self._machineCalibration = machineCalibration
     self._safety = SafetyValidationService(
-      machineCalibration, io, self.controlStateMachine,
-      maxVelocity, maxSlowVelocity,
+      machineCalibration,
+      io,
+      self.controlStateMachine,
+      maxVelocity,
+      maxSlowVelocity,
     )
     self._motion = MotionService(
-      io, log, self.controlStateMachine, self._safety,
-      self.gCodeHandler, self.headCompensation, self._xBacklash,
+      io,
+      log,
+      self.controlStateMachine,
+      self._safety,
+      self.gCodeHandler,
+      self.headCompensation,
+      self._xBacklash,
       lambda: self.workspace,
     )
     self._playback = GCodePlaybackService(
-      self.gCodeHandler, self.controlStateMachine, log, io,
-      self._safety, self._xBacklash, lambda: self.workspace,
+      self.gCodeHandler,
+      self.controlStateMachine,
+      log,
+      io,
+      self._safety,
+      self._xBacklash,
+      lambda: self.workspace,
       lambda: self._machineCalibration,
     )
-    self.gCodeHandler.setBeforeExecuteLineCallback(self._playback.refreshCalibrationBeforeExecution)
+    self.gCodeHandler.setBeforeExecuteLineCallback(
+      self._playback.refreshCalibrationBeforeExecution
+    )
 
     self._recipe = RecipeService(
       workspaceGetter=lambda: self.workspace,
@@ -458,9 +474,11 @@ class Process:
     activeLayer = self.getRecipeLayer()
     if activeLayer != requestedLayer:
       raise ValueError(
-        "Requested layer " + requestedLayer
+        "Requested layer "
+        + requestedLayer
         + " does not match active loaded recipe layer "
-        + str(activeLayer) + "."
+        + str(activeLayer)
+        + "."
       )
 
     calibration = None
@@ -478,8 +496,11 @@ class Process:
     calibrationLayer = getattr(calibration, "_layer", None)
     if calibrationLayer not in (None, "", requestedLayer):
       raise ValueError(
-        "Loaded calibration layer " + str(calibrationLayer)
-        + " does not match requested layer " + requestedLayer + "."
+        "Loaded calibration layer "
+        + str(calibrationLayer)
+        + " does not match requested layer "
+        + requestedLayer
+        + "."
       )
 
     return calibration
@@ -564,7 +585,11 @@ class Process:
     elif hasattr(calibration, "_to_dict"):
       content = json.dumps(calibration._to_dict(), indent=2)
     else:
-      raise ValueError("Calibration JSON content is not available for active layer " + requestedLayer + ".")
+      raise ValueError(
+        "Calibration JSON content is not available for active layer "
+        + requestedLayer
+        + "."
+      )
 
     contentHash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
@@ -615,8 +640,12 @@ class Process:
 
   # ---------------------------------------------------------------------
   def manualSeekXY(
-    self, xPosition=None, yPosition=None, velocity=None,
-    acceleration=None, deceleration=None,
+    self,
+    xPosition=None,
+    yPosition=None,
+    velocity=None,
+    acceleration=None,
+    deceleration=None,
   ):
     return self._motionService().manualSeekXY(
       xPosition, yPosition, velocity, acceleration, deceleration
@@ -657,5 +686,6 @@ class Process:
   # ---------------------------------------------------------------------
   def getRealXPosition(self):
     return self._xBacklash.getEffectiveX(self._io.xAxis.getPosition())
+
 
 # end class

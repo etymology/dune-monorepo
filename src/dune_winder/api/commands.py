@@ -73,9 +73,15 @@ def build_command_registry(
   # ---------------------------------------------------------------------------
   # Process movement and run-control commands.
   # ---------------------------------------------------------------------------
-  registry.register("process.start", lambda args: (_validateArgs(args), process.start())[1], True)
-  registry.register("process.stop", lambda args: (_validateArgs(args), process.stop())[1], True)
-  registry.register("process.step", lambda args: (_validateArgs(args), process.step())[1], True)
+  registry.register(
+    "process.start", lambda args: (_validateArgs(args), process.start())[1], True
+  )
+  registry.register(
+    "process.stop", lambda args: (_validateArgs(args), process.stop())[1], True
+  )
+  registry.register(
+    "process.step", lambda args: (_validateArgs(args), process.step())[1], True
+  )
   registry.register(
     "process.stop_next_line",
     lambda args: (_validateArgs(args), process.stopNextLine())[1],
@@ -204,7 +210,9 @@ def build_command_registry(
     velocity = args.get("velocity")
     if velocity is not None:
       velocity = _asFloat(velocity, "velocity")
-    return process.manualSeekZ(_asFloat(args["position"], "position"), velocity=velocity)
+    return process.manualSeekZ(
+      _asFloat(args["position"], "position"), velocity=velocity
+    )
 
   registry.register("process.manual_seek_z", process_manual_seek_z, True)
 
@@ -233,7 +241,9 @@ def build_command_registry(
       raise ValueError("Missing argument(s): layer")
     return process.getLayerCalibration(_asString(layer, "layer"))
 
-  registry.register("process.get_layer_calibration", process_get_layer_calibration, False)
+  registry.register(
+    "process.get_layer_calibration", process_get_layer_calibration, False
+  )
 
   def process_get_layer_calibration_json(args):
     _validateArgs(args, optional=("layer",))
@@ -259,26 +269,6 @@ def build_command_registry(
     return process.setAnchorPoint(pinA, pinB)
 
   registry.register("process.set_anchor_point", process_set_anchor_point, True)
-
-  def process_snapshot_workspace(args):
-    _validateArgs(args)
-    currentLine = None
-    totalLines = None
-    if process.gCodeHandler.isG_CodeLoaded():
-      currentLine = process.gCodeHandler.getLine()
-      totalLines = process.gCodeHandler.getTotalLines()
-
-    return {
-      "recipes": process.getRecipes(),
-      "recipeName": process.getRecipeName(),
-      "recipeLayer": process.getRecipeLayer(),
-      "workspace": process.getWorkspaceState(),
-      "gcodeLine": currentLine,
-      "gcodeTotalLines": totalLines,
-      "movementReady": process.controlStateMachine.isReadyForMovement(),
-    }
-
-  registry.register("process.snapshot_workspace", process_snapshot_workspace, False)
 
   # ---------------------------------------------------------------------------
   # Template generator commands.
@@ -314,7 +304,9 @@ def build_command_registry(
 
   def manual_calibration_set_transfer_pause(args):
     _validateArgs(args, required=("enabled",))
-    return process.manualCalibration.setTransferPause(_asBool(args["enabled"], "enabled"))
+    return process.manualCalibration.setTransferPause(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.manual_calibration.set_transfer_pause",
@@ -324,7 +316,9 @@ def build_command_registry(
 
   def manual_calibration_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
-    return process.manualCalibration.setIncludeLeadMode(_asBool(args["enabled"], "enabled"))
+    return process.manualCalibration.setIncludeLeadMode(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.manual_calibration.set_include_lead_mode",
@@ -334,7 +328,9 @@ def build_command_registry(
 
   def manual_calibration_set_strip_g113_params(args):
     _validateArgs(args, required=("enabled",))
-    return process.manualCalibration.setStripG113Params(_asBool(args["enabled"], "enabled"))
+    return process.manualCalibration.setStripG113Params(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.manual_calibration.set_strip_g113_params",
@@ -349,7 +345,9 @@ def build_command_registry(
   )
   registry.register(
     "process.manual_calibration.generate_recipe_file",
-    lambda args: (_validateArgs(args), process.manualCalibration.generateRecipeFile())[1],
+    lambda args: (_validateArgs(args), process.manualCalibration.generateRecipeFile())[
+      1
+    ],
     True,
   )
   registry.register(
@@ -375,7 +373,9 @@ def build_command_registry(
       velocity = _asFloat(velocity, "velocity")
     return process.manualCalibration.gotoPin(_asInt(args["pin"], "pin"), velocity)
 
-  registry.register("process.manual_calibration.goto_pin", manual_calibration_goto_pin, True)
+  registry.register(
+    "process.manual_calibration.goto_pin", manual_calibration_goto_pin, True
+  )
 
   def manual_calibration_capture_current_pin(args):
     _validateArgs(args, required=("pin",))
@@ -404,7 +404,9 @@ def build_command_registry(
     _validateArgs(args, required=("pin",))
     return process.manualCalibration.predictPin(_asInt(args["pin"], "pin"))
 
-  registry.register("process.manual_calibration.predict_pin", manual_calibration_predict_pin, False)
+  registry.register(
+    "process.manual_calibration.predict_pin", manual_calibration_predict_pin, False
+  )
 
   def manual_calibration_set_camera_offset(args):
     _validateArgs(args, required=("x", "y"))
@@ -518,7 +520,9 @@ def build_command_registry(
     _validateArgs(args, required=("enabled",))
     return process.vTemplateRecipe.setTransferPause(_asBool(args["enabled"], "enabled"))
 
-  registry.register("process.v_template.set_transfer_pause", v_template_set_transfer_pause, True)
+  registry.register(
+    "process.v_template.set_transfer_pause", v_template_set_transfer_pause, True
+  )
 
   def v_template_set_add_foot_pauses(args):
     _validateArgs(args, required=("enabled",))
@@ -530,7 +534,9 @@ def build_command_registry(
 
   def v_template_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
-    return process.vTemplateRecipe.setIncludeLeadMode(_asBool(args["enabled"], "enabled"))
+    return process.vTemplateRecipe.setIncludeLeadMode(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.v_template.set_include_lead_mode", v_template_set_include_lead_mode, True
@@ -538,7 +544,9 @@ def build_command_registry(
 
   def v_template_set_strip_g113_params(args):
     _validateArgs(args, required=("enabled",))
-    return process.vTemplateRecipe.setStripG113Params(_asBool(args["enabled"], "enabled"))
+    return process.vTemplateRecipe.setStripG113Params(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.v_template.set_strip_g113_params", v_template_set_strip_g113_params, True
@@ -547,7 +555,9 @@ def build_command_registry(
   def v_template_reset_draft(args):
     _validateArgs(args, optional=("mark_dirty",))
     markDirty = args.get("mark_dirty", True)
-    return process.vTemplateRecipe.resetDraft(markDirty=bool(_asBool(markDirty, "mark_dirty")))
+    return process.vTemplateRecipe.resetDraft(
+      markDirty=bool(_asBool(markDirty, "mark_dirty"))
+    )
 
   registry.register("process.v_template.reset_draft", v_template_reset_draft, True)
 
@@ -587,7 +597,9 @@ def build_command_registry(
     _validateArgs(args, required=("enabled",))
     return process.uTemplateRecipe.setTransferPause(_asBool(args["enabled"], "enabled"))
 
-  registry.register("process.u_template.set_transfer_pause", u_template_set_transfer_pause, True)
+  registry.register(
+    "process.u_template.set_transfer_pause", u_template_set_transfer_pause, True
+  )
 
   def u_template_set_add_foot_pauses(args):
     _validateArgs(args, required=("enabled",))
@@ -599,7 +611,9 @@ def build_command_registry(
 
   def u_template_set_include_lead_mode(args):
     _validateArgs(args, required=("enabled",))
-    return process.uTemplateRecipe.setIncludeLeadMode(_asBool(args["enabled"], "enabled"))
+    return process.uTemplateRecipe.setIncludeLeadMode(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.u_template.set_include_lead_mode", u_template_set_include_lead_mode, True
@@ -607,7 +621,9 @@ def build_command_registry(
 
   def u_template_set_strip_g113_params(args):
     _validateArgs(args, required=("enabled",))
-    return process.uTemplateRecipe.setStripG113Params(_asBool(args["enabled"], "enabled"))
+    return process.uTemplateRecipe.setStripG113Params(
+      _asBool(args["enabled"], "enabled")
+    )
 
   registry.register(
     "process.u_template.set_strip_g113_params", u_template_set_strip_g113_params, True
@@ -616,7 +632,9 @@ def build_command_registry(
   def u_template_reset_draft(args):
     _validateArgs(args, optional=("mark_dirty",))
     markDirty = args.get("mark_dirty", True)
-    return process.uTemplateRecipe.resetDraft(markDirty=bool(_asBool(markDirty, "mark_dirty")))
+    return process.uTemplateRecipe.resetDraft(
+      markDirty=bool(_asBool(markDirty, "mark_dirty"))
+    )
 
   registry.register("process.u_template.reset_draft", u_template_reset_draft, True)
 
@@ -733,7 +751,9 @@ def build_command_registry(
       _asInt(args["pin_number"], "pin_number"),
     )
 
-  registry.register("process.jump_to_uv_pin_segment", process_jump_to_uv_pin_segment, True)
+  registry.register(
+    "process.jump_to_uv_pin_segment", process_jump_to_uv_pin_segment, True
+  )
 
   def process_get_wrap_seek_line(args):
     _validateArgs(args, required=("wrap",))
@@ -748,7 +768,9 @@ def build_command_registry(
       recipeFile = _asString(recipeFile, "recipe_file")
     return process.openRecipeInEditor(recipeFile=recipeFile)
 
-  registry.register("process.open_recipe_in_editor", process_open_recipe_in_editor, True)
+  registry.register(
+    "process.open_recipe_in_editor", process_open_recipe_in_editor, True
+  )
   registry.register(
     "process.open_calibration_in_editor",
     lambda args: (_validateArgs(args), process.openCalibrationInEditor())[1],
@@ -759,13 +781,19 @@ def build_command_registry(
     _validateArgs(args, required=("line",))
     return process.setG_CodeRunToLine(_asInt(args["line"], "line"))
 
-  registry.register("process.set_gcode_run_to_line", process_set_gcode_run_to_line, True)
+  registry.register(
+    "process.set_gcode_run_to_line", process_set_gcode_run_to_line, True
+  )
 
   def process_set_gcode_velocity_scale(args):
     _validateArgs(args, required=("scale_factor",))
-    return process.setG_CodeVelocityScale(_asFloat(args["scale_factor"], "scale_factor"))
+    return process.setG_CodeVelocityScale(
+      _asFloat(args["scale_factor"], "scale_factor")
+    )
 
-  registry.register("process.set_gcode_velocity_scale", process_set_gcode_velocity_scale, True)
+  registry.register(
+    "process.set_gcode_velocity_scale", process_set_gcode_velocity_scale, True
+  )
   registry.register(
     "process.get_gcode_velocity_scale",
     lambda args: (_validateArgs(args), process.gCodeHandler.getVelocityScale())[1],
@@ -793,7 +821,10 @@ def build_command_registry(
   )
   registry.register(
     "process.get_control_state_name",
-    lambda args: (_validateArgs(args), process.controlStateMachine.state.__class__.__name__)[1],
+    lambda args: (
+      _validateArgs(args),
+      process.controlStateMachine.state.__class__.__name__,
+    )[1],
     False,
   )
   registry.register(
@@ -890,11 +921,23 @@ def build_command_registry(
     False,
   )
 
-  registry.register("io.move_latch", lambda args: (_validateArgs(args), io.plcLogic.move_latch())[1], True)
-  registry.register("io.latch", lambda args: (_validateArgs(args), io.plcLogic.latch())[1], True)
-  registry.register("io.latch_home", lambda args: (_validateArgs(args), io.plcLogic.latchHome())[1], True)
   registry.register(
-    "io.latch_unlock", lambda args: (_validateArgs(args), io.plcLogic.latchUnlock())[1], True
+    "io.move_latch",
+    lambda args: (_validateArgs(args), io.plcLogic.move_latch())[1],
+    True,
+  )
+  registry.register(
+    "io.latch", lambda args: (_validateArgs(args), io.plcLogic.latch())[1], True
+  )
+  registry.register(
+    "io.latch_home",
+    lambda args: (_validateArgs(args), io.plcLogic.latchHome())[1],
+    True,
+  )
+  registry.register(
+    "io.latch_unlock",
+    lambda args: (_validateArgs(args), io.plcLogic.latchUnlock())[1],
+    True,
   )
   registry.register(
     "io.get_state",
@@ -936,13 +979,19 @@ def build_command_registry(
   registry.register("io.max_deceleration", io_max_deceleration, True)
 
   registry.register(
-    "machine.get_z_back", lambda args: (_validateArgs(args), machineCalibration.zBack)[1], False
+    "machine.get_z_back",
+    lambda args: (_validateArgs(args), machineCalibration.zBack)[1],
+    False,
   )
   registry.register(
     "machine.get_calibration",
     lambda args: (
       _validateArgs(args),
-      {key: value for key, value in machineCalibration.__dict__.items() if not key.startswith("_")},
+      {
+        key: value
+        for key, value in machineCalibration.__dict__.items()
+        if not key.startswith("_")
+      },
     )[1],
     False,
   )
@@ -1110,9 +1159,7 @@ def build_command_registry(
         "center_displacement": 0.0,
         "arm_tilt_rad": 0.0,
       }
-    return roller_arm_calibration_to_dict(
-      machineCalibration.rollerArmCalibration
-    )
+    return roller_arm_calibration_to_dict(machineCalibration.rollerArmCalibration)
 
   registry.register(
     "machine.get_roller_arm_calibration",
@@ -1178,7 +1225,11 @@ def build_command_registry(
   )
 
   # Useful read-only utility command used by pages that still rely on this data.
-  registry.register("low_level_io.get_tags", lambda args: (_validateArgs(args), lowLevelIO.getTags())[1], False)
+  registry.register(
+    "low_level_io.get_tags",
+    lambda args: (_validateArgs(args), lowLevelIO.getTags())[1],
+    False,
+  )
   registry.register(
     "low_level_io.get_inputs",
     lambda args: (_validateArgs(args), lowLevelIO.getInputs())[1],

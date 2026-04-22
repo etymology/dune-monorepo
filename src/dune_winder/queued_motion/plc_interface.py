@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from dune_winder.io.devices.plc import PLC
 
@@ -120,14 +119,28 @@ class QueuedMotionPLCInterface:
     self._move_b_er = PLC.Tag(plc, TAG_MOVE_B_ER, polled, tagType="DINT")
     self._queue_count = PLC.Tag(plc, TAG_QUEUE_COUNT, polled, tagType="DINT")
     self._use_a_as_current = PLC.Tag(plc, TAG_USE_A_AS_CURRENT, polled, tagType="BOOL")
-    self._move_pending_status = PLC.Tag(plc, TAG_MOVE_PENDING_STATUS, polled, tagType="DINT")
+    self._move_pending_status = PLC.Tag(
+      plc, TAG_MOVE_PENDING_STATUS, polled, tagType="DINT"
+    )
     self._fault_code = PLC.Tag(plc, TAG_FAULT_CODE, polled, tagType="DINT")
-    self._frame_lock_head_top = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_TOP, polled, tagType="BOOL")
-    self._frame_lock_head_mid = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_MID, polled, tagType="BOOL")
-    self._frame_lock_head_btm = PLC.Tag(plc, TAG_FRAME_LOCK_HEAD_BTM, polled, tagType="BOOL")
-    self._frame_lock_foot_top = PLC.Tag(plc, TAG_FRAME_LOCK_FOOT_TOP, polled, tagType="BOOL")
-    self._frame_lock_foot_mid = PLC.Tag(plc, TAG_FRAME_LOCK_FOOT_MID, polled, tagType="BOOL")
-    self._frame_lock_foot_btm = PLC.Tag(plc, TAG_FRAME_LOCK_FOOT_BTM, polled, tagType="BOOL")
+    self._frame_lock_head_top = PLC.Tag(
+      plc, TAG_FRAME_LOCK_HEAD_TOP, polled, tagType="BOOL"
+    )
+    self._frame_lock_head_mid = PLC.Tag(
+      plc, TAG_FRAME_LOCK_HEAD_MID, polled, tagType="BOOL"
+    )
+    self._frame_lock_head_btm = PLC.Tag(
+      plc, TAG_FRAME_LOCK_HEAD_BTM, polled, tagType="BOOL"
+    )
+    self._frame_lock_foot_top = PLC.Tag(
+      plc, TAG_FRAME_LOCK_FOOT_TOP, polled, tagType="BOOL"
+    )
+    self._frame_lock_foot_mid = PLC.Tag(
+      plc, TAG_FRAME_LOCK_FOOT_MID, polled, tagType="BOOL"
+    )
+    self._frame_lock_foot_btm = PLC.Tag(
+      plc, TAG_FRAME_LOCK_FOOT_BTM, polled, tagType="BOOL"
+    )
 
   @staticmethod
   def segment_to_udt(seg: MotionSegment) -> dict:
@@ -207,10 +220,7 @@ class QueuedMotionPLCInterface:
 
   def read_seg_queue_speeds(self, count: int) -> list[float]:
     """Read the Speed field from SegQueue[0..count-1]."""
-    return [
-      float(self._read_one(f"{TAG_SEG_QUEUE}[{i}].Speed"))
-      for i in range(count)
-    ]
+    return [float(self._read_one(f"{TAG_SEG_QUEUE}[{i}].Speed")) for i in range(count)]
 
   def write_seg_queue_speed(self, index: int, speed: float) -> None:
     """Write the Speed field of SegQueue[index]."""

@@ -9,7 +9,6 @@ import os
 import pathlib
 import re
 import tempfile
-from typing import Optional
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.hash import Hash
@@ -34,7 +33,9 @@ class WinderWorkspace:
     r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}\)",
     re.IGNORECASE,
   )
-  _UV_PIN_PAIR_RE = re.compile(r"\bG103\s+(P([AB])(\d+))\s+(P([AB])(\d+))\b", re.IGNORECASE)
+  _UV_PIN_PAIR_RE = re.compile(
+    r"\bG103\s+(P([AB])(\d+))\s+(P([AB])(\d+))\b", re.IGNORECASE
+  )
   _UV_WRAP_START_RE = re.compile(r"\(\s*\d+\s*,\s*1\b", re.IGNORECASE)
   _UV_TRANSFER_RE = re.compile(r"\bG(?:106|206)\b", re.IGNORECASE)
   _OPPOSITE_FAMILY_PIN_CACHE = {}
@@ -198,7 +199,9 @@ class WinderWorkspace:
 
   def setLayer(self, layer):
     self._layer = layer
-    self._calibrationFile = self._layer + "_Calibration.json" if self._layer is not None else None
+    self._calibrationFile = (
+      self._layer + "_Calibration.json" if self._layer is not None else None
+    )
     if self._calibrationFile:
       self._loadCalibrationFromDisk()
     else:
@@ -274,8 +277,12 @@ class WinderWorkspace:
   _LAYER_FILE_WRITERS = {
     "V": lambda path, archive: write_v_template_file(path, archive_directory=archive),
     "U": lambda path, archive: write_u_template_file(path, archive_directory=archive),
-    "X": lambda path, archive: write_xg_template_file("X", output_path=path, archive_directory=archive),
-    "G": lambda path, archive: write_xg_template_file("G", output_path=path, archive_directory=archive),
+    "X": lambda path, archive: write_xg_template_file(
+      "X", output_path=path, archive_directory=archive
+    ),
+    "G": lambda path, archive: write_xg_template_file(
+      "G", output_path=path, archive_directory=archive
+    ),
   }
 
   def _generateDefaultRecipeIfMissing(self, recipeFile):
@@ -305,12 +312,16 @@ class WinderWorkspace:
   def loadRecipe(self, layer=None, recipeFile=None, startingLine=-1):
     isError = False
 
-    if startingLine == -1 and recipeFile is not None and recipeFile in self._lineHistory:
+    if (
+      startingLine == -1 and recipeFile is not None and recipeFile in self._lineHistory
+    ):
       startingLine = self._lineHistory[recipeFile]
 
     if layer is not None:
       self._layer = layer
-    self._calibrationFile = self._layer + "_Calibration.json" if self._layer is not None else None
+    self._calibrationFile = (
+      self._layer + "_Calibration.json" if self._layer is not None else None
+    )
     if self._lineNumber is not None:
       self._lineNumber = startingLine
     if self._calibrationFile:
@@ -370,7 +381,9 @@ class WinderWorkspace:
         self.__class__.__name__,
         "GCODE",
         "Failed to loaded G-Code file "
-        + self._recipeDirectory + "/" + self._recipeFile
+        + self._recipeDirectory
+        + "/"
+        + self._recipeFile
         + ", starting at line "
         + str(self._lineNumber),
         [error, self._recipeDirectory + "/" + self._recipeFile, self._lineNumber],
@@ -384,14 +397,21 @@ class WinderWorkspace:
     self._loadState()
 
     recipeFile = self._recipeFile
-    if recipeFile is None or not os.path.isfile(self._recipeDirectory + "/" + recipeFile):
-      gcFiles = sorted(f for f in os.listdir(self._recipeDirectory) if f.endswith(".gc"))
+    if recipeFile is None or not os.path.isfile(
+      self._recipeDirectory + "/" + recipeFile
+    ):
+      gcFiles = sorted(
+        f for f in os.listdir(self._recipeDirectory) if f.endswith(".gc")
+      )
       recipeFile = gcFiles[0] if gcFiles else None
       if recipeFile:
         self._log.add(
           self.__class__.__name__,
           "LOAD",
-          "Recipe file missing or not set; defaulting to " + self._recipeDirectory + "/" + recipeFile,
+          "Recipe file missing or not set; defaulting to "
+          + self._recipeDirectory
+          + "/"
+          + recipeFile,
           [self._recipeFile, self._recipeDirectory + "/" + recipeFile],
         )
 
@@ -595,7 +615,8 @@ class WinderWorkspace:
 
     if matchedSegment is None or matchedLine is None:
       raise ValueError(
-        resolved["pinName"] + " does not appear in any same-side segment in the loaded recipe."
+        resolved["pinName"]
+        + " does not appear in any same-side segment in the loaded recipe."
       )
 
     result = dict(resolved)
@@ -811,7 +832,9 @@ class WinderWorkspace:
 
     message = "Loaded calibration file " + calibFullPath + "."
     if reloadReason is not None:
-      message = "Reloaded calibration file " + calibFullPath + " because " + reloadReason + "."
+      message = (
+        "Reloaded calibration file " + calibFullPath + " because " + reloadReason + "."
+      )
 
     self._log.add(
       self.__class__.__name__,
@@ -918,10 +941,14 @@ class WinderWorkspace:
         currentLine,
       )
     elif previousLineCount != reloadedLineCount:
-      targetLine = self._findReloadLineByPinPair(previousLines, reloadedLines, currentLine)
+      targetLine = self._findReloadLineByPinPair(
+        previousLines, reloadedLines, currentLine
+      )
 
     if targetLine is None or targetLine < -1 or targetLine >= reloadedLineCount:
-      targetLine = min(currentLine if currentLine is not None else -1, reloadedLineCount - 1)
+      targetLine = min(
+        currentLine if currentLine is not None else -1, reloadedLineCount - 1
+      )
 
     isError = self._gCodeHandler.setLine(targetLine)
     if isError:
@@ -1017,7 +1044,9 @@ class WinderWorkspace:
     elapsedTime = self._systemTime.getDelta(self._startTime)
     deltaString = self._systemTime.getElapsedString(elapsedTime)
 
-    recipeFullPath = (self._recipeDirectory + "/" + self._recipeFile) if self._recipeFile else None
+    recipeFullPath = (
+      (self._recipeDirectory + "/" + self._recipeFile) if self._recipeFile else None
+    )
     self._log.add(
       self.__class__.__name__,
       "CLOSE",
