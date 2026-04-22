@@ -38,6 +38,13 @@ _DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (
 )
 _AXIS_EPSILON = 1e-9
 _ORIENTATION_TOKENS = ("BR", "BL", "LT", "LB", "RT", "RB", "TR", "TL")
+_ANCHOR_TO_TARGET_RE = re.compile(
+  r"~anchorToTarget\("
+  r"(?P<anchor>[PAB]\d+),(?P<target>[PAB]\d+)"
+  r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}"
+  r"\)",
+  re.IGNORECASE,
+)
 
 
 class UvHeadTargetError(ValueError):
@@ -195,6 +202,23 @@ class WrappedPinResolution:
   wrap_sides: tuple[str, str]
 
 
+@dataclass(frozen=True)
+class AnchorToTargetCommand:
+  raw_text: str
+  anchor_pin: str
+  target_pin: str
+  target_offset: tuple[float, float] | None
+  hover: bool
+
+
+@dataclass(frozen=True)
+class AnchorToTargetViewResult:
+  command: AnchorToTargetCommand
+  raw_result: UvTangentViewResult
+  interpreter_head_point: Point2D
+  interpreter_wire_point: Point2D
+
+
 def _normalize_layer(layer: str) -> str:
   value = str(layer).strip().upper()
   if value not in {"U", "V"}:
@@ -246,6 +270,118 @@ def clear_uv_head_target_caches(*, layer_calibration: bool = True, machine_calib
     _load_layer_calibration.cache_clear()
   if machine_calibration:
     _load_machine_calibration.cache_clear()
+
+
+def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
+  raw_text = str(command_text).strip()
+  match = _ANCHOR_TO_TARGET_RE.fullmatch(raw_text)
+  if match is None:
+    raise UvHeadTargetError(
+      "Command must match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True])."
+    )
+  anchor_pin = _normalize_pin_name(match.group("anchor"), "Anchor pin")
+  target_pin = _normalize_pin_name(match.group("target"), "Target pin")
+  arguments = raw_text[raw_text.index("(") + 1 : -1]
+  extras: list[str] = []
+  current = []
+  depth = 0
+  for char in arguments:
+    if char == "," and depth == 0:
+      token = "".join(current).strip()
+      if token:
+        extras.append(token)
+      current = []
+      continue
+    if char == "(":
+      depth += 1
+    elif char == ")" and depth > 0:
+      depth -= 1
+    current.append(char)
+  token = "".join(current).strip()
+  if token:
+    extras.append(token)
+  extras = extras[2:]
+  target_offset = None
+  hover = False
+  for keyword in extras:
+    if "=" not in keyword:
+      raise UvHeadTargetError(
+        "~anchorToTarget keyword arguments must be written as name=value."
+      )
+    keyword_name, keyword_value = keyword.split("=", 1)
+    keyword_name = keyword_name.strip().lower()
+    keyword_value = keyword_value.strip()
+    if keyword_name == "offset":
+      if not keyword_value.startswith("(") or not keyword_value.endswith(")"):
+        raise UvHeadTargetError("~anchorToTarget offset must be written as offset=(x,y).")
+      offset_values = [part.strip() for part in keyword_value[1:-1].split(",")]
+      if len(offset_values) != 2:
+        raise UvHeadTargetError("~anchorToTarget offset requires exactly two values.")
+      target_offset = (float(offset_values[0]), float(offset_values[1]))
+      continue
+    if keyword_name == "hover":
+      hover_value = keyword_value.lower()
+      if hover_value in ("true", "1", "yes", "on"):
+        hover = True
+        continue
+      if hover_value in ("false", "0", "no", "off"):
+        hover = False
+        continue
+      raise UvHeadTargetError("~anchorToTarget hover must be written as hover=True or hover=False.")
+    raise UvHeadTargetError("~anchorToTarget only supports offset and hover keyword arguments.")
+  return AnchorToTargetCommand(
+    raw_text=raw_text,
+    anchor_pin=anchor_pin,
+    target_pin=target_pin,
+    target_offset=target_offset,
+    hover=hover,
+  )
+
+
+def compute_uv_anchor_to_target_view(
+  command_text: str,
+  *,
+  layer: str,
+  machine_calibration_path: str | Path | None = None,
+  layer_calibration_path: str | Path | None = None,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
+) -> AnchorToTargetViewResult:
+  command = parse_anchor_to_target_command(command_text)
+  machine_calibration = _load_machine_calibration(machine_calibration_path)
+  layer_calibration = _load_layer_calibration(layer, layer_calibration_path)
+  target_location = _wire_space_pin(layer_calibration, command.target_pin)
+  if command.target_offset is not None:
+    target_location = Location(
+      float(target_location.x) + float(command.target_offset[0]),
+      float(target_location.y) + float(command.target_offset[1]),
+      float(target_location.z),
+    )
+  raw_result = compute_uv_tangent_view(
+    UvTangentViewRequest(
+      layer=layer,
+      pin_a=command.anchor_pin,
+      pin_b=command.target_pin,
+    ),
+    machine_calibration_path=machine_calibration_path,
+    layer_calibration_path=layer_calibration_path,
+    pin_b_point_override=_location_to_point3(target_location),
+    roller_arm_y_offsets=roller_arm_y_offsets,
+  )
+  handler = _initial_handler(machine_calibration, layer_calibration)
+  _execute_line(handler, command.raw_text)
+  interpreter_head_point = Point2D(float(handler._x), float(handler._y))
+  interpreter_wire_location = handler._headCompensation.getActualLocation(
+    Location(float(handler._x), float(handler._y), float(handler._z))
+  )
+  interpreter_wire_point = Point2D(
+    float(interpreter_wire_location.x), float(interpreter_wire_location.y)
+  )
+  return AnchorToTargetViewResult(
+    command=command,
+    raw_result=raw_result,
+    interpreter_head_point=interpreter_head_point,
+    interpreter_wire_point=interpreter_wire_point,
+  )
 
 
 def _location_to_point3(location: Location) -> Point3D:
@@ -1946,6 +2082,8 @@ __all__ = [
   "Point3D",
   "RecipeSite",
   "RectBounds",
+  "AnchorToTargetCommand",
+  "AnchorToTargetViewResult",
   "UvHeadTargetError",
   "UvHeadTargetRequest",
   "UvHeadTargetResult",
@@ -1954,11 +2092,13 @@ __all__ = [
   "WrappedPinResolution",
   "clear_uv_head_target_caches",
   "compute_pin_pair_tangent_geometry",
+  "compute_uv_anchor_to_target_view",
   "compute_uv_head_target",
   "compute_uv_tangent_view",
   "iter_uv_wrap_primary_sites",
   "_lookup_recipe_site",
   "matches_tangent_sides",
+  "parse_anchor_to_target_command",
   "resolve_wrapped_pin_from_g103_pair",
   "tangent_sides",
 ]
