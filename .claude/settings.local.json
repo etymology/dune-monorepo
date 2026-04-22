@@ -34,7 +34,9 @@
       "Bash(python -m pytest tests/dune_winder/test_wrap_runtime.py -v)",
       "Bash(python -m pytest tests/dune_winder/test_manual_calibration.py tests/dune_winder/test_template_recipe_persistence.py -xvs)",
       "Skill(glm-plan-usage:usage-query-skill)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(C:/dune-monorepo/.venv/Scripts/python.exe *)",
+      "Bash(git stash *)"
     ]
   }
 }

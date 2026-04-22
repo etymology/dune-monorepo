@@ -89,10 +89,9 @@ def _load_actions_module(monkeypatch):
 def test_condition_parser_supports_and_and_or(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     monkeypatch.setattr(
-        actions,
+        sys.modules["dune_tension.summaries"],
         "get_tension_series",
         lambda _config: {"A": {"1": 3.5, "2": 4.5, "3": 5.5, "4": 3.0}},
-        raising=False,
     )
 
     cfg = types.SimpleNamespace(side="A", layer="X")
@@ -104,10 +103,9 @@ def test_condition_parser_supports_and_and_or(monkeypatch):
 def test_condition_parser_keeps_comma_as_and(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     monkeypatch.setattr(
-        actions,
+        sys.modules["dune_tension.summaries"],
         "get_tension_series",
         lambda _config: {"A": {"1": 3.5, "2": 4.5, "3": 5.5, "4": 3.0}},
-        raising=False,
     )
 
     cfg = types.SimpleNamespace(side="A", layer="X")

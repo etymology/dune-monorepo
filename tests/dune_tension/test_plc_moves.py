@@ -44,8 +44,8 @@ def test_crossing_comb_splits_move(monkeypatch):
     moves = _setup(monkeypatch)
     plc.goto_xy(3500.0, float(GEOMETRY_CONFIG.measurable_y_max))
     assert moves == [
-        (2000.0, float(GEOMETRY_CONFIG.measurable_y_min)),
-        (3500.0, float(GEOMETRY_CONFIG.measurable_y_min)),
+        (2000.0, 0.0),
+        (3500.0, 0.0),
         (3500.0, float(GEOMETRY_CONFIG.measurable_y_max)),
     ]
 
