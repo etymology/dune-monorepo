@@ -283,7 +283,8 @@ class StreamingSessionRepository:
         chunk_id: str | None = None,
     ) -> AudioChunkRef:
         active_chunk_id = chunk_id or uuid.uuid4().hex
-        file_name = f"{active_chunk_id}.wav"
+        safe_name = active_chunk_id.replace(":", "-")
+        file_name = f"{safe_name}.wav"
         file_path = self.audio_dir / file_name
         self._write_pcm16_wav(file_path, audio, sample_rate)
         ref = AudioChunkRef(
