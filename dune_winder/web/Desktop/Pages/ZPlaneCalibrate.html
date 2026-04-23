@@ -1,0 +1,158 @@
+<section id="zPlaneCalibratePage">
+  <section class="zPlaneCalibrateMainLayout">
+    <article class="zPlaneCalibrateCard">
+      <h2>Z Plane Calibration</h2>
+      <p class="zPlaneCalibrateHint">
+        Record same-side <code>~anchorToTarget(...)</code> commands with the observed wire
+        Z at the transfer zone. The fit uses the derived roller tangent XY and the
+        recorded Z. Stored machine X/Y are trace only.
+      </p>
+
+      <div class="zPlaneCalibrateInputGroup">
+        <div class="zPlaneCalibrateFieldRow">
+          <label for="zPlaneCalibrateGCodeLine">G-Code Line</label>
+          <div class="zPlaneCalibrateFieldActionRow">
+            <input
+              type="text"
+              id="zPlaneCalibrateGCodeLine"
+              placeholder="~anchorToTarget(B1201,B2001,offset=(1.25,-2.5))"
+            />
+            <button
+              type="button"
+              id="zPlaneCalibrateUseGCodeButton"
+              class="zPlaneCalibrateButton zPlaneCalibrateInlineButton"
+            >
+              Use Last Line
+            </button>
+          </div>
+        </div>
+
+        <div class="zPlaneCalibrateFieldRow">
+          <label for="zPlaneCalibrateLayer">Layer</label>
+          <select id="zPlaneCalibrateLayer">
+            <option value="U">U</option>
+            <option value="V">V</option>
+          </select>
+          <p id="zPlaneCalibrateLayerHint" class="zPlaneCalibrateSubHint"></p>
+        </div>
+
+        <div class="zPlaneCalibrateFieldRow">
+          <label for="zPlaneCalibrateActualZ">Observed Z Position</label>
+          <div class="zPlaneCalibrateFieldActionRow">
+            <input type="number" id="zPlaneCalibrateActualZ" step="0.001" />
+            <button
+              type="button"
+              id="zPlaneCalibrateUseZButton"
+              class="zPlaneCalibrateButton zPlaneCalibrateInlineButton"
+            >
+              Use Current Z
+            </button>
+          </div>
+        </div>
+
+        <div class="zPlaneCalibrateButtonGroup">
+          <button
+            type="button"
+            id="zPlaneCalibrateAddButton"
+            class="zPlaneCalibrateButton"
+          >
+            Add Measurement
+          </button>
+          <button
+            type="button"
+            id="zPlaneCalibrateRefreshButton"
+            class="zPlaneCalibrateButton zPlaneCalibrateSecondaryButton"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div id="zPlaneCalibrateMessage" class="zPlaneCalibrateMessage hidden"></div>
+      <div id="zPlaneCalibrateError" class="zPlaneCalibrateError hidden"></div>
+      <div id="zPlaneCalibrateMotorStatus" class="hidden"></div>
+    </article>
+
+    <article class="zPlaneCalibrateCard">
+      <h2>Measurements</h2>
+      <p id="zPlaneCalibrateCount">No measurements recorded.</p>
+      <p class="zPlaneCalibrateSubHint">
+        Clear starts a new measurement set. Existing fitted pin Z values remain in the
+        layer calibration until replaced by a new valid fit.
+      </p>
+
+      <table
+        id="zPlaneCalibrateMeasurementsTable"
+        class="zPlaneCalibrateMeasurementsTable hidden"
+      >
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>G-Code Line</th>
+            <th>Side</th>
+            <th>Tangent X</th>
+            <th>Tangent Y</th>
+            <th>Measured Z</th>
+            <th>Residual</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="zPlaneCalibrateMeasurementsBody"></tbody>
+      </table>
+
+      <div class="zPlaneCalibrateButtonGroup">
+        <button
+          type="button"
+          id="zPlaneCalibrateClearButton"
+          class="zPlaneCalibrateButton zPlaneCalibrateDangerButton"
+        >
+          Clear Measurements
+        </button>
+      </div>
+    </article>
+
+    <article class="zPlaneCalibrateCard zPlaneCalibrateWideCard">
+      <h2>Fit</h2>
+      <div class="zPlaneCalibrateFitSummary">
+        <p><strong>Status:</strong> <span id="zPlaneCalibrateFitStatus">No fit yet.</span></p>
+        <p><strong>A Plane:</strong> <code id="zPlaneCalibrateEquationA">-</code></p>
+        <p><strong>B Plane:</strong> <code id="zPlaneCalibrateEquationB">-</code></p>
+      </div>
+
+      <table class="zPlaneCalibrateFitTable">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Rank</td>
+            <td id="zPlaneCalibrateRank" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>Residual Sum Squares</td>
+            <td id="zPlaneCalibrateResidual" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>Max Side Deviation</td>
+            <td id="zPlaneCalibrateMaxDeviation" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>Mean A Z</td>
+            <td id="zPlaneCalibrateMeanA" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>Mean B Z</td>
+            <td id="zPlaneCalibrateMeanB" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>Board Width</td>
+            <td id="zPlaneCalibrateBoardWidth" class="numeric">-</td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  </section>
+</section>

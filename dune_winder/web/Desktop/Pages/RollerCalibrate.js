@@ -50,6 +50,26 @@ function RollerCalibrate(modules) {
   }
 
   function loadLastExecutedLine() {
+    function extractAnchorToTargetCommand(lineText) {
+      var text = String(lineText || "");
+      var start = text.indexOf("~anchorToTarget(");
+      if (start < 0) return null;
+
+      var depth = 0;
+      for (var i = start; i < text.length; i++) {
+        var ch = text.charAt(i);
+        if (ch === "(") {
+          depth++;
+        } else if (ch === ")") {
+          depth--;
+          if (depth === 0) {
+            return text.slice(start, i + 1);
+          }
+        }
+      }
+      return null;
+    }
+
     pageAction("process.get_gcode_line", {}, function(currentLine) {
       if (currentLine === null || currentLine === undefined || currentLine < 0) {
         $("#rollerCalibrateError")
@@ -63,15 +83,15 @@ function RollerCalibrate(modules) {
         if (lines && lines.length > 0 && lines[0]) {
           lineText = lines[0];
         }
-        var match = lineText.match(/~anchorToTarget\((.*)\)/);
-        if (!match) {
+        var commandText = extractAnchorToTargetCommand(lineText);
+        if (!commandText) {
           $("#rollerCalibrateError")
             .text("Last G-code line does not contain an ~anchorToTarget command.")
             .removeClass("hidden");
           return;
         }
         $("#rollerCalibrateError").addClass("hidden");
-        $("#rollerCalibrateGCodeLine").val(match[0]);
+        $("#rollerCalibrateGCodeLine").val(commandText);
       });
     });
   }

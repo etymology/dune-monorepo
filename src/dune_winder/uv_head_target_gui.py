@@ -16,6 +16,7 @@ from dune_winder.machine.geometry.uv_tangency import (
   matches_tangent_sides,
 )
 from dune_winder.uv_head_target import (
+  compute_uv_anchor_to_target_view,
   clear_uv_head_target_caches,
   iter_uv_wrap_primary_sites,
 )
@@ -224,6 +225,7 @@ def _segment_pin_pair(
 class _FormState:
   mode_var: tk.StringVar
   layer_var: tk.StringVar
+  command_var: tk.StringVar
   pin_a_var: tk.StringVar
   pin_b_var: tk.StringVar
   wrap_var: tk.StringVar
@@ -240,6 +242,8 @@ class _FormState:
 def build_request_from_form(form: _FormState) -> UvTangentViewRequest:
   mode = str(form.mode_var.get()).strip().lower()
   layer = form.layer_var.get()
+  if mode == "command":
+    raise UvHeadTargetError("Command mode is handled separately.")
   if mode == "wrap/segment":
     try:
       wrap_number = int(str(form.wrap_var.get()).strip())
@@ -455,6 +459,32 @@ def _collect_draw_points(result: UvTangentViewResult) -> list[Point2D]:
     if point is not None:
       points.append(point)
   return points
+
+
+def _command_summary(command_text: str, result) -> str:
+  raw = result.raw_result
+  return "\n".join(
+    (
+      f"Command: {command_text}",
+      f"Layer: {raw.request.layer}",
+      f"Anchor pin {raw.request.pin_a}: ({raw.pin_a_point.x:.3f}, {raw.pin_a_point.y:.3f})",
+      f"Target pin {raw.request.pin_b}: ({raw.pin_b_point.x:.3f}, {raw.pin_b_point.y:.3f})",
+      f"Interpreter target: "
+      + (
+        f"({result.interpreter_wire_point.x:.3f}, {result.interpreter_wire_point.y:.3f})"
+        if result.interpreter_wire_point is not None
+        else "unavailable"
+      ),
+      f"Interpreter head point: ({result.interpreter_head_point.x:.3f}, {result.interpreter_head_point.y:.3f})",
+      f"Raw outbound intercept: ({raw.outbound_intercept.x:.3f}, {raw.outbound_intercept.y:.3f})",
+      f"Runtime comparison: {'same line' if raw.matches_runtime_line else 'different lines'}"
+      if raw.runtime_line_equation is not None
+      else "Runtime comparison: unavailable",
+      f"Hover: {'true' if result.command.hover else 'false'}",
+      f"Offset: {result.command.target_offset if result.command.target_offset is not None else 'none'}",
+      f"Selection rule: {raw.tangent_selection_rule}",
+    )
+  )
 
 
 def _build_canvas_transform(result: UvTangentViewResult, width: float, height: float):
@@ -1548,8 +1578,19 @@ def calculate_and_render(
 ) -> UvTangentViewResult | None:
   try:
     clear_uv_head_target_caches(layer_calibration=True, machine_calibration=False)
-    request = build_request_from_form(form)
-    result = compute_fn(request)
+    mode = str(form.mode_var.get()).strip().lower()
+    if mode == "command":
+      command_text = str(form.command_var.get()).strip()
+      command_result = compute_uv_anchor_to_target_view(
+        command_text,
+        layer=form.layer_var.get(),
+      )
+      result = command_result.raw_result
+      form.summary_var.set(_command_summary(command_text, command_result))
+    else:
+      request = build_request_from_form(form)
+      result = compute_fn(request)
+      form.summary_var.set(format_result_summary(result))
   except UvHeadTargetError as exc:
     form.error_var.set(str(exc))
     form.summary_var.set("")
@@ -1560,7 +1601,8 @@ def calculate_and_render(
     return None
 
   form.error_var.set("")
-  form.summary_var.set(format_result_summary(result))
+  if mode != "command":
+    form.summary_var.set(format_result_summary(result))
   draw_result(form.canvas, result)
   draw_zoom_views(form, result)
   return result
@@ -1579,6 +1621,7 @@ def _build_form(root: tk.Misc) -> _FormState:
 
   mode_var = tk.StringVar(master=root, value="Pins")
   layer_var = tk.StringVar(master=root, value="U")
+  command_var = tk.StringVar(master=root, value="~anchorToTarget(B1895,A907,offset=(1,0),hover=True)")
   pin_a_var = tk.StringVar(master=root, value="B1201")
   pin_b_var = tk.StringVar(master=root, value="B2001")
   wrap_var = tk.StringVar(master=root, value="1")
@@ -1588,14 +1631,20 @@ def _build_form(root: tk.Misc) -> _FormState:
   summary_var = tk.StringVar(master=root, value="")
 
   tk.Label(controls, text="Mode").grid(row=0, column=0, sticky="w")
-  tk.OptionMenu(controls, mode_var, "Pins", "Wrap/Segment").grid(
+  tk.OptionMenu(controls, mode_var, "Pins", "Wrap/Segment", "Command").grid(
     row=1, column=0, sticky="ew"
   )
   tk.Label(controls, text="Layer").grid(row=2, column=0, sticky="w", pady=(10, 0))
   tk.OptionMenu(controls, layer_var, "U", "V").grid(row=3, column=0, sticky="ew")
 
+  command_frame = tk.Frame(controls)
+  command_frame.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+  tk.Label(command_frame, text="Command").grid(row=0, column=0, sticky="w")
+  tk.Entry(command_frame, textvariable=command_var).grid(row=1, column=0, sticky="ew")
+  command_frame.columnconfigure(0, weight=1)
+
   pins_frame = tk.Frame(controls)
-  pins_frame.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+  pins_frame.grid(row=5, column=0, sticky="ew", pady=(10, 0))
   tk.Label(pins_frame, text="Anchor Pin").grid(row=0, column=0, sticky="w")
   tk.Entry(pins_frame, textvariable=pin_a_var).grid(row=1, column=0, sticky="ew")
   tk.Label(pins_frame, text="Target Pin").grid(
@@ -1605,7 +1654,7 @@ def _build_form(root: tk.Misc) -> _FormState:
   pins_frame.columnconfigure(0, weight=1)
 
   wrap_frame = tk.Frame(controls)
-  wrap_frame.grid(row=5, column=0, sticky="ew", pady=(10, 0))
+  wrap_frame.grid(row=6, column=0, sticky="ew", pady=(10, 0))
   tk.Label(wrap_frame, text="Wrap #").grid(row=0, column=0, sticky="w")
   tk.Entry(wrap_frame, textvariable=wrap_var).grid(row=1, column=0, sticky="ew")
   tk.Label(wrap_frame, text="Segment #").grid(
@@ -1665,6 +1714,7 @@ def _build_form(root: tk.Misc) -> _FormState:
   form = _FormState(
     mode_var=mode_var,
     layer_var=layer_var,
+    command_var=command_var,
     pin_a_var=pin_a_var,
     pin_b_var=pin_b_var,
     wrap_var=wrap_var,
@@ -1680,10 +1730,16 @@ def _build_form(root: tk.Misc) -> _FormState:
 
   def update_mode_visibility() -> None:
     mode = str(mode_var.get()).strip().lower()
-    if mode == "wrap/segment":
+    if mode == "command":
+      pins_frame.grid_remove()
+      wrap_frame.grid_remove()
+      command_frame.grid()
+    elif mode == "wrap/segment":
+      command_frame.grid_remove()
       pins_frame.grid_remove()
       wrap_frame.grid()
     else:
+      command_frame.grid_remove()
       wrap_frame.grid_remove()
       pins_frame.grid()
 

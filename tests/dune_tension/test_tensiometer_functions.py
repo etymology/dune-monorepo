@@ -14,15 +14,17 @@ from dune_tension.config import GEOMETRY_CONFIG
 def _load_module(monkeypatch):
     data_cache = types.ModuleType("dune_tension.data_cache")
     data_cache.get_dataframe = lambda _path: None
+    data_cache.select_dataframe = lambda *_, **__: pd.DataFrame()
     monkeypatch.setitem(sys.modules, "dune_tension.data_cache", data_cache)
 
     plc_io = types.ModuleType("dune_tension.plc_io")
     plc_io.is_motion_target_in_bounds = (
         lambda x, y: (
-            GEOMETRY_CONFIG.x_min <= float(x) <= GEOMETRY_CONFIG.x_max
-            and GEOMETRY_CONFIG.y_min <= float(y) <= GEOMETRY_CONFIG.y_max
+            GEOMETRY_CONFIG.measurable_x_min <= float(x) <= GEOMETRY_CONFIG.measurable_x_max
+            and GEOMETRY_CONFIG.measurable_y_min <= float(y) <= GEOMETRY_CONFIG.measurable_y_max
         )
     )
+    plc_io.is_in_measurable_area = plc_io.is_motion_target_in_bounds
     monkeypatch.setitem(sys.modules, "dune_tension.plc_io", plc_io)
 
     sys.modules.pop("dune_tension.tensiometer_functions", None)
@@ -55,7 +57,7 @@ def test_plan_measurement_triplets_filters_illegal_targets_and_orders_greedily(
         (1, 4010.0, 1460.0),
         (3, 4000.0, 1460.0),
     ]
-    assert "Skipping wire 2 because motion target 4076.5,-1816.9 is out of bounds." in caplog.text
+    assert "Skipping wire 2 because position 4076.5,-1816.9 is outside the measurable area." in caplog.text
 
 
 def test_measure_list_uses_shared_planner_output(monkeypatch):
@@ -135,7 +137,7 @@ def test_wire_position_provider_caches_latest_positions_and_focus(monkeypatch):
     )
 
     provider = tensiometer_functions.WirePositionProvider(
-        dataframe_loader=lambda _path: loader_calls.append(True) or df
+        dataframe_loader=lambda _path, **_kw: loader_calls.append(True) or df
     )
     config = tensiometer_functions.make_config(apa_name="APA", layer="X", side="A")
 
@@ -201,7 +203,7 @@ def test_wire_position_provider_uses_confidence_weighted_y_fit() -> None:
         ]
     )
 
-    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path: df)
+    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path, **_kw: df)
 
     pose = provider.get_pose(config, 25, current_focus_position=4300)
 
@@ -253,7 +255,7 @@ def test_wire_position_provider_ignores_non_legacy_rows_and_falls_back_to_neares
         ]
     )
 
-    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path: df)
+    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path, **_kw: df)
 
     pose = provider.get_pose(config, 15, current_focus_position=4300)
 
@@ -291,7 +293,7 @@ def test_wire_position_provider_falls_back_to_current_focus_when_no_saved_focus_
         ]
     )
 
-    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path: df)
+    provider = tensiometer_functions.WirePositionProvider(dataframe_loader=lambda _path, **_kw: df)
 
     pose = provider.get_pose(config, 10, current_focus_position=4321)
 

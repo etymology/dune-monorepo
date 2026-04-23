@@ -217,3 +217,21 @@ def test_harmonic_comb_response_detects_harmonic_signal() -> None:
     assert valid is True
     assert comb_score > 0.1
     assert sfm < 0.6
+
+
+def test_append_audio_chunk_sanitizes_colons_in_file_name(tmp_path) -> None:
+    repo = StreamingSessionRepository(root_dir=tmp_path, session_id="session-1")
+
+    ref = repo.append_audio_chunk(
+        audio=np.array([0.0, 0.25, -0.25], dtype=np.float32),
+        sample_rate=16000,
+        start_time=1.0,
+        end_time=1.001,
+        segment_id="segment-1",
+        chunk_id="segment:chunk:1",
+    )
+    repo.close()
+
+    assert ref.chunk_id == "segment:chunk:1"
+    assert ref.file_path.endswith("segment-chunk-1.wav")
+    assert (tmp_path / "session-1" / "audio" / "segment-chunk-1.wav").exists()

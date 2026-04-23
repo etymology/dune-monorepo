@@ -153,7 +153,7 @@ def test_build_summary_plot_figure_creates_two_panel_figure() -> None:
     )
 
     assert figure is not None
-    assert len(figure.axes) == 2
+    assert len(figure.axes) == 4
     assert figure.axes[0].get_title() == "APA - Tension Scatter Plot with Trendline - Layer X"
     assert figure.axes[1].get_title() == "APA - Tension Histogram - Layer X"
 

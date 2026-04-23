@@ -1,0 +1,251 @@
+#zPlaneCalibratePage {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.zPlaneCalibrateMainLayout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.2fr);
+  gap: 20px;
+}
+
+.zPlaneCalibrateCard {
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 20px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.zPlaneCalibrateWideCard {
+  grid-column: 1 / span 2;
+}
+
+.zPlaneCalibrateCard h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #fff;
+}
+
+.zPlaneCalibrateHint {
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 15px;
+  line-height: 1.45;
+}
+
+.zPlaneCalibrateSubHint {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #9ca4ad;
+  line-height: 1.4;
+}
+
+.zPlaneCalibrateInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zPlaneCalibrateFieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zPlaneCalibrateFieldRow label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.zPlaneCalibrateFieldRow input,
+.zPlaneCalibrateFieldRow select {
+  padding: 6px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 13px;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.zPlaneCalibrateFieldRow input:focus,
+.zPlaneCalibrateFieldRow select:focus {
+  outline: none;
+  border-color: #0066cc;
+  background-color: #0f0f0f;
+}
+
+.zPlaneCalibrateFieldActionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.zPlaneCalibrateFieldActionRow input {
+  flex: 1;
+}
+
+.zPlaneCalibrateInlineButton {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.zPlaneCalibrateButtonGroup {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.zPlaneCalibrateButton {
+  padding: 8px 12px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.zPlaneCalibrateButton:hover {
+  background-color: #0052a3;
+}
+
+.zPlaneCalibrateButton:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.zPlaneCalibrateSecondaryButton {
+  background-color: #475569;
+}
+
+.zPlaneCalibrateSecondaryButton:hover {
+  background-color: #334155;
+}
+
+.zPlaneCalibrateDangerButton {
+  background-color: #9f1239;
+}
+
+.zPlaneCalibrateDangerButton:hover {
+  background-color: #881337;
+}
+
+.zPlaneCalibrateMessage,
+.zPlaneCalibrateError {
+  padding: 12px;
+  border-radius: 3px;
+  margin-top: 15px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.zPlaneCalibrateMessage {
+  background-color: #1a3a1a;
+  border: 1px solid #2d5a2d;
+  color: #90ee90;
+}
+
+.zPlaneCalibrateError {
+  background-color: #3a1a1a;
+  border: 1px solid #5a2d2d;
+  color: #ff6b6b;
+}
+
+.zPlaneCalibrateMessage.hidden,
+.zPlaneCalibrateError.hidden,
+.zPlaneCalibrateMeasurementsTable.hidden {
+  display: none;
+}
+
+#zPlaneCalibrateCount {
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 10px;
+}
+
+.zPlaneCalibrateMeasurementsTable,
+.zPlaneCalibrateFitTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 12px;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.zPlaneCalibrateMeasurementsTable thead,
+.zPlaneCalibrateFitTable thead {
+  background-color: #333;
+}
+
+.zPlaneCalibrateMeasurementsTable th,
+.zPlaneCalibrateMeasurementsTable td,
+.zPlaneCalibrateFitTable th,
+.zPlaneCalibrateFitTable td {
+  padding: 6px 8px;
+  border: 1px solid #444;
+  text-align: left;
+}
+
+.zPlaneCalibrateMeasurementsTable th,
+.zPlaneCalibrateFitTable th {
+  font-weight: 600;
+  color: #fff;
+}
+
+.zPlaneCalibrateMeasurementsTable .numeric,
+.zPlaneCalibrateFitTable .numeric {
+  text-align: right;
+  font-family: monospace;
+}
+
+.zPlaneCalibrateDeleteBtn {
+  padding: 4px 8px;
+  background-color: #475569;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.zPlaneCalibrateDeleteBtn:hover {
+  background-color: #334155;
+}
+
+.zPlaneCalibrateFitSummary {
+  padding: 12px;
+  background-color: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 3px;
+}
+
+.zPlaneCalibrateFitSummary p {
+  margin: 0 0 8px 0;
+  line-height: 1.45;
+}
+
+.zPlaneCalibrateFitSummary p:last-child {
+  margin-bottom: 0;
+}
+
+.zPlaneCalibrateFitSummary code {
+  color: #d4f7ff;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+@media (max-width: 1200px) {
+  .zPlaneCalibrateMainLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .zPlaneCalibrateWideCard {
+    grid-column: auto;
+  }
+}

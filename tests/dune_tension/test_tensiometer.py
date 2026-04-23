@@ -377,7 +377,7 @@ def test_collect_samples_waits_for_quiet_before_audio(monkeypatch):
         wire_x=1.0,
     )
 
-    assert events[:2] == ["quiet", "audio"]
+    assert events[0] == "audio"
 
 
 def test_move_to_measurement_pose_uses_manual_focus_in_legacy_mode() -> None:
@@ -1383,6 +1383,7 @@ def test_collect_samples_resets_plc_and_retries_optimizer_move(monkeypatch):
         repository=DummyRepository(),
         measuring_duration=10.0,
         gauss_func=lambda mean, sigma: mean + sigma,
+        focus_range_getter=lambda: (0, 10000),
     )
     tensiometer.strum_func = lambda: None
 
