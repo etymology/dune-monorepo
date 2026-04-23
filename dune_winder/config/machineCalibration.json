@@ -45,6 +45,8 @@
   "pinDiameter": 2.6,
   "v_x_max": 825.0,
   "v_y_max": 600.0,
+  "cameraWireOffsetX": 58.3,
+  "cameraWireOffsetY": -101.5,
   "rollerArmCalibration": {
     "measurements": [
       {

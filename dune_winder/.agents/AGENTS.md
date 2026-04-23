@@ -7,6 +7,16 @@ When making code changes:
 - Create a git commit with a concise conventional-commit style message.
 - If the requested task spans multiple concerns, split it into multiple commits and explain the proposed commit boundaries before committing.
 
+# Development commands
+
+Use `uv run` to execute tools managed by the project (pytest, ruff, etc.):
+
+- **Run tests**: `uv run pytest` (do NOT use `pytest` directly as it's not on PATH)
+- **Lint**: `uv run ruff check src tests`
+- **Format**: `uv run ruff format src tests`
+
+Or use make targets: `make test`, `make lint`, `make format`.
+
 # Commit policy
 - Prefer multiple atomic commits over one large commit.
 - Each commit must correspond to one described change.

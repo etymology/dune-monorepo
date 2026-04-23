@@ -196,6 +196,16 @@ def _create_process(layer, rootDirectory):
   )
 
 
+class FakeMachineCalibration:
+  def __init__(self):
+    self.cameraWireOffsetX = None
+    self.cameraWireOffsetY = None
+    self.saveCalls = 0
+
+  def save(self):
+    self.saveCalls += 1
+
+
 class ManualCalibrationTests(unittest.TestCase):
   def assertPointAlmostEqual(self, pointA, pointB):
     self.assertAlmostEqual(pointA[0], pointB[0], places=6)
@@ -437,6 +447,46 @@ class ManualCalibrationTests(unittest.TestCase):
       prediction = service.predictPin(1)
       self.assertAlmostEqual(prediction["wireX"], 112.5)
       self.assertAlmostEqual(prediction["wireY"], 192.5)
+
+  def test_shared_camera_offset_seeds_machine_calibration_from_legacy_u_config(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      process._machineCalibration = FakeMachineCalibration()
+      process._configuration.set("manualCalibrationOffsetUX", 11.5)
+      process._configuration.set("manualCalibrationOffsetUY", -6.5)
+      service = ManualCalibration(process)
+
+      state = service.getState()
+
+      self.assertAlmostEqual(state["cameraOffsetX"], 11.5, places=6)
+      self.assertAlmostEqual(state["cameraOffsetY"], -6.5, places=6)
+      self.assertAlmostEqual(process._machineCalibration.cameraWireOffsetX, 11.5, places=6)
+      self.assertAlmostEqual(process._machineCalibration.cameraWireOffsetY, -6.5, places=6)
+      self.assertEqual(process._machineCalibration.saveCalls, 1)
+
+  def test_set_camera_offset_updates_machine_calibration_and_all_layer_keys(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = _create_process("U", rootDirectory)
+      process._machineCalibration = FakeMachineCalibration()
+      service = ManualCalibration(process)
+
+      result = service.setCameraOffset(12.5, -7.5)
+
+      self.assertTrue(result["ok"])
+      self.assertAlmostEqual(process._machineCalibration.cameraWireOffsetX, 12.5, places=6)
+      self.assertAlmostEqual(process._machineCalibration.cameraWireOffsetY, -7.5, places=6)
+      self.assertGreaterEqual(process._machineCalibration.saveCalls, 1)
+      for layer in ("U", "V", "X", "G"):
+        self.assertAlmostEqual(
+          process._configuration.get(f"manualCalibrationOffset{layer}X"),
+          12.5,
+          places=6,
+        )
+        self.assertAlmostEqual(
+          process._configuration.get(f"manualCalibrationOffset{layer}Y"),
+          -7.5,
+          places=6,
+        )
 
   def test_save_live_keeps_zero_file_offset_and_reloads_runtime_calibration(self):
     with tempfile.TemporaryDirectory() as rootDirectory:

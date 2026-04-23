@@ -9,7 +9,9 @@ from dune_winder.io.devices.plc import PLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
 from dune_winder.library.Geometry.location import Location
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
+from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.head_compensation import WirePathModel
+from dune_winder.paths import REPO_ROOT
 from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface, validate_queue_segment
 from dune_winder.queued_motion.queue_client import MotionQueueClient
 from dune_winder.queued_motion.queue_session import QueuedMotionSession
@@ -292,6 +294,30 @@ class QueuedMotionTests(unittest.TestCase):
     self.assertEqual(segment.seq, 1000)
     self.assertEqual(segment.x, 500.0)
     self.assertEqual(segment.y, 200.0)
+
+  def test_gcode_builder_does_not_emit_trace_during_preview(self):
+    calibration = DefaultMachineCalibration()
+    handler = GCodeHandler(_IO(400.0, 100.0), calibration, WirePathModel(calibration))
+    handler._x = 400.0
+    handler._y = 100.0
+    handler._z = 0.0
+    layer_calibration_path = REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"
+    layer_calibration = LayerCalibration("U")
+    layer_calibration.load(str(layer_calibration_path.parent), layer_calibration_path.name, exceptionForMismatch=False)
+    handler.useLayerCalibration(layer_calibration)
+    traces = []
+    handler.setInstructionTraceCallback(traces.append)
+    handler._gCode = GCodeProgramExecutor(
+      ["G113 PPRECISE G109 PA1200 PTR G103 PA1199 PA1198 PXY"],
+      handler._callbacks,
+    )
+
+    block = handler._build_queued_block(0)
+    handler._gCode.executeNextLine(0)
+
+    self.assertIsNotNone(block)
+    self.assertEqual(len(traces), 1)
+    self.assertEqual(traces[0]["line"], "G113 PPRECISE G109 PA1200 PTR G103 PA1199 PA1198 PXY")
 
   def test_gcode_builder_uses_live_plc_accel_and_decel_limits_for_queued_segments(self):
     calibration = DefaultMachineCalibration()

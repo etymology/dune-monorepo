@@ -61,6 +61,8 @@ _FIELDS = (
     "pinDiameter",
     "v_x_max",
     "v_y_max",
+    "cameraWireOffsetX",
+    "cameraWireOffsetY",
     "rollerArmCalibration",
 )
 
@@ -143,6 +145,10 @@ class MachineCalibration:
     # Maximum axis component velocities for queued motion (mm/min).
     self.v_x_max = None
     self.v_y_max = None
+
+    # Camera-to-wire offset used by calibration capture flows.
+    self.cameraWireOffsetX = None
+    self.cameraWireOffsetY = None
 
     # Calibrated roller arm offsets.
     self.rollerArmCalibration = None

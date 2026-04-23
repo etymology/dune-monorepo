@@ -9,6 +9,11 @@ import json
 import os
 
 from dune_winder.machine.settings import Settings
+from dune_winder.recipes.line_offset_overrides import (
+  line_offset_override_items,
+  normalize_line_key,
+  normalize_line_offset_overrides,
+)
 
 from dune_winder.core.process_context import ProcessContext
 
@@ -79,12 +84,14 @@ class TemplateRecipeBase:
   def __init__(self, process: ProcessContext):
     self._process = process
     self._offsets = {}
+    self._lineOffsetOverrides = {}
     self._transferPause = True
     self._addFootPauses = False
     self._includeLeadMode = False
     self._stripG113Params = False
     self._dirty = False
     self._generated = {"hashValue": None, "updatedAt": None}
+    self._lastGeneratedScriptVariant = None
     self._loadedDraftPath = None
     self._resetState(markDirty=False)
 
@@ -213,6 +220,7 @@ class TemplateRecipeBase:
   # -------------------------------------------------------------------
   def _resetState(self, markDirty):
     self._offsets = {offsetId: 0.0 for offsetId in self.OFFSET_IDS}
+    self._lineOffsetOverrides = {}
     self._transferPause = True
     self._addFootPauses = False
     self._includeLeadMode = False
@@ -227,10 +235,14 @@ class TemplateRecipeBase:
       if offsetId in offsets:
         self._offsets[offsetId] = float(offsets[offsetId])
 
+    self._lineOffsetOverrides = normalize_line_offset_overrides(
+      data.get("lineOffsetOverrides", {})
+    )
     self._transferPause = bool(data.get("transferPause", self._transferPause))
     self._addFootPauses = bool(data.get("addFootPauses", self._addFootPauses))
     self._includeLeadMode = bool(data.get("includeLeadMode", self._includeLeadMode))
     self._stripG113Params = bool(data.get("stripG113Params", self._stripG113Params))
+    self._lastGeneratedScriptVariant = data.get("lastGeneratedScriptVariant")
     self._dirty = bool(data.get("dirty", self._dirty))
     generated = data.get("generated", {})
     if isinstance(generated, dict):
@@ -269,10 +281,12 @@ class TemplateRecipeBase:
 
       data = {
         "offsets": dict(self._offsets),
+        "lineOffsetOverrides": dict(self._lineOffsetOverrides),
         "transferPause": self._transferPause,
         "addFootPauses": self._addFootPauses,
         "includeLeadMode": self._includeLeadMode,
         "stripG113Params": self._stripG113Params,
+        "lastGeneratedScriptVariant": self._lastGeneratedScriptVariant,
         "dirty": self._dirty,
         "generated": dict(self._generated),
       }
@@ -333,11 +347,14 @@ class TemplateRecipeBase:
       "includeLeadMode": self._includeLeadMode,
       "stripG113Params": self._stripG113Params,
       "offsets": dict(self._offsets),
+      "lineOffsetOverrides": dict(self._lineOffsetOverrides),
+      "lineOffsetOverrideItems": line_offset_override_items(self._lineOffsetOverrides),
       "offsetOrder": list(self.OFFSET_IDS),
       "offsetLabels": dict(self.OFFSET_LABELS),
       "wrapCount": self.WRAP_COUNT,
       "lineCount": self.DEFAULT_ROW_COUNT,
       "generated": self._getGeneratedState(liveFile),
+      "lastGeneratedScriptVariant": self._lastGeneratedScriptVariant,
     }
     state.update(self._extraPublicState())
     return state
@@ -382,6 +399,68 @@ class TemplateRecipeBase:
     self._dirty = True
     self._persistState()
     return self._okResult({"transferPause": self._transferPause})
+
+  # -------------------------------------------------------------------
+  def setLineOffsetOverride(self, lineKey, xValue, yValue, extra=None):
+    self._ensureDraftStateLoaded()
+
+    _, error = self._getActiveLayer()
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    entry = dict(extra or {})
+    entry["x"] = float(xValue)
+    entry["y"] = float(yValue)
+    lineKey = normalize_line_key(lineKey)
+    self._lineOffsetOverrides[lineKey] = entry
+    self._dirty = True
+    self._persistState()
+    return self._okResult({"lineKey": lineKey, **entry})
+
+  # -------------------------------------------------------------------
+  def deleteLineOffsetOverride(self, lineKey):
+    self._ensureDraftStateLoaded()
+
+    _, error = self._getActiveLayer()
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    lineKey = normalize_line_key(lineKey)
+    if lineKey in self._lineOffsetOverrides:
+      del self._lineOffsetOverrides[lineKey]
+      self._dirty = True
+      self._persistState()
+    return self._okResult({"lineKey": lineKey})
+
+  # -------------------------------------------------------------------
+  def replaceLineOffsetOverrides(self, overrides):
+    self._ensureDraftStateLoaded()
+
+    _, error = self._getActiveLayer()
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    self._lineOffsetOverrides = normalize_line_offset_overrides(overrides)
+    self._dirty = True
+    self._persistState()
+    return self._okResult(
+      {
+        "lineOffsetOverrides": dict(self._lineOffsetOverrides),
+        "lineOffsetOverrideItems": line_offset_override_items(self._lineOffsetOverrides),
+      }
+    )
 
   # -------------------------------------------------------------------
   def setAddFootPauses(self, enabled):
@@ -455,6 +534,7 @@ class TemplateRecipeBase:
         "addFootPauses": self._addFootPauses,
         "includeLeadMode": self._includeLeadMode,
         "stripG113Params": self._stripG113Params,
+        "lineOffsetOverrides": dict(self._lineOffsetOverrides),
         **self._extraPublicState(),
       }
     )
@@ -482,6 +562,7 @@ class TemplateRecipeBase:
       "add_foot_pauses": self._addFootPauses,
       "include_lead_mode": self._includeLeadMode,
       "strip_g113_params": self._stripG113Params,
+      "line_offset_overrides": dict(self._lineOffsetOverrides),
       "archive_directory": self._recipeArchiveDirectory(),
       **self._generationKwargs(),
     }
@@ -495,6 +576,7 @@ class TemplateRecipeBase:
       "hashValue": generation["hashValue"],
       "updatedAt": updatedAt,
     }
+    self._lastGeneratedScriptVariant = generation.get("scriptVariant")
     self._dirty = False
     self._persistState()
 

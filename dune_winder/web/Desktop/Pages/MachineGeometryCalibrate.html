@@ -1,0 +1,243 @@
+<section id="machineGeometryPage">
+  <div id="machineGeometryMessage" class="machineGeometryMessage hidden"></div>
+  <div id="machineGeometryError" class="machineGeometryError hidden"></div>
+  <div id="machineGeometryWarning" class="machineGeometryWarning hidden"></div>
+  <div id="machineGeometryActivity" class="machineGeometryActivity hidden">
+    <div id="machineGeometryActivityStatus" class="machineGeometryActivityStatus">Idle</div>
+    <div id="machineGeometryActivityProgress" class="machineGeometryActivityProgress hidden">
+      <div class="machineGeometryActivityProgressRow">
+        <span id="machineGeometryActivityProgressLabel">0%</span>
+        <span id="machineGeometryActivityProgressMeta">0 / 0</span>
+      </div>
+      <div class="machineGeometryActivityProgressTrack">
+        <div id="machineGeometryActivityProgressBar" class="machineGeometryActivityProgressBar"></div>
+      </div>
+      <div id="machineGeometryActivityProgressDetail" class="machineGeometryActivityProgressDetail"></div>
+    </div>
+    <div id="machineGeometryActivityLog" class="machineGeometryActivityLog"></div>
+  </div>
+
+  <section class="machineGeometryGrid">
+    <article class="machineGeometryCard">
+      <h2>Capture</h2>
+      <p class="machineGeometryHint">
+        Capture from the last traced <code>~anchorToTarget(...)</code> line plus the
+        current machine position. XY uses the camera-wire offset; Z stores the current
+        head Z for the active layer fit.
+      </p>
+
+      <div class="machineGeometrySummaryGrid">
+        <div>
+          <div class="machineGeometryLabel">Active Layer</div>
+          <div id="machineGeometryActiveLayer">-</div>
+        </div>
+        <div>
+          <div class="machineGeometryLabel">Current Position</div>
+          <div id="machineGeometryCurrentPosition">-</div>
+        </div>
+      </div>
+
+      <div class="machineGeometryFieldRow">
+        <label>Last Traced Line</label>
+        <textarea id="machineGeometryLastTrace" readonly rows="4"></textarea>
+      </div>
+
+      <div class="machineGeometryButtonRow">
+        <button type="button" id="machineGeometryCaptureXY">Capture XY</button>
+        <button type="button" id="machineGeometryCaptureZ">Capture Z</button>
+        <button type="button" id="machineGeometryCaptureBoth">Capture XY + Z</button>
+      </div>
+
+      <div class="machineGeometryButtonRow">
+        <button type="button" id="machineGeometryRefresh">Refresh</button>
+      </div>
+    </article>
+
+    <article class="machineGeometryCard">
+      <h2>Machine</h2>
+      <p class="machineGeometryHint">
+        Camera-wire offset and roller offsets are machine-scoped. Machine XY solve
+        minimizes line-local offsets first, then roller displacement, then camera-offset
+        movement.
+      </p>
+
+      <div class="machineGeometrySectionTitle">Live</div>
+      <table class="machineGeometryTable">
+        <tbody>
+          <tr>
+            <th>Camera Offset X</th>
+            <td id="machineGeometryLiveCameraX" class="numeric">-</td>
+          </tr>
+          <tr>
+            <th>Camera Offset Y</th>
+            <td id="machineGeometryLiveCameraY" class="numeric">-</td>
+          </tr>
+          <tr>
+            <th>Nominal Roller Y</th>
+            <td id="machineGeometryNominalRollerY" class="numeric">-</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table class="machineGeometryTable">
+        <thead>
+          <tr>
+            <th>Roller</th>
+            <th>Live Y</th>
+          </tr>
+        </thead>
+        <tbody id="machineGeometryLiveRollers"></tbody>
+      </table>
+
+      <div class="machineGeometrySectionTitle">Draft</div>
+      <div id="machineGeometryMachineDraftSummary" class="machineGeometryDraftBox">
+        No machine XY solve has been run.
+      </div>
+
+      <div class="machineGeometryButtonRow">
+        <button type="button" id="machineGeometrySolveMachineXY">Solve Machine XY</button>
+        <button type="button" id="machineGeometryCancelMachineXY">Cancel Solve</button>
+        <button type="button" id="machineGeometryApplyMachineXY">Apply Machine XY</button>
+      </div>
+    </article>
+
+    <article class="machineGeometryCard">
+      <h2>Layer</h2>
+      <p class="machineGeometryHint">
+        Z plane and exact line offsets are layer-scoped. Z solve is independent. Machine
+        XY solve reuses the current or drafted layer Z plane when projecting wrap lines.
+      </p>
+
+      <div class="machineGeometrySectionTitle">Z Plane</div>
+      <table class="machineGeometryTable">
+        <thead>
+          <tr>
+            <th></th>
+            <th>A Plane</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Live</th>
+            <td id="machineGeometryLivePlane">-</td>
+            <td id="machineGeometryLivePlaneStatus">-</td>
+          </tr>
+          <tr>
+            <th>Draft</th>
+            <td id="machineGeometryDraftPlane">-</td>
+            <td id="machineGeometryDraftPlaneStatus">-</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="machineGeometryButtonRow">
+        <button type="button" id="machineGeometrySolveLayerZ">Solve Layer Z</button>
+        <button type="button" id="machineGeometryApplyLayerZ">Apply Layer Z</button>
+      </div>
+
+      <div class="machineGeometrySectionTitle">Per-Line Offsets</div>
+      <div class="machineGeometryFieldRow">
+        <label for="machineGeometryLineKey">Line Key</label>
+        <input type="text" id="machineGeometryLineKey" placeholder="(12,7)" />
+      </div>
+      <div class="machineGeometryInlineFields">
+        <div class="machineGeometryFieldRow">
+          <label for="machineGeometryLineOffsetX">Offset X</label>
+          <input type="number" id="machineGeometryLineOffsetX" step="0.001" />
+        </div>
+        <div class="machineGeometryFieldRow">
+          <label for="machineGeometryLineOffsetY">Offset Y</label>
+          <input type="number" id="machineGeometryLineOffsetY" step="0.001" />
+        </div>
+      </div>
+      <div class="machineGeometryButtonRow">
+        <button type="button" id="machineGeometrySetLineOffset">Set Line Offset</button>
+        <button type="button" id="machineGeometryDeleteLineOffset">Delete Line Offset</button>
+      </div>
+
+      <div class="machineGeometryTwoColumn">
+        <div>
+          <div class="machineGeometrySectionTitle">Current</div>
+          <table class="machineGeometryTable machineGeometrySmallTable">
+            <thead>
+              <tr>
+                <th>Line</th>
+                <th>X</th>
+                <th>Y</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="machineGeometryCurrentLineOffsets"></tbody>
+          </table>
+        </div>
+        <div>
+          <div class="machineGeometrySectionTitle">Draft</div>
+          <table class="machineGeometryTable machineGeometrySmallTable">
+            <thead>
+              <tr>
+                <th>Line</th>
+                <th>X</th>
+                <th>Y</th>
+                <th>Measurements</th>
+              </tr>
+            </thead>
+            <tbody id="machineGeometryDraftLineOffsets"></tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+
+    <article class="machineGeometryCard machineGeometryWideCard">
+      <h2>Measurements</h2>
+      <div class="machineGeometryFilters">
+        <div class="machineGeometryFieldRow">
+          <label for="machineGeometryFilterLayer">Layer</label>
+          <select id="machineGeometryFilterLayer">
+            <option value="all">All</option>
+            <option value="U">U</option>
+            <option value="V">V</option>
+          </select>
+        </div>
+        <div class="machineGeometryFieldRow">
+          <label for="machineGeometryFilterKind">Kind</label>
+          <select id="machineGeometryFilterKind">
+            <option value="all">All</option>
+            <option value="same_side">Same Side</option>
+            <option value="alternating_side">Alternating Side</option>
+          </select>
+        </div>
+        <div class="machineGeometryFieldRow">
+          <label for="machineGeometryFilterUse">Usability</label>
+          <select id="machineGeometryFilterUse">
+            <option value="all">All</option>
+            <option value="machine">Machine XY</option>
+            <option value="layer_z">Layer Z</option>
+            <option value="either">Any Solver</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="machineGeometryMeasurementCount" class="machineGeometryHint">
+        No measurements recorded.
+      </div>
+
+      <table class="machineGeometryTable machineGeometryMeasurementsTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Layer</th>
+            <th>Kind</th>
+            <th>Line</th>
+            <th>Wire X</th>
+            <th>Wire Y</th>
+            <th>Z</th>
+            <th>Use</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="machineGeometryMeasurements"></tbody>
+      </table>
+    </article>
+  </section>
+</section>

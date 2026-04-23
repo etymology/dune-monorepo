@@ -234,7 +234,10 @@ function APA(modules) {
   //   Callback for setting next active G-Code line.
   //-----------------------------------------------------------------------------
   this.gotoLine = function () {
-    var line = parseInt($("#apaLine").val()) - 2;
+    // The UI input is one-based; the backend line setter expects the prior
+    // zero-based line so the selected line becomes the next one to execute.
+    var line = parseInt($("#apaLine").val(), 10) - 1;
+    if (!isFinite(line)) return;
     call(commands.process.setGCodeLine, { line: line });
   };
 

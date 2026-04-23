@@ -402,7 +402,11 @@ class GCodeHandler(GCodeHandlerBase):
   def _preview_loaded_line(self, line_index):
     self._line = None
     self._functions = []
-    self._gCode.executeNextLine(line_index)
+    self._suppress_instruction_trace = True
+    try:
+      self._gCode.executeNextLine(line_index)
+    finally:
+      self._suppress_instruction_trace = False
 
     no_motion_requests = (
       not self._instruction_request_xy
@@ -1509,6 +1513,7 @@ class GCodeHandler(GCodeHandlerBase):
     self.singleStep = False
     self._beforeExecuteLineCallback = None
     self._lineChangeCallback = None
+    self._suppress_instruction_trace = False
 
     # Add a pause between every G-Code instructions by setting _PAUSE to
     # non-zero value.

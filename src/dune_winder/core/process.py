@@ -16,6 +16,7 @@ from typing import Optional
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
 from dune_winder.core.gcode_playback_service import GCodePlaybackService
+from dune_winder.core.machine_geometry_calibration import MachineGeometryCalibration
 from dune_winder.core.manual_calibration import ManualCalibration, normalize_calibration
 from dune_winder.core.recipe_service import RecipeService
 from dune_winder.core.runtime_state_service import RuntimeStateService
@@ -43,6 +44,7 @@ class CalibrationNotLoadedError(ValueError):
 class Process:
   # ---------------------------------------------------------------------
   def _recordInstructionTrace(self, payload):
+    self._lastInstructionTrace = dict(payload) if isinstance(payload, dict) else payload
     self._log.add(
       "GCodeTrace",
       "GCODE_MOTION_TRACE",
@@ -146,6 +148,7 @@ class Process:
     self._log = log
     self._configuration = configuration
     self._systemTime = systemTime
+    self._lastInstructionTrace = None
 
     self.controlStateMachine = ControlStateMachine(io, log, systemTime)
     self.headCompensation = WirePathModel(machineCalibration)
@@ -269,6 +272,7 @@ class Process:
     self.manualCalibration = ManualCalibration(self)
     self.vTemplateRecipe = VTemplateRecipe(self)
     self.uTemplateRecipe = UTemplateRecipe(self)
+    self.machineGeometryCalibration = MachineGeometryCalibration(self)
 
     self.controlStateMachine.machineCalibration = self._machineCalibration
 
@@ -686,6 +690,18 @@ class Process:
   # ---------------------------------------------------------------------
   def getRealXPosition(self):
     return self._xBacklash.getEffectiveX(self._io.xAxis.getPosition())
+
+  # ---------------------------------------------------------------------
+  def getLastInstructionTrace(self):
+    payload = self._lastInstructionTrace
+    if isinstance(payload, dict):
+      return dict(payload)
+    return payload
+
+  # ---------------------------------------------------------------------
+  def isGCodeExecutionActive(self):
+    state = getattr(self.controlStateMachine, "state", None)
+    return getattr(state.__class__, "__name__", None) == "WindMode"
 
 
 # end class

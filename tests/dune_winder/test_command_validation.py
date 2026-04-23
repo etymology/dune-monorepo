@@ -102,6 +102,46 @@ class CommandValidationTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertEqual(response["data"]["data"]["scriptVariant"], "xz")
 
+  def test_machine_geometry_record_measurement_accepts_string_booleans(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.machine_geometry.record_measurement",
+        "args": {"capture_xy": "false", "capture_z": "true"},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertFalse(response["data"]["captureXY"])
+    self.assertTrue(response["data"]["captureZ"])
+
+  def test_machine_geometry_set_line_offset_override_accepts_string_numbers(self):
+    registry, process, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.machine_geometry.set_line_offset_override",
+        "args": {"line_key": "(12,7)", "x": "1.25", "y": "-2.5"},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertEqual(
+      process.machineGeometryCalibration.lastSetLineOffset,
+      ("V", "(12,7)", 1.25, -2.5),
+    )
+
+  def test_machine_geometry_cancel_machine_xy_is_registered(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.machine_geometry.cancel_machine_xy",
+        "args": {},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertTrue(response["data"]["canceled"])
+
   def test_unknown_arguments_are_rejected(self):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(

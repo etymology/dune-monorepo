@@ -129,6 +129,36 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertIn("~anchorToTarget(B2001,A801,hover=True)", recipeText)
       self.assertNotIn("~increment(0,5)", recipeText)
 
+  def test_u_recipe_generation_applies_line_offset_overrides_to_wrapping_output(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("U", rootDirectory)
+      service = UTemplateRecipe(process)
+
+      result = service.setLineOffsetOverride("(1,1)", 1.25, -2.5)
+      self.assertTrue(result["ok"])
+      result = service.generateRecipeFile(scriptVariant="wrapping")
+
+      self.assertTrue(result["ok"])
+      recipePath = os.path.join(process.workspace._recipeDirectory, "U-layer.gc")
+      with open(recipePath, encoding="utf-8") as handle:
+        recipeText = handle.read()
+      self.assertIn("offset=(1.25,-2.5)", recipeText)
+
+  def test_v_recipe_generation_applies_line_offset_overrides_to_raw_output(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("V", rootDirectory)
+      service = VTemplateRecipe(process)
+
+      result = service.setLineOffsetOverride("(1,1)", 1.25, -2.5)
+      self.assertTrue(result["ok"])
+      result = service.generateRecipeFile()
+
+      self.assertTrue(result["ok"])
+      recipePath = os.path.join(process.workspace._recipeDirectory, "V-layer.gc")
+      with open(recipePath, encoding="utf-8") as handle:
+        recipeText = handle.read()
+      self.assertIn("G105 PX1.25 G105 PY-2.5", recipeText)
+
   def test_u_recipe_draft_persists_after_service_restart(self):
     with tempfile.TemporaryDirectory() as rootDirectory:
       process = FakeProcess("U", rootDirectory)
@@ -187,6 +217,21 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
       self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 82.5, places=6)
       self.assertAlmostEqual(state["pullIns"]["X_PULL_IN"], 91.5, places=6)
       self.assertTrue(state["dirty"])
+
+  def test_u_recipe_draft_persists_line_offset_overrides_and_last_variant(self):
+    with tempfile.TemporaryDirectory() as rootDirectory:
+      process = FakeProcess("U", rootDirectory)
+      service = UTemplateRecipe(process)
+
+      self.assertTrue(service.setLineOffsetOverride("(4,2)", 0.75, -1.5)["ok"])
+      self.assertTrue(service.generateRecipeFile(scriptVariant="wrapping")["ok"])
+
+      restarted = UTemplateRecipe(process)
+      state = restarted.getState()
+      self.assertEqual(state["lastGeneratedScriptVariant"], "wrapping")
+      self.assertEqual(list(state["lineOffsetOverrides"].keys()), ["(4,2)"])
+      self.assertAlmostEqual(state["lineOffsetOverrides"]["(4,2)"]["x"], 0.75, places=6)
+      self.assertAlmostEqual(state["lineOffsetOverrides"]["(4,2)"]["y"], -1.5, places=6)
 
   def test_u_and_v_drafts_use_separate_files(self):
     with tempfile.TemporaryDirectory() as rootDirectory:

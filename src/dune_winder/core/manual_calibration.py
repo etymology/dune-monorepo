@@ -384,6 +384,59 @@ class ManualCalibration:
     self._sessions = {}
 
   # -------------------------------------------------------------------
+  def _machineCalibration(self):
+    calibration = getattr(self._process, "_machineCalibration", None)
+    if calibration is None:
+      calibration = getattr(
+        getattr(self._process, "controlStateMachine", None),
+        "machineCalibration",
+        None,
+      )
+    return calibration
+
+  # -------------------------------------------------------------------
+  def _persistLegacyCameraOffsetConfig(self, offsetX, offsetY):
+    configuration = self._process._configuration
+    for layer in SUPPORTED_LAYERS:
+      configuration.set(_layer_offset_key(layer, "X"), float(offsetX))
+      configuration.set(_layer_offset_key(layer, "Y"), float(offsetY))
+
+  # -------------------------------------------------------------------
+  def _sharedCameraOffset(self):
+    machineCalibration = self._machineCalibration()
+    configuration = self._process._configuration
+    fallbackX = _safe_float(
+      configuration.get(_layer_offset_key("U", "X")),
+      CAMERA_OFFSET_DEFAULTS["U"][0],
+    )
+    fallbackY = _safe_float(
+      configuration.get(_layer_offset_key("U", "Y")),
+      CAMERA_OFFSET_DEFAULTS["U"][1],
+    )
+    if machineCalibration is None:
+      return (fallbackX, fallbackY)
+
+    changed = False
+    if machineCalibration.cameraWireOffsetX is None:
+      machineCalibration.cameraWireOffsetX = float(fallbackX)
+      changed = True
+    if machineCalibration.cameraWireOffsetY is None:
+      machineCalibration.cameraWireOffsetY = float(fallbackY)
+      changed = True
+
+    if changed and hasattr(machineCalibration, "save"):
+      machineCalibration.save()
+      self._persistLegacyCameraOffsetConfig(
+        machineCalibration.cameraWireOffsetX,
+        machineCalibration.cameraWireOffsetY,
+      )
+
+    return (
+      float(machineCalibration.cameraWireOffsetX),
+      float(machineCalibration.cameraWireOffsetY),
+    )
+
+  # -------------------------------------------------------------------
   def _sessionKey(self, layer):
     return (self._draftDirectory(), layer)
 
@@ -466,8 +519,7 @@ class ManualCalibration:
 
   # -------------------------------------------------------------------
   def _loadPersistedGXSession(self, session, data):
-    session.cameraOffsetX = float(data.get("cameraOffsetX", session.cameraOffsetX))
-    session.cameraOffsetY = float(data.get("cameraOffsetY", session.cameraOffsetY))
+    session.cameraOffsetX, session.cameraOffsetY = self._sharedCameraOffset()
 
     references = {}
     storedReferences = data.get("references", {})
@@ -488,14 +540,14 @@ class ManualCalibration:
           reference["source"] == "capture"
           and reference["rawCameraX"] is not None
           and reference["rawCameraY"] is not None
-          and reference["offsetX"] is not None
-          and reference["offsetY"] is not None
         ):
+          reference["offsetX"] = session.cameraOffsetX
+          reference["offsetY"] = session.cameraOffsetY
           reference["wireX"] = (
             self._process._xBacklash.getEffectiveX(reference["rawCameraX"])
-            + reference["offsetX"]
+            + session.cameraOffsetX
           )
-          reference["wireY"] = reference["rawCameraY"] + reference["offsetY"]
+          reference["wireY"] = reference["rawCameraY"] + session.cameraOffsetY
       references[referenceId] = reference
     session.references = references
 
@@ -591,8 +643,7 @@ class ManualCalibration:
           baselineSource = "nominal"
 
         self._loadDraftBaseline(session, baselineSource)
-        session.cameraOffsetX = float(data.get("cameraOffsetX", session.cameraOffsetX))
-        session.cameraOffsetY = float(data.get("cameraOffsetY", session.cameraOffsetY))
+        session.cameraOffsetX, session.cameraOffsetY = self._sharedCameraOffset()
 
         measuredPins = {}
         for pinValue, measurement in data.get("measuredPins", {}).items():
@@ -613,12 +664,14 @@ class ManualCalibration:
             and measuredPins[pin]["rawCameraX"] is not None
             and measuredPins[pin]["rawCameraY"] is not None
           ):
+            measuredPins[pin]["offsetX"] = session.cameraOffsetX
+            measuredPins[pin]["offsetY"] = session.cameraOffsetY
             measuredPins[pin]["wireX"] = (
               self._process._xBacklash.getEffectiveX(measuredPins[pin]["rawCameraX"])
-              + measuredPins[pin]["offsetX"]
+              + session.cameraOffsetX
             )
             measuredPins[pin]["wireY"] = (
-              measuredPins[pin]["rawCameraY"] + measuredPins[pin]["offsetY"]
+              measuredPins[pin]["rawCameraY"] + session.cameraOffsetY
             )
         session.measuredPins = measuredPins
 
@@ -635,6 +688,18 @@ class ManualCalibration:
             "cameraY": float(boardCheck["cameraY"]),
             "updatedAt": str(boardCheck.get("updatedAt", "")),
           }
+        for pin, measurement in measuredPins.items():
+          if (
+            pin in LAYER_METADATA[session.layer]["endpointInfo"]
+            and measurement.get("source") == "capture"
+          ):
+            boardChecks[pin] = self._boardCheckEntry(
+              session,
+              pin,
+              "adjusted",
+              measurement["wireX"],
+              measurement["wireY"],
+            )
         session.boardChecks = boardChecks
         session.dirty = bool(data.get("dirty", False))
         session.initialized = True
@@ -857,10 +922,7 @@ class ManualCalibration:
 
   # -------------------------------------------------------------------
   def _createSession(self, layer):
-    configuration = self._process._configuration
-    defaultX, defaultY = CAMERA_OFFSET_DEFAULTS[layer]
-    offsetX = _safe_float(configuration.get(_layer_offset_key(layer, "X")), defaultX)
-    offsetY = _safe_float(configuration.get(_layer_offset_key(layer, "Y")), defaultY)
+    offsetX, offsetY = self._sharedCameraOffset()
     if _mode_for_layer(layer) == "gx":
       return _ManualCalibrationGXSession(layer, offsetX, offsetY)
     return _ManualCalibrationSession(layer, offsetX, offsetY)
@@ -1415,45 +1477,60 @@ class ManualCalibration:
     if blocked is not None:
       return blocked
 
-    session = self._getSession(layer)
-    session.cameraOffsetX = float(xValue)
-    session.cameraOffsetY = float(yValue)
-    if session.mode == "gx":
-      for referenceId in GX_REFERENCE_IDS:
-        reference = session.references[referenceId]
-        if (
-          reference.get("source") == "capture"
-          and reference.get("rawCameraX") is not None
-          and reference.get("rawCameraY") is not None
-        ):
-          reference["offsetX"] = session.cameraOffsetX
-          reference["offsetY"] = session.cameraOffsetY
-          reference["wireX"] = (
-            self._process._xBacklash.getEffectiveX(reference["rawCameraX"])
-            + session.cameraOffsetX
-          )
-          reference["wireY"] = reference["rawCameraY"] + session.cameraOffsetY
-    else:
-      for pin, measurement in session.measuredPins.items():
-        if (
-          measurement.get("source") == "capture"
-          and measurement.get("rawCameraX") is not None
-          and measurement.get("rawCameraY") is not None
-        ):
-          measurement["offsetX"] = session.cameraOffsetX
-          measurement["offsetY"] = session.cameraOffsetY
-          measurement["wireX"] = (
-            self._process._xBacklash.getEffectiveX(measurement["rawCameraX"])
-            + session.cameraOffsetX
-          )
-          measurement["wireY"] = measurement["rawCameraY"] + session.cameraOffsetY
-          if pin in LAYER_METADATA[layer]["endpointInfo"]:
-            self._setBoardCheck(
-              session, pin, "adjusted", measurement["wireX"], measurement["wireY"]
+    self._getSession(layer)
+    self._applySharedCameraOffset(float(xValue), float(yValue))
+    sharedX = float(xValue)
+    sharedY = float(yValue)
+    return self._okResult({"cameraOffsetX": sharedX, "cameraOffsetY": sharedY})
+
+  # -------------------------------------------------------------------
+  def _applySharedCameraOffset(self, sharedX, sharedY):
+    sharedX = float(sharedX)
+    sharedY = float(sharedY)
+    machineCalibration = self._machineCalibration()
+    if machineCalibration is not None:
+      machineCalibration.cameraWireOffsetX = sharedX
+      machineCalibration.cameraWireOffsetY = sharedY
+      if hasattr(machineCalibration, "save"):
+        machineCalibration.save()
+    self._persistLegacyCameraOffsetConfig(sharedX, sharedY)
+
+    for session in self._sessions.values():
+      session.cameraOffsetX = sharedX
+      session.cameraOffsetY = sharedY
+      if session.mode == "gx":
+        for referenceId in GX_REFERENCE_IDS:
+          reference = session.references[referenceId]
+          if (
+            reference.get("source") == "capture"
+            and reference.get("rawCameraX") is not None
+            and reference.get("rawCameraY") is not None
+          ):
+            reference["offsetX"] = sharedX
+            reference["offsetY"] = sharedY
+            reference["wireX"] = (
+              self._process._xBacklash.getEffectiveX(reference["rawCameraX"]) + sharedX
             )
-    session.dirty = True
-    self._persistSession(session)
-    return self._okResult({"cameraOffsetX": session.cameraOffsetX, "cameraOffsetY": session.cameraOffsetY})
+            reference["wireY"] = reference["rawCameraY"] + sharedY
+      else:
+        for pin, measurement in session.measuredPins.items():
+          if (
+            measurement.get("source") == "capture"
+            and measurement.get("rawCameraX") is not None
+            and measurement.get("rawCameraY") is not None
+          ):
+            measurement["offsetX"] = sharedX
+            measurement["offsetY"] = sharedY
+            measurement["wireX"] = (
+              self._process._xBacklash.getEffectiveX(measurement["rawCameraX"]) + sharedX
+            )
+            measurement["wireY"] = measurement["rawCameraY"] + sharedY
+            if pin in LAYER_METADATA[session.layer]["endpointInfo"]:
+              self._setBoardCheck(
+                session, pin, "adjusted", measurement["wireX"], measurement["wireY"]
+              )
+      session.dirty = True
+      self._persistSession(session)
 
   # -------------------------------------------------------------------
   def setXBacklashCompensation(self, value):
@@ -2026,9 +2103,7 @@ class ManualCalibration:
     fileName = self._liveFileName(layer)
     calibration.save(calibrationDirectory, fileName, "LayerCalibration")
 
-    configuration = self._process._configuration
-    configuration.set(_layer_offset_key(layer, "X"), session.cameraOffsetX)
-    configuration.set(_layer_offset_key(layer, "Y"), session.cameraOffsetY)
+    self._persistLegacyCameraOffsetConfig(session.cameraOffsetX, session.cameraOffsetY)
 
     self._process.workspace._calibrationFile = fileName
     self._process.workspace._loadCalibrationFromDisk("manual calibration save")

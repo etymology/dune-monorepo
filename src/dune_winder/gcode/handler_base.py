@@ -157,6 +157,9 @@ class GCodeHandlerBase:
 
   # ---------------------------------------------------------------------
   def _log_instruction_trace(self, line: ProgramLine):
+    if getattr(self, "_suppress_instruction_trace", False):
+      return
+
     if not self._instruction_trace or not self._instruction_trace["enabled"]:
       return
 

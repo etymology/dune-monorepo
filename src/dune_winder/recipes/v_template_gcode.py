@@ -18,6 +18,7 @@ from dune_winder.recipes.recipe_template_language import (
 )
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.recipes.recipe import Recipe
+from dune_winder.recipes.line_offset_overrides import apply_line_offset_overrides
 from dune_winder.recipes import template_gcode_common
 from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.recipes.template_gcode_transfers import (
@@ -703,6 +704,7 @@ def _render_wrap_lines(
 def render_v_template_lines(
   *,
   offsets=None,
+  line_offset_overrides=None,
   transfer_pause=False,
   add_foot_pauses=False,
   include_lead_mode=False,
@@ -771,6 +773,11 @@ def render_v_template_lines(
   )
   if add_foot_pauses_value:
     lines = _apply_add_foot_pauses(lines)
+  lines = apply_line_offset_overrides(
+    lines,
+    line_offset_overrides,
+    normalize_line_text_fn=_normalize_generated_line_text,
+  )
   lines = _number_lines(lines)
   if strip_g113_params:
     lines = _apply_strip_g113_params(lines)
@@ -781,12 +788,14 @@ def render_v_template_text_lines(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  line_offset_overrides=None,
   script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
 ):
   return render_v_template_lines(
     add_foot_pauses=add_foot_pauses,
+    line_offset_overrides=line_offset_overrides,
     script_variant=script_variant,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
@@ -845,6 +854,7 @@ def write_v_template_text_file(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  line_offset_overrides=None,
   script_variant=SCRIPT_VARIANT_DEFAULT,
   named_inputs=None,
   special_inputs=None,
@@ -852,6 +862,7 @@ def write_v_template_text_file(
   output = Path(output_path)
   lines = render_v_template_text_lines(
     add_foot_pauses=add_foot_pauses,
+    line_offset_overrides=line_offset_overrides,
     script_variant=script_variant,
     cell_overrides=cell_overrides,
     named_inputs=named_inputs,
@@ -866,6 +877,7 @@ def write_v_template_ac_file(
   cell_overrides=None,
   *,
   add_foot_pauses=False,
+  line_offset_overrides=None,
   named_inputs=None,
   sheet_path=None,
   special_inputs=None,
@@ -875,6 +887,7 @@ def write_v_template_ac_file(
     output_path,
     cell_overrides=cell_overrides,
     add_foot_pauses=add_foot_pauses,
+    line_offset_overrides=line_offset_overrides,
     named_inputs=named_inputs,
     special_inputs=special_inputs,
   )
@@ -884,6 +897,7 @@ def write_v_template_file(
   output_path,
   *,
   offsets=None,
+  line_offset_overrides=None,
   transfer_pause=False,
   add_foot_pauses=False,
   include_lead_mode=False,
@@ -911,6 +925,7 @@ def write_v_template_file(
   )
   lines = render_v_template_lines(
     offsets=offsets,
+    line_offset_overrides=line_offset_overrides,
     transfer_pause=transfer_pause,
     add_foot_pauses=add_foot_pauses,
     include_lead_mode=include_lead_mode,
@@ -932,6 +947,7 @@ def write_v_template_file(
     "hashValue": hash_value,
     "lines": lines,
     "offsets": list(resolved_offsets),
+    "lineOffsetOverrides": dict(line_offset_overrides or {}),
     "transferPause": resolved_transfer_pause,
     "addFootPauses": resolved_add_foot_pauses,
     "includeLeadMode": resolved_include_lead_mode,

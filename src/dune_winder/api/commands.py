@@ -394,6 +394,142 @@ def build_command_registry(
     True,
   )
 
+  registry.register(
+    "process.machine_geometry.get_state",
+    lambda args: (_validateArgs(args), process.machineGeometryCalibration.getState())[1],
+    False,
+  )
+
+  def process_machine_geometry_record_measurement(args):
+    _validateArgs(args, optional=("layer", "capture_xy", "capture_z"))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    capture_xy = args.get("capture_xy", True)
+    capture_z = args.get("capture_z", False)
+    return process.machineGeometryCalibration.recordMeasurement(
+      layer=layer,
+      capture_xy=_asBool(capture_xy, "capture_xy"),
+      capture_z=_asBool(capture_z, "capture_z"),
+    )
+
+  registry.register(
+    "process.machine_geometry.record_measurement",
+    process_machine_geometry_record_measurement,
+    True,
+  )
+
+  def process_machine_geometry_delete_measurement(args):
+    _validateArgs(args, required=("measurement_id",))
+    return process.machineGeometryCalibration.deleteMeasurement(
+      _asString(args["measurement_id"], "measurement_id")
+    )
+
+  registry.register(
+    "process.machine_geometry.delete_measurement",
+    process_machine_geometry_delete_measurement,
+    True,
+  )
+
+  def process_machine_geometry_solve_layer_z(args):
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.solveLayerZ(layer=layer)
+
+  registry.register(
+    "process.machine_geometry.solve_layer_z",
+    process_machine_geometry_solve_layer_z,
+    True,
+  )
+
+  def process_machine_geometry_apply_layer_z(args):
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.applyLayerZ(layer=layer)
+
+  registry.register(
+    "process.machine_geometry.apply_layer_z",
+    process_machine_geometry_apply_layer_z,
+    True,
+  )
+
+  def process_machine_geometry_solve_machine_xy(args):
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.solveMachineXY(layer=layer)
+
+  registry.register(
+    "process.machine_geometry.solve_machine_xy",
+    process_machine_geometry_solve_machine_xy,
+    True,
+  )
+
+  def process_machine_geometry_cancel_machine_xy(args):
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.cancelMachineXY(layer=layer)
+
+  registry.register(
+    "process.machine_geometry.cancel_machine_xy",
+    process_machine_geometry_cancel_machine_xy,
+    True,
+  )
+
+  def process_machine_geometry_apply_machine_xy(args):
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.applyMachineXY(layer=layer)
+
+  registry.register(
+    "process.machine_geometry.apply_machine_xy",
+    process_machine_geometry_apply_machine_xy,
+    True,
+  )
+
+  def process_machine_geometry_set_line_offset_override(args):
+    _validateArgs(args, required=("line_key", "x", "y"), optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.setLineOffsetOverride(
+      layer or process.getRecipeLayer(),
+      _asString(args["line_key"], "line_key"),
+      _asFloat(args["x"], "x"),
+      _asFloat(args["y"], "y"),
+    )
+
+  registry.register(
+    "process.machine_geometry.set_line_offset_override",
+    process_machine_geometry_set_line_offset_override,
+    True,
+  )
+
+  def process_machine_geometry_delete_line_offset_override(args):
+    _validateArgs(args, required=("line_key",), optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.deleteLineOffsetOverride(
+      layer or process.getRecipeLayer(),
+      _asString(args["line_key"], "line_key"),
+    )
+
+  registry.register(
+    "process.machine_geometry.delete_line_offset_override",
+    process_machine_geometry_delete_line_offset_override,
+    True,
+  )
+
   def process_set_anchor_point(args):
     _validateArgs(args, required=("pin_a",), optional=("pin_b",))
     pinA = _asString(args["pin_a"], "pin_a").upper()

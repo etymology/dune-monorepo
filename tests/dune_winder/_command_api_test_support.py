@@ -73,6 +73,63 @@ class DummyTemplateRecipe:
     return {"ok": True, "data": {"generated": True, "scriptVariant": scriptVariant}}
 
 
+class DummyMachineGeometryCalibration:
+  def __init__(self):
+    self.measurements = []
+    self.lastSetLineOffset = None
+    self.lastDeletedLineOffset = None
+
+  def getState(self):
+    return {
+      "enabled": True,
+      "activeLayer": "V",
+      "measurements": list(self.measurements),
+      "machine": {"live": {"cameraWireOffsetX": 0.0, "cameraWireOffsetY": 0.0, "rollerYCals": [1.0, 1.0, 1.0, 1.0]}},
+      "layerState": {"layer": "V", "currentLineOffsetOverrides": {}},
+    }
+
+  def recordMeasurement(self, *, layer=None, capture_xy=True, capture_z=False):
+    measurement = {
+      "id": f"m{len(self.measurements) + 1}",
+      "layer": layer or "V",
+      "captureXY": bool(capture_xy),
+      "captureZ": bool(capture_z),
+    }
+    self.measurements.append(measurement)
+    return measurement
+
+  def deleteMeasurement(self, measurement_id):
+    self.measurements = [
+      measurement
+      for measurement in self.measurements
+      if measurement["id"] != measurement_id
+    ]
+    return {"measurementId": measurement_id}
+
+  def solveLayerZ(self, layer=None):
+    return {"layer": layer or "V", "coefficients": [0.0, 0.0, 1.0]}
+
+  def applyLayerZ(self, layer=None):
+    return {"layer": layer or "V", "applied": True}
+
+  def solveMachineXY(self, layer=None):
+    return {"layer": layer or "V", "fitError": None}
+
+  def cancelMachineXY(self, layer=None):
+    return {"layer": layer or "V", "canceled": True}
+
+  def applyMachineXY(self, layer=None):
+    return {"layer": layer or "V", "applied": True}
+
+  def setLineOffsetOverride(self, layer, line_key, x_value, y_value):
+    self.lastSetLineOffset = (layer, line_key, x_value, y_value)
+    return {"ok": True, "data": {"layer": layer, "lineKey": line_key, "x": x_value, "y": y_value}}
+
+  def deleteLineOffsetOverride(self, layer, line_key):
+    self.lastDeletedLineOffset = (layer, line_key)
+    return {"ok": True, "data": {"layer": layer, "lineKey": line_key}}
+
+
 class DummyManualCalibration:
   def getState(self):
     return {"mode": "gx"}
@@ -168,6 +225,7 @@ class DummyProcess:
     self.vTemplateRecipe = DummyTemplateRecipe()
     self.uTemplateRecipe = DummyTemplateRecipe()
     self.manualCalibration = DummyManualCalibration()
+    self.machineGeometryCalibration = DummyMachineGeometryCalibration()
     self.spool = DummySpool()
     self.workspace = DummyWorkspace()
 
@@ -400,6 +458,8 @@ class DummyMachineCalibration:
     self.headArmLength = 80.0
     self.headRollerRadius = 9.0
     self.headRollerGap = 24.0
+    self.cameraWireOffsetX = 0.0
+    self.cameraWireOffsetY = 0.0
     self.rollerArmCalibration = None
 
   def set(self, key, value):
