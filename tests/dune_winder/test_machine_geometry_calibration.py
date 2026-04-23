@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import threading
 import time
 from types import SimpleNamespace
@@ -150,10 +151,11 @@ def test_record_measurement_captures_last_trace_and_current_position(monkeypatch
   assert measurement["projectedY"] == pytest.approx(654.0, abs=1e-9)
 
 
-def test_machine_xy_solver_relaxes_unmeasured_rollers_to_nominal(monkeypatch, tmp_path):
+def test_machine_xy_solver_optimizes_measured_roller_and_keeps_others(monkeypatch, tmp_path):
   process = _Process(tmp_path)
   service = MachineGeometryCalibration(process)
-  nominal_roller_y = 21.0
+  real_random = random.Random
+  monkeypatch.setattr(machine_geometry_module.random, "Random", lambda: real_random(0))
   measurements = [
     {
       "id": "m1",
@@ -204,20 +206,24 @@ def test_machine_xy_solver_relaxes_unmeasured_rollers_to_nominal(monkeypatch, tm
     layer="U",
     operation_id="op-test-1",
     layer_path="layer.json",
-    nominal_roller_y=nominal_roller_y,
+    nominal_roller_y=21.0,
     current_camera_offset=(10.0, -5.0),
     initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
   )
 
-  assert evaluation["rollerYCals"][0] == pytest.approx(nominal_roller_y, abs=1e-9)
-  assert evaluation["rollerYCals"][1] == pytest.approx(23.0, abs=1e-3)
-  assert evaluation["rollerYCals"][2] == pytest.approx(nominal_roller_y, abs=1e-9)
-  assert evaluation["rollerYCals"][3] == pytest.approx(nominal_roller_y, abs=1e-9)
+  assert evaluation["rollerYCals"][1] == pytest.approx(23.0, abs=0.2)
+  assert evaluation["rollerYCals"][0] == pytest.approx(24.0, abs=1e-9)
+  assert evaluation["rollerYCals"][2] == pytest.approx(18.0, abs=1e-9)
+  assert evaluation["rollerYCals"][3] == pytest.approx(17.0, abs=1e-9)
+  assert "m1" in evaluation["siteOffsets"]
+  assert "m2" in evaluation["siteOffsets"]
 
 
 def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
   process = _Process(tmp_path)
   service = MachineGeometryCalibration(process)
+  real_random = random.Random
+  monkeypatch.setattr(machine_geometry_module.random, "Random", lambda: real_random(0))
   measurements = [
     {
       "id": "m1",
@@ -277,10 +283,79 @@ def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
     progress_callback=lambda step, message, **fields: progress_events.append((step, message, fields)),
   )
 
-  assert evaluation["rollerYCals"][1] == pytest.approx(23.0, abs=1e-3)
+  assert evaluation["rollerYCals"][1] == pytest.approx(23.0, abs=0.2)
   assert projection_batches["count"] < 200
   assert any("totalEvaluations" in fields for _step, _message, fields in progress_events)
   assert any("percentComplete" in fields for _step, _message, fields in progress_events)
+  assert any("loss" in fields for _step, _message, fields in progress_events)
+  assert any("siteLabel" in fields for _step, _message, fields in progress_events)
+
+
+def test_machine_xy_solver_groups_site_label_offsets_across_line_keys(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  real_random = random.Random
+  monkeypatch.setattr(machine_geometry_module.random, "Random", lambda: real_random(0))
+  measurements = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "siteLabel": "Foot A corner",
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+    {
+      "id": "m2",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "siteLabel": "Foot A corner",
+      "lineKey": "(2,1)",
+      "gcodeLine": "~anchorToTarget(B1202,B2002) (2,1)",
+      "effectiveCameraX": 120.0,
+      "rawCameraY": 260.0,
+      "actualWireX": 130.0,
+      "actualWireY": 255.0,
+    },
+  ]
+
+  monkeypatch.setattr(
+    service,
+    "_candidateMachineCalibrationPath",
+    lambda roller_y_cals, camera_offset=None: "machine.json",
+  )
+  monkeypatch.setattr(
+    service,
+    "_projectMeasurement",
+    lambda measurement, **kwargs: {
+      "projectedX": float(measurement["actualWireX"]),
+      "projectedY": float(measurement["actualWireY"])
+      + (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0),
+    },
+  )
+
+  evaluation = service._evaluateMachineXY(
+    measurements,
+    layer="U",
+    operation_id="op-test-3",
+    layer_path="layer.json",
+    nominal_roller_y=21.0,
+    current_camera_offset=(10.0, -5.0),
+    initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+  )
+
+  assert list(evaluation["siteOffsets"].keys()) == ["Foot A corner"]
+  assert len(evaluation["lineOffsetOverrides"]) == 2
+  line_offsets = list(evaluation["lineOffsetOverrides"].values())
+  assert line_offsets[0]["x"] == pytest.approx(line_offsets[1]["x"], abs=1e-9)
+  assert line_offsets[0]["y"] == pytest.approx(line_offsets[1]["y"], abs=1e-9)
+  assert evaluation["siteOffsetItems"][0]["siteLabel"] == "Foot A corner"
 
 
 def test_machine_xy_solve_records_progress_and_success(monkeypatch, tmp_path):

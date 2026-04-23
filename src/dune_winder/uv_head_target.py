@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import math
+import os
 import re
 from pathlib import Path
 
@@ -28,14 +29,14 @@ from dune_winder.recipes.v_template_gcode import (
 )
 
 
-_PIN_NAME_RE = re.compile(r"^[AB]\d+$")
+_PIN_NAME_RE = re.compile(r"^[ABF]\d+$")
 _RECIPE_SITE_RE = re.compile(
   r"G109\s+(P[AB]\d+)\s+P([A-Z]{2})\s+G103\s+(P[AB]\d+)\s+(P[AB]\d+).*?\(([^()]*)\)"
 )
-_DEFAULT_MACHINE_CALIBRATION_PATH = REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"
-_DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (
-  PACKAGE_ROOT / "config" / "APA",
+_DEFAULT_MACHINE_CALIBRATION_PATH = (
+  REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"
 )
+_DEFAULT_LAYER_CALIBRATION_DIRECTORIES = (PACKAGE_ROOT / "config" / "APA",)
 _AXIS_EPSILON = 1e-9
 _ORIENTATION_TOKENS = ("BR", "BL", "LT", "LB", "RT", "RB", "TR", "TL")
 _ANCHOR_TO_TARGET_RE = re.compile(
@@ -235,9 +236,30 @@ def _normalize_head_z_mode(mode: str) -> str:
 
 def _normalize_pin_name(pin_name: str, label: str) -> str:
   value = str(pin_name).strip().upper()
+  if value.startswith("P"):
+    value = value[1:]
   if not _PIN_NAME_RE.match(value):
     raise UvHeadTargetError(f"{label} must be a pin name like B1201 or A799.")
   return value
+
+
+def _canonical_pin_name(pin_name: str) -> str:
+  value = _normalize_pin_name(pin_name, "Pin")
+  if value.startswith("F"):
+    return "A" + value[1:]
+  return value
+
+
+def _display_pin_name_like(reference_pin: str, pin_name: str) -> str:
+  reference_value = str(reference_pin).strip().upper()
+  canonical_value = _canonical_pin_name(pin_name)
+  if reference_value.startswith("P"):
+    return "P" + canonical_value
+  if reference_value.startswith("F"):
+    return "F" + canonical_value[1:]
+  if reference_value[:1] in {"A", "B"}:
+    return reference_value[:1] + canonical_value[1:]
+  return canonical_value
 
 
 def _default_layer_calibration_path(layer: str) -> Path:
@@ -258,18 +280,29 @@ def _load_machine_calibration(path: str | Path | None = None) -> MachineCalibrat
 
 
 @lru_cache(maxsize=8)
-def _load_layer_calibration(layer: str, path: str | Path | None = None) -> LayerCalibration:
-  resolved_path = Path(path) if path is not None else _default_layer_calibration_path(layer)
+def _load_layer_calibration(
+  layer: str, path: str | Path | None = None
+) -> LayerCalibration:
+  resolved_path = (
+    Path(path) if path is not None else _default_layer_calibration_path(layer)
+  )
   calibration = LayerCalibration(layer)
-  calibration.load(str(resolved_path.parent), resolved_path.name, exceptionForMismatch=False)
+  calibration.load(
+    str(resolved_path.parent), resolved_path.name, exceptionForMismatch=False
+  )
   return calibration
 
 
-def clear_uv_head_target_caches(*, layer_calibration: bool = True, machine_calibration: bool = False) -> None:
+def clear_uv_head_target_caches(
+  *, layer_calibration: bool = True, machine_calibration: bool = False
+) -> None:
   if layer_calibration:
     _load_layer_calibration.cache_clear()
+    _cached_all_wire_space_pins.cache_clear()
   if machine_calibration:
     _load_machine_calibration.cache_clear()
+    _cached_compute_uv_anchor_to_target_view.cache_clear()
+    _cached_compute_pin_pair_tangent_geometry.cache_clear()
 
 
 def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
@@ -313,7 +346,9 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
     keyword_value = keyword_value.strip()
     if keyword_name == "offset":
       if not keyword_value.startswith("(") or not keyword_value.endswith(")"):
-        raise UvHeadTargetError("~anchorToTarget offset must be written as offset=(x,y).")
+        raise UvHeadTargetError(
+          "~anchorToTarget offset must be written as offset=(x,y)."
+        )
       offset_values = [part.strip() for part in keyword_value[1:-1].split(",")]
       if len(offset_values) != 2:
         raise UvHeadTargetError("~anchorToTarget offset requires exactly two values.")
@@ -327,14 +362,65 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
       if hover_value in ("false", "0", "no", "off"):
         hover = False
         continue
-      raise UvHeadTargetError("~anchorToTarget hover must be written as hover=True or hover=False.")
-    raise UvHeadTargetError("~anchorToTarget only supports offset and hover keyword arguments.")
+      raise UvHeadTargetError(
+        "~anchorToTarget hover must be written as hover=True or hover=False."
+      )
+    raise UvHeadTargetError(
+      "~anchorToTarget only supports offset and hover keyword arguments."
+    )
   return AnchorToTargetCommand(
     raw_text=raw_text,
     anchor_pin=anchor_pin,
     target_pin=target_pin,
     target_offset=target_offset,
     hover=hover,
+  )
+
+
+@lru_cache(maxsize=128)
+def _cached_compute_uv_anchor_to_target_view(
+  command_text: str,
+  layer: str,
+  machine_calibration_path: str | None,
+  layer_calibration_path: str | None,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None,
+) -> AnchorToTargetViewResult:
+  """Cached version - all arguments must be hashable."""
+  machine_calibration = _load_machine_calibration(machine_calibration_path)
+  layer_calibration = _load_layer_calibration(layer, layer_calibration_path)
+  command = parse_anchor_to_target_command(command_text)
+  target_location = _wire_space_pin(layer_calibration, command.target_pin)
+  if command.target_offset is not None:
+    target_location = Location(
+      float(target_location.x) + float(command.target_offset[0]),
+      float(target_location.y) + float(command.target_offset[1]),
+      float(target_location.z),
+    )
+  raw_result = compute_uv_tangent_view(
+    UvTangentViewRequest(
+      layer=layer,
+      pin_a=command.anchor_pin,
+      pin_b=command.target_pin,
+    ),
+    machine_calibration_path=machine_calibration_path,
+    layer_calibration_path=layer_calibration_path,
+    pin_b_point_override=_location_to_point3(target_location),
+    roller_arm_y_offsets=roller_arm_y_offsets,
+  )
+  handler = _initial_handler(machine_calibration, layer_calibration)
+  _execute_line(handler, command.raw_text)
+  interpreter_head_point = Point2D(float(handler._x), float(handler._y))
+  interpreter_wire_location = handler._headCompensation.getActualLocation(
+    Location(float(handler._x), float(handler._y), float(handler._z))
+  )
+  interpreter_wire_point = Point2D(
+    float(interpreter_wire_location.x), float(interpreter_wire_location.y)
+  )
+  return AnchorToTargetViewResult(
+    command=command,
+    raw_result=raw_result,
+    interpreter_head_point=interpreter_head_point,
+    interpreter_wire_point=interpreter_wire_point,
   )
 
 
@@ -346,6 +432,15 @@ def compute_uv_anchor_to_target_view(
   layer_calibration_path: str | Path | None = None,
   roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> AnchorToTargetViewResult:
+  """Compute with memoization cache."""
+  # Convert paths to strings for hashability
+  mc_path = (
+    str(machine_calibration_path) if machine_calibration_path is not None else None
+  )
+  lc_path = str(layer_calibration_path) if layer_calibration_path is not None else None
+  return _cached_compute_uv_anchor_to_target_view(
+    command_text, layer, mc_path, lc_path, roller_arm_y_offsets
+  )
   command = parse_anchor_to_target_command(command_text)
   machine_calibration = _load_machine_calibration(machine_calibration_path)
   layer_calibration = _load_layer_calibration(layer, layer_calibration_path)
@@ -393,11 +488,12 @@ def _location_to_point2(location: Location) -> Point2D:
 
 
 def _wire_space_pin(layer_calibration: LayerCalibration, pin_name: str) -> Location:
-  if not layer_calibration.getPinExists(pin_name):
+  canonical_pin = _canonical_pin_name(pin_name)
+  if not layer_calibration.getPinExists(canonical_pin):
     raise UvHeadTargetError(
       f"Pin {pin_name} is not present in {layer_calibration.getLayerNames()} calibration."
     )
-  return layer_calibration.getPinLocation(pin_name).add(layer_calibration.offset)
+  return layer_calibration.getPinLocation(canonical_pin).add(layer_calibration.offset)
 
 
 def _all_wire_space_pins(layer_calibration: LayerCalibration) -> dict[str, Point3D]:
@@ -726,14 +822,43 @@ def _recipe_sites_by_anchor(layer: str) -> dict[str, list[RecipeSite]]:
   return result
 
 
-def _lookup_recipe_site(
-  layer: str,
-  anchor_pin: str,
-  wrapped_pin: str,
-) -> RecipeSite:
+@lru_cache(maxsize=2)
+def _ordered_recipe_sites(layer: str) -> tuple[RecipeSite, ...]:
+  sites: list[RecipeSite] = []
+  for line in _render_lines_for_layer(layer):
+    match = _RECIPE_SITE_RE.search(line)
+    if match is None:
+      continue
+    anchor_pin, orientation_token, pair_pin_a, pair_pin_b, site_label = match.groups()
+    anchor_pin = _strip_p_prefix(anchor_pin)
+    pair_pin_a = _strip_p_prefix(pair_pin_a)
+    pair_pin_b = _strip_p_prefix(pair_pin_b)
+    side, position = _parse_site_label(site_label)
+    sites.append(
+      RecipeSite(
+        anchor_pin=anchor_pin,
+        orientation_token=orientation_token,
+        recipe_pair_pin_a=pair_pin_a,
+        recipe_pair_pin_b=pair_pin_b,
+        site_label=site_label,
+        side=side,
+        position=position,
+      )
+    )
+  return tuple(sites)
+
+
+def _lookup_recipe_site(layer: str, *args) -> RecipeSite:
   normalized_layer = _normalize_layer(layer)
-  normalized_anchor_pin = _strip_p_prefix(_normalize_pin_name(anchor_pin, "Anchor pin"))
-  normalized_wrapped_pin = _strip_p_prefix(_normalize_pin_name(wrapped_pin, "Wrapped pin"))
+  if len(args) == 2:
+    anchor_pin, wrapped_pin = args
+  elif len(args) == 3:
+    _layer_calibration, anchor_pin, wrapped_pin = args
+  else:
+    raise TypeError("_lookup_recipe_site() expects layer plus anchor and wrapped pins.")
+
+  normalized_anchor_pin = _canonical_pin_name(anchor_pin)
+  normalized_wrapped_pin = _canonical_pin_name(wrapped_pin)
 
   candidates = _recipe_sites_by_anchor(normalized_layer).get(normalized_anchor_pin, [])
   if not candidates:
@@ -742,7 +867,10 @@ def _lookup_recipe_site(
     )
 
   for candidate in candidates:
-    if normalized_wrapped_pin in {candidate.recipe_pair_pin_a, candidate.recipe_pair_pin_b}:
+    if normalized_wrapped_pin in {
+      candidate.recipe_pair_pin_a,
+      candidate.recipe_pair_pin_b,
+    }:
       return candidate
 
   raise UvHeadTargetError(
@@ -755,46 +883,63 @@ def _infer_pair_pin_from_wrap_side(
   wrapped_pin: str,
   tangent_sides_value: tuple[str, str],
 ) -> str:
-  wrapped_pin_name = (
-    wrapped_pin[1:] if str(wrapped_pin).upper().startswith("P") else wrapped_pin
-  )
+  wrapped_pin_label = str(wrapped_pin).strip().upper()
+  wrapped_pin_name = _canonical_pin_name(wrapped_pin_label)
   wrapped_location = _wire_space_pin(layer_calibration, wrapped_pin_name)
-  same_face_pins = [
-    pin_name
-    for pin_name in layer_calibration.getPinNames()
-    if pin_name.startswith(wrapped_pin_name[0]) and pin_name != wrapped_pin_name
-  ]
-  if not same_face_pins:
-    raise UvHeadTargetError(f"No same-face candidate pins found for {wrapped_pin}.")
+  desired_position = "top" if tangent_sides_value[1] == "minus" else "bottom"
+  desired_end = "head" if tangent_sides_value[0] == "minus" else "foot"
+  min_gap = 4 if desired_end == "head" else 6
 
-  best_pin = None
-  best_score = None
-  x_sign = 1.0 if tangent_sides_value[0] == "plus" else -1.0
-
-  for pin_name in same_face_pins:
-    location = _wire_space_pin(layer_calibration, pin_name)
-    delta_x = float(location.x - wrapped_location.x)
-    delta_y = float(location.y - wrapped_location.y)
-    signed_x = x_sign * delta_x
-    if signed_x <= _AXIS_EPSILON:
+  ordered_sites = _ordered_recipe_sites(layer_calibration.getLayerNames())
+  wrapped_gap = _pin_number(wrapped_pin_name)
+  for site in ordered_sites:
+    site_label = site.site_label.lower()
+    if site.side != wrapped_pin_name[:1] or site.position != desired_position:
       continue
-    score = (
-      abs(delta_y),
-      signed_x,
+    if f"{desired_end} end" not in site_label and desired_end not in site_label:
+      continue
+    candidate_a = _canonical_pin_name(site.recipe_pair_pin_a)
+    candidate_b = _canonical_pin_name(site.recipe_pair_pin_b)
+    if candidate_a == wrapped_pin_name or candidate_b == wrapped_pin_name:
+      continue
+    candidate_a_gap = abs(_pin_number(candidate_a) - wrapped_gap)
+    candidate_b_gap = abs(_pin_number(candidate_b) - wrapped_gap)
+    wrapped_point = Point2D(float(wrapped_location.x), float(wrapped_location.y))
+    candidate_a_point = Point2D(
+      float(_wire_space_pin(layer_calibration, candidate_a).x),
+      float(_wire_space_pin(layer_calibration, candidate_a).y),
     )
-    if best_score is None or score < best_score:
-      best_score = score
-      best_pin = pin_name
-
-  if best_pin is None:
-    raise UvHeadTargetError(
-      "Could not infer the second G103 pin from wrapped pin "
-      f"{wrapped_pin} and tangent sides {_format_tangent_sides(tangent_sides_value)}."
+    candidate_b_point = Point2D(
+      float(_wire_space_pin(layer_calibration, candidate_b).x),
+      float(_wire_space_pin(layer_calibration, candidate_b).y),
     )
+    candidate_a_matches = _matches_tangent_sides(
+      candidate_a_point, wrapped_point, tangent_sides_value
+    )
+    candidate_b_matches = _matches_tangent_sides(
+      candidate_b_point, wrapped_point, tangent_sides_value
+    )
+    if not candidate_a_matches and not candidate_b_matches:
+      continue
+    qualifying_candidates: list[tuple[int, str]] = []
+    if candidate_a_matches and candidate_a_gap >= min_gap:
+      qualifying_candidates.append((candidate_a_gap, candidate_a))
+    if candidate_b_matches and candidate_b_gap >= min_gap:
+      qualifying_candidates.append((candidate_b_gap, candidate_b))
+    if not qualifying_candidates:
+      continue
+    qualifying_candidates.sort(key=lambda item: item[0])
+    best_pin = qualifying_candidates[0][1]
+    if wrapped_pin_label.startswith("P"):
+      return f"P{best_pin}"
+    if wrapped_pin_label.startswith("F"):
+      return f"F{best_pin[1:]}"
+    return best_pin
 
-  if str(wrapped_pin).upper().startswith("P"):
-    return f"P{best_pin}"
-  return best_pin
+  raise UvHeadTargetError(
+    "Could not infer the second G103 pin from wrapped pin "
+    f"{wrapped_pin} and tangent sides {_format_tangent_sides(tangent_sides_value)}."
+  )
 
 
 def _infer_local_pair_pin_from_wrap_side(
@@ -802,9 +947,8 @@ def _infer_local_pair_pin_from_wrap_side(
   wrapped_pin: str,
   tangent_sides_value: tuple[str, str],
 ) -> str:
-  wrapped_pin_name = (
-    wrapped_pin[1:] if str(wrapped_pin).upper().startswith("P") else wrapped_pin
-  )
+  wrapped_pin_label = str(wrapped_pin).strip().upper()
+  wrapped_pin_name = _canonical_pin_name(wrapped_pin_label)
   wrapped_location = _wire_space_pin(layer_calibration, wrapped_pin_name)
   family_pins = [
     pin_name
@@ -867,8 +1011,10 @@ def _infer_local_pair_pin_from_wrap_side(
       "Could not infer a nearby G103 pair pin from wrapped pin "
       f"{wrapped_pin} and tangent sides {_format_tangent_sides(tangent_sides_value)}."
     )
-  if str(wrapped_pin).upper().startswith("P"):
+  if wrapped_pin_label.startswith("P"):
     return f"P{best_pin}"
+  if wrapped_pin_label.startswith("F"):
+    return f"F{best_pin[1:]}"
   return best_pin
 
 
@@ -1249,8 +1395,8 @@ def _arm_correction_head_shift_signs(
   anchor_pin_point: Point2D,
   target_pin_point: Point2D,
 ) -> tuple[int, int] | None:
-  sign_x = _sign_with_epsilon(anchor_pin_point.x - target_pin_point.x)
-  sign_y = _sign_with_epsilon(anchor_pin_point.y - target_pin_point.y)
+  sign_x = _sign_with_epsilon(target_pin_point.x - anchor_pin_point.x)
+  sign_y = _sign_with_epsilon(target_pin_point.y - anchor_pin_point.y)
   if sign_x == 0 or sign_y == 0:
     return None
   return (sign_x, sign_y)
@@ -1490,7 +1636,9 @@ def _probe_runtime_orientation(
         head_roller_gap=float(machine_calibration.headRollerGap),
         roller_arm_y_offsets=roller_arm_y_offsets,
       )
-    except UvHeadTargetError:
+    except Exception:
+      # Any runtime probe failure invalidates only this orientation candidate.
+      # The caller already has a pure-geometry fallback, so keep searching.
       continue
 
     deviation = _line_deviation_at_point(
@@ -1564,18 +1712,24 @@ def compute_uv_head_target(
   )
   inferred_pair_pin = (
     recipe_site.recipe_pair_pin_b
-    if recipe_site.wrapped_pin == recipe_site.recipe_pair_pin_a
+    if _canonical_pin_name(recipe_wrapped_pin)
+    == _canonical_pin_name(recipe_site.recipe_pair_pin_a)
     else recipe_site.recipe_pair_pin_a
   )
   inferred_pair_pin_name = (
     inferred_pair_pin[1:] if inferred_pair_pin.startswith("P") else inferred_pair_pin
+  )
+  inferred_pair_pin_name = _display_pin_name_like(
+    request.wrapped_pin, inferred_pair_pin_name
   )
   inferred_pair_point = _wire_space_pin(layer_calibration, inferred_pair_pin_name)
 
   head_position = 1 if normalized_request.head_z_mode == "front" else 2
   handler = _initial_handler(machine_calibration, layer_calibration)
   _execute_line(handler, f"G106 P{head_position}")
-  _execute_line(handler, f"G109 P{normalized_request.anchor_pin} P{recipe_site.orientation_token}")
+  _execute_line(
+    handler, f"G109 P{normalized_request.anchor_pin} P{recipe_site.orientation_token}"
+  )
   _execute_line(
     handler,
     f"G103 P{normalized_request.wrapped_pin} P{inferred_pair_pin_name} PXY",
@@ -1664,14 +1818,19 @@ def compute_uv_tangent_view(
     right=float(machine_calibration.transferRight),
     bottom=float(machine_calibration.transferBottom),
   )
-  apa_pin_points = tuple(
-    Point2D(point.x, point.y)
-    for point in _all_wire_space_pins(layer_calibration).values()
-  )
-  apa_pin_points_by_name = tuple(
-    (pin_name, Point2D(point.x, point.y))
-    for pin_name, point in _all_wire_space_pins(layer_calibration).items()
-  )
+  # Use cached all_wire_space_pins with layer calibration path
+  lc_path = str(layer_calibration_path) if layer_calibration_path is not None else None
+  if lc_path is not None and os.path.isfile(lc_path):
+    wire_pins = {
+      name: Point2D(x, y) for name, x, y, z in _cached_all_wire_space_pins(lc_path)
+    }
+  else:
+    wire_pins = {
+      name: Point2D(pt.x, pt.y)
+      for name, pt in _all_wire_space_pins(layer_calibration).items()
+    }
+  apa_pin_points = tuple(wire_pins.values())
+  apa_pin_points_by_name = tuple(wire_pins.items())
   apa_bounds = _apa_bounds_from_points(apa_pin_points)
   pin_a_face = _b_side_face_for_pin(normalized_request.layer, normalized_request.pin_a)
   pin_b_face = _b_side_face_for_pin(normalized_request.layer, normalized_request.pin_b)
@@ -1680,10 +1839,28 @@ def compute_uv_tangent_view(
   alternating_projection_data: dict[str, Point2D] | None = None
   z_retracted = float(machine_calibration.zFront)
   z_extended = float(machine_calibration.zBack)
-  if normalized_request.pin_a[:1] != normalized_request.pin_b[:1]:
-    if {normalized_request.pin_a[:1], normalized_request.pin_b[:1]} != {"A", "B"}:
+  pin_a_family = _pin_family_side(normalized_request.pin_a)
+  pin_b_family = _pin_family_side(normalized_request.pin_b)
+  if pin_a_family != pin_b_family:
+    if {pin_a_family, pin_b_family} != {"A", "B"}:
       raise UvHeadTargetError(
         "Alternating-side view requires exactly one B pin and one A pin."
+      )
+    a_pin = (
+      normalized_request.pin_a
+      if pin_a_family == "A"
+      else normalized_request.pin_b
+    )
+    b_pin = (
+      normalized_request.pin_b
+      if pin_b_family == "B"
+      else normalized_request.pin_a
+    )
+    if _b_side_face_for_pin(normalized_request.layer, a_pin) != _b_side_face_for_pin(
+      normalized_request.layer, b_pin
+    ):
+      raise UvHeadTargetError(
+        "Pins must land on the same face after converting the A pin to the B side."
       )
     alternating_face = pin_b_face
     alternating_plane = _alternating_plane_for_face(pin_b_face)
@@ -1700,7 +1877,9 @@ def compute_uv_tangent_view(
     normalized_request.pin_b,
   )
   if normalized_request.g103_adjacent_pin is not None:
-    inferred_pair_pin = _normalize_pin_name(normalized_request.g103_adjacent_pin, "Adjacent pin")
+    inferred_pair_pin = _normalize_pin_name(
+      normalized_request.g103_adjacent_pin, "Adjacent pin"
+    )
   else:
     inferred_pair_pin = _infer_local_pair_pin_from_wrap_side(
       layer_calibration,
@@ -1976,25 +2155,15 @@ class PinPairTangentGeometry:
   pin_b_point: Point2D
 
 
-def compute_pin_pair_tangent_geometry(
-  *,
+@lru_cache(maxsize=256)
+def _cached_compute_pin_pair_tangent_geometry(
   layer: str,
   pin_a: str,
   pin_b: str,
-  machine_calibration_path: str | None = None,
-  layer_calibration_path: str | None = None,
+  machine_calibration_path: str | None,
+  layer_calibration_path: str | None,
 ) -> PinPairTangentGeometry:
-  """
-  Compute the outbound tangent line and active roller index for an anchor→target pin pair.
-
-  This is the minimal geometry required to back-solve a roller y_cal offset:
-  - tangent_point_a / tangent_point_b  — the selected external tangent line
-  - unit_direction                     — normalised direction along that line
-  - normal                             — unit normal pointing toward the wire side
-  - roller_index                       — which of the 4 rollers contacts the wire (0-3)
-
-  Raises UvHeadTargetError (a ValueError subclass) on any geometry failure.
-  """
+  """Cached version with hashable arguments."""
   normalized_layer = _normalize_layer(layer)
   pin_a_name = _normalize_pin_name(pin_a, "Pin A")
   pin_b_name = _normalize_pin_name(pin_b, "Pin B")
@@ -2059,7 +2228,9 @@ def compute_pin_pair_tangent_geometry(
     Point2D(-unit_direction.y, unit_direction.x),
     Point2D(unit_direction.y, -unit_direction.x),
   )
-  matching_normals = [n for n in normal_candidates if _sign_with_epsilon(n.y) == tangent_y_side]
+  matching_normals = [
+    n for n in normal_candidates if _sign_with_epsilon(n.y) == tangent_y_side
+  ]
   if len(matching_normals) != 1:
     raise UvHeadTargetError("Could not select a unique normal for the tangent line.")
   normal = matching_normals[0]
@@ -2073,6 +2244,63 @@ def compute_pin_pair_tangent_geometry(
     pin_a_point=pin_a_pt,
     pin_b_point=pin_b_pt,
   )
+
+
+def compute_pin_pair_tangent_geometry(
+  *,
+  layer: str,
+  pin_a: str,
+  pin_b: str,
+  machine_calibration_path: str | None = None,
+  layer_calibration_path: str | None = None,
+) -> PinPairTangentGeometry:
+  """
+  Compute the outbound tangent line and active roller index for an anchor→target pin pair.
+
+  This is the minimal geometry required to back-solve a roller y-offset:
+  - tangent_point_a / tangent_point_b  — the selected external tangent line
+  - unit_direction                     — normalised direction along that line
+  - normal                             — unit normal pointing toward the wire side
+  - roller_index                       — which of the 4 rollers contacts the wire (0-3)
+
+  Raises UvHeadTargetError (a ValueError subclass) on any geometry failure.
+  """
+  mc_path = (
+    str(machine_calibration_path) if machine_calibration_path is not None else None
+  )
+  lc_path = str(layer_calibration_path) if layer_calibration_path is not None else None
+  return _cached_compute_pin_pair_tangent_geometry(
+    layer, pin_a, pin_b, mc_path, lc_path
+  )
+
+
+@lru_cache(maxsize=8)
+def _cached_all_wire_space_pins(
+  layer_calibration_path: str,
+) -> tuple[tuple[str, float, float, float], ...]:
+  """Cached version - returns tuple of (pin_name, x, y, z) for hashability."""
+  layer_cal = _load_layer_calibration(None, layer_calibration_path)
+  return tuple(
+    (pin_name,) + (float(loc.x), float(loc.y), float(loc.z))
+    for pin_name, loc in (
+      (name, layer_cal.getPinLocation(name).add(layer_cal.offset))
+      for name in layer_cal.getPinNames()
+    )
+  )
+
+
+def _all_wire_space_pins(layer_calibration: LayerCalibration) -> dict[str, Point3D]:
+  """Get all wire space pins with caching by calibration path."""
+  # Try to get the path from the calibration object
+  cal_path = getattr(layer_calibration, "_fullFileName", None)
+  if cal_path is not None and os.path.isfile(cal_path):
+    points = _cached_all_wire_space_pins(cal_path)
+    return {pin_name: Point3D(x, y, z) for pin_name, x, y, z in points}
+  # Fallback to uncached if path not available
+  return {
+    pin_name: _location_to_point3(_wire_space_pin(layer_calibration, pin_name))
+    for pin_name in layer_calibration.getPinNames()
+  }
 
 
 __all__ = [

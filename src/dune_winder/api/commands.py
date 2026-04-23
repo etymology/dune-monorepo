@@ -716,6 +716,19 @@ def build_command_registry(
     True,
   )
 
+  # ---------------------------------------------------------------------------
+  def manual_calibration_set_skip_wrap_pins(args):
+    _validateArgs(args, required=("value",))
+    return process.manualCalibration.setSkipWrapPins(
+      _asInt(args["value"], "value"),
+    )
+
+  registry.register(
+    "process.manual_calibration.set_skip_wrap_pins",
+    manual_calibration_set_skip_wrap_pins,
+    True,
+  )
+
   def manual_calibration_update_measured_pin(args):
     _validateArgs(args, required=("pin", "wire_x", "wire_y"))
     return process.manualCalibration.updateMeasuredPin(

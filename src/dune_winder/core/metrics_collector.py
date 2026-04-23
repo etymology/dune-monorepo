@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 try:
   from influxdb_client import InfluxDBClient, Point
   from influxdb_client.client.write_api import WriteOptions, WriteType
+
   _IMPORT_ERROR = None
 except ModuleNotFoundError as importError:
   InfluxDBClient = None
@@ -25,13 +26,13 @@ except ModuleNotFoundError as importError:
   _IMPORT_ERROR = importError
 
 # InfluxDB connection — must match docker-compose.yml
-_URL    = "http://localhost:8086"
-_TOKEN  = "dune-winder-token"
-_ORG    = "dune"
+_URL = "http://localhost:8086"
+_TOKEN = "dune-winder-token"
+_ORG = "dune"
 _BUCKET = "winder"
 
 
-def _endpoint_is_reachable(url: str, timeoutSeconds: float = 0.25) -> bool:
+def _endpoint_is_reachable(url: str, timeoutSeconds: float = 1) -> bool:
   """Return True when the configured InfluxDB endpoint accepts TCP connections."""
   parsed = urlparse(url)
   host = parsed.hostname
@@ -81,15 +82,11 @@ class MetricsCollector:
     self._write_api = None
 
     if _IMPORT_ERROR is not None:
-      self._disabledReason = (
-        "Optional dependency 'influxdb-client' is not installed."
-      )
+      self._disabledReason = "Optional dependency 'influxdb-client' is not installed."
       return
 
     if not _endpoint_is_reachable(_URL):
-      self._disabledReason = (
-        f"InfluxDB endpoint {_URL} is not reachable."
-      )
+      self._disabledReason = f"InfluxDB endpoint {_URL} is not reachable."
       return
 
     self._client = InfluxDBClient(url=_URL, token=_TOKEN, org=_ORG)
@@ -120,15 +117,15 @@ class MetricsCollector:
 
     point = (
       Point("plc_tags")
-      .field("tension",          _safe_float(self._io.tension_tag.get()))
-      .field("v_xyz",            _safe_float(self._io.v_xyz_tag.get()))
+      .field("tension", _safe_float(self._io.tension_tag.get()))
+      .field("v_xyz", _safe_float(self._io.v_xyz_tag.get()))
       .field("tension_motor_cv", _safe_float(self._io.tension_motor_cv_tag.get()))
-      .field("x_position",       _safe_float(self._io.xAxis.getPosition()))
-      .field("y_position",       _safe_float(self._io.yAxis.getPosition()))
-      .field("z_position",       _safe_float(self._io.zAxis.getPosition()))
-      .field("x_velocity",       _safe_float(self._io.xAxis.getVelocity()))
-      .field("y_velocity",       _safe_float(self._io.yAxis.getVelocity()))
-      .field("z_velocity",       _safe_float(self._io.zAxis.getVelocity()))
+      .field("x_position", _safe_float(self._io.xAxis.getPosition()))
+      .field("y_position", _safe_float(self._io.yAxis.getPosition()))
+      .field("z_position", _safe_float(self._io.zAxis.getPosition()))
+      .field("x_velocity", _safe_float(self._io.xAxis.getVelocity()))
+      .field("y_velocity", _safe_float(self._io.yAxis.getVelocity()))
+      .field("z_velocity", _safe_float(self._io.zAxis.getVelocity()))
     )
     self._write_api.write(bucket=_BUCKET, record=point)
 

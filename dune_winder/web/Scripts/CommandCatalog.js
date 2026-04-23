@@ -108,6 +108,7 @@
       manualCalibrationPredictPin: "process.manual_calibration.predict_pin",
       manualCalibrationSetCameraOffset: "process.manual_calibration.set_camera_offset",
       manualCalibrationSetXBacklashCompensation: "process.manual_calibration.set_x_backlash_compensation",
+      manualCalibrationSetSkipWrapPins: "process.manual_calibration.set_skip_wrap_pins",
       manualCalibrationUpdateMeasuredPin: "process.manual_calibration.update_measured_pin",
       manualCalibrationDeleteMeasuredPin: "process.manual_calibration.delete_measured_pin",
       manualCalibrationCaptureCurrentReference: "process.manual_calibration.capture_current_reference",

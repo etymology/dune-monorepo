@@ -45,6 +45,15 @@ def _xml_import_pin_name(pin_name: str) -> str:
   return normalized
 
 
+def _runtime_pin_name(pin_name: str) -> str:
+  normalized = str(pin_name).strip().upper()
+  if normalized.startswith("P"):
+    normalized = normalized[1:]
+  if normalized.startswith("F"):
+    return "A" + normalized[1:]
+  return normalized
+
+
 class LayerCalibration:
   """
   Layer calibration is just a map that has an adjusted location for each
@@ -122,7 +131,9 @@ class LayerCalibration:
       pin: Which pin.
       location: The location (relative to the APA) of this pin.
     """
-    self._locations[pin] = SerializableLocation(location.x, location.y, location.z)
+    self._locations[_runtime_pin_name(pin)] = SerializableLocation(
+      location.x, location.y, location.z
+    )
 
   # -------------------------------------------------------------------
   def getPinLocation(self, pin: str):
@@ -132,12 +143,12 @@ class LayerCalibration:
     Returns:
       Instance of Location with the position of this pin.
     """
-    return self._locations[pin]
+    return self._locations[_runtime_pin_name(pin)]
 
   # -------------------------------------------------------------------
   def getPinExists(self, pin):
     """Return True if a pin name exists in calibration."""
-    return pin in self._locations
+    return _runtime_pin_name(pin) in self._locations
 
   # -------------------------------------------------------------------
   def getPinNames(self):

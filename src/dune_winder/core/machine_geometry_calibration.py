@@ -5,6 +5,7 @@ import copy
 import json
 import multiprocessing
 import os
+import random
 import pathlib
 import queue
 import threading
@@ -39,6 +40,7 @@ from dune_winder.uv_head_target import (
   clear_uv_head_target_caches,
   compute_pin_pair_tangent_geometry,
   compute_uv_anchor_to_target_view,
+  _lookup_recipe_site,
   parse_anchor_to_target_command,
 )
 
@@ -46,9 +48,15 @@ from dune_winder.uv_head_target import (
 _SUPPORTED_LAYERS = ("U", "V")
 _TRACE_LINE_REQUIRES = "~anchorToTarget("
 _EPSILON = 1e-9
-_SEARCH_MIN_STEP = 0.5
-_SEARCH_BASE_STEP = 1.0
-_SEARCH_MAX_STEP = 5.0
+_SGD_MIN_LEARNING_RATE = 0.01
+_SGD_MAX_LEARNING_RATE = 0.75
+_SGD_MIN_PERTURBATION = 0.01
+_SGD_MAX_PERTURBATION = 2.0
+_SGD_MIN_BATCH_SIZE = 1
+_SGD_MAX_BATCH_SIZE = 16
+_SGD_MAX_ITERATIONS = 40
+_SGD_BACKOFF_STEPS = 4
+_CALIBRATION_PATH_CACHE: dict[tuple, str] = {}  # (roller_y_cals, camera_offset) -> path
 
 
 def _normalize_layer(layer) -> str:
@@ -60,17 +68,6 @@ def _normalize_layer(layer) -> str:
 
 def _deep_copy_json(value):
   return json.loads(json.dumps(value))
-
-
-def _compare_score(candidate, incumbent) -> bool:
-  if incumbent is None:
-    return True
-  for candidate_value, incumbent_value in zip(candidate, incumbent):
-    if candidate_value < incumbent_value - 1e-9:
-      return True
-    if candidate_value > incumbent_value + 1e-9:
-      return False
-  return False
 
 
 def _nominal_roller_y(machine_calibration: MachineCalibration) -> float:
@@ -96,27 +93,72 @@ def _error_text(exception):
   return repr(exception)
 
 
+def _machine_xy_rng():
+  return random.Random()
+
+
 def _clamp(value, minimum, maximum):
   return max(float(minimum), min(float(maximum), float(value)))
 
 
-def _search_level_count(initial_step, minimum_step=_SEARCH_MIN_STEP) -> int:
-  step = max(float(initial_step), float(minimum_step))
-  count = 0
-  while step >= float(minimum_step):
-    count += 1
-    step /= 2.0
-  return max(count, 1)
+def _measurement_site_label(measurement) -> str | None:
+  cached = measurement.get("siteLabel") or measurement.get("site_label")
+  if cached:
+    return str(cached)
+
+  command_text = measurement.get("gcodeLine") or measurement.get("traceLine")
+  layer = measurement.get("layer")
+  if not command_text or not layer:
+    return None
+
+  try:
+    command = parse_anchor_to_target_command(str(command_text))
+    site = _lookup_recipe_site(str(layer), command.anchor_pin, command.target_pin)
+    return str(site.site_label)
+  except Exception:
+    return None
 
 
-def _estimated_search_step(max_abs_error) -> float:
-  if max_abs_error is None:
-    return float(_SEARCH_BASE_STEP)
-  return _clamp(
-    max(float(max_abs_error), float(_SEARCH_BASE_STEP)),
-    _SEARCH_BASE_STEP,
-    _SEARCH_MAX_STEP,
+def _measurement_site_key(measurement) -> str:
+  label = _measurement_site_label(measurement)
+  if label:
+    return label
+  line_key = measurement.get("lineKey")
+  if line_key is not None:
+    return str(line_key)
+  measurement_id = measurement.get("id")
+  return str(measurement_id)
+
+
+def _group_measurements_by_site_label(measurements):
+  grouped = {}
+  for measurement in measurements:
+    key = _measurement_site_key(measurement)
+    grouped.setdefault(key, []).append(measurement)
+  return grouped
+
+
+def _parameter_vector_to_calibration(vector):
+  vector = [float(value) for value in vector[:6]]
+  return (
+    (float(vector[0]), float(vector[1])),
+    [float(value) for value in vector[2:6]],
   )
+
+
+def _format_machine_xy_parameters(vector):
+  return {
+    "cameraOffsetX": float(vector[0]),
+    "cameraOffsetY": float(vector[1]),
+    "rollerYCals": [float(value) for value in vector[2:6]],
+  }
+
+
+def _mean(values):
+  values = [float(value) for value in values]
+  if not values:
+    return 0.0
+  return float(sum(values) / len(values))
 
 
 class _MachineXYSolveCancelled(RuntimeError):
@@ -181,6 +223,8 @@ def _project_machine_xy_measurements(
   machine_path,
   roller_y_cals,
 ):
+  # Batch projections with shared config; rely on compute_uv_anchor_to_target_view cache
+  roller_offsets = tuple(float(value) for value in roller_y_cals[:4])
   results = []
   for measurement in group_measurements:
     view = compute_uv_anchor_to_target_view(
@@ -188,7 +232,7 @@ def _project_machine_xy_measurements(
       layer=str(measurement["layer"]),
       machine_calibration_path=machine_path,
       layer_calibration_path=layer_path,
-      roller_arm_y_offsets=tuple(float(value) for value in roller_y_cals[:4]),
+      roller_arm_y_offsets=roller_offsets,
     )
     results.append(
       (
@@ -714,6 +758,11 @@ class MachineGeometryCalibration:
       if command.anchor_pin[:1] == command.target_pin[:1]
       else "alternating_side"
     )
+    site_label = None
+    try:
+      site_label = _lookup_recipe_site(layer, command.anchor_pin, command.target_pin).site_label
+    except Exception:
+      site_label = None
     roller_index = None
     if kind == "same_side":
       geometry = compute_pin_pair_tangent_geometry(
@@ -740,6 +789,7 @@ class MachineGeometryCalibration:
       "currentZ": positions["currentZ"],
       "cameraOffsetX": camera_offset_x,
       "cameraOffsetY": camera_offset_y,
+      "siteLabel": site_label,
       "actualWireX": (
         positions["effectiveCameraX"] + camera_offset_x if capture_xy else None
       ),
@@ -988,6 +1038,14 @@ class MachineGeometryCalibration:
 
   # -------------------------------------------------------------------
   def _candidateMachineCalibrationPath(self, roller_y_cals, *, camera_offset=None):
+    roller_tuple = tuple(float(value) for value in roller_y_cals[:4])
+    cache_key = (roller_tuple, None)
+    if camera_offset is not None:
+      cache_key = (roller_tuple, (float(camera_offset[0]), float(camera_offset[1])))
+    if cache_key in _CALIBRATION_PATH_CACHE:
+      cached_path = _CALIBRATION_PATH_CACHE[cache_key]
+      if os.path.isfile(cached_path):
+        return cached_path
     live = self._machineCalibration()
     temporary_directory = self._tempDirectory()
     if not os.path.isdir(temporary_directory):
@@ -1000,18 +1058,23 @@ class MachineGeometryCalibration:
       candidate.cameraWireOffsetY = float(camera_offset[1])
     candidate.rollerArmCalibration = RollerArmCalibration(
       measurements=[],
-      fitted_y_cals=tuple(float(value) for value in roller_y_cals[:4]),
+      fitted_y_cals=roller_tuple,
       center_displacement=0.0,
       arm_tilt_rad=0.0,
     )
     temporary_path = os.path.join(temporary_directory, temporary_name)
     with open(temporary_path, "w", encoding="utf-8") as handle:
       json.dump(candidate._to_dict(), handle, indent=2)
+    _CALIBRATION_PATH_CACHE[cache_key] = temporary_path
     clear_uv_head_target_caches(layer_calibration=False, machine_calibration=True)
     return temporary_path
 
   # -------------------------------------------------------------------
   def _removeTemporaryCandidatePath(self, path):
+    # Remove from cache if present
+    keys_to_remove = [k for k, v in _CALIBRATION_PATH_CACHE.items() if v == path]
+    for key in keys_to_remove:
+      del _CALIBRATION_PATH_CACHE[key]
     try:
       os.unlink(path)
     except OSError:
@@ -1065,6 +1128,10 @@ class MachineGeometryCalibration:
     initial_roller_y_cals,
     progress_callback=None,
   ):
+    measurements = list(measurements)
+    measurement_order = [str(measurement["id"]) for measurement in measurements]
+    measurement_site_labels = {}
+    site_order = []
     same_side_by_roller = {index: [] for index in range(4)}
     for measurement in measurements:
       if (
@@ -1072,36 +1139,59 @@ class MachineGeometryCalibration:
         and measurement.get("rollerIndex") is not None
       ):
         same_side_by_roller[int(measurement["rollerIndex"])].append(measurement)
+      site_label = _measurement_site_label(measurement)
+      if not site_label:
+        site_label = str(measurement.get("lineKey") or measurement.get("id"))
+      measurement_site_labels[str(measurement["id"])] = site_label
+      if site_label not in site_order:
+        site_order.append(site_label)
 
-    measured_rollers = [
-      roller_index for roller_index in range(4) if same_side_by_roller[roller_index]
-    ]
-    measurement_order = [str(measurement["id"]) for measurement in measurements]
+    projection_cache: dict[
+      tuple[str, tuple[float, ...], tuple[float, float]], dict
+    ] = {}
+
+    def _cached_project(measurement, roller_y_cals, camera_offset):
+      cache_key = (
+        str(measurement["gcodeLine"]),
+        tuple(float(v) for v in roller_y_cals[:4]),
+        (float(camera_offset[0]), float(camera_offset[1])),
+      )
+      if cache_key in projection_cache:
+        return projection_cache[cache_key]
+      machine_path = self._candidateMachineCalibrationPath(
+        roller_y_cals,
+        camera_offset=camera_offset,
+      )
+      try:
+        result = self._projectMeasurement(
+          measurement,
+          layer_path=layer_path,
+          machine_path=machine_path,
+          roller_y_cals=roller_y_cals,
+        )
+      finally:
+        self._removeTemporaryCandidatePath(machine_path)
+      projection_cache[cache_key] = result
+      return result
 
     def project_group(group_measurements, roller_y_cals, camera_offset):
       if not group_measurements:
         return []
       self._raiseIfMachineSolveCancelled(layer, operation_id)
       self._raiseIfMachineSolveKilled(operation_id)
+      if not self._useIsolatedMachineSolveEvaluation():
+        results = []
+        for measurement in group_measurements:
+          self._raiseIfMachineSolveCancelled(layer, operation_id)
+          self._raiseIfMachineSolveKilled(operation_id)
+          projection = _cached_project(measurement, roller_y_cals, camera_offset)
+          results.append((measurement, projection))
+        return results
       machine_path = self._candidateMachineCalibrationPath(
         roller_y_cals,
         camera_offset=camera_offset,
       )
       try:
-        if not self._useIsolatedMachineSolveEvaluation():
-          results = []
-          for measurement in group_measurements:
-            self._raiseIfMachineSolveCancelled(layer, operation_id)
-            self._raiseIfMachineSolveKilled(operation_id)
-            projection = self._projectMeasurement(
-              measurement,
-              layer_path=layer_path,
-              machine_path=machine_path,
-              roller_y_cals=roller_y_cals,
-            )
-            results.append((measurement, projection))
-          return results
-
         evaluation = self._spawnMachineSolveEvaluation(
           group_measurements,
           layer_path=layer_path,
@@ -1142,25 +1232,40 @@ class MachineGeometryCalibration:
       camera_x = float(camera_offset[0])
       camera_y = float(camera_offset[1])
       by_measurement = {}
-      primary = 0.0
+      by_site_label = {}
+      total_loss = 0.0
       for measurement, projection in results:
+        site_label = measurement_site_labels.get(str(measurement["id"]))
+        if not site_label:
+          site_label = str(measurement.get("lineKey") or measurement.get("id"))
+        line_key = measurement.get("lineKey")
+        if line_key is not None:
+          try:
+            line_key = normalize_line_key(line_key)
+          except Exception:
+            line_key = str(line_key)
         offset_x = (float(measurement["effectiveCameraX"]) + camera_x) - float(
           projection["projectedX"]
         )
         offset_y = (float(measurement["rawCameraY"]) + camera_y) - float(
           projection["projectedY"]
         )
-        summary = (
-          measurement,
-          projection,
-          float(offset_x),
-          float(offset_y),
-        )
+        summary = {
+          "measurementId": str(measurement["id"]),
+          "siteLabel": site_label,
+          "lineKey": line_key,
+          "measurement": measurement,
+          "projection": projection,
+          "offsetX": float(offset_x),
+          "offsetY": float(offset_y),
+        }
         by_measurement[str(measurement["id"])] = summary
-        primary += (offset_x * offset_x) + (offset_y * offset_y)
+        by_site_label.setdefault(site_label, []).append(summary)
+        total_loss += (offset_x * offset_x) + (offset_y * offset_y)
       return {
-        "primary": float(primary),
+        "loss": float(total_loss),
         "by_measurement": by_measurement,
+        "by_site_label": by_site_label,
       }
 
     def ordered_summaries(summary_by_measurement):
@@ -1170,40 +1275,64 @@ class MachineGeometryCalibration:
         if measurement_id in summary_by_measurement
       ]
 
-    def primary_for_measurements(summary_by_measurement, group_measurements):
-      primary = 0.0
-      for measurement in group_measurements:
-        summary = summary_by_measurement.get(str(measurement["id"]))
-        if summary is None:
+    def build_site_offset_items(by_site_label):
+      items = []
+      for site_label in site_order:
+        site_summaries = by_site_label.get(site_label)
+        if not site_summaries:
           continue
-        primary += (float(summary[2]) * float(summary[2])) + (
-          float(summary[3]) * float(summary[3])
-        )
-      return float(primary)
-
-    def max_abs_offset(summary_by_measurement, group_measurements=None):
-      values = []
-      if group_measurements is None:
-        source = summary_by_measurement.values()
-      else:
-        source = [
-          summary_by_measurement.get(str(measurement["id"]))
-          for measurement in group_measurements
+        offsets_x = [float(summary["offsetX"]) for summary in site_summaries]
+        offsets_y = [float(summary["offsetY"]) for summary in site_summaries]
+        measurement_ids = [str(summary["measurementId"]) for summary in site_summaries]
+        line_keys = [
+          str(summary["lineKey"])
+          for summary in site_summaries
+          if summary.get("lineKey") is not None
         ]
-      for summary in source:
+        item = {
+          "siteLabel": site_label,
+          "x": _mean(offsets_x),
+          "y": _mean(offsets_y),
+          "measurementIds": measurement_ids,
+          "lineKeys": line_keys,
+          "measurementCount": len(site_summaries),
+          "loss": float(
+            sum((float(summary["offsetX"]) ** 2) + (float(summary["offsetY"]) ** 2) for summary in site_summaries)
+          ),
+        }
+        items.append(item)
+      return items
+
+    def build_site_offsets(by_site_label):
+      items = build_site_offset_items(by_site_label)
+      offsets = {item["siteLabel"]: dict(item) for item in items}
+      return offsets, items
+
+    def build_line_offset_overrides(summary_by_measurement, site_offsets):
+      overrides = {}
+      for measurement_id in measurement_order:
+        summary = summary_by_measurement.get(measurement_id)
         if summary is None:
           continue
-        values.append(abs(float(summary[2])))
-        values.append(abs(float(summary[3])))
-      if not values:
-        return None
-      return max(values)
-
-    progress_state = {
-      "startedAt": time.time(),
-      "completed": 0,
-      "total": None,
-    }
+        site_label = summary["siteLabel"]
+        site_offset = site_offsets.get(site_label)
+        if site_offset is None:
+          continue
+        line_key = summary.get("lineKey")
+        if line_key is None:
+          continue
+        line_key = normalize_line_key(line_key)
+        override = overrides.setdefault(
+          line_key,
+          {
+            "x": float(site_offset["x"]),
+            "y": float(site_offset["y"]),
+            "siteLabel": site_label,
+            "measurementIds": [],
+          },
+        )
+        override.setdefault("measurementIds", []).append(measurement_id)
+      return overrides
 
     def progress_fields(**fields):
       payload = dict(fields)
@@ -1227,303 +1356,422 @@ class MachineGeometryCalibration:
           payload["estimatedSecondsRemaining"] = 0.0
       return payload
 
+    progress_state = {
+      "startedAt": time.time(),
+      "completed": 0,
+      "total": None,
+    }
+
+    progress_checkpoint = {
+      "time": 0.0,
+      "step": None,
+      "message": None,
+      "completed": None,
+      "total": None,
+      "status": None,
+      "signature": None,
+    }
+
     def publish(step, message, **fields):
       if progress_callback is None:
         return
-      self._raiseIfMachineSolveCancelled(layer, operation_id)
       progress_callback(step, message, **progress_fields(**fields))
 
-    def project_with_status(
+    def evaluate_batch(
+      vector,
       group_measurements,
-      roller_y_cals,
-      camera_offset,
       *,
       step,
       message,
-      phase,
-      phase_index,
-      phase_count,
-      step_size=None,
-      level_index=None,
-      level_count=None,
-      candidate_label=None,
+      epoch,
+      batch_index,
+      batch_count,
+      candidate_label,
+      learning_rate,
+      perturbation,
+      best_loss,
+      gradient_norm=None,
+      current_loss=None,
+      site_label=None,
     ):
+      camera_offset = (float(vector[0]), float(vector[1]))
+      roller_y_cals = [float(value) for value in vector[2:6]]
       publish(
         step,
         message,
-        phase=phase,
-        phaseIndex=int(phase_index),
-        phaseCount=int(phase_count),
-        stepSize=(None if step_size is None else float(step_size)),
-        levelIndex=(None if level_index is None else int(level_index)),
-        levelCount=(None if level_count is None else int(level_count)),
+        epoch=int(epoch),
+        batchIndex=int(batch_index),
+        batchCount=int(batch_count),
+        batchSize=len(group_measurements),
         candidateLabel=candidate_label,
+        learningRate=float(learning_rate),
+        perturbation=float(perturbation),
+        bestLoss=(None if best_loss is None else float(best_loss)),
+        loss=(None if current_loss is None else float(current_loss)),
+        gradientNorm=(
+          None if gradient_norm is None else float(gradient_norm)
+        ),
+        parameters=_format_machine_xy_parameters(vector),
+        bestParameters=None,
+        siteLabel=site_label,
       )
       results = project_group(group_measurements, roller_y_cals, camera_offset)
       progress_state["completed"] += 1
-      return results
+      summary = summarize_results(results, camera_offset)
+      return summary
 
-    def build_full_score(primary, roller_y_cals, camera_offset):
-      roller_secondary = sum(
-        (float(value) - float(nominal_roller_y)) ** 2 for value in roller_y_cals
-      )
-      camera_secondary = (
-        float(camera_offset[0]) - float(current_camera_offset[0])
-      ) ** 2 + (float(camera_offset[1]) - float(current_camera_offset[1])) ** 2
-      return (
-        float(primary),
-        float(roller_secondary),
-        float(camera_secondary),
-      )
-
-    phase_count = 4 + len(measured_rollers)
-    current_phase_index = 1
-    working_roller_y_cals = [float(nominal_roller_y)] * 4
-    for roller_index in measured_rollers:
-      working_roller_y_cals[roller_index] = float(initial_roller_y_cals[roller_index])
-
-    camera_offset = (
-      float(current_camera_offset[0]),
-      float(current_camera_offset[1]),
-    )
+    def gradient_from_finite_differences(
+      vector,
+      group_measurements,
+      *,
+      epoch,
+      batch_index,
+      batch_count,
+      candidate_label,
+      learning_rate,
+      perturbation,
+      best_loss,
+      site_label,
+    ):
+      gradient = []
+      for axis_index in range(6):
+        plus_vector = [float(value) for value in vector]
+        minus_vector = [float(value) for value in vector]
+        plus_vector[axis_index] += float(perturbation)
+        minus_vector[axis_index] -= float(perturbation)
+        plus_summary = evaluate_batch(
+          plus_vector,
+          group_measurements,
+          step="optimizing_sgd",
+          message="Evaluating a positive finite-difference perturbation.",
+          epoch=epoch,
+          batch_index=batch_index,
+          batch_count=batch_count,
+          candidate_label=f"{candidate_label}_axis_{axis_index}_plus",
+          learning_rate=learning_rate,
+          perturbation=perturbation,
+          best_loss=best_loss,
+          site_label=site_label,
+        )
+        minus_summary = evaluate_batch(
+          minus_vector,
+          group_measurements,
+          step="optimizing_sgd",
+          message="Evaluating a negative finite-difference perturbation.",
+          epoch=epoch,
+          batch_index=batch_index,
+          batch_count=batch_count,
+          candidate_label=f"{candidate_label}_axis_{axis_index}_minus",
+          learning_rate=learning_rate,
+          perturbation=perturbation,
+          best_loss=best_loss,
+          site_label=site_label,
+        )
+        plus_loss = float(plus_summary["loss"]) / max(len(group_measurements), 1)
+        minus_loss = float(minus_summary["loss"]) / max(len(group_measurements), 1)
+        gradient.append((plus_loss - minus_loss) / (2.0 * float(perturbation)))
+      gradient_norm = float(sum(component * component for component in gradient) ** 0.5)
+      return gradient, gradient_norm
 
     if not measurements:
-      score = build_full_score(0.0, working_roller_y_cals, camera_offset)
+      camera_offset = (
+        float(current_camera_offset[0]),
+        float(current_camera_offset[1]),
+      )
+      roller_y_cals = [float(value) for value in initial_roller_y_cals[:4]]
       publish(
         "done",
-        "No machine XY measurements were available. Draft mirrors the current machine camera offset and nominal rollers.",
+        "No machine XY measurements were available. Draft mirrors the current machine camera offset and roller values.",
         completedEvaluations=0,
         totalEvaluations=0,
         percentComplete=100.0,
         phase="done",
-        phaseIndex=phase_count,
-        phaseCount=phase_count,
         elapsedSeconds=0.0,
         estimatedSecondsRemaining=0.0,
       )
       return {
         "cameraOffsetX": float(camera_offset[0]),
         "cameraOffsetY": float(camera_offset[1]),
-        "rollerYCals": [float(value) for value in working_roller_y_cals],
+        "rollerYCals": roller_y_cals,
+        "siteOffsets": {},
+        "siteOffsetItems": [],
+        "lineOffsetOverrides": {},
+        "lineOffsetOverrideItems": [],
         "score": {
-          "lineOffsetNorm": float(score[0]),
-          "rollerOffsetNorm": float(score[1]),
-          "cameraOffsetDeltaNorm": float(score[2]),
+          "lineOffsetNorm": 0.0,
+          "rollerOffsetNorm": 0.0,
+          "cameraOffsetDeltaNorm": 0.0,
+          "loss": 0.0,
         },
         "summaries": [],
+        "diagnostics": [],
+        "progress": {
+          "completedEvaluations": 0,
+          "totalEvaluations": 0,
+        },
       }
 
-    baseline_results = project_with_status(
+    working_vector = [
+      float(current_camera_offset[0]),
+      float(current_camera_offset[1]),
+      *[float(value) for value in initial_roller_y_cals[:4]],
+    ]
+    batch_size = min(
+      len(measurements),
+      max(
+        _SGD_MIN_BATCH_SIZE,
+        min(_SGD_MAX_BATCH_SIZE, max(1, int(round(len(measurements) ** 0.5)))),
+      ),
+    )
+    batch_count = max(1, min(_SGD_MAX_ITERATIONS, max(12, len(measurements))))
+    progress_state["total"] = int(
+      2 + (batch_count * ((2 * 6) + 1 + _SGD_BACKOFF_STEPS)) + 2
+    )
+
+    baseline_summary = evaluate_batch(
+      working_vector,
       measurements,
-      working_roller_y_cals,
-      camera_offset,
       step="baseline",
       message="Evaluating the current machine XY candidate.",
-      phase="camera_coarse_x",
-      phase_index=current_phase_index,
-      phase_count=phase_count,
+      epoch=0,
+      batch_index=0,
+      batch_count=batch_count,
       candidate_label="baseline",
+      learning_rate=0.0,
+      perturbation=_SGD_MIN_PERTURBATION,
+      best_loss=None,
+      current_loss=None,
     )
-    current_summary = summarize_results(baseline_results, camera_offset)
-    current_score = build_full_score(
-      current_summary["primary"],
-      working_roller_y_cals,
-      camera_offset,
-    )
+    current_loss = float(baseline_summary["loss"]) / max(len(measurements), 1)
+    best_loss = float(current_loss)
+    best_vector = list(working_vector)
 
-    camera_step = _estimated_search_step(
-      max_abs_offset(current_summary["by_measurement"])
+    baseline_max_abs = max(
+      [abs(float(summary["offsetX"])) for summary in baseline_summary["by_measurement"].values()]
+      + [abs(float(summary["offsetY"])) for summary in baseline_summary["by_measurement"].values()]
     )
-    camera_levels = _search_level_count(camera_step)
-    roller_steps = {
-      roller_index: _estimated_search_step(
-        max_abs_offset(
-          current_summary["by_measurement"],
-          same_side_by_roller[roller_index],
-        )
-      )
-      for roller_index in measured_rollers
-    }
-    roller_levels = {
-      roller_index: _search_level_count(roller_steps[roller_index])
-      for roller_index in measured_rollers
-    }
-    progress_state["total"] = int(
-      progress_state["completed"]
-      + (4 * 2 * camera_levels)
-      + sum(2 * roller_levels[roller_index] for roller_index in measured_rollers)
+    learning_rate = _clamp(
+      max(0.05, baseline_max_abs * 0.05),
+      _SGD_MIN_LEARNING_RATE,
+      _SGD_MAX_LEARNING_RATE,
     )
-    publish(
-      "planning",
-      "Machine XY solve projection budget established.",
-      phase="planning",
-      phaseIndex=0,
-      phaseCount=phase_count,
-      completedEvaluations=progress_state["completed"],
-      cameraSearchLevels=int(camera_levels),
-      measuredRollerCount=len(measured_rollers),
+    perturbation = _clamp(
+      max(_SGD_MIN_PERTURBATION, baseline_max_abs * 0.1),
+      _SGD_MIN_PERTURBATION,
+      _SGD_MAX_PERTURBATION,
     )
 
-    def optimize_camera_axis(axis_name, phase_name, phase_index):
-      nonlocal camera_offset, current_summary, current_score
-      step_size = float(camera_step)
-      for level_index in range(camera_levels):
-        self._raiseIfMachineSolveCancelled(layer, operation_id)
-        candidate_specs = (
-          ("lower", -step_size),
-          ("upper", step_size),
-        )
-        for candidate_label, delta in candidate_specs:
-          if axis_name == "x":
-            candidate_camera_offset = (
-              float(camera_offset[0]) + float(delta),
-              float(camera_offset[1]),
-            )
-          else:
-            candidate_camera_offset = (
-              float(camera_offset[0]),
-              float(camera_offset[1]) + float(delta),
-            )
-          candidate_results = project_with_status(
-            measurements,
-            working_roller_y_cals,
-            candidate_camera_offset,
-            step="optimizing_camera",
-            message=(
-              "Optimizing camera "
-              + axis_name.upper()
-              + " with step "
-              + f"{step_size:.3f}"
-              + " mm."
-            ),
-            phase=phase_name,
-            phase_index=phase_index,
-            phase_count=phase_count,
-            step_size=step_size,
-            level_index=level_index + 1,
-            level_count=camera_levels,
-            candidate_label=candidate_label,
-          )
-          candidate_summary = summarize_results(
-            candidate_results, candidate_camera_offset
-          )
-          candidate_score = build_full_score(
-            candidate_summary["primary"],
-            working_roller_y_cals,
-            candidate_camera_offset,
-          )
-          if _compare_score(candidate_score, current_score):
-            camera_offset = candidate_camera_offset
-            current_summary = candidate_summary
-            current_score = candidate_score
-        step_size /= 2.0
+    rng = _machine_xy_rng()
+    last_gradient_norm = 0.0
 
-    optimize_camera_axis("x", "camera_coarse_x", current_phase_index)
-    current_phase_index += 1
-    optimize_camera_axis("y", "camera_coarse_y", current_phase_index)
-    current_phase_index += 1
-
-    total_primary = float(current_summary["primary"])
-    total_roller_secondary = float(current_score[1])
-    camera_secondary = float(current_score[2])
-    summary_by_measurement = dict(current_summary["by_measurement"])
-
-    for roller_index in measured_rollers:
+    for epoch in range(1, batch_count + 1):
       self._raiseIfMachineSolveCancelled(layer, operation_id)
-      group_measurements = same_side_by_roller[roller_index]
-      current_group_primary = primary_for_measurements(
-        summary_by_measurement, group_measurements
+      batch_measurements = (
+        list(measurements)
+        if batch_size >= len(measurements)
+        else rng.sample(measurements, batch_size)
       )
-      other_primary = float(total_primary - current_group_primary)
-      current_roller_secondary = (
-        float(working_roller_y_cals[roller_index]) - float(nominal_roller_y)
-      ) ** 2
-      other_roller_secondary = float(total_roller_secondary - current_roller_secondary)
-      best_y = float(working_roller_y_cals[roller_index])
-      best_group_primary = float(current_group_primary)
-      best_group_summaries = [
-        summary_by_measurement[str(measurement["id"])]
-        for measurement in group_measurements
-        if str(measurement["id"]) in summary_by_measurement
-      ]
-      best_score = (
-        float(total_primary),
-        float(total_roller_secondary),
-        float(camera_secondary),
+      if not batch_measurements:
+        continue
+      batch_site_labels = sorted(
+        {
+          _measurement_site_key(measurement)
+          for measurement in batch_measurements
+        }
       )
-      step_size = float(roller_steps[roller_index])
-      for level_index in range(roller_levels[roller_index]):
+      dominant_site_label = batch_site_labels[0] if batch_site_labels else None
+      batch_index = epoch
+      gradient, gradient_norm = gradient_from_finite_differences(
+        working_vector,
+        batch_measurements,
+        epoch=epoch,
+        batch_index=batch_index,
+        batch_count=batch_count,
+        candidate_label="batch",
+        learning_rate=learning_rate,
+        perturbation=perturbation,
+        best_loss=best_loss,
+        site_label=dominant_site_label,
+      )
+      last_gradient_norm = float(gradient_norm)
+      current_batch_summary = evaluate_batch(
+        working_vector,
+        batch_measurements,
+        step="optimizing_sgd",
+        message="Evaluating the current machine XY batch.",
+        epoch=epoch,
+        batch_index=batch_index,
+        batch_count=batch_count,
+        candidate_label="current",
+        learning_rate=learning_rate,
+        perturbation=perturbation,
+        best_loss=best_loss,
+        gradient_norm=gradient_norm,
+        current_loss=current_loss,
+        site_label=dominant_site_label,
+      )
+      current_batch_loss = float(current_batch_summary["loss"]) / max(
+        len(batch_measurements), 1
+      )
+      accepted = False
+      candidate_loss = current_batch_loss
+      candidate_summary = current_batch_summary
+      candidate_learning_rate = float(learning_rate)
+      for backoff_index in range(_SGD_BACKOFF_STEPS):
         self._raiseIfMachineSolveCancelled(layer, operation_id)
-        for candidate_label, delta in (("lower", -step_size), ("upper", step_size)):
-          candidate_y = float(best_y + delta)
-          candidate_roller_y_cals = list(working_roller_y_cals)
-          candidate_roller_y_cals[roller_index] = float(candidate_y)
-          candidate_results = project_with_status(
-            group_measurements,
-            candidate_roller_y_cals,
-            camera_offset,
-            step="optimizing_roller",
-            message=(
-              "Optimizing roller "
-              + str(roller_index)
-              + " with step "
-              + f"{step_size:.3f}"
-              + " mm."
-            ),
-            phase="roller_" + str(roller_index),
-            phase_index=current_phase_index,
-            phase_count=phase_count,
-            step_size=step_size,
-            level_index=level_index + 1,
-            level_count=roller_levels[roller_index],
-            candidate_label=candidate_label,
+        trial_vector = [
+          float(value) - (float(candidate_learning_rate) * float(component))
+          for value, component in zip(working_vector, gradient)
+        ]
+        trial_summary = evaluate_batch(
+          trial_vector,
+          batch_measurements,
+          step="optimizing_sgd",
+          message="Testing an SGD update step.",
+          epoch=epoch,
+          batch_index=batch_index,
+          batch_count=batch_count,
+          candidate_label=f"update_{backoff_index}",
+          learning_rate=candidate_learning_rate,
+          perturbation=perturbation,
+          best_loss=best_loss,
+          gradient_norm=gradient_norm,
+          current_loss=current_batch_loss,
+          site_label=dominant_site_label,
+        )
+        trial_loss = float(trial_summary["loss"]) / max(len(batch_measurements), 1)
+        if trial_loss < candidate_loss - 1e-12:
+          working_vector = list(trial_vector)
+          current_loss = float(trial_loss)
+          candidate_loss = float(trial_loss)
+          candidate_summary = trial_summary
+          learning_rate = _clamp(
+            candidate_learning_rate * 1.05,
+            _SGD_MIN_LEARNING_RATE,
+            _SGD_MAX_LEARNING_RATE,
           )
-          candidate_summary = summarize_results(candidate_results, camera_offset)
-          candidate_group_primary = float(candidate_summary["primary"])
-          candidate_score = (
-            float(other_primary + candidate_group_primary),
-            float(
-              other_roller_secondary + ((candidate_y - float(nominal_roller_y)) ** 2)
-            ),
-            float(camera_secondary),
-          )
-          if _compare_score(candidate_score, best_score):
-            best_y = candidate_y
-            best_group_primary = candidate_group_primary
-            best_group_summaries = list(candidate_summary["by_measurement"].values())
-            best_score = candidate_score
-        step_size /= 2.0
+          accepted = True
+          break
+        candidate_learning_rate *= 0.5
 
-      working_roller_y_cals[roller_index] = float(best_y)
-      total_primary = float(best_score[0])
-      total_roller_secondary = float(best_score[1])
-      for summary in best_group_summaries:
-        summary_by_measurement[str(summary[0]["id"])] = summary
-      current_summary = {
-        "primary": float(total_primary),
-        "by_measurement": dict(summary_by_measurement),
-      }
-      current_score = (
-        float(total_primary),
-        float(total_roller_secondary),
-        float(camera_secondary),
+      if not accepted:
+        learning_rate = _clamp(
+          learning_rate * 0.5,
+          _SGD_MIN_LEARNING_RATE,
+          _SGD_MAX_LEARNING_RATE,
+        )
+      if candidate_loss < best_loss - 1e-12:
+        best_loss = float(candidate_loss)
+        best_vector = list(working_vector)
+      publish(
+        "optimizing",
+        "Running stochastic gradient descent for Machine XY.",
+        epoch=epoch,
+        batchIndex=batch_index,
+        batchCount=batch_count,
+        batchSize=len(batch_measurements),
+        candidateLabel="accepted" if accepted else "rejected",
+        learningRate=learning_rate,
+        perturbation=perturbation,
+        loss=current_loss,
+        bestLoss=best_loss,
+        gradientNorm=last_gradient_norm,
+        parameters=_format_machine_xy_parameters(working_vector),
+        bestParameters=_format_machine_xy_parameters(best_vector),
+        siteLabel=dominant_site_label,
       )
-      current_phase_index += 1
 
-    optimize_camera_axis("x", "camera_refine_x", current_phase_index)
-    current_phase_index += 1
-    optimize_camera_axis("y", "camera_refine_y", current_phase_index)
+      perturbation = _clamp(
+        perturbation * 0.98,
+        _SGD_MIN_PERTURBATION,
+        _SGD_MAX_PERTURBATION,
+      )
+
+    full_summary_current = evaluate_batch(
+      working_vector,
+      measurements,
+      step="finalizing",
+      message="Evaluating the final current Machine XY parameters.",
+      epoch=batch_count + 1,
+      batch_index=batch_count + 1,
+      batch_count=batch_count,
+      candidate_label="current_final",
+      learning_rate=learning_rate,
+      perturbation=perturbation,
+      best_loss=best_loss,
+      gradient_norm=last_gradient_norm,
+      current_loss=current_loss,
+      site_label=None,
+    )
+    full_summary_best = full_summary_current
+    best_full_vector = list(working_vector)
+    if any(abs(float(a) - float(b)) > 1e-12 for a, b in zip(best_vector, working_vector)):
+      candidate_full_summary = evaluate_batch(
+        best_vector,
+        measurements,
+        step="finalizing",
+        message="Evaluating the best tracked Machine XY parameters.",
+        epoch=batch_count + 1,
+        batch_index=batch_count + 2,
+        batch_count=batch_count,
+        candidate_label="best_final",
+        learning_rate=learning_rate,
+        perturbation=perturbation,
+        best_loss=best_loss,
+        gradient_norm=last_gradient_norm,
+        current_loss=current_loss,
+        site_label=None,
+      )
+      if float(candidate_full_summary["loss"]) < float(full_summary_best["loss"]):
+        full_summary_best = candidate_full_summary
+        best_full_vector = list(best_vector)
+
+    site_offsets, site_offset_items = build_site_offsets(full_summary_best["by_site_label"])
+    line_offset_overrides = build_line_offset_overrides(
+      full_summary_best["by_measurement"], site_offsets
+    )
+
+    diagnostics = []
+    for site_label in site_order:
+      site_summary = full_summary_best["by_site_label"].get(site_label)
+      if not site_summary:
+        continue
+      diagnostics.append(
+        {
+          "siteLabel": site_label,
+          "measurementIds": [str(summary["measurementId"]) for summary in site_summary],
+          "lineKeys": [str(summary["lineKey"]) for summary in site_summary if summary.get("lineKey") is not None],
+          "meanOffsetX": _mean(summary["offsetX"] for summary in site_summary),
+          "meanOffsetY": _mean(summary["offsetY"] for summary in site_summary),
+          "loss": float(
+            sum((float(summary["offsetX"]) ** 2) + (float(summary["offsetY"]) ** 2) for summary in site_summary)
+          ),
+          "measurementCount": len(site_summary),
+        }
+      )
+
+    selected_vector = best_full_vector
+    selected_summary = full_summary_best
+    selected_loss = float(selected_summary["loss"])
+    camera_offset = (float(selected_vector[0]), float(selected_vector[1]))
+    roller_y_cals = [float(value) for value in selected_vector[2:6]]
 
     return {
       "cameraOffsetX": float(camera_offset[0]),
       "cameraOffsetY": float(camera_offset[1]),
-      "rollerYCals": [float(value) for value in working_roller_y_cals],
+      "rollerYCals": roller_y_cals,
+      "siteOffsets": site_offsets,
+      "siteOffsetItems": site_offset_items,
+      "lineOffsetOverrides": line_offset_overrides,
+      "lineOffsetOverrideItems": line_offset_override_items(line_offset_overrides),
       "score": {
-        "lineOffsetNorm": float(current_score[0]),
-        "rollerOffsetNorm": float(current_score[1]),
-        "cameraOffsetDeltaNorm": float(current_score[2]),
+        "lineOffsetNorm": float(selected_loss),
+        "rollerOffsetNorm": 0.0,
+        "cameraOffsetDeltaNorm": 0.0,
+        "loss": float(selected_loss),
       },
-      "summaries": ordered_summaries(current_summary["by_measurement"]),
+      "summaries": ordered_summaries(selected_summary["by_measurement"]),
+      "diagnostics": diagnostics,
       "progress": {
         "completedEvaluations": int(progress_state["completed"]),
         "totalEvaluations": int(progress_state["total"] or progress_state["completed"]),
@@ -1544,18 +1792,37 @@ class MachineGeometryCalibration:
       "completed": None,
       "total": None,
       "status": None,
+      "signature": None,
     }
 
     def progress(step, message, **fields):
       now = time.time()
-      completed = fields.get("completedEvaluations")
-      total = fields.get("totalEvaluations")
+      payload = dict(fields)
+      completed = payload.get("completedEvaluations")
+      total = payload.get("totalEvaluations")
+      signature = json.dumps(
+        {
+          "loss": payload.get("loss"),
+          "bestLoss": payload.get("bestLoss"),
+          "gradientNorm": payload.get("gradientNorm"),
+          "learningRate": payload.get("learningRate"),
+          "batchIndex": payload.get("batchIndex"),
+          "epoch": payload.get("epoch"),
+          "candidateLabel": payload.get("candidateLabel"),
+          "siteLabel": payload.get("siteLabel"),
+          "parameters": payload.get("parameters"),
+          "bestParameters": payload.get("bestParameters"),
+        },
+        sort_keys=True,
+        default=str,
+      )
       should_emit = (
         progress_checkpoint["step"] != step
         or progress_checkpoint["message"] != message
         or progress_checkpoint["completed"] != completed
         or progress_checkpoint["total"] != total
         or progress_checkpoint["status"] != "running"
+        or progress_checkpoint["signature"] != signature
         or progress_checkpoint["time"] <= 0.0
         or (now - progress_checkpoint["time"]) >= 0.25
       )
@@ -1567,24 +1834,22 @@ class MachineGeometryCalibration:
       progress_checkpoint["completed"] = completed
       progress_checkpoint["total"] = total
       progress_checkpoint["status"] = "running"
-      status_fields = dict(fields)
-      if (
-        "elapsedSeconds" not in status_fields
-        and progress_checkpoint["status"] == "running"
-      ):
+      progress_checkpoint["signature"] = signature
+      status_fields = dict(payload)
+      if "elapsedSeconds" not in status_fields:
         status_fields["elapsedSeconds"] = float(max(0.0, now - solve_started_at))
-        self._updateMachineSolveStatus(
-          target_layer,
-          operationId=operation_id,
-          status="running",
-          step=step,
-          message=message,
-          **status_fields,
-        )
+      self._updateMachineSolveStatus(
+        target_layer,
+        operationId=operation_id,
+        status="running",
+        step=step,
+        message=message,
+        **status_fields,
+      )
       self._log(
         "SOLVE_MACHINE_XY_PROGRESS",
         str(message),
-        [operation_id, target_layer, step, fields],
+        [operation_id, target_layer, step, status_fields],
       )
 
     try:
@@ -1675,53 +1940,32 @@ class MachineGeometryCalibration:
       )
 
       progress("building_draft", "Building line-offset draft and diagnostics.")
-      overrides = {}
-      diagnostics = []
-      measurement_ids = []
-      for measurement, projection, offset_x, offset_y in evaluation["summaries"]:
-        line_key = normalize_line_key(measurement["lineKey"])
-        measurement_ids.append(measurement["id"])
-        existing_override = overrides.get(line_key)
-        if existing_override is None:
-          overrides[line_key] = {
-            "x": float(offset_x),
-            "y": float(offset_y),
-            "gcodeLine": measurement["gcodeLine"],
-            "measurementIds": [measurement["id"]],
-            "kind": measurement["kind"],
-          }
-        else:
-          existing_override.setdefault("measurementIds", []).append(measurement["id"])
-        diagnostics.append(
-          {
-            "measurementId": measurement["id"],
-            "lineKey": line_key,
-            "kind": measurement["kind"],
-            "rollerIndex": measurement.get("rollerIndex"),
-            "projectedX": float(projection["projectedX"]),
-            "projectedY": float(projection["projectedY"]),
-            "actualWireX": float(measurement["actualWireX"]),
-            "actualWireY": float(measurement["actualWireY"]),
-            "offsetX": float(offset_x),
-            "offsetY": float(offset_y),
-          }
-        )
+      overrides = dict(evaluation.get("lineOffsetOverrides", {}))
+      diagnostics = list(evaluation.get("diagnostics", []))
+      measurement_ids = [
+        str(summary["measurementId"]) for summary in evaluation.get("summaries", [])
+      ]
 
       machine_draft = {
         "layer": target_layer,
         "cameraWireOffsetX": evaluation["cameraOffsetX"],
         "cameraWireOffsetY": evaluation["cameraOffsetY"],
         "rollerYCals": list(evaluation["rollerYCals"]),
+        "siteOffsets": dict(evaluation.get("siteOffsets", {})),
+        "siteOffsetItems": list(evaluation.get("siteOffsetItems", [])),
         "nominalRollerY": float(nominal_roller_y),
         "measurementRevision": self._measurementRevision(),
         "measurementIds": measurement_ids,
         "objective": dict(evaluation["score"]),
+        "diagnostics": diagnostics,
       }
       machine_solve = {
         "fitError": None,
         "measurementRevision": self._measurementRevision(),
         "measurementIds": measurement_ids,
         "objective": dict(evaluation["score"]),
+        "siteOffsets": dict(evaluation.get("siteOffsets", {})),
+        "siteOffsetItems": list(evaluation.get("siteOffsetItems", [])),
         "lineOffsetOverrides": dict(overrides),
         "lineOffsetOverrideItems": line_offset_override_items(overrides),
         "diagnostics": diagnostics,
@@ -1751,6 +1995,8 @@ class MachineGeometryCalibration:
         percentComplete=100.0,
         elapsedSeconds=float(max(0.0, time.time() - solve_started_at)),
         estimatedSecondsRemaining=0.0,
+        siteOffsets=dict(evaluation.get("siteOffsets", {})),
+        siteOffsetItems=list(evaluation.get("siteOffsetItems", [])),
       )
       self._clearMachineSolveRequests(operation_id)
       self._saveState()
@@ -1867,12 +2113,10 @@ class MachineGeometryCalibration:
     camera_offset_x = float(machine_draft["cameraWireOffsetX"])
     camera_offset_y = float(machine_draft["cameraWireOffsetY"])
     manual = getattr(self._process, "manualCalibration", None)
+    machine_calibration.cameraWireOffsetX = camera_offset_x
+    machine_calibration.cameraWireOffsetY = camera_offset_y
     if manual is not None and hasattr(manual, "_applySharedCameraOffset"):
       manual._applySharedCameraOffset(camera_offset_x, camera_offset_y)
-    else:
-      machine_calibration.cameraWireOffsetX = camera_offset_x
-      machine_calibration.cameraWireOffsetY = camera_offset_y
-      machine_calibration.save()
 
     same_side_measurements = [
       measurement
@@ -1928,9 +2172,12 @@ class MachineGeometryCalibration:
           machine_calibration.rollerArmCalibration
         ),
       },
+      "siteOffsets": dict(machine_draft.get("siteOffsets", {})),
+      "siteOffsetItems": list(machine_draft.get("siteOffsetItems", [])),
       "lineOffsetOverrideItems": line_offset_override_items(
         draft["lineOffsetOverrides"]
       ),
+      "lineOffsetOverrides": dict(draft["lineOffsetOverrides"]),
       "scriptVariant": script_variant,
       "generation": generation_result.get("data"),
     }
@@ -2013,6 +2260,7 @@ class MachineGeometryCalibration:
     measurements = []
     for measurement in self._loadState().get("measurements", []):
       item = dict(measurement)
+      item["siteLabel"] = item.get("siteLabel") or _measurement_site_label(item)
       item["usableForLayerZ"] = (
         item.get("kind") == "same_side" and item.get("actualZ") is not None
       )

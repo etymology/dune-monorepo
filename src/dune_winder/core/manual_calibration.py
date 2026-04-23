@@ -21,7 +21,10 @@ from dune_winder.machine.geometry.uv_calibration import (
   build_nominal_uv_calibration,
   normalize_layer_calibration_to_absolute,
 )
-from dune_winder.machine.geometry.uv_layout import FACE_ORDER as UV_FACE_ORDER, get_uv_layout
+from dune_winder.machine.geometry.uv_layout import (
+  FACE_ORDER as UV_FACE_ORDER,
+  get_uv_layout,
+)
 from dune_winder.machine.calibration.defaults import (
   apply_layer_z_defaults,
   get_layer_z_defaults,
@@ -62,13 +65,11 @@ GX_REFERENCE_DEFAULT_WIRE_POSITIONS = {
 GX_OFFSET_IDS = ("headA", "headB", "footA", "footB")
 
 SIDE_RANGES = {
-  layer_name: dict(get_uv_layout(layer_name).side_ranges)
-  for layer_name in UV_LAYERS
+  layer_name: dict(get_uv_layout(layer_name).side_ranges) for layer_name in UV_LAYERS
 }
 
 LAYER_ENDPOINTS = {
-  layer_name: tuple(get_uv_layout(layer_name).endpoint_pins)
-  for layer_name in UV_LAYERS
+  layer_name: tuple(get_uv_layout(layer_name).endpoint_pins) for layer_name in UV_LAYERS
 }
 
 
@@ -126,7 +127,9 @@ def _solve_linear_system(matrix, vector):
     augmented.append(row)
 
   for column in range(size):
-    pivotRow = max(range(column, size), key=lambda rowIndex: abs(augmented[rowIndex][column]))
+    pivotRow = max(
+      range(column, size), key=lambda rowIndex: abs(augmented[rowIndex][column])
+    )
     pivotValue = augmented[pivotRow][column]
     if abs(pivotValue) < EPSILON:
       return None
@@ -187,7 +190,9 @@ def _rigid_transform(pairs):
     centeredTargetY = targetY - targetCenterY
     dot += centeredSourceX * centeredTargetX + centeredSourceY * centeredTargetY
     cross += centeredSourceX * centeredTargetY - centeredSourceY * centeredTargetX
-    sourceSpread += centeredSourceX * centeredSourceX + centeredSourceY * centeredSourceY
+    sourceSpread += (
+      centeredSourceX * centeredSourceX + centeredSourceY * centeredSourceY
+    )
 
   if sourceSpread < EPSILON:
     return _translation_transform(pairs[0])
@@ -286,8 +291,20 @@ def build_nominal_calibration(layer):
 
   origin = geometry.apaLocation.add(geometry.apaOffset)
   grids = [
-    ("A", geometry.gridFront, calibration.zFront, geometry.startPinFront, geometry.directionFront),
-    ("B", geometry.gridBack, calibration.zBack, geometry.startPinBack, geometry.directionBack),
+    (
+      "A",
+      geometry.gridFront,
+      calibration.zFront,
+      geometry.startPinFront,
+      geometry.directionFront,
+    ),
+    (
+      "B",
+      geometry.gridBack,
+      calibration.zBack,
+      geometry.startPinBack,
+      geometry.directionBack,
+    ),
   ]
 
   for side, grid, depth, startPin, direction in grids:
@@ -359,6 +376,7 @@ class _ManualCalibrationSession:
     self.baselineCalibration = None
     self.measuredPins = {}
     self.boardChecks = {}
+    self.skipWrapPins = 0
     self.dirty = False
 
 
@@ -445,7 +463,9 @@ class ManualCalibration:
     if self._process.workspace is not None:
       return os.path.join(self._process.workspace.getPath(), "ManualCalibration")
 
-    return os.path.join(self._process._workspaceCalibrationDirectory, "ManualCalibration")
+    return os.path.join(
+      self._process._workspaceCalibrationDirectory, "ManualCalibration"
+    )
 
   # -------------------------------------------------------------------
   def _draftFileName(self, layer):
@@ -633,17 +653,18 @@ class ManualCalibration:
         [draftPath, exception],
       )
       return False
-
+  
     try:
-      if session.mode == "gx":
-        self._loadPersistedGXSession(session, data)
-      else:
-        baselineSource = str(data.get("baselineSource", "nominal")).lower()
-        if baselineSource not in ("nominal", "live", "loaded"):
-          baselineSource = "nominal"
+        if session.mode == "gx":
+          self._loadPersistedGXSession(session, data)
+        else:
+          baselineSource = str(data.get("baselineSource", "nominal")).lower()
+          if baselineSource not in ("nominal", "live", "loaded"):
+            baselineSource = "nominal"
 
-        self._loadDraftBaseline(session, baselineSource)
-        session.cameraOffsetX, session.cameraOffsetY = self._sharedCameraOffset()
+          self._loadDraftBaseline(session, baselineSource)
+          session.skipWrapPins = int(data.get("skipWrapPins", 0))
+          session.cameraOffsetX, session.cameraOffsetY = self._sharedCameraOffset()
 
         measuredPins = {}
         for pinValue, measurement in data.get("measuredPins", {}).items():
@@ -767,6 +788,7 @@ class ManualCalibration:
         "cameraOffsetX": session.cameraOffsetX,
         "cameraOffsetY": session.cameraOffsetY,
         "dirty": session.dirty,
+        "skipWrapPins": session.skipWrapPins,
         "measuredPins": {},
         "boardChecks": {},
       }
@@ -798,7 +820,10 @@ class ManualCalibration:
     if _mode_for_layer(layer) is None:
       if layer is None:
         return (None, "Load a U, V, X, or G recipe to use manual calibration.")
-      return (None, "Manual calibration is only available for the U, V, X, and G layers.")
+      return (
+        None,
+        "Manual calibration is only available for the U, V, X, and G layers.",
+      )
 
     return (layer, None)
 
@@ -843,7 +868,9 @@ class ManualCalibration:
   def _liveFilePath(self, layer):
     if _mode_for_layer(layer) == "gx":
       return os.path.join(self._recipeDirectory(), self._liveFileName(layer))
-    return os.path.join(self._process._workspaceCalibrationDirectory, self._liveFileName(layer))
+    return os.path.join(
+      self._process._workspaceCalibrationDirectory, self._liveFileName(layer)
+    )
 
   # -------------------------------------------------------------------
   def _archivePath(self):
@@ -853,13 +880,17 @@ class ManualCalibration:
 
   # -------------------------------------------------------------------
   def _recipeDirectory(self):
-    if self._process.workspace is not None and hasattr(self._process.workspace, "_recipeDirectory"):
+    if self._process.workspace is not None and hasattr(
+      self._process.workspace, "_recipeDirectory"
+    ):
       return self._process.workspace._recipeDirectory
     return Settings.RECIPE_DIR
 
   # -------------------------------------------------------------------
   def _recipeArchiveDirectory(self):
-    if self._process.workspace is not None and hasattr(self._process.workspace, "_recipeArchiveDirectory"):
+    if self._process.workspace is not None and hasattr(
+      self._process.workspace, "_recipeArchiveDirectory"
+    ):
       return self._process.workspace._recipeArchiveDirectory
     return None
 
@@ -1005,6 +1036,57 @@ class ManualCalibration:
     return session.baselineCalibration.getPinLocation(side + str(pin))
 
   # -------------------------------------------------------------------
+  def _isPinInActiveRegion(self, metadata, pin, skipCount):
+    face = metadata["pinToBoard"][pin]["side"]
+    if skipCount <= 0:
+      return True
+    faceStart, faceEnd = metadata["sideRanges"][face]
+    keep = 400 - skipCount
+    if face == "head":
+      return pin <= faceStart + keep - 1
+    if face == "foot":
+      return pin >= faceEnd - keep + 1
+    if face == "top":
+      return pin <= faceStart + keep - 1 or pin >= faceEnd - keep + 1
+    if face == "bottom":
+      return faceStart + keep <= pin <= faceEnd - keep
+    return True
+
+  # -------------------------------------------------------------------
+  def _getFilteredBootstrapPins(self, metadata, skipCount):
+    if skipCount <= 0:
+      return metadata["bootstrapPins"]
+    filtered = set(
+      pin
+      for pin in metadata["bootstrapPins"]
+      if self._isPinInActiveRegion(metadata, pin, skipCount)
+    )
+    keep = 400 - skipCount
+    endpoint_info = metadata.get("endpointInfo", {})
+    for face, (faceStart, faceEnd) in metadata["sideRanges"].items():
+      face_endpoints = [
+        pin for pin in endpoint_info
+        if endpoint_info[pin]["side"] == face
+        and self._isPinInActiveRegion(metadata, pin, skipCount)
+      ]
+      if not face_endpoints:
+        continue
+      if face == "head":
+        boundaries = [faceStart + keep]
+      elif face == "foot":
+        boundaries = [faceEnd - keep]
+      elif face == "top":
+        boundaries = [faceStart + keep, faceEnd - keep]
+      elif face == "bottom":
+        boundaries = [faceStart + keep, faceEnd - keep]
+      else:
+        continue
+      for boundary in boundaries:
+        nearest = min(face_endpoints, key=lambda p: abs(p - boundary))
+        filtered.add(nearest)
+    return tuple(sorted(filtered))
+
+  # -------------------------------------------------------------------
   def _buildPredictionContext(self, session):
     metadata = LAYER_METADATA[session.layer]
     transformPairs = []
@@ -1069,7 +1151,6 @@ class ManualCalibration:
       "sideAnchors": sideAnchors,
       "globalAnchors": globalAnchors,
     }
-
   # -------------------------------------------------------------------
   def _interpolateSideResidual(self, context, pin):
     metadata = context["metadata"]
@@ -1095,7 +1176,10 @@ class ManualCalibration:
       leftPin, leftResidual = anchors[index]
       rightPin, rightResidual = anchors[index + 1]
       if leftPin <= pin <= rightPin:
-        return (_interpolate_residual(leftPin, leftResidual, rightPin, rightResidual, pin), "side")
+        return (
+          _interpolate_residual(leftPin, leftResidual, rightPin, rightResidual, pin),
+          "side",
+        )
 
     return (anchors[-1][1], "side")
 
@@ -1106,7 +1190,9 @@ class ManualCalibration:
       return (exact["wireX"], exact["wireY"], exact["predictionMode"])
 
     baseline = self._getBaselineLocation(session, "B", pin)
-    transformedX, transformedY = _apply_transform(context["transform"], baseline.x, baseline.y)
+    transformedX, transformedY = _apply_transform(
+      context["transform"], baseline.x, baseline.y
+    )
 
     board = context["metadata"]["pinToBoard"][pin]
     startPin = board["startPin"]
@@ -1141,7 +1227,9 @@ class ManualCalibration:
     )
 
     backPin = int(LayerFunctions.translateFrontBack(context["geometry"], pin))
-    predictedBackX, predictedBackY, predictionMode = self._predictBackPin(session, context, backPin)
+    predictedBackX, predictedBackY, predictionMode = self._predictBackPin(
+      session, context, backPin
+    )
 
     baselineBack = self._getBaselineLocation(session, "B", backPin)
     transformedBackX, transformedBackY = _apply_transform(
@@ -1213,7 +1301,8 @@ class ManualCalibration:
   def _gxReferenceCount(self, session):
     return len(
       [
-        referenceId for referenceId in GX_REFERENCE_IDS
+        referenceId
+        for referenceId in GX_REFERENCE_IDS
         if self._gxReferenceRecorded(session.references[referenceId])
       ]
     )
@@ -1251,7 +1340,9 @@ class ManualCalibration:
       if layer is None:
         disabledReason = "Load a U, V, X, or G recipe to use manual calibration."
       else:
-        disabledReason = "Manual calibration is only available for the U, V, X, and G layers."
+        disabledReason = (
+          "Manual calibration is only available for the U, V, X, and G layers."
+        )
 
       return {
         "enabled": False,
@@ -1347,6 +1438,8 @@ class ManualCalibration:
 
     boardChecks = []
     for pin in metadata["endpointPins"]:
+      if not self._isPinInActiveRegion(metadata, pin, session.skipWrapPins):
+        continue
       prediction = self._predictionState(session, context, pin)
       boardChecks.append(
         {
@@ -1362,8 +1455,10 @@ class ManualCalibration:
         }
       )
 
+    # Get filtered bootstrap pins based on skip value
+    filteredBootstrapPins = self._getFilteredBootstrapPins(metadata, session.skipWrapPins)
     bootstrapPins = []
-    for pin in metadata["bootstrapPins"]:
+    for pin in filteredBootstrapPins:
       prediction = self._predictionState(session, context, pin)
       bootstrapPins.append(
         {
@@ -1410,6 +1505,7 @@ class ManualCalibration:
       "bootstrapPins": bootstrapPins,
       "boardChecks": boardChecks,
       "suggestedPin": suggestedPin,
+      "skipWrapPins": session.skipWrapPins,
       "counts": {
         "measuredPins": len(session.measuredPins),
         "acceptedPins": len(context["residuals"]),
@@ -1522,7 +1618,8 @@ class ManualCalibration:
             measurement["offsetX"] = sharedX
             measurement["offsetY"] = sharedY
             measurement["wireX"] = (
-              self._process._xBacklash.getEffectiveX(measurement["rawCameraX"]) + sharedX
+              self._process._xBacklash.getEffectiveX(measurement["rawCameraX"])
+              + sharedX
             )
             measurement["wireY"] = measurement["rawCameraY"] + sharedY
             if pin in LAYER_METADATA[session.layer]["endpointInfo"]:
@@ -1570,9 +1667,28 @@ class ManualCalibration:
           )
           measurement["wireY"] = measurement["rawCameraY"] + measurement["offsetY"]
           if pin in LAYER_METADATA[session.layer]["endpointInfo"]:
-            self._setBoardCheck(session, pin, "adjusted", measurement["wireX"], measurement["wireY"])
+            self._setBoardCheck(
+              session, pin, "adjusted", measurement["wireX"], measurement["wireY"]
+            )
       self._persistSession(session)
     return self._okResult({"xBacklashCompensationMm": backlashMm})
+
+  # -------------------------------------------------------------------
+  def setSkipWrapPins(self, value):
+    layer, error = self._getActiveLayer()
+    if error is not None:
+      return self._errorResult(error)
+
+    blocked = self._mutationGuard()
+    if blocked is not None:
+      return blocked
+
+    skipCount = max(0, min(int(value), 399))
+    session = self._getSession(layer)
+    session.skipWrapPins = skipCount
+    session.dirty = True
+    self._persistSession(session)
+    return self._okResult({"skipWrapPins": skipCount})
 
   # -------------------------------------------------------------------
   def captureCurrentReference(self, referenceId):
@@ -1671,7 +1787,9 @@ class ManualCalibration:
     wireY = reference.get("wireY")
     if wireX is None or wireY is None:
       return self._errorResult(
-        "No wire-space target is available for " + GX_REFERENCE_LABELS[referenceId] + "."
+        "No wire-space target is available for "
+        + GX_REFERENCE_LABELS[referenceId]
+        + "."
       )
 
     velocityValue = None
@@ -1845,7 +1963,8 @@ class ManualCalibration:
     recipeWasRefreshed = False
     if (
       self._process.workspace is not None
-      and getattr(self._process.workspace, "_recipeFile", None) == self._liveFileName(layer)
+      and getattr(self._process.workspace, "_recipeFile", None)
+      == self._liveFileName(layer)
       and hasattr(self._process.workspace, "refreshRecipeIfChanged")
     ):
       self._process.workspace.refreshRecipeIfChanged()
@@ -1883,7 +2002,10 @@ class ManualCalibration:
     session = self._getSession(layer)
     pin = _normalize_pin(pin)
     if pin < 1 or pin > LAYER_METADATA[layer]["pinMax"]:
-      return {"ok": False, "error": "Pin " + str(pin) + " is outside the " + layer + " layer."}
+      return {
+        "ok": False,
+        "error": "Pin " + str(pin) + " is outside the " + layer + " layer.",
+      }
 
     context = self._buildPredictionContext(session)
     prediction = self._predictionState(session, context, pin)
@@ -1942,7 +2064,9 @@ class ManualCalibration:
     session = self._getSession(layer)
     pin = _normalize_pin(pin)
     if pin < 1 or pin > LAYER_METADATA[layer]["pinMax"]:
-      return self._errorResult("Pin " + str(pin) + " is outside the " + layer + " layer.")
+      return self._errorResult(
+        "Pin " + str(pin) + " is outside the " + layer + " layer."
+      )
 
     rawCameraX = self._process._io.xAxis.getPosition()
     rawCameraY = self._process._io.yAxis.getPosition()
@@ -1981,7 +2105,9 @@ class ManualCalibration:
     session = self._getSession(layer)
     pin = _normalize_pin(pin)
     if pin < 1 or pin > LAYER_METADATA[layer]["pinMax"]:
-      return self._errorResult("Pin " + str(pin) + " is outside the " + layer + " layer.")
+      return self._errorResult(
+        "Pin " + str(pin) + " is outside the " + layer + " layer."
+      )
 
     previous = session.measuredPins.get(pin, {})
     session.measuredPins[pin] = {
@@ -2047,7 +2173,9 @@ class ManualCalibration:
 
     if pin in session.measuredPins:
       measurement = session.measuredPins[pin]
-      self._setBoardCheck(session, pin, "adjusted", measurement["wireX"], measurement["wireY"])
+      self._setBoardCheck(
+        session, pin, "adjusted", measurement["wireX"], measurement["wireY"]
+      )
     elif status == "adjusted":
       return self._errorResult("Adjusted status requires a measured pin.")
     else:

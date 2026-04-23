@@ -343,39 +343,30 @@ class GCodeHandlerBase:
 
   # ---------------------------------------------------------------------
   def _tangent_view_final_xy(self, tangent_view, target_pin):
-    target_family = str(target_pin).strip().upper()[:1]
-    if tangent_view.alternating_plane == "xz":
-      plane_point = (
-        tangent_view.alternating_wrap_line_start
-        if target_family == "A"
-        else tangent_view.alternating_wrap_line_end
-      )
+    if tangent_view.same_side:
+      return Point2D(float(tangent_view.final_xy.x), float(tangent_view.final_xy.y))
+    if tangent_view.plane == "xz":
       return Point2D(
-        float(plane_point.x),
-        float((tangent_view.pin_a_point.y + tangent_view.pin_b_point.y) / 2.0),
+        float(tangent_view.final_xy.x),
+        float(tangent_view.final_xy.y),
       )
-    if tangent_view.alternating_plane == "yz":
-      plane_point = (
-        tangent_view.alternating_wrap_line_start
-        if target_family == "A"
-        else tangent_view.alternating_wrap_line_end
-      )
+    if tangent_view.plane == "yz":
       return Point2D(
-        float((tangent_view.pin_a_point.x + tangent_view.pin_b_point.x) / 2.0),
-        float(plane_point.y),
+        float(tangent_view.final_xy.x),
+        float(tangent_view.final_xy.y),
       )
     raise GCodeExecutionError("Alternating-side wrap did not produce a projection plane.", [target_pin])
 
   # ---------------------------------------------------------------------
   def _apply_alternating_hover_offset(self, tangent_view, final_xy):
-    if tangent_view.alternating_plane is None:
+    if tangent_view.same_side:
       return final_xy
-    if tangent_view.alternating_face is None:
+    if tangent_view.face is None:
       raise GCodeExecutionError(
         "Alternating-side wrap did not produce a face for hover handling.",
-        [tangent_view.request.pin_a, tangent_view.request.pin_b],
+        [tangent_view.anchor_pin, tangent_view.target_pin],
       )
-    hover_offset_y = alternating_side_hover_y_offset(tangent_view.alternating_face)
+    hover_offset_y = alternating_side_hover_y_offset(tangent_view.face)
     return Point2D(float(final_xy.x), float(final_xy.y) + float(hover_offset_y))
 
   # ---------------------------------------------------------------------
@@ -559,9 +550,11 @@ class GCodeHandlerBase:
         "G-Code request for calibrated move, but no layer calibration to use."
       )
 
-    from dune_winder.machine.geometry.uv_tangency import (
-      compute_uv_tangent_view,
-      UvTangentViewRequest,
+    from dune_winder.machine.geometry.uv_wrap_geometry import (
+      Point2D,
+      Point3D,
+      RectBounds,
+      plan_wrap_transition,
     )
 
     normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
@@ -578,25 +571,32 @@ class GCodeHandlerBase:
         float(target_location.z),
       )
 
-    tangent_view = compute_uv_tangent_view(
-      UvTangentViewRequest(
-        layer=self._layerCalibration.getLayerNames(),
-        pin_a=normalized_anchor,
-        pin_b=normalized_target,
+    tangent_view = plan_wrap_transition(
+      layer=self._layerCalibration.getLayerNames(),
+      anchor_pin=normalized_anchor,
+      target_pin=normalized_target,
+      anchor_pin_point=Point3D(
+        float(anchor_location.x),
+        float(anchor_location.y),
+        float(anchor_location.z),
       ),
-      pin_b_point_override=Point3D(
+      target_pin_point=Point3D(
         float(target_location.x),
         float(target_location.y),
         float(target_location.z),
       ),
-      roller_arm_y_offsets=(
-        self._machineCalibration.rollerArmCalibration.fitted_y_cals
-        if (
-          self._machineCalibration is not None
-          and self._machineCalibration.rollerArmCalibration is not None
-        )
-        else None
+      transfer_bounds=RectBounds(
+        left=float(self._machineCalibration.transferLeft),
+        top=float(self._machineCalibration.transferTop),
+        right=float(self._machineCalibration.transferRight),
+        bottom=float(self._machineCalibration.transferBottom),
       ),
+      z_front=float(self._machineCalibration.zFront),
+      z_back=float(self._machineCalibration.zBack),
+      pin_radius=float(self._machineCalibration.pinDiameter) / 2.0,
+      head_arm_length=float(self._machineCalibration.headArmLength),
+      head_roller_radius=float(self._machineCalibration.headRollerRadius),
+      head_roller_gap=float(self._machineCalibration.headRollerGap),
     )
 
     self._instruction_trace["enabled"] = True
@@ -613,34 +613,35 @@ class GCodeHandlerBase:
     head_position = 1 if normalized_target.startswith("A") else 2
     clearance_position = 0 if normalized_target.startswith("A") else 3
 
-    if tangent_view.alternating_plane is None:
-      if tangent_view.arm_corrected_outbound_point is None:
-        raise GCodeExecutionError(
-          "Same-side wrap did not produce an arm-corrected outbound point.",
-          [normalized_anchor, normalized_target],
-        )
+    if tangent_view.same_side:
       final_xy = Point2D(
-        float(tangent_view.arm_corrected_outbound_point.x),
-        float(tangent_view.arm_corrected_outbound_point.y),
+        float(tangent_view.final_xy.x),
+        float(tangent_view.final_xy.y),
       )
       self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
       self._append_pending_action("head_transfer", head_position=head_position)
     else:
       self._append_pending_action("head_transfer", head_position=clearance_position)
-      final_xy = self._tangent_view_final_xy(tangent_view, normalized_target)
+      final_xy = Point2D(
+        float(tangent_view.final_xy.x),
+        float(tangent_view.final_xy.y),
+      )
       if hover:
-        final_xy = self._apply_alternating_hover_offset(tangent_view, final_xy)
+        final_xy = self._apply_alternating_hover_offset(
+          tangent_view,
+          final_xy,
+        )
       self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
 
     self._x = float(final_xy.x)
     self._y = float(final_xy.y)
     self._z = float(
       self._getHeadPosition(
-        head_position if tangent_view.alternating_plane is None else clearance_position
+        head_position if tangent_view.same_side else clearance_position
       )
     )
     self._headPosition = int(
-      head_position if tangent_view.alternating_plane is None else clearance_position
+      head_position if tangent_view.same_side else clearance_position
     )
     self._instruction_contains_x = True
     self._instruction_contains_y = True

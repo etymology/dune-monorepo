@@ -115,10 +115,13 @@ def _looksLikeLegacyManualGCode(command):
   if not commandText:
     return False
 
-  return re.match(
-    r"^(?:[Gg]\d|[Xx]-?\d|[Yy]-?\d|[Zz]-?\d|[Ff]-?\d)",
-    commandText,
-  ) is not None
+  return (
+    re.match(
+      r"^(?:[Gg]\d|[Xx]-?\d|[Yy]-?\d|[Zz]-?\d|[Ff]-?\d)",
+      commandText,
+    )
+    is not None
+  )
 
 
 # -----------------------------------------------------------------------
@@ -206,7 +209,10 @@ def commandHandler(source, command):
     response = {
       "ok": False,
       "data": None,
-      "error": {"code": "INTERNAL_ERROR", "message": "Command registry is not configured."},
+      "error": {
+        "code": "INTERNAL_ERROR",
+        "message": "Command registry is not configured.",
+      },
     }
     return jsonDumps(response)
 
@@ -247,7 +253,14 @@ def signalHandler(signalNumber, frame):
 
 # -----------------------------------------------------------------------
 def main():
-  global log, io, process, systemTime, configuration, machineCalibration, commandRegistry
+  global \
+    log, \
+    io, \
+    process, \
+    systemTime, \
+    configuration, \
+    machineCalibration, \
+    commandRegistry
   global controlVersion, uiVersion
   global isStartAPA, isLogEchoed, isIO_Logged
 
@@ -281,6 +294,7 @@ def main():
 
   # Load configuration (creates with defaults if the file does not exist).
   import pathlib
+
   configuration = AppConfig.load(pathlib.Path(Settings.CONFIG_FILE))
   plcMode = _resolvePlcMode(configuration.plcMode, plcModeOverride)
   plcSimEngine = _resolvePlcSimEngine(
@@ -300,6 +314,12 @@ def main():
   log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
   log.add("Main", "START", "Control system starts.")
   plcShadowMode = bool(configuration.plcShadowMode)
+  # Check for environment variable override
+  envShadowMode = os.environ.get("PLC_SHADOW_MODE", "").strip().upper()
+  if envShadowMode in ("1", "TRUE", "YES"):
+    plcShadowMode = True
+  elif envShadowMode in ("0", "FALSE", "NO"):
+    plcShadowMode = False
   log.add("Main", "PLC_MODE", "PLC backend mode selected.", [plcMode])
   log.add("Main", "PLC_SIM_ENGINE", "PLC simulator engine selected.", [plcSimEngine])
   log.add("Main", "PLC_SHADOW_MODE", "PLC shadow mode.", [plcShadowMode])
@@ -363,11 +383,8 @@ def main():
 
     _ = UICommandServerThread(commandHandler, log)
     _ = WebServerThread(log, commandRegistry)
-    _ = ControlThread(
-      io, log, process.controlStateMachine, systemTime, isIO_Logged
-    )
+    _ = ControlThread(io, log, process.controlStateMachine, systemTime, isIO_Logged)
     _ = CameraThread(io.camera, log, systemTime)
-
 
     # Also stop on SIGTERM (e.g. `kill <pid>` or terminal close on Linux/Mac).
     signal.signal(signal.SIGTERM, signalHandler)
