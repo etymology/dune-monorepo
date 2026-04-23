@@ -96,7 +96,8 @@
             "console": "internalConsole",
             "redirectOutput": true,
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/src"
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PLC_SHADOW_MODE": "False"
             },
             "windows": {
                 "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
