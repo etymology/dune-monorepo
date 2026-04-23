@@ -142,6 +142,18 @@ class CommandValidationTests(unittest.TestCase):
     self.assertTrue(response["ok"])
     self.assertTrue(response["data"]["canceled"])
 
+  def test_machine_geometry_kill_machine_xy_is_registered(self):
+    registry, _, _, _, _, _ = build_registry_fixture()
+    response = registry.executeRequest(
+      {
+        "name": "process.machine_geometry.kill_machine_xy",
+        "args": {},
+      },
+    )
+
+    self.assertTrue(response["ok"])
+    self.assertTrue(response["data"]["killed"])
+
   def test_unknown_arguments_are_rejected(self):
     registry, _, _, _, _, _ = build_registry_fixture()
     response = registry.executeRequest(

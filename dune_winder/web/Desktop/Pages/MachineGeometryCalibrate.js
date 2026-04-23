@@ -142,7 +142,11 @@ function MachineGeometryCalibrate(modules) {
 
   function machineSolveInProgress(status) {
     if (!status || !status.status) return false
-    return status.status === "running" || status.status === "cancel_requested"
+    return (
+      status.status === "running"
+      || status.status === "cancel_requested"
+      || status.status === "kill_requested"
+    )
   }
 
   function stopProgressPoll() {
@@ -284,6 +288,7 @@ function MachineGeometryCalibrate(modules) {
     appendActivity("info", "Starting Machine XY solve for layer " + (layer || "-") + ".")
     $("#machineGeometrySolveMachineXY").prop("disabled", true)
     $("#machineGeometryCancelMachineXY").prop("disabled", false)
+    $("#machineGeometryKillMachineXY").prop("disabled", false)
     $("#machineGeometryApplyMachineXY").prop("disabled", true)
 
     if (progressPollTimer) {
@@ -298,7 +303,9 @@ function MachineGeometryCalibrate(modules) {
       { layer: layer },
       function(data) {
         stopProgressPoll()
-        if (data && data.canceled) {
+        if (data && data.killed) {
+          showMessage("Killed Machine XY solve.")
+        } else if (data && data.canceled) {
           showMessage("Canceled Machine XY solve.")
         } else if (data && data.fitError) {
           showError(data.fitError)
@@ -309,6 +316,33 @@ function MachineGeometryCalibrate(modules) {
       },
       function(response) {
         stopProgressPoll()
+        showError(responseErrorMessage(response))
+        loadState(true)
+      }
+    )
+  }
+
+  function killMachineXYSolve() {
+    var command = commandName(
+      commands.process.machineGeometryKillMachineXY,
+      "process.machine_geometry.kill_machine_xy"
+    )
+    var layer = activeLayer()
+    appendActivity("info", "Requesting hard kill for Machine XY solve.")
+    $("#machineGeometryKillMachineXY").prop("disabled", true)
+    uiServices.call(
+      command,
+      { layer: layer },
+      function(data) {
+        if (data && data.killed) {
+          setActivityStatus("Machine XY solve kill requested.")
+          appendActivity("info", data.message || "Kill requested.")
+        } else {
+          appendActivity("info", (data && data.message) || "No active Machine XY solve to kill.")
+        }
+        loadState(true)
+      },
+      function(response) {
         showError(responseErrorMessage(response))
         loadState(true)
       }
@@ -437,6 +471,7 @@ function MachineGeometryCalibrate(modules) {
       : null
     var machineSolveRunning = machineSolveInProgress(machineSolveStatus)
     var machineSolveCancelRequested = machineSolveStatus && machineSolveStatus.status === "cancel_requested"
+    var machineSolveKillRequested = machineSolveStatus && machineSolveStatus.status === "kill_requested"
     if (machineSolveStatus) {
       renderMachineSolveStatus(machineSolveStatus)
     } else {
@@ -451,7 +486,11 @@ function MachineGeometryCalibrate(modules) {
     )
     $("#machineGeometryCancelMachineXY").prop(
       "disabled",
-      !currentState || !currentState.enabled || !machineSolveRunning || !!machineSolveCancelRequested
+      !currentState || !currentState.enabled || !machineSolveRunning || !!machineSolveCancelRequested || !!machineSolveKillRequested
+    )
+    $("#machineGeometryKillMachineXY").prop(
+      "disabled",
+      !currentState || !currentState.enabled || !machineSolveRunning || !!machineSolveKillRequested
     )
     $("#machineGeometryApplyMachineXY").prop(
       "disabled",
@@ -647,6 +686,10 @@ function MachineGeometryCalibrate(modules) {
 
   $("#machineGeometryCancelMachineXY").off("click").on("click", function() {
     cancelMachineXYSolve()
+  })
+
+  $("#machineGeometryKillMachineXY").off("click").on("click", function() {
+    killMachineXYSolve()
   })
 
   $("#machineGeometryApplyMachineXY").off("click").on("click", function() {

@@ -118,6 +118,9 @@ class DummyMachineGeometryCalibration:
   def cancelMachineXY(self, layer=None):
     return {"layer": layer or "V", "canceled": True}
 
+  def killMachineXY(self, layer=None):
+    return {"layer": layer or "V", "killed": True}
+
   def applyMachineXY(self, layer=None):
     return {"layer": layer or "V", "applied": True}
 

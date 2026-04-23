@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -349,6 +351,7 @@ def test_machine_xy_cancel_request_marks_running_status(tmp_path):
     "status": "running",
     "message": "Working.",
   }
+  service._registerMachineSolveOperation("op-1")
 
   result = service.cancelMachineXY()
 
@@ -357,6 +360,72 @@ def test_machine_xy_cancel_request_marks_running_status(tmp_path):
   assert status["status"] == "cancel_requested"
   assert status["cancelRequested"] is True
   assert "current evaluation batch" in status["message"]
+
+
+def test_machine_xy_kill_request_marks_running_status(tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  draft = service._layerDraft("U", create=True)
+  draft["machineSolveStatus"] = {
+    "operationId": "op-1",
+    "status": "running",
+    "message": "Working.",
+  }
+  service._registerMachineSolveOperation("op-1")
+
+  class _Evaluation:
+    def __init__(self):
+      self.terminated = False
+
+    def terminate(self):
+      self.terminated = True
+
+  evaluation = _Evaluation()
+  service._registerActiveMachineSolveEvaluation("op-1", evaluation)
+
+  result = service.killMachineXY()
+
+  status = service._layerDraft("U")["machineSolveStatus"]
+  assert result["killed"] is True
+  assert evaluation.terminated is True
+  assert status["status"] == "kill_requested"
+  assert status["killRequested"] is True
+  assert status["terminatedEvaluations"] == 1
+
+
+def test_machine_xy_reconcile_stale_running_status(tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  draft = service._layerDraft("U", create=True)
+  draft["machineSolveStatus"] = {
+    "operationId": "op-stale",
+    "status": "kill_requested",
+    "message": "Kill requested. Terminating all active evaluations.",
+  }
+
+  status = service._reconcileMachineSolveStatus("U")
+
+  assert status["status"] == "interrupted"
+  assert status["killRequested"] is False
+  assert "no longer running" in status["message"]
+
+
+def test_machine_xy_cancel_reconciles_stale_running_status(tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  draft = service._layerDraft("U", create=True)
+  draft["machineSolveStatus"] = {
+    "operationId": "op-stale",
+    "status": "running",
+    "message": "Working.",
+  }
+
+  result = service.cancelMachineXY()
+
+  status = service._layerDraft("U")["machineSolveStatus"]
+  assert result["canceled"] is False
+  assert status["status"] == "interrupted"
+  assert "No Machine XY solve is active." in result["message"]
 
 
 def test_machine_xy_solve_can_be_canceled(monkeypatch, tmp_path):
@@ -404,6 +473,84 @@ def test_machine_xy_solve_can_be_canceled(monkeypatch, tmp_path):
   assert status["status"] == "canceled"
   assert status["fitError"] is None
   assert any(entry[1] == "SOLVE_MACHINE_XY_CANCELED" for entry in process._log.entries)
+
+
+def test_machine_xy_solve_can_be_killed(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  state = service._loadState()
+  state["measurements"] = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+  ]
+
+  monkeypatch.setattr(service, "_candidateLayerCalibrationPath", lambda layer: "layer.json")
+  monkeypatch.setattr(service, "_candidateMachineCalibrationPath", lambda roller_y_cals, camera_offset=None: "machine.json")
+  monkeypatch.setattr(service, "_removeTemporaryCandidatePath", lambda path: None)
+
+  started = threading.Event()
+
+  class _FakeEvaluation:
+    def __init__(self):
+      self.terminated = False
+      self.closed = False
+
+    @property
+    def exitcode(self):
+      return -15 if self.terminated else None
+
+    def start(self):
+      started.set()
+
+    def is_alive(self):
+      return not self.terminated
+
+    def poll(self, timeout=0.0):
+      time.sleep(min(float(timeout), 0.02))
+      return None
+
+    def terminate(self):
+      self.terminated = True
+
+    def close(self):
+      self.closed = True
+
+  evaluation = _FakeEvaluation()
+  monkeypatch.setattr(
+    service,
+    "_spawnMachineSolveEvaluation",
+    lambda *args, **kwargs: evaluation,
+  )
+
+  solve_result = {}
+  solve_thread = threading.Thread(
+    target=lambda: solve_result.setdefault("value", service.solveMachineXY()),
+    daemon=True,
+  )
+  solve_thread.start()
+  assert started.wait(timeout=1.0)
+
+  kill_result = service.killMachineXY()
+
+  solve_thread.join(timeout=1.0)
+  assert not solve_thread.is_alive()
+  status = service._layerDraft("U")["machineSolveStatus"]
+  assert kill_result["killed"] is True
+  assert evaluation.terminated is True
+  assert evaluation.closed is True
+  assert solve_result["value"]["killed"] is True
+  assert status["status"] == "killed"
+  assert any(entry[1] == "SOLVE_MACHINE_XY_KILLED" for entry in process._log.entries)
 
 
 def test_machine_xy_candidate_file_does_not_use_atomic_replace(monkeypatch, tmp_path):

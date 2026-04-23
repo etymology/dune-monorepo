@@ -45,6 +45,8 @@
       machineGeometrySolveLayerZ: "process.machine_geometry.solve_layer_z",
       machineGeometryApplyLayerZ: "process.machine_geometry.apply_layer_z",
       machineGeometrySolveMachineXY: "process.machine_geometry.solve_machine_xy",
+      machineGeometryCancelMachineXY: "process.machine_geometry.cancel_machine_xy",
+      machineGeometryKillMachineXY: "process.machine_geometry.kill_machine_xy",
       machineGeometryApplyMachineXY: "process.machine_geometry.apply_machine_xy",
       machineGeometrySetLineOffsetOverride: "process.machine_geometry.set_line_offset_override",
       machineGeometryDeleteLineOffsetOverride: "process.machine_geometry.delete_line_offset_override",

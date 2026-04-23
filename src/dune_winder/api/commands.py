@@ -483,6 +483,19 @@ def build_command_registry(
     True,
   )
 
+  def process_machine_geometry_kill_machine_xy(args):
+    _validateArgs(args, optional=("layer",))
+    layer = args.get("layer")
+    if layer is not None:
+      layer = _asString(layer, "layer")
+    return process.machineGeometryCalibration.killMachineXY(layer=layer)
+
+  registry.register(
+    "process.machine_geometry.kill_machine_xy",
+    process_machine_geometry_kill_machine_xy,
+    True,
+  )
+
   def process_machine_geometry_apply_machine_xy(args):
     _validateArgs(args, optional=("layer",))
     layer = args.get("layer")

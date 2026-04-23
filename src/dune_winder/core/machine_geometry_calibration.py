@@ -3,8 +3,11 @@ from __future__ import annotations
 import errno
 import copy
 import json
+import multiprocessing
 import os
 import pathlib
+import queue
+import threading
 import time
 import uuid
 import traceback
@@ -43,9 +46,9 @@ from dune_winder.uv_head_target import (
 _SUPPORTED_LAYERS = ("U", "V")
 _TRACE_LINE_REQUIRES = "~anchorToTarget("
 _EPSILON = 1e-9
-_SEARCH_MIN_STEP = 0.001
-_SEARCH_BASE_STEP = 2.0
-_SEARCH_MAX_STEP = 64.0
+_SEARCH_MIN_STEP = 0.5
+_SEARCH_BASE_STEP = 1.0
+_SEARCH_MAX_STEP = 5.0
 
 
 def _normalize_layer(layer) -> str:
@@ -76,7 +79,9 @@ def _nominal_roller_y(machine_calibration: MachineCalibration) -> float:
   )
 
 
-def _live_roller_y_cals(machine_calibration: MachineCalibration) -> tuple[float, float, float, float]:
+def _live_roller_y_cals(
+  machine_calibration: MachineCalibration,
+) -> tuple[float, float, float, float]:
   nominal = _nominal_roller_y(machine_calibration)
   calibration = getattr(machine_calibration, "rollerArmCalibration", None)
   if calibration is None:
@@ -107,11 +112,124 @@ def _search_level_count(initial_step, minimum_step=_SEARCH_MIN_STEP) -> int:
 def _estimated_search_step(max_abs_error) -> float:
   if max_abs_error is None:
     return float(_SEARCH_BASE_STEP)
-  return _clamp(max(float(max_abs_error), float(_SEARCH_BASE_STEP)), _SEARCH_BASE_STEP, _SEARCH_MAX_STEP)
+  return _clamp(
+    max(float(max_abs_error), float(_SEARCH_BASE_STEP)),
+    _SEARCH_BASE_STEP,
+    _SEARCH_MAX_STEP,
+  )
 
 
 class _MachineXYSolveCancelled(RuntimeError):
   pass
+
+
+class _MachineXYSolveKilled(RuntimeError):
+  pass
+
+
+class _MachineXYEvaluationWorker:
+  def __init__(self, process, result_queue):
+    self._process = process
+    self._result_queue = result_queue
+
+  @property
+  def exitcode(self):
+    return self._process.exitcode
+
+  def start(self):
+    self._process.start()
+
+  def is_alive(self):
+    return self._process.is_alive()
+
+  def poll(self, timeout=0.0):
+    try:
+      return self._result_queue.get(timeout=max(0.0, float(timeout)))
+    except queue.Empty:
+      return None
+
+  def terminate(self):
+    if self._process.is_alive():
+      self._process.terminate()
+      self._process.join(timeout=1.0)
+    if self._process.is_alive() and hasattr(self._process, "kill"):
+      self._process.kill()
+      self._process.join(timeout=1.0)
+
+  def close(self):
+    try:
+      if self._process.is_alive():
+        self._process.join(timeout=0.1)
+    except Exception:
+      pass
+    try:
+      if hasattr(self._result_queue, "close"):
+        self._result_queue.close()
+    except Exception:
+      pass
+    try:
+      if hasattr(self._result_queue, "join_thread"):
+        self._result_queue.join_thread()
+    except Exception:
+      pass
+
+
+def _project_machine_xy_measurements(
+  group_measurements,
+  *,
+  layer_path,
+  machine_path,
+  roller_y_cals,
+):
+  results = []
+  for measurement in group_measurements:
+    view = compute_uv_anchor_to_target_view(
+      command_text=str(measurement["gcodeLine"]),
+      layer=str(measurement["layer"]),
+      machine_calibration_path=machine_path,
+      layer_calibration_path=layer_path,
+      roller_arm_y_offsets=tuple(float(value) for value in roller_y_cals[:4]),
+    )
+    results.append(
+      (
+        measurement,
+        {
+          "projectedX": float(view.interpreter_wire_point.x),
+          "projectedY": float(view.interpreter_wire_point.y),
+        },
+      )
+    )
+  return results
+
+
+def _machine_xy_evaluation_worker(
+  result_queue,
+  group_measurements,
+  *,
+  layer_path,
+  machine_path,
+  roller_y_cals,
+):
+  try:
+    result_queue.put(
+      {
+        "ok": True,
+        "results": _project_machine_xy_measurements(
+          group_measurements,
+          layer_path=layer_path,
+          machine_path=machine_path,
+          roller_y_cals=roller_y_cals,
+        ),
+      }
+    )
+  except Exception as exception:
+    result_queue.put(
+      {
+        "ok": False,
+        "error": _error_text(exception),
+        "traceback": traceback.format_exc(),
+      }
+    )
 
 
 class MachineGeometryCalibration:
@@ -122,6 +240,10 @@ class MachineGeometryCalibration:
     self._state = None
     self._loadedPath = None
     self._cancelRequestedMachineSolveOperationIds = set()
+    self._killRequestedMachineSolveOperationIds = set()
+    self._activeMachineSolveOperationIds = set()
+    self._activeMachineSolveEvaluations = {}
+    self._machineSolveEvaluationLock = threading.RLock()
 
   # -------------------------------------------------------------------
   def _stateDirectory(self):
@@ -221,11 +343,135 @@ class MachineGeometryCalibration:
     return str(operation_id) in self._cancelRequestedMachineSolveOperationIds
 
   # -------------------------------------------------------------------
+  def _isMachineSolveKillRequested(self, operation_id):
+    return str(operation_id) in self._killRequestedMachineSolveOperationIds
+
+  # -------------------------------------------------------------------
   def _raiseIfMachineSolveCancelled(self, layer, operation_id):
     if self._isMachineSolveCancellationRequested(operation_id):
-      raise _MachineXYSolveCancelled(
-        "Machine XY solve canceled at user request."
-      )
+      raise _MachineXYSolveCancelled("Machine XY solve canceled at user request.")
+
+  # -------------------------------------------------------------------
+  def _raiseIfMachineSolveKilled(self, operation_id):
+    if self._isMachineSolveKillRequested(operation_id):
+      raise _MachineXYSolveKilled("Machine XY solve killed at user request.")
+
+  # -------------------------------------------------------------------
+  def _clearMachineSolveRequests(self, operation_id):
+    self._cancelRequestedMachineSolveOperationIds.discard(str(operation_id))
+    self._killRequestedMachineSolveOperationIds.discard(str(operation_id))
+
+  # -------------------------------------------------------------------
+  def _registerMachineSolveOperation(self, operation_id):
+    with self._machineSolveEvaluationLock:
+      self._activeMachineSolveOperationIds.add(str(operation_id))
+
+  # -------------------------------------------------------------------
+  def _unregisterMachineSolveOperation(self, operation_id):
+    with self._machineSolveEvaluationLock:
+      self._activeMachineSolveOperationIds.discard(str(operation_id))
+      self._activeMachineSolveEvaluations.pop(str(operation_id), None)
+
+  # -------------------------------------------------------------------
+  def _isMachineSolveOperationActive(self, operation_id):
+    with self._machineSolveEvaluationLock:
+      return str(operation_id) in self._activeMachineSolveOperationIds
+
+  # -------------------------------------------------------------------
+  def _reconcileMachineSolveStatus(self, layer, status=None):
+    resolved_layer = self._resolvedLayer(layer)
+    current_status = status
+    if current_status is None:
+      current_status = self._machineSolveStatus(resolved_layer, create=False)
+    if current_status is None:
+      return None
+
+    state_name = str(current_status.get("status", "")).strip().lower()
+    operation_id = current_status.get("operationId")
+    if state_name not in ("running", "cancel_requested", "kill_requested"):
+      return current_status
+    if operation_id and self._isMachineSolveOperationActive(operation_id):
+      return current_status
+
+    message = str(current_status.get("message") or "").strip()
+    if not message:
+      message = "Machine XY solve is no longer running."
+    else:
+      message = message.rstrip(".") + ". Machine XY solve is no longer running."
+    reconciled = self._updateMachineSolveStatus(
+      resolved_layer,
+      operationId=operation_id,
+      status="interrupted",
+      step="interrupted",
+      message=message,
+      cancelRequested=False,
+      killRequested=False,
+      finishedAt=self._timestamp(),
+      estimatedSecondsRemaining=0.0,
+    )
+    self._clearMachineSolveRequests(operation_id)
+    self._log(
+      "SOLVE_MACHINE_XY_RECONCILED",
+      "Reconciled stale Machine XY solve status.",
+      [operation_id, resolved_layer, state_name],
+    )
+    return reconciled
+
+  # -------------------------------------------------------------------
+  def _registerActiveMachineSolveEvaluation(self, operation_id, evaluation):
+    with self._machineSolveEvaluationLock:
+      operation_key = str(operation_id)
+      active = self._activeMachineSolveEvaluations.setdefault(operation_key, set())
+      active.add(evaluation)
+
+  # -------------------------------------------------------------------
+  def _unregisterActiveMachineSolveEvaluation(self, operation_id, evaluation):
+    with self._machineSolveEvaluationLock:
+      operation_key = str(operation_id)
+      active = self._activeMachineSolveEvaluations.get(operation_key)
+      if not active:
+        return
+      active.discard(evaluation)
+      if not active:
+        self._activeMachineSolveEvaluations.pop(operation_key, None)
+
+  # -------------------------------------------------------------------
+  def _terminateActiveMachineSolveEvaluations(self, operation_id):
+    with self._machineSolveEvaluationLock:
+      active = list(self._activeMachineSolveEvaluations.get(str(operation_id), ()))
+    for evaluation in active:
+      try:
+        evaluation.terminate()
+      except Exception:
+        pass
+    return len(active)
+
+  # -------------------------------------------------------------------
+  def _spawnMachineSolveEvaluation(
+    self,
+    group_measurements,
+    *,
+    layer_path,
+    machine_path,
+    roller_y_cals,
+  ):
+    context = multiprocessing.get_context("spawn")
+    result_queue = context.Queue()
+    process = context.Process(
+      target=_machine_xy_evaluation_worker,
+      args=(result_queue, group_measurements),
+      kwargs={
+        "layer_path": layer_path,
+        "machine_path": machine_path,
+        "roller_y_cals": tuple(float(value) for value in roller_y_cals[:4]),
+      },
+    )
+    return _MachineXYEvaluationWorker(process, result_queue)
+
+  # -------------------------------------------------------------------
+  def _useIsolatedMachineSolveEvaluation(self):
+    bound_method = getattr(self._projectMeasurement, "__func__", None)
+    return bound_method is MachineGeometryCalibration._projectMeasurement
 
   # -------------------------------------------------------------------
   def _saveState(self):
@@ -341,7 +587,9 @@ class MachineGeometryCalibration:
       if handler is not None and hasattr(handler, "getLayerCalibration"):
         calibration = handler.getLayerCalibration()
     if calibration is None:
-      raise ValueError("No layer calibration is loaded for active layer " + str(layer) + ".")
+      raise ValueError(
+        "No layer calibration is loaded for active layer " + str(layer) + "."
+      )
     return calibration
 
   # -------------------------------------------------------------------
@@ -350,14 +598,20 @@ class MachineGeometryCalibration:
     direct_handler = getattr(self._process, "gCodeHandler", None)
     if direct_handler is not None:
       handlers.append(direct_handler)
-    workspace_handler = getattr(getattr(self._process, "workspace", None), "_gCodeHandler", None)
+    workspace_handler = getattr(
+      getattr(self._process, "workspace", None), "_gCodeHandler", None
+    )
     if workspace_handler is not None and workspace_handler not in handlers:
       handlers.append(workspace_handler)
 
     for handler in handlers:
       if not hasattr(handler, "useLayerCalibration"):
         continue
-      loaded = handler.getLayerCalibration() if hasattr(handler, "getLayerCalibration") else None
+      loaded = (
+        handler.getLayerCalibration()
+        if hasattr(handler, "getLayerCalibration")
+        else None
+      )
       if loaded is calibration or loaded is None:
         handler.useLayerCalibration(calibration)
         continue
@@ -598,7 +852,7 @@ class MachineGeometryCalibration:
   # -------------------------------------------------------------------
   def cancelMachineXY(self, layer=None):
     target_layer = self._resolvedLayer(layer)
-    status = self._machineSolveStatus(target_layer, create=False)
+    status = self._reconcileMachineSolveStatus(target_layer)
     if status is None:
       return {
         "layer": target_layer,
@@ -633,6 +887,55 @@ class MachineGeometryCalibration:
       "layer": target_layer,
       "canceled": True,
       "message": "Cancel requested.",
+      "status": updated_status,
+    }
+
+  # -------------------------------------------------------------------
+  def killMachineXY(self, layer=None):
+    target_layer = self._resolvedLayer(layer)
+    status = self._reconcileMachineSolveStatus(target_layer)
+    if status is None:
+      return {
+        "layer": target_layer,
+        "killed": False,
+        "message": "No Machine XY solve is active.",
+      }
+
+    current_status = str(status.get("status", "")).strip().lower()
+    operation_id = status.get("operationId")
+    if (
+      current_status not in ("running", "cancel_requested", "kill_requested")
+      or not operation_id
+    ):
+      return {
+        "layer": target_layer,
+        "killed": False,
+        "message": "No Machine XY solve is active.",
+      }
+
+    self._killRequestedMachineSolveOperationIds.add(str(operation_id))
+    terminated_evaluations = self._terminateActiveMachineSolveEvaluations(operation_id)
+    updated_status = self._updateMachineSolveStatus(
+      target_layer,
+      operationId=operation_id,
+      status="kill_requested",
+      message="Kill requested. Terminating all active evaluations.",
+      cancelRequested=True,
+      cancelRequestedAt=self._timestamp(),
+      killRequested=True,
+      killRequestedAt=self._timestamp(),
+      terminatedEvaluations=int(terminated_evaluations),
+    )
+    self._log(
+      "SOLVE_MACHINE_XY_KILL_REQUESTED",
+      "Machine XY solve kill requested.",
+      [operation_id, target_layer, terminated_evaluations],
+    )
+    return {
+      "layer": target_layer,
+      "killed": True,
+      "message": "Kill requested.",
+      "terminatedEvaluations": int(terminated_evaluations),
       "status": updated_status,
     }
 
@@ -715,7 +1018,9 @@ class MachineGeometryCalibration:
       pass
 
   # -------------------------------------------------------------------
-  def _projectMeasurement(self, measurement, *, layer_path, machine_path, roller_y_cals):
+  def _projectMeasurement(
+    self, measurement, *, layer_path, machine_path, roller_y_cals
+  ):
     view = compute_uv_anchor_to_target_view(
       command_text=str(measurement["gcodeLine"]),
       layer=str(measurement["layer"]),
@@ -736,9 +1041,9 @@ class MachineGeometryCalibration:
       entry = by_line_key.setdefault(line_key, measurement)
       if entry is measurement:
         continue
-      delta = abs(float(entry["actualWireX"]) - float(measurement["actualWireX"])) + abs(
-        float(entry["actualWireY"]) - float(measurement["actualWireY"])
-      )
+      delta = abs(
+        float(entry["actualWireX"]) - float(measurement["actualWireX"])
+      ) + abs(float(entry["actualWireY"]) - float(measurement["actualWireY"]))
       if delta > 1e-6:
         return (
           "Multiple XY measurements target line "
@@ -762,13 +1067,14 @@ class MachineGeometryCalibration:
   ):
     same_side_by_roller = {index: [] for index in range(4)}
     for measurement in measurements:
-      if measurement["kind"] == "same_side" and measurement.get("rollerIndex") is not None:
+      if (
+        measurement["kind"] == "same_side"
+        and measurement.get("rollerIndex") is not None
+      ):
         same_side_by_roller[int(measurement["rollerIndex"])].append(measurement)
 
     measured_rollers = [
-      roller_index
-      for roller_index in range(4)
-      if same_side_by_roller[roller_index]
+      roller_index for roller_index in range(4) if same_side_by_roller[roller_index]
     ]
     measurement_order = [str(measurement["id"]) for measurement in measurements]
 
@@ -776,24 +1082,61 @@ class MachineGeometryCalibration:
       if not group_measurements:
         return []
       self._raiseIfMachineSolveCancelled(layer, operation_id)
+      self._raiseIfMachineSolveKilled(operation_id)
       machine_path = self._candidateMachineCalibrationPath(
         roller_y_cals,
         camera_offset=camera_offset,
       )
-      results = []
       try:
-        for measurement in group_measurements:
+        if not self._useIsolatedMachineSolveEvaluation():
+          results = []
+          for measurement in group_measurements:
+            self._raiseIfMachineSolveCancelled(layer, operation_id)
+            self._raiseIfMachineSolveKilled(operation_id)
+            projection = self._projectMeasurement(
+              measurement,
+              layer_path=layer_path,
+              machine_path=machine_path,
+              roller_y_cals=roller_y_cals,
+            )
+            results.append((measurement, projection))
+          return results
+
+        evaluation = self._spawnMachineSolveEvaluation(
+          group_measurements,
+          layer_path=layer_path,
+          machine_path=machine_path,
+          roller_y_cals=roller_y_cals,
+        )
+        self._registerActiveMachineSolveEvaluation(operation_id, evaluation)
+        evaluation.start()
+        payload = None
+        try:
+          while payload is None:
+            self._raiseIfMachineSolveKilled(operation_id)
+            payload = evaluation.poll(timeout=0.1)
+            if payload is not None:
+              break
+            if not evaluation.is_alive():
+              payload = evaluation.poll(timeout=0.0)
+              break
+          self._raiseIfMachineSolveKilled(operation_id)
           self._raiseIfMachineSolveCancelled(layer, operation_id)
-          projection = self._projectMeasurement(
-            measurement,
-            layer_path=layer_path,
-            machine_path=machine_path,
-            roller_y_cals=roller_y_cals,
-          )
-          results.append((measurement, projection))
+          if payload is None:
+            raise RuntimeError(
+              "Machine XY evaluation exited before returning a result."
+            )
+          if not bool(payload.get("ok")):
+            raise RuntimeError(
+              "Machine XY evaluation failed: "
+              + str(payload.get("error") or "unknown error")
+            )
+          return list(payload.get("results") or [])
+        finally:
+          self._unregisterActiveMachineSolveEvaluation(operation_id, evaluation)
+          evaluation.close()
       finally:
         self._removeTemporaryCandidatePath(machine_path)
-      return results
 
     def summarize_results(results, camera_offset):
       camera_x = float(camera_offset[0])
@@ -801,12 +1144,12 @@ class MachineGeometryCalibration:
       by_measurement = {}
       primary = 0.0
       for measurement, projection in results:
-        offset_x = (
-          float(measurement["effectiveCameraX"]) + camera_x
-        ) - float(projection["projectedX"])
-        offset_y = (
-          float(measurement["rawCameraY"]) + camera_y
-        ) - float(projection["projectedY"])
+        offset_x = (float(measurement["effectiveCameraX"]) + camera_x) - float(
+          projection["projectedX"]
+        )
+        offset_y = (float(measurement["rawCameraY"]) + camera_y) - float(
+          projection["projectedY"]
+        )
         summary = (
           measurement,
           projection,
@@ -833,7 +1176,9 @@ class MachineGeometryCalibration:
         summary = summary_by_measurement.get(str(measurement["id"]))
         if summary is None:
           continue
-        primary += (float(summary[2]) * float(summary[2])) + (float(summary[3]) * float(summary[3]))
+        primary += (float(summary[2]) * float(summary[2])) + (
+          float(summary[3]) * float(summary[3])
+        )
       return float(primary)
 
     def max_abs_offset(summary_by_measurement, group_measurements=None):
@@ -920,13 +1265,11 @@ class MachineGeometryCalibration:
 
     def build_full_score(primary, roller_y_cals, camera_offset):
       roller_secondary = sum(
-        (float(value) - float(nominal_roller_y)) ** 2
-        for value in roller_y_cals
+        (float(value) - float(nominal_roller_y)) ** 2 for value in roller_y_cals
       )
       camera_secondary = (
-        (float(camera_offset[0]) - float(current_camera_offset[0])) ** 2
-        + (float(camera_offset[1]) - float(current_camera_offset[1])) ** 2
-      )
+        float(camera_offset[0]) - float(current_camera_offset[0])
+      ) ** 2 + (float(camera_offset[1]) - float(current_camera_offset[1])) ** 2
       return (
         float(primary),
         float(roller_secondary),
@@ -1061,7 +1404,9 @@ class MachineGeometryCalibration:
             level_count=camera_levels,
             candidate_label=candidate_label,
           )
-          candidate_summary = summarize_results(candidate_results, candidate_camera_offset)
+          candidate_summary = summarize_results(
+            candidate_results, candidate_camera_offset
+          )
           candidate_score = build_full_score(
             candidate_summary["primary"],
             working_roller_y_cals,
@@ -1086,7 +1431,9 @@ class MachineGeometryCalibration:
     for roller_index in measured_rollers:
       self._raiseIfMachineSolveCancelled(layer, operation_id)
       group_measurements = same_side_by_roller[roller_index]
-      current_group_primary = primary_for_measurements(summary_by_measurement, group_measurements)
+      current_group_primary = primary_for_measurements(
+        summary_by_measurement, group_measurements
+      )
       other_primary = float(total_primary - current_group_primary)
       current_roller_secondary = (
         float(working_roller_y_cals[roller_index]) - float(nominal_roller_y)
@@ -1136,8 +1483,7 @@ class MachineGeometryCalibration:
           candidate_score = (
             float(other_primary + candidate_group_primary),
             float(
-              other_roller_secondary
-              + ((candidate_y - float(nominal_roller_y)) ** 2)
+              other_roller_secondary + ((candidate_y - float(nominal_roller_y)) ** 2)
             ),
             float(camera_secondary),
           )
@@ -1189,7 +1535,8 @@ class MachineGeometryCalibration:
     target_layer = self._resolvedLayer(layer)
     operation_id = uuid.uuid4().hex
     solve_started_at = time.time()
-    self._cancelRequestedMachineSolveOperationIds.discard(str(operation_id))
+    self._clearMachineSolveRequests(operation_id)
+    self._registerMachineSolveOperation(operation_id)
     progress_checkpoint = {
       "time": 0.0,
       "step": None,
@@ -1226,14 +1573,14 @@ class MachineGeometryCalibration:
         and progress_checkpoint["status"] == "running"
       ):
         status_fields["elapsedSeconds"] = float(max(0.0, now - solve_started_at))
-      self._updateMachineSolveStatus(
-        target_layer,
-        operationId=operation_id,
-        status="running",
-        step=step,
-        message=message,
-        **status_fields,
-      )
+        self._updateMachineSolveStatus(
+          target_layer,
+          operationId=operation_id,
+          status="running",
+          step=step,
+          message=message,
+          **status_fields,
+        )
       self._log(
         "SOLVE_MACHINE_XY_PROGRESS",
         str(message),
@@ -1265,6 +1612,9 @@ class MachineGeometryCalibration:
         fitError=None,
         cancelRequested=False,
         cancelRequestedAt=None,
+        killRequested=False,
+        killRequestedAt=None,
+        terminatedEvaluations=0,
         completedEvaluations=0,
         totalEvaluations=None,
         percentComplete=0.0,
@@ -1307,7 +1657,7 @@ class MachineGeometryCalibration:
           "Machine XY solve failed validation.",
           [operation_id, target_layer, conflict],
         )
-        self._cancelRequestedMachineSolveOperationIds.discard(str(operation_id))
+        self._clearMachineSolveRequests(operation_id)
         self._saveState()
         return result
 
@@ -1397,14 +1747,12 @@ class MachineGeometryCalibration:
         completedEvaluations=int(
           evaluation.get("progress", {}).get("completedEvaluations", 0)
         ),
-        totalEvaluations=int(
-          evaluation.get("progress", {}).get("totalEvaluations", 0)
-        ),
+        totalEvaluations=int(evaluation.get("progress", {}).get("totalEvaluations", 0)),
         percentComplete=100.0,
         elapsedSeconds=float(max(0.0, time.time() - solve_started_at)),
         estimatedSecondsRemaining=0.0,
       )
-      self._cancelRequestedMachineSolveOperationIds.discard(str(operation_id))
+      self._clearMachineSolveRequests(operation_id)
       self._saveState()
       self._log(
         "SOLVE_MACHINE_XY_DONE",
@@ -1417,8 +1765,36 @@ class MachineGeometryCalibration:
         ],
       )
       return machine_solve
+    except _MachineXYSolveKilled:
+      self._terminateActiveMachineSolveEvaluations(operation_id)
+      self._clearMachineSolveRequests(operation_id)
+      self._updateMachineSolveStatus(
+        target_layer,
+        operationId=operation_id,
+        status="killed",
+        step="killed",
+        message="Machine XY solve killed. Active evaluation terminated.",
+        fitError=None,
+        finishedAt=self._timestamp(),
+        cancelRequested=False,
+        killRequested=False,
+        percentComplete=100.0,
+        elapsedSeconds=float(max(0.0, time.time() - solve_started_at)),
+        estimatedSecondsRemaining=0.0,
+      )
+      self._log(
+        "SOLVE_MACHINE_XY_KILLED",
+        "Machine XY solve killed.",
+        [operation_id, target_layer],
+      )
+      return {
+        "canceled": True,
+        "killed": True,
+        "fitError": None,
+        "measurementRevision": self._measurementRevision(),
+      }
     except _MachineXYSolveCancelled:
-      self._cancelRequestedMachineSolveOperationIds.discard(str(operation_id))
+      self._clearMachineSolveRequests(operation_id)
       self._updateMachineSolveStatus(
         target_layer,
         operationId=operation_id,
@@ -1443,7 +1819,8 @@ class MachineGeometryCalibration:
         "measurementRevision": self._measurementRevision(),
       }
     except Exception as exception:
-      self._cancelRequestedMachineSolveOperationIds.discard(str(operation_id))
+      self._terminateActiveMachineSolveEvaluations(operation_id)
+      self._clearMachineSolveRequests(operation_id)
       message = "Machine XY solve failed: " + _error_text(exception)
       self._updateMachineSolveStatus(
         target_layer,
@@ -1470,6 +1847,9 @@ class MachineGeometryCalibration:
         [operation_id, target_layer, repr(exception), traceback.format_exc()],
       )
       raise ValueError(message)
+    finally:
+      self._unregisterMachineSolveOperation(operation_id)
+      self._clearMachineSolveRequests(operation_id)
 
   # -------------------------------------------------------------------
   def applyMachineXY(self, layer=None):
@@ -1499,7 +1879,7 @@ class MachineGeometryCalibration:
       for measurement in self._usableMeasurements(target_layer)
       if measurement["kind"] == "same_side"
       and measurement["usableForMachineXY"]
-        and measurement.get("rollerIndex") is not None
+      and measurement.get("rollerIndex") is not None
     ]
     roller_measurements = []
     for measurement in same_side_measurements:
@@ -1533,7 +1913,9 @@ class MachineGeometryCalibration:
         str(override_result.get("error", "Failed to apply line offset overrides."))
       )
     script_variant = getattr(template_service, "_lastGeneratedScriptVariant", None)
-    generation_result = template_service.generateRecipeFile(scriptVariant=script_variant)
+    generation_result = template_service.generateRecipeFile(
+      scriptVariant=script_variant
+    )
     if not generation_result.get("ok", False):
       raise ValueError(
         str(generation_result.get("error", "Failed to regenerate recipe file."))
@@ -1546,7 +1928,9 @@ class MachineGeometryCalibration:
           machine_calibration.rollerArmCalibration
         ),
       },
-      "lineOffsetOverrideItems": line_offset_override_items(draft["lineOffsetOverrides"]),
+      "lineOffsetOverrideItems": line_offset_override_items(
+        draft["lineOffsetOverrides"]
+      ),
       "scriptVariant": script_variant,
       "generation": generation_result.get("data"),
     }
@@ -1600,6 +1984,10 @@ class MachineGeometryCalibration:
         "machineSolve": None,
         "lineOffsetOverrides": {},
       }
+      machine_solve_status = self._reconcileMachineSolveStatus(
+        layer,
+        draft.get("machineSolveStatus"),
+      )
       layer_state = {
         "layer": layer,
         "liveZPlaneCalibration": self._liveLayerPlaneSummary(layer),
@@ -1619,7 +2007,7 @@ class MachineGeometryCalibration:
           draft.get("lineOffsetOverrides", {})
         ),
         "machineSolve": draft.get("machineSolve"),
-        "machineSolveStatus": draft.get("machineSolveStatus"),
+        "machineSolveStatus": machine_solve_status,
       }
 
     measurements = []
