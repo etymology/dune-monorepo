@@ -31,7 +31,7 @@ from dune_winder.recipes.template_gcode_transfers import (
 WRAP_COUNT = 400
 Y_PULL_IN = 200.0
 X_PULL_IN = 200.0
-COMB_PULL_FACTOR = 3.0
+COMB_PULL_FACTOR = 4.0
 PREAMBLE_X = 7174.0
 PREAMBLE_Y = 60.0
 PREAMBLE_BOARD_GAP_PULL = -50.0
