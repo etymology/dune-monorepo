@@ -13,6 +13,10 @@ from dune_winder.library.Geometry.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
+from dune_winder.machine.geometry.uv_wrap_geometry import (
+  _arm_correction_head_shift_signs as _shared_arm_correction_head_shift_signs,
+  _roller_index_for_head_shift_signs as _shared_roller_index_for_head_shift_signs,
+)
 from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.paths import PACKAGE_ROOT, REPO_ROOT
 from dune_winder.queued_motion.filleted_path import (
@@ -29,7 +33,7 @@ from dune_winder.recipes.v_template_gcode import (
 )
 
 
-_PIN_NAME_RE = re.compile(r"^[ABF]\d+$")
+_PIN_NAME_RE = re.compile(r"^P?[ABF]\d+$")
 _RECIPE_SITE_RE = re.compile(
   r"G109\s+(P[AB]\d+)\s+P([A-Z]{2})\s+G103\s+(P[AB]\d+)\s+(P[AB]\d+).*?\(([^()]*)\)"
 )
@@ -236,30 +240,11 @@ def _normalize_head_z_mode(mode: str) -> str:
 
 def _normalize_pin_name(pin_name: str, label: str) -> str:
   value = str(pin_name).strip().upper()
-  if value.startswith("P"):
-    value = value[1:]
   if not _PIN_NAME_RE.match(value):
     raise UvHeadTargetError(f"{label} must be a pin name like B1201 or A799.")
-  return value
-
-
-def _canonical_pin_name(pin_name: str) -> str:
-  value = _normalize_pin_name(pin_name, "Pin")
   if value.startswith("F"):
-    return "A" + value[1:]
+    value = "A" + value[1:]
   return value
-
-
-def _display_pin_name_like(reference_pin: str, pin_name: str) -> str:
-  reference_value = str(reference_pin).strip().upper()
-  canonical_value = _canonical_pin_name(pin_name)
-  if reference_value.startswith("P"):
-    return "P" + canonical_value
-  if reference_value.startswith("F"):
-    return "F" + canonical_value[1:]
-  if reference_value[:1] in {"A", "B"}:
-    return reference_value[:1] + canonical_value[1:]
-  return canonical_value
 
 
 def _default_layer_calibration_path(layer: str) -> Path:
@@ -488,12 +473,11 @@ def _location_to_point2(location: Location) -> Point2D:
 
 
 def _wire_space_pin(layer_calibration: LayerCalibration, pin_name: str) -> Location:
-  canonical_pin = _canonical_pin_name(pin_name)
-  if not layer_calibration.getPinExists(canonical_pin):
+  if not layer_calibration.getPinExists(pin_name):
     raise UvHeadTargetError(
       f"Pin {pin_name} is not present in {layer_calibration.getLayerNames()} calibration."
     )
-  return layer_calibration.getPinLocation(canonical_pin).add(layer_calibration.offset)
+  return layer_calibration.getPinLocation(pin_name).add(layer_calibration.offset)
 
 
 def _all_wire_space_pins(layer_calibration: LayerCalibration) -> dict[str, Point3D]:
@@ -822,43 +806,16 @@ def _recipe_sites_by_anchor(layer: str) -> dict[str, list[RecipeSite]]:
   return result
 
 
-@lru_cache(maxsize=2)
-def _ordered_recipe_sites(layer: str) -> tuple[RecipeSite, ...]:
-  sites: list[RecipeSite] = []
-  for line in _render_lines_for_layer(layer):
-    match = _RECIPE_SITE_RE.search(line)
-    if match is None:
-      continue
-    anchor_pin, orientation_token, pair_pin_a, pair_pin_b, site_label = match.groups()
-    anchor_pin = _strip_p_prefix(anchor_pin)
-    pair_pin_a = _strip_p_prefix(pair_pin_a)
-    pair_pin_b = _strip_p_prefix(pair_pin_b)
-    side, position = _parse_site_label(site_label)
-    sites.append(
-      RecipeSite(
-        anchor_pin=anchor_pin,
-        orientation_token=orientation_token,
-        recipe_pair_pin_a=pair_pin_a,
-        recipe_pair_pin_b=pair_pin_b,
-        site_label=site_label,
-        side=side,
-        position=position,
-      )
-    )
-  return tuple(sites)
-
-
 def _lookup_recipe_site(layer: str, *args) -> RecipeSite:
-  normalized_layer = _normalize_layer(layer)
   if len(args) == 2:
     anchor_pin, wrapped_pin = args
   elif len(args) == 3:
     _layer_calibration, anchor_pin, wrapped_pin = args
   else:
-    raise TypeError("_lookup_recipe_site() expects layer plus anchor and wrapped pins.")
-
-  normalized_anchor_pin = _canonical_pin_name(anchor_pin)
-  normalized_wrapped_pin = _canonical_pin_name(wrapped_pin)
+    raise TypeError("_lookup_recipe_site expects layer plus anchor/wrapped pins.")
+  normalized_layer = _normalize_layer(layer)
+  normalized_anchor_pin = _strip_p_prefix(_normalize_pin_name(anchor_pin, "Anchor pin"))
+  normalized_wrapped_pin = _strip_p_prefix(_normalize_pin_name(wrapped_pin, "Wrapped pin"))
 
   candidates = _recipe_sites_by_anchor(normalized_layer).get(normalized_anchor_pin, [])
   if not candidates:
@@ -867,10 +824,7 @@ def _lookup_recipe_site(layer: str, *args) -> RecipeSite:
     )
 
   for candidate in candidates:
-    if normalized_wrapped_pin in {
-      candidate.recipe_pair_pin_a,
-      candidate.recipe_pair_pin_b,
-    }:
+    if normalized_wrapped_pin in {candidate.recipe_pair_pin_a, candidate.recipe_pair_pin_b}:
       return candidate
 
   raise UvHeadTargetError(
@@ -883,63 +837,67 @@ def _infer_pair_pin_from_wrap_side(
   wrapped_pin: str,
   tangent_sides_value: tuple[str, str],
 ) -> str:
-  wrapped_pin_label = str(wrapped_pin).strip().upper()
-  wrapped_pin_name = _canonical_pin_name(wrapped_pin_label)
-  wrapped_location = _wire_space_pin(layer_calibration, wrapped_pin_name)
-  desired_position = "top" if tangent_sides_value[1] == "minus" else "bottom"
-  desired_end = "head" if tangent_sides_value[0] == "minus" else "foot"
-  min_gap = 4 if desired_end == "head" else 6
-
-  ordered_sites = _ordered_recipe_sites(layer_calibration.getLayerNames())
-  wrapped_gap = _pin_number(wrapped_pin_name)
-  for site in ordered_sites:
-    site_label = site.site_label.lower()
-    if site.side != wrapped_pin_name[:1] or site.position != desired_position:
-      continue
-    if f"{desired_end} end" not in site_label and desired_end not in site_label:
-      continue
-    candidate_a = _canonical_pin_name(site.recipe_pair_pin_a)
-    candidate_b = _canonical_pin_name(site.recipe_pair_pin_b)
-    if candidate_a == wrapped_pin_name or candidate_b == wrapped_pin_name:
-      continue
-    candidate_a_gap = abs(_pin_number(candidate_a) - wrapped_gap)
-    candidate_b_gap = abs(_pin_number(candidate_b) - wrapped_gap)
-    wrapped_point = Point2D(float(wrapped_location.x), float(wrapped_location.y))
-    candidate_a_point = Point2D(
-      float(_wire_space_pin(layer_calibration, candidate_a).x),
-      float(_wire_space_pin(layer_calibration, candidate_a).y),
-    )
-    candidate_b_point = Point2D(
-      float(_wire_space_pin(layer_calibration, candidate_b).x),
-      float(_wire_space_pin(layer_calibration, candidate_b).y),
-    )
-    candidate_a_matches = _matches_tangent_sides(
-      candidate_a_point, wrapped_point, tangent_sides_value
-    )
-    candidate_b_matches = _matches_tangent_sides(
-      candidate_b_point, wrapped_point, tangent_sides_value
-    )
-    if not candidate_a_matches and not candidate_b_matches:
-      continue
-    qualifying_candidates: list[tuple[int, str]] = []
-    if candidate_a_matches and candidate_a_gap >= min_gap:
-      qualifying_candidates.append((candidate_a_gap, candidate_a))
-    if candidate_b_matches and candidate_b_gap >= min_gap:
-      qualifying_candidates.append((candidate_b_gap, candidate_b))
-    if not qualifying_candidates:
-      continue
-    qualifying_candidates.sort(key=lambda item: item[0])
-    best_pin = qualifying_candidates[0][1]
-    if wrapped_pin_label.startswith("P"):
-      return f"P{best_pin}"
-    if wrapped_pin_label.startswith("F"):
-      return f"F{best_pin[1:]}"
-    return best_pin
-
-  raise UvHeadTargetError(
-    "Could not infer the second G103 pin from wrapped pin "
-    f"{wrapped_pin} and tangent sides {_format_tangent_sides(tangent_sides_value)}."
+  wrapped_pin_name = (
+    wrapped_pin[1:] if str(wrapped_pin).upper().startswith("P") else wrapped_pin
   )
+  wrapped_location = _wire_space_pin(layer_calibration, wrapped_pin_name)
+  wrapped_face = _face_for_pin(layer_calibration.getLayerNames(), wrapped_pin_name)
+  same_face_pins = [
+    pin_name
+    for pin_name in layer_calibration.getPinNames()
+    if (
+      pin_name.startswith(wrapped_pin_name[0])
+      and pin_name != wrapped_pin_name
+      and _face_for_pin(layer_calibration.getLayerNames(), pin_name) == wrapped_face
+    )
+  ]
+  if not same_face_pins:
+    raise UvHeadTargetError(f"No same-face candidate pins found for {wrapped_pin}.")
+
+  best_pin = None
+  best_score = None
+  x_sign = 1.0 if tangent_sides_value[0] == "plus" else -1.0
+
+  def candidate_specs():
+    for pin_name in same_face_pins:
+      location = _wire_space_pin(layer_calibration, pin_name)
+      delta_x = float(location.x - wrapped_location.x)
+      delta_y = float(location.y - wrapped_location.y)
+      signed_x = x_sign * delta_x
+      if signed_x <= _AXIS_EPSILON:
+        continue
+      yield (pin_name, signed_x, abs(delta_y))
+
+  candidates = list(candidate_specs())
+  if candidates:
+    local_pitch_x = min(spec[1] for spec in candidates)
+  else:
+    local_pitch_x = 0.0
+  local_min_signed_x = local_pitch_x * 4.0
+  local_max_signed_x = local_pitch_x * 12.0
+  preferred_candidates = [
+    spec
+    for spec in candidates
+    if local_min_signed_x - 1e-6
+    <= spec[1]
+    <= local_max_signed_x + 1e-6
+  ]
+
+  for pin_name, signed_x, abs_delta_y in preferred_candidates or candidates:
+    score = (abs_delta_y, signed_x)
+    if best_score is None or score < best_score:
+      best_score = score
+      best_pin = pin_name
+
+  if best_pin is None:
+    raise UvHeadTargetError(
+      "Could not infer the second G103 pin from wrapped pin "
+      f"{wrapped_pin} and tangent sides {_format_tangent_sides(tangent_sides_value)}."
+    )
+
+  if str(wrapped_pin).upper().startswith("P"):
+    return f"P{best_pin}"
+  return best_pin
 
 
 def _infer_local_pair_pin_from_wrap_side(
@@ -948,7 +906,9 @@ def _infer_local_pair_pin_from_wrap_side(
   tangent_sides_value: tuple[str, str],
 ) -> str:
   wrapped_pin_label = str(wrapped_pin).strip().upper()
-  wrapped_pin_name = _canonical_pin_name(wrapped_pin_label)
+  wrapped_pin_name = (
+    wrapped_pin[1:] if str(wrapped_pin).upper().startswith("P") else wrapped_pin
+  )
   wrapped_location = _wire_space_pin(layer_calibration, wrapped_pin_name)
   family_pins = [
     pin_name
@@ -1395,21 +1355,14 @@ def _arm_correction_head_shift_signs(
   anchor_pin_point: Point2D,
   target_pin_point: Point2D,
 ) -> tuple[int, int] | None:
-  sign_x = _sign_with_epsilon(target_pin_point.x - anchor_pin_point.x)
-  sign_y = _sign_with_epsilon(target_pin_point.y - anchor_pin_point.y)
-  if sign_x == 0 or sign_y == 0:
-    return None
-  return (sign_x, sign_y)
+  return _shared_arm_correction_head_shift_signs(
+    anchor_pin_point=anchor_pin_point,
+    target_pin_point=target_pin_point,
+  )
 
 
 def _roller_index_for_head_shift_signs(sign_x: int, sign_y: int) -> int:
-  mapping = {
-    (-1, -1): 0,
-    (-1, 1): 1,
-    (1, -1): 2,
-    (1, 1): 3,
-  }
-  return mapping[(sign_x, sign_y)]
+  return _shared_roller_index_for_head_shift_signs(sign_x, sign_y)
 
 
 def _roller_offset_for_index(
@@ -1457,15 +1410,12 @@ def _compute_arm_corrected_outbound(
   head_roller_gap: float,
   roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> tuple[Point2D, Point2D, int, str]:
-  tangent_y_side = _arm_correction_tangent_y_side(
-    anchor_pin_point=anchor_pin_point,
-    target_pin_point=target_pin_point,
-  )
   head_shift_signs = _arm_correction_head_shift_signs(
     anchor_pin_point=anchor_pin_point,
     target_pin_point=target_pin_point,
   )
-  if tangent_y_side is None or head_shift_signs is None:
+  tangent_x_side = _sign_with_epsilon(target_pin_point.x - anchor_pin_point.x)
+  if tangent_x_side == 0 or head_shift_signs is None:
     raise UvHeadTargetError(
       "Arm correction is unavailable because the anchor-to-target pin direction is indeterminate."
     )
@@ -1501,7 +1451,7 @@ def _compute_arm_corrected_outbound(
   matching_normals = [
     normal
     for normal in candidate_normals
-    if _sign_with_epsilon(normal.y) == tangent_y_side
+    if _sign_with_epsilon(normal.x) == tangent_x_side
   ]
   if len(matching_normals) != 1:
     raise UvHeadTargetError(
@@ -1696,6 +1646,12 @@ def compute_uv_head_target(
     normalized_request.layer,
     layer_calibration_path,
   )
+  resolved_roller_arm_y_offsets = roller_arm_y_offsets
+  if (
+    resolved_roller_arm_y_offsets is None
+    and machine_calibration.rollerArmCalibration is not None
+  ):
+    resolved_roller_arm_y_offsets = machine_calibration.rollerArmCalibration.fitted_y_cals
   anchor_point = _wire_space_pin(layer_calibration, normalized_request.anchor_pin)
   wrapped_point = _wire_space_pin(layer_calibration, normalized_request.wrapped_pin)
   recipe_anchor_pin = f"P{normalized_request.anchor_pin}"
@@ -1712,17 +1668,16 @@ def compute_uv_head_target(
   )
   inferred_pair_pin = (
     recipe_site.recipe_pair_pin_b
-    if _canonical_pin_name(recipe_wrapped_pin)
-    == _canonical_pin_name(recipe_site.recipe_pair_pin_a)
+    if recipe_wrapped_pin == recipe_site.recipe_pair_pin_a
     else recipe_site.recipe_pair_pin_a
   )
   inferred_pair_pin_name = (
     inferred_pair_pin[1:] if inferred_pair_pin.startswith("P") else inferred_pair_pin
   )
-  inferred_pair_pin_name = _display_pin_name_like(
-    request.wrapped_pin, inferred_pair_pin_name
-  )
   inferred_pair_point = _wire_space_pin(layer_calibration, inferred_pair_pin_name)
+  display_inferred_pair_pin = inferred_pair_pin_name
+  if str(request.wrapped_pin).strip().upper().startswith("F") and display_inferred_pair_pin.startswith("A"):
+    display_inferred_pair_pin = "F" + display_inferred_pair_pin[1:]
 
   head_position = 1 if normalized_request.head_z_mode == "front" else 2
   handler = _initial_handler(machine_calibration, layer_calibration)
@@ -1752,7 +1707,7 @@ def compute_uv_head_target(
     orientation_token=recipe_site.orientation_token,
     anchor_pin_point=_location_to_point3(anchor_point),
     wrapped_pin_point=_location_to_point3(wrapped_point),
-    inferred_pair_pin=inferred_pair_pin_name,
+    inferred_pair_pin=display_inferred_pair_pin,
     inferred_pair_pin_point=_location_to_point3(inferred_pair_point),
     midpoint_point=midpoint_point,
     transfer_point=transfer_point,
@@ -1799,6 +1754,12 @@ def compute_uv_tangent_view(
     normalized_request.layer,
     layer_calibration_path,
   )
+  resolved_roller_arm_y_offsets = roller_arm_y_offsets
+  if (
+    resolved_roller_arm_y_offsets is None
+    and machine_calibration.rollerArmCalibration is not None
+  ):
+    resolved_roller_arm_y_offsets = machine_calibration.rollerArmCalibration.fitted_y_cals
 
   pin_a_location = _wire_space_pin(layer_calibration, normalized_request.pin_a)
   pin_a_point = _location_to_point3(pin_a_location)
@@ -1846,21 +1807,9 @@ def compute_uv_tangent_view(
       raise UvHeadTargetError(
         "Alternating-side view requires exactly one B pin and one A pin."
       )
-    a_pin = (
-      normalized_request.pin_a
-      if pin_a_family == "A"
-      else normalized_request.pin_b
-    )
-    b_pin = (
-      normalized_request.pin_b
-      if pin_b_family == "B"
-      else normalized_request.pin_a
-    )
-    if _b_side_face_for_pin(normalized_request.layer, a_pin) != _b_side_face_for_pin(
-      normalized_request.layer, b_pin
-    ):
+    if pin_a_face != pin_b_face:
       raise UvHeadTargetError(
-        "Pins must land on the same face after converting the A pin to the B side."
+        "Alternating-side view requires both pins to lie on the same face after converting the A pin to the B side."
       )
     alternating_face = pin_b_face
     alternating_plane = _alternating_plane_for_face(pin_b_face)
@@ -1939,7 +1888,7 @@ def compute_uv_tangent_view(
     machine_calibration=machine_calibration,
     layer_calibration=layer_calibration,
     transfer_bounds=transfer_bounds,
-    roller_arm_y_offsets=roller_arm_y_offsets,
+    roller_arm_y_offsets=resolved_roller_arm_y_offsets,
   )
   if runtime_candidate is not None:
     (
@@ -1971,7 +1920,7 @@ def compute_uv_tangent_view(
         head_arm_length=head_arm_length,
         head_roller_radius=head_roller_radius,
         head_roller_gap=head_roller_gap,
-        roller_arm_y_offsets=roller_arm_y_offsets,
+        roller_arm_y_offsets=resolved_roller_arm_y_offsets,
       )
       arm_corrected_available = True
     except UvHeadTargetError as exc:

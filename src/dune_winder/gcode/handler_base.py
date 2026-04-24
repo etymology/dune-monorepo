@@ -556,7 +556,6 @@ class GCodeHandlerBase:
       RectBounds,
       plan_wrap_transition,
     )
-
     normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
     normalized_target = self._normalize_wrap_pin(target_pin, label="target pin")
 
@@ -571,33 +570,44 @@ class GCodeHandlerBase:
         float(target_location.z),
       )
 
-    tangent_view = plan_wrap_transition(
-      layer=self._layerCalibration.getLayerNames(),
-      anchor_pin=normalized_anchor,
-      target_pin=normalized_target,
-      anchor_pin_point=Point3D(
-        float(anchor_location.x),
-        float(anchor_location.y),
-        float(anchor_location.z),
-      ),
-      target_pin_point=Point3D(
-        float(target_location.x),
-        float(target_location.y),
-        float(target_location.z),
-      ),
-      transfer_bounds=RectBounds(
-        left=float(self._machineCalibration.transferLeft),
-        top=float(self._machineCalibration.transferTop),
-        right=float(self._machineCalibration.transferRight),
-        bottom=float(self._machineCalibration.transferBottom),
-      ),
-      z_front=float(self._machineCalibration.zFront),
-      z_back=float(self._machineCalibration.zBack),
-      pin_radius=float(self._machineCalibration.pinDiameter) / 2.0,
-      head_arm_length=float(self._machineCalibration.headArmLength),
-      head_roller_radius=float(self._machineCalibration.headRollerRadius),
-      head_roller_gap=float(self._machineCalibration.headRollerGap),
-    )
+    try:
+      plan = plan_wrap_transition(
+        layer=self._layerCalibration.getLayerNames(),
+        anchor_pin=normalized_anchor,
+        target_pin=normalized_target,
+        anchor_pin_point=Point3D(
+          float(anchor_location.x),
+          float(anchor_location.y),
+          float(anchor_location.z),
+        ),
+        target_pin_point=Point3D(
+          float(target_location.x),
+          float(target_location.y),
+          float(target_location.z),
+        ),
+        transfer_bounds=RectBounds(
+          left=float(self._machineCalibration.transferLeft),
+          top=float(self._machineCalibration.transferTop),
+          right=float(self._machineCalibration.transferRight),
+          bottom=float(self._machineCalibration.transferBottom),
+        ),
+        z_front=float(self._machineCalibration.zFront),
+        z_back=float(self._machineCalibration.zBack),
+        pin_radius=float(self._machineCalibration.pinDiameter) / 2.0,
+        head_arm_length=float(self._machineCalibration.headArmLength),
+        head_roller_radius=float(self._machineCalibration.headRollerRadius),
+        head_roller_gap=float(self._machineCalibration.headRollerGap),
+        roller_arm_y_offsets=(
+          self._machineCalibration.rollerArmCalibration.fitted_y_cals
+          if (
+            self._machineCalibration is not None
+            and self._machineCalibration.rollerArmCalibration is not None
+          )
+          else None
+        ),
+      )
+    except UvWrapGeometryError as exc:
+      raise GCodeExecutionError(str(exc), [normalized_anchor, normalized_target]) from exc
 
     self._instruction_trace["enabled"] = True
     self._record_instruction_trace_pin(
@@ -613,36 +623,25 @@ class GCodeHandlerBase:
     head_position = 1 if normalized_target.startswith("A") else 2
     clearance_position = 0 if normalized_target.startswith("A") else 3
 
-    if tangent_view.same_side:
-      final_xy = Point2D(
-        float(tangent_view.final_xy.x),
-        float(tangent_view.final_xy.y),
-      )
+    final_xy = Point2D(float(plan.final_xy.x), float(plan.final_xy.y))
+    if plan.same_side:
       self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
       self._append_pending_action("head_transfer", head_position=head_position)
+      resolved_head_position = head_position
     else:
       self._append_pending_action("head_transfer", head_position=clearance_position)
-      final_xy = Point2D(
-        float(tangent_view.final_xy.x),
-        float(tangent_view.final_xy.y),
-      )
       if hover:
-        final_xy = self._apply_alternating_hover_offset(
-          tangent_view,
-          final_xy,
+        final_xy = Point2D(
+          float(final_xy.x),
+          float(final_xy.y) + float(alternating_side_hover_y_offset(plan.face)),
         )
       self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+      resolved_head_position = clearance_position
 
     self._x = float(final_xy.x)
     self._y = float(final_xy.y)
-    self._z = float(
-      self._getHeadPosition(
-        head_position if tangent_view.same_side else clearance_position
-      )
-    )
-    self._headPosition = int(
-      head_position if tangent_view.same_side else clearance_position
-    )
+    self._z = float(self._getHeadPosition(resolved_head_position))
+    self._headPosition = int(resolved_head_position)
     self._instruction_contains_x = True
     self._instruction_contains_y = True
     self._instruction_request_xy = True
@@ -989,8 +988,14 @@ class GCodeHandlerBase:
     Throws:
       GCodeExecutionError if pin is not found.
     """
+    normalized_pin = str(pinName).strip().upper()
+    if normalized_pin.startswith("P"):
+      normalized_pin = normalized_pin[1:]
+    if normalized_pin.startswith("F"):
+      normalized_pin = "A" + normalized_pin[1:]
+
     try:
-      result = self._layerCalibration.getPinLocation(pinName)
+      result = self._layerCalibration.getPinLocation(normalized_pin)
     except KeyError:
       data = [str(pinName)]
 

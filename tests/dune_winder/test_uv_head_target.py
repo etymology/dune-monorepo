@@ -470,11 +470,20 @@ def test_compute_uv_tangent_view_returns_arm_geometry_from_machine_config():
     result.head_arm_length,
     abs_tol=1e-9,
   )
-  expected_y_offset = (result.head_roller_gap / 2.0) + result.head_roller_radius
+  expected_offsets = (
+    machine_calibration.rollerArmCalibration.fitted_y_cals
+    if machine_calibration.rollerArmCalibration is not None
+    else (
+      (result.head_roller_gap / 2.0) + result.head_roller_radius,
+      (result.head_roller_gap / 2.0) + result.head_roller_radius,
+      (result.head_roller_gap / 2.0) + result.head_roller_radius,
+      (result.head_roller_gap / 2.0) + result.head_roller_radius,
+    )
+  )
   assert {
     round(abs(roller.y - result.arm_head_center.y), 6)
     for roller in result.roller_centers
-  } == {round(expected_y_offset, 6)}
+  } == {round(float(offset), 6) for offset in expected_offsets}
 
 
 @pytest.mark.parametrize(
@@ -498,13 +507,13 @@ def test_arm_correction_tangent_side_follows_pin_y_ordering(
 @pytest.mark.parametrize(
   ("anchor_point", "target_point", "head_shift_signs", "roller_index"),
   (
-    (Point2D(0.0, 0.0), Point2D(-1.0, -1.0), (-1, -1), 0),
-    (Point2D(0.0, 0.0), Point2D(-1.0, 1.0), (-1, 1), 1),
-    (Point2D(0.0, 0.0), Point2D(1.0, -1.0), (1, -1), 2),
-    (Point2D(0.0, 0.0), Point2D(1.0, 1.0), (1, 1), 3),
+    (Point2D(0.0, 0.0), Point2D(-1.0, -1.0), (1, 1), 3),
+    (Point2D(0.0, 0.0), Point2D(-1.0, 1.0), (1, -1), 2),
+    (Point2D(0.0, 0.0), Point2D(1.0, -1.0), (-1, 1), 1),
+    (Point2D(0.0, 0.0), Point2D(1.0, 1.0), (-1, -1), 0),
   ),
 )
-def test_arm_correction_head_shift_signs_follow_anchor_to_target_direction(
+def test_arm_correction_head_shift_signs_follow_target_to_anchor_direction(
   anchor_point, target_point, head_shift_signs, roller_index
 ):
   assert _arm_correction_head_shift_signs(
@@ -548,8 +557,8 @@ def test_compute_arm_corrected_outbound_returns_transfer_edge_point_for_selected
     )
   )
 
-  assert quadrant == "NE"
-  assert roller_index == 3
+  assert quadrant == "SW"
+  assert roller_index == 0
   assert corrected_outbound == corrected_head_center
   assert (
     math.isclose(corrected_outbound.x, 20.0, abs_tol=1e-6)

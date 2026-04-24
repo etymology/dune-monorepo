@@ -479,8 +479,12 @@ def _roller_offset_for_index(
   head_arm_length: float,
   head_roller_radius: float,
   head_roller_gap: float,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> Point2D:
-  y_offset = (head_roller_gap / 2.0) + head_roller_radius
+  if roller_arm_y_offsets is not None:
+    y_offset = float(roller_arm_y_offsets[roller_index])
+  else:
+    y_offset = (head_roller_gap / 2.0) + head_roller_radius
   offsets = (
     Point2D(-head_arm_length, -y_offset),
     Point2D(-head_arm_length, y_offset),
@@ -516,16 +520,14 @@ def _compute_arm_corrected_outbound(
   head_arm_length: float,
   head_roller_radius: float,
   head_roller_gap: float,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
 ) -> tuple[Point2D, Point2D, int, str]:
-  tangent_y_side = _arm_correction_tangent_y_side(
-    anchor_pin_point=anchor_pin_point,
-    target_pin_point=target_pin_point,
-  )
   head_shift_signs = _arm_correction_head_shift_signs(
     anchor_pin_point=anchor_pin_point,
     target_pin_point=target_pin_point,
   )
-  if tangent_y_side is None or head_shift_signs is None:
+  tangent_x_side = _sign_with_epsilon(target_pin_point.x - anchor_pin_point.x)
+  if tangent_x_side == 0 or head_shift_signs is None:
     raise UvWrapGeometryError(
       "Arm correction is unavailable because the anchor-to-target pin direction is indeterminate."
     )
@@ -542,6 +544,7 @@ def _compute_arm_corrected_outbound(
     head_arm_length=head_arm_length,
     head_roller_radius=head_roller_radius,
     head_roller_gap=head_roller_gap,
+    roller_arm_y_offsets=roller_arm_y_offsets,
   )
   direction = Point2D(
     tangent_point_b.x - tangent_point_a.x,
@@ -561,7 +564,7 @@ def _compute_arm_corrected_outbound(
   matching_normals = [
     normal
     for normal in candidate_normals
-    if _sign_with_epsilon(normal.y) == tangent_y_side
+    if _sign_with_epsilon(normal.x) == tangent_x_side
   ]
   if len(matching_normals) != 1:
     raise UvWrapGeometryError(
@@ -637,7 +640,7 @@ def _wrap_xy_from_plane_point(
     return Point2D(
       float((anchor_pin_point.x + target_pin_point.x) / 2.0),
       float(plane_point.y),
-    )
+  )
   raise UvWrapGeometryError(f"Unsupported alternating plane {plane!r}.")
 
 
@@ -655,6 +658,7 @@ def plan_wrap_transition(
   head_arm_length: float,
   head_roller_radius: float,
   head_roller_gap: float,
+  roller_arm_y_offsets: tuple[float, float, float, float] | None = None,
   current_xy: Point2D | None = None,
 ) -> WrapTransitionPlan:
   normalized_layer = _normalize_layer(layer)
@@ -704,6 +708,7 @@ def plan_wrap_transition(
         head_arm_length=head_arm_length,
         head_roller_radius=head_roller_radius,
         head_roller_gap=head_roller_gap,
+        roller_arm_y_offsets=roller_arm_y_offsets,
       )
     )
     return WrapTransitionPlan(
@@ -724,7 +729,12 @@ def plan_wrap_transition(
       outbound_intercept=outbound_intercept,
     )
 
-  target_face = face_for_pin(normalized_layer, normalized_target_pin)
+  anchor_face = _b_side_face_for_pin(normalized_layer, normalized_anchor_pin)
+  target_face = _b_side_face_for_pin(normalized_layer, normalized_target_pin)
+  if anchor_face != target_face:
+    raise UvWrapGeometryError(
+      "Alternating-side wrap requires both pins to lie on the same face after converting the A pin to the B side."
+    )
   plane = _alternating_plane_for_face(target_face)
   anchor_contact = _segment_contact_for_wrap_side(
     _project_point3_to_plane(anchor_pin_point, plane),
@@ -745,7 +755,7 @@ def plan_wrap_transition(
     z_front=z_front,
     z_back=z_back,
   )
-  plane_point = target_contact
+  plane_point = front_projection if target_family == "A" else back_projection
   final_xy = _wrap_xy_from_plane_point(
     anchor_pin_point=anchor_pin_point,
     target_pin_point=target_pin_point,

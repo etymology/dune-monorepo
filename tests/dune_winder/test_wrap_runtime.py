@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.Geometry.location import Location
@@ -12,10 +13,6 @@ from dune_winder.machine.geometry.uv_wrap_geometry import (
   RectBounds,
   alternating_side_hover_y_offset,
   plan_wrap_transition,
-)
-from dune_winder.machine.geometry.uv_tangency import (
-  UvTangentViewRequest,
-  compute_uv_tangent_view,
 )
 from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.paths import REPO_ROOT
@@ -165,7 +162,19 @@ class WrapRuntimeTests(unittest.TestCase):
     handler._z = 0.0
     return handler, io, machine_calibration, layer_calibration
 
-  def _expected_explicit_wrap_plan(self, *, layer_calibration, machine_calibration, anchor_pin, target_pin, offset_x=0.0, offset_y=0.0, start_x=None, start_y=None):
+  def _expected_explicit_wrap_plan(
+    self,
+    *,
+    layer_calibration,
+    machine_calibration,
+    anchor_pin,
+    target_pin,
+    offset_x=0.0,
+    offset_y=0.0,
+    start_x=None,
+    start_y=None,
+    use_fitted_roller_offsets=True,
+  ):
     anchor_location = layer_calibration.getPinLocation(anchor_pin).add(layer_calibration.offset)
     target_location = layer_calibration.getPinLocation(target_pin).add(layer_calibration.offset)
     target_location = Location(
@@ -194,6 +203,11 @@ class WrapRuntimeTests(unittest.TestCase):
       head_arm_length=float(machine_calibration.headArmLength),
       head_roller_radius=float(machine_calibration.headRollerRadius),
       head_roller_gap=float(machine_calibration.headRollerGap),
+      roller_arm_y_offsets=(
+        machine_calibration.rollerArmCalibration.fitted_y_cals
+        if use_fitted_roller_offsets and machine_calibration.rollerArmCalibration is not None
+        else None
+      ),
       current_xy=current_xy,
     )
 
@@ -208,66 +222,22 @@ class WrapRuntimeTests(unittest.TestCase):
     offset_y=0.0,
     hover=False,
   ):
-    anchor_location = layer_calibration.getPinLocation(anchor_pin).add(layer_calibration.offset)
-    target_location = layer_calibration.getPinLocation(target_pin).add(layer_calibration.offset)
-    target_location = Location(
-      float(target_location.x) + float(offset_x),
-      float(target_location.y) + float(offset_y),
-      float(target_location.z),
+    plan = self._expected_explicit_wrap_plan(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin=anchor_pin,
+      target_pin=target_pin,
+      offset_x=offset_x,
+      offset_y=offset_y,
     )
-    tangent_view = compute_uv_tangent_view(
-      UvTangentViewRequest(
-        layer=layer_calibration.getLayerNames(),
-        pin_a=anchor_pin,
-        pin_b=target_pin,
-      ),
-      pin_b_point_override=Point3D(
-        float(target_location.x),
-        float(target_location.y),
-        float(target_location.z),
-      ),
-      roller_arm_y_offsets=(
-        machine_calibration.rollerArmCalibration.fitted_y_cals
-        if machine_calibration.rollerArmCalibration is not None
-        else None
-      ),
-    )
-    if tangent_view.alternating_plane is None:
-      self.assertIsNotNone(tangent_view.arm_corrected_outbound_point)
-      final_xy = Point2D(
-        float(tangent_view.arm_corrected_outbound_point.x),
-        float(tangent_view.arm_corrected_outbound_point.y),
-      )
-      return final_xy, tangent_view
-
-    target_family = str(target_pin).strip().upper()[:1]
-    if tangent_view.alternating_plane == "xz":
-      plane_point = (
-        tangent_view.alternating_wrap_line_start
-        if target_family == "A"
-        else tangent_view.alternating_wrap_line_end
-      )
-      final_xy = Point2D(
-        float(plane_point.x),
-        float((tangent_view.pin_a_point.y + tangent_view.pin_b_point.y) / 2.0),
-      )
-    else:
-      plane_point = (
-        tangent_view.alternating_wrap_line_start
-        if target_family == "A"
-        else tangent_view.alternating_wrap_line_end
-      )
-      final_xy = Point2D(
-        float((tangent_view.pin_a_point.x + tangent_view.pin_b_point.x) / 2.0),
-        float(plane_point.y),
-      )
-    if hover:
-      self.assertIsNotNone(tangent_view.alternating_face)
+    final_xy = Point2D(float(plan.final_xy.x), float(plan.final_xy.y))
+    if hover and not plan.same_side:
+      self.assertIsNotNone(plan.face)
       final_xy = Point2D(
         float(final_xy.x),
-        float(final_xy.y + alternating_side_hover_y_offset(tangent_view.alternating_face)),
+        float(final_xy.y + alternating_side_hover_y_offset(plan.face)),
       )
-    return final_xy, tangent_view
+    return final_xy, plan
 
   def test_tilde_goto_and_increment_move_xy_without_wrap_state(self):
     handler, io, _machine_calibration, _layer_calibration = self._build_handler(500.0, 500.0)
@@ -334,14 +304,14 @@ class WrapRuntimeTests(unittest.TestCase):
     anchor_pin = "B2001"
     target_pin = "A800"
 
-    final_xy, tangent_view = self._expected_explicit_wrap_final_xy(
+    final_xy, plan = self._expected_explicit_wrap_final_xy(
       layer_calibration=layer_calibration,
       machine_calibration=machine_calibration,
       anchor_pin=anchor_pin,
       target_pin=target_pin,
       hover=True,
     )
-    self.assertEqual(tangent_view.alternating_face, "top")
+    self.assertEqual(plan.face, "top")
 
     error = handler.executeG_CodeLine("~anchorToTarget(B2001,A800,hover=True)")
 
@@ -357,14 +327,14 @@ class WrapRuntimeTests(unittest.TestCase):
     anchor_pin = "A2401"
     target_pin = "B401"
 
-    final_xy, tangent_view = self._expected_explicit_wrap_final_xy(
+    final_xy, plan = self._expected_explicit_wrap_final_xy(
       layer_calibration=layer_calibration,
       machine_calibration=machine_calibration,
       anchor_pin=anchor_pin,
       target_pin=target_pin,
       hover=True,
     )
-    self.assertEqual(tangent_view.alternating_face, "bottom")
+    self.assertEqual(plan.face, "bottom")
 
     error = handler.executeG_CodeLine("~anchorToTarget(A2401,B401,hover=True)")
 
@@ -380,14 +350,14 @@ class WrapRuntimeTests(unittest.TestCase):
     anchor_pin = "B1201"
     target_pin = "B2001"
 
-    final_xy, tangent_view = self._expected_explicit_wrap_final_xy(
+    final_xy, plan = self._expected_explicit_wrap_final_xy(
       layer_calibration=layer_calibration,
       machine_calibration=machine_calibration,
       anchor_pin=anchor_pin,
       target_pin=target_pin,
       hover=True,
     )
-    self.assertIsNone(tangent_view.alternating_plane)
+    self.assertTrue(plan.same_side)
 
     error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001,hover=True)")
 
@@ -397,6 +367,103 @@ class WrapRuntimeTests(unittest.TestCase):
     self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
     self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(final_xy.x), places=3)
     self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(final_xy.y), places=3)
+
+  def test_plan_wrap_transition_uses_fitted_roller_offsets_for_same_side_final_xy(self):
+    _handler, _io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+
+    fitted_plan = self._expected_explicit_wrap_plan(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin="A388",
+      target_pin="A413",
+      offset_x=1.0,
+    )
+    nominal_plan = self._expected_explicit_wrap_plan(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin="A388",
+      target_pin="A413",
+      offset_x=1.0,
+      use_fitted_roller_offsets=False,
+    )
+
+    self.assertAlmostEqual(float(fitted_plan.final_xy.x), 1281.237, places=3)
+    self.assertAlmostEqual(float(fitted_plan.final_xy.y), 2683.000, places=3)
+    self.assertGreater(abs(float(fitted_plan.final_xy.x) - float(nominal_plan.final_xy.x)), 1.0)
+
+  def test_anchor_to_target_uses_reverse_vector_roller_selection_for_same_side_runtime(self):
+    handler, io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+
+    plan = self._expected_explicit_wrap_plan(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin="B2391",
+      target_pin="B812",
+      start_x=500.0,
+      start_y=500.0,
+    )
+
+    error = handler.executeG_CodeLine("~anchorToTarget(B2391,B812)")
+
+    self.assertIsNone(error)
+    while handler._dispatch_pending_actions(safety_label="manual"):
+      pass
+    self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+    self.assertAlmostEqual(float(plan.final_xy.x), 4079.706, places=3)
+    self.assertAlmostEqual(float(plan.final_xy.y), 0.000, places=3)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(plan.final_xy.x), places=3)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(plan.final_xy.y), places=3)
+
+  def test_plan_wrap_transition_uses_transfer_line_intercept_for_alternating_final_xy(self):
+    _handler, _io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+
+    plan = self._expected_explicit_wrap_plan(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin="B1201",
+      target_pin="A1201",
+    )
+
+    self.assertFalse(plan.same_side)
+    self.assertEqual(plan.plane, "yz")
+    self.assertEqual(plan.face, "foot")
+    self.assertAlmostEqual(float(plan.final_xy.x), 7030.434, places=3)
+    self.assertAlmostEqual(float(plan.final_xy.y), 4926.365, places=3)
+    self.assertGreater(float(plan.final_xy.y), 4000.0)
+    self.assertLess(float(plan.target_tangent_point.y), 3000.0)
+
+  def test_anchor_to_target_rejects_mixed_face_alternating_pair(self):
+    handler, _io, _machine_calibration, _layer_calibration = self._build_handler(500.0, 500.0)
+
+    error = handler.executeG_CodeLine("~anchorToTarget(B1201,A2001)")
+
+    self.assertIsNotNone(error)
+    self.assertIn("same face after converting the A pin to the B side", error["message"])
+
+  def test_anchor_to_target_runtime_does_not_use_legacy_uv_head_target_probe(self):
+    handler, io, machine_calibration, layer_calibration = self._build_handler(500.0, 500.0)
+
+    plan = self._expected_explicit_wrap_plan(
+      layer_calibration=layer_calibration,
+      machine_calibration=machine_calibration,
+      anchor_pin="B1201",
+      target_pin="B2001",
+      start_x=500.0,
+      start_y=500.0,
+    )
+
+    with patch(
+      "dune_winder.uv_head_target._execute_line",
+      side_effect=AssertionError("legacy comparison path invoked"),
+    ):
+      error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+    self.assertIsNone(error)
+    while handler._dispatch_pending_actions(safety_label="manual"):
+      pass
+    self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(plan.final_xy.x), places=3)
+    self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(plan.final_xy.y), places=3)
 
 
 if __name__ == "__main__":
