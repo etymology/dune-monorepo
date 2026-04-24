@@ -9,7 +9,9 @@ from types import SimpleNamespace
 import pytest
 
 import dune_winder.core.machine_geometry_calibration as machine_geometry_module
+import dune_winder.uv_head_target as uv_head_target_module
 from dune_winder.core.machine_geometry_calibration import MachineGeometryCalibration
+from dune_winder.paths import REPO_ROOT
 
 
 class _Axis:
@@ -190,12 +192,12 @@ def test_machine_xy_solver_optimizes_measured_roller_and_keeps_others(monkeypatc
     service,
     "_projectMeasurement",
     lambda measurement, **kwargs: {
-      "projectedX": float(measurement["actualWireX"]),
+      "projectedX": float(measurement["actualWireX"]) - 10.0,
       "projectedY": (
-        float(measurement["actualWireY"])
+        float(measurement["actualWireY"]) + 5.0
         - (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
         if measurement["id"] == "m1"
-        else float(measurement["actualWireY"])
+        else float(measurement["actualWireY"]) + 5.0
         + (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
       ),
     },
@@ -215,8 +217,8 @@ def test_machine_xy_solver_optimizes_measured_roller_and_keeps_others(monkeypatc
   assert evaluation["rollerYCals"][0] == pytest.approx(24.0, abs=1e-9)
   assert evaluation["rollerYCals"][2] == pytest.approx(18.0, abs=1e-9)
   assert evaluation["rollerYCals"][3] == pytest.approx(17.0, abs=1e-9)
-  assert "m1" in evaluation["siteOffsets"]
-  assert "m2" in evaluation["siteOffsets"]
+  assert any("m1" in item["measurementIds"] for item in evaluation["siteOffsetItems"])
+  assert any("m2" in item["measurementIds"] for item in evaluation["siteOffsetItems"])
 
 
 def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
@@ -261,12 +263,12 @@ def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
     service,
     "_projectMeasurement",
     lambda measurement, **kwargs: {
-      "projectedX": float(measurement["actualWireX"]),
+      "projectedX": float(measurement["actualWireX"]) - 10.0,
       "projectedY": (
-        float(measurement["actualWireY"])
+        float(measurement["actualWireY"]) + 5.0
         - (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
         if measurement["id"] == "m1"
-        else float(measurement["actualWireY"])
+        else float(measurement["actualWireY"]) + 5.0
         + (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
       ),
     },
@@ -289,6 +291,62 @@ def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
   assert any("percentComplete" in fields for _step, _message, fields in progress_events)
   assert any("loss" in fields for _step, _message, fields in progress_events)
   assert any("siteLabel" in fields for _step, _message, fields in progress_events)
+
+
+def test_machine_xy_solver_moves_camera_without_candidate_camera_paths(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  real_random = random.Random
+  monkeypatch.setattr(machine_geometry_module.random, "Random", lambda: real_random(0))
+  measurements = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "alternating_side",
+      "rollerIndex": None,
+      "gcodeLine": "~anchorToTarget(A1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+  ]
+
+  candidate_calls = []
+
+  def candidate_machine_path(roller_y_cals, camera_offset=None):
+    candidate_calls.append(
+      {
+        "roller_y_cals": tuple(float(value) for value in roller_y_cals[:4]),
+        "camera_offset": camera_offset,
+      }
+    )
+    return "machine.json"
+
+  monkeypatch.setattr(service, "_candidateMachineCalibrationPath", candidate_machine_path)
+  monkeypatch.setattr(
+    service,
+    "_projectMeasurement",
+    lambda measurement, **kwargs: {
+      "projectedX": float(measurement["actualWireX"]) - 10.0,
+      "projectedY": float(measurement["actualWireY"]) + 1.5,
+    },
+  )
+
+  evaluation = service._evaluateMachineXY(
+    measurements,
+    layer="U",
+    operation_id="op-camera-only",
+    layer_path="layer.json",
+    nominal_roller_y=21.0,
+    current_camera_offset=(0.0, 0.0),
+    initial_roller_y_cals=(24.0, 23.0, 18.0, 17.0),
+  )
+
+  assert evaluation["cameraOffsetX"] == pytest.approx(10.0, abs=1e-9)
+  assert evaluation["cameraOffsetY"] == pytest.approx(-1.5, abs=0.2)
+  assert candidate_calls
+  assert all(call["camera_offset"] is None for call in candidate_calls)
 
 
 def test_machine_xy_solver_groups_site_label_offsets_across_line_keys(monkeypatch, tmp_path):
@@ -334,8 +392,8 @@ def test_machine_xy_solver_groups_site_label_offsets_across_line_keys(monkeypatc
     service,
     "_projectMeasurement",
     lambda measurement, **kwargs: {
-      "projectedX": float(measurement["actualWireX"]),
-      "projectedY": float(measurement["actualWireY"])
+      "projectedX": float(measurement["actualWireX"]) - 10.0,
+      "projectedY": float(measurement["actualWireY"]) + 5.0
       + (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0),
     },
   )
@@ -356,6 +414,153 @@ def test_machine_xy_solver_groups_site_label_offsets_across_line_keys(monkeypatc
   assert line_offsets[0]["x"] == pytest.approx(line_offsets[1]["x"], abs=1e-9)
   assert line_offsets[0]["y"] == pytest.approx(line_offsets[1]["y"], abs=1e-9)
   assert evaluation["siteOffsetItems"][0]["siteLabel"] == "Foot A corner"
+
+
+def test_machine_xy_solver_clamps_camera_and_roller_bounds(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  real_random = random.Random
+  monkeypatch.setattr(machine_geometry_module.random, "Random", lambda: real_random(0))
+  measurements = [
+    {
+      "id": "m0",
+      "layer": "U",
+      "kind": "alternating_side",
+      "rollerIndex": None,
+      "lineKey": "(1,0)",
+      "gcodeLine": "~anchorToTarget(A1201,B2001) (1,0)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+    {
+      "id": "m2",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,2)",
+      "gcodeLine": "~anchorToTarget(B1202,B2002) (1,2)",
+      "effectiveCameraX": 120.0,
+      "rawCameraY": 230.0,
+      "actualWireX": 130.0,
+      "actualWireY": 225.0,
+    },
+  ]
+
+  monkeypatch.setattr(service, "_candidateMachineCalibrationPath", lambda roller_y_cals, camera_offset=None: "machine.json")
+
+  def project_measurement(measurement, **kwargs):
+    roller = float(kwargs["roller_y_cals"][1])
+    if measurement["id"] == "m0":
+      return {
+        "projectedX": float(measurement["actualWireX"]) - 20.0,
+        "projectedY": float(measurement["actualWireY"]) - 5.0,
+      }
+    return {
+      "projectedX": float(measurement["actualWireX"]) - 20.0,
+      "projectedY": float(measurement["actualWireY"]) - 33.0 + roller,
+    }
+
+  monkeypatch.setattr(service, "_projectMeasurement", project_measurement)
+
+  evaluation = service._evaluateMachineXY(
+    measurements,
+    layer="U",
+    operation_id="op-bounds",
+    layer_path="layer.json",
+    nominal_roller_y=21.0,
+    current_camera_offset=(10.0, -5.0),
+    initial_roller_y_cals=(24.0, 23.0, 18.0, 17.0),
+  )
+
+  assert evaluation["cameraOffsetX"] == pytest.approx(20.0, abs=1e-9)
+  assert evaluation["cameraOffsetY"] == pytest.approx(5.0, abs=0.2)
+  assert evaluation["rollerYCals"][1] == pytest.approx(28.0, abs=1e-9)
+  expected_camera_delta_norm = (
+    ((evaluation["cameraOffsetX"] - 10.0) ** 2)
+    + ((evaluation["cameraOffsetY"] - (-5.0)) ** 2)
+  ) ** 0.5
+  assert evaluation["score"]["cameraOffsetDeltaNorm"] == pytest.approx(
+    expected_camera_delta_norm,
+    abs=1e-9,
+  )
+  assert evaluation["score"]["rollerOffsetNorm"] == pytest.approx(5.0, abs=1e-9)
+
+
+def test_translate_projection_payload_moves_same_side_transfer_edge():
+  translated = machine_geometry_module._translate_projection_payload(
+    {
+      "sameSide": True,
+      "projectedHeadX": 60.0,
+      "projectedHeadY": 100.0,
+      "projectedX": 55.0,
+      "projectedY": 95.0,
+      "anchorTangentX": 40.0,
+      "anchorTangentY": 40.0,
+      "targetTangentX": 80.0,
+      "targetTangentY": 80.0,
+      "anchorZ": 0.0,
+      "headZ": 10.0,
+      "headArmLength": 5.0,
+      "headRollerRadius": 2.0,
+      "headRollerGap": 1.0,
+      "transferBounds": {
+        "left": 0.0,
+        "right": 120.0,
+        "top": 100.0,
+        "bottom": 0.0,
+      },
+      "transferEdge": "top",
+    },
+    (10.0, 5.0),
+  )
+
+  assert translated["projectedHeadX"] == pytest.approx(65.0, abs=1e-9)
+  assert translated["projectedHeadY"] == pytest.approx(100.0, abs=1e-9)
+
+
+def test_project_measurement_bypasses_uv_head_target_view(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  measurement = {
+    "id": "m1",
+    "layer": "U",
+    "kind": "same_side",
+    "rollerIndex": 1,
+    "lineKey": "(1,1)",
+    "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+  }
+
+  monkeypatch.setattr(
+    uv_head_target_module,
+    "compute_uv_anchor_to_target_view",
+    lambda *args, **kwargs: (_ for _ in ()).throw(
+      AssertionError("legacy uv_head_target projection should not be used")
+    ),
+  )
+
+  projection = service._projectMeasurement(
+    measurement,
+    layer_path=str(REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"),
+    machine_path=str(REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"),
+    roller_y_cals=(24.0, 23.0, 18.0, 17.0),
+  )
+
+  assert isinstance(projection["projectedX"], float)
+  assert isinstance(projection["projectedY"], float)
 
 
 def test_machine_xy_solve_records_progress_and_success(monkeypatch, tmp_path):
@@ -641,14 +846,54 @@ def test_machine_xy_candidate_file_does_not_use_atomic_replace(monkeypatch, tmp_
     (21.0, 22.0, 23.0, 24.0),
     camera_offset=(1.5, -2.5),
   )
+  second_path = service._candidateMachineCalibrationPath(
+    (21.0, 22.0, 23.0, 24.0),
+    camera_offset=(9.0, 8.0),
+  )
 
   with open(path, encoding="utf-8") as handle:
     data = json.load(handle)
 
-  assert data["cameraWireOffsetX"] == pytest.approx(1.5, abs=1e-9)
-  assert data["cameraWireOffsetY"] == pytest.approx(-2.5, abs=1e-9)
+  assert second_path == path
+  assert data["cameraWireOffsetX"] == pytest.approx(10.0, abs=1e-9)
+  assert data["cameraWireOffsetY"] == pytest.approx(-5.0, abs=1e-9)
   assert data["rollerArmCalibration"]["fitted_y_cals"] == [21.0, 22.0, 23.0, 24.0]
   service._removeTemporaryCandidatePath(path)
+
+
+def test_machine_xy_solve_rejects_invalid_line_offsets(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  state = service._loadState()
+  state["measurements"] = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+  ]
+
+  monkeypatch.setattr(service, "_candidateLayerCalibrationPath", lambda layer: "layer.json")
+  monkeypatch.setattr(service, "_candidateMachineCalibrationPath", lambda roller_y_cals, camera_offset=None: "machine.json")
+  monkeypatch.setattr(
+    service,
+    "_projectMeasurement",
+    lambda measurement, **kwargs: {
+      "projectedX": float(measurement["effectiveCameraX"]) + 100.0,
+      "projectedY": float(measurement["rawCameraY"]) + 4.0,
+    },
+  )
+
+  with pytest.raises(ValueError, match=r"\(1,1\).*offsetX="):
+    service.solveMachineXY()
+
 
 
 def test_machine_geometry_state_save_retries_permission_error(monkeypatch, tmp_path):
@@ -682,3 +927,178 @@ def test_geometry_parameter_edits_are_blocked_during_active_gcode(tmp_path):
 
   with pytest.raises(ValueError, match="Cannot change machine geometry"):
     service.setLineOffsetOverride("U", "(1,1)", 1.0, 2.0)
+
+
+def test_sanity_check_passes_with_consistent_line_offsets(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  state = service._loadState()
+  state["measurements"] = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+  ]
+
+  machine_draft = {
+    "layer": "U",
+    "cameraWireOffsetX": 10.0,
+    "cameraWireOffsetY": -5.0,
+    "rollerYCals": [24.0, 23.0, 18.0, 17.0],
+  }
+  line_offset_overrides = {
+    "(1,1)": {"x": 3.0, "y": -2.0},
+  }
+
+  def project_payload(measurement, *, layer_path, roller_y_cals, _layer_calibration=None, _machine_calibration=None, **kwargs):
+    return {
+      "projectedX": float(measurement["actualWireX"]) - float(line_offset_overrides["(1,1)"]["x"]) - 10.0,
+      "projectedY": float(measurement["actualWireY"]) - float(line_offset_overrides["(1,1)"]["y"]) + 5.0,
+    }
+
+  monkeypatch.setattr(
+    machine_geometry_module,
+    "_project_machine_xy_measurement_payload",
+    project_payload,
+  )
+  monkeypatch.setattr(
+    machine_geometry_module,
+    "_translate_projection_payload",
+    lambda payload, camera_offset: {
+      "projectedX": float(payload["projectedX"]) + float(camera_offset[0]),
+      "projectedY": float(payload["projectedY"]) + float(camera_offset[1]),
+    },
+  )
+  monkeypatch.setattr(service, "_candidateLayerCalibrationPath", lambda layer: "layer.json")
+  monkeypatch.setattr(service, "_candidateMachineCalibrationObject", lambda roller_y_cals: None)
+
+  result = service._sanityCheckLineOffsets("U", machine_draft, line_offset_overrides)
+
+  assert result["ok"] is True
+  assert result["checkedCount"] == 1
+  assert result["maxDiscrepancyX"] < 0.01
+  assert result["maxDiscrepancyY"] < 0.01
+
+
+def test_sanity_check_fails_with_tampered_line_offsets(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  state = service._loadState()
+  state["measurements"] = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+  ]
+
+  machine_draft = {
+    "layer": "U",
+    "cameraWireOffsetX": 10.0,
+    "cameraWireOffsetY": -5.0,
+    "rollerYCals": [24.0, 23.0, 18.0, 17.0],
+  }
+
+  def project_payload(measurement, *, layer_path, roller_y_cals, _layer_calibration=None, _machine_calibration=None, **kwargs):
+    return {
+      "projectedX": float(measurement["actualWireX"]) - 3.0 - 10.0,
+      "projectedY": float(measurement["actualWireY"]) - (-2.0) + 5.0,
+    }
+
+  monkeypatch.setattr(
+    machine_geometry_module,
+    "_project_machine_xy_measurement_payload",
+    project_payload,
+  )
+  monkeypatch.setattr(
+    machine_geometry_module,
+    "_translate_projection_payload",
+    lambda payload, camera_offset: {
+      "projectedX": float(payload["projectedX"]) + float(camera_offset[0]),
+      "projectedY": float(payload["projectedY"]) + float(camera_offset[1]),
+    },
+  )
+  monkeypatch.setattr(service, "_candidateLayerCalibrationPath", lambda layer: "layer.json")
+  monkeypatch.setattr(service, "_candidateMachineCalibrationObject", lambda roller_y_cals: None)
+
+  tampered_overrides = {
+    "(1,1)": {"x": 50.0, "y": -40.0},
+  }
+
+  result = service._sanityCheckLineOffsets("U", machine_draft, tampered_overrides)
+
+  assert result["ok"] is False
+  assert result["checkedCount"] == 1
+  assert result["discrepancyCount"] == 1
+  assert result["maxDiscrepancyX"] > 1.0
+  assert result["maxDiscrepancyY"] > 1.0
+
+
+def test_apply_machine_xy_rejects_inconsistent_draft(monkeypatch, tmp_path):
+  process = _Process(tmp_path)
+  service = MachineGeometryCalibration(process)
+  state = service._loadState()
+  state["measurements"] = [
+    {
+      "id": "m1",
+      "layer": "U",
+      "kind": "same_side",
+      "rollerIndex": 1,
+      "lineKey": "(1,1)",
+      "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+      "effectiveCameraX": 100.0,
+      "rawCameraY": 200.0,
+      "actualWireX": 110.0,
+      "actualWireY": 195.0,
+    },
+  ]
+  draft = service._layerDraft("U", create=True)
+  draft["lineOffsetOverrides"] = {
+    "(1,1)": {"x": 50.0, "y": -40.0},
+  }
+  state["machineDraft"] = {
+    "layer": "U",
+    "cameraWireOffsetX": 10.0,
+    "cameraWireOffsetY": -5.0,
+    "rollerYCals": [24.0, 23.0, 18.0, 17.0],
+  }
+
+  def project_payload(measurement, *, layer_path, roller_y_cals, _layer_calibration=None, _machine_calibration=None, **kwargs):
+    return {
+      "projectedX": float(measurement["actualWireX"]) - 3.0 - 10.0,
+      "projectedY": float(measurement["actualWireY"]) - (-2.0) + 5.0,
+    }
+
+  monkeypatch.setattr(
+    machine_geometry_module,
+    "_project_machine_xy_measurement_payload",
+    project_payload,
+  )
+  monkeypatch.setattr(
+    machine_geometry_module,
+    "_translate_projection_payload",
+    lambda payload, camera_offset: {
+      "projectedX": float(payload["projectedX"]) + float(camera_offset[0]),
+      "projectedY": float(payload["projectedY"]) + float(camera_offset[1]),
+    },
+  )
+  monkeypatch.setattr(service, "_candidateLayerCalibrationPath", lambda layer: "layer.json")
+  monkeypatch.setattr(service, "_candidateMachineCalibrationObject", lambda roller_y_cals: None)
+
+  with pytest.raises(ValueError, match="Line offset sanity check failed"):
+    service.applyMachineXY()

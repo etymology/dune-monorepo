@@ -96,7 +96,7 @@ config {
   default_y_pull_in: Float = 200.0
   default_x_pull_in: Float = 200.0
   default_y_hover: Float = 5.0
-  comb_pull_factor: Float = 3.0
+  comb_pull_factor: Float = 4.0
 }
 
 rule BuildULayerRecipe {

@@ -310,7 +310,45 @@ function MachineGeometryCalibrate(modules) {
         } else if (data && data.fitError) {
           showError(data.fitError)
         } else {
-          showMessage("Solved machine XY draft.")
+          var activeSanity = data && data.activeSanityCheck
+          if (activeSanity && activeSanity.checkedCount > 0) {
+            if (activeSanity.ok) {
+              appendActivity("info",
+                "Active calibration sanity check: PASSED"
+                + " (" + activeSanity.checkedCount + " checked"
+                + ", max discrepancy "
+                + formatCompactNumber(activeSanity.maxDiscrepancyX, 3)
+                + " / " + formatCompactNumber(activeSanity.maxDiscrepancyY, 3) + "mm)."
+              )
+            } else {
+              appendActivity("warning",
+                "Active calibration sanity check: "
+                + activeSanity.discrepancyCount + " discrepancy(ies)"
+                + " (max " + formatCompactNumber(activeSanity.maxDiscrepancyX, 3)
+                + " / " + formatCompactNumber(activeSanity.maxDiscrepancyY, 3) + "mm)."
+              )
+            }
+          }
+          var sanity = data && data.sanityCheck
+          if (sanity && sanity.ok) {
+            showMessage(
+              "Solved machine XY draft. Sanity check passed"
+              + " (" + (sanity.checkedCount || 0) + " checked"
+              + ", max discrepancy "
+              + formatCompactNumber(sanity.maxDiscrepancyX, 3)
+              + " / " + formatCompactNumber(sanity.maxDiscrepancyY, 3) + "mm)."
+            )
+          } else if (sanity && !sanity.ok) {
+            showError(
+              "Solved machine XY draft, but sanity check found "
+              + (sanity.discrepancyCount || 0) + " discrepancy(ies)"
+              + " (max " + formatCompactNumber(sanity.maxDiscrepancyX, 3)
+              + " / " + formatCompactNumber(sanity.maxDiscrepancyY, 3) + "mm)."
+              + " Consider re-solving."
+            )
+          } else {
+            showMessage("Solved machine XY draft.")
+          }
         }
         loadState(true)
       },

@@ -42,7 +42,7 @@
   "headArmLength": 77,
   "headRollerRadius": 6.5,
   "headRollerGap": 1,
-  "pinDiameter": 2.6,
+  "pinDiameter": 2.25,
   "v_x_max": 825.0,
   "v_y_max": 600.0,
   "cameraWireOffsetX": 58.3,

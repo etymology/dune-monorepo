@@ -1,16 +1,11 @@
 {
-  "env": {
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1"
-  },
   "permissions": {
     "allow": [
       "Bash(for d:*)",
       "Bash(do echo:*)",
       "Read(//c/dune-monorepo/**)",
       "Bash(done)",
-      "Bash(find *)",
+      "Bash(find *)",x
       "Bash(git commit:*)",
       "Bash(python -m pytest tests/ -v)",
       "Bash(tee test_results.txt)",
