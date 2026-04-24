@@ -257,9 +257,19 @@ class MotionService:
         "Manual move Z to " + str(position) + " at " + str(velocity) + ".",
         [position, velocity],
       )
-      self._controlStateMachine.dispatch(
-        ManualModeEvent(seekZ=position, velocity=velocity)
-      )
+
+      # Validate Z position against limits
+      safetyLimits = self._safety.current_motion_safety_limits()
+      zPosition = position  # The target position is what we're validating
+
+      # Check if Z position is within limits
+      if zPosition < safetyLimits.zlimit_front or zPosition > safetyLimits.zlimit_rear:
+        self._log.add(LOG_NAME, "JOG", "Manual move Z ignored - position " + str(zPosition) + " is outside limits [" + str(safetyLimits.zlimit_front) + ", " + str(safetyLimits.zlimit_rear) + "].", [position, velocity])
+        isError = True
+      else:
+        self._controlStateMachine.dispatch(
+          ManualModeEvent(seekZ=position, velocity=velocity)
+        )
     else:
       self._log.add(LOG_NAME, "JOG", "Manual move Z ignored.", [position, velocity])
 
