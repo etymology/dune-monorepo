@@ -24,7 +24,6 @@ We should change the way that the pins are named to layer, side, number. where l
 
 The calibration files are consumed by the gcode interpreter called in APA.html. The gcode interpreter supports commands ~anchorToTarget, increment, goto, as well as the legacy G... P... commands
 
-The generated
 
 When a wire is placed, it has the following geometry:
 It is tangent to the two pins according to the wrap_orientation rule
