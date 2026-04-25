@@ -20,193 +20,194 @@ U_ZFRONT = 145
 U_ZBACK = 145 + 130
 
 LAYER_Z_DEFAULTS = {
-  "G": (U_ZFRONT - 5, U_ZBACK + 5),
-  "U": (U_ZFRONT, U_ZBACK),
-  "V": (U_ZFRONT + 5, U_ZBACK - 5),
-  "X": (U_ZFRONT + 10, U_ZBACK - 10),
+    "G": (U_ZFRONT - 5, U_ZBACK + 5),
+    "U": (U_ZFRONT, U_ZBACK),
+    "V": (U_ZFRONT + 5, U_ZBACK - 5),
+    "X": (U_ZFRONT + 10, U_ZBACK - 10),
 }
 
 
 def get_layer_z_defaults(layer_name, geometry=None):
-  normalized = str(layer_name).upper()
-  return LAYER_Z_DEFAULTS[normalized]
+    normalized = str(layer_name).upper()
+    return LAYER_Z_DEFAULTS[normalized]
 
 
 def apply_layer_z_defaults(calibration, layer_name, geometry=None):
-  z_front, z_back = get_layer_z_defaults(layer_name, geometry)
-  calibration.zFront = z_front
-  calibration.zBack = z_back
+    z_front, z_back = get_layer_z_defaults(layer_name, geometry)
+    calibration.zFront = z_front
+    calibration.zBack = z_back
 
-  for pin_name in calibration.getPinNames():
-    location = calibration.getPinLocation(pin_name)
-    if pin_name.startswith("A"):
-      location.z = z_front
-    elif pin_name.startswith("B"):
-      location.z = z_back
+    for pin_name in calibration.getPinNames():
+        location = calibration.getPinLocation(pin_name)
+        if pin_name.startswith("A"):
+            location.z = z_front
+        elif pin_name.startswith("B"):
+            location.z = z_back
 
-  return calibration
+    return calibration
 
 
 def _populate_nominal_locations(calibration, geometry):
-  """
-  Populate the calibration map with nominal pin locations from geometry.
+    """
+    Populate the calibration map with nominal pin locations from geometry.
 
-  Args:
-    calibration: Instance of LayerCalibration to fill.
-    geometry: Instance of LayerGeometry for the target layer.
-  """
-  grids = [
-    (
-      "A",
-      geometry.gridFront,
-      calibration.zFront,
-      geometry.startPinFront,
-      geometry.directionFront,
-    ),
-    (
-      "B",
-      geometry.gridBack,
-      calibration.zBack,
-      geometry.startPinBack,
-      geometry.directionBack,
-    ),
-  ]
+    Args:
+      calibration: Instance of LayerCalibration to fill.
+      geometry: Instance of LayerGeometry for the target layer.
+    """
+    grids = [
+        (
+            "A",
+            geometry.gridFront,
+            calibration.zFront,
+            geometry.startPinFront,
+            geometry.directionFront,
+        ),
+        (
+            "B",
+            geometry.gridBack,
+            calibration.zBack,
+            geometry.startPinBack,
+            geometry.directionBack,
+        ),
+    ]
 
-  for side, grid, depth, startPin, direction in grids:
-    xValue = 0.0
-    yValue = 0.0
-    pinNumber = int(startPin)
+    for side, grid, depth, startPin, direction in grids:
+        xValue = 0.0
+        yValue = 0.0
+        pinNumber = int(startPin)
 
-    for parameter in grid:
-      count = int(parameter[0])
-      xIncrement = parameter[1]
-      yIncrement = parameter[2]
-      xValue += parameter[3]
-      yValue += parameter[4]
+        for parameter in grid:
+            count = int(parameter[0])
+            xIncrement = parameter[1]
+            yIncrement = parameter[2]
+            xValue += parameter[3]
+            yValue += parameter[4]
 
-      for _ in range(count):
-        calibration.setPinLocation(
-          side + str(pinNumber), Location(round(xValue, 5), round(yValue, 5), depth)
-        )
+            for _ in range(count):
+                calibration.setPinLocation(
+                    side + str(pinNumber),
+                    Location(round(xValue, 5), round(yValue, 5), depth),
+                )
 
-        pinNumber += int(direction)
+                pinNumber += int(direction)
 
-        if 0 == pinNumber:
-          pinNumber = int(geometry.pins)
-        elif pinNumber > int(geometry.pins):
-          pinNumber = 1
+                if 0 == pinNumber:
+                    pinNumber = int(geometry.pins)
+                elif pinNumber > int(geometry.pins):
+                    pinNumber = 1
 
-        xValue += xIncrement
-        yValue += yIncrement
+                xValue += xIncrement
+                yValue += yIncrement
 
-      xValue -= xIncrement
-      yValue -= yIncrement
+            xValue -= xIncrement
+            yValue -= yIncrement
 
 
 class DefaultMachineCalibration(MachineCalibration):
-  # ---------------------------------------------------------------------
-  def __init__(self, outputFilePath=None, outputFileName=None):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, outputFilePath=None, outputFileName=None):
+        """
+        Constructor.
 
-    Args:
-      outputFilePath - Path to save/load data.
-      outputFileName - Name of data file.
-    """
-    MachineCalibration.__init__(self, outputFilePath, outputFileName)
-    geometry = UV_LayerGeometry()
+        Args:
+          outputFilePath - Path to save/load data.
+          outputFileName - Name of data file.
+        """
+        MachineCalibration.__init__(self, outputFilePath, outputFileName)
+        geometry = UV_LayerGeometry()
 
-    # Location of the park position.
-    self.parkX = 0
-    self.parkY = 0
+        # Location of the park position.
+        self.parkX = 0
+        self.parkY = 0
 
-    # Location for loading/unloading the spool.
-    self.spoolLoadX = 0
-    self.spoolLoadY = 0
+        # Location for loading/unloading the spool.
+        self.spoolLoadX = 0
+        self.spoolLoadY = 0
 
-    self.transferLeft = geometry.left
-    self.transferLeftTop = geometry.top / 2
-    self.transferTop = geometry.top
-    self.transferRight = geometry.right
-    self.transferRightTop = geometry.top / 2
-    self.transferBottom = geometry.bottom
-    self.transferLeftMargin = 10.0
-    self.transferYThreshold = 1000.0
+        self.transferLeft = geometry.left
+        self.transferLeftTop = geometry.top / 2
+        self.transferTop = geometry.top
+        self.transferRight = geometry.right
+        self.transferRightTop = geometry.top / 2
+        self.transferBottom = geometry.bottom
+        self.transferLeftMargin = 10.0
+        self.transferYThreshold = 1000.0
 
-    self.limitLeft = geometry.limitLeft
-    self.limitTop = geometry.limitTop
-    self.limitRight = geometry.limitRight
-    self.limitBottom = geometry.limitBottom
-    self.headwardPivotX = 150
-    self.headwardPivotY = 1400
-    self.headwardPivotXTolerance = 150
-    self.headwardPivotYTolerance = 300
-    self.zFront = 0
-    self.zBack = geometry.zTravel
-    self.queuedMotionZCollisionThreshold = self.zBack
-    self.arcMaxStepRad = math.radians(3.0)
-    self.arcMaxChord = 5.0
-    self.apaCollisionBottomY = 50.0
-    self.apaCollisionTopY = 2250.0
-    self.transferZoneHeadMinX = 400.0
-    self.transferZoneHeadMaxX = 500.0
-    self.transferZoneFootMinX = 7100.0
-    self.transferZoneFootMaxX = 7200.0
-    self.supportCollisionBottomMinY = 80.0
-    self.supportCollisionBottomMaxY = 450.0
-    self.supportCollisionMiddleMinY = 1050.0
-    self.supportCollisionMiddleMaxY = 1550.0
-    self.supportCollisionTopMinY = 2200.0
-    self.supportCollisionTopMaxY = 2650.0
-    self.geometryEpsilon = 1e-9
-    self.v_x_max = 825.0
-    self.v_y_max = 600.0
-    self.zLimitFront = geometry.limitRetracted
-    self.zLimitRear = geometry.limitExtended
-    self.headArmLength = geometry.headArmLength
-    self.headRollerRadius = geometry.headRollerRadius
-    self.headRollerGap = geometry.headRollerGap
-    self.pinDiameter = geometry.pinDiameter
+        self.limitLeft = geometry.limitLeft
+        self.limitTop = geometry.limitTop
+        self.limitRight = geometry.limitRight
+        self.limitBottom = geometry.limitBottom
+        self.headwardPivotX = 150
+        self.headwardPivotY = 1400
+        self.headwardPivotXTolerance = 150
+        self.headwardPivotYTolerance = 300
+        self.zFront = 0
+        self.zBack = geometry.zTravel
+        self.queuedMotionZCollisionThreshold = self.zBack
+        self.arcMaxStepRad = math.radians(3.0)
+        self.arcMaxChord = 5.0
+        self.apaCollisionBottomY = 50.0
+        self.apaCollisionTopY = 2250.0
+        self.transferZoneHeadMinX = 400.0
+        self.transferZoneHeadMaxX = 500.0
+        self.transferZoneFootMinX = 7100.0
+        self.transferZoneFootMaxX = 7200.0
+        self.supportCollisionBottomMinY = 80.0
+        self.supportCollisionBottomMaxY = 450.0
+        self.supportCollisionMiddleMinY = 1050.0
+        self.supportCollisionMiddleMaxY = 1550.0
+        self.supportCollisionTopMinY = 2200.0
+        self.supportCollisionTopMaxY = 2650.0
+        self.geometryEpsilon = 1e-9
+        self.v_x_max = 825.0
+        self.v_y_max = 600.0
+        self.zLimitFront = geometry.limitRetracted
+        self.zLimitRear = geometry.limitExtended
+        self.headArmLength = geometry.headArmLength
+        self.headRollerRadius = geometry.headRollerRadius
+        self.headRollerGap = geometry.headRollerGap
+        self.pinDiameter = geometry.pinDiameter
 
-    if outputFilePath and outputFileName:
-      import pathlib
+        if outputFilePath and outputFileName:
+            import pathlib
 
-      json_path = pathlib.Path(outputFilePath) / outputFileName
-      xml_path = json_path.with_suffix(".xml")
-      if json_path.exists() or xml_path.exists():
-        # load() handles XML → JSON migration automatically.
-        self.load()
-      else:
-        self.save()
+            json_path = pathlib.Path(outputFilePath) / outputFileName
+            xml_path = json_path.with_suffix(".xml")
+            if json_path.exists() or xml_path.exists():
+                # load() handles XML → JSON migration automatically.
+                self.load()
+            else:
+                self.save()
 
 
 class DefaultLayerCalibration(LayerCalibration):
-  # ---------------------------------------------------------------------
-  def __init__(self, outputFilePath, outputFileName, layerName):
-    """
-    Export node list to calibration file.  Debug function.
+    # ---------------------------------------------------------------------
+    def __init__(self, outputFilePath, outputFileName, layerName):
+        """
+        Export node list to calibration file.  Debug function.
 
-    Args:
-      outputFileName: File name to create.
-      layerName: Name of recipe.
-    """
+        Args:
+          outputFileName: File name to create.
+          layerName: Name of recipe.
+        """
 
-    geometry = create_layer_geometry(layerName)
+        geometry = create_layer_geometry(layerName)
 
-    LayerCalibration.__init__(self, layerName)
-    self.offset = geometry.apaLocation.add(geometry.apaOffset)
-    self.offset = SerializableLocation.fromLocation(self.offset)
-    self.zFront, self.zBack = get_layer_z_defaults(layerName, geometry)
+        LayerCalibration.__init__(self, layerName)
+        self.offset = geometry.apaLocation.add(geometry.apaOffset)
+        self.offset = SerializableLocation.fromLocation(self.offset)
+        self.zFront, self.zBack = get_layer_z_defaults(layerName, geometry)
 
-    _populate_nominal_locations(self, geometry)
+        _populate_nominal_locations(self, geometry)
 
-    if outputFilePath and outputFileName:
-      self.save(outputFilePath, outputFileName, "LayerCalibration")
+        if outputFilePath and outputFileName:
+            self.save(outputFilePath, outputFileName, "LayerCalibration")
 
 
 # end class
 
 if __name__ == "__main__":
-  DefaultMachineCalibration(".", "MachineCalibration.json")
-  DefaultLayerCalibration(".", "V_Calibration.json", "V")
-  DefaultLayerCalibration(".", "U_Calibration.json", "U")
+    DefaultMachineCalibration(".", "MachineCalibration.json")
+    DefaultLayerCalibration(".", "V_Calibration.json", "V")
+    DefaultLayerCalibration(".", "U_Calibration.json", "U")

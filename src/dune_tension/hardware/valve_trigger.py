@@ -91,10 +91,9 @@ class ValveController:
             raise ValueError("Pulse duration must be positive.")
 
         n_pad = ceil(duration * self._config.baud_rate / 10)  # 8N1
-        padding = b'\x00' * n_pad                  # choose a byte the device ignores
+        padding = b"\x00" * n_pad  # choose a byte the device ignores
         self._serial.write(_OPEN_COMMAND + padding + _CLOSE_COMMAND)
         self._serial.flush()
-
 
     def start_strum(self) -> None:
         """Begin emitting 10 ms air pulses every second on a background thread."""
@@ -135,7 +134,7 @@ class ValveController:
         """Close the serial connection to the valve relay."""
         self.stop_strum()
         self._serial.close()
-        
+
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -153,6 +152,7 @@ class ValveController:
             self.pulse(0.01)
             if stop_event.wait(1):
                 break
+
 
 _DEFAULT_CONTROLLER: ValveController | None = None
 _DEFAULT_CONTROLLER_LOCK = threading.Lock()

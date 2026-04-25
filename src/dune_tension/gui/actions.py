@@ -241,7 +241,9 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         use_manual_focus=bool(w.use_manual_focus_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
-        suppress_wire_preview=bool(getattr(w.suppress_wire_preview_var, "get", lambda: False)()),
+        suppress_wire_preview=bool(
+            getattr(w.suppress_wire_preview_var, "get", lambda: False)()
+        ),
         skip_measured=bool(w.skip_measured_var.get()),
         wire_number=w.entry_wire.get(),
         wire_list=w.entry_wire_list.get(),
@@ -276,13 +278,14 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         measuring_duration = float(inputs.measuring_duration)
         wiggle_y_sigma_mm = float(inputs.wiggle_y_sigma_mm)
         sweeping_wiggle_span_mm = float(inputs.sweeping_wiggle_span_mm)
-        focus_wiggle_sigma_quarter_us = float(
-            inputs.focus_wiggle_sigma_quarter_us
-        )
+        focus_wiggle_sigma_quarter_us = float(inputs.focus_wiggle_sigma_quarter_us)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid measurement inputs: {exc}") from exc
 
-    if _measurement_mode(inputs) == "legacy" and str(inputs.layer).upper() in {"U", "V"}:
+    if _measurement_mode(inputs) == "legacy" and str(inputs.layer).upper() in {
+        "U",
+        "V",
+    }:
         ensure_layer_calibration_ready(inputs.layer)
         if get_laser_offset(inputs.side) is None:
             raise ValueError(
@@ -310,15 +313,19 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,
         focus_position_getter=lambda: int(ctx.servo_controller.focus_position),
-        legacy_tension_condition=str(getattr(inputs, "legacy_tension_condition", "") or ""),
+        legacy_tension_condition=str(
+            getattr(inputs, "legacy_tension_condition", "") or ""
+        ),
         use_manual_focus=bool(getattr(inputs, "use_manual_focus", False)),
         manual_focus_target=None,
         estimated_time_callback=lambda value: _set_estimated_time(ctx, value),
-        audio_sample_callback=lambda audio_sample, samplerate, analysis: _publish_live_waveform(
-            ctx,
-            audio_sample,
-            samplerate,
-            analysis,
+        audio_sample_callback=lambda audio_sample, samplerate, analysis: (
+            _publish_live_waveform(
+                ctx,
+                audio_sample,
+                samplerate,
+                analysis,
+            )
         ),
         summary_refresh_callback=lambda config: _request_live_summary_refresh(
             ctx,
@@ -334,7 +341,9 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
                 int(wire_number),
                 float(wire_x),
                 float(wire_y),
-                bool(inputs.a_taped) if str(inputs.side).upper() == "A" else bool(inputs.b_taped),
+                bool(inputs.a_taped)
+                if str(inputs.side).upper() == "A"
+                else bool(inputs.b_taped),
             )
         ),
         runtime_bundle=ctx.runtime,
@@ -342,10 +351,14 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
 
 
 def _measurement_mode(inputs: WorkerInputs) -> str:
-    return str(getattr(inputs, "measurement_mode", "legacy")).strip().lower() or "legacy"
+    return (
+        str(getattr(inputs, "measurement_mode", "legacy")).strip().lower() or "legacy"
+    )
 
 
-def _selected_laser_offset_pin(layer: str, side: str, current_value: str | None) -> str | None:
+def _selected_laser_offset_pin(
+    layer: str, side: str, current_value: str | None
+) -> str | None:
     options = get_bottom_pin_options(layer, side)
     if not options:
         return None
@@ -382,7 +395,9 @@ def refresh_uv_laser_offset_controls(ctx: GUIContext) -> None:
         except Exception:
             pass
         options = get_bottom_pin_options(layer, side)
-        selected = _selected_laser_offset_pin(layer, side, widgets.laser_offset_pin_var.get())
+        selected = _selected_laser_offset_pin(
+            layer, side, widgets.laser_offset_pin_var.get()
+        )
         menu = widgets.laser_offset_pin_menu["menu"]
         menu.delete(0, "end")
         for label, value in options:
@@ -418,7 +433,9 @@ def refresh_uv_laser_offset_controls(ctx: GUIContext) -> None:
         pass
 
 
-def _move_to_local_pin(ctx: GUIContext, layer: str, side: str, pin_name: str, velocity: float) -> bool:
+def _move_to_local_pin(
+    ctx: GUIContext, layer: str, side: str, pin_name: str, velocity: float
+) -> bool:
     pin_x, pin_y = get_calibrated_pin_xy_for_side(layer, side, pin_name)
     goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
     try:
@@ -544,6 +561,7 @@ def _show_uv_wire_preview(
         anchor="w",
         justify="left",
     ).pack(fill="x", padx=8, pady=(4, 0))
+
     def _close() -> None:
         try:
             window.destroy()
@@ -613,7 +631,9 @@ def _publish_streaming_status(ctx: GUIContext, payload: dict[str, object]) -> No
                 ctx.widgets.stream_comb_var.set(str(payload["comb_score"]))
         if "focus_prediction" in payload:
             try:
-                ctx.widgets.stream_focus_var.set(f"{float(payload['focus_prediction']):.1f}")
+                ctx.widgets.stream_focus_var.set(
+                    f"{float(payload['focus_prediction']):.1f}"
+                )
             except (TypeError, ValueError):
                 ctx.widgets.stream_focus_var.set(str(payload["focus_prediction"]))
         if "pitch_backlog" in payload:
@@ -696,7 +716,9 @@ def _run_streaming_for_wires(
                 if ctx.stop_event.is_set():
                     break
                 summary = controller.run_rescue(int(wire_number))
-                LOGGER.info("Streaming rescue summary for wire %s: %s", wire_number, summary)
+                LOGGER.info(
+                    "Streaming rescue summary for wire %s: %s", wire_number, summary
+                )
             return
 
         corridors = build_corridors_for_wire_numbers(
@@ -892,7 +914,9 @@ def _parse_zone_spec(text: str) -> set[int]:
                 if 1 <= z <= max_zone:
                     zones.add(z)
                 else:
-                    LOGGER.warning("Zone %d out of range [1, %d], skipping", z, max_zone)
+                    LOGGER.warning(
+                        "Zone %d out of range [1, %d], skipping", z, max_zone
+                    )
         else:
             try:
                 z = int(part)
@@ -906,7 +930,9 @@ def _parse_zone_spec(text: str) -> set[int]:
     return zones
 
 
-def _get_wires_in_zones(layer: str, side: str, zones: set[int], *, taped: bool) -> list[int]:
+def _get_wires_in_zones(
+    layer: str, side: str, zones: set[int], *, taped: bool
+) -> list[int]:
     """Return sorted wire numbers whose optimal measuring zone is in ``zones``.
 
     Only applicable for U/V layers; returns an empty list with a warning for X/G.
@@ -915,7 +941,8 @@ def _get_wires_in_zones(layer: str, side: str, zones: set[int], *, taped: bool) 
     layer_upper = str(layer).upper()
     if layer_upper not in {"U", "V"}:
         LOGGER.warning(
-            "Zone-based wire selection is only supported for U/V layers, not %s", layer_upper
+            "Zone-based wire selection is only supported for U/V layers, not %s",
+            layer_upper,
         )
         return []
 
@@ -1002,7 +1029,12 @@ def measure_zone_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
 
     side = str(inputs.side).upper()
     taped = bool(inputs.a_taped) if side == "A" else bool(inputs.b_taped)
-    LOGGER.info("Finding wires in zone(s) %s for layer=%s side=%s ...", sorted(zones), layer, side)
+    LOGGER.info(
+        "Finding wires in zone(s) %s for layer=%s side=%s ...",
+        sorted(zones),
+        layer,
+        side,
+    )
     wire_list = _get_wires_in_zones(layer, side, zones, taped=taped)
     if not wire_list:
         LOGGER.info("No wires found in zone(s) %s.", sorted(zones))
@@ -1087,7 +1119,9 @@ def seek_camera_to_pin(ctx: GUIContext, inputs: WorkerInputs) -> None:
     side = str(inputs.side).upper()
     pin_name = _selected_laser_offset_pin(layer, side, inputs.laser_offset_pin)
     if pin_name is None:
-        LOGGER.warning("No laser-offset pin is available for layer %s side %s.", layer, side)
+        LOGGER.warning(
+            "No laser-offset pin is available for layer %s side %s.", layer, side
+        )
         return
 
     try:
@@ -1096,7 +1130,9 @@ def seek_camera_to_pin(ctx: GUIContext, inputs: WorkerInputs) -> None:
         if get_plc_io_mode() == "desktop":
             moved = desktop_seek_pin(resolved_pin_name, DEFAULT_PIN_SEEK_VELOCITY)
         else:
-            moved = _move_to_local_pin(ctx, layer, side, pin_name, DEFAULT_PIN_SEEK_VELOCITY)
+            moved = _move_to_local_pin(
+                ctx, layer, side, pin_name, DEFAULT_PIN_SEEK_VELOCITY
+            )
         if not moved:
             LOGGER.warning("Failed to seek to pin %s.", resolved_pin_name)
             return
@@ -1116,7 +1152,9 @@ def capture_laser_offset_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     side = str(inputs.side).upper()
     pin_name = _selected_laser_offset_pin(layer, side, inputs.laser_offset_pin)
     if pin_name is None:
-        LOGGER.warning("No laser-offset pin is available for layer %s side %s.", layer, side)
+        LOGGER.warning(
+            "No laser-offset pin is available for layer %s side %s.", layer, side
+        )
         return
 
     try:
@@ -1152,7 +1190,9 @@ def move_laser_to_pin_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     side = str(inputs.side).upper()
     pin_name = _selected_laser_offset_pin(layer, side, inputs.laser_offset_pin)
     if pin_name is None:
-        LOGGER.warning("No laser-offset pin is available for layer %s side %s.", layer, side)
+        LOGGER.warning(
+            "No laser-offset pin is available for layer %s side %s.", layer, side
+        )
         return
 
     try:
@@ -1290,7 +1330,8 @@ def _get_wires_matching_condition(config: Any, expr: str) -> list[int]:
     if uses_z:
         if layer not in {"U", "V"}:
             LOGGER.warning(
-                "Zone variable 'z' is not applicable for layer %s; returning no matches.", layer
+                "Zone variable 'z' is not applicable for layer %s; returning no matches.",
+                layer,
             )
             return []
 
@@ -1330,7 +1371,9 @@ def _get_wires_matching_condition(config: Any, expr: str) -> list[int]:
             if predicate(int(wire_number), float(tension), 0):
                 wires.append(int(wire_number))
         except Exception as exc:
-            LOGGER.warning("Error evaluating condition for wire %s: %s", wire_number, exc)
+            LOGGER.warning(
+                "Error evaluating condition for wire %s: %s", wire_number, exc
+            )
             return []
     return wires
 
@@ -1434,7 +1477,9 @@ def _erase_detected_outliers(
                 ):
                     filtered_outliers.append(wire_number)
             except Exception as exc:
-                LOGGER.warning("Error evaluating outlier filter for wire %s: %s", wire, exc)
+                LOGGER.warning(
+                    "Error evaluating outlier filter for wire %s: %s", wire, exc
+                )
                 return
         outliers = filtered_outliers
 
@@ -1609,7 +1654,9 @@ def manual_increment(ctx: GUIContext, dx: float, dy: float) -> None:
         LOGGER.warning("Manual increment failed: %s", exc)
         return
     if moved is False:
-        LOGGER.warning("Manual increment to %s,%s failed: PLC not available.", new_x, new_y)
+        LOGGER.warning(
+            "Manual increment to %s,%s failed: PLC not available.", new_x, new_y
+        )
 
 
 def update_focus_command_indicator(ctx: GUIContext, value: int) -> None:

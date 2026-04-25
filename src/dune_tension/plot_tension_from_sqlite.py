@@ -71,7 +71,7 @@ def _parse_action_time(action_json: str) -> pd.Timestamp:
     except json.JSONDecodeError:
         return pd.NaT
 
-    insert_date = (((payload or {}).get("insertion") or {}).get("insertDate"))
+    insert_date = ((payload or {}).get("insertion") or {}).get("insertDate")
     if not insert_date:
         return pd.NaT
     return pd.to_datetime(insert_date, errors="coerce")
@@ -135,7 +135,9 @@ def _resolve_default_apa_name(conn: sqlite3.Connection, layer: str) -> str:
     return str(df.iloc[-1]["apa_name"])
 
 
-def _select_latest_per_wire(df: pd.DataFrame, layer: str) -> tuple[list[pd.DataFrame], str]:
+def _select_latest_per_wire(
+    df: pd.DataFrame, layer: str
+) -> tuple[list[pd.DataFrame], str]:
     expected_wires = set(get_expected_range(layer))
     line_data: list[pd.DataFrame] = []
     apa_name = str(df["apa_name"].iloc[0]) if not df.empty else ""
@@ -146,14 +148,16 @@ def _select_latest_per_wire(df: pd.DataFrame, layer: str) -> tuple[list[pd.DataF
             continue
 
         side_df = side_df[side_df["wire_number"].isin(expected_wires)]
-        side_df = side_df[side_df["tension"].apply(lambda value: tension_plausible(float(value)))]
+        side_df = side_df[
+            side_df["tension"].apply(lambda value: tension_plausible(float(value)))
+        ]
         if side_df.empty:
             continue
 
         side_df = side_df.sort_values(["action_time", "action_version", "action_id"])
-        side_df = side_df.drop_duplicates(subset="wire_number", keep="last").sort_values(
-            "wire_number"
-        )
+        side_df = side_df.drop_duplicates(
+            subset="wire_number", keep="last"
+        ).sort_values("wire_number")
         if side_df.empty:
             continue
 

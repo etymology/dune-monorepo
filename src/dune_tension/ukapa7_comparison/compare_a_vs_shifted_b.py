@@ -45,7 +45,9 @@ def build_a_vs_shifted_b(
         action_json, summary_csv, shift_min=shift_min, shift_max=shift_max
     )
     shifted_model = next(
-        model for model in b_stats["model"].tolist() if model.startswith("reversed_shift_")
+        model
+        for model in b_stats["model"].tolist()
+        if model.startswith("reversed_shift_")
     )
     if b_model == "best_reversed_shift":
         selected_model = shifted_model
@@ -100,7 +102,9 @@ def save_plot(plot_df: pd.DataFrame, stats_df: pd.DataFrame, output_path: Path) 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     colors = {
         "A_baseline": "tab:blue",
-        next(name for name in plot_df["series"].unique() if name.startswith("B_")): "tab:green",
+        next(
+            name for name in plot_df["series"].unique() if name.startswith("B_")
+        ): "tab:green",
     }
 
     fig, axes = plt.subplots(2, 1, figsize=(15, 10))
@@ -136,10 +140,14 @@ def save_plot(plot_df: pd.DataFrame, stats_df: pd.DataFrame, output_path: Path) 
             color=colors[series_name],
             label=label,
         )
-        axes[1].axvline(subset["residual"].mean(), color=colors[series_name], linewidth=1.5)
+        axes[1].axvline(
+            subset["residual"].mean(), color=colors[series_name], linewidth=1.5
+        )
 
     axes[0].axhline(0.0, color="black", linestyle="--", linewidth=1)
-    b_series_name = next(name for name in plot_df["series"].unique() if name.startswith("B_"))
+    b_series_name = next(
+        name for name in plot_df["series"].unique() if name.startswith("B_")
+    )
     b_title = b_series_name.replace("_", " ")
     axes[0].set_title(f"UKAPA7 Layer G Residuals by Wire: A Baseline vs {b_title}")
     axes[0].set_xlabel("CSV Wire Number")
@@ -173,9 +181,7 @@ def save_csv(plot_df: pd.DataFrame, output_path: Path) -> None:
         .reset_index()
     )
     output.columns = [
-        "wire_number"
-        if col == ("wire_number", "")
-        else f"{col[1]}_{col[0]}"
+        "wire_number" if col == ("wire_number", "") else f"{col[1]}_{col[0]}"
         for col in output.columns
     ]
     output.to_csv(output_path, index=False)

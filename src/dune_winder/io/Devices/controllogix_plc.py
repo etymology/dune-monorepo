@@ -18,151 +18,153 @@ import re
 
 
 class ControllogixPLC(PLC):
-  _ARRAY_TYPE_RE = re.compile(r"^[^\[]+\[(\d+)\]$")
+    _ARRAY_TYPE_RE = re.compile(r"^[^\[]+\[(\d+)\]$")
 
-  # ---------------------------------------------------------------------
-  def _normalize_write_request(self, tag, typeName=None):
-    if not isinstance(tag, tuple) or len(tag) != 2:
-      return tag
+    # ---------------------------------------------------------------------
+    def _normalize_write_request(self, tag, typeName=None):
+        if not isinstance(tag, tuple) or len(tag) != 2:
+            return tag
 
-    tagName, value = tag
-    if not isinstance(tagName, str):
-      return tag
+        tagName, value = tag
+        if not isinstance(tagName, str):
+            return tag
 
-    if typeName is None:
-      return tag
+        if typeName is None:
+            return tag
 
-    match = self._ARRAY_TYPE_RE.match(str(typeName).strip())
-    if match is None:
-      return tag
+        match = self._ARRAY_TYPE_RE.match(str(typeName).strip())
+        if match is None:
+            return tag
 
-    if not isinstance(value, (list, tuple)):
-      return tag
+        if not isinstance(value, (list, tuple)):
+            return tag
 
-    if "{" in tagName and tagName.endswith("}"):
-      return tag
+        if "{" in tagName and tagName.endswith("}"):
+            return tag
 
-    elementCount = int(match.group(1))
-    if len(value) != elementCount:
-      return tag
+        elementCount = int(match.group(1))
+        if len(value) != elementCount:
+            return tag
 
-    return (f"{tagName}{{{elementCount}}}", value)
+        return (f"{tagName}{{{elementCount}}}", value)
 
-  # ---------------------------------------------------------------------
-  def initialize(self):
-    """
-    Try and establish a connection to the PLC.
+    # ---------------------------------------------------------------------
+    def initialize(self):
+        """
+        Try and establish a connection to the PLC.
 
-    Returns:
-      True if there was an error, False if connection was made.
-    """
-    self._lock.acquire()
-    isFunctional = True
-    try:
-      # Attempt to open a connection to PLC if plcDriver is not already connected.
-      isOk = True
-      if not self._plcDriver.connected:
-        isOk = self._plcDriver.open()
-      if not isOk:
-        isFunctional = False
-    except Exception:
-      isFunctional = False
+        Returns:
+          True if there was an error, False if connection was made.
+        """
+        self._lock.acquire()
+        isFunctional = True
+        try:
+            # Attempt to open a connection to PLC if plcDriver is not already connected.
+            isOk = True
+            if not self._plcDriver.connected:
+                isOk = self._plcDriver.open()
+            if not isOk:
+                isFunctional = False
+        except Exception:
+            isFunctional = False
 
-    self._isFunctional = isFunctional
-    if not self._isFunctional:
-      self._plcDriver.close()
+        self._isFunctional = isFunctional
+        if not self._isFunctional:
+            self._plcDriver.close()
 
-    self._lock.release()
+        self._lock.release()
 
-    return self._isFunctional
+        return self._isFunctional
 
-  # ---------------------------------------------------------------------
-  def isNotFunctional(self):
-    """
-    See if the PLC is communicating correctly.
+    # ---------------------------------------------------------------------
+    def isNotFunctional(self):
+        """
+        See if the PLC is communicating correctly.
 
-    Returns:
-      True there is a problem with hardware, false if not.
-    """
-    return not self._isFunctional
+        Returns:
+          True there is a problem with hardware, false if not.
+        """
+        return not self._isFunctional
 
-  # ---------------------------------------------------------------------
-  def read(self, tag):
-    """
-    Read a tag(s) from the PLC.
+    # ---------------------------------------------------------------------
+    def read(self, tag):
+        """
+        Read a tag(s) from the PLC.
 
-    Args:
-      tag: A single or a list of PLC tags.
+        Args:
+          tag: A single or a list of PLC tags.
 
-    Returns:
-      Result of the data read, or None if there was a problem.
-    """
+        Returns:
+          Result of the data read, or None if there was a problem.
+        """
 
-    self._lock.acquire()
-    result = None
+        self._lock.acquire()
+        result = None
 
-    if self._isFunctional:
-      try:
-        result = self._plcDriver.read(*tag)
-        if result is not None and not isinstance(result, list):
-          result = [result]
-      except Exception:
-        # If tag reading threw an exception, the connection is dead.
+        if self._isFunctional:
+            try:
+                result = self._plcDriver.read(*tag)
+                if result is not None and not isinstance(result, list):
+                    result = [result]
+            except Exception:
+                # If tag reading threw an exception, the connection is dead.
+                self._isFunctional = False
+
+        self._lock.release()
+
+        return result
+
+    # ---------------------------------------------------------------------
+    def write(self, tag, data=None, typeName=None):
+        """
+        Write a tag(s) to the PLC.
+
+        Args:
+          tag: A single or a list of PLC tags.
+          data: Data to be written.
+          typeName: Type of the tag to write.
+
+        Returns:
+            None is returned in case of error otherwise the tag list is returned.
+        """
+
+        self._lock.acquire()
+        result = None
+        if self._isFunctional:
+            try:
+                result = self._plcDriver.write(
+                    self._normalize_write_request(tag, typeName)
+                )
+            except Exception as e:
+                print(e)
+                # If tag writting threw an exception, the connection is dead.
+                self._isFunctional = False
+
+        self._lock.release()
+        return result
+
+    # ---------------------------------------------------------------------
+    def __init__(self, ipAddress):
+        """
+        Constructor.
+
+        Args:
+          ipAddress: IP address of PLC to communicate with.
+        """
+        # Use logger only for DEBUG
+        # configure_default_logger(level="ERROR", filename='C:/dune/bin/T05-Winder-test/src/winder/pycomm3.log')
+        try:
+            from pycomm3 import LogixDriver as ClxDriver
+        except Exception as exception:
+            raise RuntimeError(
+                "pycomm3 is required for PLC REAL mode. Install pycomm3 or use PLC_MODE=SIM."
+            ) from exception
+
+        self._ipAddress = ipAddress
+        self._plcDriver = ClxDriver(self._ipAddress)
         self._isFunctional = False
-
-    self._lock.release()
-
-    return result
-
-  # ---------------------------------------------------------------------
-  def write(self, tag, data=None, typeName=None):
-    """
-    Write a tag(s) to the PLC.
-
-    Args:
-      tag: A single or a list of PLC tags.
-      data: Data to be written.
-      typeName: Type of the tag to write.
-
-    Returns:
-        None is returned in case of error otherwise the tag list is returned.
-    """
-
-    self._lock.acquire()
-    result = None
-    if self._isFunctional:
-      try:
-        result = self._plcDriver.write(self._normalize_write_request(tag, typeName))
-      except Exception as e:
-        print(e)
-        # If tag writting threw an exception, the connection is dead.
-        self._isFunctional = False
-
-    self._lock.release()
-    return result
-
-  # ---------------------------------------------------------------------
-  def __init__(self, ipAddress):
-    """
-    Constructor.
-
-    Args:
-      ipAddress: IP address of PLC to communicate with.
-    """
-    # Use logger only for DEBUG
-    # configure_default_logger(level="ERROR", filename='C:/dune/bin/T05-Winder-test/src/winder/pycomm3.log')
-    try:
-      from pycomm3 import LogixDriver as ClxDriver
-    except Exception as exception:
-      raise RuntimeError(
-        "pycomm3 is required for PLC REAL mode. Install pycomm3 or use PLC_MODE=SIM."
-      ) from exception
-
-    self._ipAddress = ipAddress
-    self._plcDriver = ClxDriver(self._ipAddress)
-    self._isFunctional = False
-    self._lock = threading.Lock()
-    self.initialize()
+        self._lock = threading.Lock()
+        self.initialize()
 
 
 # end class

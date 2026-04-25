@@ -10,41 +10,41 @@ from .digital_io import DigitalIO
 
 
 class DigitalInput(DigitalIO):
-  # Static list of all digital inputs, and map of names to instances.
-  digital_input_instances: list["DigitalInput"] = []
-  digital_input_lookup: dict[str, "DigitalInput"] = {}
+    # Static list of all digital inputs, and map of names to instances.
+    digital_input_instances: list["DigitalInput"] = []
+    digital_input_lookup: dict[str, "DigitalInput"] = {}
 
-  # ---------------------------------------------------------------------
-  def __str__(self):
-    """
-    Convert state to string.
+    # ---------------------------------------------------------------------
+    def __str__(self):
+        """
+        Convert state to string.
 
-    Returns:
-      "1" for on, "0" for off.
-    """
+        Returns:
+          "1" for on, "0" for off.
+        """
 
-    result = "0"
-    if self.get():
-      result = "1"
+        result = "0"
+        if self.get():
+            result = "1"
 
-    return result
+        return result
 
-  # ---------------------------------------------------------------------
-  def __init__(self, name):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, name):
+        """
+        Constructor.
 
-    Args:
-      name: Name of input.
+        Args:
+          name: Name of input.
 
-    """
+        """
 
-    # Make sure this name isn't already in use.
-    assert name not in DigitalInput.digital_input_instances
+        # Make sure this name isn't already in use.
+        assert name not in DigitalInput.digital_input_instances
 
-    DigitalIO.__init__(self, name)
-    DigitalInput.digital_input_instances.append(self)
-    DigitalInput.digital_input_lookup[name] = self
+        DigitalIO.__init__(self, name)
+        DigitalInput.digital_input_instances.append(self)
+        DigitalInput.digital_input_lookup[name] = self
 
 
 # end class

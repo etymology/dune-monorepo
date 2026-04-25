@@ -60,7 +60,7 @@ dev = ["pytest>=9.0.2", "ruff>=0.9.9"]
 testpaths = ["tests/dune_tension", "tests/dune_winder"]
 
 [tool.ruff]
-indent-width = 2
+indent-width = 4
 extend-exclude = ["src/dune_winder/manual_port.py"]
 
 [tool.ruff.lint]

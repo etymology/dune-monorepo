@@ -145,9 +145,7 @@ class StreamingSessionRepository:
         column_names = ", ".join(columns.keys())
         placeholders = ", ".join("?" for _ in columns)
         updates = ", ".join(
-            f"{name}=excluded.{name}"
-            for name in columns.keys()
-            if name != key_column
+            f"{name}=excluded.{name}" for name in columns.keys() if name != key_column
         )
         sql = (
             f"INSERT INTO {table} ({column_names}) VALUES ({placeholders}) "
@@ -310,7 +308,9 @@ class StreamingSessionRepository:
         )
         return ref
 
-    def _write_pcm16_wav(self, file_path: Path, audio: np.ndarray, sample_rate: int) -> None:
+    def _write_pcm16_wav(
+        self, file_path: Path, audio: np.ndarray, sample_rate: int
+    ) -> None:
         data = np.asarray(audio, dtype=np.float32).reshape(-1)
         clipped = np.clip(data, -1.0, 1.0)
         pcm16 = np.round(clipped * 32767.0).astype(np.int16)

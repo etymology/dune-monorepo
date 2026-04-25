@@ -190,8 +190,14 @@ def test_analyze_audio_with_pesto_reverses_sr_augmentation(monkeypatch):
     )
     assert result.activation_map is not None
     assert result.activation_map.shape == (30, 2)
-    assert np.allclose(result.activation_map[:6, 0], np.array([24, 25, 26, 27, 28, 29], dtype=np.float32))
-    assert np.allclose(result.activation_map[:6, 1], np.array([54, 55, 56, 57, 58, 59], dtype=np.float32))
+    assert np.allclose(
+        result.activation_map[:6, 0],
+        np.array([24, 25, 26, 27, 28, 29], dtype=np.float32),
+    )
+    assert np.allclose(
+        result.activation_map[:6, 1],
+        np.array([54, 55, 56, 57, 58, 59], dtype=np.float32),
+    )
     assert np.allclose(result.activation_map[6:, :], 0.0)
 
 

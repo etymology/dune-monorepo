@@ -151,7 +151,9 @@ def save_plot(
         "reversed": "tab:orange",
     }
     shifted_name = next(
-        model for model in stats_df["model"].tolist() if model.startswith("reversed_shift_")
+        model
+        for model in stats_df["model"].tolist()
+        if model.startswith("reversed_shift_")
     )
     colors[shifted_name] = "tab:green"
 
@@ -227,9 +229,7 @@ def save_comparison_csv(model_df: pd.DataFrame, output_path: Path) -> None:
         .reset_index()
     )
     output.columns = [
-        "wire_number"
-        if col == ("wire_number", "")
-        else f"{col[1]}_{col[0]}"
+        "wire_number" if col == ("wire_number", "") else f"{col[1]}_{col[0]}"
         for col in output.columns
     ]
     output.to_csv(output_path, index=False)

@@ -70,7 +70,9 @@ def _minimum_input_samples(model: Any) -> int | None:
 
     for cqt in iterator:
         conv = getattr(cqt, "conv", None)
-        padding = _padding_samples(getattr(conv, "padding", 0) if conv is not None else 0)
+        padding = _padding_samples(
+            getattr(conv, "padding", 0) if conv is not None else 0
+        )
         if padding <= 0 and bool(getattr(cqt, "center", False)):
             padding = _padding_samples(getattr(cqt, "kernel_width", 0)) // 2
         if padding > 0:
@@ -110,7 +112,9 @@ def _empty_analysis_result() -> PestoAnalysisResult:
 def _activation_frequency_axis(model: Any, num_bins: int) -> np.ndarray:
     bins_per_semitone = max(int(getattr(model, "bins_per_semitone", 1)), 1)
     preprocessor = getattr(model, "preprocessor", None)
-    hcqt_kwargs = getattr(preprocessor, "hcqt_kwargs", {}) if preprocessor is not None else {}
+    hcqt_kwargs = (
+        getattr(preprocessor, "hcqt_kwargs", {}) if preprocessor is not None else {}
+    )
     fmin = float(hcqt_kwargs.get("fmin", 32.7))
     return (
         fmin
@@ -148,7 +152,9 @@ def _reverse_sr_augment(
     if abs(bin_shift) >= num_bins:
         return np.zeros_like(activation)
     if bin_shift > 0:
-        return np.pad(activation, ((0, 0), (bin_shift, 0)), mode="constant")[:, :num_bins]
+        return np.pad(activation, ((0, 0), (bin_shift, 0)), mode="constant")[
+            :, :num_bins
+        ]
     if bin_shift < 0:
         return np.pad(activation, ((0, 0), (0, -bin_shift)), mode="constant")[
             :,
@@ -180,7 +186,9 @@ def _ensure_runtime_dependencies() -> bool:
     return True
 
 
-def _load_pesto_model_cached(model_name: str, step_size_ms: float, sample_rate: int) -> Any:
+def _load_pesto_model_cached(
+    model_name: str, step_size_ms: float, sample_rate: int
+) -> Any:
     if load_model is None:
         return None
 
@@ -252,7 +260,9 @@ def analyze_audio_with_pesto(
 
     original_sample_count = int(audio_array.size)
     padded_audio_array, pad_width = _pad_short_audio_for_model(audio_array, model)
-    audio_tensor = torch.from_numpy(padded_audio_array).to(dtype=torch.float32).unsqueeze(0)
+    audio_tensor = (
+        torch.from_numpy(padded_audio_array).to(dtype=torch.float32).unsqueeze(0)
+    )
 
     try:
         with torch.inference_mode():
@@ -262,7 +272,9 @@ def analyze_audio_with_pesto(
                 convert_to_freq=True,
                 return_activations=bool(include_activations),
             )
-    except Exception as exc:  # pragma: no cover - environment-specific inference failure
+    except (
+        Exception
+    ) as exc:  # pragma: no cover - environment-specific inference failure
         LOGGER.warning("PESTO pitch estimation failed: %s", exc)
         return _empty_analysis_result()
 
@@ -273,10 +285,14 @@ def analyze_audio_with_pesto(
     confidences = outputs[1]
     activations = outputs[3] if include_activations and len(outputs) >= 4 else None
 
-    predicted_frequencies = _to_numpy(predictions).reshape(-1).astype(np.float32, copy=False)
-    confidence_values = _to_numpy(confidences).reshape(-1).astype(np.float32, copy=False)
-    frame_times = (
-        np.arange(predicted_frequencies.size, dtype=np.float32) * (step_size_ms / 1000.0)
+    predicted_frequencies = (
+        _to_numpy(predictions).reshape(-1).astype(np.float32, copy=False)
+    )
+    confidence_values = (
+        _to_numpy(confidences).reshape(-1).astype(np.float32, copy=False)
+    )
+    frame_times = np.arange(predicted_frequencies.size, dtype=np.float32) * (
+        step_size_ms / 1000.0
     )
     if sr_augment_factor != 1.0:
         predicted_frequencies = predicted_frequencies / float(sr_augment_factor)
@@ -324,7 +340,9 @@ def analyze_audio_with_pesto(
             activation_np = activation_np[0]
         if activation_np.ndim == 2:
             if frame_keep_mask is not None and frame_keep_mask.size > 0:
-                frame_count = min(int(activation_np.shape[0]), int(frame_keep_mask.size))
+                frame_count = min(
+                    int(activation_np.shape[0]), int(frame_keep_mask.size)
+                )
                 activation_np = activation_np[:frame_count]
                 activation_np = activation_np[frame_keep_mask[:frame_count]]
             bins_per_semitone = max(int(getattr(model, "bins_per_semitone", 1)), 1)

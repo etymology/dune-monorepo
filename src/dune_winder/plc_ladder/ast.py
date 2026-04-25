@@ -7,13 +7,13 @@ from typing import TypeAlias
 
 @dataclass(frozen=True)
 class InstructionCall:
-  opcode: str
-  operands: tuple[str, ...] = ()
+    opcode: str
+    operands: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class Branch:
-  branches: tuple[tuple["Node", ...], ...]
+    branches: tuple[tuple["Node", ...], ...]
 
 
 Node: TypeAlias = InstructionCall | Branch
@@ -21,12 +21,12 @@ Node: TypeAlias = InstructionCall | Branch
 
 @dataclass(frozen=True)
 class Rung:
-  nodes: tuple[Node, ...]
+    nodes: tuple[Node, ...]
 
 
 @dataclass(frozen=True)
 class Routine:
-  name: str
-  rungs: tuple[Rung, ...]
-  program: str | None = None
-  source_path: Path | None = None
+    name: str
+    rungs: tuple[Rung, ...]
+    program: str | None = None
+    source_path: Path | None = None

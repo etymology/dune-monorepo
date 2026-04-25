@@ -40,7 +40,9 @@ def test_public_wire_pin_pair_matches_requested_sanity_checks() -> None:
 
 
 def test_wrap_to_wire_numbers_has_400_wraps_of_six_entries(monkeypatch) -> None:
-    monkeypatch.setattr(uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration)
+    monkeypatch.setattr(
+        uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration
+    )
 
     v_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("V")
     u_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("U")
@@ -54,17 +56,23 @@ def test_wrap_to_wire_numbers_has_400_wraps_of_six_entries(monkeypatch) -> None:
 
 
 def test_wire_to_wrap_is_complete_and_unique_for_valid_wires(monkeypatch) -> None:
-    monkeypatch.setattr(uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration)
+    monkeypatch.setattr(
+        uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration
+    )
 
     for layer in ("U", "V"):
         maps = uv_wire_recipe_map.build_uv_wire_recipe_maps(layer)
         assert sorted(maps.wire_to_wrap) == list(
-            range(uv_wire_recipe_map.VALID_WIRE_MIN, uv_wire_recipe_map.VALID_WIRE_MAX + 1)
+            range(
+                uv_wire_recipe_map.VALID_WIRE_MIN, uv_wire_recipe_map.VALID_WIRE_MAX + 1
+            )
         )
 
 
 def test_explicit_sanity_checks_and_representative_inversions(monkeypatch) -> None:
-    monkeypatch.setattr(uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration)
+    monkeypatch.setattr(
+        uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration
+    )
 
     v_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("V")
     u_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("U")
@@ -78,7 +86,10 @@ def test_explicit_sanity_checks_and_representative_inversions(monkeypatch) -> No
         end_pin="B1950",
     )
     assert u_maps.wrap_to_wire_numbers[50][2] == 1
-    assert uv_wire_planner.wire_pin_pair("U", u_maps.wrap_to_wire_numbers[50][2])[0] == "B450"
+    assert (
+        uv_wire_planner.wire_pin_pair("U", u_maps.wrap_to_wire_numbers[50][2])[0]
+        == "B450"
+    )
 
     assert v_maps.wire_to_wrap[8].wrap_number == 344
     assert v_maps.wire_to_wrap[8].segment_line == 22
@@ -90,8 +101,12 @@ def test_explicit_sanity_checks_and_representative_inversions(monkeypatch) -> No
     assert u_maps.wire_to_wrap[1146].segment_line == 2
 
 
-def test_applied_length_uses_calibrated_pin_distance_not_length_lookup(monkeypatch) -> None:
-    monkeypatch.setattr(uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration)
+def test_applied_length_uses_calibrated_pin_distance_not_length_lookup(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration
+    )
     monkeypatch.setattr(
         geometry,
         "length_lookup",
@@ -109,7 +124,9 @@ def test_applied_length_uses_calibrated_pin_distance_not_length_lookup(monkeypat
 
 
 def test_wire_to_endpoint_sides_uses_manual_calibration_metadata(monkeypatch) -> None:
-    monkeypatch.setattr(uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration)
+    monkeypatch.setattr(
+        uv_wire_recipe_map, "load_normalized_layer_calibration", _fake_calibration
+    )
 
     v_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("V")
     u_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("U")

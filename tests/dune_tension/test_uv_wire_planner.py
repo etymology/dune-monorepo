@@ -29,7 +29,9 @@ def test_wire_pin_pair_matches_examples_and_wraparound() -> None:
     assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A2345", "A58")
 
 
-def test_legacy_uv_provider_uses_planner_for_uv_and_fallback_elsewhere(monkeypatch) -> None:
+def test_legacy_uv_provider_uses_planner_for_uv_and_fallback_elsewhere(
+    monkeypatch,
+) -> None:
     fallback_calls = []
 
     class _Fallback:
@@ -98,7 +100,9 @@ def test_plan_uv_wire_clips_the_tangent_in_laser_space(monkeypatch) -> None:
             },
         },
     )
-    monkeypatch.setattr(uv_wire_planner, "get_laser_offset", lambda _side: {"x": -1000.0, "y": 0.0})
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": -1000.0, "y": 0.0}
+    )
     monkeypatch.setattr(
         uv_wire_planner,
         "_wire_pin_pair",
@@ -152,7 +156,9 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
             },
         },
     )
-    monkeypatch.setattr(uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0})
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
     monkeypatch.setattr(
         uv_wire_planner,
         "_wire_pin_pair",
@@ -189,7 +195,9 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
     assert planned.midpoint == (6392.5, 500.0)
 
 
-def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(monkeypatch) -> None:
+def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
         "load_layer_calibration_summary",
@@ -201,7 +209,9 @@ def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(monke
             },
         },
     )
-    monkeypatch.setattr(uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0})
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
     monkeypatch.setattr(
         uv_wire_planner,
         "_wire_pin_pair",
@@ -267,7 +277,9 @@ def test_plan_uv_wire_uses_front_pin_family_for_a_side(monkeypatch) -> None:
             },
         },
     )
-    monkeypatch.setattr(uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0})
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
     monkeypatch.setattr(
         uv_wire_planner,
         "LAYER_METADATA",
@@ -311,7 +323,9 @@ def test_plan_uv_wire_zone_avoids_length_lookup(monkeypatch) -> None:
             },
         },
     )
-    monkeypatch.setattr(uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0})
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
     monkeypatch.setattr(
         uv_wire_planner,
         "LAYER_METADATA",
@@ -338,7 +352,9 @@ def test_plan_uv_wire_zone_avoids_length_lookup(monkeypatch) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
         "length_lookup",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("length lookup should not be used")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("length lookup should not be used")
+        ),
     )
 
     assert uv_wire_planner.plan_uv_wire_zone("V", "A", 1100) == 4
@@ -358,7 +374,9 @@ def test_plan_uv_wire_caches_geometry_for_repeated_inputs(monkeypatch) -> None:
             },
         },
     )
-    monkeypatch.setattr(uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0})
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
     monkeypatch.setattr(
         uv_wire_planner,
         "LAYER_METADATA",

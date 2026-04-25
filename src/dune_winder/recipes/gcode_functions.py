@@ -9,115 +9,115 @@ HEAD_LOCATION_BACK = 3
 
 
 def _function(opcode: Opcode, parameters=None):
-  if parameters is None:
-    parameters = []
-  return FunctionCall(int(opcode), list(parameters))
+    if parameters is None:
+        parameters = []
+    return FunctionCall(int(opcode), list(parameters))
 
 
 def latch():
-  return _function(Opcode.LATCH)
+    return _function(Opcode.LATCH)
 
 
 def wire_length(length):
-  return _function(Opcode.WIRE_LENGTH, [length])
+    return _function(Opcode.WIRE_LENGTH, [length])
 
 
 def seek_transfer():
-  return _function(Opcode.SEEK_TRANSFER)
+    return _function(Opcode.SEEK_TRANSFER)
 
 
 def pin_center(pins, axises="XY"):
-  parameters = list(pins)
-  parameters.append(axises)
-  return _function(Opcode.PIN_CENTER, parameters)
+    parameters = list(pins)
+    parameters.append(axises)
+    return _function(Opcode.PIN_CENTER, parameters)
 
 
 def clip():
-  return _function(Opcode.CLIP)
+    return _function(Opcode.CLIP)
 
 
 def offset(x=None, y=None, z=None):
-  parameters = []
-  if x is not None:
-    parameters.append("X" + str(x))
-  if y is not None:
-    parameters.append("Y" + str(y))
-  if z is not None:
-    parameters.append("Z" + str(z))
-  return _function(Opcode.OFFSET, parameters)
+    parameters = []
+    if x is not None:
+        parameters.append("X" + str(x))
+    if y is not None:
+        parameters.append("Y" + str(y))
+    if z is not None:
+        parameters.append("Z" + str(z))
+    return _function(Opcode.OFFSET, parameters)
 
 
 def head_location(location):
-  return _function(Opcode.HEAD_LOCATION, [location])
+    return _function(Opcode.HEAD_LOCATION, [location])
 
 
 def head_transfer(location):
-  return _function(Opcode.HEAD_TRANSFER, [location])
+    return _function(Opcode.HEAD_TRANSFER, [location])
 
 
 def delay(milliseconds):
-  return _function(Opcode.DELAY, [milliseconds])
+    return _function(Opcode.DELAY, [milliseconds])
 
 
 def arm_correct():
-  return _function(Opcode.ARM_CORRECT)
+    return _function(Opcode.ARM_CORRECT)
 
 
 def anchor_point(pin, orientation=None):
-  if orientation is None:
-    orientation = "0"
-  return _function(Opcode.ANCHOR_POINT, [pin, orientation])
+    if orientation is None:
+        orientation = "0"
+    return _function(Opcode.ANCHOR_POINT, [pin, orientation])
 
 
 def transfer_correct(axis):
-  return _function(Opcode.TRANSFER_CORRECT, [axis])
+    return _function(Opcode.TRANSFER_CORRECT, [axis])
 
 
 def break_point():
-  return _function(Opcode.BREAK_POINT)
+    return _function(Opcode.BREAK_POINT)
 
 
 def tension_testing(wire_index):
-  return _function(Opcode.TENSION_TESTING, [wire_index])
+    return _function(Opcode.TENSION_TESTING, [wire_index])
 
 
 def queue_merge(mode):
-  return _function(Opcode.QUEUE_MERGE, [mode])
+    return _function(Opcode.QUEUE_MERGE, [mode])
 
 
 def queue_merge_precise():
-  return queue_merge("PRECISE")
+    return queue_merge("PRECISE")
 
 
 def queue_merge_tolerant():
-  return queue_merge("TOLERANT")
+    return queue_merge("TOLERANT")
 
 
 def wrap_goto(x=None, y=None):
-  parameters = []
-  if x is not None:
-    parameters.append("X" + str(x))
-  if y is not None:
-    parameters.append("Y" + str(y))
-  return _function(Opcode.WRAP_GOTO, parameters)
+    parameters = []
+    if x is not None:
+        parameters.append("X" + str(x))
+    if y is not None:
+        parameters.append("Y" + str(y))
+    return _function(Opcode.WRAP_GOTO, parameters)
 
 
 def wrap_increment(x=None, y=None):
-  parameters = []
-  if x is not None:
-    parameters.append("X" + str(x))
-  if y is not None:
-    parameters.append("Y" + str(y))
-  return _function(Opcode.WRAP_INCREMENT, parameters)
+    parameters = []
+    if x is not None:
+        parameters.append("X" + str(x))
+    if y is not None:
+        parameters.append("Y" + str(y))
+    return _function(Opcode.WRAP_INCREMENT, parameters)
 
 
 def wrap_anchor(pin):
-  return _function(Opcode.WRAP_ANCHOR, [pin])
+    return _function(Opcode.WRAP_ANCHOR, [pin])
 
 
 def wrap_b(pin):
-  return _function(Opcode.WRAP_B, [pin])
+    return _function(Opcode.WRAP_B, [pin])
 
 
 def wrap_b_to_a(pin):
-  return _function(Opcode.WRAP_B_TO_A, [pin])
+    return _function(Opcode.WRAP_B_TO_A, [pin])

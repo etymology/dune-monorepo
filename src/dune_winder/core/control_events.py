@@ -9,33 +9,33 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class StartWindEvent:
-  pass
+    pass
 
 
 @dataclass(frozen=True)
 class StopMotionEvent:
-  pass
+    pass
 
 
 @dataclass(frozen=True)
 class SetLoopModeEvent:
-  enabled: bool
+    enabled: bool
 
 
 @dataclass(frozen=True)
 class ManualModeEvent:
-  seekX: Optional[float] = None
-  seekY: Optional[float] = None
-  seekZ: Optional[float] = None
-  velocity: Optional[float] = None
-  acceleration: Optional[float] = None
-  deceleration: Optional[float] = None
-  setHeadPosition: Optional[int] = None
-  idleServos: bool = False
-  executeGCode: bool = False
-  isJogging: bool = False
+    seekX: Optional[float] = None
+    seekY: Optional[float] = None
+    seekZ: Optional[float] = None
+    velocity: Optional[float] = None
+    acceleration: Optional[float] = None
+    deceleration: Optional[float] = None
+    setHeadPosition: Optional[int] = None
+    idleServos: bool = False
+    executeGCode: bool = False
+    isJogging: bool = False
 
 
 @dataclass(frozen=True)
 class SetManualJoggingEvent:
-  isJogging: bool
+    isJogging: bool

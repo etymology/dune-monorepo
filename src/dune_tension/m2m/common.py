@@ -24,7 +24,9 @@ def _parse_token_response(payload: str) -> tuple[str, str]:
     try:
         data = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise M2MError("ConnectToAPI() - ERROR: invalid token response payload") from exc
+        raise M2MError(
+            "ConnectToAPI() - ERROR: invalid token response payload"
+        ) from exc
 
     access_token = str(data.get("access_token") or "")
     token_type = str(data.get("token_type") or "")
@@ -46,7 +48,9 @@ def _parse_json_list_response(payload: str) -> list:
         try:
             nested = json.loads(parsed)
         except json.JSONDecodeError:
-            nested = [item.strip() for item in parsed.strip("[]").split(",") if item.strip()]
+            nested = [
+                item.strip() for item in parsed.strip("[]").split(",") if item.strip()
+            ]
         if isinstance(nested, list):
             return nested
         raise M2MError("M2M list response did not contain a list")
@@ -404,9 +408,7 @@ def GetAction(actionID, connection, headers, version=0):
 
         # If the provided ID doesn't correspond to an existing action record, print an error and exit the function immediately
         if action is None:
-            raise M2MError(
-                f"GetAction() - ERROR: no action record with ID={actionID}"
-            )
+            raise M2MError(f"GetAction() - ERROR: no action record with ID={actionID}")
 
         # Return the Python dictionary containing the action record
         return action
@@ -431,9 +433,7 @@ def EditAction(actionID, actionData_fields, actionData_values, connection, heade
 
         # If the provided ID doesn't correspond to an existing action record, print an error and exit the function immediately
         if action is None:
-            raise M2MError(
-                f"EditAction() - ERROR: no action record with ID={actionID}"
-            )
+            raise M2MError(f"EditAction() - ERROR: no action record with ID={actionID}")
 
         # For each action information field to be edited, assign the new value
         # Note that only existing fields in the 'action.data' object should be edited

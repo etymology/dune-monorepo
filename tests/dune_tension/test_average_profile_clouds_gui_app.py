@@ -76,7 +76,9 @@ class _FakeWidget:
 
     def destroy(self):
         if self.master is not None and hasattr(self.master, "children"):
-            self.master.children = [child for child in self.master.children if child is not self]
+            self.master.children = [
+                child for child in self.master.children if child is not self
+            ]
 
     def winfo_children(self):
         return list(self.children)
@@ -199,7 +201,9 @@ def _load_module(monkeypatch):
     return module
 
 
-def _make_result(layer: str, *, empty: bool = False, label: str | None = None) -> LayerAnalysisResult:
+def _make_result(
+    layer: str, *, empty: bool = False, label: str | None = None
+) -> LayerAnalysisResult:
     cloud = pd.DataFrame(
         columns=[
             "wire_number",
@@ -232,7 +236,9 @@ def _make_result(layer: str, *, empty: bool = False, label: str | None = None) -
         cloud=cloud,
         mu_by_side={"A": pd.Series([6.0], index=[1]), "B": pd.Series([6.4], index=[1])},
         n_by_side={"A": pd.Series([1], index=[1]), "B": pd.Series([1], index=[1])},
-        profile_df=pd.DataFrame({"wire_number": [1], "mu_A": [6.0], "mu_B": [6.4], "n_A": [1], "n_B": [1]}),
+        profile_df=pd.DataFrame(
+            {"wire_number": [1], "mu_A": [6.0], "mu_B": [6.4], "n_A": [1], "n_B": [1]}
+        ),
         scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
         output_path=Path("/tmp/out.png"),
         profile_summary_path=Path("/tmp/profile.csv"),
@@ -257,7 +263,9 @@ def test_schedule_refresh_debounces_existing_callback(monkeypatch):
     assert app.global_status_var.get() == "Refresh scheduled..."
 
 
-def test_sync_split_by_location_state_disables_all_locations_when_not_split(monkeypatch):
+def test_sync_split_by_location_state_disables_all_locations_when_not_split(
+    monkeypatch,
+):
     module = _load_module(monkeypatch)
     app = module.AverageProfileExplorerApp.__new__(module.AverageProfileExplorerApp)
     app.source_var = _FakeVar(value="legacy")
@@ -459,7 +467,9 @@ def test_render_layer_results_split_by_side_builds_two_figures(monkeypatch):
     app._figure_to_photo_image = lambda _figure: object()
 
     options = AverageProfileCloudOptions(split_by_side=True)
-    module.AverageProfileExplorerApp._render_layer_results(app, "X", [_make_result("X")], options)
+    module.AverageProfileExplorerApp._render_layer_results(
+        app, "X", [_make_result("X")], options
+    )
 
     assert calls == ["A", "B"]
 
@@ -488,7 +498,9 @@ def test_render_layer_results_endpoint_categories_ignores_split_by_side(monkeypa
     app._figure_to_photo_image = lambda _figure: object()
 
     options = AverageProfileCloudOptions(split_by_side=True)
-    module.AverageProfileExplorerApp._render_layer_results(app, "V", [_make_result("V")], options)
+    module.AverageProfileExplorerApp._render_layer_results(
+        app, "V", [_make_result("V")], options
+    )
 
     assert calls == [None]
 
@@ -556,7 +568,11 @@ def test_render_layer_results_unsupported_mode_shows_placeholder(monkeypatch):
         AverageProfileCloudOptions(),
     )
 
-    texts = [child.kwargs.get("text") for child in content_frame.children if "text" in child.kwargs]
+    texts = [
+        child.kwargs.get("text")
+        for child in content_frame.children
+        if "text" in child.kwargs
+    ]
     assert any("supported for U/V layers only" in str(text) for text in texts)
 
 
@@ -601,7 +617,9 @@ def test_export_current_writes_exploratory_png_suffix(monkeypatch, tmp_path):
     assert exported_paths == [tmp_path / "plot_by_applied_length.png"]
 
 
-def test_export_current_endpoint_categories_ignores_split_by_side(monkeypatch, tmp_path):
+def test_export_current_endpoint_categories_ignores_split_by_side(
+    monkeypatch, tmp_path
+):
     module = _load_module(monkeypatch)
     exported_paths = []
     build_calls = []

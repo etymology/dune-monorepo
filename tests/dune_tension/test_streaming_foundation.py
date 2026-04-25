@@ -139,7 +139,9 @@ def test_focus_plane_model_fits_planar_surface() -> None:
     assert model.predict(0.5, 1.0, clamp=False) == pytest.approx(4025.0)
 
 
-def test_streaming_session_repository_writes_manifest_and_session_tables(tmp_path) -> None:
+def test_streaming_session_repository_writes_manifest_and_session_tables(
+    tmp_path,
+) -> None:
     repo = StreamingSessionRepository(root_dir=tmp_path, session_id="session-1")
     manifest = StreamingManifest(
         session_id="session-1",

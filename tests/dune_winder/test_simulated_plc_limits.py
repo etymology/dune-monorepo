@@ -15,4 +15,3 @@ def test_simulated_plc_update_limits_reflected_in_status():
     assert status["limits"]["zFront"] == 164.65
     assert status["limits"]["zBack"] == 269.35
     assert status["limits"]["limitTop"] == 1234.5
-

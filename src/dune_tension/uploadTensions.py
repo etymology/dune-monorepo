@@ -6,9 +6,7 @@ from dune_tension.summaries import get_expected_range
 
 
 def load_tension_summary(apa_name: str, layer: str) -> tuple[list, list]:
-    csv_path = data_path(
-        "tension_summaries", f"tension_summary_{apa_name}_{layer}.csv"
-    )
+    csv_path = data_path("tension_summaries", f"tension_summary_{apa_name}_{layer}.csv")
     df = pd.read_csv(csv_path).set_index("wire_number")
     wire_range = list(get_expected_range(layer))
     if layer in ["X", "G", "x", "g"]:
@@ -43,7 +41,9 @@ def uploadTensions(apa_name: str, layer: str, create_layer_action_id: str) -> No
 
     tensions_sideA, tensions_sideB = load_tension_summary(apa_name, layer)
     print(tensions_sideA, tensions_sideB)
-    print(f" Uploading {len(tensions_sideA)} tensions for APA {apa_name} layer {layer}...")
+    print(
+        f" Uploading {len(tensions_sideA)} tensions for APA {apa_name} layer {layer}..."
+    )
     actionData_fields = [
         "measuredTensions_sideA",
         "measuredTensions_sideB",

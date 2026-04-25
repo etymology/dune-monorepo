@@ -10,96 +10,96 @@ from .digital_io import DigitalIO
 
 
 class DigitalOutput(DigitalIO, metaclass=ABCMeta):
-  # Make class abstract.
-  output_instances: list["DigitalOutput"] = []
-  name_to_output_map: dict[str, "DigitalOutput"] = {}
+    # Make class abstract.
+    output_instances: list["DigitalOutput"] = []
+    name_to_output_map: dict[str, "DigitalOutput"] = {}
 
-  _state = False
+    _state = False
 
-  # ---------------------------------------------------------------------
-  def __str__(self):
-    """
-    Convert state to string.
+    # ---------------------------------------------------------------------
+    def __str__(self):
+        """
+        Convert state to string.
 
-    Returns:
-      "1" for on, "0" for off.
-    """
+        Returns:
+          "1" for on, "0" for off.
+        """
 
-    result = "0"
-    if self.get():
-      result = "1"
+        result = "0"
+        if self.get():
+            result = "1"
 
-    return result
+        return result
 
-  # ---------------------------------------------------------------------
-  def __init__(self, name, initialState=0):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, name, initialState=0):
+        """
+        Constructor.
 
-    Args:
-      name: Name of output.
-      initialState: State output is assumed to be in on creation.
+        Args:
+          name: Name of output.
+          initialState: State output is assumed to be in on creation.
 
-    """
+        """
 
-    # Make sure this name isn't already in use.
-    assert name not in DigitalOutput.output_instances
+        # Make sure this name isn't already in use.
+        assert name not in DigitalOutput.output_instances
 
-    DigitalIO.__init__(self, name)
-    DigitalOutput.output_instances.append(self)
-    DigitalOutput.name_to_output_map[name] = self
+        DigitalIO.__init__(self, name)
+        DigitalOutput.output_instances.append(self)
+        DigitalOutput.name_to_output_map[name] = self
 
-    self._state = initialState
+        self._state = initialState
 
-  # ---------------------------------------------------------------------
-  def setAll(self):
-    """
-    Set all outputs. Call after serial data has been initialized. Accounts for inversion.
+    # ---------------------------------------------------------------------
+    def setAll(self):
+        """
+        Set all outputs. Call after serial data has been initialized. Accounts for inversion.
 
-    """
+        """
 
-    for output in self.output_instances:
-      output.set(output.get())
+        for output in self.output_instances:
+            output.set(output.get())
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def _doSet(self):
-    """
-    Abstract function that must be define in child to preform output operations.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def _doSet(self):
+        """
+        Abstract function that must be define in child to preform output operations.
 
-    Args:
-      state: True for on, False for off.
+        Args:
+          state: True for on, False for off.
 
-    """
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  def set(self, state):
-    """
-    Set the output to a given state.
+    # ---------------------------------------------------------------------
+    def set(self, state):
+        """
+        Set the output to a given state.
 
-    Args:
-      state: True for on, False for off.
+        Args:
+          state: True for on, False for off.
 
-    """
+        """
 
-    # Save the state for requests.
-    self._state = state
+        # Save the state for requests.
+        self._state = state
 
-    # Actually set the state.
-    self._doSet(state)
+        # Actually set the state.
+        self._doSet(state)
 
-  # ---------------------------------------------------------------------
-  def _doGet(self):
-    """
-    Return current state of output.
+    # ---------------------------------------------------------------------
+    def _doGet(self):
+        """
+        Return current state of output.
 
-    Returns:
-      State of output. True of on, False for off.
-    """
+        Returns:
+          State of output. True of on, False for off.
+        """
 
-    return self._state
+        return self._state
 
 
 # end class

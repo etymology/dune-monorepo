@@ -10,7 +10,9 @@ try:
     import numpy as np
     import pandas as pd
 except ModuleNotFoundError:  # pragma: no cover - dependency optional in tests
-    pytest.skip("numpy+pandas are required for average profile tests", allow_module_level=True)
+    pytest.skip(
+        "numpy+pandas are required for average profile tests", allow_module_level=True
+    )
 
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
@@ -140,7 +142,14 @@ def test_parse_args_supports_moving_average_window() -> None:
 
 def test_build_output_tag_encodes_cli_switches() -> None:
     args = parse_args(
-        ["--no-scaling", "--average-per-wire", "--bins", "20", "--moving-average-window", "31"]
+        [
+            "--no-scaling",
+            "--average-per-wire",
+            "--bins",
+            "20",
+            "--moving-average-window",
+            "31",
+        ]
     )
     tag = _build_output_tag(args)
     assert "noscale" in tag
@@ -175,7 +184,9 @@ def test_average_side_series_groups_repeated_wire_samples(tmp_path) -> None:
     assert np.isclose(result.series.loc[9], 6.5)
 
 
-def test_dunedb_loader_reuses_layer_data_and_respects_location_filters(tmp_path) -> None:
+def test_dunedb_loader_reuses_layer_data_and_respects_location_filters(
+    tmp_path,
+) -> None:
     db_path = tmp_path / "dunedb.sqlite"
     conn = sqlite3.connect(db_path)
     conn.executescript(
@@ -316,7 +327,7 @@ def test_make_cloud_dataframe_emits_one_point_per_wire(tmp_path) -> None:
         "APA2": {
             "A": pd.Series([8.0, 10.0], index=[1, 2], dtype="float64"),
             "B": pd.Series([7.0, 9.0], index=[1, 2], dtype="float64"),
-        }
+        },
     }
     cloud = _make_cloud_dataframe(
         series_by_apa,
@@ -326,8 +337,12 @@ def test_make_cloud_dataframe_emits_one_point_per_wire(tmp_path) -> None:
     subset_a = cloud[cloud["side"] == "A"]
     assert len(subset_a) == 2
     assert set(subset_a["wire_number"]) == {1, 2}
-    assert np.isclose(subset_a.loc[subset_a["wire_number"] == 1, "tension"].iloc[0], 7.0)
-    assert np.isclose(subset_a.loc[subset_a["wire_number"] == 2, "tension"].iloc[0], 9.0)
+    assert np.isclose(
+        subset_a.loc[subset_a["wire_number"] == 1, "tension"].iloc[0], 7.0
+    )
+    assert np.isclose(
+        subset_a.loc[subset_a["wire_number"] == 2, "tension"].iloc[0], 9.0
+    )
 
 
 def test_make_cloud_dataframe_keeps_all_samples_when_not_averaging() -> None:
@@ -430,7 +445,13 @@ def test_compute_layer_analysis_returns_non_empty_result(tmp_path) -> None:
     assert not result.cloud.empty
     assert result.layer == "X"
     assert result.output_path.name.startswith("tension_profile_cloud_X_dunedb_")
-    assert set(result.profile_df.columns) == {"wire_number", "mu_A", "mu_B", "n_A", "n_B"}
+    assert set(result.profile_df.columns) == {
+        "wire_number",
+        "mu_A",
+        "mu_B",
+        "n_A",
+        "n_B",
+    }
 
 
 def test_compute_average_profile_results_preserves_layer_selection(tmp_path) -> None:
@@ -455,7 +476,9 @@ def test_compute_average_profile_results_preserves_layer_selection(tmp_path) -> 
     assert results["G"][0].cloud.empty
 
 
-def test_compute_average_profile_results_can_include_all_locations_view(tmp_path) -> None:
+def test_compute_average_profile_results_can_include_all_locations_view(
+    tmp_path,
+) -> None:
     db_path = tmp_path / "layer.sqlite"
     _write_minimal_dunedb(db_path)
 
@@ -578,7 +601,9 @@ def test_build_layer_figure_overlays_side_line_plots(monkeypatch) -> None:
             self.legend_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
             self.text_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
             self.grid_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
-            self.tick_params_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.tick_params_calls: list[
+                tuple[tuple[object, ...], dict[str, object]]
+            ] = []
             self.transAxes = object()
 
         def scatter(self, *args, **kwargs):
@@ -650,9 +675,18 @@ def test_build_layer_figure_overlays_side_line_plots(monkeypatch) -> None:
             "A": pd.Series([6.0, 6.2], index=[1, 2]),
             "B": pd.Series([6.4, 6.6], index=[1, 2]),
         },
-        n_by_side={"A": pd.Series([1, 1], index=[1, 2]), "B": pd.Series([1, 1], index=[1, 2])},
+        n_by_side={
+            "A": pd.Series([1, 1], index=[1, 2]),
+            "B": pd.Series([1, 1], index=[1, 2]),
+        },
         profile_df=pd.DataFrame(
-            {"wire_number": [1, 2], "mu_A": [6.0, 6.2], "mu_B": [6.4, 6.6], "n_A": [1, 1], "n_B": [1, 1]}
+            {
+                "wire_number": [1, 2],
+                "mu_A": [6.0, 6.2],
+                "mu_B": [6.4, 6.6],
+                "n_A": [1, 1],
+                "n_B": [1, 1],
+            }
         ),
         scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0]}),
         output_path=Path("/tmp/out.png"),
@@ -760,8 +794,14 @@ def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
                 "location": ["Chicago"] * 4,
             }
         ),
-        mu_by_side={"A": pd.Series([6.0, 6.2], index=[1, 2]), "B": pd.Series([6.4, 6.6], index=[1, 2])},
-        n_by_side={"A": pd.Series([1, 1], index=[1, 2]), "B": pd.Series([1, 1], index=[1, 2])},
+        mu_by_side={
+            "A": pd.Series([6.0, 6.2], index=[1, 2]),
+            "B": pd.Series([6.4, 6.6], index=[1, 2]),
+        },
+        n_by_side={
+            "A": pd.Series([1, 1], index=[1, 2]),
+            "B": pd.Series([1, 1], index=[1, 2]),
+        },
         profile_df=pd.DataFrame(
             {
                 "wire_number": [1, 2],
@@ -772,7 +812,9 @@ def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
                 "location": ["Chicago", "Chicago"],
             }
         ),
-        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0], "location": ["Chicago"]}),
+        scale_df=pd.DataFrame(
+            {"apa_name": ["APA1"], "k": [1.0], "location": ["Chicago"]}
+        ),
         output_path=Path("/tmp/chicago.png"),
         profile_summary_path=Path("/tmp/chicago_profile.csv"),
         scale_summary_path=Path("/tmp/chicago_scale.csv"),
@@ -793,8 +835,14 @@ def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
                 "location": ["Daresbury"] * 4,
             }
         ),
-        mu_by_side={"A": pd.Series([6.1, 6.3], index=[1, 2]), "B": pd.Series([6.5, 6.7], index=[1, 2])},
-        n_by_side={"A": pd.Series([1, 1], index=[1, 2]), "B": pd.Series([1, 1], index=[1, 2])},
+        mu_by_side={
+            "A": pd.Series([6.1, 6.3], index=[1, 2]),
+            "B": pd.Series([6.5, 6.7], index=[1, 2]),
+        },
+        n_by_side={
+            "A": pd.Series([1, 1], index=[1, 2]),
+            "B": pd.Series([1, 1], index=[1, 2]),
+        },
         profile_df=pd.DataFrame(
             {
                 "wire_number": [1, 2],
@@ -805,7 +853,9 @@ def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
                 "location": ["Daresbury", "Daresbury"],
             }
         ),
-        scale_df=pd.DataFrame({"apa_name": ["APA1"], "k": [1.0], "location": ["Daresbury"]}),
+        scale_df=pd.DataFrame(
+            {"apa_name": ["APA1"], "k": [1.0], "location": ["Daresbury"]}
+        ),
         output_path=Path("/tmp/daresbury.png"),
         profile_summary_path=Path("/tmp/daresbury_profile.csv"),
         scale_summary_path=Path("/tmp/daresbury_scale.csv"),
@@ -820,7 +870,9 @@ def test_build_layer_figure_overlays_all_locations(monkeypatch) -> None:
         cloud=pd.concat([chicago.cloud, daresbury.cloud], ignore_index=True),
         mu_by_side={},
         n_by_side={},
-        profile_df=pd.concat([chicago.profile_df, daresbury.profile_df], ignore_index=True),
+        profile_df=pd.concat(
+            [chicago.profile_df, daresbury.profile_df], ignore_index=True
+        ),
         scale_df=pd.concat([chicago.scale_df, daresbury.scale_df], ignore_index=True),
         output_path=Path("/tmp/all.png"),
         profile_summary_path=Path("/tmp/all_profile.csv"),
@@ -877,14 +929,22 @@ def test_enrich_cloud_with_uv_metadata_adds_recipe_columns(monkeypatch) -> None:
     assert list(enriched["applied_length_mm"]) == [1234.5, 1235.5]
     assert list(enriched["start_side"]) == ["top", "head"]
     assert list(enriched["end_side"]) == ["bottom", "foot"]
-    assert list(enriched["endpoint_side_mapping"]) == [("top", "bottom"), ("head", "foot")]
+    assert list(enriched["endpoint_side_mapping"]) == [
+        ("top", "bottom"),
+        ("head", "foot"),
+    ]
     assert list(enriched["start_endpoint_kind"]) == ["top", "head"]
     assert list(enriched["end_endpoint_kind"]) == ["bottom", "foot"]
     assert list(enriched["uv_path_family"]) == ["top_bottom", "head_foot"]
-    assert list(enriched["uv_terminal_group"]) == ["ends_at_bottom", "starts_on_head_or_foot"]
+    assert list(enriched["uv_terminal_group"]) == [
+        "ends_at_bottom",
+        "starts_on_head_or_foot",
+    ]
 
 
-def test_enrich_cloud_with_uv_metadata_reverses_direction_for_side_a(monkeypatch) -> None:
+def test_enrich_cloud_with_uv_metadata_reverses_direction_for_side_a(
+    monkeypatch,
+) -> None:
     class _FakeMaps:
         wire_to_wrap = {
             401: type("WrapRef", (), {"wrap_number": 50})(),
@@ -958,7 +1018,9 @@ def test_classify_uv_endpoint_path_covers_real_recipe_maps() -> None:
         families = set()
         terminal_groups = set()
         for start_side, end_side in maps.wire_to_endpoint_sides.values():
-            path_family, terminal_group = _classify_uv_endpoint_path(start_side, end_side)
+            path_family, terminal_group = _classify_uv_endpoint_path(
+                start_side, end_side
+            )
             assert path_family in {"top_bottom", "head_foot"}
             assert terminal_group in {
                 "ends_at_top",
@@ -990,24 +1052,47 @@ def test_build_layer_figure_wrap_mode_uses_wrap_axis_and_stats(monkeypatch) -> N
             self.title = None
             self.transAxes = object()
 
-        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
-        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
-        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
-        def axvline(self, *args, **kwargs): self.axvline_calls.append((args, kwargs))
-        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
-        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
-        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
-        def set_title(self, value): self.title = value
-        def set_xlabel(self, value): self.xlabel = value
-        def set_ylabel(self, value): self.ylabel = value
+        def scatter(self, *args, **kwargs):
+            self.scatter_calls.append((args, kwargs))
+
+        def plot(self, *args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+
+        def hist(self, *args, **kwargs):
+            self.hist_calls.append((args, kwargs))
+
+        def axvline(self, *args, **kwargs):
+            self.axvline_calls.append((args, kwargs))
+
+        def legend(self, *args, **kwargs):
+            self.legend_calls.append((args, kwargs))
+
+        def text(self, *args, **kwargs):
+            self.text_calls.append((args, kwargs))
+
+        def grid(self, *args, **kwargs):
+            self.grid_calls.append((args, kwargs))
+
+        def set_title(self, value):
+            self.title = value
+
+        def set_xlabel(self, value):
+            self.xlabel = value
+
+        def set_ylabel(self, value):
+            self.ylabel = value
 
     class _FakeGrid:
-        def __getitem__(self, _item): return object()
+        def __getitem__(self, _item):
+            return object()
 
     class _FakeFigure:
         def __init__(self, *args, **kwargs) -> None:
             self.axes = []
-        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+
+        def add_gridspec(self, *args, **kwargs):
+            return _FakeGrid()
+
         def add_subplot(self, *args, **kwargs):
             axis = _FakeAxis()
             self.axes.append(axis)
@@ -1075,24 +1160,47 @@ def test_build_layer_figure_applied_length_mode_uses_length_axis(monkeypatch) ->
             self.title = None
             self.transAxes = object()
 
-        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
-        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
-        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
-        def axvline(self, *args, **kwargs): self.axvline_calls.append((args, kwargs))
-        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
-        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
-        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
-        def set_title(self, value): self.title = value
-        def set_xlabel(self, value): self.xlabel = value
-        def set_ylabel(self, value): self.ylabel = value
+        def scatter(self, *args, **kwargs):
+            self.scatter_calls.append((args, kwargs))
+
+        def plot(self, *args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+
+        def hist(self, *args, **kwargs):
+            self.hist_calls.append((args, kwargs))
+
+        def axvline(self, *args, **kwargs):
+            self.axvline_calls.append((args, kwargs))
+
+        def legend(self, *args, **kwargs):
+            self.legend_calls.append((args, kwargs))
+
+        def text(self, *args, **kwargs):
+            self.text_calls.append((args, kwargs))
+
+        def grid(self, *args, **kwargs):
+            self.grid_calls.append((args, kwargs))
+
+        def set_title(self, value):
+            self.title = value
+
+        def set_xlabel(self, value):
+            self.xlabel = value
+
+        def set_ylabel(self, value):
+            self.ylabel = value
 
     class _FakeGrid:
-        def __getitem__(self, _item): return object()
+        def __getitem__(self, _item):
+            return object()
 
     class _FakeFigure:
         def __init__(self, *args, **kwargs) -> None:
             self.axes = []
-        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+
+        def add_gridspec(self, *args, **kwargs):
+            return _FakeGrid()
+
         def add_subplot(self, *args, **kwargs):
             axis = _FakeAxis()
             self.axes.append(axis)
@@ -1139,7 +1247,9 @@ def test_build_layer_figure_applied_length_mode_uses_length_axis(monkeypatch) ->
     assert figure.axes[0].xlabel == "Applied Length (mm)"
 
 
-def test_build_layer_figure_endpoint_mapping_renders_grouped_distributions(monkeypatch) -> None:
+def test_build_layer_figure_endpoint_mapping_renders_grouped_distributions(
+    monkeypatch,
+) -> None:
     from dune_tension import average_profile_clouds as apc
 
     class _FakeAxis:
@@ -1159,27 +1269,56 @@ def test_build_layer_figure_endpoint_mapping_renders_grouped_distributions(monke
             self.title = None
             self.transAxes = object()
 
-        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
-        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
-        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
-        def boxplot(self, *args, **kwargs): self.boxplot_calls.append((args, kwargs))
-        def axvline(self, *args, **kwargs): self.axvline_calls.append((args, kwargs))
-        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
-        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
-        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
-        def set_xticks(self, value): self.xticks = value
-        def set_xticklabels(self, value, **kwargs): self.xticklabels = value
-        def set_title(self, value): self.title = value
-        def set_xlabel(self, value): self.xlabel = value
-        def set_ylabel(self, value): self.ylabel = value
+        def scatter(self, *args, **kwargs):
+            self.scatter_calls.append((args, kwargs))
+
+        def plot(self, *args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+
+        def hist(self, *args, **kwargs):
+            self.hist_calls.append((args, kwargs))
+
+        def boxplot(self, *args, **kwargs):
+            self.boxplot_calls.append((args, kwargs))
+
+        def axvline(self, *args, **kwargs):
+            self.axvline_calls.append((args, kwargs))
+
+        def legend(self, *args, **kwargs):
+            self.legend_calls.append((args, kwargs))
+
+        def text(self, *args, **kwargs):
+            self.text_calls.append((args, kwargs))
+
+        def grid(self, *args, **kwargs):
+            self.grid_calls.append((args, kwargs))
+
+        def set_xticks(self, value):
+            self.xticks = value
+
+        def set_xticklabels(self, value, **kwargs):
+            self.xticklabels = value
+
+        def set_title(self, value):
+            self.title = value
+
+        def set_xlabel(self, value):
+            self.xlabel = value
+
+        def set_ylabel(self, value):
+            self.ylabel = value
 
     class _FakeGrid:
-        def __getitem__(self, _item): return object()
+        def __getitem__(self, _item):
+            return object()
 
     class _FakeFigure:
         def __init__(self, *args, **kwargs) -> None:
             self.axes = []
-        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+
+        def add_gridspec(self, *args, **kwargs):
+            return _FakeGrid()
+
         def add_subplot(self, *args, **kwargs):
             axis = _FakeAxis()
             self.axes.append(axis)
@@ -1311,25 +1450,50 @@ def test_build_layer_figure_endpoint_categories_aggregates_ab(monkeypatch) -> No
             self.axis_off = False
             self.transAxes = object()
 
-        def scatter(self, *args, **kwargs): self.scatter_calls.append((args, kwargs))
-        def plot(self, *args, **kwargs): self.plot_calls.append((args, kwargs))
-        def hist(self, *args, **kwargs): self.hist_calls.append((args, kwargs))
-        def boxplot(self, *args, **kwargs): self.boxplot_calls.append((args, kwargs))
-        def legend(self, *args, **kwargs): self.legend_calls.append((args, kwargs))
-        def text(self, *args, **kwargs): self.text_calls.append((args, kwargs))
-        def grid(self, *args, **kwargs): self.grid_calls.append((args, kwargs))
-        def set_title(self, value): self.title = value
-        def set_xlabel(self, value): self.xlabel = value
-        def set_ylabel(self, value): self.ylabel = value
-        def set_axis_off(self): self.axis_off = True
+        def scatter(self, *args, **kwargs):
+            self.scatter_calls.append((args, kwargs))
+
+        def plot(self, *args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+
+        def hist(self, *args, **kwargs):
+            self.hist_calls.append((args, kwargs))
+
+        def boxplot(self, *args, **kwargs):
+            self.boxplot_calls.append((args, kwargs))
+
+        def legend(self, *args, **kwargs):
+            self.legend_calls.append((args, kwargs))
+
+        def text(self, *args, **kwargs):
+            self.text_calls.append((args, kwargs))
+
+        def grid(self, *args, **kwargs):
+            self.grid_calls.append((args, kwargs))
+
+        def set_title(self, value):
+            self.title = value
+
+        def set_xlabel(self, value):
+            self.xlabel = value
+
+        def set_ylabel(self, value):
+            self.ylabel = value
+
+        def set_axis_off(self):
+            self.axis_off = True
 
     class _FakeGrid:
-        def __getitem__(self, _item): return object()
+        def __getitem__(self, _item):
+            return object()
 
     class _FakeFigure:
         def __init__(self, *args, **kwargs) -> None:
             self.axes = []
-        def add_gridspec(self, *args, **kwargs): return _FakeGrid()
+
+        def add_gridspec(self, *args, **kwargs):
+            return _FakeGrid()
+
         def add_subplot(self, *args, **kwargs):
             axis = _FakeAxis()
             self.axes.append(axis)
@@ -1357,7 +1521,14 @@ def test_build_layer_figure_endpoint_categories_aggregates_ab(monkeypatch) -> No
                     ("head", "top"),
                     ("top", "foot"),
                 ],
-                "start_endpoint_kind": ["bottom", "bottom", "top", "head", "head", "top"],
+                "start_endpoint_kind": [
+                    "bottom",
+                    "bottom",
+                    "top",
+                    "head",
+                    "head",
+                    "top",
+                ],
                 "end_endpoint_kind": ["top", "top", "bottom", "top", "top", "foot"],
                 "uv_path_family": [
                     "top_bottom",

@@ -19,366 +19,368 @@ from dune_winder.library.Geometry.circle import Circle
 
 
 class WirePathModel:
-  # ---------------------------------------------------------------------
-  def __init__(self, machineCalibration):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, machineCalibration):
+        """
+        Constructor.
 
-    Args:
-      machineCalibration - Instance of MachineCalibration.
-    """
-    self._machineCalibration = machineCalibration
-    self._anchorPoint = Location(-1)
+        Args:
+          machineCalibration - Instance of MachineCalibration.
+        """
+        self._machineCalibration = machineCalibration
+        self._anchorPoint = Location(-1)
 
-    # Anchor offset is used after pin compensation is calculated.
-    # Anytime the anchor point is changed, the offset is set to 0.  If pin
-    # compensation is calculated, the offset is stored here and used in
-    # additional correction.
-    self._anchorOffset = Location()
-    self._orientation = None
-
-  # ---------------------------------------------------------------------
-  def orientation(self, value=None):
-    """
-    Get/set orientation of connecting wire.
-
-    Args:
-      value - New orientation (omit to read).
-
-    Returns:
-      The current orientation.
-    """
-
-    if value is not None:
-      self._orientation = value
-
-    return self._orientation
-
-  # ---------------------------------------------------------------------
-  def anchorPoint(self, location=None):
-    """
-    Get/set anchor point.
-
-    Args:
-      location - Location of the anchor point (omit to read).
-
-    Returns:
-      The current anchor point.
-    """
-    if location is not None:
-      self._anchorPoint = location.copy()
-      self._anchorOffset = Location()
-
-    return self._anchorPoint
-
-  # ---------------------------------------------------------------------
-  def anchorOffset(self):
-    """
-    Return the currently active tangent offset from the anchor point.
-
-    Returns:
-      Location object describing the offset applied after pin compensation.
-    """
-    return self._anchorOffset.copy()
-
-  # ---------------------------------------------------------------------
-  def compensatedAnchorPoint(self):
-    """
-    Return the effective anchor point after pin compensation.
-
-    Returns:
-      Location object with the anchor point and current tangent offset applied.
-    """
-    return self._anchorPoint.add(self._anchorOffset)
-
-  # ---------------------------------------------------------------------
-  def pinCompensation(self, endPoint):
-    """
-    Get the anchor position while compensating for the pin radius.
-    This will compute a point for which the connecting line will run tangent
-    to the anchor point circle.
-
-    Args:
-      endPoint: Target destination to run tangent line.
-
-    Returns:
-      Instance of location.  None if the orientation is incorrect for the
-      target location.
-    """
-
-    result = None
-    if self._orientation:
-      pinRadius = self._machineCalibration.pinDiameter / 2
-      circle = Circle(self._anchorPoint, pinRadius)
-      result = circle.tangentPoint(self._orientation, endPoint)
-      if result is not None:
-        self._anchorOffset = result.sub(self._anchorPoint)
-      else:
-        # Preserve a neutral offset when tangent point cannot be established.
-        # Caller will handle this as an invalid transfer geometry/orientation.
+        # Anchor offset is used after pin compensation is calculated.
+        # Anytime the anchor point is changed, the offset is set to 0.  If pin
+        # compensation is calculated, the offset is stored here and used in
+        # additional correction.
         self._anchorOffset = Location()
-    else:
-      result = self._anchorPoint
-      self._anchorOffset = Location()
+        self._orientation = None
 
-    return result
+    # ---------------------------------------------------------------------
+    def orientation(self, value=None):
+        """
+        Get/set orientation of connecting wire.
 
-  # ---------------------------------------------------------------------
-  def getHeadAngle(self, location):
-    """
-    Get the angle of the arm.
+        Args:
+          value - New orientation (omit to read).
 
-    Args:
-      location: Location of actual machine position.
+        Returns:
+          The current orientation.
+        """
 
-    Returns:
-      Angle of the arm (-pi to +pi).
-    """
-    deltaX = location.x - self._anchorPoint.x
-    deltaZ = location.z - self._anchorPoint.z
-    return math.atan2(deltaX, deltaZ)
+        if value is not None:
+            self._orientation = value
 
-  # ---------------------------------------------------------------------
-  def getActualLocation(self, machineLocation):
-    """
-    Get the actual wire position given machine position.  Assume an anchor
-    point has been specified.
+        return self._orientation
 
-    Args:
-      machineLocation - Actual machine position.
+    # ---------------------------------------------------------------------
+    def anchorPoint(self, location=None):
+        """
+        Get/set anchor point.
 
-    Returns:
-      Location object with the adjusted coordinates.
-    """
+        Args:
+          location - Location of the anchor point (omit to read).
 
-    anchorPoint = self._anchorPoint.add(self._anchorOffset)
+        Returns:
+          The current anchor point.
+        """
+        if location is not None:
+            self._anchorPoint = location.copy()
+            self._anchorOffset = Location()
 
-    #
-    # First compensation is to correct for the angle of the arm on the head.
-    #
+        return self._anchorPoint
 
-    # Compute various lengths.
-    deltaX = machineLocation.x - anchorPoint.x
-    deltaZ = machineLocation.z - anchorPoint.z
-    lengthXZ = math.sqrt(deltaX**2 + deltaZ**2)
-    headRatio = self._machineCalibration.headArmLength / lengthXZ
+    # ---------------------------------------------------------------------
+    def anchorOffset(self):
+        """
+        Return the currently active tangent offset from the anchor point.
 
-    # Make correction.
-    x = machineLocation.x - deltaX * headRatio
-    y = machineLocation.y
-    z = machineLocation.z - deltaZ * headRatio
+        Returns:
+          Location object describing the offset applied after pin compensation.
+        """
+        return self._anchorOffset.copy()
 
-    #
-    # Second correction to the correct for the offset caused by the upper and
-    # lower roller on the front of the head.
-    #
+    # ---------------------------------------------------------------------
+    def compensatedAnchorPoint(self):
+        """
+        Return the effective anchor point after pin compensation.
 
-    # Compute various lengths.
-    deltaX = x - anchorPoint.x
-    deltaY = y - anchorPoint.y
-    deltaZ = z - anchorPoint.z
-    lengthXZ = math.sqrt(deltaX**2 + deltaZ**2)
-    lengthXYZ = math.sqrt(deltaX**2 + deltaY**2 + deltaZ**2)
+        Returns:
+          Location object with the anchor point and current tangent offset applied.
+        """
+        return self._anchorPoint.add(self._anchorOffset)
 
-    # The rollers are in two plans: Y and XZ.
-    rollerOffsetY = self._machineCalibration.headRollerRadius * lengthXZ / lengthXYZ
-    rollerOffsetXZ = self._machineCalibration.headRollerRadius * deltaY / lengthXYZ
+    # ---------------------------------------------------------------------
+    def pinCompensation(self, endPoint):
+        """
+        Get the anchor position while compensating for the pin radius.
+        This will compute a point for which the connecting line will run tangent
+        to the anchor point circle.
 
-    # Get the specific X and Z components out of the combine XZ value.
-    rollerOffsetX = abs(rollerOffsetXZ * deltaX / lengthXZ)
-    rollerOffsetZ = abs(rollerOffsetXZ * deltaZ / lengthXZ)
+        Args:
+          endPoint: Target destination to run tangent line.
 
-    # Correct for the roller offset made up of the radius, and the gap between
-    # them.
-    rollerOffsetY -= self._machineCalibration.headRollerRadius
-    rollerOffsetY -= self._machineCalibration.headRollerGap / 2
+        Returns:
+          Instance of location.  None if the orientation is incorrect for the
+          target location.
+        """
 
-    # Correct for direction form anchor point.
-    if deltaX < 0:
-      rollerOffsetX = -rollerOffsetX
+        result = None
+        if self._orientation:
+            pinRadius = self._machineCalibration.pinDiameter / 2
+            circle = Circle(self._anchorPoint, pinRadius)
+            result = circle.tangentPoint(self._orientation, endPoint)
+            if result is not None:
+                self._anchorOffset = result.sub(self._anchorPoint)
+            else:
+                # Preserve a neutral offset when tangent point cannot be established.
+                # Caller will handle this as an invalid transfer geometry/orientation.
+                self._anchorOffset = Location()
+        else:
+            result = self._anchorPoint
+            self._anchorOffset = Location()
 
-    if deltaZ < 0:
-      rollerOffsetZ = -rollerOffsetZ
+        return result
 
-    if deltaY > 0:
-      rollerOffsetY = -rollerOffsetY
+    # ---------------------------------------------------------------------
+    def getHeadAngle(self, location):
+        """
+        Get the angle of the arm.
 
-    # Make correction.
-    x -= rollerOffsetX
-    y -= rollerOffsetY
-    z -= rollerOffsetZ
+        Args:
+          location: Location of actual machine position.
 
-    return Location(x, y, z)
+        Returns:
+          Angle of the arm (-pi to +pi).
+        """
+        deltaX = location.x - self._anchorPoint.x
+        deltaZ = location.z - self._anchorPoint.z
+        return math.atan2(deltaX, deltaZ)
 
-  # ---------------------------------------------------------------------
-  def correctY(self, machineLocation):
-    """
-    Calculation a correction factor to Y that will place X as the nominal
-    position.
+    # ---------------------------------------------------------------------
+    def getActualLocation(self, machineLocation):
+        """
+        Get the actual wire position given machine position.  Assume an anchor
+        point has been specified.
 
-    Args:
-      machineLocation - Actual machine position.
+        Args:
+          machineLocation - Actual machine position.
 
-    Returns:
-      Corrected Y value.
-    """
+        Returns:
+          Location object with the adjusted coordinates.
+        """
 
-    anchorPoint = self._anchorPoint.add(self._anchorOffset)
+        anchorPoint = self._anchorPoint.add(self._anchorOffset)
 
-    #
-    # Head arm correction.
-    #
+        #
+        # First compensation is to correct for the angle of the arm on the head.
+        #
 
-    # Compute various lengths.
-    deltaX = machineLocation.x - anchorPoint.x
-    deltaY = machineLocation.y - anchorPoint.y
+        # Compute various lengths.
+        deltaX = machineLocation.x - anchorPoint.x
+        deltaZ = machineLocation.z - anchorPoint.z
+        lengthXZ = math.sqrt(deltaX**2 + deltaZ**2)
+        headRatio = self._machineCalibration.headArmLength / lengthXZ
 
-    # Compute a correction for the arm.
-    headCorrection = -self._machineCalibration.headArmLength * deltaY / abs(deltaX)
+        # Make correction.
+        x = machineLocation.x - deltaX * headRatio
+        y = machineLocation.y
+        z = machineLocation.z - deltaZ * headRatio
 
-    # Compute the new end point.
-    machineLocation.y + headCorrection
+        #
+        # Second correction to the correct for the offset caused by the upper and
+        # lower roller on the front of the head.
+        #
 
-    #
-    # Roller correction.
-    #
+        # Compute various lengths.
+        deltaX = x - anchorPoint.x
+        deltaY = y - anchorPoint.y
+        deltaZ = z - anchorPoint.z
+        lengthXZ = math.sqrt(deltaX**2 + deltaZ**2)
+        lengthXYZ = math.sqrt(deltaX**2 + deltaY**2 + deltaZ**2)
 
-    # Offset to Y caused by the roller.
-    # NOTE: This correction actually changes the tangent line, but the change
-    # is so small (1 part in 1500) it is ignored.  Otherwise an iterative method
-    # is required.
-    rollerCorrection = deltaY**2 / deltaX**2
-    rollerCorrection += 1
-    rollerCorrection = math.sqrt(rollerCorrection)
-    rollerCorrection -= 1
-    rollerCorrection *= self._machineCalibration.headRollerRadius
-    rollerCorrection -= self._machineCalibration.headRollerGap / 2
+        # The rollers are in two plans: Y and XZ.
+        rollerOffsetY = self._machineCalibration.headRollerRadius * lengthXZ / lengthXYZ
+        rollerOffsetXZ = self._machineCalibration.headRollerRadius * deltaY / lengthXYZ
 
-    if deltaY > 0:
-      rollerCorrection = -rollerCorrection
+        # Get the specific X and Z components out of the combine XZ value.
+        rollerOffsetX = abs(rollerOffsetXZ * deltaX / lengthXZ)
+        rollerOffsetZ = abs(rollerOffsetXZ * deltaZ / lengthXZ)
 
-    # Correct the Y position with two offsets.
-    correctedY = machineLocation.y + headCorrection + rollerCorrection
+        # Correct for the roller offset made up of the radius, and the gap between
+        # them.
+        rollerOffsetY -= self._machineCalibration.headRollerRadius
+        rollerOffsetY -= self._machineCalibration.headRollerGap / 2
 
-    return correctedY
+        # Correct for direction form anchor point.
+        if deltaX < 0:
+            rollerOffsetX = -rollerOffsetX
 
-  # ---------------------------------------------------------------------
-  def correctX(self, machineLocation):
-    """
-    Calculation a correction factor to X that will place Y as the nominal
-    position.
+        if deltaZ < 0:
+            rollerOffsetZ = -rollerOffsetZ
 
-    Args:
-      machineLocation - Actual machine position.
+        if deltaY > 0:
+            rollerOffsetY = -rollerOffsetY
 
-    Returns:
-      Corrected X value.
-    """
+        # Make correction.
+        x -= rollerOffsetX
+        y -= rollerOffsetY
+        z -= rollerOffsetZ
 
-    anchorPoint = self._anchorPoint.add(self._anchorOffset)
+        return Location(x, y, z)
 
-    # Compute various lengths.
-    deltaX = machineLocation.x - anchorPoint.x
-    deltaY = machineLocation.y - anchorPoint.y
+    # ---------------------------------------------------------------------
+    def correctY(self, machineLocation):
+        """
+        Calculation a correction factor to Y that will place X as the nominal
+        position.
 
-    if deltaX > 0:
-      x = machineLocation.x + self._machineCalibration.headArmLength
-    else:
-      x = machineLocation.x - self._machineCalibration.headArmLength
+        Args:
+          machineLocation - Actual machine position.
 
-    rollerX = deltaY**2
-    rollerX /= deltaX**2
-    rollerX += 1
-    rollerX = math.sqrt(rollerX)
-    rollerX *= self._machineCalibration.headRollerRadius
-    rollerX -= self._machineCalibration.headRollerRadius
-    rollerX -= self._machineCalibration.headRollerGap / 2
-    rollerX *= deltaX / abs(deltaY)
+        Returns:
+          Corrected Y value.
+        """
 
-    x += rollerX
+        anchorPoint = self._anchorPoint.add(self._anchorOffset)
 
-    return x
+        #
+        # Head arm correction.
+        #
 
-  # ---------------------------------------------------------------------
-  def _transferCorrect(self, machineLocation, zDesired, direction):
-    """
-    Calculate correction for a transfer.
+        # Compute various lengths.
+        deltaX = machineLocation.x - anchorPoint.x
+        deltaY = machineLocation.y - anchorPoint.y
 
-    Args:
-      machineLocation - Target machine position.
-      zDesired - Where Z will ultimately end.
-      direction - Direction for pin diameter compensation (1/-1/0).
+        # Compute a correction for the arm.
+        headCorrection = -self._machineCalibration.headArmLength * deltaY / abs(deltaX)
 
-    Returns:
-      Array with correction values for x, and y (in that order).
+        # Compute the new end point.
+        machineLocation.y + headCorrection
 
-    Notes:
-      This happens when doing hand-offs from side to side.  The anchor point
-      causes a slight angle in the wire path, and X or Y need to be adjusted to
-      compensate.
+        #
+        # Roller correction.
+        #
 
-      There are three Z positions: anchor point, target, and desired.  Both the
-      anchor point and target Z positions are either level front or back side of
-      the current layer with one always opposite the other.  The desired Z will
-      be the fully extended/retracted for the target side.
-    """
-    radius = self._machineCalibration.pinDiameter / 2
-    radius *= direction
-    offset = Location(radius, radius)
-    anchorPoint = self._anchorPoint.add(offset)
+        # Offset to Y caused by the roller.
+        # NOTE: This correction actually changes the tangent line, but the change
+        # is so small (1 part in 1500) it is ignored.  Otherwise an iterative method
+        # is required.
+        rollerCorrection = deltaY**2 / deltaX**2
+        rollerCorrection += 1
+        rollerCorrection = math.sqrt(rollerCorrection)
+        rollerCorrection -= 1
+        rollerCorrection *= self._machineCalibration.headRollerRadius
+        rollerCorrection -= self._machineCalibration.headRollerGap / 2
 
-    deltaX = machineLocation.x - anchorPoint.x
-    deltaY = machineLocation.y - anchorPoint.y
-    deltaZ = machineLocation.z - anchorPoint.z
+        if deltaY > 0:
+            rollerCorrection = -rollerCorrection
 
-    travelZ = abs(zDesired - anchorPoint.z)
-    lengthXZ = math.sqrt(deltaX**2 + deltaZ**2)
-    lengthYZ = math.sqrt(deltaY**2 + deltaZ**2)
+        # Correct the Y position with two offsets.
+        correctedY = machineLocation.y + headCorrection + rollerCorrection
 
-    x = anchorPoint.x
-    y = anchorPoint.y
+        return correctedY
 
-    if 0 != lengthXZ:
-      xCorrection = travelZ * deltaX / lengthXZ
-      x += xCorrection
+    # ---------------------------------------------------------------------
+    def correctX(self, machineLocation):
+        """
+        Calculation a correction factor to X that will place Y as the nominal
+        position.
 
-    if 0 != lengthYZ:
-      yCorrection = travelZ * deltaY / lengthYZ
-      y += yCorrection
+        Args:
+          machineLocation - Actual machine position.
 
-    return [x, y]
+        Returns:
+          Corrected X value.
+        """
 
-  # ---------------------------------------------------------------------
-  def transferCorrectX(self, machineLocation, zDesired, direction):
-    """
-    Calculate correction to X for a transfer.
+        anchorPoint = self._anchorPoint.add(self._anchorOffset)
 
-    Args:
-      machineLocation - Target machine position.
-      zDesired - Where Z will ultimately end.
-      direction - Direction for pin diameter compensation (1/-1/0).
+        # Compute various lengths.
+        deltaX = machineLocation.x - anchorPoint.x
+        deltaY = machineLocation.y - anchorPoint.y
 
-    Returns:
-      Corrected X value.
-    """
-    [x, y] = self._transferCorrect(machineLocation, zDesired, direction)
+        if deltaX > 0:
+            x = machineLocation.x + self._machineCalibration.headArmLength
+        else:
+            x = machineLocation.x - self._machineCalibration.headArmLength
 
-    return x
+        rollerX = deltaY**2
+        rollerX /= deltaX**2
+        rollerX += 1
+        rollerX = math.sqrt(rollerX)
+        rollerX *= self._machineCalibration.headRollerRadius
+        rollerX -= self._machineCalibration.headRollerRadius
+        rollerX -= self._machineCalibration.headRollerGap / 2
+        rollerX *= deltaX / abs(deltaY)
 
-  # ---------------------------------------------------------------------
-  def transferCorrectY(self, machineLocation, zDesired, direction):
-    """
-    Calculate correction to Y for a transfer.
+        x += rollerX
 
-    Args:
-      machineLocation - Target machine position.
-      zDesired - Where Z will ultimately end.
-      direction - Direction for pin diameter compensation (1/-1/0).
+        return x
 
-    Returns:
-      Corrected Y value.
-    """
-    [x, y] = self._transferCorrect(machineLocation, zDesired, direction)
+    # ---------------------------------------------------------------------
+    def _transferCorrect(self, machineLocation, zDesired, direction):
+        """
+        Calculate correction for a transfer.
 
-    return y
+        Args:
+          machineLocation - Target machine position.
+          zDesired - Where Z will ultimately end.
+          direction - Direction for pin diameter compensation (1/-1/0).
+
+        Returns:
+          Array with correction values for x, and y (in that order).
+
+        Notes:
+          This happens when doing hand-offs from side to side.  The anchor point
+          causes a slight angle in the wire path, and X or Y need to be adjusted to
+          compensate.
+
+          There are three Z positions: anchor point, target, and desired.  Both the
+          anchor point and target Z positions are either level front or back side of
+          the current layer with one always opposite the other.  The desired Z will
+          be the fully extended/retracted for the target side.
+        """
+        radius = self._machineCalibration.pinDiameter / 2
+        radius *= direction
+        offset = Location(radius, radius)
+        anchorPoint = self._anchorPoint.add(offset)
+
+        deltaX = machineLocation.x - anchorPoint.x
+        deltaY = machineLocation.y - anchorPoint.y
+        deltaZ = machineLocation.z - anchorPoint.z
+
+        travelZ = abs(zDesired - anchorPoint.z)
+        lengthXZ = math.sqrt(deltaX**2 + deltaZ**2)
+        lengthYZ = math.sqrt(deltaY**2 + deltaZ**2)
+
+        x = anchorPoint.x
+        y = anchorPoint.y
+
+        if 0 != lengthXZ:
+            xCorrection = travelZ * deltaX / lengthXZ
+            x += xCorrection
+
+        if 0 != lengthYZ:
+            yCorrection = travelZ * deltaY / lengthYZ
+            y += yCorrection
+
+        return [x, y]
+
+    # ---------------------------------------------------------------------
+    def transferCorrectX(self, machineLocation, zDesired, direction):
+        """
+        Calculate correction to X for a transfer.
+
+        Args:
+          machineLocation - Target machine position.
+          zDesired - Where Z will ultimately end.
+          direction - Direction for pin diameter compensation (1/-1/0).
+
+        Returns:
+          Corrected X value.
+        """
+        [x, y] = self._transferCorrect(machineLocation, zDesired, direction)
+
+        return x
+
+    # ---------------------------------------------------------------------
+    def transferCorrectY(self, machineLocation, zDesired, direction):
+        """
+        Calculate correction to Y for a transfer.
+
+        Args:
+          machineLocation - Target machine position.
+          zDesired - Where Z will ultimately end.
+          direction - Direction for pin diameter compensation (1/-1/0).
+
+        Returns:
+          Corrected Y value.
+        """
+        [x, y] = self._transferCorrect(machineLocation, zDesired, direction)
+
+        return y
+
+
 # end class

@@ -9,6 +9,7 @@ Usage:
 CLI:
     python -m dune_winder.transpiler <source.py> [func_name ...]
 """
+
 from __future__ import annotations
 
 import ast
@@ -22,11 +23,11 @@ from .regalloc import RegisterAllocator
 # Map Python function names → LD routine names
 ROUTINE_NAME_MAP: dict[str, str] = {
     "cap_segments_speed_by_axis_velocity": "CapSegSpeed",
-    "_segment_tangent_component_bounds":   "SegTangentBounds",
-    "_max_abs_sin_over_sweep":             "MaxAbsSinSweep",
-    "_max_abs_cos_over_sweep":             "MaxAbsCosSweep",
-    "circle_center_for_segment":           "CircleCenterForSeg",
-    "arc_sweep_rad":                       "ArcSweepRad",
+    "_segment_tangent_component_bounds": "SegTangentBounds",
+    "_max_abs_sin_over_sweep": "MaxAbsSinSweep",
+    "_max_abs_cos_over_sweep": "MaxAbsCosSweep",
+    "circle_center_for_segment": "CircleCenterForSeg",
+    "arc_sweep_rad": "ArcSweepRad",
 }
 
 # Topological order: callees before callers so JSR sigs are resolved
@@ -91,11 +92,12 @@ def transpile(
 
     # Collect module-level integer constants (top-level only, not function bodies)
     module_consts: dict[str, float] = {}
-    for node in tree.body:   # only direct children of the module
+    for node in tree.body:  # only direct children of the module
         if isinstance(node, ast.Assign):
             for t in node.targets:
-                if (isinstance(t, ast.Name)
-                        and isinstance(node.value, (ast.Constant, ast.UnaryOp))):
+                if isinstance(t, ast.Name) and isinstance(
+                    node.value, (ast.Constant, ast.UnaryOp)
+                ):
                     v = _eval_const(node.value)
                     if v is not None:
                         module_consts[t.id] = v
@@ -121,8 +123,10 @@ def transpile(
 def main() -> None:
     args = sys.argv[1:]
     if not args:
-        print("Usage: python -m dune_winder.transpiler <source.py> [more.py ...] [func_name ...]",
-              file=sys.stderr)
+        print(
+            "Usage: python -m dune_winder.transpiler <source.py> [more.py ...] [func_name ...]",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Collect all .py file paths first; remaining args are function names

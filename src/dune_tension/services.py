@@ -119,12 +119,19 @@ class AudioCaptureService:
             LOGGER.info("Using spoofed audio sample for testing.")
             samplerate = 44100
             if spoof_audio_sample is None:
-                def record_audio(_duration: float, _sample_rate: int) -> tuple[Any, float]:
+
+                def record_audio(
+                    _duration: float, _sample_rate: int
+                ) -> tuple[Any, float]:
                     return [], 0.0
             else:
-                def record_audio(_duration: float, _sample_rate: int) -> tuple[Any, float]:
+
+                def record_audio(
+                    _duration: float, _sample_rate: int
+                ) -> tuple[Any, float]:
                     return spoof_audio_sample(str(audio_path())), 0.0
         else:
+
             def record_audio(duration: float, sample_rate: int) -> tuple[Any, float]:
                 return record_audio_filtered(
                     duration,

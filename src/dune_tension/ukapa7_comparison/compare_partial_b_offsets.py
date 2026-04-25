@@ -47,10 +47,14 @@ def _pair_stats_text(chicago: pd.Series, uk: pd.Series) -> str:
     )
 
 
-def load_partial_b(action_json: Path, summary_csv: Path) -> tuple[pd.DataFrame, np.ndarray]:
+def load_partial_b(
+    action_json: Path, summary_csv: Path
+) -> tuple[pd.DataFrame, np.ndarray]:
     action_df = load_action_json(action_json)
     summary_df = load_summary_csv(summary_csv)
-    merged = summary_df.merge(action_df[["wire_number", "json_B"]], on="wire_number", how="left")
+    merged = summary_df.merge(
+        action_df[["wire_number", "json_B"]], on="wire_number", how="left"
+    )
     merged = merged.dropna(subset=["summary_B"]).copy()
     merged["wire_number"] = merged["wire_number"].astype(int)
     json_values = action_df.sort_values("wire_number")["json_B"].to_numpy(dtype=float)
@@ -148,7 +152,12 @@ def save_residual_comparison_plot(
     fig, axes = plt.subplots(2, 1, figsize=(15, 10))
     models = [
         ("baseline", baseline_df, baseline_stats, "tab:blue"),
-        (f"shift {int(shifted_stats['shift']):+d}", shifted_df, shifted_stats, "tab:green"),
+        (
+            f"shift {int(shifted_stats['shift']):+d}",
+            shifted_df,
+            shifted_stats,
+            "tab:green",
+        ),
     ]
 
     for name, df, stats, color in models:

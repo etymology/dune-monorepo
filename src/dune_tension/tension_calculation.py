@@ -48,7 +48,12 @@ def calculate_kde_max(sample: Sequence[float]) -> float:
     max_kde_sample_value = x_range[np.argmax(kde_sample_values)]
     return max_kde_sample_value
 
-def wire_equation(length: Optional[float] = None, frequency: Optional[float] = None, tension: Optional[float] = NOMINAL_TENSION) -> dict[str, float]:
+
+def wire_equation(
+    length: Optional[float] = None,
+    frequency: Optional[float] = None,
+    tension: Optional[float] = NOMINAL_TENSION,
+) -> dict[str, float]:
     """Calculate wire properties given any two of length, frequency, and tension.
 
     Returns a dictionary with keys 'length', 'frequency', and 'tension'.
@@ -60,7 +65,9 @@ def wire_equation(length: Optional[float] = None, frequency: Optional[float] = N
     elif frequency is not None and tension is not None:
         length = (tension / (WIRE_DENSITY * (2 * frequency) ** 2)) ** 0.5
     else:
-        raise ValueError("At least two of length, frequency, or tension must be provided.")
+        raise ValueError(
+            "At least two of length, frequency, or tension must be provided."
+        )
 
     return {"length": length, "frequency": frequency, "tension": tension}
 

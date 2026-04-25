@@ -14,6 +14,7 @@ import time
 
 LOGGER = logging.getLogger(__name__)
 
+
 @dataclass
 class HarmonicCombConfig:
     """Runtime configuration for the harmonic comb trigger."""
@@ -173,7 +174,7 @@ def record_with_harmonic_comb(
     triggered = False
 
     try:
-        while collected_samples < max_samples :
+        while collected_samples < max_samples:
             chunk = source.read()
             if chunk.size == 0:
                 continue

@@ -130,7 +130,10 @@ def _patch_result_physics(monkeypatch) -> None:
     monkeypatch.setattr(
         results_module,
         "wire_equation",
-        lambda length, frequency: {"tension": float(frequency) * 0.1, "frequency": frequency},
+        lambda length, frequency: {
+            "tension": float(frequency) * 0.1,
+            "frequency": frequency,
+        },
     )
     monkeypatch.setattr(results_module, "tension_pass", lambda _tension, _length: True)
 
@@ -546,8 +549,8 @@ def test_amplitude_mode_skips_pesto_until_threshold_then_analyzes_once(monkeypat
     )
     tensiometer.strum_func = lambda: None
     published: list[tuple[list[float], object | None]] = []
-    tensiometer.audio_sample_callback = (
-        lambda sample, _samplerate, analysis: published.append((list(sample), analysis))
+    tensiometer.audio_sample_callback = lambda sample, _samplerate, analysis: (
+        published.append((list(sample), analysis))
     )
 
     samples = tensiometer._collect_samples(
@@ -670,8 +673,10 @@ def test_amplitude_mode_continues_after_implausible_threshold_sample(monkeypatch
     monkeypatch.setattr(
         tensiometer_module,
         "analyze_audio_with_pesto",
-        lambda *_args, **_kwargs: analyze_calls.append(True)
-        or types.SimpleNamespace(frequency=5.0, confidence=0.99),
+        lambda *_args, **_kwargs: (
+            analyze_calls.append(True)
+            or types.SimpleNamespace(frequency=5.0, confidence=0.99)
+        ),
     )
 
     tensiometer = Tensiometer(
@@ -728,7 +733,9 @@ def test_measure_auto_reports_estimated_time(monkeypatch):
         time_provider=lambda: next(times),
         wire_position_provider=provider,
     )
-    tensiometer.goto_collect_wire_data = lambda **kwargs: collected.append(kwargs) or None
+    tensiometer.goto_collect_wire_data = lambda **kwargs: (
+        collected.append(kwargs) or None
+    )
 
     tensiometer.measure_auto()
 
@@ -1054,9 +1061,10 @@ def test_load_tension_summary_uses_sqlite_backed_summary_series(tmp_path, monkey
     db_path.write_text("")
     summaries_stub = types.ModuleType("dune_tension.summaries")
     summaries_stub.get_expected_range = lambda _layer: range(1, 4)
-    summaries_stub.get_tension_series = (
-        lambda _config: {"A": {1: 1.0, 3: 3.0}, "B": {1: 2.0}}
-    )
+    summaries_stub.get_tension_series = lambda _config: {
+        "A": {1: 1.0, 3: 3.0},
+        "B": {1: 2.0},
+    }
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
 
     tensiometer = Tensiometer(
@@ -1240,7 +1248,9 @@ def test_goto_collect_wire_data_applies_planned_focus_before_xy_move(monkeypatch
     assert motion.moves == [(9.4, 2.0), (11.0, 2.0)]
 
 
-def test_goto_collect_wire_data_resets_plc_and_retries_failed_measurement_move(monkeypatch):
+def test_goto_collect_wire_data_resets_plc_and_retries_failed_measurement_move(
+    monkeypatch,
+):
     _patch_result_physics(monkeypatch)
     motion = _make_recovering_motion_service([False, True], start_x=10.0, start_y=2.0)
     result = TensionResult.from_measurement(
@@ -1373,7 +1383,9 @@ def test_goto_collect_wire_data_invokes_wire_preview_for_uv(monkeypatch):
 
 
 def test_collect_samples_resets_plc_and_retries_optimizer_move(monkeypatch):
-    motion = _make_recovering_motion_service([False, True], start_x=1000.0, start_y=2000.0)
+    motion = _make_recovering_motion_service(
+        [False, True], start_x=1000.0, start_y=2000.0
+    )
     tensiometer = Tensiometer(
         apa_name="APA",
         layer="X",

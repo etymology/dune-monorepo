@@ -134,7 +134,9 @@ def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
     requested_layer = _normalize_layer(layer)
     payload = desktop_get_layer_calibration_json(requested_layer)
     if payload is None:
-        raise ValueError(f"Failed to fetch layer {requested_layer} calibration JSON from desktop.")
+        raise ValueError(
+            f"Failed to fetch layer {requested_layer} calibration JSON from desktop."
+        )
 
     active_layer = str(payload.get("activeLayer") or "").strip().upper()
     if active_layer != requested_layer:
@@ -148,7 +150,9 @@ def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
     local_path = APA_CALIBRATION_DIR / calibration_file
     content = payload.get("content")
     if not isinstance(content, str) or not content.strip():
-        raise ValueError(f"Desktop returned empty calibration JSON for layer {requested_layer}.")
+        raise ValueError(
+            f"Desktop returned empty calibration JSON for layer {requested_layer}."
+        )
 
     content_hash = str(payload.get("contentHash") or "").strip() or _hash_text(content)
     local_hash = _hash_file(local_path)
@@ -255,7 +259,9 @@ def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
     try:
         location = calibration["locations"][normalized_pin]
     except KeyError as exc:
-        raise ValueError(f"Pin {normalized_pin} is not present in {requested_layer} calibration.") from exc
+        raise ValueError(
+            f"Pin {normalized_pin} is not present in {requested_layer} calibration."
+        ) from exc
     return (float(location["x"]), float(location["y"]))
 
 
@@ -282,7 +288,9 @@ def _translate_pin_name_family(layer: str, pin_name: str, target_family: str) ->
         )
 
     geometry = create_layer_geometry(requested_layer)
-    translated_pin = int(LayerFunctions.translateFrontBack(geometry, int(normalized_pin[1:])))
+    translated_pin = int(
+        LayerFunctions.translateFrontBack(geometry, int(normalized_pin[1:]))
+    )
     return f"{desired_family}{translated_pin}"
 
 
@@ -292,7 +300,9 @@ def resolve_pin_name_for_side(layer: str, side: str, pin_name: str) -> str:
     return _translate_pin_name_family(layer, pin_name, target_family)
 
 
-def get_calibrated_pin_xy_for_side(layer: str, side: str, pin_name: str) -> tuple[float, float]:
+def get_calibrated_pin_xy_for_side(
+    layer: str, side: str, pin_name: str
+) -> tuple[float, float]:
     resolved_pin = resolve_pin_name_for_side(layer, side, pin_name)
     return get_calibrated_pin_xy(layer, resolved_pin)
 
@@ -340,7 +350,9 @@ def load_laser_offset_store() -> dict[str, Any]:
 
 
 def save_laser_offset_store(store: dict[str, Any]) -> None:
-    _atomic_write_text(LASER_OFFSET_PATH, json.dumps(store, indent=2, sort_keys=True) + "\n")
+    _atomic_write_text(
+        LASER_OFFSET_PATH, json.dumps(store, indent=2, sort_keys=True) + "\n"
+    )
     _load_laser_offset_store_cached.cache_clear()
 
 

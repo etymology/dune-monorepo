@@ -9,113 +9,113 @@ import math
 
 
 class Segment:
-  """
-  A segment is two points connected by a line.
-  """
-
-  # ---------------------------------------------------------------------
-  def __init__(self, start, finish):
     """
-    Constructor.
-
-    Args:
-      start: Instance of Location defining the starting location.
-      finish: Instance of Location defining the finishing location.
+    A segment is two points connected by a line.
     """
-    self.start = start
-    self.finish = finish
 
-  # ---------------------------------------------------------------------
-  def deltaX(self):
-    """
-    Get the distance between x of segment.
+    # ---------------------------------------------------------------------
+    def __init__(self, start, finish):
+        """
+        Constructor.
 
-    Returns:
-      Distance between x of segment.
-    """
-    return self.start.x - self.finish.x
+        Args:
+          start: Instance of Location defining the starting location.
+          finish: Instance of Location defining the finishing location.
+        """
+        self.start = start
+        self.finish = finish
 
-  # ---------------------------------------------------------------------
-  def deltaY(self):
-    """
-    Get the distance between y of segment.
+    # ---------------------------------------------------------------------
+    def deltaX(self):
+        """
+        Get the distance between x of segment.
 
-    Returns:
-      Distance between y of segment.
-    """
-    return self.start.y - self.finish.y
+        Returns:
+          Distance between x of segment.
+        """
+        return self.start.x - self.finish.x
 
-  # ---------------------------------------------------------------------
-  def deltaZ(self):
-    """
-    Get the distance between z of segment.
+    # ---------------------------------------------------------------------
+    def deltaY(self):
+        """
+        Get the distance between y of segment.
 
-    Returns:
-      Distance between z of segment.
-    """
-    return self.start.z - self.finish.z
+        Returns:
+          Distance between y of segment.
+        """
+        return self.start.y - self.finish.y
 
-  # ---------------------------------------------------------------------
-  def length(self):
-    """
-    Return the length of segment.
+    # ---------------------------------------------------------------------
+    def deltaZ(self):
+        """
+        Get the distance between z of segment.
 
-    Returns:
-      Length of segment.
-    """
-    deltaX = self.deltaX()
-    deltaY = self.deltaY()
-    deltaZ = self.deltaZ()
+        Returns:
+          Distance between z of segment.
+        """
+        return self.start.z - self.finish.z
 
-    # Thank you Pythagoras.
-    return math.sqrt(deltaX**2 + deltaY**2 + deltaZ**2)
+    # ---------------------------------------------------------------------
+    def length(self):
+        """
+        Return the length of segment.
 
-  # ---------------------------------------------------------------------
-  def slope(self):
-    """
-    Slope of X/Y.
+        Returns:
+          Length of segment.
+        """
+        deltaX = self.deltaX()
+        deltaY = self.deltaY()
+        deltaZ = self.deltaZ()
 
-    Returns:
-      Slope of the X/Y part of the line.  Returns infinite if there is no
-      slope (i.e. no delta X).
-    """
-    deltaX = self.deltaX()
-    deltaY = self.deltaY()
+        # Thank you Pythagoras.
+        return math.sqrt(deltaX**2 + deltaY**2 + deltaZ**2)
 
-    slope = float("inf")
-    if 0 != deltaX:
-      slope = deltaY / deltaX
+    # ---------------------------------------------------------------------
+    def slope(self):
+        """
+        Slope of X/Y.
 
-    return slope
+        Returns:
+          Slope of the X/Y part of the line.  Returns infinite if there is no
+          slope (i.e. no delta X).
+        """
+        deltaX = self.deltaX()
+        deltaY = self.deltaY()
 
-  # ---------------------------------------------------------------------
-  def intercept(self):
-    """
-    Y-Intercept of X/Y.
+        slope = float("inf")
+        if 0 != deltaX:
+            slope = deltaY / deltaX
 
-    Returns:
-      Y-Intercept of X/Y.  Returns infinite if there is no
-      slope (i.e. no delta X).
-    """
-    return self.start.y - self.slope() * self.start.x
+        return slope
 
-  # ---------------------------------------------------------------------
-  def isPoint(self):
-    """
-    Check to see if this segment is actual a single point.
+    # ---------------------------------------------------------------------
+    def intercept(self):
+        """
+        Y-Intercept of X/Y.
 
-    Returns:
-      True if segment is a point rather than a line segment.
-    """
-    return (self.start.x == self.finish.x) and (self.start.y == self.finish.y)
+        Returns:
+          Y-Intercept of X/Y.  Returns infinite if there is no
+          slope (i.e. no delta X).
+        """
+        return self.start.y - self.slope() * self.start.x
 
-  # ---------------------------------------------------------------------
-  def __str__(self):
-    """
-    Get a string representation of object.
+    # ---------------------------------------------------------------------
+    def isPoint(self):
+        """
+        Check to see if this segment is actual a single point.
 
-    Returns
-      String representation of object in form (x1, y1, z1)-(x2, y2, z2) where
-      xn/yn/zn are numbers and n is 1 for starting location, 2 for finishing.
-    """
-    return str(self.start) + "-" + str(self.finish)
+        Returns:
+          True if segment is a point rather than a line segment.
+        """
+        return (self.start.x == self.finish.x) and (self.start.y == self.finish.y)
+
+    # ---------------------------------------------------------------------
+    def __str__(self):
+        """
+        Get a string representation of object.
+
+        Returns
+          String representation of object in form (x1, y1, z1)-(x2, y2, z2) where
+          xn/yn/zn are numbers and n is 1 for starting location, 2 for finishing.
+        """
+        return str(self.start) + "-" + str(self.finish)

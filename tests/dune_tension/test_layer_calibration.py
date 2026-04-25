@@ -7,7 +7,9 @@ from pathlib import Path
 import dune_tension.layer_calibration as layer_calibration
 
 
-def test_sync_layer_calibration_from_desktop_writes_local_file(monkeypatch, tmp_path) -> None:
+def test_sync_layer_calibration_from_desktop_writes_local_file(
+    monkeypatch, tmp_path
+) -> None:
     calibration_dir = tmp_path / "config" / "APA"
     monkeypatch.setattr(layer_calibration, "APA_CALIBRATION_DIR", calibration_dir)
     monkeypatch.setattr(
@@ -28,7 +30,10 @@ def test_sync_layer_calibration_from_desktop_writes_local_file(monkeypatch, tmp_
     assert target.read_text(encoding="utf-8") == '{\n  "layer": "V"\n}\n'
     assert result.layer == "V"
     assert result.calibration_file == "V_Calibration.json"
-    assert result.content_hash == hashlib.sha256('{\n  "layer": "V"\n}\n'.encode("utf-8")).hexdigest()
+    assert (
+        result.content_hash
+        == hashlib.sha256('{\n  "layer": "V"\n}\n'.encode("utf-8")).hexdigest()
+    )
     assert result.changed is True
 
 
@@ -49,7 +54,9 @@ def test_sync_layer_calibration_from_desktop_skips_rewrite_when_hash_matches(
             "activeLayer": layer,
             "calibrationFile": f"{layer}_Calibration.json",
             "source": "workspace",
-            "contentHash": hashlib.sha256('{\n  "layer": "V"\n}\n'.encode("utf-8")).hexdigest(),
+            "contentHash": hashlib.sha256(
+                '{\n  "layer": "V"\n}\n'.encode("utf-8")
+            ).hexdigest(),
             "content": '{\n  "layer": "V"\n}\n',
         },
     )
@@ -71,7 +78,9 @@ def test_sync_layer_calibration_from_desktop_skips_rewrite_when_hash_matches(
 def test_capture_laser_offset_stores_side_keyed_value(monkeypatch, tmp_path) -> None:
     offset_path = tmp_path / "TensionLaserOffsets.json"
     monkeypatch.setattr(layer_calibration, "LASER_OFFSET_PATH", offset_path)
-    monkeypatch.setattr(layer_calibration, "get_calibrated_pin_xy", lambda _layer, _pin: (100.0, 200.0))
+    monkeypatch.setattr(
+        layer_calibration, "get_calibrated_pin_xy", lambda _layer, _pin: (100.0, 200.0)
+    )
 
     entry = layer_calibration.capture_laser_offset(
         layer="U",
@@ -89,7 +98,9 @@ def test_capture_laser_offset_stores_side_keyed_value(monkeypatch, tmp_path) -> 
     assert saved["B"]["captured_layer"] == "U"
 
 
-def test_capture_laser_offset_uses_front_pin_family_for_a_side(monkeypatch, tmp_path) -> None:
+def test_capture_laser_offset_uses_front_pin_family_for_a_side(
+    monkeypatch, tmp_path
+) -> None:
     offset_path = tmp_path / "TensionLaserOffsets.json"
     monkeypatch.setattr(layer_calibration, "LASER_OFFSET_PATH", offset_path)
 
@@ -150,8 +161,14 @@ def test_get_calibrated_pin_xy_for_side_uses_resolved_pin_name(monkeypatch) -> N
         },
     )
 
-    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "A", "B400") == (3.0, 4.0)
-    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "B", "A2399") == (1.0, 2.0)
+    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "A", "B400") == (
+        3.0,
+        4.0,
+    )
+    assert layer_calibration.get_calibrated_pin_xy_for_side("V", "B", "A2399") == (
+        1.0,
+        2.0,
+    )
 
 
 def test_ensure_local_layer_calibration_file_generates_default_when_missing(
@@ -168,7 +185,9 @@ def test_ensure_local_layer_calibration_file_generates_default_when_missing(
             generated.append((output_file_path, output_file_name, layer_name))
             target = calibration_dir / output_file_name
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text('{\n  "layer": "' + layer_name + '"\n}\n', encoding="utf-8")
+            target.write_text(
+                '{\n  "layer": "' + layer_name + '"\n}\n', encoding="utf-8"
+            )
 
     monkeypatch.setattr(
         layer_calibration,
@@ -194,7 +213,9 @@ def test_load_normalized_layer_calibration_uses_generated_default_when_missing(
         def __init__(self, output_file_path, output_file_name, layer_name):
             target = Path(output_file_path) / output_file_name
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text('{\n  "layer": "' + layer_name + '"\n}\n', encoding="utf-8")
+            target.write_text(
+                '{\n  "layer": "' + layer_name + '"\n}\n', encoding="utf-8"
+            )
 
     class _FakeLayerCalibration:
         def __init__(self, layer):

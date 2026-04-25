@@ -13,7 +13,9 @@ from dune_tension.ukapa7_comparison.compare_partial_b_offsets import (
     find_best_shift,
     load_partial_b,
 )
-from dune_tension.ukapa7_comparison.compare_tension_sources import build_comparison_frame
+from dune_tension.ukapa7_comparison.compare_tension_sources import (
+    build_comparison_frame,
+)
 
 
 def _rolling_mean(series: pd.Series, window: int = 15) -> pd.Series:

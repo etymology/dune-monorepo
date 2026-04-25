@@ -7,7 +7,13 @@ from typing import Any
 
 import requests
 
-from dune_tension.geometry import MEASURABLE_X_MAX, MEASURABLE_X_MIN, MEASURABLE_Y_MAX, MEASURABLE_Y_MIN, comb_positions
+from dune_tension.geometry import (
+    MEASURABLE_X_MAX,
+    MEASURABLE_X_MIN,
+    MEASURABLE_Y_MAX,
+    MEASURABLE_Y_MIN,
+    comb_positions,
+)
 from dune_tension.plc_direct import (
     PLCCommunicationError,
     PLCTagReadError,
@@ -216,7 +222,10 @@ def is_in_measurable_area(x_target: float, y_target: float) -> bool:
     This is distinct from the machine's physical motion limits, which are enforced by dune_winder.
     """
 
-    return MEASURABLE_X_MIN <= float(x_target) <= MEASURABLE_X_MAX and MEASURABLE_Y_MIN <= float(y_target) <= MEASURABLE_Y_MAX
+    return (
+        MEASURABLE_X_MIN <= float(x_target) <= MEASURABLE_X_MAX
+        and MEASURABLE_Y_MIN <= float(y_target) <= MEASURABLE_Y_MAX
+    )
 
 
 def _read_tag_server(tag_name: str) -> Any:
@@ -448,7 +457,9 @@ def goto_xy(
             )
 
     with _MOTION_LOCK:
-        if not allow_outside_measurable and not is_in_measurable_area(x_target, y_target):
+        if not allow_outside_measurable and not is_in_measurable_area(
+            x_target, y_target
+        ):
             LOGGER.warning(
                 "Target %s,%s is outside the measurable area. Please enter a valid position.",
                 x_target,
@@ -630,7 +641,9 @@ def spoof_get_xy() -> tuple[float, float]:
 def spoof_goto_xy(x_target: float, y_target: float, **_: object) -> bool:
     """Pretend to move the winder and update the spoofed position."""
     if not is_in_measurable_area(x_target, y_target):
-        LOGGER.warning("[spoof] Target %s,%s is outside the measurable area.", x_target, y_target)
+        LOGGER.warning(
+            "[spoof] Target %s,%s is outside the measurable area.", x_target, y_target
+        )
 
     LOGGER.info("[spoof] Moving to %s,%s", x_target, y_target)
     _SPOOF_XY[0] = x_target

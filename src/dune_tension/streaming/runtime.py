@@ -47,7 +47,9 @@ class AudioStreamService:
         self.hop_size = int(hop_size)
         self._clock = clock or time.monotonic
         self._source_factory = source_factory or self._default_source_factory
-        self._queue: "queue.Queue[TimedAudioChunk]" = queue.Queue(maxsize=max(1, int(queue_size)))
+        self._queue: "queue.Queue[TimedAudioChunk]" = queue.Queue(
+            maxsize=max(1, int(queue_size))
+        )
         self._source: AudioSource | None = None
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()

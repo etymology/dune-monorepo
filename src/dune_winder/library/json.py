@@ -6,8 +6,8 @@ import json
 
 
 def dumps(data):
-  """
-  Serialize data to JSON while stringifying unsupported leaf values such as
-  datetimes.
-  """
-  return json.dumps(data, default=str)
+    """
+    Serialize data to JSON while stringifying unsupported leaf values such as
+    datetimes.
+    """
+    return json.dumps(data, default=str)

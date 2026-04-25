@@ -11,60 +11,60 @@ from dune_winder.library.app_config import AppConfig
 
 
 class PlcModeTests(unittest.TestCase):
-  def test_app_config_defaults_to_real_and_persists_sim(self):
-    with tempfile.TemporaryDirectory() as tempDirectory:
-      configPath = pathlib.Path(tempDirectory) / "configuration.toml"
-      configuration = AppConfig.load(configPath)
-      self.assertEqual(configuration.plcMode, "REAL")
+    def test_app_config_defaults_to_real_and_persists_sim(self):
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+            configuration = AppConfig.load(configPath)
+            self.assertEqual(configuration.plcMode, "REAL")
 
-      configuration.set("plcMode", "sim")
-      self.assertEqual(configuration.plcMode, "SIM")
+            configuration.set("plcMode", "sim")
+            self.assertEqual(configuration.plcMode, "SIM")
 
-      reloaded = AppConfig.load(configPath)
-      self.assertEqual(reloaded.plcMode, "SIM")
+            reloaded = AppConfig.load(configPath)
+            self.assertEqual(reloaded.plcMode, "SIM")
 
-  def test_app_config_rejects_invalid_plc_mode(self):
-    with tempfile.TemporaryDirectory() as tempDirectory:
-      configPath = pathlib.Path(tempDirectory) / "configuration.toml"
-      configPath.write_text('plcMode = "BROKEN"\n', encoding="utf-8")
+    def test_app_config_rejects_invalid_plc_mode(self):
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+            configPath.write_text('plcMode = "BROKEN"\n', encoding="utf-8")
 
-      with self.assertRaises(ValueError):
-        AppConfig.load(configPath)
+            with self.assertRaises(ValueError):
+                AppConfig.load(configPath)
 
-  def test_app_config_rejects_invalid_plc_sim_engine(self):
-    with tempfile.TemporaryDirectory() as tempDirectory:
-      configPath = pathlib.Path(tempDirectory) / "configuration.toml"
-      configPath.write_text('plcSimEngine = "BROKEN"\n', encoding="utf-8")
+    def test_app_config_rejects_invalid_plc_sim_engine(self):
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+            configPath.write_text('plcSimEngine = "BROKEN"\n', encoding="utf-8")
 
-      with self.assertRaises(ValueError):
-        AppConfig.load(configPath)
+            with self.assertRaises(ValueError):
+                AppConfig.load(configPath)
 
-  def test_resolve_plc_mode_uses_cli_override(self):
-    self.assertEqual(normalize_plc_mode("REAL"), "REAL")
-    self.assertEqual(normalize_plc_mode("SIM"), "SIM")
+    def test_resolve_plc_mode_uses_cli_override(self):
+        self.assertEqual(normalize_plc_mode("REAL"), "REAL")
+        self.assertEqual(normalize_plc_mode("SIM"), "SIM")
 
-  def test_resolve_plc_sim_engine_uses_cli_override(self):
-    self.assertEqual(resolve_plc_sim_engine("LEGACY", None), "LEGACY")
-    self.assertEqual(resolve_plc_sim_engine("LEGACY", "LADDER"), "LADDER")
+    def test_resolve_plc_sim_engine_uses_cli_override(self):
+        self.assertEqual(resolve_plc_sim_engine("LEGACY", None), "LEGACY")
+        self.assertEqual(resolve_plc_sim_engine("LEGACY", "LADDER"), "LADDER")
 
-  def test_sim_backend_selection_does_not_require_pycomm3(self):
-    originalImport = builtins.__import__
+    def test_sim_backend_selection_does_not_require_pycomm3(self):
+        originalImport = builtins.__import__
 
-    def guardedImport(name, globals=None, locals=None, fromlist=(), level=0):
-      if name == "pycomm3":
-        raise ImportError("pycomm3 unavailable")
-      return originalImport(name, globals, locals, fromlist, level)
+        def guardedImport(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "pycomm3":
+                raise ImportError("pycomm3 unavailable")
+            return originalImport(name, globals, locals, fromlist, level)
 
-    with mock.patch("builtins.__import__", side_effect=guardedImport):
-      plc = create_plc_backend("127.0.0.1", "SIM")
+        with mock.patch("builtins.__import__", side_effect=guardedImport):
+            plc = create_plc_backend("127.0.0.1", "SIM")
 
-    self.assertEqual(plc.__class__.__name__, "SimulatedPLC")
+        self.assertEqual(plc.__class__.__name__, "SimulatedPLC")
 
-  def test_ladder_sim_backend_selection_uses_opt_in_engine(self):
-    plc = create_plc_backend("127.0.0.1", "SIM", plcSimEngine="LADDER")
+    def test_ladder_sim_backend_selection_uses_opt_in_engine(self):
+        plc = create_plc_backend("127.0.0.1", "SIM", plcSimEngine="LADDER")
 
-    self.assertEqual(plc.__class__.__name__, "LadderSimulatedPLC")
+        self.assertEqual(plc.__class__.__name__, "LadderSimulatedPLC")
 
 
 if __name__ == "__main__":
-  unittest.main()
+    unittest.main()

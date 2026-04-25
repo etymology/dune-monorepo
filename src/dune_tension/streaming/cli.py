@@ -11,7 +11,11 @@ from dune_tension.streaming.controller import (
 )
 from dune_tension.streaming.focus_plane import FocusPlaneModel
 from dune_tension.streaming.models import FocusAnchor
-from dune_tension.streaming.replay import analyze_wav_paths, iter_wav_paths, write_summary_csv
+from dune_tension.streaming.replay import (
+    analyze_wav_paths,
+    iter_wav_paths,
+    write_summary_csv,
+)
 from dune_tension.streaming.runtime import build_measurement_runtime
 
 
@@ -83,7 +87,9 @@ def main_stream_rescue(argv: list[str] | None = None) -> None:
 
 def main_fit_focus(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="dune-tension-fit-focus")
-    parser.add_argument("json_path", help="JSON file containing [{'x_true','y_true','focus'}...]")
+    parser.add_argument(
+        "json_path", help="JSON file containing [{'x_true','y_true','focus'}...]"
+    )
     args = parser.parse_args(argv)
     anchors_raw = json.loads(Path(args.json_path).read_text(encoding="utf-8"))
     anchors = [

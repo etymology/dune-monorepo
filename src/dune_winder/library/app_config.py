@@ -16,274 +16,281 @@ import tomllib
 import typing
 
 from dune_winder.queued_motion.jerk_limits import (
-  DEFAULT_QUEUED_MOTION_ACCEL_JERK,
-  DEFAULT_QUEUED_MOTION_DECEL_JERK,
-  normalize_queued_motion_jerk,
+    DEFAULT_QUEUED_MOTION_ACCEL_JERK,
+    DEFAULT_QUEUED_MOTION_DECEL_JERK,
+    normalize_queued_motion_jerk,
 )
 
 
 @dataclasses.dataclass
 class AppConfig:
-  VALID_PLC_MODES = ("REAL", "SIM")
-  VALID_PLC_SIM_ENGINES = ("LEGACY", "LADDER")
+    VALID_PLC_MODES = ("REAL", "SIM")
+    VALID_PLC_SIM_ENGINES = ("LEGACY", "LADDER")
 
-  # PLC network address.
-  plcAddress: str = "192.168.140.13"
+    # PLC network address.
+    plcAddress: str = "192.168.140.13"
 
-  # PLC backend mode.
-  plcMode: str = "REAL"
+    # PLC backend mode.
+    plcMode: str = "REAL"
 
-  # PLC simulator engine to use when plcMode == "SIM".
-  plcSimEngine: str = "LEGACY"
+    # PLC simulator engine to use when plcMode == "SIM".
+    plcSimEngine: str = "LEGACY"
 
-  # Enable shadow PLC mode: runs both LadderSimulatedPLC backends (ast and
-  # imperative) alongside the real PLC and logs logic tag mismatches to
-  # shadow_plc_errors.log.  Has no effect when plcMode == "SIM".
-  plcShadowMode: bool = False
+    # Enable shadow PLC mode: runs both LadderSimulatedPLC backends (ast and
+    # imperative) alongside the real PLC and logs logic tag mismatches to
+    # shadow_plc_errors.log.  Has no effect when plcMode == "SIM".
+    plcShadowMode: bool = False
 
-  # Camera FTP URL for last captured image.
-  cameraURL: str = "ftp://admin@192.168.140.19/image.bmp"
+    # Camera FTP URL for last captured image.
+    cameraURL: str = "ftp://admin@192.168.140.19/image.bmp"
 
-  # Camera calibration: pixels per millimetre.
-  pixelsPer_mm: int = 18
+    # Camera calibration: pixels per millimetre.
+    pixelsPer_mm: int = 18
 
-  # Manual calibration camera offsets (mm) per layer.
-  manualCalibrationOffsetUX: float = 65.0
-  manualCalibrationOffsetUY: float = -108.2
-  manualCalibrationOffsetVX: float = 65.0
-  manualCalibrationOffsetVY: float = -108.2
-  manualCalibrationOffsetXX: float = 65.0
-  manualCalibrationOffsetXY: float = -108.2
-  manualCalibrationOffsetGX: float = 65.0
-  manualCalibrationOffsetGY: float = -108.2
-  xBacklashCompensationMm: float = 2.0
+    # Manual calibration camera offsets (mm) per layer.
+    manualCalibrationOffsetUX: float = 65.0
+    manualCalibrationOffsetUY: float = -108.2
+    manualCalibrationOffsetVX: float = 65.0
+    manualCalibrationOffsetVY: float = -108.2
+    manualCalibrationOffsetXX: float = 65.0
+    manualCalibrationOffsetXY: float = -108.2
+    manualCalibrationOffsetGX: float = 65.0
+    manualCalibrationOffsetGY: float = -108.2
+    xBacklashCompensationMm: float = 2.0
 
-  # UI command server.
-  serverAddress: str = "127.0.0.1"
-  serverPort: int = 6626
+    # UI command server.
+    serverAddress: str = "127.0.0.1"
+    serverPort: int = 6626
 
-  # Web server port.
-  webServerPort: int = 8080
+    # Web server port.
+    webServerPort: int = 8080
 
-  # Machine calibration file name (relative to config/).
-  machineCalibrationFile: str = "machineCalibration.json"
+    # Machine calibration file name (relative to config/).
+    machineCalibrationFile: str = "machineCalibration.json"
 
-  # Velocity and acceleration limits.
-  maxVelocity: int = 1020
-  maxSlowVelocity: float = 25.4
-  maxAcceleration: int = 2000
-  maxDeceleration: int = 2000
-  maxJerkAccel: float = DEFAULT_QUEUED_MOTION_ACCEL_JERK
-  maxJerkDecel: float = DEFAULT_QUEUED_MOTION_DECEL_JERK
+    # Velocity and acceleration limits.
+    maxVelocity: int = 1020
+    maxSlowVelocity: float = 25.4
+    maxAcceleration: int = 2000
+    maxDeceleration: int = 2000
+    maxJerkAccel: float = DEFAULT_QUEUED_MOTION_ACCEL_JERK
+    maxJerkDecel: float = DEFAULT_QUEUED_MOTION_DECEL_JERK
 
-  @classmethod
-  def normalizePlcMode(cls, value: typing.Any) -> str:
-    mode = str(value).strip().upper()
-    if mode not in cls.VALID_PLC_MODES:
-      raise ValueError(
-        "configuration.toml: 'plcMode' must be one of " + ", ".join(cls.VALID_PLC_MODES)
-      )
-    return mode
+    @classmethod
+    def normalizePlcMode(cls, value: typing.Any) -> str:
+        mode = str(value).strip().upper()
+        if mode not in cls.VALID_PLC_MODES:
+            raise ValueError(
+                "configuration.toml: 'plcMode' must be one of "
+                + ", ".join(cls.VALID_PLC_MODES)
+            )
+        return mode
 
-  @classmethod
-  def normalizePlcSimEngine(cls, value: typing.Any) -> str:
-    engine = str(value).strip().upper()
-    if engine not in cls.VALID_PLC_SIM_ENGINES:
-      raise ValueError(
-        "configuration.toml: 'plcSimEngine' must be one of "
-        + ", ".join(cls.VALID_PLC_SIM_ENGINES)
-      )
-    return engine
+    @classmethod
+    def normalizePlcSimEngine(cls, value: typing.Any) -> str:
+        engine = str(value).strip().upper()
+        if engine not in cls.VALID_PLC_SIM_ENGINES:
+            raise ValueError(
+                "configuration.toml: 'plcSimEngine' must be one of "
+                + ", ".join(cls.VALID_PLC_SIM_ENGINES)
+            )
+        return engine
 
-  def __post_init__(self) -> None:
-    self.plcMode = self.normalizePlcMode(self.plcMode)
-    self.plcSimEngine = self.normalizePlcSimEngine(self.plcSimEngine)
-    self.maxJerkAccel = normalize_queued_motion_jerk(
-      self.maxJerkAccel,
-      default=DEFAULT_QUEUED_MOTION_ACCEL_JERK,
-    )
-    self.maxJerkDecel = normalize_queued_motion_jerk(
-      self.maxJerkDecel,
-      default=DEFAULT_QUEUED_MOTION_DECEL_JERK,
-    )
-    # Not a dataclass field — stores the file path for save().
-    self._path: typing.Optional[pathlib.Path] = None
+    def __post_init__(self) -> None:
+        self.plcMode = self.normalizePlcMode(self.plcMode)
+        self.plcSimEngine = self.normalizePlcSimEngine(self.plcSimEngine)
+        self.maxJerkAccel = normalize_queued_motion_jerk(
+            self.maxJerkAccel,
+            default=DEFAULT_QUEUED_MOTION_ACCEL_JERK,
+        )
+        self.maxJerkDecel = normalize_queued_motion_jerk(
+            self.maxJerkDecel,
+            default=DEFAULT_QUEUED_MOTION_DECEL_JERK,
+        )
+        # Not a dataclass field — stores the file path for save().
+        self._path: typing.Optional[pathlib.Path] = None
 
-  @staticmethod
-  def _apply_legacy_max_jerk(raw: dict[str, typing.Any]) -> dict[str, typing.Any]:
-    normalized = dict(raw)
-    legacy = normalized.pop("maxJerk", None)
-    if legacy is not None:
-      normalized.setdefault("maxJerkAccel", legacy)
-      normalized.setdefault("maxJerkDecel", legacy)
-    return normalized
+    @staticmethod
+    def _apply_legacy_max_jerk(raw: dict[str, typing.Any]) -> dict[str, typing.Any]:
+        normalized = dict(raw)
+        legacy = normalized.pop("maxJerk", None)
+        if legacy is not None:
+            normalized.setdefault("maxJerkAccel", legacy)
+            normalized.setdefault("maxJerkDecel", legacy)
+        return normalized
 
-  # ------------------------------------------------------------------
-  @classmethod
-  def load(cls, path: pathlib.Path) -> "AppConfig":
-    """Load from *path* (TOML).
+    # ------------------------------------------------------------------
+    @classmethod
+    def load(cls, path: pathlib.Path) -> "AppConfig":
+        """Load from *path* (TOML).
 
-    If the file does not exist the instance is initialised with defaults
-    and ``_path`` is set so a subsequent ``save()`` writes the file.
+        If the file does not exist the instance is initialised with defaults
+        and ``_path`` is set so a subsequent ``save()`` writes the file.
 
-    Raises ``ValueError`` on unknown keys or wrong-typed values.
-    """
-    if not path.exists():
-      # Migration: if configuration.xml exists alongside the missing
-      # .toml, read it and immediately save as TOML so future starts
-      # use the new format.
-      xml_path = path.with_suffix(".xml")
-      if xml_path.exists():
-        instance = cls._load_from_xml(xml_path)
+        Raises ``ValueError`` on unknown keys or wrong-typed values.
+        """
+        if not path.exists():
+            # Migration: if configuration.xml exists alongside the missing
+            # .toml, read it and immediately save as TOML so future starts
+            # use the new format.
+            xml_path = path.with_suffix(".xml")
+            if xml_path.exists():
+                instance = cls._load_from_xml(xml_path)
+                instance._path = path
+                instance.save()
+                return instance
+            instance = cls()
+            instance._path = path
+            return instance
+
+        with path.open("rb") as f:
+            raw = tomllib.load(f)
+        raw = cls._apply_legacy_max_jerk(raw)
+
+        hints = typing.get_type_hints(cls)
+        valid_fields = {field.name for field in dataclasses.fields(cls)}
+
+        unknown = set(raw) - valid_fields
+        if unknown:
+            raise ValueError(f"configuration.toml: unknown keys: {sorted(unknown)!r}")
+
+        kwargs: dict = {}
+        for name in valid_fields:
+            if name not in raw:
+                continue
+            val = raw[name]
+            expected = hints[name]
+            # TOML represents whole-number floats as int; coerce silently.
+            if expected is float and isinstance(val, int):
+                val = float(val)
+            elif not isinstance(val, expected):
+                raise ValueError(
+                    f"configuration.toml: '{name}' expected "
+                    f"{expected.__name__}, got {type(val).__name__}"
+                )
+            kwargs[name] = val
+
+        instance = cls(**kwargs)
         instance._path = path
-        instance.save()
         return instance
-      instance = cls()
-      instance._path = path
-      return instance
 
-    with path.open("rb") as f:
-      raw = tomllib.load(f)
-    raw = cls._apply_legacy_max_jerk(raw)
+    # ------------------------------------------------------------------
+    @classmethod
+    def _load_from_xml(cls, xml_path: pathlib.Path) -> "AppConfig":
+        """Read the legacy configuration.xml and return an AppConfig instance."""
+        import xml.dom.minidom
 
-    hints = typing.get_type_hints(cls)
-    valid_fields = {field.name for field in dataclasses.fields(cls)}
+        doc = xml.dom.minidom.parse(str(xml_path))
+        hints = typing.get_type_hints(cls)
+        valid_fields = {field.name for field in dataclasses.fields(cls)}
+        kwargs: dict = {}
+        legacy_max_jerk = None
+        for name in valid_fields:
+            nodes = doc.getElementsByTagName(name)
+            if not nodes:
+                continue
+            child = nodes[0].firstChild
+            text = (child.nodeValue or "").strip() if child is not None else ""
+            expected = hints[name]
+            try:
+                kwargs[name] = expected(text)
+            except (TypeError, ValueError):
+                pass
+        legacy_nodes = doc.getElementsByTagName("maxJerk")
+        if legacy_nodes:
+            child = legacy_nodes[0].firstChild
+            legacy_max_jerk = (
+                (child.nodeValue or "").strip() if child is not None else ""
+            )
+        if legacy_max_jerk:
+            kwargs = cls._apply_legacy_max_jerk({"maxJerk": legacy_max_jerk, **kwargs})
+        return cls(**kwargs)
 
-    unknown = set(raw) - valid_fields
-    if unknown:
-      raise ValueError(f"configuration.toml: unknown keys: {sorted(unknown)!r}")
+    # ------------------------------------------------------------------
+    def save(self) -> None:
+        """Write configuration to TOML atomically.
 
-    kwargs: dict = {}
-    for name in valid_fields:
-      if name not in raw:
-        continue
-      val = raw[name]
-      expected = hints[name]
-      # TOML represents whole-number floats as int; coerce silently.
-      if expected is float and isinstance(val, int):
-        val = float(val)
-      elif not isinstance(val, expected):
-        raise ValueError(
-          f"configuration.toml: '{name}' expected "
-          f"{expected.__name__}, got {type(val).__name__}"
-        )
-      kwargs[name] = val
+        No-op if the instance was not created via ``load()`` (no path stored).
+        """
+        if self._path is None:
+            return
 
-    instance = cls(**kwargs)
-    instance._path = path
-    return instance
+        lines: list[str] = []
+        for field in dataclasses.fields(self):
+            val = getattr(self, field.name)
+            if isinstance(val, str):
+                lines.append(f'{field.name} = "{val}"')
+            elif isinstance(val, bool):
+                lines.append(f"{field.name} = {'true' if val else 'false'}")
+            else:
+                lines.append(f"{field.name} = {val}")
 
-  # ------------------------------------------------------------------
-  @classmethod
-  def _load_from_xml(cls, xml_path: pathlib.Path) -> "AppConfig":
-    """Read the legacy configuration.xml and return an AppConfig instance."""
-    import xml.dom.minidom
+        content = "\n".join(lines) + "\n"
+        fd, tmp = tempfile.mkstemp(dir=self._path.parent)
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(content)
+            os.replace(tmp, self._path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
-    doc = xml.dom.minidom.parse(str(xml_path))
-    hints = typing.get_type_hints(cls)
-    valid_fields = {field.name for field in dataclasses.fields(cls)}
-    kwargs: dict = {}
-    legacy_max_jerk = None
-    for name in valid_fields:
-      nodes = doc.getElementsByTagName(name)
-      if not nodes:
-        continue
-      child = nodes[0].firstChild
-      text = (child.nodeValue or "").strip() if child is not None else ""
-      expected = hints[name]
-      try:
-        kwargs[name] = expected(text)
-      except (TypeError, ValueError):
-        pass
-    legacy_nodes = doc.getElementsByTagName("maxJerk")
-    if legacy_nodes:
-      child = legacy_nodes[0].firstChild
-      legacy_max_jerk = (child.nodeValue or "").strip() if child is not None else ""
-    if legacy_max_jerk:
-      kwargs = cls._apply_legacy_max_jerk({"maxJerk": legacy_max_jerk, **kwargs})
-    return cls(**kwargs)
+    # ------------------------------------------------------------------
+    def get(self, key: str) -> typing.Any:
+        """Return the value of a configuration key, or ``None`` if unknown.
 
-  # ------------------------------------------------------------------
-  def save(self) -> None:
-    """Write configuration to TOML atomically.
+        Kept for compatibility with the remote API command handlers that
+        perform dynamic key look-ups.
+        """
+        if key == "maxJerk":
+            return self.maxJerkAccel
+        return getattr(self, key, None)
 
-    No-op if the instance was not created via ``load()`` (no path stored).
-    """
-    if self._path is None:
-      return
+    # ------------------------------------------------------------------
+    def set(self, key: str, value: typing.Any) -> None:
+        """Set *key* to *value*, coerce to the declared type, and save.
 
-    lines: list[str] = []
-    for field in dataclasses.fields(self):
-      val = getattr(self, field.name)
-      if isinstance(val, str):
-        lines.append(f'{field.name} = "{val}"')
-      elif isinstance(val, bool):
-        lines.append(f"{field.name} = {'true' if val else 'false'}")
-      else:
-        lines.append(f"{field.name} = {val}")
+        Raises ``KeyError`` for unknown keys.
+        """
+        valid_fields = {field.name for field in dataclasses.fields(self)}
+        if key == "maxJerk":
+            value = normalize_queued_motion_jerk(value)
+            self.maxJerkAccel = value
+            self.maxJerkDecel = value
+            self.save()
+            return
+        if key not in valid_fields:
+            raise KeyError(f"Unknown configuration key: {key!r}")
 
-    content = "\n".join(lines) + "\n"
-    fd, tmp = tempfile.mkstemp(dir=self._path.parent)
-    try:
-      with os.fdopen(fd, "w") as f:
-        f.write(content)
-      os.replace(tmp, self._path)
-    except Exception:
-      try:
-        os.unlink(tmp)
-      except OSError:
-        pass
-      raise
+        hints = typing.get_type_hints(self.__class__)
+        expected = hints[key]
 
-  # ------------------------------------------------------------------
-  def get(self, key: str) -> typing.Any:
-    """Return the value of a configuration key, or ``None`` if unknown.
+        if expected is float and isinstance(value, int):
+            value = float(value)
+        elif not isinstance(value, expected):
+            try:
+                value = expected(value)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"Cannot convert {type(value).__name__!r} to "
+                    f"{expected.__name__!r} for key {key!r}"
+                )
 
-    Kept for compatibility with the remote API command handlers that
-    perform dynamic key look-ups.
-    """
-    if key == "maxJerk":
-      return self.maxJerkAccel
-    return getattr(self, key, None)
+        if key == "plcMode":
+            value = self.normalizePlcMode(value)
+        elif key == "plcSimEngine":
+            value = self.normalizePlcSimEngine(value)
+        elif key == "maxJerkAccel":
+            value = normalize_queued_motion_jerk(
+                value, default=DEFAULT_QUEUED_MOTION_ACCEL_JERK
+            )
+        elif key == "maxJerkDecel":
+            value = normalize_queued_motion_jerk(
+                value, default=DEFAULT_QUEUED_MOTION_DECEL_JERK
+            )
 
-  # ------------------------------------------------------------------
-  def set(self, key: str, value: typing.Any) -> None:
-    """Set *key* to *value*, coerce to the declared type, and save.
-
-    Raises ``KeyError`` for unknown keys.
-    """
-    valid_fields = {field.name for field in dataclasses.fields(self)}
-    if key == "maxJerk":
-      value = normalize_queued_motion_jerk(value)
-      self.maxJerkAccel = value
-      self.maxJerkDecel = value
-      self.save()
-      return
-    if key not in valid_fields:
-      raise KeyError(f"Unknown configuration key: {key!r}")
-
-    hints = typing.get_type_hints(self.__class__)
-    expected = hints[key]
-
-    if expected is float and isinstance(value, int):
-      value = float(value)
-    elif not isinstance(value, expected):
-      try:
-        value = expected(value)
-      except (TypeError, ValueError):
-        raise ValueError(
-          f"Cannot convert {type(value).__name__!r} to "
-          f"{expected.__name__!r} for key {key!r}"
-        )
-
-    if key == "plcMode":
-      value = self.normalizePlcMode(value)
-    elif key == "plcSimEngine":
-      value = self.normalizePlcSimEngine(value)
-    elif key == "maxJerkAccel":
-      value = normalize_queued_motion_jerk(value, default=DEFAULT_QUEUED_MOTION_ACCEL_JERK)
-    elif key == "maxJerkDecel":
-      value = normalize_queued_motion_jerk(value, default=DEFAULT_QUEUED_MOTION_DECEL_JERK)
-
-    setattr(self, key, value)
-    self.save()
+        setattr(self, key, value)
+        self.save()

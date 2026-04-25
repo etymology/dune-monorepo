@@ -8,8 +8,14 @@ import re
 from dune_tension.layer_calibration import load_normalized_layer_calibration
 from dune_tension.uv_wire_planner import wire_pin_pair
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
-from dune_winder.recipes.u_template_gcode import WRAP_COUNT as U_WRAP_COUNT, render_u_template_lines
-from dune_winder.recipes.v_template_gcode import WRAP_COUNT as V_WRAP_COUNT, render_v_template_lines
+from dune_winder.recipes.u_template_gcode import (
+    WRAP_COUNT as U_WRAP_COUNT,
+    render_u_template_lines,
+)
+from dune_winder.recipes.v_template_gcode import (
+    WRAP_COUNT as V_WRAP_COUNT,
+    render_v_template_lines,
+)
 
 VALID_WIRE_MIN = 8
 VALID_WIRE_MAX = 1146
@@ -115,11 +121,15 @@ def _layer_calibration(layer: str) -> dict[str, object]:
     return load_normalized_layer_calibration(_normalize_layer(layer))
 
 
-def _pin_location_xyz(calibration: dict[str, object], pin_name: str) -> tuple[float, float, float]:
+def _pin_location_xyz(
+    calibration: dict[str, object], pin_name: str
+) -> tuple[float, float, float]:
     try:
         location = calibration["locations"][pin_name]
     except KeyError as exc:
-        raise ValueError(f"Pin {pin_name} is not present in the calibration payload.") from exc
+        raise ValueError(
+            f"Pin {pin_name} is not present in the calibration payload."
+        ) from exc
     return (
         float(location["x"]),
         float(location["y"]),
@@ -174,7 +184,9 @@ def build_uv_wire_recipe_maps(layer: str) -> UvWireRecipeMaps:
                 start_pin=start_pin,
                 end_pin=end_pin,
             )
-            wire_to_applied_length_mm[wire_number] = float(math.dist(start_xyz, end_xyz))
+            wire_to_applied_length_mm[wire_number] = float(
+                math.dist(start_xyz, end_xyz)
+            )
             wire_to_endpoint_sides[wire_number] = (start_side, end_side)
 
     missing_wires = [

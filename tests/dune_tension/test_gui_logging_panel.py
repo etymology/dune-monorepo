@@ -11,7 +11,9 @@ MODULE_PATH = (
     / "gui"
     / "logging_panel.py"
 )
-SPEC = importlib.util.spec_from_file_location("gui_logging_panel_under_test", MODULE_PATH)
+SPEC = importlib.util.spec_from_file_location(
+    "gui_logging_panel_under_test", MODULE_PATH
+)
 assert SPEC is not None
 assert SPEC.loader is not None
 logging_panel = importlib.util.module_from_spec(SPEC)

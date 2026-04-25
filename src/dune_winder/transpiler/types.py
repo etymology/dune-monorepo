@@ -1,4 +1,5 @@
 """PLC type system: BOOL, REAL, DINT and register references."""
+
 from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -8,12 +9,13 @@ class PLCType(Enum):
     BOOL = auto()
     REAL = auto()
     DINT = auto()
-    IDX  = auto()   # scalar DINT for array subscripts; renders as idx_N (not DINTS[N])
+    IDX = auto()  # scalar DINT for array subscripts; renders as idx_N (not DINTS[N])
 
 
 @dataclass(frozen=True)
 class Reg:
     """A reference to a numbered register slot: REALS[n], DINTS[n], BOOLS[n], idx_n."""
+
     typ: PLCType
     index: int
 
@@ -30,8 +32,9 @@ class Reg:
 @dataclass(frozen=True)
 class SegField:
     """Reference to SegQueue[index_reg].FieldName (index_reg is a Reg or int literal)."""
-    index_reg: Reg | int   # the loop counter register, or a literal index
-    field: str             # e.g. "Speed", "XY[0]", "SegType"
+
+    index_reg: Reg | int  # the loop counter register, or a literal index
+    field: str  # e.g. "Speed", "XY[0]", "SegType"
 
     def __str__(self) -> str:
         return f"SegQueue[{self.index_reg}].{self.field}"

@@ -14,16 +14,16 @@ import socket
 from urllib.parse import urlparse
 
 try:
-  from influxdb_client import InfluxDBClient, Point
-  from influxdb_client.client.write_api import WriteOptions, WriteType
+    from influxdb_client import InfluxDBClient, Point
+    from influxdb_client.client.write_api import WriteOptions, WriteType
 
-  _IMPORT_ERROR = None
+    _IMPORT_ERROR = None
 except ModuleNotFoundError as importError:
-  InfluxDBClient = None
-  Point = None
-  WriteOptions = None
-  WriteType = None
-  _IMPORT_ERROR = importError
+    InfluxDBClient = None
+    Point = None
+    WriteOptions = None
+    WriteType = None
+    _IMPORT_ERROR = importError
 
 # InfluxDB connection — must match docker-compose.yml
 _URL = "http://localhost:8086"
@@ -33,106 +33,108 @@ _BUCKET = "winder"
 
 
 def _endpoint_is_reachable(url: str, timeoutSeconds: float = 1) -> bool:
-  """Return True when the configured InfluxDB endpoint accepts TCP connections."""
-  parsed = urlparse(url)
-  host = parsed.hostname
-  port = parsed.port
-  if host is None:
-    return False
+    """Return True when the configured InfluxDB endpoint accepts TCP connections."""
+    parsed = urlparse(url)
+    host = parsed.hostname
+    port = parsed.port
+    if host is None:
+        return False
 
-  if port is None:
-    port = 443 if parsed.scheme == "https" else 80
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
 
-  try:
-    with socket.create_connection((host, port), timeout=timeoutSeconds):
-      return True
-  except OSError:
-    return False
+    try:
+        with socket.create_connection((host, port), timeout=timeoutSeconds):
+            return True
+    except OSError:
+        return False
 
 
 def _safe_float(value) -> float:
-  """Convert a tag value to float, returning 0.0 on None/error."""
-  try:
-    return float(value)
-  except (TypeError, ValueError):
-    return 0.0
+    """Convert a tag value to float, returning 0.0 on None/error."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 class MetricsCollector:
-  """
-  Pushes monitored PLC tag values to InfluxDB after each poll cycle.
-
-  All reads come from the PLC.Tag value cache populated by the existing
-  PLC.Tag.pollAll() call — no extra PLC reads are performed.
-
-  Writes are asynchronous (batch_size=1, flush_interval=200 ms) so the
-  control-loop thread is never blocked by InfluxDB network latency or
-  transient unavailability.
-  """
-
-  # -------------------------------------------------------------------------
-  def __init__(self, io):
     """
-    Args:
-      io: BaseIO instance (already constructed with all tags registered).
+    Pushes monitored PLC tag values to InfluxDB after each poll cycle.
+
+    All reads come from the PLC.Tag value cache populated by the existing
+    PLC.Tag.pollAll() call — no extra PLC reads are performed.
+
+    Writes are asynchronous (batch_size=1, flush_interval=200 ms) so the
+    control-loop thread is never blocked by InfluxDB network latency or
+    transient unavailability.
     """
-    self._io = io
-    self._disabledReason = None
-    self._client = None
-    self._write_api = None
 
-    if _IMPORT_ERROR is not None:
-      self._disabledReason = "Optional dependency 'influxdb-client' is not installed."
-      return
+    # -------------------------------------------------------------------------
+    def __init__(self, io):
+        """
+        Args:
+          io: BaseIO instance (already constructed with all tags registered).
+        """
+        self._io = io
+        self._disabledReason = None
+        self._client = None
+        self._write_api = None
 
-    if not _endpoint_is_reachable(_URL):
-      self._disabledReason = f"InfluxDB endpoint {_URL} is not reachable."
-      return
+        if _IMPORT_ERROR is not None:
+            self._disabledReason = (
+                "Optional dependency 'influxdb-client' is not installed."
+            )
+            return
 
-    self._client = InfluxDBClient(url=_URL, token=_TOKEN, org=_ORG)
-    self._write_api = self._client.write_api(
-      write_options=WriteOptions(
-        write_type=WriteType.batching,
-        batch_size=1,
-        flush_interval=200,
-      )
-    )
+        if not _endpoint_is_reachable(_URL):
+            self._disabledReason = f"InfluxDB endpoint {_URL} is not reachable."
+            return
 
-  # -------------------------------------------------------------------------
-  def isEnabled(self):
-    return self._write_api is not None
+        self._client = InfluxDBClient(url=_URL, token=_TOKEN, org=_ORG)
+        self._write_api = self._client.write_api(
+            write_options=WriteOptions(
+                write_type=WriteType.batching,
+                batch_size=1,
+                flush_interval=200,
+            )
+        )
 
-  # -------------------------------------------------------------------------
-  def disableReason(self):
-    return self._disabledReason
+    # -------------------------------------------------------------------------
+    def isEnabled(self):
+        return self._write_api is not None
 
-  # -------------------------------------------------------------------------
-  def update(self):
-    """
-    Build a data point from the current tag cache and queue it for InfluxDB.
-    Call after each PLC poll cycle (register as a BaseIO.pollCallbacks entry).
-    """
-    if self._write_api is None:
-      return
+    # -------------------------------------------------------------------------
+    def disableReason(self):
+        return self._disabledReason
 
-    point = (
-      Point("plc_tags")
-      .field("tension", _safe_float(self._io.tension_tag.get()))
-      .field("v_xyz", _safe_float(self._io.v_xyz_tag.get()))
-      .field("tension_motor_cv", _safe_float(self._io.tension_motor_cv_tag.get()))
-      .field("x_position", _safe_float(self._io.xAxis.getPosition()))
-      .field("y_position", _safe_float(self._io.yAxis.getPosition()))
-      .field("z_position", _safe_float(self._io.zAxis.getPosition()))
-      .field("x_velocity", _safe_float(self._io.xAxis.getVelocity()))
-      .field("y_velocity", _safe_float(self._io.yAxis.getVelocity()))
-      .field("z_velocity", _safe_float(self._io.zAxis.getVelocity()))
-    )
-    self._write_api.write(bucket=_BUCKET, record=point)
+    # -------------------------------------------------------------------------
+    def update(self):
+        """
+        Build a data point from the current tag cache and queue it for InfluxDB.
+        Call after each PLC poll cycle (register as a BaseIO.pollCallbacks entry).
+        """
+        if self._write_api is None:
+            return
 
-  # -------------------------------------------------------------------------
-  def close(self):
-    """Flush pending writes and release InfluxDB resources."""
-    if self._write_api is not None:
-      self._write_api.close()
-    if self._client is not None:
-      self._client.close()
+        point = (
+            Point("plc_tags")
+            .field("tension", _safe_float(self._io.tension_tag.get()))
+            .field("v_xyz", _safe_float(self._io.v_xyz_tag.get()))
+            .field("tension_motor_cv", _safe_float(self._io.tension_motor_cv_tag.get()))
+            .field("x_position", _safe_float(self._io.xAxis.getPosition()))
+            .field("y_position", _safe_float(self._io.yAxis.getPosition()))
+            .field("z_position", _safe_float(self._io.zAxis.getPosition()))
+            .field("x_velocity", _safe_float(self._io.xAxis.getVelocity()))
+            .field("y_velocity", _safe_float(self._io.yAxis.getVelocity()))
+            .field("z_velocity", _safe_float(self._io.zAxis.getVelocity()))
+        )
+        self._write_api.write(bucket=_BUCKET, record=point)
+
+    # -------------------------------------------------------------------------
+    def close(self):
+        """Flush pending writes and release InfluxDB resources."""
+        if self._write_api is not None:
+            self._write_api.close()
+        if self._client is not None:
+            self._client.close()

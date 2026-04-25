@@ -7,11 +7,7 @@ import types
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "dune_tension"
-    / "gui"
-    / "actions.py"
+    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "actions.py"
 )
 
 
@@ -21,7 +17,9 @@ def _load_actions_module(monkeypatch):
     gui_pkg = types.ModuleType("dune_tension.gui")
     gui_pkg.__path__ = []
 
-    monkeypatch.setitem(sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None))
+    monkeypatch.setitem(
+        sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None)
+    )
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
@@ -57,8 +55,8 @@ def _load_actions_module(monkeypatch):
 
     tensiometer_functions = types.ModuleType("dune_tension.tensiometer_functions")
     tensiometer_functions.make_config = lambda **kwargs: types.SimpleNamespace(**kwargs)
-    tensiometer_functions.normalize_confidence_source = (
-        lambda value: str(value).strip().lower().replace(" ", "_")
+    tensiometer_functions.normalize_confidence_source = lambda value: (
+        str(value).strip().lower().replace(" ", "_")
     )
     monkeypatch.setitem(
         sys.modules,
@@ -81,10 +79,17 @@ def _load_actions_module(monkeypatch):
         ("Bottom first (B400)", "B400"),
         ("Bottom last (B1199)", "B1199"),
     ]
-    layer_calibration.get_calibrated_pin_xy_for_side = lambda _layer, _side, _pin: (100.0, 200.0)
+    layer_calibration.get_calibrated_pin_xy_for_side = lambda _layer, _side, _pin: (
+        100.0,
+        200.0,
+    )
     layer_calibration.get_laser_offset = lambda _side: None
-    layer_calibration.resolve_pin_name_for_side = lambda _layer, _side, pin_name: pin_name
-    monkeypatch.setitem(sys.modules, "dune_tension.layer_calibration", layer_calibration)
+    layer_calibration.resolve_pin_name_for_side = lambda _layer, _side, pin_name: (
+        pin_name
+    )
+    monkeypatch.setitem(
+        sys.modules, "dune_tension.layer_calibration", layer_calibration
+    )
 
     plc_desktop = types.ModuleType("dune_tension.plc_desktop")
     plc_desktop.desktop_seek_pin = lambda *_args, **_kwargs: True
@@ -354,6 +359,8 @@ def test_erase_distribution_outliers_uses_bulk_detector(monkeypatch):
         )
     ]
     assert clear_calls == [("db.sqlite", "APA", "G", "A", [7, 9])]
+
+
 def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     calls = []
@@ -387,7 +394,9 @@ def test_clear_range_accepts_tension_expression(monkeypatch):
             return self._value
 
     summaries = types.ModuleType("dune_tension.summaries")
-    summaries.get_tension_series = lambda _config: {"A": {1: 6.9, 2: 7.0, 3: 7.1, 5: 8.4}}
+    summaries.get_tension_series = lambda _config: {
+        "A": {1: 6.9, 2: 7.0, 3: 7.1, 5: 8.4}
+    }
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
 
     cfg = types.SimpleNamespace(
@@ -399,7 +408,9 @@ def test_clear_range_accepts_tension_expression(monkeypatch):
     monkeypatch.setattr(actions, "_make_config_from_widgets", lambda _ctx: cfg)
 
     clear_calls = []
-    monkeypatch.setattr(actions, "clear_wire_numbers", lambda *args: clear_calls.append(args))
+    monkeypatch.setattr(
+        actions, "clear_wire_numbers", lambda *args: clear_calls.append(args)
+    )
 
     ctx = types.SimpleNamespace(
         widgets=types.SimpleNamespace(entry_clear_range=DummyGetter("t>7")),
@@ -426,13 +437,17 @@ def test_measure_list_button_skips_already_measured_wires_when_enabled(monkeypat
     summaries = types.ModuleType("dune_tension.summaries")
     summaries.get_tension_series = lambda _config: {"A": {3: 5.8, 6: 6.1}}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
-    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
     monkeypatch.setattr(
         actions,
         "_make_config_from_inputs",
         lambda _inputs: types.SimpleNamespace(side="A"),
     )
-    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
 
     inputs = types.SimpleNamespace(wire_list="3,5-7", skip_measured=True)
 
@@ -453,8 +468,12 @@ def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatc
         def close(self):
             pass
 
-    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
-    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
 
     inputs = types.SimpleNamespace(wire_list="3,5-7", skip_measured=False)
 
@@ -478,15 +497,21 @@ def test_measure_list_button_skips_requested_wires_when_all_are_measured(
             pass
 
     summaries = types.ModuleType("dune_tension.summaries")
-    summaries.get_tension_series = lambda _config: {"A": {3: 5.8, 5: 6.0, 6: 6.1, 7: 6.2}}
+    summaries.get_tension_series = lambda _config: {
+        "A": {3: 5.8, 5: 6.0, 6: 6.1, 7: 6.2}
+    }
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
-    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
     monkeypatch.setattr(
         actions,
         "_make_config_from_inputs",
         lambda _inputs: types.SimpleNamespace(side="A"),
     )
-    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
 
     inputs = types.SimpleNamespace(wire_list="3,5-7", skip_measured=True)
 
@@ -510,13 +535,17 @@ def test_measure_zone_button_skips_requested_wires_when_all_are_measured(monkeyp
     summaries = types.ModuleType("dune_tension.summaries")
     summaries.get_tension_series = lambda _config: {"A": {11: 5.8, 12: 6.1, 13: 6.2}}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
-    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
     monkeypatch.setattr(
         actions,
         "_make_config_from_inputs",
         lambda _inputs: types.SimpleNamespace(side="A"),
     )
-    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(
         actions,
         "_get_wires_in_zones",
@@ -547,13 +576,16 @@ def test_get_wires_in_zones_uses_zone_only_planner(monkeypatch):
     monkeypatch.setattr(
         actions,
         "plan_uv_wire",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("full planner should not be used")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("full planner should not be used")
+        ),
     )
     monkeypatch.setattr(
         actions,
         "plan_uv_wire_zone",
-        lambda layer, side, wire_number: plan_calls.append((layer, side, wire_number)) or (
-            5 if wire_number != 9 else 3
+        lambda layer, side, wire_number: (
+            plan_calls.append((layer, side, wire_number))
+            or (5 if wire_number != 9 else 3)
         ),
     )
 
@@ -582,13 +614,21 @@ def test_selected_laser_offset_pin_uses_side_specific_pin_family(monkeypatch):
 
 def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
     actions = _load_actions_module(monkeypatch)
-    monkeypatch.setattr(actions, "get_laser_offset", lambda _side: {"x": 2.5, "y": -1.0})
-    monkeypatch.setattr(actions, "get_calibrated_pin_xy_for_side", lambda _layer, _side, _pin: (100.0, 200.0))
+    monkeypatch.setattr(
+        actions, "get_laser_offset", lambda _side: {"x": 2.5, "y": -1.0}
+    )
+    monkeypatch.setattr(
+        actions,
+        "get_calibrated_pin_xy_for_side",
+        lambda _layer, _side, _pin: (100.0, 200.0),
+    )
 
     moves = []
     ctx = types.SimpleNamespace(
         runtime=types.SimpleNamespace(
-            motion=types.SimpleNamespace(goto_xy=lambda x, y, **_kwargs: moves.append((x, y)) or True)
+            motion=types.SimpleNamespace(
+                goto_xy=lambda x, y, **_kwargs: moves.append((x, y)) or True
+            )
         ),
         goto_xy=lambda x, y, **_kwargs: moves.append((x, y)) or True,
     )
@@ -609,8 +649,12 @@ def test_measure_list_button_preserves_descending_range_order(monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer())
-    monkeypatch.setattr(actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
 
     inputs = types.SimpleNamespace(wire_list="480-478,300", skip_measured=False)
 

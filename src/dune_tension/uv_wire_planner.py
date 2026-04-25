@@ -20,6 +20,7 @@ _EPSILON = 1e-9
 _SEGMENT_LENGTH_NEAR_TIE_FRACTION = 0.10
 LAYER_METADATA: dict[str, object] = {}
 
+
 @dataclass(frozen=True)
 class PlannedUVWire:
     wire_number: int
@@ -90,7 +91,9 @@ def wire_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
     """Return the canonical B-family endpoint pins for a U/V wire number."""
 
     requested_layer = _normalize_layer(layer)
-    return _layout_for_layer(requested_layer).wire_endpoints(int(wire_number), family="B")
+    return _layout_for_layer(requested_layer).wire_endpoints(
+        int(wire_number), family="B"
+    )
 
 
 def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
@@ -211,7 +214,9 @@ def _segment_length(segment: tuple[tuple[float, float], tuple[float, float]]) ->
     return _vector_length(_vector_sub(segment[1], segment[0]))
 
 
-def _segment_midpoint(segment: tuple[tuple[float, float], tuple[float, float]]) -> tuple[float, float]:
+def _segment_midpoint(
+    segment: tuple[tuple[float, float], tuple[float, float]],
+) -> tuple[float, float]:
     return (
         float((segment[0][0] + segment[1][0]) / 2.0),
         float((segment[0][1] + segment[1][1]) / 2.0),
@@ -246,11 +251,17 @@ def _solve_tangent_candidates(
         across = math.sqrt(across_sq)
         base = _vector_scale(direction, along)
         for orientation in (-1.0, 1.0):
-            normal = _vector_add(base, _vector_scale(perpendicular, across * orientation))
+            normal = _vector_add(
+                base, _vector_scale(perpendicular, across * orientation)
+            )
             if _sign(normal[0]) != normal_x_sign:
                 continue
-            tangent_a = _vector_sub(center_a, _vector_scale(normal, distance_sign_a * radius_mm))
-            tangent_b = _vector_sub(center_b, _vector_scale(normal, distance_sign_b * radius_mm))
+            tangent_a = _vector_sub(
+                center_a, _vector_scale(normal, distance_sign_a * radius_mm)
+            )
+            tangent_b = _vector_sub(
+                center_b, _vector_scale(normal, distance_sign_b * radius_mm)
+            )
             if _sign(tangent_a[0] - center_a[0]) != int(tangent_x_sign_a):
                 continue
             if _sign(tangent_b[0] - center_b[0]) != int(tangent_x_sign_b):
@@ -259,10 +270,14 @@ def _solve_tangent_candidates(
     return candidates
 
 
-def plan_uv_wire(layer: str, side: str, wire_number: int, *, taped: bool = False) -> PlannedUVWire:
+def plan_uv_wire(
+    layer: str, side: str, wire_number: int, *, taped: bool = False
+) -> PlannedUVWire:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
-    geometry = _build_uv_plan_geometry_inputs(requested_layer, requested_side, wire_number)
+    geometry = _build_uv_plan_geometry_inputs(
+        requested_layer, requested_side, wire_number
+    )
     planned = _plan_uv_wire_geometry_cached(geometry)
     wire_length_m = length_lookup(
         requested_layer,
@@ -287,7 +302,9 @@ def plan_uv_wire(layer: str, side: str, wire_number: int, *, taped: bool = False
 def plan_uv_wire_zone(layer: str, side: str, wire_number: int) -> int:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
-    geometry = _build_uv_plan_geometry_inputs(requested_layer, requested_side, wire_number)
+    geometry = _build_uv_plan_geometry_inputs(
+        requested_layer, requested_side, wire_number
+    )
     return int(_plan_uv_wire_geometry_cached(geometry).zone)
 
 
@@ -404,9 +421,13 @@ class LegacyUVWirePositionProvider:
     def invalidate(self) -> None:
         self._fallback_provider.invalidate()
 
-    def get_pose(self, config, wire_number: int, current_focus_position: int | None = None):
+    def get_pose(
+        self, config, wire_number: int, current_focus_position: int | None = None
+    ):
         if str(config.layer).upper() not in {"U", "V"}:
-            return self._fallback_provider.get_pose(config, wire_number, current_focus_position)
+            return self._fallback_provider.get_pose(
+                config, wire_number, current_focus_position
+            )
         try:
             planned = plan_uv_wire(
                 str(config.layer).upper(),
@@ -415,13 +436,17 @@ class LegacyUVWirePositionProvider:
                 taped=False,
             )
         except Exception as exc:
-            LOGGER.warning("U/V legacy planner failed for wire %s: %s", wire_number, exc)
+            LOGGER.warning(
+                "U/V legacy planner failed for wire %s: %s", wire_number, exc
+            )
             return None
         return PlannedWirePose(
             wire_number=int(wire_number),
             x=float(planned.midpoint[0]),
             y=float(planned.midpoint[1]),
-            focus_position=None if current_focus_position is None else int(current_focus_position),
+            focus_position=None
+            if current_focus_position is None
+            else int(current_focus_position),
             zone=(
                 int(planned.zone)
                 if getattr(planned, "zone", None) is not None

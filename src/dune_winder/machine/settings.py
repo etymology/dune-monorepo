@@ -13,37 +13,37 @@ _ROOT = PACKAGE_ROOT
 
 
 class Settings:
-  SERVER_PORT = 6626  # Default TCP port number (plank's constant).
-  WEB_SERVER_PORT = 8080  # Port for web server (80 is default).
-  METRICS_PORT = 9101   # Prometheus metrics endpoint (scraped by Prometheus).
-  SERVER_MAX_DATA_SIZE = 1024  # Max data that can be read from server at once.
-  SERVER_BACK_LOG = 5  # Default recommended by Python manual.
-  CLIENT_MAX_DATA_SIZE = 1024  # Max data that can be read from client at once.
-  IO_UPDATE_TIME = 0.1  # In seconds.  Currently 10 times/sec.
+    SERVER_PORT = 6626  # Default TCP port number (plank's constant).
+    WEB_SERVER_PORT = 8080  # Port for web server (80 is default).
+    METRICS_PORT = 9101  # Prometheus metrics endpoint (scraped by Prometheus).
+    SERVER_MAX_DATA_SIZE = 1024  # Max data that can be read from server at once.
+    SERVER_BACK_LOG = 5  # Default recommended by Python manual.
+    CLIENT_MAX_DATA_SIZE = 1024  # Max data that can be read from client at once.
+    IO_UPDATE_TIME = 0.1  # In seconds.  Currently 10 times/sec.
 
-  # Path to configuration file.
-  CONFIG_FILE = str(CONFIGURATION_PATH)
+    # Path to configuration file.
+    CONFIG_FILE = str(CONFIGURATION_PATH)
 
-  G_CODE_LOG_FILE = "_gCode.gc"
+    G_CODE_LOG_FILE = "_gCode.gc"
 
-  # Directories — all derived from project root so they are always correct.
-  CACHE_DIR = str(_ROOT / "cache")
-  RECIPE_DIR = str(_ROOT / "gc_files")
-  RECIPE_ARCHIVE_DIR = str(_ROOT / "cache" / "Recipes")
-  MACHINE_CALIBRATION_PATH = str(_ROOT / "config") + "/"
-  APA_CALIBRATION_DIR = str(_ROOT / "config" / "APA")
+    # Directories — all derived from project root so they are always correct.
+    CACHE_DIR = str(_ROOT / "cache")
+    RECIPE_DIR = str(_ROOT / "gc_files")
+    RECIPE_ARCHIVE_DIR = str(_ROOT / "cache" / "Recipes")
+    MACHINE_CALIBRATION_PATH = str(_ROOT / "config") + "/"
+    APA_CALIBRATION_DIR = str(_ROOT / "config" / "APA")
 
-  # Files.
-  IO_LOG = str(_ROOT / "cache" / "IO_log.csv")
-  LOG_FILE = str(_ROOT / "cache" / "log.csv")
-  MACHINE_CALIBRATION_FILE = "machineCalibration.json"
+    # Files.
+    IO_LOG = str(_ROOT / "cache" / "IO_log.csv")
+    LOG_FILE = str(_ROOT / "cache" / "log.csv")
+    MACHINE_CALIBRATION_FILE = "machineCalibration.json"
 
-  # Absolute path used by WebServerThread.os.chdir() — must be absolute so it
-  # is CWD-independent regardless of how the process is launched.
-  WEB_DIRECTORY = str(_ROOT / "web")
+    # Absolute path used by WebServerThread.os.chdir() — must be absolute so it
+    # is CWD-independent regardless of how the process is launched.
+    WEB_DIRECTORY = str(_ROOT / "web")
 
-  # File making up the version for the control software.
-  CONTROL_FILES = r".*\.py$"
+    # File making up the version for the control software.
+    CONTROL_FILES = r".*\.py$"
 
-  # File making up the version for the user interface.
-  UI_FILES = r".*\.html$|.*\.css$|.*\.js$"
+    # File making up the version for the user interface.
+    UI_FILES = r".*\.html$|.*\.css$|.*\.js$"

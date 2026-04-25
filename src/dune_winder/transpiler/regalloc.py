@@ -3,6 +3,7 @@
 Assigns non-overlapping slices of REALS[*], DINTS[*], BOOLS[*] to variables
 across all routines, so that nested JSR calls cannot clobber each other.
 """
+
 from __future__ import annotations
 from .types import PLCType, Reg
 
@@ -13,7 +14,7 @@ class RegisterAllocator:
             PLCType.REAL: 0,
             PLCType.DINT: 0,
             PLCType.BOOL: 0,
-            PLCType.IDX:  0,
+            PLCType.IDX: 0,
         }
         # name → Reg, for comment generation
         self._log: list[tuple[str, Reg]] = []

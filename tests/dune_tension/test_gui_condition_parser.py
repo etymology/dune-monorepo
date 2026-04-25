@@ -5,11 +5,7 @@ import types
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "dune_tension"
-    / "gui"
-    / "actions.py"
+    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "actions.py"
 )
 
 
@@ -19,7 +15,9 @@ def _load_actions_module(monkeypatch):
     gui_pkg = types.ModuleType("dune_tension.gui")
     gui_pkg.__path__ = []
 
-    monkeypatch.setitem(sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None))
+    monkeypatch.setitem(
+        sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None)
+    )
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
@@ -55,8 +53,8 @@ def _load_actions_module(monkeypatch):
 
     tensiometer_functions = types.ModuleType("dune_tension.tensiometer_functions")
     tensiometer_functions.make_config = lambda **kwargs: types.SimpleNamespace(**kwargs)
-    tensiometer_functions.normalize_confidence_source = (
-        lambda value: str(value).strip().lower().replace(" ", "_")
+    tensiometer_functions.normalize_confidence_source = lambda value: (
+        str(value).strip().lower().replace(" ", "_")
     )
     monkeypatch.setitem(
         sys.modules,
