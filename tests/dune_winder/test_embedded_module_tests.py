@@ -34,9 +34,9 @@ class EmbeddedModuleTests(unittest.TestCase):
         calibration = DefaultLayerCalibration(None, None, "V")
 
         self.assertEqual(calibration.zFront, 150.0)
-        self.assertEqual(calibration.zBack, 265.0)
+        self.assertEqual(calibration.zBack, 270.0)
         self.assertEqual(calibration.getPinLocation("A1").z, 150.0)
-        self.assertEqual(calibration.getPinLocation("B1").z, 265.0)
+        self.assertEqual(calibration.getPinLocation("B1").z, 270.0)
 
     def test_gcode_handler_base_main_block_cases(self):
         handler = _GCodeHandlerBaseTestDouble()

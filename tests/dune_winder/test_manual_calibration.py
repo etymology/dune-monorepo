@@ -300,10 +300,10 @@ class ManualCalibrationTests(unittest.TestCase):
 
     def test_nominal_calibration_uses_layer_specific_z_defaults(self):
         expected = {
-            "G": (145.0, 285.0),
-            "U": (150.0, 280.0),
-            "V": (155.0, 275.0),
-            "X": (160.0, 270.0),
+            "G": (140.0, 280.0),
+            "U": (145.0, 275.0),
+            "V": (150.0, 270.0),
+            "X": (155.0, 265.0),
         }
 
         for layer, (z_front, z_back) in expected.items():

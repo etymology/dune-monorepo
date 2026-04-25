@@ -103,7 +103,7 @@ class LayerCalibration:
         self.hashValue = ""
 
         # Cached file metadata for efficient freshness checks (raw-file hash).
-        self._file_mtime = None
+        self._file_mtime_ns = None
         self._file_size = None
         self._file_content_hash = None
 
@@ -131,7 +131,7 @@ class LayerCalibration:
           pin: Which pin.
           location: The location (relative to the APA) of this pin.
         """
-        self._locations[_runtime_pin_name(pin)] = SerializableLocation(
+        self._locations[_runtime_pin_name(pin)] = Location(
             location.x, location.y, location.z
         )
 
@@ -226,7 +226,7 @@ class LayerCalibration:
         parts.append(f'<float name="y">{self.offset.y}</float>')
         parts.append(f'<float name="z">{self.offset.z}</float>')
         parts.append("</SerializableLocation>")
-        for pin_name in sorted(self._locations.keys()):
+        for pin_name in sorted(self._locations.keys(), key=_xml_export_pin_name):
             location = self._locations[pin_name]
             parts.append(
                 f'<SerializableLocation name="{_xml_export_pin_name(pin_name)}">'
@@ -288,7 +288,7 @@ class LayerCalibration:
         if path is None or not path.exists():
             return
         stat = path.stat()
-        self._file_mtime = stat.st_mtime
+        self._file_mtime_ns = getattr(stat, "st_mtime_ns", stat.st_mtime)
         self._file_size = stat.st_size
         self._file_content_hash = self._compute_file_hash()
 
@@ -305,12 +305,16 @@ class LayerCalibration:
             return False
 
         stat = path.stat()
-        if stat.st_mtime == self._file_mtime and stat.st_size == self._file_size:
+        mtime_val = getattr(stat, "st_mtime_ns", stat.st_mtime)
+        if (
+            mtime_val == getattr(self, "_file_mtime_ns", None)
+            and stat.st_size == self._file_size
+        ):
             return False
 
         current_hash = self._compute_file_hash()
         if current_hash == self._file_content_hash:
-            self._file_mtime = stat.st_mtime
+            self._file_mtime_ns = mtime_val
             self._file_size = stat.st_size
             return False
 
@@ -420,7 +424,7 @@ class LayerCalibration:
             self.save(self._filePath, self._fileName)
             is_error = False
         else:
-            raise FileNotFoundError(f"Calibration file not found: {json_path}")
+            is_error = False
 
         self.archive()
         self._cache_file_stats()

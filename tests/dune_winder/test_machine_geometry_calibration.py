@@ -96,7 +96,7 @@ class _Process:
         self._workspaceCalibrationDirectory = str(root_directory)
         self._systemTime = _TimeSource()
         self._log = _Log()
-        self._io = _IO(100.0, 200.0, 30.0)
+        self._io = _IO(110.0, 195.0, 30.0)
         self._xBacklash = _Backlash()
         self._machineCalibration = _MachineCalibration(root_directory)
         self.controlStateMachine = _ControlStateMachine(
