@@ -1,5 +1,9 @@
 # Code Boundary Refactor Plan
 
+## Related Plans
+
+- **`docs/UVlayerRewritePlan.md`** — Coordinate system unification and UV calibration workflow redesign. The `uv_head_target.py` refactor must be coordinated with this work; some extractions are already underway via new modules in `machine/geometry/`.
+
 ## Overview
 This document outlines a planned refactor of the `src/dune_winder` codebase to address large, multi-concern files and improve module organization. The goal is to separate concerns, reduce file sizes, and improve maintainability.
 
@@ -9,13 +13,15 @@ This document outlines a planned refactor of the `src/dune_winder` codebase to a
 
 | File | Lines | Primary Concerns | Issues |
 |------|-------|-----------------|--------|
-| `uv_head_target.py` | 2,104 | Data models, geometric calculations, coordinate transforms, wire pin resolution | 14 data classes + 73 functions; all in one file |
-| `manual_calibration.py` | 2,062 | Calibration workflow, geometric transforms, session management, file I/O | `ManualCalibration` god class (67 methods) |
-| `segment_patterns.py` | 1,827 | Path planning, geometric algorithms, motion profiling | 52 functions, no class organization |
-| `gcode/handler.py` | 1,546 | G-code generation, state management, hardware interfacing | `GCodeHandler` mixes state, execution, hardware |
-| `plc_ladder/imperative.py` | 1,422 | PLC ladder code generation, protocol abstractions | 34 protocol classes + `BoundRoutineAPI` with 42 methods |
-| `plc_ladder/runtime.py` | 1,258 | Runtime execution, state management, expression evaluation | Mixed responsibilities across 8 classes + 66 functions |
-| `api/commands.py` | 1,522 | Command registry, utility functions | Well-organized but could be domain-split |
+| `uv_head_target.py` | 2,537 | Data models, geometric calculations, coordinate transforms, wire pin resolution | 14 data classes + 73 functions; all in one file |
+| `manual_calibration.py` | 2,370 | Calibration workflow, geometric transforms, session management, file I/O | `ManualCalibration` god class (67 methods) |
+| `segment_patterns.py` | 1,856 | Path planning, geometric algorithms, motion profiling | 52 functions, no class organization |
+| `gcode/handler_base.py` | 1,707 | G-code handler base classes, model, renderer, parser | Closely coupled to `handler.py`; should be refactored together |
+| `gcode/handler.py` | 1,633 | G-code generation, state management, hardware interfacing | `GCodeHandler` mixes state, execution, hardware |
+| `api/commands.py` | 1,724 | Command registry, utility functions | Well-organized but could be domain-split |
+| `plc_ladder/runtime.py` | 1,459 | Runtime execution, state management, expression evaluation | Mixed responsibilities across 8 classes + 66 functions |
+| `plc_ladder/codegen.py` | 1,446 | Python code generation from PLC ladder AST | Two distinct concerns: code generators + transpiler entry points |
+| `plc_ladder/imperative.py` | 1,424 | PLC ladder code generation, protocol abstractions | 34 protocol classes + `BoundRoutineAPI` with 42 methods |
 
 ### Naming Convention Consistency
 - **Consistent**: `_private` functions, `PascalCase` classes, `snake_case` functions, `*Error` suffix for errors
@@ -23,12 +29,20 @@ This document outlines a planned refactor of the `src/dune_winder` codebase to a
 
 ## Proposed Separations
 
-### `uv_head_target.py` → 5 Modules
-1. **`data_models.py`**: Point2D, Point3D, RectBounds, LineEquation, RecipeSite, UvHeadTargetRequest, UvTangentViewRequest, UvHeadTargetResult, UvTangentViewResult, WrappedPinResolution, AnchorToTargetCommand, AnchorToTargetViewResult, PinPairTangentGeometry
-2. **`geometric_calculations.py`**: `_location_to_point3`, `_location_to_point2`, `_project_point3_to_plane`, `_compute_alternating_projection_data`, geometric transforms
-3. **`pin_resolution.py`**: `_wire_space_pin`, `_all_wire_space_pins`, `_pin_number`, pin resolution logic
-4. **`route_planning.py`**: `_derive_wrap_context`, `_wrap_context_for_pin`, `_face_for_pin`, `_b_side_equivalent_pin`, tangent finding, path calculation
-5. **`cache_manager.py`**: `clear_uv_head_target_caches`, cache utilities
+### `uv_head_target.py` → Remaining Modules
+
+Some geometry has already been extracted into `machine/geometry/` as part of the UV layer rewrite (see `docs/UVlayerRewritePlan.md`):
+- **`machine/geometry/uv_layout.py`** ✓ — pin layouts, nominal positions, face ranges, endpoint pins
+- **`machine/geometry/uv_tangency.py`** ✓ — tangency analysis for UV winding paths
+- **`machine/geometry/uv_calibration.py`** ✓ — calibration normalization and absolute position calculations
+
+What remains to extract from `uv_head_target.py`:
+1. **`data_models.py`**: UvHeadTargetRequest, UvTangentViewRequest, UvHeadTargetResult, UvTangentViewResult, WrappedPinResolution, AnchorToTargetCommand, AnchorToTargetViewResult, PinPairTangentGeometry (and any Point2D/Point3D/RectBounds/LineEquation not yet moved)
+2. **`pin_resolution.py`**: `_wire_space_pin`, `_all_wire_space_pins`, `_pin_number`, pin resolution logic
+3. **`route_planning.py`**: `_derive_wrap_context`, `_wrap_context_for_pin`, `_face_for_pin`, `_b_side_equivalent_pin`, tangent finding, path calculation
+4. **`cache_manager.py`**: `clear_uv_head_target_caches`, cache utilities
+
+> Coordinate the final split with the UV layer rewrite to avoid moving things twice.
 
 ### `manual_calibration.py` → 5 Modules
 1. **`session_management.py`**: `_ManualCalibrationSession`, `_ManualCalibrationGXSession`
@@ -44,11 +58,13 @@ This document outlines a planned refactor of the `src/dune_winder` codebase to a
 4. **`trajectory_generation.py`**: `square_segments`, `lissajous_segments`, `fibonacci_spiral_segments`, `archimedean_spiral_segments`, `apsidal_precessing_orbit_segments`
 5. **`validation.py`**: `validate_term_type`, `_point_within_bounds`, constraint checking
 
-### `gcode/handler.py` → 4 Modules
-1. **`command_executor.py`**: `GCodeHandler` core execution (67 methods)
+### `gcode/handler.py` + `gcode/handler_base.py` → 4 Modules
+
+Both files (3,340 lines combined) should be refactored together since `handler.py` depends heavily on `handler_base.py` types:
+1. **`gcode_model.py`**: `GCodeHandlerBase`, model, renderer, parser (from `handler_base.py`)
 2. **`state_management.py`**: `_PreviewedQueuedLine`, `_QueuedMotionPreviewState`
 3. **`hardware_interface.py`**: hardware-specific operations
-4. **`gcode_model.py`**: `GCodeHandlerBase`, model, renderer, parser
+4. **`command_executor.py`**: `GCodeHandler` core execution (67 methods, from `handler.py`)
 
 ### `plc_ladder/imperative.py` → 3 Modules
 1. **`protocol_definitions.py`**: All `*Callable` protocol classes (34 classes)
