@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
-# Pre-commit hook: format and lint all staged Python files with ruff.
+# Pre-commit hook: format/lint staged Python files with ruff, and lint staged
+# Markdown files with markdownlint-cli2.
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 set -euo pipefail
 
-# Collect staged Python files
+# ── Python ────────────────────────────────────────────────────────────────────
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
-if [ -z "$STAGED_PY" ]; then
-  exit 0
+if [ -n "$STAGED_PY" ]; then
+  echo "ruff: formatting staged Python files…"
+  echo "$STAGED_PY" | xargs uv run ruff format
+
+  echo "ruff: auto-fixing lint issues…"
+  echo "$STAGED_PY" | xargs uv run ruff check --fix
+
+  # Re-stage any files ruff modified
+  echo "$STAGED_PY" | xargs git add
 fi
 
-echo "ruff: formatting staged Python files…"
-echo "$STAGED_PY" | xargs uv run ruff format
+# ── Markdown ──────────────────────────────────────────────────────────────────
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
 
-echo "ruff: auto-fixing lint issues…"
-echo "$STAGED_PY" | xargs uv run ruff check --fix
+if [ -n "$STAGED_MD" ]; then
+  echo "markdownlint-cli2: linting staged Markdown files…"
+  echo "$STAGED_MD" | xargs markdownlint-cli2 --fix
 
-# Re-stage any files ruff modified
-echo "$STAGED_PY" | xargs git add
+  # Re-stage any files markdownlint modified
+  echo "$STAGED_MD" | xargs git add
+fi

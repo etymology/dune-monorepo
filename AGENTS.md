@@ -31,16 +31,32 @@ make format   # uv run ruff format src tests
 
 ---
 
-## Pre-commit hook (ruff format + fix)
+## Pre-commit hook (ruff + markdownlint-cli2)
 
-A pre-commit script lives at `scripts/pre-commit`. It runs `ruff format` and `ruff check --fix` on every staged Python file and re-stages the result. **Install it before your first commit in a fresh clone:**
+A pre-commit script lives at `scripts/pre-commit`. It runs automatically on staged files before every commit. **Install it once in a fresh clone:**
 
 ```bash
 cp scripts/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
-The hook is idempotent — if no Python files are staged it exits immediately.
+What it does:
+
+- **Python (`.py`)** — `uv run ruff format` then `uv run ruff check --fix`, re-stages modified files.
+- **Markdown (`.md`)** — `markdownlint-cli2 --fix`, re-stages modified files.
+
+The hook is idempotent — each section skips silently if no matching files are staged.
+
+## Markdown files
+
+Always format `.md` files with `markdownlint-cli2` (installed globally via `npm install markdownlint-cli2 --global`):
+
+```bash
+markdownlint-cli2 "**/*.md"          # lint entire repo
+markdownlint-cli2 --fix "**/*.md"    # auto-fix where possible
+```
+
+The pre-commit hook runs this automatically on staged `.md` files, so manual runs are only needed for bulk reformatting.
 
 ---
 
