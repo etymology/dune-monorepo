@@ -285,3 +285,83 @@ def test_analyze_audio_with_pesto_pads_short_audio_and_trims_outputs(monkeypatch
             dtype=np.float32,
         ),
     )
+
+
+def test_onnx_backend_fallback_to_pytorch(monkeypatch):
+    """Test that ONNX backend falls back to PyTorch when not available."""
+    monkeypatch.setenv("PESTO_BACKEND", "onnx")
+
+    def fake_use_onnx_backend():
+        return False
+
+    monkeypatch.setattr(
+        pesto_analysis, "_check_onnx_backend_available", fake_use_onnx_backend
+    )
+
+    import os
+
+    original_backend = os.environ.get("PESTO_BACKEND", "")
+    os.environ["PESTO_BACKEND"] = "pytorch"
+
+    try:
+        frequency, confidence = pesto_analysis.estimate_pitch_from_audio(
+            np.zeros(16, dtype=np.float32),
+            sample_rate=44100,
+        )
+
+        assert np.isnan(frequency)
+        assert np.isnan(confidence)
+    finally:
+        if original_backend:
+            os.environ["PESTO_BACKEND"] = original_backend
+        else:
+            os.environ.pop("PESTO_BACKEND", None)
+
+
+def test_pytorch_backend_forced_via_env(monkeypatch):
+    """Test that PyTorch backend is used when PESTO_BACKEND=pytorch."""
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
+
+    assert pesto_analysis.use_pytorch_backend() is True
+
+
+def test_onnx_backend_selected_via_env(monkeypatch):
+    """Test that ONNX backend is selected when PESTO_BACKEND=onnx."""
+    monkeypatch.setenv("PESTO_BACKEND", "onnx")
+
+    def fake_use_onnx_backend():
+        return True
+
+    monkeypatch.setattr(
+        pesto_analysis, "_check_onnx_backend_available", fake_use_onnx_backend
+    )
+
+    assert pesto_analysis.use_pytorch_backend() is False
+
+
+def test_backend_selection_without_env(monkeypatch):
+    """Test backend selection when PESTO_BACKEND is not set."""
+    monkeypatch.delenv("PESTO_BACKEND", raising=False)
+
+    def fake_check_available():
+        return False
+
+    monkeypatch.setattr(
+        pesto_analysis, "_check_onnx_backend_available", fake_check_available
+    )
+
+    assert pesto_analysis.use_pytorch_backend() is True
+
+
+def test_backend_selection_with_onnx_available(monkeypatch):
+    """Test backend selection when ONNX is available."""
+    monkeypatch.delenv("PESTO_BACKEND", raising=False)
+
+    def fake_check_available():
+        return True
+
+    monkeypatch.setattr(
+        pesto_analysis, "_check_onnx_backend_available", fake_check_available
+    )
+
+    assert pesto_analysis.use_pytorch_backend() is False

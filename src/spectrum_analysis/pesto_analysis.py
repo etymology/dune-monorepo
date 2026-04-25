@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 import logging
 from typing import Any, Optional, Tuple
@@ -16,6 +17,56 @@ DEFAULT_PESTO_MODEL_NAME = "mir-1k_g7"
 DEFAULT_PESTO_STEP_SIZE_MS = 5.0
 DEFAULT_PESTO_IDEAL_PITCH_HZ = 600.0
 LOGGER = logging.getLogger(__name__)
+
+_ONNX_BACKEND_AVAILABLE = False
+
+
+def _check_onnx_backend_available() -> bool:
+    """Check if ONNX backend is available and should be used.
+
+    Returns:
+        True if ONNX Runtime is available and models exist, False otherwise.
+    """
+    global _ONNX_BACKEND_AVAILABLE
+    if _ONNX_BACKEND_AVAILABLE:
+        return True
+
+    env_backend = os.environ.get("PESTO_BACKEND", "").lower()
+    if env_backend == "pytorch":
+        return False
+    if env_backend == "onnx":
+        try:
+            from spectrum_analysis import pesto_onnx
+
+            _ONNX_BACKEND_AVAILABLE = pesto_onnx.use_onnx_backend()
+            return _ONNX_BACKEND_AVAILABLE
+        except Exception:
+            return False
+
+    try:
+        from spectrum_analysis import pesto_onnx
+
+        _ONNX_BACKEND_AVAILABLE = pesto_onnx.use_onnx_backend()
+        return _ONNX_BACKEND_AVAILABLE
+    except Exception:
+        return False
+
+
+def use_pytorch_backend() -> bool:
+    """Check if PyTorch backend should be used.
+
+    Returns:
+        True if PyTorch backend is selected, False if ONNX backend should be used.
+    """
+    import os
+
+    env_backend = os.environ.get("PESTO_BACKEND", "").lower()
+    if env_backend == "pytorch":
+        return True
+    if env_backend == "onnx":
+        return False
+
+    return not _check_onnx_backend_available()
 
 
 @dataclass(frozen=True)
@@ -238,12 +289,35 @@ def analyze_audio_with_pesto(
     if sample_rate <= 0:
         raise ValueError("sample_rate must be positive.")
 
+    if not use_pytorch_backend():
+        try:
+            from spectrum_analysis import pesto_onnx
+
+            LOGGER.debug("Using ONNX backend for PESTO inference")
+            return pesto_onnx.analyze_audio_with_onnx(
+                audio,
+                sample_rate,
+                expected_frequency=expected_frequency,
+                include_activations=include_activations,
+            )
+        except Exception as exc:
+            LOGGER.warning("ONNX backend failed, falling back to PyTorch: %s", exc)
+
     if not _ensure_runtime_dependencies():
         LOGGER.warning("pesto-pitch is unavailable; cannot estimate pitch.")
         return _empty_analysis_result()
 
     audio_array = np.asarray(audio, dtype=np.float32).reshape(-1)
     if audio_array.size == 0:
+        return _empty_analysis_result()
+    if (
+        expected_frequency is None
+        and not include_activations
+        and (
+            not np.any(np.isfinite(audio_array))
+            or float(np.max(np.abs(audio_array))) <= 0.0
+        )
+    ):
         return _empty_analysis_result()
 
     sr_augment_factor = _sr_augment_factor(expected_frequency)
