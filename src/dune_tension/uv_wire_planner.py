@@ -87,19 +87,20 @@ def _wrap_inclusive(value: int, low: int, high: int) -> int:
     return int(low) + ((int(value) - int(low)) % span)
 
 
-def wire_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
-    """Return the canonical B-family endpoint pins for a U/V wire number."""
+def wire_segment_to_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
+    """Return the canonical B-family endpoint pins for a U/V wire segment."""
 
     requested_layer = _normalize_layer(layer)
-    return _layout_for_layer(requested_layer).wire_endpoints(
-        int(wire_number), family="B"
+    return _layout_for_layer(requested_layer).wire_segment_endpoints(
+        int(wire_number),
+        family="B",
     )
 
 
 def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
     requested_side = _normalize_side(side)
     requested_layer = _normalize_layer(layer)
-    return _layout_for_layer(requested_layer).wire_endpoints(
+    return _layout_for_layer(requested_layer).wire_segment_endpoints(
         int(wire_number),
         family=requested_side,
     )

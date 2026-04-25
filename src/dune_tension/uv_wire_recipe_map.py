@@ -6,7 +6,7 @@ import math
 import re
 
 from dune_tension.layer_calibration import load_normalized_layer_calibration
-from dune_tension.uv_wire_planner import wire_pin_pair
+from dune_tension.uv_wire_planner import wire_segment_to_pin_pair
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.recipes.u_template_gcode import (
     WRAP_COUNT as U_WRAP_COUNT,
@@ -170,7 +170,7 @@ def build_uv_wire_recipe_maps(layer: str) -> UvWireRecipeMaps:
                 )
 
             segment_line = CANONICAL_SEGMENT_LINES[segment_index - 1]
-            start_pin, end_pin = wire_pin_pair(requested_layer, wire_number)
+            start_pin, end_pin = wire_segment_to_pin_pair(requested_layer, wire_number)
             start_side = layout.face_for_pin(start_pin)
             end_side = layout.face_for_pin(end_pin)
             start_xyz = _pin_location_xyz(calibration, start_pin)

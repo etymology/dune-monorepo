@@ -35,8 +35,8 @@ def _clear_recipe_map_caches() -> None:
 
 
 def test_public_wire_pin_pair_matches_requested_sanity_checks() -> None:
-    assert uv_wire_planner.wire_pin_pair("V", 401) == ("B449", "B1950")
-    assert uv_wire_planner.wire_pin_pair("U", 1) == ("B450", "B350")
+    assert uv_wire_planner.wire_segment_to_pin_pair("V", 401) == ("B449", "B1950")
+    assert uv_wire_planner.wire_segment_to_pin_pair("U", 1) == ("B450", "B350")
 
 
 def test_wrap_to_wire_numbers_has_400_wraps_of_six_entries(monkeypatch) -> None:
@@ -87,7 +87,9 @@ def test_explicit_sanity_checks_and_representative_inversions(monkeypatch) -> No
     )
     assert u_maps.wrap_to_wire_numbers[50][2] == 1
     assert (
-        uv_wire_planner.wire_pin_pair("U", u_maps.wrap_to_wire_numbers[50][2])[0]
+        uv_wire_planner.wire_segment_to_pin_pair(
+            "U", u_maps.wrap_to_wire_numbers[50][2]
+        )[0]
         == "B450"
     )
 

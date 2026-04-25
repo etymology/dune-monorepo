@@ -301,12 +301,12 @@ _ENDPOINT_PINS = {
 
 _LAYOUT_SPECS = {
     "U": {
-        "wire_anchor_a": 1600,
-        "wire_anchor_b": 1601,
-        "wire_formula_min": 1,
-        "wire_formula_max": 1151,
-        "wire_min": 8,
-        "wire_max": 1146,
+        "wire_segment_1_pin_a": 450,
+        "wire_segment_1_pin_b": 350,
+        "wire_segment_formula_min": 1,
+        "wire_segment_formula_max": 1151,
+        "wire_segment_min": 8,
+        "wire_segment_max": 1146,
         "b1_target_xy": (570.0, 2455.0),
         "measurement_dy_sign": {"A": -1, "B": 1},
         "tangent_ranges": (
@@ -315,12 +315,12 @@ _LAYOUT_SPECS = {
         ),
     },
     "V": {
-        "wire_anchor_a": 1199,
-        "wire_anchor_b": 1200,
-        "wire_formula_min": 1,
-        "wire_formula_max": 1151,
-        "wire_min": 8,
-        "wire_max": 1146,
+        "wire_segment_1_pin_a": 49,
+        "wire_segment_1_pin_b": 2350,
+        "wire_segment_formula_min": 1,
+        "wire_segment_formula_max": 1151,
+        "wire_segment_min": 8,
+        "wire_segment_max": 1146,
         "b1_target_xy": (635.0, 2350.0),
         "measurement_dy_sign": {"A": 1, "B": -1},
         "tangent_ranges": (
@@ -437,17 +437,17 @@ class UvLayerLayout:
         spec = _LAYOUT_SPECS[self.layer]
         self.pitch_dx = float(self.geometry.deltaX)
         self.pitch_dy = float(self.geometry.deltaY)
-        self.wire_min = int(spec["wire_min"])
-        self.wire_max = int(spec["wire_max"])
-        self.wire_formula_min = int(spec["wire_formula_min"])
-        self.wire_formula_max = int(spec["wire_formula_max"])
+        self.wire_segment_min = int(spec["wire_segment_min"])
+        self.wire_segment_max = int(spec["wire_segment_max"])
+        self.wire_segment_formula_min = int(spec["wire_segment_formula_min"])
+        self.wire_segment_formula_max = int(spec["wire_segment_formula_max"])
         self.face_order = FACE_ORDER
         self.side_ranges = {
             face: tuple(bounds) for face, bounds in _SIDE_RANGES[self.layer].items()
         }
         self.endpoint_pins = tuple(_ENDPOINT_PINS[self.layer])
-        self._wire_anchor_a = int(spec["wire_anchor_a"])
-        self._wire_anchor_b = int(spec["wire_anchor_b"])
+        self._wire_segment_1_pin_a = int(spec["wire_segment_1_pin_a"])
+        self._wire_segment_1_pin_b = int(spec["wire_segment_1_pin_b"])
         self._b1_target_xy = tuple(spec["b1_target_xy"])
         self._measurement_dy_sign = {
             family: int(sign) for family, sign in spec["measurement_dy_sign"].items()
@@ -708,17 +708,25 @@ class UvLayerLayout:
             pin_name=pin_name,
         )
 
-    def wire_endpoints(self, wire_number: int, family: str = "B") -> tuple[str, str]:
+    def wire_segment_endpoints(
+        self, segment_number: int, family: str = "B"
+    ) -> tuple[str, str]:
         normalized_family = _normalize_family(family)
-        number = int(wire_number)
-        if number < self.wire_formula_min or number > self.wire_formula_max:
+        number = int(segment_number)
+        if (
+            number < self.wire_segment_formula_min
+            or number > self.wire_segment_formula_max
+        ):
             raise ValueError(
-                f"Wire number {number} is outside the supported range "
-                f"{self.wire_formula_min}-{self.wire_formula_max} for layer {self.layer}."
+                f"Wire segment number {number} is outside the supported range "
+                f"{self.wire_segment_formula_min}-{self.wire_segment_formula_max} for layer {self.layer}."
             )
-        delta = self.wire_formula_max - number
-        pin_a = _wrap_inclusive(self._wire_anchor_a - delta, 1, self.pin_max)
-        pin_b = _wrap_inclusive(self._wire_anchor_b + delta, 1, self.pin_max)
+        pin_a = _wrap_inclusive(
+            self._wire_segment_1_pin_a + (number - 1), 1, self.pin_max
+        )
+        pin_b = _wrap_inclusive(
+            self._wire_segment_1_pin_b - (number - 1), 1, self.pin_max
+        )
         endpoints = (
             self.format_pin_name("B", pin_a),
             self.format_pin_name("B", pin_b),
@@ -837,8 +845,8 @@ class UvLayerLayout:
             },
             "pitchDx": self.pitch_dx,
             "pitchDy": self.pitch_dy,
-            "wireMin": self.wire_min,
-            "wireMax": self.wire_max,
+            "wireSegmentMin": self.wire_segment_min,
+            "wireSegmentMax": self.wire_segment_max,
         }
 
 

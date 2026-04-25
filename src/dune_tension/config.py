@@ -65,14 +65,14 @@ LAYER_LAYOUTS = {
     "U": LayerLayoutConfig(
         dx=_U_LAYOUT.pitch_dx,
         dy=_U_LAYOUT.pitch_dy,
-        wire_min=_U_LAYOUT.wire_min,
-        wire_max=_U_LAYOUT.wire_max,
+        wire_min=_U_LAYOUT.wire_segment_min,
+        wire_max=_U_LAYOUT.wire_segment_max,
     ),
     "V": LayerLayoutConfig(
         dx=_V_LAYOUT.pitch_dx,
         dy=_V_LAYOUT.pitch_dy,
-        wire_min=_V_LAYOUT.wire_min,
-        wire_max=_V_LAYOUT.wire_max,
+        wire_min=_V_LAYOUT.wire_segment_min,
+        wire_max=_V_LAYOUT.wire_segment_max,
     ),
 }
 MEASUREMENT_WIGGLE_CONFIG = MeasurementWiggleConfig()
