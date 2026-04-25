@@ -70,3 +70,47 @@ Package-specific operational details:
 
 - [dune_winder/README.md](dune_winder/README.md)
 - [dune_tension/README.md](dune_tension/README.md)
+
+---
+
+## Grafana / InfluxDB monitoring (dune_winder)
+
+The winder pushes PLC tag data to InfluxDB at ~10 Hz; Grafana visualises it in real time. Both run as Docker containers.
+
+```bash
+docker compose up -d          # start Grafana + InfluxDB
+```
+
+- Grafana: `http://localhost:3000` — login `admin` / `dune_winder`
+- InfluxDB: `http://localhost:8086` — org `dune`, bucket `winder`
+- Config: `docker-compose.yml` and `grafana/` / `influxdb/` provisioning dirs at repo root
+
+---
+
+## RLL codegen — Python → Rockwell Ladder Logic (dune_winder)
+
+### Python transpiler
+
+- Source: `src/dune_winder/transpiler/`
+- CLI: `uv run python -m dune_winder.transpiler <file.py> [function_name ...]`
+- Output: pasteable ladder text → check in under `plc/<program>/<subroutine>/pasteable.rll`
+
+### RLL rung transform (`plc-rung-transform-hs`)
+
+Converts Studio 5000 copy-paste `.rllscrap` → pasteable `.rll` format.
+
+```bash
+cabal run plc-rung-transform-hs -- < input.rllscrap > output.rll
+uv run plc-rung-transform                                          # Python equivalent
+```
+
+### PLC artifact layout
+
+```text
+plc/<program>/programTags.json
+plc/<program>/main/studio_copy.rllscrap   ← copied from Studio 5000 (source of truth)
+plc/<program>/main/pasteable.rll          ← transformed / transpiled output
+plc/<program>/<subroutine>/pasteable.rll
+```
+
+Never hand-edit `studio_copy.rllscrap`; it is the source of truth from Studio 5000.

@@ -72,74 +72,36 @@ uv run pytest tests/dune_winder     # winder package only
 - Before each commit, show the files included and a one-line rationale.
 - If the requested task spans multiple concerns, propose the commit boundaries before committing.
 - Never commit unrelated formatting changes with functional edits.
+- **Once a task is complete, group all related changes into a final commit** using the format below.
 
 ### Conventional Commits
 
-Use these prefixes:
-
-| Prefix     | Use for                                    |
-| ---------- | ------------------------------------------ |
-| `feat:` | New features |
-| `fix:` | Bug fixes |
-| `refactor:` | Code restructuring without behaviour change |
-| `test:` | Test-only changes |
-| `docs:` | Documentation only |
-| `chore:` | Tooling, deps, CI |
-
----
-
-## Ruff conventions
-
-- Lint ignores in `pyproject.toml`: F401, F811, F841, E741
-- CI runs both unittest (dune_winder) and pytest (dune_tension)
-
----
-
-## Grafana / InfluxDB monitoring (dune_winder)
-
-The winder pushes PLC tag data to InfluxDB at ~10 Hz; Grafana visualises it in real time. Both run as Docker containers.
-
-```bash
-docker compose up -d          # start Grafana + InfluxDB
-```
-
-- Grafana: `http://localhost:3000` — login `admin` / `dune_winder`
-- InfluxDB: `http://localhost:8086` — org `dune`, bucket `winder`
-- Config: `docker-compose.yml` and `grafana/` / `influxdb/` provisioning dirs at repo root
-
----
-
-## RLL codegen — Python → Rockwell Ladder Logic (dune_winder)
-
-### Python transpiler
-
-- Source: `src/dune_winder/transpiler/`
-- CLI: `uv run python -m dune_winder.transpiler <file.py> [function_name ...]`
-- Output: pasteable ladder text → check in under `plc/<program>/<subroutine>/pasteable.rll`
-
-### Haskell transpiler (`plc-transpiler-hs`)
-
-- Source: `haskell/`
-- Build: `cabal build` (requires GHC / Cabal — separate from uv)
-- CLI: `cabal run plc-transpiler-hs -- <file.py> [function_name ...]`
-- Covers the canonical motion-queue subroutines (`CapSegSpeed`, `ArcSweepRad`, etc.)
-
-### RLL rung transform (`plc-rung-transform-hs`)
-
-Converts Studio 5000 copy-paste `.rllscrap` → pasteable `.rll` format.
-
-```bash
-cabal run plc-rung-transform-hs -- < input.rllscrap > output.rll
-uv run plc-rung-transform                                          # Python equivalent
-```
-
-### PLC artifact layout
+Format: `<type>(<scope>): <subject>` — scope is optional.
 
 ```text
-plc/<program>/programTags.json
-plc/<program>/main/studio_copy.rllscrap   ← copied from Studio 5000 (source of truth)
-plc/<program>/main/pasteable.rll          ← transformed / transpiled output
-plc/<program>/<subroutine>/pasteable.rll
+feat: add hat wobble
+^--^  ^------------^
+|     |
+|     +-> Summary in present tense.
+|
++-------> Type: chore, docs, feat, fix, refactor, style, or test.
 ```
 
-Never hand-edit `studio_copy.rllscrap`; it is the source of truth from Studio 5000.
+| Type         | Use for                                                      |
+| ------------ | ------------------------------------------------------------ |
+| `feat`       | New feature for the user (not a build-script feature)        |
+| `fix`        | Bug fix for the user (not a build-script fix)                |
+| `docs`       | Documentation changes only                                   |
+| `style`      | Formatting, missing semicolons, etc. — no production change  |
+| `refactor`   | Refactoring production code (e.g. renaming a variable)       |
+| `test`       | Adding or refactoring tests — no production code change      |
+| `chore`      | Tooling, deps, CI — no production code change                |
+
+Examples:
+
+```text
+feat(tension): add real-time tension feedback loop
+fix: correct off-by-one in winder segment counter
+refactor(transpiler): rename internal helper to snake_case
+chore: update uv.lock after dependency bump
+```
