@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Pre-commit hook: format and lint all staged Python files with ruff.
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -euo pipefail
+
+# Collect staged Python files
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+
+if [ -z "$STAGED_PY" ]; then
+  exit 0
+fi
+
+echo "ruff: formatting staged Python files…"
+echo "$STAGED_PY" | xargs uv run ruff format
+
+echo "ruff: auto-fixing lint issues…"
+echo "$STAGED_PY" | xargs uv run ruff check --fix
+
+# Re-stage any files ruff modified
+echo "$STAGED_PY" | xargs git add
