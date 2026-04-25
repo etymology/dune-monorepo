@@ -4,6 +4,7 @@ import copy
 import re
 from dataclasses import dataclass
 
+from .metadata import PROGRAM_ALIASES
 from .metadata import PlcMetadata
 from .metadata import TagDefinition
 from .metadata import UDTDefinition
@@ -126,11 +127,22 @@ class TagStore:
     def snapshot(self, program: str | None = None) -> dict[str, object]:
         if program is None:
             return copy.deepcopy(self._controller_tags)
+        program = self._program_key(program)
         combined = copy.deepcopy(self._controller_tags)
         combined.update(copy.deepcopy(self._program_tags.get(str(program), {})))
         return combined
 
+    def _program_key(self, program: str | None) -> str | None:
+        if program is None:
+            return None
+        name = str(program)
+        canonical = PROGRAM_ALIASES.get(name, name)
+        if canonical in self._program_tags:
+            return canonical
+        return name
+
     def _root_container(self, name: str, program: str | None = None):
+        program = self._program_key(program)
         if program is not None and name in self._program_tags.get(str(program), {}):
             return self._program_tags[str(program)]
         if name in self._controller_tags:
@@ -138,6 +150,7 @@ class TagStore:
         raise KeyError(name)
 
     def _root_value(self, name: str, program: str | None = None):
+        program = self._program_key(program)
         if program is not None:
             program_values = self._program_tags.get(str(program), {})
             if name in program_values:

@@ -8,6 +8,24 @@ from typing import Any
 from dune_winder.paths import PLC_ROOT
 
 
+PROGRAM_ALIASES: dict[str, str] = {
+    "MainProgram": "main",
+    "Ready_State_1": "state_1_ready",
+    "MoveXY_State_2_3": "state_3_move_xy",
+    "MoveZ_State_4_5": "state_5_move_z",
+    "Error_State_10": "state_10_error",
+    "Initialize": "init",
+    "motionQueue": "queued_motion",
+    "HMI_Stop_Request_14": "state_14_hmi_stop",
+    "UnServo_9": "state_9_unservo",
+    "PID_Tension_Servo": "tension_pid",
+    "EOT_Trip_11": "state_11_eot_trip",
+    "Latch_UnLatch_State_6_7_8": "state_6_latch",
+    "xz_move": "state_12_move_xz",
+    "yz_move": "state_13_move_yz",
+}
+
+
 @dataclass(frozen=True)
 class FieldDefinition:
     name: str
@@ -168,6 +186,17 @@ def load_plc_metadata(
             subroutines=tuple(str(name) for name in payload.get("subroutines", [])),
             tags=tags,
         )
+
+    for alias, target in PROGRAM_ALIASES.items():
+        if alias not in programs and target in programs:
+            target_program = programs[target]
+            programs[alias] = ProgramMetadata(
+                name=alias,
+                main_routine_name=target_program.main_routine_name,
+                routines=target_program.routines,
+                subroutines=target_program.subroutines,
+                tags=target_program.tags,
+            )
 
     return PlcMetadata(
         root=metadata_root,
