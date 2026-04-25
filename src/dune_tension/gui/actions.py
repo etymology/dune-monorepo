@@ -27,18 +27,48 @@ from dune_tension.data_cache import (
     update_dataframe,
 )
 from dune_tension.results import EXPECTED_COLUMNS
-from dune_tension.layer_calibration import (
-    capture_laser_offset as save_captured_laser_offset,
-    ensure_layer_calibration_ready,
-    get_bottom_pin_options,
-    get_calibrated_pin_xy_for_side,
-    get_laser_offset,
-    resolve_pin_name_for_side,
-)
-from dune_tension.plc_desktop import desktop_seek_pin
-from dune_tension.plc_io import get_plc_io_mode
+
+try:
+    from dune_tension.layer_calibration import (
+        capture_laser_offset as save_captured_laser_offset,
+        ensure_layer_calibration_ready,
+        get_bottom_pin_options,
+        get_calibrated_pin_xy_for_side,
+        get_laser_offset,
+        resolve_pin_name_for_side,
+    )
+except ImportError:
+
+    def _missing_layer_calibration(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError(
+            "dune_tension.layer_calibration is required for calibration actions"
+        )
+
+    save_captured_laser_offset = _missing_layer_calibration
+    ensure_layer_calibration_ready = _missing_layer_calibration
+    get_bottom_pin_options = _missing_layer_calibration
+    get_calibrated_pin_xy_for_side = _missing_layer_calibration
+    get_laser_offset = _missing_layer_calibration
+    resolve_pin_name_for_side = _missing_layer_calibration
+try:
+    from dune_tension.plc_desktop import desktop_seek_pin
+except ImportError:
+    desktop_seek_pin = _missing_layer_calibration
+try:
+    from dune_tension.plc_io import get_plc_io_mode
+except ImportError:
+
+    def get_plc_io_mode() -> str:
+        return "disabled"
+
+
 from dune_tension.tensiometer_functions import make_config, normalize_confidence_source
-from dune_tension.uv_wire_planner import plan_uv_wire, plan_uv_wire_zone
+
+try:
+    from dune_tension.uv_wire_planner import plan_uv_wire, plan_uv_wire_zone
+except ImportError:
+    plan_uv_wire = _missing_layer_calibration
+    plan_uv_wire_zone = _missing_layer_calibration
 from dune_tension.gui.context import GUIContext
 from dune_tension.gui.state import save_state
 
