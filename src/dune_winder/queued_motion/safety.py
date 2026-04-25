@@ -466,8 +466,7 @@ def _validate_point(
 
     if _point_in_headward_pivot_keepout(x, y, limits):
         raise ValueError(
-            f"{label} seq={seq} enters winding-head pivot keepout "
-            f"(X={x:.3f}, Y={y:.3f})"
+            f"{label} seq={seq} enters winding-head pivot keepout (X={x:.3f}, Y={y:.3f})"
         )
 
     _validate_queued_motion_point(x, y, limits, collision_state, seq, label)

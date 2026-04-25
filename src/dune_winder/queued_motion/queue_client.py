@@ -125,8 +125,7 @@ class MotionQueueClient:
             time.sleep(self.poll_s)
         queue.poll()
         raise TimeoutError(
-            f"Timed out waiting for IncomingSegAck == {seq}. "
-            f"LastAck={queue.status().ack!r}"
+            f"Timed out waiting for IncomingSegAck == {seq}. LastAck={queue.status().ack!r}"
         )
 
     def enqueue_segment(self, seg: MotionSegment) -> None:

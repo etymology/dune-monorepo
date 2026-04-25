@@ -293,8 +293,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="",
         help=(
-            "Semicolon-delimited waypoint list: "
-            "'x1,y1;x2,y2;...'. Used by waypoint_path."
+            "Semicolon-delimited waypoint list: 'x1,y1;x2,y2;...'. Used by waypoint_path."
         ),
     )
     parser.add_argument(

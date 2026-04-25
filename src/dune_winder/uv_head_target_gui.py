@@ -469,7 +469,7 @@ def _command_summary(command_text: str, result) -> str:
             f"Layer: {raw.request.layer}",
             f"Anchor pin {raw.request.pin_a}: ({raw.pin_a_point.x:.3f}, {raw.pin_a_point.y:.3f})",
             f"Target pin {raw.request.pin_b}: ({raw.pin_b_point.x:.3f}, {raw.pin_b_point.y:.3f})",
-            f"Interpreter target: "
+            "Interpreter target: "
             + (
                 f"({result.interpreter_wire_point.x:.3f}, {result.interpreter_wire_point.y:.3f})"
                 if result.interpreter_wire_point is not None

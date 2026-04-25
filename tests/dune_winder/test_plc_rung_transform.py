@@ -136,8 +136,7 @@ class PlcRungTransformTests(unittest.TestCase):
 
         self.assertEqual(
             result,
-            "BST [XIO Z_RETRACTED ]CPT ERROR_CODE 3000+(A*B) "
-            "NXB XIC Z_RETRACTED BND NOP",
+            "BST [XIO Z_RETRACTED ]CPT ERROR_CODE 3000+(A*B) NXB XIC Z_RETRACTED BND NOP",
         )
 
     def test_transform_file_writes_output_file(self):
