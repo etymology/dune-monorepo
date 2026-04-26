@@ -47,18 +47,18 @@ entity UWrap {
   index_zero_based: Integer
   index_one_based: Integer
 
-  foot_bottom_end_back: Integer
-  top_foot_end_back: Integer
-  top_foot_end_front: Integer
-  bottom_head_end_front: Integer
-  bottom_head_end_back: Integer
-  head_bottom_end_back: Integer
-  head_bottom_end_front: Integer
-  top_head_end_front: Integer
-  top_head_end_back: Integer
-  bottom_foot_end_back: Integer
-  bottom_foot_end_front: Integer
-  next_foot_bottom_end_front: Integer
+  foot_bottom_end_b_side: Integer
+  top_foot_end_b_side: Integer
+  top_foot_end_a_side: Integer
+  bottom_head_end_a_side: Integer
+  bottom_head_end_b_side: Integer
+  head_bottom_end_b_side: Integer
+  head_bottom_end_a_side: Integer
+  top_head_end_a_side: Integer
+  top_head_end_b_side: Integer
+  bottom_foot_end_b_side: Integer
+  bottom_foot_end_a_side: Integer
+  next_foot_bottom_end_a_side: Integer
 
   transfer_insertions: Integer
 
@@ -106,7 +106,7 @@ rule BuildULayerRecipe {
     -- The generated recipe always starts with a fixed three-line preamble:
     --   1. U-layer header comment
     --   2. Move to (preamble_x, preamble_y) to load the active calibration
-    --   3. A foot-side board-gap pull anchored on PB1201/PB1200
+    --   3. A foot-edge board-gap pull anchored on PB1201/PB1200
     --
     -- After the preamble, the recipe contains exactly 400 wraps.
     --
@@ -114,7 +114,8 @@ rule BuildULayerRecipe {
     --   - logical zero-based n in [0, 399]
     --   - emitted wrap number n + 1 in [1, 400]
     --
-    -- BtoF(pin) means "the opposite-side front pin for this back pin"
+    -- BtoA(pin) means "the A-side pin at the same physical position as
+    -- this B-side pin"
     -- using uv-layer-geometry.allium. This recipe spec depends on that
     -- operation; it does not redefine the U-layer frame.
     --
@@ -123,28 +124,28 @@ rule BuildULayerRecipe {
     -- For zero-based wrap n the logical pin cycle is:
     --   1.  B(geometry.named_foot_bottom_end + n)
     --   2.  B(geometry.named_top_foot_end + 399 - n)
-    --   3.  BtoF(geometry.named_top_foot_end + 399 - n)
-    --   4.  BtoF(geometry.named_bottom_head_end + n)
+    --   3.  BtoA(geometry.named_top_foot_end + 399 - n)
+    --   4.  BtoA(geometry.named_bottom_head_end + n)
     --   5.  B(geometry.named_bottom_head_end + n)
     --   6.  B(geometry.named_head_bottom_end + n)
-    --   7.  BtoF(geometry.named_head_bottom_end + n)
-    --   8.  BtoF(geometry.named_top_head_end - 399 + n)
+    --   7.  BtoA(geometry.named_head_bottom_end + n)
+    --   8.  BtoA(geometry.named_top_head_end - 399 + n)
     --   9.  B(geometry.named_top_head_end - 399 + n)
     --   10. B(geometry.named_bottom_foot_end - n)
-    --   11. BtoF(geometry.named_bottom_foot_end - n)
-    --   12. BtoF(geometry.named_foot_bottom_end + n + 1)
+    --   11. BtoA(geometry.named_bottom_foot_end - n)
+    --   12. BtoA(geometry.named_foot_bottom_end + n + 1)
     --
     -- The current implementation renders each logical point as the midpoint
     -- of a consecutive two-pin pair. This is why emitted G103 instructions
     -- use adjacent pins around each logical endpoint rather than a single pin.
     --
     -- Each wrap inserts exactly six transfer helpers, alternating:
-    --   - back-to-front transfer
-    --   - front-to-back transfer
-    --   - back-to-front transfer
-    --   - front-to-back transfer
-    --   - back-to-front transfer
-    --   - front-to-back transfer
+    --   - B-to-A transfer
+    --   - A-to-B transfer
+    --   - B-to-A transfer
+    --   - A-to-B transfer
+    --   - B-to-A transfer
+    --   - A-to-B transfer
     --
     -- Tangent selection rule:
     --   whenever a corner admits two tangential wire paths, choose the
@@ -182,10 +183,10 @@ rule BuildULayerRecipe {
     --   - include_lead_mode adds a lead-mode transfer line before each
     --     transfer tail line
     --   - add_foot_pauses appends a board-gap pause marker only to
-    --     qualifying foot-side board transitions
+    --     qualifying foot-edge board transitions
     --
-    -- Foot-side gap handling has one U-specific exception:
-    --   Foot A corner lines use descending front pins, so the physical board
+    -- Foot-edge gap handling has one U-specific exception:
+    --   Foot A corner lines use descending A-side pins, so the physical board
     --   gap is reached at the board start pin one wrap before pinToBoard
     --   changes board index. The pause marker therefore shifts one wrap
     --   earlier for those lines.
