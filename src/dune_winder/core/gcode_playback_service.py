@@ -410,6 +410,7 @@ class GCodePlaybackService:
                 r"(\ *[F]\d{1,4}\ *[Y]\d{1,4}(\.\d{1,2})?\ *[Z]\d{1,3}(\.\d{1,2})?\ *$)"
             )
             f_only = r"(\ *[F]\d{1,4}(\.\d{1,2})?\ *$)"
+            a_only = r"(\ *[A]\d{1,4}(\.\d{1,2})?\ *$)"
             gxyf = r"(\ *[G]105\ *[P][XY]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
             gx_yf = r"(\ *[G]105\ *[P][X]-?\d{1,3}(\.\d{1,2})?\ *[P][Y]-?\d{1,3}(\.\d{1,2})?\ *[F]\d{1,4}\ *$)"
             gp = r"(\ *[G]106\ *P[0123]\ *$)"
@@ -437,6 +438,8 @@ class GCodePlaybackService:
                 + g206
                 + "|"
                 + f_only
+                + "|"
+                + a_only
                 + "|"
                 + z_move
                 + "|"
@@ -479,7 +482,7 @@ class GCodePlaybackService:
                     if isRelativeXYMove:
                         y += yPosition
 
-                if "F" in cmd and re.match(
+                if re.match(
                     "|".join(
                         [
                             xyf,
@@ -495,11 +498,12 @@ class GCodePlaybackService:
                             gxyf,
                             gx_yf,
                             f_only,
+                            a_only,
                         ]
                     ),
                     line,
                 ):
-                    velocity = float(cmd.split("F")[1])
+                    velocity = float(cmd.split(cmd[0])[1])
                     if velocity < 0 or velocity > self._safety.max_velocity:
                         error = (
                             "Invalid F-axis Speed, exceeding limit [0.0 , "
