@@ -22,3 +22,5 @@ node_modules/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
+dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
