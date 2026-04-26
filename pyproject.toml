@@ -55,7 +55,11 @@ dune_winder = ["version.xml"]
 spectrum_analysis = ["*.json"]
 
 [dependency-groups]
-dev = ["pytest>=9.0.2", "ruff>=0.9.9"]
+dev = [
+    "mypy>=1.20.2",
+    "pytest>=9.0.2",
+    "ruff>=0.9.9",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/dune_tension", "tests/dune_winder"]
@@ -63,6 +67,11 @@ testpaths = ["tests/dune_tension", "tests/dune_winder"]
 [tool.ruff]
 indent-width = 4
 extend-exclude = ["src/dune_winder/manual_port.py"]
+
+[tool.mypy]
+exclude = ["^src/dune_winder/manual_port\\.py$"]
+show_error_codes = true
+pretty = true
 
 [tool.ruff.lint]
 ignore = ["F401", "F811", "F841", "E741"]

@@ -1,22 +1,27 @@
 # AGENTS.md
 
-This file is the single source of truth for all agent and AI-assistant behaviour in this monorepo. Sub-package directories do not carry their own AGENTS.md or CLAUDE.md; all policy lives here.
+This file is the single source of truth for all agent and AI-assistant
+behaviour in this monorepo. Sub-package directories do not carry their own
+AGENTS.md or CLAUDE.md; all policy lives here.
 
 ---
 
 ## Python tooling — always use `uv`
 
-This project uses [uv](https://docs.astral.sh/uv/) for dependency and environment management.
+This project uses [uv](https://docs.astral.sh/uv/) for dependency and
+environment management.
 
-**Never** invoke `python`, `python3`, `pip`, or `python -m venv` directly. Always prefix with `uv run` or use `uv` itself:
+**Never** invoke `python`, `python3`, `pip`, or `python -m venv` directly.
+Always prefix with `uv run` or use `uv` itself:
 
 ```bash
-uv sync                          # Install / sync all dependencies (creates root .venv)
+uv sync                          # Install / sync dependencies
 uv run python <script.py>        # Run an arbitrary Python file
 uv run python -m <module>        # Run a module
 uv run pytest                    # Run tests (do NOT call pytest directly)
 uv run ruff check src tests      # Lint
 uv run ruff format src tests     # Format
+uv run mypy <paths>              # Static type check changed files
 uv run dune-winder               # APA winder control software
 uv run dune-tension-gui          # Wire tension GUI
 ```
@@ -24,16 +29,30 @@ uv run dune-tension-gui          # Wire tension GUI
 Or use the make shorthands:
 
 ```bash
-make test     # uv run pytest
-make lint     # uv run ruff check src tests
-make format   # uv run ruff format src tests
+make test      # uv run pytest
+make lint      # uv run ruff check src tests
+make format    # uv run ruff format src tests
 ```
 
 ---
 
-## Pre-commit hook (ruff + markdownlint-cli2)
+## Static type checking
 
-A pre-commit script lives at `scripts/pre-commit`. It runs automatically on staged files before every commit. **Install it once in a fresh clone:**
+Run mypy on changed Python files before considering them complete:
+
+```bash
+uv run mypy path/to/changed_file.py
+```
+
+When mypy reports failures, include the `file:line` location and error code in
+your notes or review comments so the complaint is annotated where it occurs.
+
+---
+
+## Pre-commit hook (ruff + mypy + markdownlint-cli2)
+
+A pre-commit script lives at `scripts/pre-commit`. It runs automatically on
+staged files before every commit. **Install it once in a fresh clone:**
 
 ```bash
 cp scripts/pre-commit .git/hooks/pre-commit
@@ -42,21 +61,25 @@ chmod +x .git/hooks/pre-commit
 
 What it does:
 
-- **Python (`.py`)** — `uv run ruff format` then `uv run ruff check --fix`, re-stages modified files.
+- **Python (`.py`)** — `uv run ruff format` then
+  `uv run ruff check --fix`, re-stages modified files, then
+  `uv run mypy --show-error-codes --pretty`.
 - **Markdown (`.md`)** — `markdownlint-cli2 --fix`, re-stages modified files.
 
 The hook is idempotent — each section skips silently if no matching files are staged.
 
 ## Markdown files
 
-Always format `.md` files with `markdownlint-cli2` (installed globally via `npm install markdownlint-cli2 --global`):
+Always format `.md` files with `markdownlint-cli2` (installed globally via
+`npm install markdownlint-cli2 --global`):
 
 ```bash
 markdownlint-cli2 "**/*.md"          # lint entire repo
 markdownlint-cli2 --fix "**/*.md"    # auto-fix where possible
 ```
 
-The pre-commit hook runs this automatically on staged `.md` files, so manual runs are only needed for bulk reformatting.
+The pre-commit hook runs this automatically on staged `.md` files, so manual
+runs are only needed for bulk reformatting.
 
 ---
 
@@ -83,12 +106,15 @@ uv run pytest tests/dune_winder     # winder package only
 - Group edits into small, logically coherent commits.
 - Do not mix refactors, bug fixes, and formatting in the same commit.
 - After each logical unit is complete and validated, stage only the relevant files.
-- Prefer multiple atomic commits over one large commit; each commit corresponds to one described change.
+- Prefer multiple atomic commits over one large commit; each commit corresponds
+  to one described change.
 - Separate behaviour changes, refactors, dependency updates, and tests.
 - Before each commit, show the files included and a one-line rationale.
-- If the requested task spans multiple concerns, propose the commit boundaries before committing.
+- If the requested task spans multiple concerns, propose the commit boundaries
+  before committing.
 - Never commit unrelated formatting changes with functional edits.
-- **Once a task is complete, group all related changes into a final commit** using the format below.
+- **Once a task is complete, group all related changes into a final commit**
+  using the format below.
 
 ### Conventional Commits
 
