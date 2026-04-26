@@ -10,6 +10,7 @@ timing-related transitions behave deterministically across both simulators.
 
 from __future__ import annotations
 
+import pytest
 import unittest
 
 from dune_winder.io.devices.ladder_simulated_plc import LadderSimulatedPLC
@@ -130,6 +131,7 @@ def _assert_tags_equal(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ladder_sim
 class MonoroutineEquivalenceTests(unittest.TestCase):
     # ------------------------------------------------------------------
     # Startup / initial state

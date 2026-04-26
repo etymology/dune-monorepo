@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import unittest
 
 from dune_winder.paths import PLC_ROOT
@@ -7,6 +8,7 @@ from dune_winder.sync_monoroutine_tag_values import _program_scoped_fqn
 from dune_winder.sync_monoroutine_tag_values import _resolve_monoroutine_sources
 
 
+@pytest.mark.ladder_sim
 class SyncMonoroutineTagValuesTests(unittest.TestCase):
     def test_program_scoped_fqn_uses_target_program_name(self):
         self.assertEqual(

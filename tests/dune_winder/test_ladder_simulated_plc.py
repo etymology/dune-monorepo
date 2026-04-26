@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import pytest
 import unittest
 
 from dune_winder.io.devices.ladder_simulated_plc import LadderSimulatedPLC
@@ -11,6 +12,7 @@ from dune_winder.queued_motion.segment_types import MCCM_DIR_2D_CCW
 from dune_winder.queued_motion.segment_types import SEG_TYPE_CIRCLE
 
 
+@pytest.mark.ladder_sim
 class LadderSimulatedPlcTests(unittest.TestCase):
     def _advance(self, plc: LadderSimulatedPLC, scans: int = 1):
         for _ in range(scans):

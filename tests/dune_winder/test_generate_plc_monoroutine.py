@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import unittest
 
 from dune_winder.generate_plc_monoroutine import _build_monoroutine
@@ -11,6 +12,7 @@ from dune_winder.plc_ladder import RllEmitter
 from dune_winder.plc_ladder import RllParser
 
 
+@pytest.mark.ladder_sim
 class GeneratePlcMonoroutineTests(unittest.TestCase):
     def test_generated_monoroutine_contains_no_jsr_and_unique_program_tags(self):
         parser = RllParser()

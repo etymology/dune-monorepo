@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import pytest
 import re
 import unittest
 
@@ -10,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EXTENSION_ROOT = REPO_ROOT / "dune_winder" / "tools" / "vscode-plc-rll"
 
 
+@pytest.mark.ladder_sim
 class VSCodeRllSyntaxTests(unittest.TestCase):
     def test_extension_declares_plc_rll_language(self):
         package = json.loads(
