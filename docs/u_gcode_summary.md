@@ -1,74 +1,127 @@
+# U-Layer Pin Succession
 
-BtoA(layer in [U,V],pin:int):
-    U: return 1 + ((400 - pin) mod 2401)
-    V: return 1 + ((399 - F) mod 2399)
+This summary describes the intrinsic U-layer pin geometry as a single continuous
+wire path. The tension system later views parts of this path as separate
+measurable segments on A and B sides, but the winder creates them by carrying
+one wire around pins in the succession below.
 
-400 wraps, here numbered n \in [0,399] but in the recipes numbered 1-400
-On wrap n
-let bottom_foot_end = B1200
-let bottom_head_end = B401
-let top_foot_end = B1602
-let top_head_end = B2401
-let foot_bottom_end = B1201
-let foot_top_end = B1601
-let head_bottom_end = B400
-let head_top_end = B1
-let x_pull_in = 70mm
-let y_pull_in = 50mm
-for int n, B(n) is pin n on the B side and BtoA(n) is the A pin opposite that B pin on the A side.
+Terminology:
 
-the succession of pins alone:
-pins(wrap in [0,399]):
-    BtoA(foot_bottom_end + n)
-    B(foot_bottom_end + n)
-    B(top_foot_end + 399 - n)
-    BtoA(top_foot_end + 399 - n)
-    BtoA(bottom_head_end+n)
-    B(bottom_head_end+n)
-    B(head_bottom_end-n)
-    BtoA(head_bottom_end-n)
-    BtoA(top_head_end-399+n)
-    B(top_head_end-399+n)
-    B(bottom_foot_end-n)
-    BtoA(bottom_foot_end-n)
+- `top`, `bottom`, `head`, and `foot` are APA frame edges.
+- `A` and `B` are APA sides.
+- `B(n)` is pin `n` on the B side.
+- `BtoA(n)` is the A-side pin at the same physical position as B-side pin `n`.
 
-# the actual wrapping recipe
+For U:
 
-goto(x:float, y:float) moves the winder to x,y
-anchor(pin) sets the anchor pin to be used by the next pin target line. Otherwise, when we succeed in wrapping around a pin (setting the pin as a target) that pin becomes the anchor for the next segment.
-B(pin:int) moves the winder to the position projected from the outbound tangent from the anchor pin (set by either anchor() or having been the previous target pin), arm-corrected position in x,y then moves the head to the target z position: either zFront for A pins or zBack for B pins, using the g106 p1 (zfront) or g106 p2.
-BtoA(bpin:int) converts the b pin number to its correpsonding A pin using the formula defined above, then finds the projected winder target to wrap around that pin, as with B().
-The two cases: when anchor and target pins are on the same side, move to the xy position first then the z position. When they are on opposite sides, move to the nearest transfer zone (or don't move if transfer is already enabled), move to the target z position, then move to the target xy position, which is the projected position in the xz plane of the two pins for pins on the top and bottom sides, and the projected position in the yz plane for pins on the foot and head sides. The for pins in the xz plane, the y position is just the average of the y positions of the two pins. For pins in the yz plane, the x position is just the average of the x positions of the two pins.
-increment(x,y) moves the winder incrementally by (x,y)
+```text
+BtoA(n) = A(1 + ((400 - n) mod 2401))
+```
 
+There are 400 wraps. This document numbers them `n in [0, 399]`; recipe output
+numbers them `1` through `400`.
 
-goto(7174,0)
-for n \in [0,399]:
-    anchorToTarget(BtoA(foot_bottom_end),B(foot_bottom_end))
-    increment (-x_pull_in,0)
-    anchorToTarget(B(foot_bottom_end),B(top_foot_end + 399 - n))
-    anchorToTarget(B(top_foot_end + 399 - n),BtoA(top_foot_end + 399 - n))
-    increment (0,-y_pull_in)
+Named U edge pins, expressed in canonical B-side numbering:
+
+```text
+bottom_foot_end = 1200
+bottom_head_end = 401
+top_foot_end = 1602
+top_head_end = 2401
+foot_bottom_end = 1201
+foot_top_end = 1601
+head_bottom_end = 400
+head_top_end = 1
+```
+
+## Continuous Pin Path
+
+For wrap `n`, the wire visits these pin positions in order:
+
+```text
+BtoA(foot_bottom_end + n)
+B(foot_bottom_end + n)
+B(top_foot_end + 399 - n)
+BtoA(top_foot_end + 399 - n)
+BtoA(bottom_head_end + n)
+B(bottom_head_end + n)
+B(head_bottom_end - n)
+BtoA(head_bottom_end - n)
+BtoA(top_head_end - 399 + n)
+B(top_head_end - 399 + n)
+B(bottom_foot_end - n)
+BtoA(bottom_foot_end - n)
+```
+
+The last point of wrap `n` continues to the first point of wrap `n + 1`:
+
+```text
+BtoA(bottom_foot_end - n)
+  -> BtoA(foot_bottom_end + n + 1)
+```
+
+So the full U layer is the concatenation of all 400 wrap paths plus the final
+tail to `B(foot_top_end)`. Adjacent points in this succession define the
+applied wire spans. The side changes, such as `B(...) -> BtoA(...)`, are part of
+the wire geometry, not merely machine transfer bookkeeping.
+
+## Recipe Motions
+
+The recipe adds pull-ins and transfer motions around the same pin succession.
+Those movements guide placement, but they do not change the ordered pin path.
+
+Parameters:
+
+```text
+x_pull_in = 70 mm
+y_pull_in = 50 mm
+```
+
+Abstracted recipe:
+
+```text
+goto(7174, 0)
+
+for n in [0, 399]:
+    anchorToTarget(BtoA(foot_bottom_end + n), B(foot_bottom_end + n))
+    increment(-x_pull_in, 0)
+
+    anchorToTarget(B(foot_bottom_end + n), B(top_foot_end + 399 - n))
+    anchorToTarget(B(top_foot_end + 399 - n), BtoA(top_foot_end + 399 - n))
+    increment(0, -y_pull_in)
     if near_comb(BtoA(top_foot_end + 399 - n)):
-        increment (-3*y_pull_in,0)
-    anchorToTarget(BtoA(top_foot_end + 399 - n),BtoA(bottom_head_end+n))
-    anchorToTarget(BtoA(bottom_head_end+n),B(bottom_head_end+n))
-    increment(0,y_pull_in)
-    if near_comb(bottom_head_end+n):
-        increment (-3*y_pull_in,0)
-    B(head_bottom_end-n)
-    BtoA(head_bottom_end-n)
-    increment (x_pull_in,0)
-    BtoA(top_head_end-399+n)
-    B(top_head_end-399+n)
-    increment (0,-y_pull_in)
-    if near_comb(top_head_end-399+n):
-        increment (3*y_pull_in,0)
-    B(bottom_foot_end-n)
-    BtoA(bottom_foot_end-n)
-    increment (0,y_pull_in)
-    if near_comb(bottom_foot_end-n):
-        increment (3*y_pull_in,0)
-    BtoA(foot_bottom_end + n + 1)
-B(foot_top_end)
-increment(x_pull_in,0)
+        increment(-3 * y_pull_in, 0)
+
+    anchorToTarget(
+        BtoA(top_foot_end + 399 - n),
+        BtoA(bottom_head_end + n)
+    )
+    anchorToTarget(BtoA(bottom_head_end + n), B(bottom_head_end + n))
+    increment(0, y_pull_in)
+    if near_comb(bottom_head_end + n):
+        increment(-3 * y_pull_in, 0)
+
+    anchorToTarget(B(bottom_head_end + n), B(head_bottom_end - n))
+    anchorToTarget(B(head_bottom_end - n), BtoA(head_bottom_end - n))
+    increment(x_pull_in, 0)
+
+    anchorToTarget(BtoA(head_bottom_end - n), BtoA(top_head_end - 399 + n))
+    anchorToTarget(BtoA(top_head_end - 399 + n), B(top_head_end - 399 + n))
+    increment(0, -y_pull_in)
+    if near_comb(top_head_end - 399 + n):
+        increment(3 * y_pull_in, 0)
+
+    anchorToTarget(B(top_head_end - 399 + n), B(bottom_foot_end - n))
+    anchorToTarget(B(bottom_foot_end - n), BtoA(bottom_foot_end - n))
+    increment(0, y_pull_in)
+    if near_comb(bottom_foot_end - n):
+        increment(3 * y_pull_in, 0)
+
+    anchorToTarget(
+        BtoA(bottom_foot_end - n),
+        BtoA(foot_bottom_end + n + 1)
+    )
+
+anchorToTarget(BtoA(foot_bottom_end + 400), B(foot_top_end))
+increment(x_pull_in, 0)
+```
