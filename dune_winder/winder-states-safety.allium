@@ -1,0 +1,926 @@
+-- allium: 3
+-- winder-states-safety.allium
+
+-- Scope: State and safety behaviour of the DUNE winder runtime and PLC.
+-- Includes: Runtime control modes, PLC state values, head.py head-position
+--           meanings, head transfer state, collision prevention, movement
+--           preflight checks, PLC hard interlocks, and operator diagnostics.
+-- Excludes:
+--   - Recipe/template generation
+--   - Web/API transport details
+--   - PLC communication protocol details
+--   - Tension PID tuning internals beyond safety trip behaviour
+--   - Low-level queue handshake details covered by plc-motion.allium
+
+use "./dune-winder.allium" as runtime
+use "./head-transfer.allium" as transfer
+use "./plc-motion.allium" as plc
+
+-- ==========================================================================
+-- Enumerations
+-- ==========================================================================
+
+enum RuntimeMode {
+  hardware
+  stop
+  wind
+  manual
+}
+
+enum StopMode {
+  idle
+  estop
+  park
+}
+
+-- Numeric values match PLC_Logic.States and checked-in PLC routines.
+enum PLCMode {
+  init              -- 0
+  ready             -- 1
+  xy_jog            -- 2
+  xy_seek           -- 3
+  z_jog             -- 4
+  z_seek            -- 5
+  latching          -- 6
+  latch_homing      -- 7
+  latch_release     -- 8
+  unservo           -- 9
+  error             -- 10
+  eot_trip          -- 11
+  xz_seek           -- 12
+  yz_seek           -- 13
+  hmi_stop          -- 14
+}
+
+enum HeadControllerMode {
+  idle                       -- 0
+  seeking_to_final_position  -- 1
+  extending_to_transfer      -- 2
+  latching                   -- 3
+  error                      -- 4
+}
+
+-- Numeric values match Head constants in src/dune_winder/io/controllers/head.py.
+-- PLC HEAD_POS only represents absent/stage/fixed. The Python head position
+-- expands the stage side into three useful Z targets.
+enum HeadPosition {
+  absent       -- -1: no stable, trusted head location
+  stage_side   --  0: head latched to Z stage at retracted Z
+  level_a_side --  1: head latched to Z stage at front/layer-A Z
+  level_b_side --  2: head latched to Z stage at back/layer-B Z
+  fixed_side   --  3: head parked on fixed mount at retracted Z
+}
+
+-- Numeric values match ACTUATOR_POS.
+enum ActuatorPosition {
+  transition_engaged -- 0: neither top nor mid; transient or free-space cycle
+  stage_latched      -- 1: stage latch sensor settled
+  mid_engagement     -- 2: fixed side is safe for Z withdrawal
+  rocker_at_fixed    -- 3: fixed rocker engaged; transient and unsafe to withdraw
+}
+
+enum SafetyDiagnosticCode {
+  none
+  xy_jog_z_extended
+  xy_seek_z_extended
+  xy_axis_fault
+  sto_active
+  apa_not_vertical
+  xy_position_acceptance_failed
+  z_master_transfer_not_ready
+  z_axis_fault
+  z_position_acceptance_failed
+  fixed_latch_not_safe
+  z_eot_during_motion
+  latch_not_enabled
+  latch_timeout
+  wire_break
+  overtension
+}
+
+-- ==========================================================================
+-- External entities
+-- ==========================================================================
+
+external entity Axis {
+  actual_position: Float
+  actual_velocity: Float
+  moving: Boolean
+  physical_fault: Boolean
+  sto_inhibit: Boolean
+}
+
+external entity SafetyCircuit {
+  healthy: Boolean
+  tripped: Boolean
+  reset_button: Boolean
+}
+
+external entity TensionControl {
+  enabled: Boolean
+  stable: Boolean
+  wire_break: Boolean
+  overtension: Boolean
+}
+
+-- ==========================================================================
+-- Entities
+-- ==========================================================================
+
+entity RuntimeController {
+  mode: RuntimeMode
+  stop_mode: StopMode
+
+  transitions mode {
+    hardware -> stop
+    stop -> wind
+    stop -> manual
+    wind -> stop
+    manual -> stop
+    wind -> hardware
+    manual -> hardware
+    stop -> hardware
+    terminal: none
+  }
+}
+
+entity PLCController {
+  mode: PLCMode
+  state_request: PLCMode?
+  error_code: SafetyDiagnosticCode = none
+
+  transitions mode {
+    init -> ready
+    ready -> xy_jog
+    ready -> xy_seek
+    ready -> z_jog
+    ready -> z_seek
+    ready -> latching
+    ready -> latch_homing
+    ready -> latch_release
+    ready -> unservo
+    ready -> xz_seek
+    ready -> yz_seek
+    ready -> hmi_stop
+    xy_jog -> ready
+    xy_seek -> ready
+    xy_seek -> error
+    xy_seek -> eot_trip
+    z_jog -> ready
+    z_seek -> ready
+    z_seek -> error
+    z_seek -> eot_trip
+    latching -> ready
+    latching -> error
+    latch_homing -> ready
+    latch_homing -> error
+    latch_release -> ready
+    unservo -> ready
+    xz_seek -> ready
+    xz_seek -> error
+    yz_seek -> ready
+    yz_seek -> error
+    hmi_stop -> ready
+    error -> ready
+    eot_trip -> ready
+    terminal: none
+  }
+}
+
+entity HeadController {
+  mode: HeadControllerMode
+  requested_position: HeadPosition?
+  target_z: Float?
+  latch_target: stage_side | fixed_side | null
+  active_transfer: Boolean
+  last_error: String?
+
+  transitions mode {
+    idle -> seeking_to_final_position
+    idle -> extending_to_transfer
+    seeking_to_final_position -> idle
+    seeking_to_final_position -> error
+    extending_to_transfer -> latching
+    extending_to_transfer -> error
+    latching -> seeking_to_final_position
+    latching -> error
+    error -> idle
+    terminal: none
+  }
+}
+
+entity HeadTransferState {
+  position: HeadPosition
+  actuator_position: ActuatorPosition
+  stage_present: Boolean
+  fixed_present: Boolean
+  stage_latched: Boolean
+  fixed_latched: Boolean
+  z_extended: Boolean
+
+  -- Derived
+  stable_stage:
+    stage_present
+    and stage_latched
+    and not fixed_latched
+    and actuator_position = stage_latched
+
+  stable_fixed:
+    fixed_present
+    and fixed_latched
+    and not stage_latched
+    and actuator_position = mid_engagement
+
+  valid_stable_start: stable_stage or stable_fixed
+  enable_actuator: stage_present and fixed_present and z_extended
+  fixed_latch_safe_for_z: (not fixed_latched) or actuator_position = mid_engagement
+}
+
+entity MachineSwitches {
+  z_retracted_1a: Boolean
+  z_retracted_1b: Boolean
+  z_retracted_2a: Boolean
+  z_retracted_2b: Boolean
+  z_extended: Boolean
+  plus_x_eot: Boolean
+  minus_x_eot: Boolean
+  plus_y_eot: Boolean
+  minus_y_eot: Boolean
+  z_eot: Boolean
+  x_transfer_ok: Boolean
+  y_transfer_ok: Boolean
+  y_mount_transfer_ok: Boolean
+  apa_is_vertical: Boolean
+  frame_lock_head_top: Boolean
+  frame_lock_head_mid: Boolean
+  frame_lock_head_bottom: Boolean
+  frame_lock_foot_top: Boolean
+  frame_lock_foot_mid: Boolean
+  frame_lock_foot_bottom: Boolean
+
+  -- Derived from PLC main routine.
+  z_retracted:
+    (z_retracted_1a or z_retracted_2a) and z_retracted_1b and z_retracted_2b
+
+  all_eot_good:
+    plus_x_eot and minus_x_eot and plus_y_eot and minus_y_eot and z_eot
+}
+
+value XYPoint {
+  x: Float
+  y: Float
+}
+
+value ZPoint {
+  z: Float
+}
+
+entity MotionSafetyEnvelope {
+  limit_left: Float
+  limit_right: Float
+  limit_bottom: Float
+  limit_top: Float
+  z_limit_front: Float
+  z_limit_rear: Float
+  transfer_left: Float
+  transfer_right: Float
+  transfer_left_margin: Float
+  transfer_y_threshold: Float
+  headward_pivot_x: Float
+  headward_pivot_y: Float
+  headward_pivot_x_tolerance: Float
+  headward_pivot_y_tolerance: Float
+  z_collision_threshold: Float
+  apa_collision_bottom_y: Float
+  apa_collision_top_y: Float
+  transfer_zone_head_min_x: Float
+  transfer_zone_head_max_x: Float
+  transfer_zone_foot_min_x: Float
+  transfer_zone_foot_max_x: Float
+  support_collision_bottom_min_y: Float
+  support_collision_bottom_max_y: Float
+  support_collision_middle_min_y: Float
+  support_collision_middle_max_y: Float
+  support_collision_top_min_y: Float
+  support_collision_top_max_y: Float
+}
+
+entity OperatorDiagnostic {
+  message: String
+  code: SafetyDiagnosticCode?
+}
+
+-- ==========================================================================
+-- Config
+-- ==========================================================================
+
+config {
+  retracted_z_position: Float = 0.0
+  extended_z_position: Float = 418.0
+  front_z_position: Float = 150.0
+  back_z_position: Float = 250.0
+  z_extended_threshold: Float = 415.0
+  head_final_z_tolerance: Float = 1.0
+  position_acceptance_tolerance: Float = 0.1
+  latch_timeout: Duration = 10.seconds
+  latch_retry_interval: Duration = 1.seconds
+  g206_settle_delay: Duration = 0.5.seconds
+  g206_extend_timeout: Duration = 10.seconds
+  preemptive_latch_retry_count: Integer = 3
+  max_velocity: Float
+}
+
+-- ==========================================================================
+-- Given
+-- ==========================================================================
+
+given {
+  runtime_controller: RuntimeController
+  plc_controller: PLCController
+  head_controller: HeadController
+  head_state: HeadTransferState
+  switches: MachineSwitches
+  x_axis: Axis
+  y_axis: Axis
+  z_axis: Axis
+  safety: SafetyCircuit
+  tension: TensionControl
+  envelope: MotionSafetyEnvelope
+}
+
+-- ==========================================================================
+-- Rules: runtime readiness
+-- ==========================================================================
+
+rule RuntimeFallsBackToHardwareOnIOFailure {
+  when: HardwareBecomesNonfunctional()
+  requires: runtime_controller.mode != hardware
+
+  ensures: runtime_controller.mode = hardware
+  ensures: HeadTransferCleared()
+
+  @guidance
+    -- When PLC logic reports an error during a local head-transfer sequence,
+    -- the queued head steps are cleared before runtime error handling proceeds.
+}
+
+rule EstopOrParkBlocksMovement {
+  when: StopSignalActive(signal)
+  requires: signal in { estop, park }
+
+  ensures: runtime_controller.mode = stop
+  ensures:
+    if signal = estop:
+      runtime_controller.stop_mode = estop
+    if signal = park:
+      runtime_controller.stop_mode = park
+}
+
+rule MovementRequestRequiresRuntimeIdle {
+  when: OperatorRequestsMovement(command)
+
+  requires: runtime_controller.mode = stop
+  requires: runtime_controller.stop_mode = idle
+  requires: plc_controller.mode = ready
+  requires: head_controller.mode = idle
+
+  ensures: MovementRequestAccepted(command)
+
+  @guidance
+    -- Otherwise the command is rejected with a "Machine not ready" diagnostic
+    -- that includes the control, stop, PLC, and head blockers.
+}
+
+rule WindAndManualWaitForHeadTransfer {
+  when: GCodeLineWouldAdvance()
+  requires: head_controller.active_transfer
+
+  ensures: GCodeLineWaits()
+  ensures:
+    if runtime_controller.mode = wind:
+      WindSubState() = head_transfer
+    if runtime_controller.mode = manual:
+      ManualSubState() = head_transfer
+}
+
+rule HMIStopStopsMotionAndQueue {
+  when: StopMotionRequested()
+  requires: runtime_controller.mode in { wind, manual }
+
+  ensures: plc_controller.mode = hmi_stop
+  ensures: HeadStopRequested()
+  ensures: QueuedMotionAbortRequested()
+}
+
+-- ==========================================================================
+-- Rules: head position meaning and transfer
+-- ==========================================================================
+
+rule HeadPositionReadAbsent {
+  when: ReadHeadPosition()
+  requires: not head_state.stable_stage
+  requires: not head_state.stable_fixed
+
+  ensures: head_state.position = absent
+}
+
+rule HeadPositionReadFixed {
+  when: ReadHeadPosition()
+  requires: head_state.stable_fixed
+
+  ensures: head_state.position = fixed_side
+}
+
+rule HeadPositionReadStageZTarget {
+  when: ReadHeadPosition()
+  requires: head_state.stable_stage
+
+  ensures:
+    if Near(z_axis.actual_position, config.retracted_z_position, config.head_final_z_tolerance):
+      head_state.position = stage_side
+    if Near(z_axis.actual_position, config.front_z_position, config.head_final_z_tolerance):
+      head_state.position = level_a_side
+    if Near(z_axis.actual_position, config.back_z_position, config.head_final_z_tolerance):
+      head_state.position = level_b_side
+
+  @guidance
+    -- LEVEL_A_SIDE and LEVEL_B_SIDE are not separate PLC latch states.
+    -- They are stage-side head positions distinguished by Z location.
+}
+
+rule HeadTransferTargetResolution {
+  when: SetHeadPosition(target, velocity)
+  requires: target in { stage_side, level_a_side, level_b_side, fixed_side }
+
+  ensures:
+    if target = stage_side:
+      head_controller.target_z = config.retracted_z_position
+      head_controller.latch_target = stage_side
+    if target = level_a_side:
+      head_controller.target_z = config.front_z_position
+      head_controller.latch_target = stage_side
+    if target = level_b_side:
+      head_controller.target_z = config.back_z_position
+      head_controller.latch_target = stage_side
+    if target = fixed_side:
+      head_controller.target_z = config.retracted_z_position
+      head_controller.latch_target = fixed_side
+}
+
+rule HeadTransferRejectsUnknownPosition {
+  when: SetHeadPosition(target, velocity)
+  requires: target not in { stage_side, level_a_side, level_b_side, fixed_side }
+
+  ensures: OperatorDiagnostic.created(
+    message: "Unknown head transfer request.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule HeadTransferRequiresStableStart {
+  when: SetHeadPosition(target, velocity)
+  requires: not head_state.valid_stable_start
+
+  ensures: OperatorDiagnostic.created(
+    message: "Head transfer requires a valid stable starting state.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule StageTransferRequiresActuatorOne {
+  when: SetHeadPosition(target, velocity)
+  requires: head_state.position in { stage_side, level_a_side, level_b_side }
+  requires: head_state.actuator_position != stage_latched
+
+  ensures: OperatorDiagnostic.created(
+    message: "Stage-latched transfers require ACTUATOR_POS 1.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule SameSideHeadMoveOnlyMovesZ {
+  when: SetHeadPosition(target, velocity)
+  requires: head_state.valid_stable_start
+  requires: HeadSide(target) = HeadSide(head_state.position)
+
+  ensures: SafeZMoveRequested(head_controller.target_z, velocity)
+  ensures: head_controller.mode = seeking_to_final_position
+}
+
+rule StageToFixedG206Transfer {
+  when: SetHeadPosition(fixed_side, velocity)
+  requires: head_state.stable_stage
+
+  ensures: SafeZMoveRequested(config.extended_z_position, velocity)
+  ensures: head_controller.mode = extending_to_transfer
+  ensures: PlannedActuatorTransitions([stage_latched, rocker_at_fixed, mid_engagement])
+}
+
+rule FixedToStageG206Transfer {
+  when: SetHeadPosition(target, velocity)
+  requires: target in { stage_side, level_a_side, level_b_side }
+  requires: head_state.stable_fixed
+
+  ensures: SafeZMoveRequested(config.extended_z_position, velocity)
+  ensures: head_controller.mode = extending_to_transfer
+  ensures: PlannedActuatorTransitions([mid_engagement, stage_latched])
+}
+
+rule G206LatchingRequiresEnableActuator {
+  when: head_controller: HeadController.mode becomes latching
+  requires: not head_state.enable_actuator
+  requires: LatchWaitExpired(config.latch_timeout)
+
+  ensures: OperatorDiagnostic.created(
+    message: "Latch phase timed out while waiting for ENABLE_ACTUATOR while targeting latch side.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule G206ExtensionRequiresZExtended {
+  when: head_controller: HeadController.mode = extending_to_transfer
+  requires: ExtendWaitExpired(config.g206_extend_timeout)
+  requires: not head_state.z_extended
+
+  ensures: OperatorDiagnostic.created(
+    message: "Head transfer did not reach Z_EXTENDED before latching.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule G206ExtensionRequiresEnableActuator {
+  when: head_controller: HeadController.mode = extending_to_transfer
+  requires: ExtendWaitExpired(config.g206_extend_timeout)
+  requires: head_state.z_extended
+  requires: not head_state.enable_actuator
+
+  ensures: OperatorDiagnostic.created(
+    message: "Head transfer reached extension but ENABLE_ACTUATOR never became true.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule FinalHeadStateMustSettle {
+  when: FinalZMoveComplete()
+  requires: not StrictFinalHeadStateReached()
+
+  ensures: OperatorDiagnostic.created(
+    message: "Head transfer final state did not settle as requested.",
+    code: null
+  )
+  ensures: head_controller.mode = idle
+}
+
+rule FixedLatchBlocksUnsafeZMove {
+  when: SafeZMoveRequested(target_z, velocity)
+  requires: head_state.fixed_latched
+  requires: head_state.actuator_position != mid_engagement
+  requires: LatchRecoveryAttemptsFailed(config.preemptive_latch_retry_count)
+
+  ensures: OperatorDiagnostic.created(
+    message: "Cannot move Z while fixed-latched unless actuator reaches position 2.",
+    code: fixed_latch_not_safe
+  )
+  ensures: head_controller.mode = idle
+}
+
+-- ==========================================================================
+-- Rules: Python preflight safety validation
+-- ==========================================================================
+
+rule ManualGCodeSpeedLimit {
+  when: ManualGCodeLineParsed(line)
+  requires: line.feed_rate < 0 or line.feed_rate > config.max_velocity
+
+  ensures: OperatorDiagnostic.created(
+    message: "Invalid F-axis Speed, exceeding limit [0.0 , max_velocity]",
+    code: null
+  )
+}
+
+rule ManualGCodeZLimit {
+  when: ManualGCodeLineParsed(line)
+  requires: line.target_z < envelope.z_limit_front
+      or line.target_z > envelope.z_limit_rear
+
+  ensures: OperatorDiagnostic.created(
+    message: "Invalid Z-axis Coordinates, exceeding limit [target_z > z_limit_rear]",
+    code: null
+  )
+}
+
+rule ManualGCodeXZLimit {
+  when: ManualGCodeLineParsed(line)
+  requires: line.kind = xz_move
+  requires: line.target_x < envelope.limit_left
+      or line.target_x > envelope.limit_right
+
+  ensures: OperatorDiagnostic.created(
+    message: "Invalid X-axis Coordinates, exceeding limit [limit_left , limit_right]",
+    code: null
+  )
+}
+
+rule ManualGCodeYZLimit {
+  when: ManualGCodeLineParsed(line)
+  requires: line.kind = yz_move
+  requires: line.target_y < envelope.limit_bottom
+      or line.target_y > envelope.limit_top
+
+  ensures: OperatorDiagnostic.created(
+    message: "Invalid Y-axis Coordinates, exceeding limit [limit_bottom , limit_top]",
+    code: null
+  )
+}
+
+rule XYMovePreflight {
+  when: XYMoveRequested(start, target)
+
+  requires: target.x >= envelope.limit_left
+  requires: target.x <= envelope.limit_right
+  requires: target.y >= envelope.limit_bottom
+  requires: target.y <= envelope.limit_top
+  requires: not EntersForbiddenTransferRegion(target)
+  requires: not IntersectsHeadwardPivotKeepout(start, target)
+  requires: not IntersectsActiveZCollisionKeepout(start, target)
+
+  ensures: XYMoveAllowed()
+}
+
+rule XYMovePreflightRejected {
+  when: XYMoveRequested(start, target)
+  requires: not XYMoveWithinSafetyEnvelope(start, target)
+
+  ensures: OperatorDiagnostic.created(
+    message: CollisionValidationMessage(start, target),
+    code: null
+  )
+
+  @guidance
+    -- Possible messages include:
+    --   "has X=... outside [limit_left, limit_right]"
+    --   "has Y=... outside [limit_bottom, limit_top]"
+    --   "enters forbidden transfer region"
+    --   "enters winding-head pivot keepout"
+    --   "intersects winding-head pivot keepout"
+    --   "enters APA collision zone with Z extended"
+    --   "intersects APA collision zone with Z extended"
+    --   "enters head/foot frame-support keepout with Z extended"
+    --   "intersects head/foot frame-support keepout with Z extended"
+}
+
+rule CompensatedXMustRemainInsideRawLimits {
+  when: XYMoveRequested(start, target)
+  let raw_target_x = BacklashCompensatedRawX(target.x)
+  requires: raw_target_x < envelope.limit_left
+      or raw_target_x > envelope.limit_right
+
+  ensures: OperatorDiagnostic.created(
+    message: "Compensated X-axis target exceeds raw axis limits [limit_left, limit_right].",
+    code: null
+  )
+}
+
+-- ==========================================================================
+-- Rules: PLC hard interlocks
+-- ==========================================================================
+
+rule XYRequiresZRetracted {
+  when: plc_controller: PLCController.mode becomes xy_seek
+  requires: not switches.z_retracted
+      or z_axis.actual_position >= config.z_extended_threshold
+
+  ensures: plc_controller.error_code = xy_seek_z_extended
+  ensures: plc_controller.mode = error
+}
+
+rule XYRequiresAPAVertical {
+  when: plc_controller: PLCController.mode becomes xy_seek
+  requires: switches.z_retracted
+  requires: not switches.apa_is_vertical
+
+  ensures: plc_controller.error_code = apa_not_vertical
+  ensures: plc_controller.mode = error
+}
+
+rule XYRequiresHealthyAxes {
+  when: plc_controller: PLCController.mode becomes xy_seek
+  requires: x_axis.physical_fault or y_axis.physical_fault
+
+  ensures: plc_controller.error_code = xy_axis_fault
+  ensures: plc_controller.mode = error
+}
+
+rule XYRequiresNoSTO {
+  when: plc_controller: PLCController.mode becomes xy_seek
+  requires: x_axis.sto_inhibit or y_axis.sto_inhibit
+
+  ensures: plc_controller.error_code = sto_active
+  ensures: plc_controller.mode = error
+}
+
+rule XYWaitsForStableTension {
+  when: plc_controller: PLCController.mode becomes xy_seek
+  requires: tension.enabled
+  requires: not tension.stable
+
+  ensures: XYMotionNotIssuedYet()
+}
+
+rule XYEOTTrip {
+  when: switches: MachineSwitches.all_eot_good becomes false
+  requires: plc_controller.mode in { xy_seek, xy_jog }
+
+  ensures: CoordinatedMotionStopIssued()
+  ensures: plc_controller.mode = eot_trip
+}
+
+rule ZRequiresMasterTransferReady {
+  when: plc_controller: PLCController.mode becomes z_seek
+  requires: not MasterZGo()
+
+  ensures: plc_controller.error_code = z_master_transfer_not_ready
+  ensures: plc_controller.mode = error
+
+  @guidance
+    -- MASTER_Z_GO is false if fixed-latch withdrawal is unsafe, the
+    -- head/fixed/stage transfer sensors are not in the required state,
+    -- X/Y transfer windows are not safe, or a support-frame keepout is active.
+}
+
+rule ZRequiresHealthyAxis {
+  when: plc_controller: PLCController.mode becomes z_seek
+  requires: z_axis.physical_fault
+
+  ensures: plc_controller.error_code = z_axis_fault
+  ensures: plc_controller.mode = error
+}
+
+rule ZEOTTrip {
+  when: switches: MachineSwitches.z_eot becomes false
+  requires: plc_controller.mode = z_seek
+
+  ensures: plc_controller.error_code = z_eot_during_motion
+  ensures: plc_controller.mode = eot_trip
+}
+
+rule XZRequiresYTransferOK {
+  when: plc_controller: PLCController.mode becomes xz_seek
+  requires: not switches.y_transfer_ok
+
+  ensures: plc_controller.error_code = z_position_acceptance_failed
+  ensures: plc_controller.mode = error
+}
+
+rule YZRequiresXTransferOK {
+  when: plc_controller: PLCController.mode becomes yz_seek
+  requires: not switches.x_transfer_ok
+
+  ensures: plc_controller.error_code = z_position_acceptance_failed
+  ensures: plc_controller.mode = error
+}
+
+rule YZBlocksSupportCollisionTarget {
+  when: plc_controller: PLCController.mode becomes yz_seek
+  requires: YZTargetIntersectsLockedSupport()
+
+  ensures: plc_controller.error_code = z_position_acceptance_failed
+  ensures: plc_controller.mode = error
+}
+
+rule LatchingRequiresEnableActuator {
+  when: plc_controller: PLCController.mode becomes latching
+  requires: not head_state.enable_actuator
+
+  ensures: plc_controller.error_code = latch_not_enabled
+  ensures: plc_controller.mode = error
+}
+
+rule LatchingTimeoutTripsError {
+  when: LatchingTimeout()
+  requires: plc_controller.mode = latching
+
+  ensures: plc_controller.error_code = latch_timeout
+  ensures: plc_controller.mode = error
+}
+
+rule SafetyTripDisablesServoTorque {
+  when: safety: SafetyCircuit.healthy becomes false
+
+  ensures: safety.tripped = true
+  ensures: ServoTorqueDisabled()
+}
+
+rule SafetyResetRequiresHealthyCircuit {
+  when: safety: SafetyCircuit.reset_button becomes true
+  requires: safety.healthy
+
+  ensures: safety.tripped = false
+  ensures: ServoSafetyFunctionsReset()
+}
+
+rule WireBreakTripsPLC {
+  when: tension: TensionControl.wire_break becomes true
+  requires: tension.enabled
+
+  ensures: plc_controller.error_code = wire_break
+  ensures: plc_controller.mode = error
+}
+
+rule OvertensionTripsPLC {
+  when: tension: TensionControl.overtension becomes true
+  requires: tension.enabled
+
+  ensures: plc_controller.error_code = overtension
+  ensures: plc_controller.mode = error
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant PLCHeadPosIsCoarse {
+  -- The PLC HEAD_POS tag is not the same as HeadPosition.
+  -- PLC HEAD_POS = -1 when neither stage nor fixed latch is asserted.
+  -- PLC HEAD_POS = 0 when the head is stage-latched, or when fixed-latched
+  --   while ACTUATOR_POS = 3 during the unsafe transient.
+  -- PLC HEAD_POS = 3 when fixed-latched and ACTUATOR_POS = 2.
+  -- HeadPosition level_a_side and level_b_side are Python/runtime meanings
+  -- derived from stage-side latch plus Z position.
+}
+
+invariant ActuatorPositionSafety {
+  -- ACTUATOR_POS = 1 is required for a trusted stage-latched start.
+  -- ACTUATOR_POS = 2 is required for a trusted fixed-latched state and for
+  --   safe Z withdrawal from the fixed mount.
+  -- ACTUATOR_POS = 3 is transient and must not allow Z withdrawal.
+  -- ACTUATOR_POS = 0 is an intermediate/free-space cycle state.
+}
+
+invariant LatchPulseRequiresMechanicalEnable {
+  -- The latch output may only pulse when ENABLE_ACTUATOR is true.
+  -- ENABLE_ACTUATOR requires stage present, fixed present, and Z extended
+  -- for head-transfer latching.
+}
+
+invariant XYCollisionEnvelope {
+  -- Every manual, interpreted G-code, and queued XY path must remain inside
+  -- machine travel bounds, avoid the forbidden transfer region, avoid the
+  -- winding-head pivot keepout, and avoid active Z-collision keepouts.
+  -- Arc paths are checked by sampling/interpolation before acceptance.
+}
+
+invariant ZExtendedCollisionEnvelope {
+  -- When Z is above the configured collision threshold, XY paths must avoid:
+  --   - APA collision zones outside the head/foot transfer slots
+  --   - Head support keepouts when the matching head frame lock is active
+  --   - Foot support keepouts when the matching foot frame lock is active
+}
+
+invariant RuntimeAndPLCBothEnforceSafety {
+  -- Python preflight checks are user-facing and provide descriptive messages.
+  -- PLC interlocks remain authoritative and trip the machine even if Python
+  -- validation is bypassed or stale.
+}
+
+invariant ErrorStateRequiresOperatorRecovery {
+  -- PLC error state blocks new motion until a reset clears ERROR_CODE and
+  -- returns the PLC to ready. EOT recovery is a separate state that moves only
+  -- away from the tripped travel limits.
+}
+
+-- ==========================================================================
+-- Error code reference
+-- ==========================================================================
+
+-- 2001: xy_jog_z_extended, "XY Jog, Z is extended"
+-- 3001: xy_seek_z_extended, "XY Seek, Z is extended"
+-- 3002: xy_axis_fault, "Physical X or Y axis fault"
+-- 3003: xy_position_acceptance_failed, "Motion complete, but position is incorrect"
+-- 3004: sto_active, "Emergency stop - STO active"
+-- 3005: apa_not_vertical, "APA not vertical for XY motion"
+-- 5001: z_master_transfer_not_ready, "Z Seek, Master Z Transfer Enable Not Ready"
+-- 5002: z_axis_fault, "Physical Z axis fault"
+-- 5003: z_position_acceptance_failed, "Motion complete, but position is incorrect"
+-- 5004: fixed_latch_not_safe, "Latch not in position 2 when retrieving winder head"
+-- 5005: z_eot_during_motion, "Z EOT triggered during Z motion"
+-- 6001: latch_not_enabled, "Latching State, Z Stage not present OR Z Fixed not Present OR Z Not Extended"
+-- 6002: latch_timeout, "Latching State, Latch did not move to next position"
+-- 8001: wire_break, "Wire broke"
+-- 8002: overtension, "Wire over-tensioned"
+
+-- ==========================================================================
+-- Open questions
+-- ==========================================================================
+
+open question "Should PLC HEAD_POS = 0 during ACTUATOR_POS = 3 be exposed as a distinct transient head position in operator-facing status, rather than sharing the stage-side code?"
+
+open question "Should XZ/YZ transfer moves use the same descriptive Python diagnostics as XY preflight, instead of collapsing PLC failures into error code 5003?"
+
+open question "Should the queued-motion state remain a derived execution condition, or should a future PLC routine assign it a dedicated PLCMode value distinct from yz_seek?"
