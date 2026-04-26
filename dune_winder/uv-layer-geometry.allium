@@ -1,0 +1,279 @@
+-- allium: 3
+-- uv-layer-geometry.allium
+
+-- Scope: Final U/V APA wire geometry shared by dune_winder and dune_tension.
+-- Includes: U/V frame pin systems, A/B pin-family equivalence, board-face ranges,
+--           final wire-segment endpoint formulas, endpoint face classification,
+--           and wrap-side/tangent side needed to identify the occupied side of a pin.
+-- Excludes:
+--   - G-code rendering, G-code parsing, and template syntax
+--   - Roller-arm, head-transfer, pull-in, hover, pause, and offset mechanics
+--   - Winding execution order except where a stable wire-segment identifier is needed
+--   - Tension measurement scan planning, measurable clipping, comb splitting, and laser offsets
+--   - Calibration acquisition workflow and machine-space fitting
+--
+-- Spec split:
+--   This is the base geometry spec: where each final U/V wire segment goes.
+--   U/V recipe generation should be specified separately as "how the final geometry
+--   is applied over time". Tension measurement should be specified separately as
+--   "how a final wire segment is projected into measurable laser poses".
+
+value PinRange {
+  first: Integer
+  last: Integer
+}
+
+value PinName {
+  layer: UvLayer
+  family: PinFamily
+  number: Integer
+}
+
+value PinPair {
+  start: PinName
+  end: PinName
+}
+
+value WrapSide {
+  x_side: plus | minus
+  y_side: plus | minus
+}
+
+enum UvLayer { u | v }
+enum PinFamily { a | b }
+enum FrameFace { head | bottom | foot | top }
+
+entity UvLayerFrame {
+  layer: UvLayer
+  pin_count: Integer
+  formula_segment_min: Integer
+  formula_segment_max: Integer
+  measurable_segment_min: Integer
+  measurable_segment_max: Integer
+
+  head: PinRange
+  bottom: PinRange
+  foot: PinRange
+  top: PinRange
+
+  named_bottom_foot_end: Integer
+  named_bottom_head_end: Integer
+  named_top_foot_end: Integer
+  named_top_head_end: Integer
+  named_foot_bottom_end: Integer
+  named_foot_top_end: Integer
+  named_head_bottom_end: Integer
+  named_head_top_end: Integer
+}
+
+entity UvWireSegment {
+  layer: UvLayer
+  segment_number: Integer
+  endpoints_b: PinPair
+  endpoints_a: PinPair
+  start_face: FrameFace
+  end_face: FrameFace
+}
+
+entity PinWrapClassification {
+  pin: PinName
+  side: WrapSide
+}
+
+entity UvEndpointFaceMapping {
+  layer: UvLayer
+  segment_number: Integer
+  start_face: FrameFace
+  end_face: FrameFace
+}
+
+config {
+  u_pin_count: Integer = 2401
+  v_pin_count: Integer = 2399
+
+  formula_segment_min: Integer = 1
+  formula_segment_max: Integer = 1151
+  measurable_segment_min: Integer = 8
+  measurable_segment_max: Integer = 1146
+
+  u_head: PinRange = { first: 1, last: 400 }
+  u_bottom: PinRange = { first: 401, last: 1200 }
+  u_foot: PinRange = { first: 1201, last: 1601 }
+  u_top: PinRange = { first: 1602, last: 2401 }
+
+  v_head: PinRange = { first: 1, last: 399 }
+  v_bottom: PinRange = { first: 400, last: 1199 }
+  v_foot: PinRange = { first: 1200, last: 1599 }
+  v_top: PinRange = { first: 1600, last: 2399 }
+
+  u_segment_1_start_b: Integer = 450
+  u_segment_1_end_b: Integer = 350
+  v_segment_1_start_b: Integer = 49
+  v_segment_1_end_b: Integer = 2350
+}
+
+given {
+  u_frame: UvLayerFrame
+  v_frame: UvLayerFrame
+}
+
+rule DefineUvLayerFrames {
+  when: UvGeometryLoaded()
+
+  ensures: UvLayerFrame.created(
+    layer: u,
+    pin_count: config.u_pin_count,
+    formula_segment_min: config.formula_segment_min,
+    formula_segment_max: config.formula_segment_max,
+    measurable_segment_min: config.measurable_segment_min,
+    measurable_segment_max: config.measurable_segment_max,
+    head: config.u_head,
+    bottom: config.u_bottom,
+    foot: config.u_foot,
+    top: config.u_top,
+    named_bottom_foot_end: 1200,
+    named_bottom_head_end: 401,
+    named_top_foot_end: 1602,
+    named_top_head_end: 2401,
+    named_foot_bottom_end: 1201,
+    named_foot_top_end: 1601,
+    named_head_bottom_end: 400,
+    named_head_top_end: 1
+  )
+
+  ensures: UvLayerFrame.created(
+    layer: v,
+    pin_count: config.v_pin_count,
+    formula_segment_min: config.formula_segment_min,
+    formula_segment_max: config.formula_segment_max,
+    measurable_segment_min: config.measurable_segment_min,
+    measurable_segment_max: config.measurable_segment_max,
+    head: config.v_head,
+    bottom: config.v_bottom,
+    foot: config.v_foot,
+    top: config.v_top,
+    named_bottom_foot_end: 1199,
+    named_bottom_head_end: 400,
+    named_top_foot_end: 1600,
+    named_top_head_end: 2399,
+    named_foot_bottom_end: 1200,
+    named_foot_top_end: 1599,
+    named_head_bottom_end: 399,
+    named_head_top_end: 1
+  )
+}
+
+invariant WireSegmentEndpointsAreOppositeFamilyEquivalent {
+  for segment in UvWireSegment:
+    segment.endpoints_a.start = translate_family(segment.endpoints_b.start, a)
+      and segment.endpoints_a.end = translate_family(segment.endpoints_b.end, a)
+}
+
+rule DefineUvWireSegment {
+  when: NeedUvWireSegment(layer, segment_number)
+
+  requires: layer in { u, v }
+  requires: segment_number >= config.formula_segment_min
+  requires: segment_number <= config.formula_segment_max
+
+  ensures: UvWireSegment.created(
+    layer: layer,
+    segment_number: segment_number,
+    endpoints_b: b_family_segment_endpoints(layer, segment_number),
+    endpoints_a: a_family_segment_endpoints(layer, segment_number),
+    start_face: face_for_pin(b_family_segment_endpoints(layer, segment_number).start),
+    end_face: face_for_pin(b_family_segment_endpoints(layer, segment_number).end)
+  )
+
+  @guidance
+    -- Pin wrapping is inclusive modulo the layer pin count:
+    --   wrap(layer, n) = 1 + ((n - 1) mod pin_count(layer))
+    --
+    -- Opposite-family translation preserves the physical pin position on the
+    -- other APA side. B-family pins are the canonical physical numbering used
+    -- for segment formulas. For a B-family pin b:
+    --   opposite B->A number = 1 + ((head.last - b) mod pin_count(layer))
+    --
+    -- The same operation translates A-family pins back to B-family pins.
+    --
+    -- Canonical B-family endpoints:
+    --   U segment s:
+    --     start = B wrap(U, 450 + s - 1)
+    --     end   = B wrap(U, 350 - (s - 1))
+    --
+    --   V segment s:
+    --     start = B wrap(V, 49 + s - 1)
+    --     end   = B wrap(V, 2350 - (s - 1))
+    --
+    -- Representative examples from the implementation:
+    --   U segment 1    -> B450, B350
+    --   U segment 8    -> B457, B343
+    --   U segment 1151 -> B1600, B1601
+    --   V segment 8    -> B56, B2343
+    --   V segment 401  -> B449, B1950
+    --   V segment 1151 -> B1199, B1200
+    --
+    -- A-family endpoints are the opposite-family translations of the canonical
+    -- B-family endpoints:
+    --   U segment 8    -> A2345, A58
+    --   U segment 1151 -> A1202, A1201
+    --   V segment 8    -> A344, A456
+    --   V segment 1151 -> A1600, A1599
+}
+
+rule ClassifyPinWrapSide {
+  when: NeedWrapSide(pin)
+
+  requires: pin.layer in { u, v }
+  requires: pin.family in { a, b }
+  requires: pin.number >= 1
+  requires: pin.number <= pin_count(pin.layer)
+
+  ensures: PinWrapClassification.created(
+    pin: pin,
+    side: wrap_side_for_pin(pin)
+  )
+
+  @guidance
+    -- Wrap side is a property of the final wire around the pin, not of a
+    -- particular robot move.
+    --
+    -- The current code exposes it as x_side/y_side. A compact parity rule is:
+    --   layer_bit = 0 for U, 1 for V
+    --   family_bit = 0 for B, 1 for A
+    --   x_face_bit = 0 for bottom, 1 for top
+    --   y_face_bit = 0 for head, 1 for foot
+    --
+    -- On top/bottom faces:
+    --   x_side = plus  when layer_bit xor family_bit xor x_face_bit = 0
+    --   x_side = minus otherwise
+    --
+    -- On head/foot faces:
+    --   y_side = plus  when layer_bit xor family_bit xor y_face_bit = 0
+    --   y_side = minus otherwise
+    --
+    -- The layout API also presents this as tangent_sides(pin), because
+    -- downstream planners need to choose the tangent contact side.
+}
+
+rule ReportEndpointFacesForTensionConsumers {
+  when: NeedUvEndpointFaceMapping(layer, segment_number)
+
+  requires: segment_number >= config.measurable_segment_min
+  requires: segment_number <= config.measurable_segment_max
+
+  let segment = UvWireSegment(layer: layer, segment_number: segment_number)
+
+  ensures: UvEndpointFaceMapping.created(
+    layer: layer,
+    segment_number: segment_number,
+    start_face: segment.start_face,
+    end_face: segment.end_face
+  )
+
+  @guidance
+    -- dune_tension uses this mapping to group measured segments by endpoint
+    -- side, for example V segment 401 maps bottom -> top and V segment 8 maps
+    -- head -> top. That is a consumer of this geometry, not a separate pin
+    -- numbering rule.
+}
