@@ -65,7 +65,7 @@ class _FakeCanvas:
 
 
 class _FakeWidget:
-    instances = []
+    instances: list[_FakeWidget] = []
 
     def __init__(self, *args, **kwargs):
         self.args = args
@@ -245,6 +245,7 @@ def test_build_request_from_form(monkeypatch):
     form = gui._FormState(
         mode_var=_FakeVar(value="Pins"),
         layer_var=_FakeVar(value="V"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value="A1"),
         pin_b_var=_FakeVar(value="A2"),
         wrap_var=_FakeVar(value="1"),
@@ -270,6 +271,7 @@ def test_calculate_and_render_updates_summary_and_canvas(monkeypatch):
     form = gui._FormState(
         mode_var=_FakeVar(value="Pins"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value="B1201"),
         pin_b_var=_FakeVar(value="A2001"),
         wrap_var=_FakeVar(value="1"),
@@ -414,6 +416,7 @@ def test_calculate_and_render_surfaces_validation_error(monkeypatch):
     form = gui._FormState(
         mode_var=_FakeVar(value="Pins"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value="bad"),
         pin_b_var=_FakeVar(value="B2"),
         wrap_var=_FakeVar(value="1"),
@@ -480,6 +483,7 @@ def test_build_request_from_wrap_segment_includes_alternating_side_segments(
     form = gui._FormState(
         mode_var=_FakeVar(value="Wrap/Segment"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value=""),
         pin_b_var=_FakeVar(value=""),
         wrap_var=_FakeVar(value="1"),
@@ -505,6 +509,7 @@ def test_build_request_from_wrap_segment_preserves_adjacent_pin_for_recipe_trans
     form = gui._FormState(
         mode_var=_FakeVar(value="Wrap/Segment"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value=""),
         pin_b_var=_FakeVar(value=""),
         wrap_var=_FakeVar(value="1"),
@@ -532,6 +537,7 @@ def test_build_request_from_v_wrap_segment_includes_alternating_side_segments(
     form = gui._FormState(
         mode_var=_FakeVar(value="Wrap/Segment"),
         layer_var=_FakeVar(value="V"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value=""),
         pin_b_var=_FakeVar(value=""),
         wrap_var=_FakeVar(value="1"),
@@ -557,6 +563,7 @@ def test_build_request_from_v_wrap_segment_preserves_adjacent_pin_for_recipe_tra
     form = gui._FormState(
         mode_var=_FakeVar(value="Wrap/Segment"),
         layer_var=_FakeVar(value="V"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value=""),
         pin_b_var=_FakeVar(value=""),
         wrap_var=_FakeVar(value="1"),
@@ -584,6 +591,7 @@ def test_build_request_from_wrap_segment_preserves_adjacent_pin_on_wrap_5_and_11
     form_5 = gui._FormState(
         mode_var=_FakeVar(value="Wrap/Segment"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value=""),
         pin_b_var=_FakeVar(value=""),
         wrap_var=_FakeVar(value="5"),
@@ -599,6 +607,7 @@ def test_build_request_from_wrap_segment_preserves_adjacent_pin_on_wrap_5_and_11
     form_11 = gui._FormState(
         mode_var=_FakeVar(value="Wrap/Segment"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value=""),
         pin_b_var=_FakeVar(value=""),
         wrap_var=_FakeVar(value="11"),
@@ -645,6 +654,7 @@ def test_calculate_and_render_draws_alternating_side_view(monkeypatch):
     form = gui._FormState(
         mode_var=_FakeVar(value="Pins"),
         layer_var=_FakeVar(value="U"),
+        command_var=_FakeVar(value=""),
         pin_a_var=_FakeVar(value="B1201"),
         pin_b_var=_FakeVar(value="A1201"),
         wrap_var=_FakeVar(value="1"),
