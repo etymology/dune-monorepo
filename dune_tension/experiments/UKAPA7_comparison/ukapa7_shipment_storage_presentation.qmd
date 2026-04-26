@@ -2,7 +2,8 @@
 title: "UKAPA7 After Storage and Shipment"
 format:
   revealjs:
-    theme: simple
+    theme: dark
+    background-color: "#111111"
     slide-number: true
     transition: none
 jupyter: python3
