@@ -4,12 +4,13 @@
 -- Scope: Final U/V APA wire geometry shared by dune_winder and dune_tension.
 -- Includes: U/V frame pin systems, A/B pin-side equivalence, board-edge ranges,
 --           final wire-segment endpoint formulas, endpoint edge classification,
+--           continuous pin succession for the single applied wire path,
 --           and wrap-side tangent normal signs needed to identify the occupied
 --           tangent side of a pin.
 -- Excludes:
 --   - G-code rendering, G-code parsing, and template syntax
 --   - Roller-arm, head-transfer, pull-in, hover, pause, and offset mechanics
---   - Winding execution order except where a stable wire-segment identifier is needed
+--   - Placement motion order beyond the intrinsic pin succession
 --   - Tension measurement scan planning, measurable clipping, comb splitting, and laser offsets
 --   - Calibration acquisition workflow and machine-space fitting
 --
@@ -76,6 +77,13 @@ entity UvWireSegment {
   end_edge: FrameEdge
 }
 
+entity UvContinuousWrapPath {
+  layer: UvLayer
+  wrap_number_zero_based: Integer
+  pin_succession: List<PinName>
+  next_wrap_start: PinName?
+}
+
 entity PinWrapClassification {
   pin: PinName
   wrap_side: WrapSide
@@ -111,6 +119,10 @@ config {
   u_segment_1_end_b: Integer = 350
   v_segment_1_start_b: Integer = 49
   v_segment_1_end_b: Integer = 2350
+
+  wrap_count: Integer = 400
+  first_wrap_index: Integer = 0
+  last_wrap_index: Integer = 399
 }
 
 given {
@@ -220,6 +232,70 @@ rule DefineUvWireSegment {
     --   U segment 1151 -> A1202, A1201
     --   V segment 8    -> A344, A456
     --   V segment 1151 -> A1600, A1599
+}
+
+rule DefineUvContinuousWrapPath {
+  when: NeedUvContinuousWrapPath(layer, wrap_number)
+
+  requires: layer in { u, v }
+  requires: wrap_number >= config.first_wrap_index
+  requires: wrap_number <= config.last_wrap_index
+
+  ensures: UvContinuousWrapPath.created(
+    layer: layer,
+    wrap_number_zero_based: wrap_number,
+    pin_succession: continuous_wrap_pins(layer, wrap_number),
+    next_wrap_start: continuous_wrap_next_start(layer, wrap_number)
+  )
+
+  @guidance
+    -- The U/V layer is applied as one continuous wire path. The segment
+    -- formulas above are a useful final-state view, especially for tension
+    -- measurement, but they do not replace the ordered path by which the wire
+    -- wraps around pins.
+    --
+    -- A wrap path is expressed as an ordered list of pin positions. Adjacent
+    -- pins in the list define the applied wire spans for that part of the
+    -- continuous wire. Side changes, such as B(...) -> BtoA(...), are part of
+    -- the geometry of the wire path, not merely machine transfer bookkeeping.
+    --
+    -- B(n) means pin n on the B side. BtoA(n) means the A-side pin at the
+    -- same physical position as B-side pin n.
+    --
+    -- For U, with zero-based wrap n, the pin succession is:
+    --   1.  BtoA(foot_bottom_end + n)
+    --   2.  B(foot_bottom_end + n)
+    --   3.  B(top_foot_end + 399 - n)
+    --   4.  BtoA(top_foot_end + 399 - n)
+    --   5.  BtoA(bottom_head_end + n)
+    --   6.  B(bottom_head_end + n)
+    --   7.  B(head_bottom_end - n)
+    --   8.  BtoA(head_bottom_end - n)
+    --   9.  BtoA(top_head_end - 399 + n)
+    --   10. B(top_head_end - 399 + n)
+    --   11. B(bottom_foot_end - n)
+    --   12. BtoA(bottom_foot_end - n)
+    --
+    -- The U path then continues from the last point of wrap n to:
+    --   BtoA(foot_bottom_end + n + 1)
+    -- and, after the final wrap, to B(foot_top_end).
+    --
+    -- For V, with zero-based wrap n, the pin succession is:
+    --   1.  B(bottom_head_end + n)
+    --   2.  B(top_foot_end + 399 - n)
+    --   3.  BtoA(top_foot_end + 399 - n)
+    --   4.  BtoA(foot_bottom_end + n)
+    --   5.  B(foot_bottom_end + n)
+    --   6.  B(bottom_foot_end - n)
+    --   7.  BtoA(bottom_foot_end - n)
+    --   8.  BtoA(top_head_end - 399 + n)
+    --   9.  B(top_head_end - 399 + n)
+    --   10. B(head_bottom_end - n)
+    --   11. BtoA(head_bottom_end - n)
+    --   12. BtoA(bottom_head_end + n + 1)
+    --
+    -- The V path then continues from the last point of wrap n to:
+    --   B(bottom_head_end + n + 1)
 }
 
 rule ClassifyPinWrapSide {
