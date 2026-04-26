@@ -4,7 +4,8 @@
 -- Scope: Final U/V APA wire geometry shared by dune_winder and dune_tension.
 -- Includes: U/V frame pin systems, A/B pin-family equivalence, board-face ranges,
 --           final wire-segment endpoint formulas, endpoint face classification,
---           and wrap-side/tangent side needed to identify the occupied side of a pin.
+--           and wrap-side tangent normal signs needed to identify the occupied
+--           side of a pin.
 -- Excludes:
 --   - G-code rendering, G-code parsing, and template syntax
 --   - Roller-arm, head-transfer, pull-in, hover, pause, and offset mechanics
@@ -35,8 +36,8 @@ value PinPair {
 }
 
 value WrapSide {
-  x_side: plus | minus
-  y_side: plus | minus
+  x_sign: Integer
+  y_sign: Integer
 }
 
 enum UvLayer { u | v }
@@ -238,22 +239,33 @@ rule ClassifyPinWrapSide {
     -- Wrap side is a property of the final wire around the pin, not of a
     -- particular robot move.
     --
-    -- The current code exposes it as x_side/y_side. A compact parity rule is:
+    -- The wrap-side output is a signed normal vector in {-1, 1}^2. Its
+    -- components are the signs of the tangent normal vector from the pin
+    -- center to the tangent point where the wire contacts that pin:
+    --
+    --   tangent_point = pin_center + pin_radius * wrap_side
+    --   wrap_side = (x_sign, y_sign)
+    --   x_sign in {-1, 1}
+    --   y_sign in {-1, 1}
+    --
+    -- A compact parity rule for the signs is:
     --   layer_bit = 0 for U, 1 for V
     --   family_bit = 0 for B, 1 for A
     --   x_face_bit = 0 for bottom, 1 for top
     --   y_face_bit = 0 for head, 1 for foot
     --
     -- On top/bottom faces:
-    --   x_side = plus  when layer_bit xor family_bit xor x_face_bit = 0
-    --   x_side = minus otherwise
+    --   x_sign =  1 when layer_bit xor family_bit xor x_face_bit = 0
+    --   x_sign = -1 otherwise
     --
     -- On head/foot faces:
-    --   y_side = plus  when layer_bit xor family_bit xor y_face_bit = 0
-    --   y_side = minus otherwise
+    --   y_sign =  1 when layer_bit xor family_bit xor y_face_bit = 0
+    --   y_sign = -1 otherwise
     --
-    -- The layout API also presents this as tangent_sides(pin), because
-    -- downstream planners need to choose the tangent contact side.
+    -- The non-dominant component is still part of the output so consumers can
+    -- treat wrap side uniformly as a 2D sign vector. The current Python layout
+    -- API presents the same information as plus/minus strings and integer
+    -- x_sign/y_sign helpers.
 }
 
 rule ReportEndpointFacesForTensionConsumers {
