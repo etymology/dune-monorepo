@@ -67,60 +67,69 @@ save_layer_change_in_tension_plot(
 )
 ```
 
-## UKAPA7 After Storage and Shipment
+# UKAPA7 After Storage and Shipment
 
-- What happened to wire tensions after storage and transatlantic shipment from the UK to Chicago?
-- UK factory measurements: December 10, 2023.
-- Chicago measurements: March 11, 2026.
-- Headline result: Chicago tensions are lower by about 0.5 N on average, probably from relaxation during storage.
-- No tensions are out of the 4.0-8.5 N specification, and there is no evidence of shipping damage.
+## Tension changes
 
-## What We Are Comparing
+- We compare UK factory measurements uploaded to the database on December 10, 2023 against Chicago measurements from March 11, 2026.
+- Chicago tensions are on average lower ($\Delta \sim 0.5$ N, $\sigma = 0.4$ N) probably due to relaxation during storage.
+- No tensions are out of spec [4-8.5], no evidence of shipping damage.
+- The tensions
 
-- **G layer:** full comparison on both sides, with 481 aligned wires on side A and 481 on side B.
-- **U layer:** partial Chicago coverage, with 385 aligned wires on side A and 641 on side B.
-- U-layer wires were accessed through a slit cut in the G wires near the middle of the APA.
+## Measurement conditions
+
+- In the absence of a DWA we were able to measure the outer two layers of wires before disassembly.
+- **G layer:** full comparison on both sides, `481` aligned wires on side A and `481` on side B.
+- **U layer:** partial Chicago coverage only, with `385` aligned wires on side A and `641` on side B.
+- U layer wires were accessed through a "slit" cut in the G wires near the middle of the APA.
+- The measurements were taken in similar but not identical ways
+- The frame is in a similar state for the G layer but not for the U layer due to the added tension of the G layer over it.
 
 ## G Layer
 
-- Most wires on both sides changed by about -0.45 N, with Chicago lower.
-- Wire-by-wire differences range from -1.63 N to +1.32 N, with sigma about 0.4 N.
-- Apparent tension increases are less likely than compounded measurement uncertainty.
+- Most wires on both sides changed by `-0.45 N` (Chicago lower).
+- On a wire-by-wire basis, differences range from `-1.63` to `+1.32` with `σ = 0.4`
+- Actual increase in tension is less likely than compounded measurement uncertainties
 
-## G Layer: Raw Tensions
+## G Layer Landscape
 
-![](ukapa7_landscape_G.png)
+![g both sides](ukapa7_landscape_G.png)
 
-## G Layer: Change in Tension
+## G Layer Change in Tension
 
-![](ukapa7_change_in_tension_G.png)
+![G change in tension](ukapa7_change_in_tension_G.png)
 
 ## U Layer
 
-- Most wires dropped by about -0.5 N.
-- Differences range from -3.1 N to +0.68 N, with sigma about 0.5 N.
-- The negative outliers suggest measurement errors in the UK data.
-- Frame deformation after the G layer may have changed the U-layer tension distribution.
+- Most wires dropped about `-0.5N`
+- Differences from `-3.1` to `+0.68` `σ = 0.5`
+- The negative outliers suggest measurement errors in the UK data
+- Frame deformation after the G layer may have changed the shape of the U-layer tension distribution
 
-## U Layer: Raw Tensions
+## U Layer Landscape
 
-![](ukapa7_landscape_U.png)
+![U both sides](ukapa7_landscape_U.png)
 
-## U Layer: Change in Tension
+## U Layer Change in Tension
 
-![](ukapa7_change_in_tension_U.png)
+![U change in tension](ukapa7_change_in_tension_U.png)
 
-## Storage and Shipment Interpretation
+## Discussion
 
-- A decrease of about 0.5 N over 2.25 years is consistent with wire relaxation under stress.
-- Apparent +0.5 N changes are probably not real increases, but combined measurement uncertainty.
-- Apparent -3 N changes are also probably not real, and likely reflect mistaken measurements at Daresbury.
-- Tension changes, even large apparent ones, should not disqualify acceptance if the final tension is acceptable.
+- ~0.5N decrease over 2.25y consistent with wire relaxation under stress
+- The modal decrease is clear but on the individual wire level, noisy
+- Huge drops (`-3N`) probably the result of mistaken measurements at Daresbury
 
-## Final UKAPA7 G Tension
+## Recommendations
 
-![](../../data/tension_plots/tension_plot_UKAPA7_G.png)
+- Changes in tension even large ones shouldn't disqualify acceptance if the final tension is acceptable.
+- Consortium should establish standards for the final acceptable tensions before installation, taking into account decreasing rate of relaxation
+- Plausibly, 5.5->5.0 N over 3 years => 5.0->4.8-4.9 N over the next several years
 
-## Final UKAPA7 U Tension
+## G Wire Tension Profile
 
-![](../../data/tension_plots/tension_plot_UKAPA7_U.png)
+![all g wires](../../data/tension_plots/tension_profile_cloud_G_mode_allsamples_cov0p5_it3_bins40.png)
+
+## U Wire Tension Profile
+
+![all u wires](../../data/tension_plots/tension_profile_cloud_U_noscale_allsamples_cov0p5_it3_bins40.png)
