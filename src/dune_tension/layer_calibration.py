@@ -211,7 +211,7 @@ def load_normalized_layer_calibration(layer: str) -> dict[str, Any]:
     return {
         "layer": requested_layer,
         "calibrationFile": local_path.name,
-        "pinDiameterMm": float(geometry.pinDiameter),
+        "pinDiameterMm": float(getattr(geometry, "pinDiameter")),
         "locations": {
             pin_name: {
                 "x": float(location.x),

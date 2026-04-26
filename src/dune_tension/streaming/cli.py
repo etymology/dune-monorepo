@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import cast
 
 from dune_tension.streaming.controller import (
     StreamingControllerConfig,
@@ -112,7 +113,7 @@ def main_stream_replay(argv: list[str] | None = None) -> None:
     parser.add_argument("--expected-frequency", type=float, default=None)
     parser.add_argument("--csv-out", default=None)
     args = parser.parse_args(argv)
-    wav_paths = iter_wav_paths(args.path)
+    wav_paths = cast(list[str | Path], list(iter_wav_paths(args.path)))
     summaries = analyze_wav_paths(
         wav_paths,
         expected_frequency_hz=args.expected_frequency,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Generator
+
 import pytest
 
 import dune_tension.geometry as geometry
@@ -24,7 +26,7 @@ def _fake_calibration(layer: str) -> dict[str, object]:
 
 
 @pytest.fixture(autouse=True)
-def _clear_recipe_map_caches() -> None:
+def _clear_recipe_map_caches() -> Generator[None]:
     uv_wire_recipe_map._canonical_segment_comments.cache_clear()
     uv_wire_recipe_map._layer_metadata.cache_clear()
     uv_wire_recipe_map._layer_calibration.cache_clear()

@@ -25,13 +25,14 @@ from dune_tension.streaming.models import (
     RescueQueueItem,
     StreamingManifest,
     StreamingSegment,
+    StreamingSegmentMode,
     WireCandidate,
 )
 from dune_tension.streaming.pose import (
     build_measurement_pose,
     stage_x_for_laser_target,
 )
-from dune_tension.streaming.runtime import MeasurementRuntime
+from dune_tension.streaming.runtime import AudioStreamService, MeasurementRuntime
 from dune_tension.streaming.storage import StreamingSessionRepository
 from dune_tension.tensiometer_functions import make_config
 from dune_tension.tension_calculation import wire_equation
@@ -153,7 +154,7 @@ class StreamingMeasurementController:
         self.evidence_field = PitchEvidenceField()
         self._active_repo: StreamingSessionRepository | None = None
         self._active_session_id: str | None = None
-        self._active_audio_stream = None
+        self._active_audio_stream: AudioStreamService | None = None
 
     def _notify(self, **payload: object) -> None:
         try:
@@ -333,7 +334,7 @@ class StreamingMeasurementController:
         segment: StreamingSegment,
         chunks,
         expected_frequency_hz: float | None,
-        source_mode: str,
+        source_mode: StreamingSegmentMode,
         wire_hint: int | None = None,
     ) -> None:
         for chunk_index, chunk in enumerate(chunks):
@@ -388,7 +389,9 @@ class StreamingMeasurementController:
             return 0.0
         return active_score / (active_score + competitor_score)
 
-    def _aggregate_candidates(self, *, source_mode: str) -> dict[int, WireCandidate]:
+    def _aggregate_candidates(
+        self, *, source_mode: StreamingSegmentMode
+    ) -> dict[int, WireCandidate]:
         candidates: dict[int, WireCandidate] = {}
         points_by_wire: dict[int, list[tuple[float, float]]] = {}
         for pitch_bin in self.evidence_field.snapshot():
@@ -436,7 +439,7 @@ class StreamingMeasurementController:
                 if candidate is None:
                     candidate = WireCandidate(
                         wire_number=int(predicted.wire_number),
-                        source_mode=str(source_mode),
+                        source_mode=source_mode,
                         support_count=0,
                         best_pose=pose,
                         best_comb_score=float(dominant.max_comb_score),

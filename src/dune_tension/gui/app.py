@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 import logging
-from typing import Any
+from typing import Any, cast
 import tkinter as tk
 import tkinter.font as tkfont
 
@@ -67,7 +67,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
     try:
         if root is None:
             LOGGER.info("Creating Tk root window.")
-        root = root or tk.Tk()
+        root = cast(tk.Tk, root or tk.Tk())
         install_tk_exception_logging(root)
         root.title("Tensiometer GUI")
         for font_name in ("TkDefaultFont", "TkTextFont", "TkFixedFont", "TkMenuFont"):
@@ -150,7 +150,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
         _initialise_servo(ctx)
         _schedule_health_logging(ctx)
 
-        ctx.root.protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
+        cast(tk.Tk, ctx.root).protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
         ctx.root.after(1000, lambda: monitor_tension_logs(ctx))
         LOGGER.info("Entering Tk mainloop.")
         ctx.root.mainloop()

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 import math
 import re
+from typing import Any, cast
 
 from dune_tension.layer_calibration import load_normalized_layer_calibration
 from dune_tension.uv_wire_planner import wire_segment_to_pin_pair
@@ -125,7 +126,8 @@ def _pin_location_xyz(
     calibration: dict[str, object], pin_name: str
 ) -> tuple[float, float, float]:
     try:
-        location = calibration["locations"][pin_name]
+        locations = cast(dict[str, dict[str, Any]], calibration["locations"])
+        location = locations[pin_name]
     except KeyError as exc:
         raise ValueError(
             f"Pin {pin_name} is not present in the calibration payload."

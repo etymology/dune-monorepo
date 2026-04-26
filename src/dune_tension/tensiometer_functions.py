@@ -31,7 +31,7 @@ def normalize_confidence_source(value: str | None) -> str:
 
 
 def check_stop_event(
-    stop_event: Event, message: str = "Measurement interrupted."
+    stop_event: Event | None, message: str = "Measurement interrupted."
 ) -> bool:
     """Print a message and return True if the stop event is set."""
     if stop_event is not None and stop_event.is_set():
@@ -293,11 +293,9 @@ class WirePositionProvider:
         x = float(snapshot.xs[idx_closest])
         y = float(snapshot.ys[idx_closest] + dy_offset)
 
-        return (
-            refine_position(x, y, config.dx, config.dy)
-            if config.layer in ["V", "U"]
-            else (x, y)
-        )
+        if config.layer in ["V", "U"]:
+            return refine_position(x, y, config.dx, config.dy) or (x, y)
+        return x, y
 
     def _resolve_focus_position(
         self,
@@ -510,7 +508,7 @@ def measure_list(
     ],
     get_current_xy_func: Callable[[], tuple[float, float]],
     collect_func: Callable[[int, float, float, int | None], Optional[float]],
-    stop_event: Optional[object] = None,
+    stop_event: Event | None = None,
     preserve_order: bool = False,
     profile: bool = True,
     current_focus_position: int | None = None,

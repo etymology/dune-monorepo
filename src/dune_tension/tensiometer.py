@@ -1041,6 +1041,8 @@ class Tensiometer:
         try:
             sample_rate = int(self.samplerate)
             duration = float(self.config.record_duration)
+            if expected_frequency is None:
+                return float("nan")
             frequency = float(expected_frequency)
         except (TypeError, ValueError):
             return float("nan")
@@ -1694,7 +1696,7 @@ class Tensiometer:
             raise ValueError("Length lookup returned NaN")
 
         if check_stop_event(self.stop_event):
-            return
+            return None
 
         if self.config.layer in ["U", "V"]:
             try:
@@ -1713,7 +1715,7 @@ class Tensiometer:
             self._profile_time() - move_started,
         )
         if check_stop_event(self.stop_event):
-            return
+            return None
         if not succeed:
             LOGGER.warning(
                 "Failed to move to wire %s position %s,%s.",
@@ -1760,7 +1762,7 @@ class Tensiometer:
             )
 
         if wires_results is None:
-            return
+            return None
 
         merge_started = self._profile_time()
         result = self._merge_results(wires_results, wire_number, wire_x, wire_y)

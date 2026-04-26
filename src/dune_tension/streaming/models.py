@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 MeasurementMode = Literal["legacy", "stream_sweep", "stream_rescue"]
 StreamingSegmentMode = Literal["sweep", "rescue"]
@@ -212,7 +212,9 @@ def model_to_dict(value: Any) -> Any:
     if isinstance(value, datetime):
         return value.isoformat()
     if is_dataclass(value):
-        return {key: model_to_dict(item) for key, item in asdict(value).items()}
+        return {
+            key: model_to_dict(item) for key, item in asdict(cast(Any, value)).items()
+        }
     if isinstance(value, dict):
         return {str(key): model_to_dict(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

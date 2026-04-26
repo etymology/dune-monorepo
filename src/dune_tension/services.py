@@ -6,7 +6,7 @@ import logging
 import os
 import sqlite3
 from types import SimpleNamespace
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Callable, Iterator, Mapping, cast
 
 import dune_tension.data_cache as data_cache
 from dune_tension.paths import audio_path
@@ -51,6 +51,7 @@ class MotionService:
         is_plc_available = getattr(plc, "is_plc_available", None)
         if is_plc_available is None:
             is_plc_available = getattr(plc, "is_web_server_active", lambda: False)
+        is_plc_available = cast(Callable[[], object], is_plc_available)
         increment = getattr(plc, "increment", lambda *_args, **_kwargs: None)
         set_speed = getattr(plc, "set_speed", lambda *_args, **_kwargs: True)
         reset_plc = getattr(plc, "reset_plc", lambda *_args, **_kwargs: None)
@@ -85,7 +86,9 @@ class MotionService:
             LOGGER.warning("PLC is not available. Movement disabled.")
             active_get_xy = get_cached_xy if get_cached_xy is not None else spoof_get_xy
             active_get_live_xy = get_xy if get_xy is not None else active_get_xy
-            active_goto_xy = lambda *_args, **_kwargs: False
+
+            def active_goto_xy(*_args: object, **_kwargs: object) -> bool:
+                return False
 
         return cls(
             get_xy=active_get_xy,
@@ -132,10 +135,10 @@ class AudioCaptureService:
                     return spoof_audio_sample(str(audio_path())), 0.0
         else:
 
-            def record_audio(duration: float, sample_rate: int) -> tuple[Any, float]:
+            def record_audio(_duration: float, _sample_rate: int) -> tuple[Any, float]:
                 return record_audio_filtered(
-                    duration,
-                    sample_rate=sample_rate,
+                    _duration,
+                    sample_rate=_sample_rate,
                     normalize=True,
                 )
 

@@ -16,7 +16,7 @@ from math import ceil
 import tty
 from dataclasses import dataclass
 from types import TracebackType
-from typing import IO, Iterable
+from typing import IO, Sequence
 
 import serial
 from serial import Serial
@@ -222,7 +222,7 @@ def _cli(duration: float, port: str | None = None) -> int:
     return 0
 
 
-def _parse_args(argv: Iterable[str]) -> argparse.Namespace:
+def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Pulse the air valve whenever the spacebar is pressed.",
     )
@@ -238,7 +238,7 @@ def _parse_args(argv: Iterable[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Iterable[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
     if args.duration <= 0:
         print("Error: duration must be a positive number.", file=sys.stderr)

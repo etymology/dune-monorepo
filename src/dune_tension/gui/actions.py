@@ -12,7 +12,7 @@ import os
 import re
 import threading
 from threading import Thread
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 import tkinter as tk
 
 from tkinter import messagebox
@@ -467,7 +467,7 @@ def _move_to_local_pin(
     ctx: GUIContext, layer: str, side: str, pin_name: str, velocity: float
 ) -> bool:
     pin_x, pin_y = get_calibrated_pin_xy_for_side(layer, side, pin_name)
-    goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
+    goto_xy = cast(Any, getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy))
     try:
         result = goto_xy(pin_x, pin_y, speed=float(velocity))
     except TypeError:
@@ -482,7 +482,7 @@ def _move_laser_to_pin(ctx: GUIContext, layer: str, side: str, pin_name: str) ->
     pin_x, pin_y = get_calibrated_pin_xy_for_side(layer, side, pin_name)
     target_x = float(pin_x) - float(offset["x"])
     target_y = float(pin_y) - float(offset["y"])
-    goto_xy = getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy)
+    goto_xy = cast(Any, getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy))
     try:
         result = goto_xy(target_x, target_y)
     except TypeError:
@@ -522,7 +522,7 @@ def _show_uv_wire_preview(
     window.title(f"Wire {wire_number} preview")
     window.geometry("980x720")
     try:
-        window.transient(ctx.root)
+        window.transient(cast(tk.Wm, ctx.root))
         window.grab_set()
     except Exception:
         pass
@@ -646,8 +646,10 @@ def _request_uv_wire_preview(
 def _current_stage_xy(ctx: GUIContext) -> tuple[float, float]:
     get_live_xy = getattr(ctx.runtime.motion, "get_live_xy", None)
     if callable(get_live_xy):
-        return tuple(map(float, get_live_xy()))
-    return tuple(map(float, ctx.get_xy()))
+        x, y = get_live_xy()
+        return float(x), float(y)
+    x, y = ctx.get_xy()
+    return float(x), float(y)
 
 
 def _publish_streaming_status(ctx: GUIContext, payload: dict[str, object]) -> None:
@@ -656,14 +658,14 @@ def _publish_streaming_status(ctx: GUIContext, payload: dict[str, object]) -> No
             ctx.widgets.stream_segment_var.set(str(payload["segment_id"]))
         if "comb_score" in payload:
             try:
-                ctx.widgets.stream_comb_var.set(f"{float(payload['comb_score']):.2f}")
+                comb_score = cast(Any, payload["comb_score"])
+                ctx.widgets.stream_comb_var.set(f"{float(comb_score):.2f}")
             except (TypeError, ValueError):
                 ctx.widgets.stream_comb_var.set(str(payload["comb_score"]))
         if "focus_prediction" in payload:
             try:
-                ctx.widgets.stream_focus_var.set(
-                    f"{float(payload['focus_prediction']):.1f}"
-                )
+                focus_prediction = cast(Any, payload["focus_prediction"])
+                ctx.widgets.stream_focus_var.set(f"{float(focus_prediction):.1f}")
             except (TypeError, ValueError):
                 ctx.widgets.stream_focus_var.set(str(payload["focus_prediction"]))
         if "pitch_backlog" in payload:
@@ -980,14 +982,14 @@ def _get_wires_in_zones(
     if layout is None:
         return []
 
-    wires: list[int] = []
+    measured_wires: list[int] = []
     for wire_number in range(layout.wire_min, layout.wire_max + 1):
         try:
             if plan_uv_wire_zone(layer_upper, side, wire_number) in zones:
-                wires.append(wire_number)
+                measured_wires.append(wire_number)
         except Exception:
             continue
-    return wires
+    return measured_wires
 
 
 @_run_in_thread(measurement=True)
@@ -1392,20 +1394,20 @@ def _get_wires_matching_condition(config: Any, expr: str) -> list[int]:
         return wires
 
     # z not used: original behaviour — iterate only measured wires
-    wires: list[int] = []
+    measured_wires: list[int] = []
     tension_series = get_tension_series(config)
     for wire_number, tension in sorted(
         tension_series.get(str(config.side).upper(), {}).items()
     ):
         try:
             if predicate(int(wire_number), float(tension), 0):
-                wires.append(int(wire_number))
+                measured_wires.append(int(wire_number))
         except Exception as exc:
             LOGGER.warning(
                 "Error evaluating condition for wire %s: %s", wire_number, exc
             )
             return []
-    return wires
+    return measured_wires
 
 
 _get_wires_matching_tension_condition = _get_wires_matching_condition
@@ -1547,7 +1549,7 @@ def set_manual_tension(ctx: GUIContext) -> None:
             if "time" in df.columns:
                 df.loc[mask, "time"] = datetime.now().isoformat()
         else:
-            row = {col: "" for col in EXPECTED_COLUMNS}
+            row: dict[str, object] = {col: "" for col in EXPECTED_COLUMNS}
             row.update(
                 {
                     "apa_name": cfg.apa_name,
@@ -1700,7 +1702,7 @@ def update_focus_command_indicator(ctx: GUIContext, value: int) -> None:
     low = int(slider["from"])
     high = int(slider["to"])
     if high == low:
-        x_pos = 0
+        x_pos = 0.0
     else:
         x_pos = (value - low) / (high - low) * length
     radius = 3

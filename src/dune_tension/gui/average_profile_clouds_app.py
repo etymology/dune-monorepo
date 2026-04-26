@@ -10,7 +10,7 @@ import threading
 import traceback
 import tkinter as tk
 from tkinter import ttk
-from typing import Any
+from typing import Any, cast
 
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
@@ -53,7 +53,7 @@ class LayerTabState:
 
 class AverageProfileExplorerApp:
     def __init__(self, root: tk.Misc) -> None:
-        self.root = root
+        self.root = cast(tk.Tk, root)
         self.root.title("Average Profile Cloud Explorer")
         self._pending_refresh_id: Any = None
         self._refresh_generation = 0
@@ -258,6 +258,7 @@ class AverageProfileExplorerApp:
         ttk.Label(parent, text=label).grid(
             row=row, column=column, sticky="w", padx=(0, 6), pady=2
         )
+        widget: Any
         if kind == "combo":
             widget = ttk.Combobox(
                 parent,
@@ -468,21 +469,21 @@ class AverageProfileExplorerApp:
             window_id = scroll_canvas.create_window(
                 (0, 0), window=content_frame, anchor="nw"
             )
-            content_frame.bind(
-                "<Configure>",
-                lambda _event, canvas=scroll_canvas: canvas.configure(
-                    scrollregion=canvas.bbox("all")
-                ),
-            )
-            scroll_canvas.bind(
-                "<Configure>",
-                lambda event, canvas=scroll_canvas, item=window_id: (
-                    canvas.itemconfigure(
-                        item,
-                        width=max(event.width, 1),
-                    )
-                ),
-            )
+
+            def _sync_scroll_region(
+                _event: tk.Event, canvas: tk.Canvas = scroll_canvas
+            ) -> None:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+
+            def _sync_canvas_width(
+                event: tk.Event,
+                canvas: tk.Canvas = scroll_canvas,
+                item: int = window_id,
+            ) -> None:
+                canvas.itemconfigure(item, width=max(event.width, 1))
+
+            content_frame.bind("<Configure>", _sync_scroll_region)
+            scroll_canvas.bind("<Configure>", _sync_canvas_width)
             self.notebook.add(frame, text=layer)
             self._tab_state[layer] = LayerTabState(
                 frame=frame,
@@ -598,7 +599,7 @@ class AverageProfileExplorerApp:
                     )
                     image = self._figure_to_photo_image(figure)
                     widget = ttk.Label(content, image=image)
-                    widget.image = image
+                    cast(Any, widget).image = image
                     widget.grid(row=inner_row, column=0, sticky="nsew", pady=(0, 8))
                     inner_row += 1
                     state.images.append(image)
@@ -618,7 +619,7 @@ class AverageProfileExplorerApp:
                 )
                 image = self._figure_to_photo_image(figure)
                 widget = ttk.Label(state.content_frame, image=image)
-                widget.image = image
+                cast(Any, widget).image = image
                 widget.grid(row=row * 2 + 1, column=0, sticky="nsew")
                 state.images.append(image)
                 state.image_labels.append(widget)

@@ -12,6 +12,7 @@ import numpy as np
 
 from dune_tension.streaming.models import (
     PitchResult,
+    StreamingSegmentMode,
     StreamingFrame,
     StreamingSegment,
     VoicedWindow,
@@ -48,7 +49,7 @@ class VoicedAudioWindow:
     window: VoicedWindow
     audio: np.ndarray
     expected_frequency_hz: float | None
-    source_mode: str
+    source_mode: StreamingSegmentMode
     max_comb_score: float = 0.0
 
 
@@ -181,7 +182,7 @@ class FastFrameAnalyzer:
         audio_chunk_ref: str | None,
         wire_hint: int | None = None,
         expected_frequency_hz: float | None = None,
-        source_mode: str = "sweep",
+        source_mode: StreamingSegmentMode = "sweep",
     ) -> list[VoicedAudioWindow]:
         audio = np.asarray(chunk.audio, dtype=np.float32).reshape(-1)
         windows: list[VoicedAudioWindow] = []
@@ -303,7 +304,7 @@ class AsyncPitchWorker:
                     confidence=float(getattr(analysis, "confidence", float("nan"))),
                     expected_frequency_hz=job.expected_frequency_hz,
                     frame_count=int(job.audio.size),
-                    source_mode=str(job.source_mode),
+                    source_mode=job.source_mode,
                 )
                 self._results.put(CompletedPitchJob(job=job, pitch_result=pitch_result))
             except Exception as exc:

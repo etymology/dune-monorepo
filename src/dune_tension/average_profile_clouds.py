@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -438,13 +439,13 @@ def normalize_options(
             source=str(data.get("source", LEGACY_SOURCE)),
             db_path=None if data.get("db_path") in (None, "") else str(data["db_path"]),
             layers=tuple(_parse_layers(str(data.get("layers", "X,V,U,G")))),
-            min_coverage=float(data.get("min_coverage", 0.5)),
-            iterations=int(data.get("iterations", 3)),
+            min_coverage=float(cast(Any, data.get("min_coverage", 0.5))),
+            iterations=int(cast(Any, data.get("iterations", 3))),
             exclude_apa_regex=str(data.get("exclude_apa_regex", "(?i)TEST")),
             csv_dir=str(data.get("csv_dir", data_path("tension_data"))),
             output_dir=str(data.get("output_dir", data_path("tension_plots"))),
-            bins=int(data.get("bins", 40)),
-            moving_average_window=int(data.get("moving_average_window", 15)),
+            bins=int(cast(Any, data.get("bins", 40))),
+            moving_average_window=int(cast(Any, data.get("moving_average_window", 15))),
             no_scaling=bool(data.get("no_scaling", False)),
             average_per_wire=bool(data.get("average_per_wire", False)),
             split_by_location=bool(data.get("split_by_location", False)),
@@ -1055,7 +1056,7 @@ def _enrich_cloud_with_uv_recipe_metadata(
     applied_lengths: list[float] = []
     start_sides: list[str | None] = []
     end_sides: list[str | None] = []
-    endpoint_mappings: list[str | None] = []
+    endpoint_mappings: list[tuple[str, ...] | None] = []
     start_endpoint_kinds: list[str | None] = []
     end_endpoint_kinds: list[str | None] = []
     uv_path_families: list[str | None] = []
@@ -1649,7 +1650,9 @@ def build_layer_figure(
         min_val = 0.0
         max_val = 1.0
 
-    edges = np.linspace(min_val, max_val, bins + 1) if bins > 0 else 40
+    edges: int | list[float] = (
+        np.linspace(min_val, max_val, bins + 1).tolist() if bins > 0 else 40
+    )
     stats_lines: list[str] = []
     for location_index, location_result in enumerate(overlay_results):
         location_label = (

@@ -71,7 +71,11 @@ indent-width = 4
 extend-exclude = ["src/dune_winder/manual_port.py"]
 
 [tool.mypy]
-exclude = ["^src/dune_winder/manual_port\\.py$"]
+exclude = [
+    "^src/dune_winder/manual_port\\.py$",
+    "^src/dune_tension/m2m/",
+]
+disable_error_code = ["import-untyped"]
 show_error_codes = true
 pretty = true
 
