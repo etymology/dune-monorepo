@@ -51,7 +51,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 dune_tension = ["*.json", "*.npy", "*.npz"]
-dune_winder = ["version.xml"]
+dune_winder = ["version.xml", "py.typed"]
 spectrum_analysis = ["*.json"]
 
 [dependency-groups]

@@ -4,6 +4,7 @@ import argparse
 import ast
 import json
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -74,15 +75,17 @@ def run_check(
     init_tags: bool,
     init_program_tags: bool,
 ):
+    writes: list[dict[str, Any]] = []
+    restores: list[dict[str, Any]] = []
     from pycomm3 import LogixDriver
 
     report: dict[str, object] = {
         "plc_path": plc_path,
         "connected": False,
         "reads_before": [],
-        "writes": [],
+        "writes": writes,
         "reads_after": [],
-        "restores": [],
+        "restores": restores,
     }
 
     with LogixDriver(
@@ -109,7 +112,7 @@ def run_check(
                 normalized = [_normalize_write_result(item) for item in write_result]
             else:
                 normalized = [_normalize_write_result(write_result)]
-            report["writes"].append(
+            writes.append(
                 {
                     "tag": request.tag,
                     "requested_value": request.value,
@@ -135,7 +138,7 @@ def run_check(
                     ]
                 else:
                     normalized = [_normalize_write_result(restore_result)]
-                report["restores"].append(
+                restores.append(
                     {
                         "tag": request.tag,
                         "restored_value": original_values[request.tag],

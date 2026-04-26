@@ -7,7 +7,9 @@ import sys
 import time
 from dataclasses import asdict
 from dataclasses import dataclass
+from typing import Any
 
+from dune_winder.queued_motion.plc_interface import QueuedMotionStatus
 from dune_winder.queued_motion.queue_client import MotionQueueClient
 from dune_winder.queued_motion.safety import load_motion_safety_limits
 from dune_winder.queued_motion.safety import validate_segments_within_safety_limits
@@ -86,7 +88,7 @@ def _ensure_idle_queue(
     *,
     timeout_s: float = DEFAULT_RESET_TIMEOUT_S,
     attempts: int = 3,
-) -> tuple[object, tuple[float, float]]:
+) -> tuple[QueuedMotionStatus, tuple[float, float]]:
     queue = motion._require_queue()
     last_status = None
     last_start_flag = None
@@ -307,12 +309,14 @@ def run_check(
     tolerance: float = DEFAULT_TOLERANCE,
     poll_delay_s: float = DEFAULT_POLL_DELAY_S,
 ) -> dict[str, object]:
+    cases: list[dict[str, Any]] = []
+    cleanup: dict[str, object] = {}
     report: dict[str, object] = {
         "plc_path": plc_path,
         "tolerance": tolerance,
         "poll_delay_s": poll_delay_s,
-        "cases": [],
-        "cleanup": {},
+        "cases": cases,
+        "cleanup": cleanup,
         "passed": False,
     }
 
@@ -355,7 +359,7 @@ def run_check(
         circle_case = _build_circle_case(initial_actual_xy, limits, collision_state)
 
         try:
-            report["cases"].append(
+            cases.append(
                 _run_case(
                     motion,
                     line_case,
@@ -365,7 +369,7 @@ def run_check(
                     tolerance=tolerance,
                 )
             )
-            report["cases"].append(
+            cases.append(
                 _run_case(
                     motion,
                     circle_case,
@@ -377,22 +381,23 @@ def run_check(
             )
         finally:
             final_status, _ = _ensure_idle_queue(motion)
-            report["cleanup"] = {
+            cleanup = {
                 "queue_count": final_status.queue_count,
                 "cur_issued": final_status.cur_issued,
                 "next_issued": final_status.next_issued,
                 "queue_fault": final_status.queue_fault,
                 "motion_fault": final_status.motion_fault,
             }
+            report["cleanup"] = cleanup
 
         report["passed"] = bool(
-            report["cases"]
-            and all(case["passed"] for case in report["cases"])
-            and report["cleanup"]["queue_count"] == 0
-            and (not report["cleanup"]["cur_issued"])
-            and (not report["cleanup"]["next_issued"])
-            and (not report["cleanup"]["queue_fault"])
-            and (not report["cleanup"]["motion_fault"])
+            cases
+            and all(case["passed"] for case in cases)
+            and cleanup["queue_count"] == 0
+            and (not cleanup["cur_issued"])
+            and (not cleanup["next_issued"])
+            and (not cleanup["queue_fault"])
+            and (not cleanup["motion_fault"])
         )
     return report
 
