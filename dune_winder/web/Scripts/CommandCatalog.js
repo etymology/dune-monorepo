@@ -52,6 +52,7 @@
       machineGeometryDeleteLineOffsetOverride: "process.machine_geometry.delete_line_offset_override",
       getAPADetailedList: "process.get_apa_detailed_list",
       getAPADetails: "process.get_apa_details",
+      findUvPinSegment: "process.find_uv_pin_segment",
       getWrapSeekLine: "process.get_wrap_seek_line",
       openRecipeInEditor: "process.open_recipe_in_editor",
       openCalibrationInEditor: "process.open_calibration_in_editor",

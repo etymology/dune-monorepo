@@ -100,6 +100,43 @@ class UvPinSegmentSearchTests(unittest.TestCase):
         self.assertEqual(result["matchedLine"], 9032)
         self.assertEqual(result["segmentEndLine"], 9032)
 
+    def test_find_v_pin_segment_supports_negative_board_pin_numbers(self):
+        workspace = self._workspace("V", render_v_template_lines())
+
+        result = workspace.findUvPinSegment("B", "head", 1, -1)
+
+        self.assertEqual(result["pinName"], "PB40")
+        self.assertEqual(result["pinNumberOnBoard"], 40)
+        self.assertEqual(result["physicalPin"], 40)
+        self.assertEqual(result["pinRole"], "end")
+
+    def test_find_v_pin_segment_supports_negative_board_numbers(self):
+        workspace = self._workspace("V", render_v_template_lines())
+        head_boards = [board for board in LAYER_METADATA["V"]["boards"] if board["side"] == "head"]
+
+        result = workspace.findUvPinSegment("B", "head", -1, 1)
+
+        self.assertEqual(result["boardNumber"], len(head_boards))
+        self.assertEqual(result["boardIndex"], head_boards[-1]["boardIndex"])
+        self.assertEqual(result["pinName"], f"PB{head_boards[-1]['startPin']}")
+
+    def test_find_uv_pin_segment_matches_anchor_to_target_lines(self):
+        workspace = self._workspace(
+            "V",
+            [
+                "N0 ( V Layer )",
+                "N1 ~anchorToTarget(B1,B801) (Bottom B corner - foot end)",
+            ],
+        )
+
+        result = workspace.findUvPinSegment("B", "head", 1, 1)
+
+        self.assertEqual(result["pinName"], "PB1")
+        self.assertEqual(result["matchedLine"], 1)
+        self.assertEqual(result["segmentStartLine"], 1)
+        self.assertEqual(result["segmentEndLine"], 1)
+        self.assertEqual(result["pinRole"], "start")
+
     def test_find_v_pin_segment_reports_interior_role_for_b_family(self):
         workspace = self._workspace("V", render_v_template_lines())
 
@@ -168,7 +205,7 @@ class UvPinSegmentSearchTests(unittest.TestCase):
         workspace = self._workspace("V", ["N0 ( V Layer )", "N1 G103 PB1 PB2 PXY"])
 
         with self.assertRaisesRegex(
-            ValueError, "does not appear in any same-side segment"
+            ValueError, r"B40 does not appear in any same-side segment"
         ):
             workspace.findUvPinSegment("B", "head", 1, 40)
 

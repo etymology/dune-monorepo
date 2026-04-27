@@ -47,6 +47,56 @@
           </div>
         </section>
 
+        <section id="apaSegmentLookupBox" class="apaGCodeSubbox">
+          <h3>Pin Segment Lookup</h3>
+          <label for="apaLookupSide">Side</label>
+          <div class="select">
+            <select id="apaLookupSide">
+              <option value="B">B</option>
+              <option value="A">A</option>
+            </select>
+          </div>
+          <label for="apaLookupBoardSide">Board side</label>
+          <div class="select">
+            <select id="apaLookupBoardSide">
+              <option value="head">Head</option>
+              <option value="bottom">Bottom</option>
+              <option value="foot">Foot</option>
+              <option value="top">Top</option>
+            </select>
+          </div>
+          <div class="apaGCodeInlineRow">
+            <div class="apaLookupField">
+              <label for="apaLookupBoardNumber">Board</label>
+              <input
+                type="number"
+                id="apaLookupBoardNumber"
+                step="1"
+                value="1"
+              />
+            </div>
+            <div class="apaLookupField">
+              <label for="apaLookupPinNumber">Pin</label>
+              <input
+                type="number"
+                id="apaLookupPinNumber"
+                step="1"
+                value="1"
+              />
+            </div>
+          </div>
+          <div class="apaGCodeButtonRow">
+            <button id="apaLookupSegmentButton">
+              Find line
+            </button>
+            <button id="apaLookupGotoButton" disabled>
+              Go to line
+            </button>
+          </div>
+          <p id="apaLookupSegmentResult" class="apaLookupResult">-</p>
+          <pre id="apaLookupSegmentLine" class="apaLookupLine">-</pre>
+        </section>
+
         <section id="gCodeControlDiv" class="apaGCodeSubbox">
           <h3>Line Seek</h3>
           <label for="apaLine">Next line</label>

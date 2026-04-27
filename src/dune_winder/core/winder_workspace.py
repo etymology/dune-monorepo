@@ -466,6 +466,16 @@ class WinderWorkspace:
         return coerced
 
     @classmethod
+    def _coerceNonZeroInt(cls, value, label):
+        try:
+            coerced = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(label + " must be an integer.") from exc
+        if coerced == 0:
+            raise ValueError(label + " must not be 0.")
+        return coerced
+
+    @classmethod
     def _getOppositeFamilyPinMap(cls, layer):
         cache = cls._OPPOSITE_FAMILY_PIN_CACHE
         if layer in cache:
@@ -486,8 +496,8 @@ class WinderWorkspace:
 
         normalizedSide = self._normalizeUvLookupSide(side)
         normalizedBoardSide = self._normalizeUvBoardSide(boardSide)
-        normalizedBoardNumber = self._coercePositiveInt(boardNumber, "board_number")
-        normalizedPinNumber = self._coercePositiveInt(pinNumberOnBoard, "pin_number")
+        normalizedBoardNumber = self._coerceNonZeroInt(boardNumber, "board_number")
+        normalizedPinNumber = self._coerceNonZeroInt(pinNumberOnBoard, "pin_number")
 
         layout = get_uv_layout(self._layer)
         board_pin = layout.board_lookup(
@@ -502,8 +512,8 @@ class WinderWorkspace:
             "layer": self._layer,
             "side": normalizedSide,
             "boardSide": normalizedBoardSide,
-            "boardNumber": normalizedBoardNumber,
-            "pinNumberOnBoard": normalizedPinNumber,
+            "boardNumber": board_pin.board_number,
+            "pinNumberOnBoard": board_pin.pin_number_on_board,
             "boardIndex": board_pin.board_index,
             "physicalPin": board_pin.physical_pin,
             "pinFamily": pinFamily,
@@ -514,21 +524,43 @@ class WinderWorkspace:
     @classmethod
     def _extractUvPinPairInfo(cls, line):
         match = cls._UV_PIN_PAIR_RE.search(line)
+        if match is not None:
+            firstFamily = match.group(2).upper()
+            secondFamily = match.group(5).upper()
+            if firstFamily != secondFamily:
+                return None
+
+            return {
+                "pinFamily": "P" + firstFamily,
+                "segmentSide": "B" if firstFamily == "B" else "A",
+                "firstPin": int(match.group(3)),
+                "secondPin": int(match.group(6)),
+                "firstPinName": match.group(1).upper(),
+                "secondPinName": match.group(4).upper(),
+            }
+
+        match = cls._ANCHOR_TO_TARGET_RE.search(line)
         if match is None:
             return None
 
-        firstFamily = match.group(2).upper()
-        secondFamily = match.group(5).upper()
+        firstPinName = match.group(1).upper()
+        secondPinName = match.group(2).upper()
+        if firstPinName.startswith("P"):
+            firstPinName = firstPinName[1:]
+        if secondPinName.startswith("P"):
+            secondPinName = secondPinName[1:]
+        firstFamily = firstPinName[0]
+        secondFamily = secondPinName[0]
         if firstFamily != secondFamily:
             return None
 
         return {
             "pinFamily": "P" + firstFamily,
             "segmentSide": "B" if firstFamily == "B" else "A",
-            "firstPin": int(match.group(3)),
-            "secondPin": int(match.group(6)),
-            "firstPinName": match.group(1).upper(),
-            "secondPinName": match.group(4).upper(),
+            "firstPin": int(firstPinName[1:]),
+            "secondPin": int(secondPinName[1:]),
+            "firstPinName": firstPinName,
+            "secondPinName": secondPinName,
         }
 
     def _buildUvSegments(self):
@@ -627,8 +659,9 @@ class WinderWorkspace:
                 break
 
         if matchedSegment is None or matchedLine is None:
+            displayPinName = resolved["side"] + str(resolved["pinNumberOnBoard"])
             raise ValueError(
-                resolved["pinName"]
+                displayPinName
                 + " does not appear in any same-side segment in the loaded recipe."
             )
 

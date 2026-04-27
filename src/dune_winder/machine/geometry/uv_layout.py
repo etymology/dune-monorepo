@@ -671,27 +671,39 @@ class UvLayerLayout:
         if normalized_face not in FACE_ORDER:
             raise ValueError("Board face must be one of head, bottom, foot, or top.")
         normalized_board_number = int(board_number)
-        if normalized_board_number < 1:
-            raise ValueError("board_number must be >= 1.")
+        if normalized_board_number == 0:
+            raise ValueError("board_number must not be 0.")
         normalized_pin_number = int(pin_number_on_board)
-        if normalized_pin_number < 1:
-            raise ValueError("pin_number must be >= 1.")
+        if normalized_pin_number == 0:
+            raise ValueError("pin_number must not be 0.")
 
         face_boards = self._boards_by_face[normalized_face]
-        if normalized_board_number > len(face_boards):
+        if normalized_board_number > len(face_boards) or normalized_board_number < -len(
+            face_boards
+        ):
             raise ValueError(
                 f"board_number {normalized_board_number} is outside the {normalized_face} "
                 f"face range for layer {self.layer}."
             )
 
-        board = face_boards[normalized_board_number - 1]
-        if normalized_pin_number > board.pin_count:
+        if normalized_board_number > 0:
+            board = face_boards[normalized_board_number - 1]
+            resolved_board_number = normalized_board_number
+        else:
+            board = face_boards[normalized_board_number]
+            resolved_board_number = len(face_boards) + normalized_board_number + 1
+        if normalized_pin_number > board.pin_count or normalized_pin_number < -board.pin_count:
             raise ValueError(
                 f"pin_number {normalized_pin_number} is outside board {normalized_board_number} "
                 f"on the {normalized_face} face for layer {self.layer}."
             )
 
-        physical_pin = board.start_pin + normalized_pin_number - 1
+        if normalized_pin_number > 0:
+            physical_pin = board.start_pin + normalized_pin_number - 1
+            resolved_pin_number = normalized_pin_number
+        else:
+            physical_pin = board.end_pin + normalized_pin_number + 1
+            resolved_pin_number = board.pin_count + normalized_pin_number + 1
         pin_name = self.translate_pin(
             self.format_pin_name("B", physical_pin),
             target_family=normalized_family,
@@ -701,8 +713,8 @@ class UvLayerLayout:
             family=normalized_family,
             face=board.face,
             board_index=board.board_index,
-            board_number=board.face_index,
-            pin_number_on_board=normalized_pin_number,
+            board_number=resolved_board_number,
+            pin_number_on_board=resolved_pin_number,
             physical_pin=physical_pin,
             pin_number=int(pin_name[1:]),
             pin_name=pin_name,
