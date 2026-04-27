@@ -95,6 +95,16 @@ enum SafetyDiagnosticCode {
   latch_timeout
   wire_break
   overtension
+  queued_motion_fault
+  queued_queue_fault
+  queued_ack_timeout
+  queued_start_timeout
+  queued_idle_timeout
+  queued_speed_correction_failed
+  queued_segment_invalid
+  queued_plc_io_failed
+  queued_parallel_queue_active
+  transfer_window_not_ready
 }
 
 -- ==========================================================================
@@ -309,6 +319,16 @@ entity OperatorDiagnostic {
   code: SafetyDiagnosticCode?
 }
 
+entity QueuedMotionController {
+  active: Boolean
+  awaiting_ack: Boolean
+  waiting_to_start: Boolean
+  waiting_for_idle: Boolean
+  motion_fault: Boolean
+  queue_fault: Boolean
+  last_error: String?
+}
+
 -- ==========================================================================
 -- Config
 -- ==========================================================================
@@ -344,6 +364,7 @@ given {
   safety: SafetyCircuit
   tension: TensionControl
   envelope: MotionSafetyEnvelope
+  queued_motion: QueuedMotionController
 }
 
 -- ==========================================================================
@@ -683,6 +704,249 @@ rule CompensatedXMustRemainInsideRawLimits {
   )
 }
 
+rule XZMoveRequiresYTransferWindow {
+  when: XZMoveRequested(target_x, target_z)
+  requires: not switches.y_transfer_ok
+
+  ensures: OperatorDiagnostic.created(
+    message: "Y_Transfer_OK must be true before issuing an XZ move.",
+    code: transfer_window_not_ready
+  )
+}
+
+rule YZMoveRequiresXTransferWindow {
+  when: YZMoveRequested(target_y, target_z)
+  requires: not switches.x_transfer_ok
+
+  ensures: OperatorDiagnostic.created(
+    message: "X_Transfer_OK must be true before issuing a YZ move.",
+    code: transfer_window_not_ready
+  )
+}
+
+-- ==========================================================================
+-- Rules: queued-motion execution diagnostics
+-- ==========================================================================
+
+rule QueuedSegmentValidationRejected {
+  when: QueuedSegmentSubmitted(segment)
+  requires: not QueuedSegmentShapeIsValid(segment)
+
+  ensures: OperatorDiagnostic.created(
+    message: QueuedSegmentValidationMessage(segment),
+    code: queued_segment_invalid
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- Possible messages include:
+    --   "seg_type must be 1 (line) or 2 (circle)"
+    --   "speed, accel, and decel must be > 0"
+    --   "jerk_accel must be finite and > 0 for queued motion"
+    --   "jerk_decel must be finite and > 0 for queued motion"
+    --   "term_type must be in [0, 6]"
+    --   "circle_type must be in [0, 3]"
+    --   "direction must be in [0, 3] for 2D MCCM"
+    -- The 3D arc queue additionally reports:
+    --   "3D arc branch only accepts seg_type=2 (circle)"
+    --   "3D arc branch only accepts circle_type=1 (center)"
+    --   "3D arc branch only accepts direction 0/1 (shortest/longest)"
+    --   "seq must be > 0"
+    --   "segment fields must be finite"
+    --   "full-circle arcs (start == end) are not supported in v1"
+    --   "invalid arc geometry: radius must be > 0"
+    --   "invalid arc geometry: start/end radii from center do not match. ..."
+    --   "invalid arc geometry: start-center-end are collinear or nearly collinear"
+}
+
+rule QueuedMotionFaultBlocksExecution {
+  when: queued_motion: QueuedMotionController.motion_fault becomes true
+  requires: queued_motion.active
+
+  ensures: OperatorDiagnostic.created(
+    message: QueuedMotionFaultMessage(),
+    code: queued_motion_fault
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- Possible messages include:
+    --   "PLC MotionFault became true while waiting for queued segment ACK"
+    --   "PLC MotionFault became true before queued path started"
+    --   "PLC MotionFault became true while streaming queued segments"
+    --   "PLC MotionFault became true while waiting for queued idle"
+    -- The one-shot queue client reports the same condition as:
+    --   "PLC MotionFault became true while waiting for queued ACK"
+    --   "PLC MotionFault became true while waiting for idle"
+    -- The 3D arc queue reports the same condition with MotionFault3D.
+}
+
+rule QueuedQueueFaultBlocksExecution {
+  when: queued_motion: QueuedMotionController.queue_fault becomes true
+  requires: queued_motion.active
+
+  ensures: OperatorDiagnostic.created(
+    message: QueuedQueueFaultMessage(),
+    code: queued_queue_fault
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- Possible messages include:
+    --   "PLC QueueFault became true while waiting for queued segment ACK"
+    --   "PLC QueueFault became true before queued path started"
+    --   "PLC QueueFault became true while streaming queued segments"
+    --   "PLC QueueFault became true while waiting for queued idle"
+    -- The one-shot queue client reports the same condition as:
+    --   "PLC QueueFault became true while waiting for queued ACK"
+    --   "PLC QueueFault became true while waiting for idle"
+    -- The 3D arc queue reports the same condition with QueueFault3D.
+}
+
+rule QueuedAckTimeoutBlocksExecution {
+  when: QueuedAckDeadlineExpired(expected_ack, last_ack)
+  requires: queued_motion.active
+  requires: queued_motion.awaiting_ack
+
+  ensures: OperatorDiagnostic.created(
+    message: "Timed out waiting for IncomingSegAck.",
+    code: queued_ack_timeout
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- Runtime messages include the expected and observed ACK values:
+    --   "Timed out waiting for IncomingSegAck == ...; last ack was ..."
+    --   "Timed out waiting for IncomingSegAck == .... LastAck=..."
+    --   "Timed out waiting for IncomingSegAck3D == .... LastAck=..."
+}
+
+rule QueuedStartTimeoutBlocksExecution {
+  when: QueuedStartDeadlineExpired()
+  requires: queued_motion.active
+  requires: queued_motion.waiting_to_start
+
+  ensures: OperatorDiagnostic.created(
+    message: "Timed out waiting for queued motion to start",
+    code: queued_start_timeout
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- The one-shot queue client reports the same condition as:
+    --   "Timed out waiting for CurIssued to go true"
+    -- The 3D arc queue reports:
+    --   "Timed out waiting for CurIssued3D to go true. ..."
+}
+
+rule QueuedIdleTimeoutBlocksExecution {
+  when: QueuedIdleDeadlineExpired()
+  requires: queued_motion.active
+  requires: queued_motion.waiting_for_idle
+
+  ensures: OperatorDiagnostic.created(
+    message: "Timed out waiting for queued motion to go idle",
+    code: queued_idle_timeout
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- The one-shot queue client reports the same condition as:
+    --   "Timed out waiting for motion to go idle"
+    -- The 3D arc queue reports:
+    --   "Timed out waiting for 3D arc motion to go idle. ..."
+}
+
+rule QueuedPLCDisconnectBlocksExecution {
+  when: QueuedMotionCommandSubmitted()
+  requires: not PLCConnectionOpen()
+
+  ensures: OperatorDiagnostic.created(
+    message: "PLC connection is not open",
+    code: queued_motion_fault
+  )
+  ensures: queued_motion.active = false
+}
+
+rule QueuedStartPointMustBeKnown {
+  when: QueuedSegmentSubmitted(segment)
+  requires: not QueuedStartPointKnown()
+
+  ensures: OperatorDiagnostic.created(
+    message: "Cannot validate first queued segment: start point is unknown.",
+    code: queued_segment_invalid
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- The 3D arc queue reports the same condition as:
+    --   "Cannot validate first arc geometry: start point is unknown. ..."
+}
+
+rule QueuedSpeedCorrectionFailureBlocksStart {
+  when: QueuedSpeedCorrectionAttempted()
+  requires: QueuedSpeedCorrectionFailed()
+
+  ensures: OperatorDiagnostic.created(
+    message: QueuedSpeedCorrectionFailureMessage(),
+    code: queued_speed_correction_failed
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- Possible messages include:
+    --   "Failed to read PLC SegQueue speeds before start: ..."
+    --   "Failed to write corrected speed to SegQueue[...] before start: ..."
+}
+
+rule QueuedPLCIdleBeforeAllSegments {
+  when: QueuedPLCBecomesIdle()
+  requires: queued_motion.active
+  requires: QueuedSegmentsRemainToEnqueue()
+
+  ensures: OperatorDiagnostic.created(
+    message: "PLC went idle before all queued segments were enqueued",
+    code: queued_motion_fault
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- The 3D arc queue reports the same condition as:
+    --   "PLC went idle before all 3D arc segments were enqueued. ..."
+}
+
+rule QueuedPLCIOMustSucceed {
+  when: QueuedPLCTagAccessAttempted(tag)
+  requires: QueuedPLCTagAccessFailed(tag)
+
+  ensures: OperatorDiagnostic.created(
+    message: QueuedPLCTagAccessFailureMessage(tag),
+    code: queued_plc_io_failed
+  )
+  ensures: queued_motion.active = false
+
+  @guidance
+    -- Possible messages include:
+    --   "Read failed for ...: no response"
+    --   "Read failed for ...: empty response"
+    --   "Read failed for ...: ..."
+    --   "Write failed for ...: no response"
+    --   "Write failed for ...: ..."
+    --   "QueueCount3D is required to stream beyond queue depth but the tag could not be read."
+    --   "Lost access to QueueCount3D while streaming queued segments"
+}
+
+rule ThreeDArcQueueRequiresXYIdle {
+  when: QueuedArc3DSegmentSubmitted(segment)
+  requires: not XYQueueIdle()
+
+  ensures: OperatorDiagnostic.created(
+    message: "Cannot enqueue to 3D arc queue: existing XY queue appears active.",
+    code: queued_parallel_queue_active
+  )
+  ensures: queued_motion.active = false
+}
+
 -- ==========================================================================
 -- Rules: PLC hard interlocks
 -- ==========================================================================
@@ -864,6 +1128,15 @@ invariant XYCollisionEnvelope {
   -- machine travel bounds, avoid the forbidden transfer region, avoid the
   -- winding-head pivot keepout, and avoid active Z-collision keepouts.
   -- Arc paths are checked by sampling/interpolation before acceptance.
+}
+
+invariant QueuedMotionFailuresAreTerminalForCurrentBlock {
+  -- Any queued-motion validation error, PLC queue fault, PLC motion fault,
+  -- handshake timeout, start timeout, idle timeout, disconnected PLC, unknown
+  -- start point, PLC tag read/write failure, active parallel queue, or
+  -- pre-start speed-correction failure prevents further movement from the
+  -- current queued block until the queue is reset or a new block/session is
+  -- started.
 }
 
 invariant ZExtendedCollisionEnvelope {
