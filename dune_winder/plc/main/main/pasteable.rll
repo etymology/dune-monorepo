@@ -29,16 +29,16 @@ XIC Local:6:I.Pt02.Data OTE MACHINE_SW_STAT[28] OTE FRAME_LOC_HD_BTM
 XIC Local:6:I.Pt03.Data OTE MACHINE_SW_STAT[29] OTE FRAME_LOC_FT_TOP 
 XIC Local:6:I.Pt04.Data OTE MACHINE_SW_STAT[30] OTE FRAME_LOC_FT_MID 
 XIC Local:6:I.Pt05.Data OTE MACHINE_SW_STAT[31] OTE FRAME_LOC_FT_BTM 
-LIM 80 Y_axis.ActualPosition 450 OTE support_collision_window_bttm 
-LIM 1050 Y_axis.ActualPosition 1550 OTE support_collision_window_mid 
-LIM 2200 Y_axis.ActualPosition 2650 OTE support_collision_window_top 
+LIM btm_support_collision_ymin Y_axis.ActualPosition btm_support_collision_ymax OTE support_collision_window_bttm 
+LIM mid_support_collision_ymin Y_axis.ActualPosition mid_support_collision_ymax OTE support_collision_window_mid 
+LIM top_support_collision_ymin Y_axis.ActualPosition top_support_collision_ymax OTE support_collision_window_top 
 XIO Safety_Tripped_S TON T01 5000 5000 
 XIC Safety_Tripped_S BST OTE Local:3:O.Pt11.Data NXB OTE Local:3:O.Pt12.Data BND 
 BST XIC blink_on.TT BST XIC T01.TT NXB NEQ ERROR_CODE 0 BND NXB XIC X_axis.SLSActiveStatus BND OTE Local:3:O.Pt13.Data 
 XIC blink_on.TT XIC T01.TT OTE Local:3:O.Pt15.Data 
 BST XIC T01.TT NXB XIC T01.DN BND OTE Local:3:O.Pt14.Data 
 TON blink_on 500 500 
-XIC blink_on.DN TON blink_off 500 134 
+XIC blink_on.DN TON blink_off 500 202 
 XIC blink_off.DN RES blink_on 
 XIC INIT_DONE CMP "NEXTSTATE=0" CPT STATE 0 
 XIC INIT_DONE CMP "NEXTSTATE=1" CPT STATE 1 
