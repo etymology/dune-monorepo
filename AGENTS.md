@@ -147,3 +147,115 @@ fix: correct off-by-one in winder segment counter
 refactor(transpiler): rename internal helper to snake_case
 chore: update uv.lock after dependency bump
 ```
+
+---
+
+## PLC code (`dune_winder/plc/`)
+
+The `dune_winder/plc/` tree contains the program for the Studio 5000
+ControlLogix PLC that drives the winder. Vendor restrictions force a
+two-format workflow:
+
+- **`studio_copy.rllscrap`** is the **source of truth**. It is the literal
+  text Logix Designer copies to the clipboard when the user selects a
+  routine and presses Ctrl+C. We check it in *exactly* as Studio emitted
+  it. Never hand-edit this file.
+- **`pasteable.rll`** is the **paste target**. It is the same routine in
+  the slightly different format Logix Designer accepts back through
+  Ctrl+V (paste) when the user clicks into a rung region. We *generate*
+  this file from `studio_copy.rllscrap` with the rung transform.
+
+When **proposing changes to PLC behaviour**, work in `pasteable.rll` —
+that is the format you can express new ladder logic in directly. The
+human collaborator then pastes the diff into Studio 5000, copies the
+resulting routine back out, overwrites `studio_copy.rllscrap`, and lets
+the conversion script regenerate `pasteable.rll` to confirm round-trip
+equivalence.
+
+### Tooling
+
+| Command                        | What it does                                                                                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `uv run plc-sync`              | Live PLC fetch (metadata + values via pycomm3) **and** regenerate every `pasteable.rll`, refresh `manifest.json`. Default IP `192.168.140.13`.       |
+| `uv run plc-sync --offline`    | No PLC connection. Only regenerate `pasteable.rll` from every `studio_copy.rllscrap` and refresh `manifest.json`. **Use this in agent flows.**       |
+| `uv run plc-import`            | Just the metadata + values fetch (no rllscrap conversion).                                                                                           |
+| `uv run plc-convert-rllscrap`  | Just the rllscrap → rll conversion across the whole `plc/` tree.                                                                                     |
+| `uv run plc-rung-transform`    | Convert a single `.rllscrap` file (stdin or `--in-place`).                                                                                           |
+| `uv run plc-manifest status`   | Show which routines / tag JSON files are out of sync with their checked-in hashes.                                                                   |
+
+### Mandatory agent workflow
+
+1. **Before editing PLC ladder logic**, run `uv run plc-manifest status`.
+   If any row is `modified`, alert the user before doing anything else —
+   the working copy diverges from the last sync and you may overwrite
+   pending changes.
+2. **When you change `studio_copy.rllscrap`** (because the user pasted a
+   new copy from Studio), you MUST run `uv run plc-sync --offline`
+   before staging. The pre-commit hook also runs it as a safety net,
+   but doing it yourself lets you inspect the regenerated `.rll` diff.
+3. **When you propose changes to `pasteable.rll`** (because we are
+   designing new ladder logic on the agent side), you MUST present the
+   change using the change-proposal format below before writing any
+   files. The user will paste the proposed snippet into Studio 5000
+   manually; only after they paste the result back as a new
+   `studio_copy.rllscrap` is the change real.
+
+### Change-proposal format (REQUIRED for `pasteable.rll` edits)
+
+When proposing PLC changes, your message MUST contain a section with
+this exact shape so the human can execute the Studio 5000 paste
+deterministically:
+
+```text
+PLC change proposal
+-------------------
+
+Routines to change:
+- <program>/<routine>            (e.g. state_5_move_z/main)
+- <program>/<routine>            (e.g. queued_motion/main)
+
+Tags to add:
+- <fully_qualified_name>         scope=<controller|program:NAME>
+                                  type=<DINT|REAL|BOOL|TIMER|UDT name>
+                                  initial=<value or n/a>
+                                  reason=<one line>
+
+Tags to modify:
+- <fully_qualified_name>         change=<initial value | data type | dimensions>
+                                  reason=<one line>
+
+Rung diff per routine:
+<unified diff of pasteable.rll for each routine listed above>
+
+Paste instructions:
+1. In Studio 5000, open <program>.<routine>.
+2. Add/modify tags listed above at the indicated scope BEFORE pasting rungs.
+3. Select the affected rungs and paste the new content from <routine>/pasteable.rll.
+4. Save, then copy the routine back out and overwrite studio_copy.rllscrap.
+5. Run `uv run plc-sync --offline` to verify round-trip.
+```
+
+Never hide a tag addition inside the rung diff — Studio 5000 will reject
+the paste if a referenced tag does not exist at the right scope. List
+every new tag explicitly with its scope.
+
+### RLL syntax reference
+
+- **Instruction reference**: `dune_winder/plc/instruction_set.md`
+- **File-format guide** (rllscrap vs. rll, branches, formulas, quoting,
+  joint programming protocol): `dune_winder/plc/RLL_FORMAT.md`
+
+### `plc/` artifact layout
+
+```text
+dune_winder/plc/
+├── controller_level_tags.json          ← controller-scope tag metadata + live values
+├── manifest.json                       ← hashes + timestamps for every artifact
+├── instruction_set.md                  ← instruction reference
+├── RLL_FORMAT.md                       ← file-format guide
+└── <program>/
+    ├── programTags.json                ← program-scope tags + live values
+    └── <routine>/
+        ├── studio_copy.rllscrap        ← source of truth (manual paste from Studio)
+        └── pasteable.rll               ← generated; what we paste back into Studio
+```
