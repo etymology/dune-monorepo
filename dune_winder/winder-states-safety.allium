@@ -12,9 +12,6 @@
 --   - Tension PID tuning internals beyond safety trip behaviour
 --   - Low-level queue handshake details
 
-use "./dune-winder.allium" as runtime
-use "./head-transfer.allium" as transfer
-
 -- ==========================================================================
 -- Enumerations
 -- ==========================================================================
@@ -112,8 +109,8 @@ enum SafetyDiagnosticCode {
 -- ==========================================================================
 
 external entity Axis {
-  actual_position: Float
-  actual_velocity: Float
+  actual_position: Decimal
+  actual_velocity: Decimal
   moving: Boolean
   physical_fault: Boolean
   sto_inhibit: Boolean
@@ -135,6 +132,18 @@ external entity TensionControl {
 -- ==========================================================================
 -- Entities
 -- ==========================================================================
+
+entity Operator {
+  present: Boolean
+}
+
+entity RuntimeSoftware {
+  running: Boolean
+}
+
+entity MachineSignalSource {
+  online: Boolean
+}
 
 entity RuntimeController {
   mode: RuntimeMode
@@ -199,7 +208,7 @@ entity PLCController {
 entity HeadController {
   mode: HeadControllerMode
   requested_position: HeadPosition?
-  target_z: Float?
+  target_z: Decimal?
   latch_target: stage_side | fixed_side | null
   active_transfer: Boolean
   last_error: String?
@@ -276,42 +285,42 @@ entity MachineSwitches {
 }
 
 value XYPoint {
-  x: Float
-  y: Float
+  x: Decimal
+  y: Decimal
 }
 
 value ZPoint {
-  z: Float
+  z: Decimal
 }
 
 entity MotionSafetyEnvelope {
-  limit_left: Float
-  limit_right: Float
-  limit_bottom: Float
-  limit_top: Float
-  z_limit_front: Float
-  z_limit_rear: Float
-  transfer_left: Float
-  transfer_right: Float
-  transfer_left_margin: Float
-  transfer_y_threshold: Float
-  headward_pivot_x: Float
-  headward_pivot_y: Float
-  headward_pivot_x_tolerance: Float
-  headward_pivot_y_tolerance: Float
-  z_collision_threshold: Float
-  apa_collision_bottom_y: Float
-  apa_collision_top_y: Float
-  transfer_zone_head_min_x: Float
-  transfer_zone_head_max_x: Float
-  transfer_zone_foot_min_x: Float
-  transfer_zone_foot_max_x: Float
-  support_collision_bottom_min_y: Float
-  support_collision_bottom_max_y: Float
-  support_collision_middle_min_y: Float
-  support_collision_middle_max_y: Float
-  support_collision_top_min_y: Float
-  support_collision_top_max_y: Float
+  limit_left: Decimal
+  limit_right: Decimal
+  limit_bottom: Decimal
+  limit_top: Decimal
+  z_limit_front: Decimal
+  z_limit_rear: Decimal
+  transfer_left: Decimal
+  transfer_right: Decimal
+  transfer_left_margin: Decimal
+  transfer_y_threshold: Decimal
+  headward_pivot_x: Decimal
+  headward_pivot_y: Decimal
+  headward_pivot_x_tolerance: Decimal
+  headward_pivot_y_tolerance: Decimal
+  z_collision_threshold: Decimal
+  apa_collision_bottom_y: Decimal
+  apa_collision_top_y: Decimal
+  transfer_zone_head_min_x: Decimal
+  transfer_zone_head_max_x: Decimal
+  transfer_zone_foot_min_x: Decimal
+  transfer_zone_foot_max_x: Decimal
+  support_collision_bottom_min_y: Decimal
+  support_collision_bottom_max_y: Decimal
+  support_collision_middle_min_y: Decimal
+  support_collision_middle_max_y: Decimal
+  support_collision_top_min_y: Decimal
+  support_collision_top_max_y: Decimal
 }
 
 entity OperatorDiagnostic {
@@ -334,18 +343,18 @@ entity QueuedMotionController {
 -- ==========================================================================
 
 config {
-  retracted_z_position: Float = 0.0
-  extended_z_position: Float = 418.0
-  front_z_position: Float = 150.0
-  back_z_position: Float = 250.0
-  z_extended_threshold: Float = 415.0
-  head_final_z_tolerance: Float = 1.0
-  position_acceptance_tolerance: Float = 0.1
+  retracted_z_position: Decimal = 0.0
+  extended_z_position: Decimal = 418.0
+  front_z_position: Decimal = 150.0
+  back_z_position: Decimal = 250.0
+  z_extended_threshold: Decimal = 415.0
+  head_final_z_tolerance: Decimal = 1.0
+  position_acceptance_tolerance: Decimal = 0.1
   latch_timeout: Duration = 10.seconds
   latch_retry_interval: Duration = 1.seconds
   g206_extend_timeout: Duration = 10.seconds
   preemptive_latch_retry_count: Integer = 3
-  max_velocity: Float
+  max_velocity: Decimal
 }
 
 -- ==========================================================================
@@ -1099,6 +1108,75 @@ rule OvertensionTripsPLC {
 
   ensures: plc_controller.error_code = overtension
   ensures: plc_controller.mode = error
+}
+
+-- ==========================================================================
+-- Surfaces
+-- ==========================================================================
+
+surface OperatorMovementControls {
+  facing operator: Operator
+
+  exposes:
+    operator.present
+
+  provides:
+    OperatorRequestsMovement(command)
+    StopMotionRequested()
+    SetHeadPosition(target, velocity)
+    ManualGCodeLineParsed(line)
+    XYMoveRequested(start, target)
+    XZMoveRequested(target_x, target_z)
+    YZMoveRequested(target_y, target_z)
+    QueuedSegmentSubmitted(segment)
+    QueuedArc3DSegmentSubmitted(segment)
+    QueuedMotionCommandSubmitted()
+
+  @guidance
+    -- These are human-initiated commands or command payloads accepted from
+    -- operator-facing controls, manual G-code, recipe playback, or queued
+    -- motion tooling. They are separate from sensor feedback and PLC status.
+}
+
+surface RuntimeExecutionEvents {
+  facing runtime: RuntimeSoftware
+
+  exposes:
+    runtime.running
+
+  provides:
+    GCodeLineWouldAdvance()
+    SafeZMoveRequested(target_z, velocity)
+    QueuedAckDeadlineExpired(expected_ack, last_ack)
+    QueuedStartDeadlineExpired()
+    QueuedIdleDeadlineExpired()
+    QueuedSpeedCorrectionAttempted()
+    QueuedPLCBecomesIdle()
+    QueuedPLCTagAccessAttempted(tag)
+    LatchingTimeout()
+
+  @guidance
+    -- These events are produced by software execution, timers, local
+    -- preflight checks, and queue-session bookkeeping. They are not direct
+    -- operator requests and not raw sensor inputs.
+}
+
+surface MachineFeedbackInputs {
+  facing machine: MachineSignalSource
+
+  exposes:
+    machine.online
+
+  provides:
+    HardwareBecomesNonfunctional()
+    StopSignalActive(signal)
+    ReadHeadPosition()
+    FinalZMoveComplete()
+
+  @guidance
+    -- These events come from machine state, IO health, switches, PLC feedback,
+    -- or other sensor-derived observations. The field-transition rules below
+    -- also consume sensor-updated entities directly via `becomes` triggers.
 }
 
 -- ==========================================================================
