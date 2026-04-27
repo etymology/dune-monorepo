@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 import logging
 from typing import Any, Optional, Tuple
@@ -16,6 +17,56 @@ DEFAULT_PESTO_MODEL_NAME = "mir-1k_g7"
 DEFAULT_PESTO_STEP_SIZE_MS = 5.0
 DEFAULT_PESTO_IDEAL_PITCH_HZ = 600.0
 LOGGER = logging.getLogger(__name__)
+
+_ONNX_BACKEND_AVAILABLE = False
+
+
+def _check_onnx_backend_available() -> bool:
+    """Check if ONNX backend is available and should be used.
+
+    Returns:
+        True if ONNX Runtime is available and models exist, False otherwise.
+    """
+    global _ONNX_BACKEND_AVAILABLE
+    if _ONNX_BACKEND_AVAILABLE:
+        return True
+
+    env_backend = os.environ.get("PESTO_BACKEND", "").lower()
+    if env_backend == "pytorch":
+        return False
+    if env_backend == "onnx":
+        try:
+            from spectrum_analysis import pesto_onnx
+
+            _ONNX_BACKEND_AVAILABLE = pesto_onnx.use_onnx_backend()
+            return _ONNX_BACKEND_AVAILABLE
+        except Exception:
+            return False
+
+    try:
+        from spectrum_analysis import pesto_onnx
+
+        _ONNX_BACKEND_AVAILABLE = pesto_onnx.use_onnx_backend()
+        return _ONNX_BACKEND_AVAILABLE
+    except Exception:
+        return False
+
+
+def use_pytorch_backend() -> bool:
+    """Check if PyTorch backend should be used.
+
+    Returns:
+        True if PyTorch backend is selected, False if ONNX backend should be used.
+    """
+    import os
+
+    env_backend = os.environ.get("PESTO_BACKEND", "").lower()
+    if env_backend == "pytorch":
+        return True
+    if env_backend == "onnx":
+        return False
+
+    return not _check_onnx_backend_available()
 
 
 @dataclass(frozen=True)
@@ -70,7 +121,9 @@ def _minimum_input_samples(model: Any) -> int | None:
 
     for cqt in iterator:
         conv = getattr(cqt, "conv", None)
-        padding = _padding_samples(getattr(conv, "padding", 0) if conv is not None else 0)
+        padding = _padding_samples(
+            getattr(conv, "padding", 0) if conv is not None else 0
+        )
         if padding <= 0 and bool(getattr(cqt, "center", False)):
             padding = _padding_samples(getattr(cqt, "kernel_width", 0)) // 2
         if padding > 0:
@@ -110,7 +163,9 @@ def _empty_analysis_result() -> PestoAnalysisResult:
 def _activation_frequency_axis(model: Any, num_bins: int) -> np.ndarray:
     bins_per_semitone = max(int(getattr(model, "bins_per_semitone", 1)), 1)
     preprocessor = getattr(model, "preprocessor", None)
-    hcqt_kwargs = getattr(preprocessor, "hcqt_kwargs", {}) if preprocessor is not None else {}
+    hcqt_kwargs = (
+        getattr(preprocessor, "hcqt_kwargs", {}) if preprocessor is not None else {}
+    )
     fmin = float(hcqt_kwargs.get("fmin", 32.7))
     return (
         fmin
@@ -148,7 +203,9 @@ def _reverse_sr_augment(
     if abs(bin_shift) >= num_bins:
         return np.zeros_like(activation)
     if bin_shift > 0:
-        return np.pad(activation, ((0, 0), (bin_shift, 0)), mode="constant")[:, :num_bins]
+        return np.pad(activation, ((0, 0), (bin_shift, 0)), mode="constant")[
+            :, :num_bins
+        ]
     if bin_shift < 0:
         return np.pad(activation, ((0, 0), (0, -bin_shift)), mode="constant")[
             :,
@@ -180,7 +237,9 @@ def _ensure_runtime_dependencies() -> bool:
     return True
 
 
-def _load_pesto_model_cached(model_name: str, step_size_ms: float, sample_rate: int) -> Any:
+def _load_pesto_model_cached(
+    model_name: str, step_size_ms: float, sample_rate: int
+) -> Any:
     if load_model is None:
         return None
 
@@ -230,12 +289,35 @@ def analyze_audio_with_pesto(
     if sample_rate <= 0:
         raise ValueError("sample_rate must be positive.")
 
+    if not use_pytorch_backend():
+        try:
+            from spectrum_analysis import pesto_onnx
+
+            LOGGER.debug("Using ONNX backend for PESTO inference")
+            return pesto_onnx.analyze_audio_with_onnx(
+                audio,
+                sample_rate,
+                expected_frequency=expected_frequency,
+                include_activations=include_activations,
+            )
+        except Exception as exc:
+            LOGGER.warning("ONNX backend failed, falling back to PyTorch: %s", exc)
+
     if not _ensure_runtime_dependencies():
         LOGGER.warning("pesto-pitch is unavailable; cannot estimate pitch.")
         return _empty_analysis_result()
 
     audio_array = np.asarray(audio, dtype=np.float32).reshape(-1)
     if audio_array.size == 0:
+        return _empty_analysis_result()
+    if (
+        expected_frequency is None
+        and not include_activations
+        and (
+            not np.any(np.isfinite(audio_array))
+            or float(np.max(np.abs(audio_array))) <= 0.0
+        )
+    ):
         return _empty_analysis_result()
 
     sr_augment_factor = _sr_augment_factor(expected_frequency)
@@ -252,7 +334,9 @@ def analyze_audio_with_pesto(
 
     original_sample_count = int(audio_array.size)
     padded_audio_array, pad_width = _pad_short_audio_for_model(audio_array, model)
-    audio_tensor = torch.from_numpy(padded_audio_array).to(dtype=torch.float32).unsqueeze(0)
+    audio_tensor = (
+        torch.from_numpy(padded_audio_array).to(dtype=torch.float32).unsqueeze(0)
+    )
 
     try:
         with torch.inference_mode():
@@ -262,7 +346,9 @@ def analyze_audio_with_pesto(
                 convert_to_freq=True,
                 return_activations=bool(include_activations),
             )
-    except Exception as exc:  # pragma: no cover - environment-specific inference failure
+    except (
+        Exception
+    ) as exc:  # pragma: no cover - environment-specific inference failure
         LOGGER.warning("PESTO pitch estimation failed: %s", exc)
         return _empty_analysis_result()
 
@@ -273,10 +359,14 @@ def analyze_audio_with_pesto(
     confidences = outputs[1]
     activations = outputs[3] if include_activations and len(outputs) >= 4 else None
 
-    predicted_frequencies = _to_numpy(predictions).reshape(-1).astype(np.float32, copy=False)
-    confidence_values = _to_numpy(confidences).reshape(-1).astype(np.float32, copy=False)
-    frame_times = (
-        np.arange(predicted_frequencies.size, dtype=np.float32) * (step_size_ms / 1000.0)
+    predicted_frequencies = (
+        _to_numpy(predictions).reshape(-1).astype(np.float32, copy=False)
+    )
+    confidence_values = (
+        _to_numpy(confidences).reshape(-1).astype(np.float32, copy=False)
+    )
+    frame_times = np.arange(predicted_frequencies.size, dtype=np.float32) * (
+        step_size_ms / 1000.0
     )
     if sr_augment_factor != 1.0:
         predicted_frequencies = predicted_frequencies / float(sr_augment_factor)
@@ -324,7 +414,9 @@ def analyze_audio_with_pesto(
             activation_np = activation_np[0]
         if activation_np.ndim == 2:
             if frame_keep_mask is not None and frame_keep_mask.size > 0:
-                frame_count = min(int(activation_np.shape[0]), int(frame_keep_mask.size))
+                frame_count = min(
+                    int(activation_np.shape[0]), int(frame_keep_mask.size)
+                )
                 activation_np = activation_np[:frame_count]
                 activation_np = activation_np[frame_keep_mask[:frame_count]]
             bins_per_semitone = max(int(getattr(model, "bins_per_semitone", 1)), 1)

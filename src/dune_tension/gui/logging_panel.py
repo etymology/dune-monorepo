@@ -155,7 +155,9 @@ def configure_gui_logging(root: Any, text_widget: Any) -> GuiLogBinding | None:
 
     handler = TkTextLogHandler(root, text_widget)
     handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s", "%H:%M:%S")
+        logging.Formatter(
+            "%(asctime)s %(levelname)s [%(name)s] %(message)s", "%H:%M:%S"
+        )
     )
     handler.addFilter(NamespaceLogFilter(LOGGER_NAMES))
 

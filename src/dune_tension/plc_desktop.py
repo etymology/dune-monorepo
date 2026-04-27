@@ -80,7 +80,9 @@ def desktop_get_xy() -> tuple[float, float] | None:
 
 def desktop_get_layer_calibration(layer: str) -> dict[str, Any] | None:
     """Return planner-friendly layer calibration metadata from dune_winder."""
-    result = _post_command("process.get_layer_calibration", {"layer": str(layer).strip().upper()})
+    result = _post_command(
+        "process.get_layer_calibration", {"layer": str(layer).strip().upper()}
+    )
     if not result.get("ok"):
         LOGGER.warning("desktop_get_layer_calibration failed: %s", result.get("error"))
         return None
@@ -95,7 +97,9 @@ def desktop_get_layer_calibration_json(layer: str) -> dict[str, Any] | None:
         {"layer": str(layer).strip().upper()},
     )
     if not result.get("ok"):
-        LOGGER.warning("desktop_get_layer_calibration_json failed: %s", result.get("error"))
+        LOGGER.warning(
+            "desktop_get_layer_calibration_json failed: %s", result.get("error")
+        )
         return None
     data = result.get("data")
     return data if isinstance(data, dict) else None
@@ -125,6 +129,7 @@ def desktop_seek_xy(
     wait_for_completion: bool = True,
 ) -> bool:
     """Wait for ready, issue manual_seek_xy, then optionally wait for StopMode."""
+
     def _wait_for_ready(timeout: float) -> bool:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -189,7 +194,10 @@ def desktop_seek_pin(pin_name: str, velocity: float) -> bool:
         return False
 
     if not _wait_for_ready(20.0):
-        LOGGER.warning("desktop_seek_pin: timed out waiting for ready state before seeking %s", normalized_pin)
+        LOGGER.warning(
+            "desktop_seek_pin: timed out waiting for ready state before seeking %s",
+            normalized_pin,
+        )
         if not desktop_acknowledge_error():
             return False
         if not _wait_for_ready(20.0):
@@ -228,7 +236,9 @@ def desktop_read_tag(tag_name: str) -> Any:
     result = _post_command("plc.read_tag", {"tag": tag_name})
     if not result.get("ok"):
         error = result.get("error", {})
-        message = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        message = (
+            error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        )
         return {"error": f"desktop_read_tag({tag_name}): {message}"}
     return result.get("data")
 
@@ -247,7 +257,9 @@ def desktop_write_tag(tag_name: str, value: Any) -> dict[str, Any]:
     result = _post_command("plc.write_tag", {"tag": tag_name, "value": value})
     if not result.get("ok"):
         error = result.get("error", {})
-        message = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        message = (
+            error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        )
         return {"error": f"desktop_write_tag({tag_name}): {message}"}
     return result.get("data", {"tag": tag_name, "value": value})
 

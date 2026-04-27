@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "skills:install": "skills experimental_install"
+  },
+  "devDependencies": {
+    "skills": "^1.5.1"
+  }
+}

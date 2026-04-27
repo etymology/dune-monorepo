@@ -11,201 +11,201 @@ from abc import ABCMeta, abstractmethod
 
 
 class Motor(IO_Point, metaclass=ABCMeta):
-  # Make class abstract.
-  motor_instances: list["Motor"] = []
-  motor_instance_map: dict[str, "Motor"] = {}
+    # Make class abstract.
+    motor_instances: list["Motor"] = []
+    motor_instance_map: dict[str, "Motor"] = {}
 
-  # ---------------------------------------------------------------------
-  def __init__(self, name):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, name):
+        """
+        Constructor.
 
-    Args:
-      name: Name of motor.
+        Args:
+          name: Name of motor.
 
-    """
+        """
 
-    # Make sure this name isn't already in use.
-    assert name not in Motor.motor_instances
+        # Make sure this name isn't already in use.
+        assert name not in Motor.motor_instances
 
-    IO_Point.__init__(self, name)
+        IO_Point.__init__(self, name)
 
-    Motor.motor_instances.append(self)
-    Motor.motor_instance_map[name] = self
+        Motor.motor_instances.append(self)
+        Motor.motor_instance_map[name] = self
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def setDesiredPosition(self, position):
-    """
-    Go to a location.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def setDesiredPosition(self, position):
+        """
+        Go to a location.
 
-    Args:
-      positions: Position to seek (in motor units).
+        Args:
+          positions: Position to seek (in motor units).
 
-    """
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def getDesiredPosition(self):
-    """
-    Return the desired (seeking) position.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def getDesiredPosition(self):
+        """
+        Return the desired (seeking) position.
 
-    Returns:
-      Desired motor position.
-    """
+        Returns:
+          Desired motor position.
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def isSeeking(self):
-    """
-    See if the motor is in motion.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def isSeeking(self):
+        """
+        See if the motor is in motion.
 
-    Returns:
-      True if seeking desired position, False if at desired position.
-    """
+        Returns:
+          True if seeking desired position, False if at desired position.
+        """
 
-    pass
+        pass
 
-  # #---------------------------------------------------------------------
-  # @abstractmethod
-  # def seekWait( self ) :
-  #   """
-  #   Block until seek is obtained.
-  #
-  #   """
-  #
-  #   pass
+    # #---------------------------------------------------------------------
+    # @abstractmethod
+    # def seekWait( self ) :
+    #   """
+    #   Block until seek is obtained.
+    #
+    #   """
+    #
+    #   pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def getPosition(self):
-    """
-    Return current motor position.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def getPosition(self):
+        """
+        Return current motor position.
 
-    Returns:
-      Motor position (in motor units).
-    """
+        Returns:
+          Motor position (in motor units).
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def setMaxVelocity(self, maxVelocity):
-    """
-    Set maximum velocity motor may move.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def setMaxVelocity(self, maxVelocity):
+        """
+        Set maximum velocity motor may move.
 
-    Args:
-      maxVelocity: Maximum velocity.
+        Args:
+          maxVelocity: Maximum velocity.
 
-    """
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def getMaxVelocity(self):
-    """
-    Get maximum velocity motor may move.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def getMaxVelocity(self):
+        """
+        Get maximum velocity motor may move.
 
-    Args:
-      maxVelocity: Maximum velocity.
+        Args:
+          maxVelocity: Maximum velocity.
 
-    """
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def getVelocity(self):
-    """
-    Get current motor velocity.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def getVelocity(self):
+        """
+        Get current motor velocity.
 
-    Returns:
-      Current motor velocity (in motor units/second).
-    """
+        Returns:
+          Current motor velocity (in motor units/second).
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def setVelocity(self, velocity):
-    """
-    Set motor velocity.  Useful for jogging motor.  Set to 0 to stop.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def setVelocity(self, velocity):
+        """
+        Set motor velocity.  Useful for jogging motor.  Set to 0 to stop.
 
-    Args:
-      velocity: Desired velocity.  Negative velocity is reverse direction.
-    """
-    pass
+        Args:
+          velocity: Desired velocity.  Negative velocity is reverse direction.
+        """
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def setMaxAcceleration(self, maxAcceleration):
-    """
-    Set maximum acceleration motor may move.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def setMaxAcceleration(self, maxAcceleration):
+        """
+        Set maximum acceleration motor may move.
 
-    Args:
-      maxAcceleration: Maximum acceleration motor may move.
+        Args:
+          maxAcceleration: Maximum acceleration motor may move.
 
-    """
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def getMaxAcceleration(self):
-    """
-    Get maximum acceleration motor may move.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def getMaxAcceleration(self):
+        """
+        Get maximum acceleration motor may move.
 
-    Returns:
-      Maximum acceleration motor may move.
-    """
+        Returns:
+          Maximum acceleration motor may move.
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def getAcceleration(self):
-    """
-    Get current motor acceleration.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def getAcceleration(self):
+        """
+        Get current motor acceleration.
 
-    Returns:
-      Motor acceleration (in motor units/second squared).
-    """
+        Returns:
+          Motor acceleration (in motor units/second squared).
+        """
 
-    pass
+        pass
 
-  # ---------------------------------------------------------------------
-  def get(self):
-    """
-    Get function. Not meaningful.
+    # ---------------------------------------------------------------------
+    def get(self):
+        """
+        Get function. Not meaningful.
 
-    Returns:
-      Returns motor position.
-    """
+        Returns:
+          Returns motor position.
+        """
 
-    return self.getPosition()
+        return self.getPosition()
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def poll(self):
-    """
-    Periodic update function used to update internal status.
-    """
-    pass
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def poll(self):
+        """
+        Periodic update function used to update internal status.
+        """
+        pass
 
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def pollAll():
-    """
-    Update all motors.
-    """
+    # ---------------------------------------------------------------------
+    @staticmethod
+    def pollAll():
+        """
+        Update all motors.
+        """
 
-    for instance in Motor.motor_instances:
-      instance.poll()
+        for instance in Motor.motor_instances:
+            instance.poll()
 
 
 # end class

@@ -18,10 +18,15 @@ function APA(modules) {
 
   // Tags to disable during APA loading.
   var apaInterfaceTags = [
+    "#apaLookupSide",
     "#layerSelection",
     "#gCodeSelection",
     "#openGCodeButton",
     "#openCalibrationButton",
+    "#apaLookupBoardSide",
+    "#apaLookupBoardNumber",
+    "#apaLookupPinNumber",
+    "#apaLookupSegmentButton",
     "#apaStageSelect",
     "#apaStageReason",
     "#apaStageButton",
@@ -34,6 +39,7 @@ function APA(modules) {
   var forecastLogRequestId = 0;
   var forecastLogHandledId = 0;
   var forecastPollTimer = null;
+  var lastSegmentLookupLine = null;
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -111,6 +117,7 @@ function APA(modules) {
 
     // If not the null selection...
     if ("" != gCodeSelection) {
+      self.clearSegmentLookup();
       // Invalidate any pending forecast fetches while switching recipes.
       forecastPeriodRequestId += 1;
       forecastPeriodHandledId = forecastPeriodRequestId;
@@ -141,6 +148,7 @@ function APA(modules) {
     // Get the selected layer and build default layer recipe name.
     var layer = $("#layerSelection").val();
     var defaultRecipe = (layer + "-layer.gc").toLowerCase();
+    self.clearSegmentLookup();
 
     // Try to find the layer recipe in the available recipe list.
     call(commands.process.getRecipes, {}, function (recipes) {
@@ -157,6 +165,9 @@ function APA(modules) {
       if (matchedRecipe) {
         $("#gCodeSelection").val(matchedRecipe);
         self.selectG_Code();
+      } else {
+        // No recipe for this layer — update the active layer only.
+        call(commands.process.setRecipeLayer, { layer: layer });
       }
     });
   };
@@ -168,6 +179,105 @@ function APA(modules) {
 
   this.openCalibration = function () {
     call(commands.process.openCalibrationInEditor, {});
+  };
+
+  this.clearSegmentLookup = function () {
+    lastSegmentLookupLine = null;
+    $("#apaLookupSegmentResult").text("-");
+    $("#apaLookupSegmentLine").text("-");
+    $("#apaLookupGotoButton").prop("disabled", true);
+  };
+
+  this.renderSegmentLookup = function (summary, lineText) {
+    $("#apaLookupSegmentResult").text(summary);
+    $("#apaLookupSegmentLine").text(lineText || "-");
+  };
+
+  this.gotoSegmentLookupLine = function () {
+    if (null === lastSegmentLookupLine) return;
+    call(commands.process.setGCodeLine, { line: lastSegmentLookupLine - 1 });
+  };
+
+  this.lookupSegment = function () {
+    var side = $("#apaLookupSide").val();
+    var boardSide = $("#apaLookupBoardSide").val();
+    var boardNumber = parseInt($("#apaLookupBoardNumber").val(), 10);
+    var pinNumber = parseInt($("#apaLookupPinNumber").val(), 10);
+
+    if (!isFinite(boardNumber) || boardNumber < 1) {
+      self.renderSegmentLookup("Board number must be 1 or greater.", "-");
+      return;
+    }
+
+    if (!isFinite(pinNumber) || pinNumber === 0) {
+      self.renderSegmentLookup("Pin number must not be 0.", "-");
+      return;
+    }
+
+    self.renderSegmentLookup("Looking up segment...", "-");
+
+    var lookupArgs = {
+      side: side,
+      board_side: boardSide,
+      board_number: boardNumber,
+      pin_number: pinNumber,
+    };
+
+    var renderLine = function (result) {
+      var matchedLineNumber = result["matchedLineNumber"];
+      lastSegmentLookupLine = matchedLineNumber;
+      var displayPinName = result["pinName"];
+      if (displayPinName && displayPinName.charAt(0) === "P") {
+        displayPinName = displayPinName.slice(1);
+      }
+      var summary =
+        displayPinName +
+        " -> line " +
+        matchedLineNumber +
+        " (segment " +
+        result["segmentSide"] +
+        ", " +
+        result["pinRole"] +
+        ")";
+
+      call(
+        commands.process.getGCodeList,
+        {
+          center: matchedLineNumber - 1,
+          delta: 0,
+        },
+        function (lines) {
+          var lineText = "-";
+          if (lines && lines.length) {
+            lineText = lines[0] || "";
+          }
+
+          self.renderSegmentLookup(summary, lineText);
+          $("#apaLookupGotoButton").prop("disabled", false);
+        },
+        function () {
+          self.renderSegmentLookup(summary + " [line text unavailable]", "-");
+          $("#apaLookupGotoButton").prop("disabled", false);
+        },
+      );
+    };
+
+    call(
+      commands.process.findUvPinSegment,
+      lookupArgs,
+      function (result) {
+        renderLine(result);
+      },
+      function (response) {
+        var message = "Unable to resolve a same-side segment.";
+        if (response && response.error && response.error.message) {
+          message = response.error.message;
+        }
+
+        self.renderSegmentLookup(message, "-");
+        $("#apaLookupGotoButton").prop("disabled", true);
+      },
+    );
   };
 
   function refreshRecipePeriod() {
@@ -231,7 +341,10 @@ function APA(modules) {
   //   Callback for setting next active G-Code line.
   //-----------------------------------------------------------------------------
   this.gotoLine = function () {
-    var line = parseInt($("#apaLine").val()) - 2;
+    // The UI input is one-based; the backend line setter expects the prior
+    // zero-based line so the selected line becomes the next one to execute.
+    var line = parseInt($("#apaLine").val(), 10) - 1;
+    if (!isFinite(line)) return;
     call(commands.process.setGCodeLine, { line: line });
   };
 
@@ -391,6 +504,18 @@ function APA(modules) {
         self.openCalibration();
       });
 
+    $("#apaLookupSegmentButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.lookupSegment();
+      });
+
+    $("#apaLookupGotoButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        self.gotoSegmentLookupLine();
+      });
+
     $("#apaGotoLineButton")
       .off("click.apa")
       .on("click.apa", function () {
@@ -430,6 +555,7 @@ function APA(modules) {
 
   bindControls();
   modules.registerRestoreCallback(bindControls);
+  self.clearSegmentLookup();
 
   // Populate lists and have this function run after error recovery.
   this.populateLists();
@@ -455,31 +581,10 @@ function APA(modules) {
     "totalLines",
   );
 
-  // Special periodic for current APA stage.
-  winder.addPeriodicCallback(commands.process.getStage, function (value) {
-    var STAGES = [
-      "Uninitialized",
-      "X first",
-      "X second",
-      "V first",
-      "V second",
-      "U first",
-      "U second",
-      "G first",
-      "G second",
-      "Sign off",
-      "Complete",
-    ];
-
-    // If there is no APA loaded, the value will be an empty string and
-    // the options to change the stage need to be disabled.
-    var isDisabled = false;
-    if ("" === value) {
-      stage = "(no APA loaded)";
-      isDisabled = true;
-    }
-    // Translate the stage name.
-    else stage = STAGES[value];
+  // APA stage has been deprecated; keep the old display path disabled.
+  winder.addPeriodicCallback(commands.process.getStage, function (_value) {
+    stage = "(deprecated)";
+    var isDisabled = true;
 
     // Enable/disable APA stage control interface.
     $("#apaStageSelect").prop("disabled", isDisabled);

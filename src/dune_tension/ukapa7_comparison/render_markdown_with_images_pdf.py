@@ -60,7 +60,7 @@ def _add_image_page(pdf: PdfPages, image_path: Path) -> None:
     img = mpimg.imread(image_path)
     fig = plt.figure(figsize=(11, 8.5))
     fig.patch.set_facecolor("white")
-    ax = fig.add_axes([0.03, 0.05, 0.94, 0.9])
+    ax = fig.add_axes((0.03, 0.05, 0.94, 0.9))
     ax.imshow(img)
     ax.axis("off")
     ax.set_title(image_path.name, fontsize=12, pad=10)

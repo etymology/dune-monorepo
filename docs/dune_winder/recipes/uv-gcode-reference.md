@@ -194,6 +194,61 @@ These orientation strings tell head compensation which tangent solution to use a
 pin. They do not mean "move right" or "move left" directly; they describe which side of the pin
 the wire occupies for compensation math.
 
+## Wrap-Side Parity Rule
+
+For the U/V layer wrap recipes, define these binary indicators:
+
+- `l = 0` for `U`, `l = 1` for `V`
+- `s = 0` for `B`, `s = 1` for `A`
+- `p_x = 0` for `bottom`, `p_x = 1` for `top`
+- `p_y = 0` for `head`, `p_y = 1` for `foot`
+
+Then the wrap side on top/bottom faces is
+
+```text
+sigma_x = (-1)^(l + s + p_x)
+```
+
+with:
+
+- `sigma_x = +1` meaning wrap on the `+x` side
+- `sigma_x = -1` meaning wrap on the `-x` side
+
+And the wrap side on head/foot faces is
+
+```text
+sigma_y = (-1)^(l + s + p_y)
+```
+
+with:
+
+- `sigma_y = +1` meaning wrap on the `+y` side
+- `sigma_y = -1` meaning wrap on the `-y` side
+
+In words:
+
+- top/bottom rule: start from `bottom, B, U = +x`, and every change of `top <-> bottom`, `B <-> A`, or `U <-> V` flips the sign
+- head/foot rule: start from `head, B, U = +y`, and every change of `head <-> foot`, `B <-> A`, or `U <-> V` flips the sign
+
+Equivalent XOR form:
+
+```text
+x-side = +x if l xor s xor p_x = 0, else -x
+y-side = +y if l xor s xor p_y = 0, else -y
+```
+
+A compact Python form of the same rule is:
+
+```python
+wrap_side = lambda l, s, p: ("-" if ((l > "U") ^ (s > "B") ^ (p in ("top", "foot"))) else "+") + ("x" if p in ("top", "bottom") else "y")
+```
+
+where:
+
+- `l` is `"U"` or `"V"`
+- `s` is `"B"` or `"A"`
+- `p` is `"top"`, `"bottom"`, `"head"`, or `"foot"`
+
 `G109` sets state for later `G102` and `G108`; it does not request an XY move by itself.
 
 ### `G111`
@@ -224,7 +279,7 @@ queued motion path.
 
 | Token shape | Used with | Meaning |
 | --- | --- | --- |
-| `PB123`, `PF123` | `G103`, `G109` | Pin identifier in the active layer calibration |
+| `PB123`, `PA123` | `G103`, `G109` | Pin identifier in the active layer calibration |
 | `PXY` | `G103` | Update both X and Y from the pin center |
 | `PX` | `G103` | Update only X from the pin center |
 | `PY` | `G103` | Update only Y from the pin center |

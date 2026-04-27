@@ -16,7 +16,7 @@ from math import ceil
 import tty
 from dataclasses import dataclass
 from types import TracebackType
-from typing import IO, Iterable
+from typing import IO, Sequence
 
 import serial
 from serial import Serial
@@ -91,10 +91,9 @@ class ValveController:
             raise ValueError("Pulse duration must be positive.")
 
         n_pad = ceil(duration * self._config.baud_rate / 10)  # 8N1
-        padding = b'\x00' * n_pad                  # choose a byte the device ignores
+        padding = b"\x00" * n_pad  # choose a byte the device ignores
         self._serial.write(_OPEN_COMMAND + padding + _CLOSE_COMMAND)
         self._serial.flush()
-
 
     def start_strum(self) -> None:
         """Begin emitting 10 ms air pulses every second on a background thread."""
@@ -135,7 +134,7 @@ class ValveController:
         """Close the serial connection to the valve relay."""
         self.stop_strum()
         self._serial.close()
-        
+
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -153,6 +152,7 @@ class ValveController:
             self.pulse(0.01)
             if stop_event.wait(1):
                 break
+
 
 _DEFAULT_CONTROLLER: ValveController | None = None
 _DEFAULT_CONTROLLER_LOCK = threading.Lock()
@@ -222,7 +222,7 @@ def _cli(duration: float, port: str | None = None) -> int:
     return 0
 
 
-def _parse_args(argv: Iterable[str]) -> argparse.Namespace:
+def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Pulse the air valve whenever the spacebar is pressed.",
     )
@@ -238,7 +238,7 @@ def _parse_args(argv: Iterable[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Iterable[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
     if args.duration <= 0:
         print("Error: duration must be a positive number.", file=sys.stderr)

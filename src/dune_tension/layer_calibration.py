@@ -16,10 +16,14 @@ from dune_tension.plc_desktop import (
     desktop_get_layer_calibration,
     desktop_get_layer_calibration_json,
 )
-from dune_winder.core.manual_calibration import _build_layer_metadata, normalize_calibration
+from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.factory import create_layer_geometry
 from dune_winder.machine.geometry.layer_functions import LayerFunctions
+from dune_winder.machine.geometry.uv_calibration import (
+    normalize_layer_calibration_to_absolute,
+)
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +31,7 @@ UV_LAYERS = frozenset({"U", "V"})
 APA_CALIBRATION_DIR = REPO_ROOT / "config" / "APA"
 WINDER_WORKSPACE_STATE_PATH = REPO_ROOT / "cache" / "state.json"
 LASER_OFFSET_PATH = APA_CALIBRATION_DIR / "TensionLaserOffsets.json"
+normalize_calibration = normalize_layer_calibration_to_absolute
 
 
 @dataclass(frozen=True)
@@ -91,6 +96,23 @@ def get_local_layer_calibration_path(layer: str) -> Path:
     return APA_CALIBRATION_DIR / f"{_normalize_layer(layer)}_Calibration.json"
 
 
+def ensure_local_layer_calibration_file(layer: str) -> Path:
+    requested_layer = _normalize_layer(layer)
+    local_path = get_local_layer_calibration_path(requested_layer)
+    if local_path.is_file():
+        return local_path
+
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    DefaultLayerCalibration(str(local_path.parent), local_path.name, requested_layer)
+    clear_layer_calibration_cache()
+    LOGGER.warning(
+        "Local calibration file missing for layer %s; generated default calibration at %s.",
+        requested_layer,
+        local_path,
+    )
+    return local_path
+
+
 def get_active_loaded_layer() -> str | None:
     state = _load_json_file(WINDER_WORKSPACE_STATE_PATH, default={})
     value = state.get("_layer")
@@ -112,7 +134,9 @@ def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
     requested_layer = _normalize_layer(layer)
     payload = desktop_get_layer_calibration_json(requested_layer)
     if payload is None:
-        raise ValueError(f"Failed to fetch layer {requested_layer} calibration JSON from desktop.")
+        raise ValueError(
+            f"Failed to fetch layer {requested_layer} calibration JSON from desktop."
+        )
 
     active_layer = str(payload.get("activeLayer") or "").strip().upper()
     if active_layer != requested_layer:
@@ -126,7 +150,9 @@ def sync_layer_calibration_from_desktop(layer: str) -> CalibrationSyncResult:
     local_path = APA_CALIBRATION_DIR / calibration_file
     content = payload.get("content")
     if not isinstance(content, str) or not content.strip():
-        raise ValueError(f"Desktop returned empty calibration JSON for layer {requested_layer}.")
+        raise ValueError(
+            f"Desktop returned empty calibration JSON for layer {requested_layer}."
+        )
 
     content_hash = str(payload.get("contentHash") or "").strip() or _hash_text(content)
     local_hash = _hash_file(local_path)
@@ -171,15 +197,13 @@ def ensure_layer_calibration_ready(layer: str) -> CalibrationSyncResult | None:
         return sync_layer_calibration_from_desktop(requested_layer)
 
     ensure_local_layer_matches_active(requested_layer)
-    local_path = get_local_layer_calibration_path(requested_layer)
-    if not local_path.is_file():
-        raise FileNotFoundError(f"Local calibration file not found: {local_path}")
+    ensure_local_layer_calibration_file(requested_layer)
     return None
 
 
 def load_normalized_layer_calibration(layer: str) -> dict[str, Any]:
     requested_layer = _normalize_layer(layer)
-    local_path = get_local_layer_calibration_path(requested_layer)
+    local_path = ensure_local_layer_calibration_file(requested_layer)
     calibration = LayerCalibration(layer=requested_layer)
     calibration.load(str(local_path.parent), local_path.name)
     normalized = normalize_calibration(calibration, requested_layer)
@@ -187,7 +211,7 @@ def load_normalized_layer_calibration(layer: str) -> dict[str, Any]:
     return {
         "layer": requested_layer,
         "calibrationFile": local_path.name,
-        "pinDiameterMm": float(geometry.pinDiameter),
+        "pinDiameterMm": float(getattr(geometry, "pinDiameter")),
         "locations": {
             pin_name: {
                 "x": float(location.x),
@@ -235,13 +259,15 @@ def get_calibrated_pin_xy(layer: str, pin_name: str) -> tuple[float, float]:
     try:
         location = calibration["locations"][normalized_pin]
     except KeyError as exc:
-        raise ValueError(f"Pin {normalized_pin} is not present in {requested_layer} calibration.") from exc
+        raise ValueError(
+            f"Pin {normalized_pin} is not present in {requested_layer} calibration."
+        ) from exc
     return (float(location["x"]), float(location["y"]))
 
 
 def _normalize_pin_name(pin_name: str) -> str:
     value = str(pin_name).strip().upper()
-    if len(value) < 2 or value[0] not in {"B", "F"} or not value[1:].isdigit():
+    if len(value) < 2 or value[0] not in {"A", "B"} or not value[1:].isdigit():
         raise ValueError(f"Unsupported pin name {pin_name!r}.")
     return value
 
@@ -250,29 +276,39 @@ def _translate_pin_name_family(layer: str, pin_name: str, target_family: str) ->
     requested_layer = _normalize_layer(layer)
     normalized_pin = _normalize_pin_name(pin_name)
     desired_family = str(target_family).strip().upper()
-    if desired_family not in {"B", "F"}:
+    if desired_family not in {"A", "B"}:
         raise ValueError(f"Unsupported target pin family {target_family!r}.")
     if normalized_pin[0] == desired_family:
         return normalized_pin
 
+    if requested_layer in UV_LAYERS:
+        return get_uv_layout(requested_layer).translate_pin(
+            normalized_pin,
+            target_family=desired_family,
+        )
+
     geometry = create_layer_geometry(requested_layer)
-    translated_pin = int(LayerFunctions.translateFrontBack(geometry, int(normalized_pin[1:])))
+    translated_pin = int(
+        LayerFunctions.translateFrontBack(geometry, int(normalized_pin[1:]))
+    )
     return f"{desired_family}{translated_pin}"
 
 
 def resolve_pin_name_for_side(layer: str, side: str, pin_name: str) -> str:
     requested_side = _normalize_side(side)
-    target_family = "F" if requested_side == "A" else "B"
+    target_family = "A" if requested_side == "A" else "B"
     return _translate_pin_name_family(layer, pin_name, target_family)
 
 
-def get_calibrated_pin_xy_for_side(layer: str, side: str, pin_name: str) -> tuple[float, float]:
+def get_calibrated_pin_xy_for_side(
+    layer: str, side: str, pin_name: str
+) -> tuple[float, float]:
     resolved_pin = resolve_pin_name_for_side(layer, side, pin_name)
     return get_calibrated_pin_xy(layer, resolved_pin)
 
 
-def _bottom_back_pin_to_front_pin(layer: str, back_pin: int) -> int:
-    translated = _translate_pin_name_family(layer, f"B{int(back_pin)}", "F")
+def _bottom_back_pin_to_a_pin(layer: str, back_pin: int) -> int:
+    translated = _translate_pin_name_family(layer, f"B{int(back_pin)}", "A")
     return int(translated[1:])
 
 
@@ -282,12 +318,12 @@ def get_bottom_pin_options(layer: str, side: str) -> list[tuple[str, str]]:
     if requested_layer not in UV_LAYERS:
         return []
 
-    metadata = _build_layer_metadata(requested_layer)
-    back_start_pin, back_end_pin = metadata["sideRanges"]["bottom"]
+    layout = get_uv_layout(requested_layer)
+    back_start_pin, back_end_pin = layout.side_ranges["bottom"]
     if requested_side == "A":
-        start_pin = _bottom_back_pin_to_front_pin(requested_layer, back_start_pin)
-        end_pin = _bottom_back_pin_to_front_pin(requested_layer, back_end_pin)
-        pin_family = "F"
+        start_pin = _bottom_back_pin_to_a_pin(requested_layer, back_start_pin)
+        end_pin = _bottom_back_pin_to_a_pin(requested_layer, back_end_pin)
+        pin_family = "A"
     else:
         start_pin = back_start_pin
         end_pin = back_end_pin
@@ -314,7 +350,9 @@ def load_laser_offset_store() -> dict[str, Any]:
 
 
 def save_laser_offset_store(store: dict[str, Any]) -> None:
-    _atomic_write_text(LASER_OFFSET_PATH, json.dumps(store, indent=2, sort_keys=True) + "\n")
+    _atomic_write_text(
+        LASER_OFFSET_PATH, json.dumps(store, indent=2, sort_keys=True) + "\n"
+    )
     _load_laser_offset_store_cached.cache_clear()
 
 

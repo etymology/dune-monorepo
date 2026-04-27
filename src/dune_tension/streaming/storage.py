@@ -145,9 +145,7 @@ class StreamingSessionRepository:
         column_names = ", ".join(columns.keys())
         placeholders = ", ".join("?" for _ in columns)
         updates = ", ".join(
-            f"{name}=excluded.{name}"
-            for name in columns.keys()
-            if name != key_column
+            f"{name}=excluded.{name}" for name in columns.keys() if name != key_column
         )
         sql = (
             f"INSERT INTO {table} ({column_names}) VALUES ({placeholders}) "
@@ -283,7 +281,8 @@ class StreamingSessionRepository:
         chunk_id: str | None = None,
     ) -> AudioChunkRef:
         active_chunk_id = chunk_id or uuid.uuid4().hex
-        file_name = f"{active_chunk_id}.wav"
+        safe_name = active_chunk_id.replace(":", "-")
+        file_name = f"{safe_name}.wav"
         file_path = self.audio_dir / file_name
         self._write_pcm16_wav(file_path, audio, sample_rate)
         ref = AudioChunkRef(
@@ -309,7 +308,9 @@ class StreamingSessionRepository:
         )
         return ref
 
-    def _write_pcm16_wav(self, file_path: Path, audio: np.ndarray, sample_rate: int) -> None:
+    def _write_pcm16_wav(
+        self, file_path: Path, audio: np.ndarray, sample_rate: int
+    ) -> None:
         data = np.asarray(audio, dtype=np.float32).reshape(-1)
         clipped = np.clip(data, -1.0, 1.0)
         pcm16 = np.round(clipped * 32767.0).astype(np.int16)

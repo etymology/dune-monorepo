@@ -3,9 +3,38 @@
         "*.rll": "plc-rll"
     },
     "files.watcherExclude": {
-        "**/target": true
+        "**/target": true,
+        "**/.mypy_cache": true,
+        "**/.pytest_cache": true,
+        "**/.ruff_cache": true,
+        "**/node_modules": true,
+        "**/.git": true
     },
-    "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-    "python.usePythonEnvironmentsExtension": true,
-    "makefile.configureOnOpen": false
+
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+    "python.linting.enabled": false,
+    "python.formatting.provider": "none",
+
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit"
+        }
+    },
+
+    "ty.diagnosticMode": "workspace",
+    "ty.importStrategy": "fromEnvironment",
+    "ty.inlayHints.variableTypes": true,
+    "ty.inlayHints.callArgumentNames": true,
+    "ty.completions.autoImport": true,
+
+    "makefile.configureOnOpen": false,
+
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

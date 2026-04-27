@@ -5,6 +5,7 @@ import importlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
+
 def test_main_delegates_to_gui_entrypoint(monkeypatch) -> None:
     calls: list[str] = []
     monkeypatch.setitem(

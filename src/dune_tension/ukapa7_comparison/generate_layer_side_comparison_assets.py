@@ -101,7 +101,9 @@ def save_residual_plot(
             f"(mean={residual.mean():.3f}, std={residual.std(ddof=0):.3f}, "
             f"mae={residual.abs().mean():.3f}, n={int(residual.size)})"
         )
-        axes[0].scatter(subset["wire_number"], residual, s=10, alpha=0.25, color=colors[side])
+        axes[0].scatter(
+            subset["wire_number"], residual, s=10, alpha=0.25, color=colors[side]
+        )
         axes[0].plot(
             subset["wire_number"],
             _rolling_mean(residual.reset_index(drop=True)),

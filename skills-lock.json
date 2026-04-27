@@ -4,7 +4,32 @@
     "allium": {
       "source": "juxt/allium",
       "sourceType": "github",
-      "computedHash": "42479968e0c29407f73743d7712dd0c0666387a3e5be2c5952b5715c3fb23af9"
+      "computedHash": "18ef087322ef2ce91ef768ba19cfa430064d10fe88b31fc7b41073eb8c116235"
+    },
+    "distill": {
+      "source": "juxt/allium",
+      "sourceType": "github",
+      "computedHash": "912adbc10d73516c4e2674d98157fae1fd5acd19ef6b7e896cbf01a9152558da"
+    },
+    "elicit": {
+      "source": "juxt/allium",
+      "sourceType": "github",
+      "computedHash": "ff8e31a4508e8491ec5175c15c25a88e65bbbf44f9fa93db09c444973d76c293"
+    },
+    "propagate": {
+      "source": "juxt/allium",
+      "sourceType": "github",
+      "computedHash": "081061470fae82921a25df973bd54e72f77a13cb1d0dbdfffe6630b55d3b1593"
+    },
+    "tend": {
+      "source": "juxt/allium",
+      "sourceType": "github",
+      "computedHash": "2469047e5da43ecceeca152d5bf90a17799836d3b406b23172c6cb3eae944172"
+    },
+    "weed": {
+      "source": "juxt/allium",
+      "sourceType": "github",
+      "computedHash": "09a879e68614ba5cd57ab746aa8e7d375528a7f1c4dde3ba6654ce43d92f2ab3"
     }
   }
 }

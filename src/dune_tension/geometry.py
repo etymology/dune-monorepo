@@ -63,7 +63,10 @@ def refine_position(
     """
 
     def is_in_bounds(x_val: float, y_val: float) -> bool:
-        return MEASURABLE_X_MIN <= x_val <= MEASURABLE_X_MAX and MEASURABLE_Y_MIN <= y_val <= MEASURABLE_Y_MAX
+        return (
+            MEASURABLE_X_MIN <= x_val <= MEASURABLE_X_MAX
+            and MEASURABLE_Y_MIN <= y_val <= MEASURABLE_Y_MAX
+        )
 
     def score(pos: tuple[float, float]) -> float:
         """Return the minimal distance of ``pos`` to any limiting line."""
@@ -88,9 +91,7 @@ def refine_position(
         return (x, y)
 
     low_candidates: list[tuple[float, float]] = [
-        c
-        for c in candidates
-        if score(c) > GEOMETRY_CONFIG.refine_clearance_threshold
+        c for c in candidates if score(c) > GEOMETRY_CONFIG.refine_clearance_threshold
     ]
     if low_candidates:
         # Choose the low candidate with the lowest y value.
@@ -115,7 +116,9 @@ def length_lookup(
         wire_number < GEOMETRY_CONFIG.wire_number_min
         or wire_number > GEOMETRY_CONFIG.wire_number_max
     ):
-        raise ValueError("Wire number must be between 1 and 1151 (geometry data available for all wires, but only 8-1146 are collected/uploaded for U/V layers)")
+        raise ValueError(
+            "Wire number must be between 1 and 1151 (geometry data available for all wires, but only 8-1146 are collected/uploaded for U/V layers)"
+        )
     if zone < 1 or zone > GEOMETRY_CONFIG.zone_count:
         raise ValueError("Zone must be between 1 and 5")
 

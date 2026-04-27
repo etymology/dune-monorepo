@@ -164,12 +164,10 @@ def test_clear_wire_numbers_removes_selected_rows_from_both_tables(tmp_path) -> 
     results_df = get_results_dataframe(str(db_path))
 
     remaining_data = sorted(
-        (int(row.wire_number), row.side)
-        for row in data_df.itertuples(index=False)
+        (int(row.wire_number), row.side) for row in data_df.itertuples(index=False)
     )
     remaining_results = sorted(
-        (int(row.wire_number), row.side)
-        for row in results_df.itertuples(index=False)
+        (int(row.wire_number), row.side) for row in results_df.itertuples(index=False)
     )
 
     assert remaining_data == [(1, "A"), (3, "A"), (4, "B")]

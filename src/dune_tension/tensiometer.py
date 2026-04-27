@@ -80,7 +80,9 @@ def _compile_legacy_tension_condition(expr: str) -> Callable[[float], bool]:
             raise ValueError(f"disallowed expression node: {type(node).__name__}")
         if isinstance(node, ast.Name):
             if node.id != "t":
-                raise ValueError("only the variable 't' is allowed in legacy tension conditions")
+                raise ValueError(
+                    "only the variable 't' is allowed in legacy tension conditions"
+                )
             uses_t = True
 
     if not uses_t:
@@ -163,7 +165,12 @@ class BatchMeasurementProfile:
 
     @property
     def total_seconds(self) -> float:
-        return max(0.0, float(sum(p.total_seconds for p in self.wire_profiles) + self.planning_seconds))
+        return max(
+            0.0,
+            float(
+                sum(p.total_seconds for p in self.wire_profiles) + self.planning_seconds
+            ),
+        )
 
 
 def acquire_audio(*args, **kwargs):
@@ -266,9 +273,7 @@ def build_tensiometer(
                 spoof_servo=options.spoof_servo,
                 spoof_valve=options.spoof_valve,
             )
-        active_runtime = build_runtime_bundle(
-            options
-        )
+        active_runtime = build_runtime_bundle(options)
 
     active_strum = strum or active_runtime.strum
     active_focus_wiggle = focus_wiggle or getattr(
@@ -278,11 +283,13 @@ def build_tensiometer(
     )
     active_focus_position_getter = focus_position_getter
     if active_focus_position_getter is None:
+
         def active_focus_position_getter() -> int:
             return int(getattr(active_runtime.servo_controller, "focus_position", 0))
 
     active_focus_range_getter = focus_range_getter
     if active_focus_range_getter is None:
+
         def active_focus_range_getter() -> tuple[int, int]:
             low = 4000
             high = 8000
@@ -302,14 +309,19 @@ def build_tensiometer(
 
     active_quiet_waiter = quiet_waiter
     if active_quiet_waiter is None:
+
         def active_quiet_waiter() -> None:
             try:
                 from spectrum_analysis.audio_sources import MicSource
             except Exception:
                 return
 
-            sample_rate = max(int(getattr(active_runtime.audio, "samplerate", 0) or 0), 1)
-            noise_floor = float(getattr(active_runtime.audio, "noise_threshold", 0.0) or 0.0)
+            sample_rate = max(
+                int(getattr(active_runtime.audio, "samplerate", 0) or 0), 1
+            )
+            noise_floor = float(
+                getattr(active_runtime.audio, "noise_threshold", 0.0) or 0.0
+            )
             quiet_threshold = max(noise_floor * 1.25, noise_floor + 1e-4, 1e-4)
             quiet_seconds_required = 1.0
             quiet_seconds = 0.0
@@ -322,7 +334,9 @@ def build_tensiometer(
                     chunk = source.read()
                     if chunk.size == 0:
                         continue
-                    chunk_rms = float(np.sqrt(np.mean(np.square(chunk, dtype=np.float64)) + 1e-12))
+                    chunk_rms = float(
+                        np.sqrt(np.mean(np.square(chunk, dtype=np.float64)) + 1e-12)
+                    )
                     chunk_seconds = float(chunk.size) / float(sample_rate)
                     if chunk_rms <= quiet_threshold:
                         quiet_seconds += chunk_seconds
@@ -477,7 +491,9 @@ class Tensiometer:
         self.samplerate = self.audio.samplerate
         self.record_audio_func = self.audio.record_audio
 
-        self.get_current_xy_position = getattr(self.motion, "get_live_xy", self.motion.get_xy)
+        self.get_current_xy_position = getattr(
+            self.motion, "get_live_xy", self.motion.get_xy
+        )
         self.goto_xy_func = self.motion.goto_xy
         self.wiggle_func = self.motion.increment
 
@@ -498,10 +514,12 @@ class Tensiometer:
         self.quiet_waiter = quiet_waiter or (lambda: None)
         self.strum_func = strum or (lambda: None)
         self.estimated_time_callback = estimated_time_callback or (lambda _value: None)
-        self.audio_sample_callback = (
-            audio_sample_callback or (lambda _sample, _samplerate, _analysis: None)
+        self.audio_sample_callback = audio_sample_callback or (
+            lambda _sample, _samplerate, _analysis: None
         )
-        self.summary_refresh_callback = summary_refresh_callback or (lambda _config: None)
+        self.summary_refresh_callback = summary_refresh_callback or (
+            lambda _config: None
+        )
         self.wire_preview_callback = wire_preview_callback or (lambda *_args: None)
 
         self.a_taped = bool(a_taped)
@@ -550,14 +568,17 @@ class Tensiometer:
         for wire_profile in profile.wire_profiles:
             for stage, elapsed in wire_profile.stage_seconds.items():
                 aggregate_stages[stage] = aggregate_stages.get(stage, 0.0) + elapsed
-        stage_summary = ", ".join(
-            f"{stage}={elapsed:.2f}s"
-            for stage, elapsed in sorted(
-                aggregate_stages.items(),
-                key=lambda item: item[1],
-                reverse=True,
+        stage_summary = (
+            ", ".join(
+                f"{stage}={elapsed:.2f}s"
+                for stage, elapsed in sorted(
+                    aggregate_stages.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
             )
-        ) or "none"
+            or "none"
+        )
         LOGGER.info(
             "Timing profile summary for %s measurement: requested=%s measured=%s skipped=%s planning=%.2fs avg_wire=%.2fs total=%.2fs stage_totals=[%s]",
             profile.workflow,
@@ -593,14 +614,17 @@ class Tensiometer:
             self._active_batch_profile.skipped_wires.append(profile.wire_number)
             return
         self._active_batch_profile.complete_wire(profile)
-        stage_summary = ", ".join(
-            f"{stage}={elapsed:.2f}s"
-            for stage, elapsed in sorted(
-                profile.stage_seconds.items(),
-                key=lambda item: item[1],
-                reverse=True,
+        stage_summary = (
+            ", ".join(
+                f"{stage}={elapsed:.2f}s"
+                for stage, elapsed in sorted(
+                    profile.stage_seconds.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
             )
-        ) or "none"
+            or "none"
+        )
         LOGGER.info(
             "Timing profile for %s wire %s: total=%.2fs stages=[%s]",
             profile.workflow,
@@ -631,7 +655,9 @@ class Tensiometer:
         except Exception:
             return 0
 
-    def _apply_focus_wiggle_with_x_compensation(self, delta_focus: float) -> float | None:
+    def _apply_focus_wiggle_with_x_compensation(
+        self, delta_focus: float
+    ) -> float | None:
         """Apply focus wiggle and X compensation for equivalent travel in mm."""
 
         if not self._has_focus_wiggle_callback:
@@ -707,7 +733,9 @@ class Tensiometer:
         try:
             moved = self.goto_xy_func(x_target, y_target, **move_kwargs)
         except Exception as exc:
-            LOGGER.warning("%s move to %s,%s raised %s", context, x_target, y_target, exc)
+            LOGGER.warning(
+                "%s move to %s,%s raised %s", context, x_target, y_target, exc
+            )
             moved = False
 
         if moved is not False:
@@ -779,19 +807,14 @@ class Tensiometer:
         pose using the per-wire geometry spacing.
         """
 
-        if (
-            self.config.layer in ["V", "U"]
-        ):
+        if self.config.layer in ["V", "U"]:
             return self.wire_position_provider.get_pose(
                 self.config,
                 wire_number,
                 self._get_focus_position(),
             )
 
-        if (
-            last_successful_result is None
-            or last_successful_wire_number is None
-        ):
+        if last_successful_result is None or last_successful_wire_number is None:
             return self.wire_position_provider.get_pose(
                 self.config,
                 wire_number,
@@ -800,10 +823,14 @@ class Tensiometer:
 
         wire_delta = int(wire_number) - int(last_successful_wire_number)
         target_x = float(last_successful_result.x)
-        target_y = float(last_successful_result.y) + (wire_delta * float(self.config.dy))
+        target_y = float(last_successful_result.y) + (
+            wire_delta * float(self.config.dy)
+        )
 
         if self.config.layer in ["V", "U"]:
-            refined = refine_position(target_x, target_y, self.config.dx, self.config.dy)
+            refined = refine_position(
+                target_x, target_y, self.config.dx, self.config.dy
+            )
             if refined is not None:
                 target_x, target_y = refined
 
@@ -963,7 +990,9 @@ class Tensiometer:
         def _run() -> None:
             target_y = high_y
             while stop_event.is_set():
-                if check_stop_event(self.stop_event, "tension measurement interrupted!"):
+                if check_stop_event(
+                    self.stop_event, "tension measurement interrupted!"
+                ):
                     break
                 if not self._goto_xy_with_reset_recovery(
                     center_x,
@@ -1012,6 +1041,8 @@ class Tensiometer:
         try:
             sample_rate = int(self.samplerate)
             duration = float(self.config.record_duration)
+            if expected_frequency is None:
+                return float("nan")
             frequency = float(expected_frequency)
         except (TypeError, ValueError):
             return float("nan")
@@ -1364,8 +1395,7 @@ class Tensiometer:
 
         def _move_to_pose(x_target: float, y_target: float, focus_target: int) -> None:
             diagonal_geometry = (
-                abs(float(self.config.dx)) > 1e-9
-                and abs(float(self.config.dy)) > 1e-9
+                abs(float(self.config.dx)) > 1e-9 and abs(float(self.config.dy)) > 1e-9
             )
             y_per_x = (
                 (-float(self.config.dy) / float(self.config.dx))
@@ -1384,7 +1414,9 @@ class Tensiometer:
                 except Exception:
                     prior_x = None
 
-                compensated_x = self._apply_focus_wiggle_with_x_compensation(delta_focus)
+                compensated_x = self._apply_focus_wiggle_with_x_compensation(
+                    delta_focus
+                )
                 focus_x_delta = self._focus_to_x_delta_mm(delta_focus)
                 if compensated_x is not None and prior_x is not None:
                     focus_x_delta = float(compensated_x) - float(prior_x)
@@ -1407,8 +1439,7 @@ class Tensiometer:
             nonlocal axis_index, x_step_mm, y_step_mm, focus_step_quarter_us
 
             diagonal_geometry = (
-                abs(float(self.config.dx)) > 1e-9
-                and abs(float(self.config.dy)) > 1e-9
+                abs(float(self.config.dx)) > 1e-9 and abs(float(self.config.dy)) > 1e-9
             )
             y_per_x = (
                 (-float(self.config.dy) / float(self.config.dx))
@@ -1454,7 +1485,9 @@ class Tensiometer:
 
         try:
             while (self._time() - start_time) < measuring_timeout:
-                if check_stop_event(self.stop_event, "tension measurement interrupted!"):
+                if check_stop_event(
+                    self.stop_event, "tension measurement interrupted!"
+                ):
                     return None
                 x, y = self.get_current_xy_position()
 
@@ -1569,7 +1602,10 @@ class Tensiometer:
                                     else best_focus
                                 )
                                 axis_index = 0
-                            if wire_result.confidence >= self.config.confidence_threshold:
+                            if (
+                                wire_result.confidence
+                                >= self.config.confidence_threshold
+                            ):
                                 break
                 else:
                     LOGGER.info("Sample of wire %s: no audio detected.", wire_number)
@@ -1660,13 +1696,17 @@ class Tensiometer:
             raise ValueError("Length lookup returned NaN")
 
         if check_stop_event(self.stop_event):
-            return
+            return None
 
         if self.config.layer in ["U", "V"]:
             try:
-                self.wire_preview_callback(int(wire_number), float(wire_x), float(wire_y))
+                self.wire_preview_callback(
+                    int(wire_number), float(wire_x), float(wire_y)
+                )
             except Exception as exc:
-                LOGGER.debug("Wire preview callback failed for wire %s: %s", wire_number, exc)
+                LOGGER.debug(
+                    "Wire preview callback failed for wire %s: %s", wire_number, exc
+                )
 
         move_started = self._profile_time()
         succeed = self._move_to_measurement_pose(wire_x, wire_y, focus_position)
@@ -1675,7 +1715,7 @@ class Tensiometer:
             self._profile_time() - move_started,
         )
         if check_stop_event(self.stop_event):
-            return
+            return None
         if not succeed:
             LOGGER.warning(
                 "Failed to move to wire %s position %s,%s.",
@@ -1722,7 +1762,7 @@ class Tensiometer:
             )
 
         if wires_results is None:
-            return
+            return None
 
         merge_started = self._profile_time()
         result = self._merge_results(wires_results, wire_number, wire_x, wire_y)

@@ -12,43 +12,43 @@ from dune_winder.library.time_source import TimeSource
 
 
 class SystemTime(TimeSource):
-  # -------------------------------------------------------------------
-  def sleep(self, sleepTime):
-    """
-    Sleep for specified time (in seconds).
+    # -------------------------------------------------------------------
+    def sleep(self, sleepTime):
+        """
+        Sleep for specified time (in seconds).
 
-    Args:
-      sleepTime: Time to sleep (in seconds and can be fractional).
-    """
-    time.sleep(sleepTime)
+        Args:
+          sleepTime: Time to sleep (in seconds and can be fractional).
+        """
+        time.sleep(sleepTime)
 
-  # -------------------------------------------------------------------
-  def get(self):
-    """
-    Return the current time.
+    # -------------------------------------------------------------------
+    def get(self):
+        """
+        Return the current time.
 
-    Returns:
-      Returns current time.
-    """
+        Returns:
+          Returns current time.
+        """
 
-    return datetime.datetime.utcnow()
+        return datetime.datetime.utcnow()
 
-  # -------------------------------------------------------------------
-  def getDelta(self, then, now=None):
-    """
-    Return the amount of time between two time stamps.
+    # -------------------------------------------------------------------
+    def getDelta(self, then, now=None):
+        """
+        Return the amount of time between two time stamps.
 
-    Args:
-      then - Starting time.
-      now - Current time.  If omitted, the current time is used.
+        Args:
+          then - Starting time.
+          now - Current time.  If omitted, the current time is used.
 
-    Returns:
-      Time between to time stamps.
-    """
+        Returns:
+          Time between to time stamps.
+        """
 
-    if now is None:
-      now = self.get()
+        if now is None:
+            now = self.get()
 
-    delta = now - then
+        delta = now - then
 
-    return delta.total_seconds()
+        return delta.total_seconds()

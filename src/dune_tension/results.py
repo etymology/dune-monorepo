@@ -65,6 +65,7 @@ class TensionResult:
     wire_length: float = 0.0
     tension: float = 0.0
     tension_pass: bool = False
+    ttf: float = 0.0
 
     @classmethod
     def from_measurement(

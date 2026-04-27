@@ -5,7 +5,7 @@
             "name": "dune-tension (debug spoofed)",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "module": "dune_tension.main",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -16,13 +16,16 @@
                 "SPOOF_SERVO": "1",
                 "SPOOF_VALVE": "1"
             },
-            "justMyCode": false
+            "justMyCode": false,
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            }
         },
         {
             "name": "dune-tension (real desktop mode)",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "module": "dune_tension.main",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -31,13 +34,16 @@
                 "PLC_IO_MODE": "desktop",
                 "DESKTOP_SERVER_URL": "http://192.168.137.1:8080"
             },
-            "justMyCode": false
+            "justMyCode": false,
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            }
         },
         {
             "name": "dune-tension (real direct PLC)",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "module": "dune_tension.main",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -45,6 +51,9 @@
                 "PYTHONPATH": "${workspaceFolder}/src",
                 "PLC_IO_MODE": "direct",
                 "PLC_IP_ADDRESS": "192.168.140.13"
+            },
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
             }
         },
         {
@@ -60,7 +69,7 @@
             "name": "dune-winder (simulated PLC)",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "module": "dune_winder",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -72,31 +81,41 @@
                 "LOG=TRUE",
                 "LOG_IO=FALSE",
                 "START=FALSE"
-            ]
+            ],
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            }
         },
         {
             "name": "dune-winder",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "module": "dune_winder",
             "cwd": "${workspaceFolder}",
             "console": "internalConsole",
             "redirectOutput": true,
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/src"
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PLC_SHADOW_MODE": "False"
+            },
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
             }
         },
         {
             "name": "dune-winder (integrated terminal)",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "module": "dune_winder",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
             }
         }
     ]

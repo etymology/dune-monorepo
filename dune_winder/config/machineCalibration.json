@@ -9,6 +9,8 @@
   "transferRight": 7170,
   "transferRightTop": 2683,
   "transferBottom": 0,
+  "transferLeftMargin": 10.0,
+  "transferYThreshold": 1000.0,
   "limitLeft": -10,
   "limitTop": 2720,
   "limitRight": 7178,
@@ -19,10 +21,67 @@
   "headwardPivotYTolerance": 300,
   "zFront": 0,
   "zBack": 417.7,
+  "queuedMotionZCollisionThreshold": 417.7,
+  "arcMaxStepRad": 0.05235987755982989,
+  "arcMaxChord": 5.0,
+  "apaCollisionBottomY": 50.0,
+  "apaCollisionTopY": 2250.0,
+  "transferZoneHeadMinX": 400.0,
+  "transferZoneHeadMaxX": 500.0,
+  "transferZoneFootMinX": 7100.0,
+  "transferZoneFootMaxX": 7200.0,
+  "supportCollisionBottomMinY": 80.0,
+  "supportCollisionBottomMaxY": 450.0,
+  "supportCollisionMiddleMinY": 1050.0,
+  "supportCollisionMiddleMaxY": 1550.0,
+  "supportCollisionTopMinY": 2200.0,
+  "supportCollisionTopMaxY": 2650.0,
+  "geometryEpsilon": 1e-09,
   "zLimitFront": -3,
   "zLimitRear": 425,
   "headArmLength": 77,
-  "headRollerRadius": 6.35,
-  "headRollerGap": 1.27,
-  "pinDiameter": 2.42814880401
+  "headRollerRadius": 6.5,
+  "headRollerGap": 1,
+  "pinDiameter": 2.25,
+  "targetPinClearance": 1.0,
+  "v_x_max": 825.0,
+  "v_y_max": 600.0,
+  "cameraWireOffsetX": 58.3,
+  "cameraWireOffsetY": -101.5,
+  "rollerArmCalibration": {
+    "measurements": [
+      {
+        "gcode_line": "~anchorToTarget(A804,A2398)",
+        "layer": "U",
+        "actual_x": 501.5,
+        "actual_y": 0.00019999999494757503,
+        "roller_index": 3,
+        "y_cal": 10.12477079506003
+      },
+      {
+        "gcode_line": "~anchorToTarget(A4,A797)",
+        "layer": "U",
+        "actual_x": 4333.73681640625,
+        "actual_y": 2682.99951171875,
+        "roller_index": 0,
+        "y_cal": 3.909122677778761
+      },
+      {
+        "gcode_line": "~anchorToTarget(B2007,B1196)",
+        "layer": "U",
+        "actual_x": 7146.0,
+        "actual_y": -9.999999747378752e-05,
+        "roller_index": 1,
+        "y_cal": 8.348960818384398
+      }
+    ],
+    "fitted_y_cals": [
+      3.909122677778761,
+      8.348960818384398,
+      7.0,
+      10.12477079506003
+    ],
+    "center_displacement": 0.0,
+    "arm_tilt_rad": 0.0
+  }
 }

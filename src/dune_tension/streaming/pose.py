@@ -51,7 +51,9 @@ def build_measurement_pose(
 ) -> MeasurementPose:
     """Return a measurement pose using the shared focus/X coupling transform."""
 
-    x_focus_correction = focus_to_x_delta_mm(float(focus) - float(focus_reference), side)
+    x_focus_correction = focus_to_x_delta_mm(
+        float(focus) - float(focus_reference), side
+    )
     return MeasurementPose(
         x_true=float(x_true),
         y_true=float(y_true),
@@ -69,16 +71,23 @@ def interpolate_segment_pose(
 ) -> tuple[MeasurementPose, bool]:
     """Interpolate a pose for ``timestamp`` and flag whether it lies in cruise."""
 
-    duration = max(float(segment.planned_end_time) - float(segment.planned_start_time), 1e-9)
+    duration = max(
+        float(segment.planned_end_time) - float(segment.planned_start_time), 1e-9
+    )
     raw_ratio = (float(timestamp) - float(segment.planned_start_time)) / duration
     ratio = min(1.0, max(0.0, raw_ratio))
 
-    x_true = segment.pose0.x_true + (segment.pose1.x_true - segment.pose0.x_true) * ratio
-    y_true = segment.pose0.y_true + (segment.pose1.y_true - segment.pose0.y_true) * ratio
+    x_true = (
+        segment.pose0.x_true + (segment.pose1.x_true - segment.pose0.x_true) * ratio
+    )
+    y_true = (
+        segment.pose0.y_true + (segment.pose1.y_true - segment.pose0.y_true) * ratio
+    )
     focus = segment.pose0.focus + (segment.pose1.focus - segment.pose0.focus) * ratio
-    focus_reference = segment.pose0.focus_reference + (
-        segment.pose1.focus_reference - segment.pose0.focus_reference
-    ) * ratio
+    focus_reference = (
+        segment.pose0.focus_reference
+        + (segment.pose1.focus_reference - segment.pose0.focus_reference) * ratio
+    )
 
     return (
         build_measurement_pose(
@@ -88,5 +97,7 @@ def interpolate_segment_pose(
             focus_reference=focus_reference,
             side=segment.pose0.side,
         ),
-        float(segment.cruise_start_time) <= float(timestamp) <= float(segment.cruise_end_time),
+        float(segment.cruise_start_time)
+        <= float(timestamp)
+        <= float(segment.cruise_end_time),
     )

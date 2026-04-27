@@ -164,7 +164,11 @@ def get_samplerate():
         return None
 
     sound_device_index = next(
-        (index for index, device in enumerate(device_info) if "default" in device["name"]),
+        (
+            index
+            for index, device in enumerate(device_info)
+            if "default" in device["name"]
+        ),
         None,
     )
     if sound_device_index is None:

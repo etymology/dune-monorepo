@@ -12,150 +12,150 @@ from dune_winder.io.primitives.motor import Motor
 
 
 class MultiAxisMotor:
-  # ---------------------------------------------------------------------
-  def __init__(self, name, motors: list[Motor]):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, name, motors: list[Motor]):
+        """
+        Constructor.
 
-    Args:
-      name: Name of IO device.
-      motors: A list of IO.Primitives.Motor types to be grouped.
+        Args:
+          name: Name of IO device.
+          motors: A list of IO.Primitives.Motor types to be grouped.
 
-    """
+        """
 
-    self._motors = motors
+        self._motors = motors
 
-  # ---------------------------------------------------------------------
-  def setEnable(self, isEnabled):
-    """
-    Enable/disable motors.
+    # ---------------------------------------------------------------------
+    def setEnable(self, isEnabled):
+        """
+        Enable/disable motors.
 
-    Args:
-      isEnabled: True if enabled, False if not.
+        Args:
+          isEnabled: True if enabled, False if not.
 
-    """
+        """
 
-    for motor in self._motors:
-      motor.setEnable(isEnabled)
+        for motor in self._motors:
+            motor.setEnable(isEnabled)
 
-  # ---------------------------------------------------------------------
-  def getPosition(self):
-    """
-    Return current motor positions.
+    # ---------------------------------------------------------------------
+    def getPosition(self):
+        """
+        Return current motor positions.
 
-    Returns:
-      Array of motor positions (in motor units).
-    """
-    position = []
-    for motor in self._motors:
-      position.append(motor.getPosition())
+        Returns:
+          Array of motor positions (in motor units).
+        """
+        position = []
+        for motor in self._motors:
+            position.append(motor.getPosition())
 
-    return position
+        return position
 
-  # ---------------------------------------------------------------------
-  def setDesiredPosition(self, positions):
-    """
-    Go to a location specified by a list.
+    # ---------------------------------------------------------------------
+    def setDesiredPosition(self, positions):
+        """
+        Go to a location specified by a list.
 
-    Args:
-      positions: A list of position. Must have one value for each motor.
+        Args:
+          positions: A list of position. Must have one value for each motor.
 
-    """
-    assert len(positions) == len(self._motors)
+        """
+        assert len(positions) == len(self._motors)
 
-    index = 0
-    for motor in self._motors:
-      motor.setDesiredPosition(positions[index])
-      index += 1
+        index = 0
+        for motor in self._motors:
+            motor.setDesiredPosition(positions[index])
+            index += 1
 
-  # ---------------------------------------------------------------------
-  def isSeeking(self):
-    """
-    See if the motors are in motion.
+    # ---------------------------------------------------------------------
+    def isSeeking(self):
+        """
+        See if the motors are in motion.
 
-    Returns:
-      True if seeking desired position, False if at desired position.
-    """
+        Returns:
+          True if seeking desired position, False if at desired position.
+        """
 
-    result = False
-    for motor in self._motors:
-      result |= motor.isSeeking()
+        result = False
+        for motor in self._motors:
+            result |= motor.isSeeking()
 
-    return result
+        return result
 
-  # ---------------------------------------------------------------------
-  def seekWait(self):
-    """
-    Block until seek is obtained.
+    # ---------------------------------------------------------------------
+    def seekWait(self):
+        """
+        Block until seek is obtained.
 
-    """
+        """
 
-    for motor in self._motors:
-      motor.seekWait()
+        for motor in self._motors:
+            motor.seekWait()
 
-  # ---------------------------------------------------------------------
-  def setMaxVelocity(self, maxVelocity):
-    """
-    Set maximum velocity motors may move.
+    # ---------------------------------------------------------------------
+    def setMaxVelocity(self, maxVelocity):
+        """
+        Set maximum velocity motors may move.
 
-    Args:
-      maxVelocity: Maximum velocity.
+        Args:
+          maxVelocity: Maximum velocity.
 
-    """
+        """
 
-    for motor in self._motors:
-      motor.setMaxVelocity(maxVelocity)
+        for motor in self._motors:
+            motor.setMaxVelocity(maxVelocity)
 
-  # ---------------------------------------------------------------------
-  def getMaxVelocity(self):
-    """
-    Get maximum velocity motors may move.
+    # ---------------------------------------------------------------------
+    def getMaxVelocity(self):
+        """
+        Get maximum velocity motors may move.
 
-    Returns:
-      Maximum velocity motors may move.
-    """
+        Returns:
+          Maximum velocity motors may move.
+        """
 
-    return self._motors[0].getMaxVelocity()
+        return self._motors[0].getMaxVelocity()
 
-  # ---------------------------------------------------------------------
-  def setVelocity(self, velocities):
-    """
-    Set motor velocities.  Useful for jogging motor.  Set to 0 to stop.
+    # ---------------------------------------------------------------------
+    def setVelocity(self, velocities):
+        """
+        Set motor velocities.  Useful for jogging motor.  Set to 0 to stop.
 
-    Args:
-      velocity: Desired velocity.  Negative velocity is reverse direction.
-    """
+        Args:
+          velocity: Desired velocity.  Negative velocity is reverse direction.
+        """
 
-    assert len(velocities) == len(self._motors)
+        assert len(velocities) == len(self._motors)
 
-    index = 0
-    for motor in self._motors:
-      motor.setVelocity(velocities[index])
-      index += 1
+        index = 0
+        for motor in self._motors:
+            motor.setVelocity(velocities[index])
+            index += 1
 
-  # ---------------------------------------------------------------------
-  def setMaxAcceleration(self, maxAcceleration):
-    """
-    Set maximum acceleration motors may move.
+    # ---------------------------------------------------------------------
+    def setMaxAcceleration(self, maxAcceleration):
+        """
+        Set maximum acceleration motors may move.
 
-    Args:
-      maxAcceleration: Maximum acceleration motors may move.
+        Args:
+          maxAcceleration: Maximum acceleration motors may move.
 
-    """
+        """
 
-    for motor in self._motors:
-      motor.setMaxAcceleration(maxAcceleration)
+        for motor in self._motors:
+            motor.setMaxAcceleration(maxAcceleration)
 
-  # ---------------------------------------------------------------------
-  def getMaxAcceleration(self):
-    """
-    Get maximum acceleration motors may move.
+    # ---------------------------------------------------------------------
+    def getMaxAcceleration(self):
+        """
+        Get maximum acceleration motors may move.
 
-    Returns:
-      Maximum acceleration motors may move.
-    """
+        Returns:
+          Maximum acceleration motors may move.
+        """
 
-    return self._motors[0].getMaxAcceleration()
+        return self._motors[0].getMaxAcceleration()
 
 
 # end class

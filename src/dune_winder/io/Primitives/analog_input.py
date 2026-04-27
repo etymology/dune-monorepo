@@ -10,39 +10,39 @@ from .io_point import IO_Point
 
 
 class AnalogInput(IO_Point):
-  # Static list of all analog inputs.
-  input_instances: list["AnalogInput"] = []
-  input_lookup_table: dict[str, "AnalogInput"] = {}
+    # Static list of all analog inputs.
+    input_instances: list["AnalogInput"] = []
+    input_lookup_table: dict[str, "AnalogInput"] = {}
 
-  # ---------------------------------------------------------------------
-  def __init__(self, name):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, name):
+        """
+        Constructor.
 
-    Args:
-      name: Name of input.
-      isListed: True if analog input should show up in list.
+        Args:
+          name: Name of input.
+          isListed: True if analog input should show up in list.
 
-    """
+        """
 
-    # Make sure this name isn't already in use.
-    assert name not in AnalogInput.input_instances
+        # Make sure this name isn't already in use.
+        assert name not in AnalogInput.input_instances
 
-    IO_Point.__init__(self, name)
+        IO_Point.__init__(self, name)
 
-    AnalogInput.input_instances.append(self)
-    AnalogInput.input_lookup_table[name] = self
+        AnalogInput.input_instances.append(self)
+        AnalogInput.input_lookup_table[name] = self
 
-  # ---------------------------------------------------------------------
-  def __str__(self):
-    """
-    Convert level to string.
+    # ---------------------------------------------------------------------
+    def __str__(self):
+        """
+        Convert level to string.
 
-    Returns:
-      String of the level.
-    """
+        Returns:
+          String of the level.
+        """
 
-    return str(self.get())
+        return str(self.get())
 
 
 # end class

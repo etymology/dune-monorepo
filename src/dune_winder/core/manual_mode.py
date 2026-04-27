@@ -9,9 +9,9 @@
 from typing import Optional
 
 from dune_winder.core.control_events import (
-  ManualModeEvent,
-  SetManualJoggingEvent,
-  StopMotionEvent,
+    ManualModeEvent,
+    SetManualJoggingEvent,
+    StopMotionEvent,
 )
 from dune_winder.library.state_machine_state import StateMachineState
 from dune_winder.io.maps.production_io import ProductionIO
@@ -19,219 +19,235 @@ from dune_winder.library.log import Log
 
 
 class ManualMode(StateMachineState):
-  class SubStates:
-    IDLE = 0
-    HEAD_TRANSFER = 1
+    class SubStates:
+        IDLE = 0
+        HEAD_TRANSFER = 1
 
-  def __init__(
-    self, stateMachine, state, io: ProductionIO, log: Log
-  ):
-    """
-    Constructor.
+    def __init__(self, stateMachine, state, io: ProductionIO, log: Log):
+        """
+        Constructor.
 
-    Args:
-      stateMachine: Parent state machine.
-      state: Integer representation of state.
-      io: Instance of I/O map.
-      manualCommand: Instance of Control.ManualCommand
-    """
+        Args:
+          stateMachine: Parent state machine.
+          state: Integer representation of state.
+          io: Instance of I/O map.
+          manualCommand: Instance of Control.ManualCommand
+        """
 
-    StateMachineState.__init__(self, stateMachine, state)
-    self._io = io
-    self._log = log
-    self._wasJogging = False
-    self._wasSeekingZ = False
-    self._noteSeekStop = False
-    self._isJogging = False
-    self._stopRequested = False
-    self._awaitPlcReady = False
-    self._awaitHeadReady = False
-    self._plcObservedInFlight = False
-    self._request: Optional[ManualModeEvent] = None
-    self._subState = self.SubStates.IDLE
+        StateMachineState.__init__(self, stateMachine, state)
+        self._io = io
+        self._log = log
+        self._wasJogging = False
+        self._wasSeekingZ = False
+        self._noteSeekStop = False
+        self._isJogging = False
+        self._stopRequested = False
+        self._awaitPlcReady = False
+        self._awaitHeadReady = False
+        self._plcObservedInFlight = False
+        self._plcReadyStableCount = 0
+        self._request: Optional[ManualModeEvent] = None
+        self._subState = self.SubStates.IDLE
 
-  # ---------------------------------------------------------------------
-  def setRequest(self, request: ManualModeEvent):
-    self._request = request
-    if request.isJogging:
-      self._isJogging = True
+    # ---------------------------------------------------------------------
+    def setRequest(self, request: ManualModeEvent):
+        self._request = request
+        if request.isJogging:
+            self._isJogging = True
 
-  # ---------------------------------------------------------------------
-  def isJogging(self):
-    return self._isJogging
+    # ---------------------------------------------------------------------
+    def isJogging(self):
+        return self._isJogging
 
-  # ---------------------------------------------------------------------
-  def getSubState(self):
-    return self._subState
+    # ---------------------------------------------------------------------
+    def getSubState(self):
+        return self._subState
 
-  # ---------------------------------------------------------------------
-  def _syncSubState(self):
-    if hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive():
-      self._subState = self.SubStates.HEAD_TRANSFER
-    else:
-      self._subState = self.SubStates.IDLE
+    # ---------------------------------------------------------------------
+    def _syncSubState(self):
+        if (
+            hasattr(self._io.head, "isTransferActive")
+            and self._io.head.isTransferActive()
+        ):
+            self._subState = self.SubStates.HEAD_TRANSFER
+        else:
+            self._subState = self.SubStates.IDLE
 
-  # ---------------------------------------------------------------------
-  def _plcMotionInFlight(self):
-    for axisName in ("xAxis", "yAxis", "zAxis"):
-      axis = getattr(self._io, axisName, None)
-      if axis is not None and hasattr(axis, "isSeeking") and axis.isSeeking():
-        return True
+    # ---------------------------------------------------------------------
+    def _plcMotionInFlight(self):
+        for axisName in ("xAxis", "yAxis", "zAxis"):
+            axis = getattr(self._io, axisName, None)
+            if axis is not None and hasattr(axis, "isSeeking") and axis.isSeeking():
+                return True
 
-    return False
+        return False
 
-  # ---------------------------------------------------------------------
-  def enter(self):
-    """
-    Enter into manual mode.
+    # ---------------------------------------------------------------------
+    def enter(self):
+        """
+        Enter into manual mode.
 
-    Returns:
-      True if there was an error, false if not.  The error can happen
-      if there isn't a manual action to preform.
-    """
-    isError = True
+        Returns:
+          True if there was an error, false if not.  The error can happen
+          if there isn't a manual action to preform.
+        """
+        isError = True
 
-    self._wasJogging = False
-    self._noteSeekStop = False
-    self._stopRequested = False
-    self._awaitPlcReady = False
-    self._awaitHeadReady = False
-    self._plcObservedInFlight = False
-    self._subState = self.SubStates.IDLE
+        self._wasJogging = False
+        self._noteSeekStop = False
+        self._stopRequested = False
+        self._awaitPlcReady = False
+        self._awaitHeadReady = False
+        self._plcObservedInFlight = False
+        self._plcReadyStableCount = 0
+        self._subState = self.SubStates.IDLE
 
-    request = self._request
-    self._request = None
+        request = self._request
+        self._request = None
 
-    if request is None:
-      return True
+        if request is None:
+            return True
 
-    # If executing a G-Code line.
-    if request.executeGCode:
-      self._awaitHeadReady = (
-        hasattr(self._io.head, "isTransferActive") and self._io.head.isTransferActive()
-      )
-      self._syncSubState()
-      isError = False
+        # If executing a G-Code line.
+        if request.executeGCode:
+            self._awaitHeadReady = (
+                hasattr(self._io.head, "isTransferActive")
+                and self._io.head.isTransferActive()
+            )
+            self._syncSubState()
+            isError = False
 
-    # X/Y axis move?
-    if request.seekX is not None or request.seekY is not None:
-      x = request.seekX
-      if x is None:
-        x = self._io.xAxis.getPosition()
+        # X/Y axis move?
+        if request.seekX is not None or request.seekY is not None:
+            x = request.seekX
+            if x is None:
+                x = self._io.xAxis.getPosition()
 
-      y = request.seekY
-      if y is None:
-        y = self._io.yAxis.getPosition()
+            y = request.seekY
+            if y is None:
+                y = self._io.yAxis.getPosition()
 
-      self._io.plcLogic.setXY_Position(
-        x,
-        y,
-        request.velocity,
-        request.acceleration,
-        request.deceleration,
-      )
+            self._io.plcLogic.setXY_Position(
+                x,
+                y,
+                request.velocity,
+                request.acceleration,
+                request.deceleration,
+            )
 
-      self._awaitPlcReady = True
-      isError = False
+            self._awaitPlcReady = True
+            isError = False
 
-    if request.isJogging:
-      self._wasJogging = True
-      self._awaitPlcReady = True
-      isError = False
+        if request.isJogging:
+            self._wasJogging = True
+            self._awaitPlcReady = True
+            isError = False
 
-    if request.seekZ is not None:
-      self._io.head.clearQueuedTransfer()
-      self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
-      self._awaitPlcReady = True
-      isError = False
+        if request.seekZ is not None:
+            self._io.head.clearQueuedTransfer()
+            self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
+            self._awaitPlcReady = True
+            isError = False
 
-    # Move the head?
-    if request.setHeadPosition is not None:
-      self._awaitHeadReady = True
-      isError = self._io.head.setHeadPosition(
-        request.setHeadPosition, request.velocity
-      )
+        # Move the head?
+        if request.setHeadPosition is not None:
+            self._awaitHeadReady = True
+            isError = self._io.head.setHeadPosition(
+                request.setHeadPosition, request.velocity
+            )
 
-      if isError:
-        self._log.add(
-          self.__class__.__name__, "SEEK_HEAD", "Head position request failed."
-        )
+            if isError:
+                self._log.add(
+                    self.__class__.__name__,
+                    "SEEK_HEAD",
+                    "Head position request failed.",
+                )
 
-    # Shutoff servo control.
-    if request.idleServos:
-      self._io.plcLogic.servoDisable()
-      isError = False
+        # Shutoff servo control.
+        if request.idleServos:
+            self._io.plcLogic.servoDisable()
+            isError = False
 
-    return isError
+        return isError
 
-  # ---------------------------------------------------------------------
-  def update(self):
-    """
-    Update function that is called periodically.
+    # ---------------------------------------------------------------------
+    def update(self):
+        """
+        Update function that is called periodically.
 
-    """
+        """
 
-    # If stop requested...
-    if self._stopRequested:
-      # We didn't finish this line.  Run it again.
-      self._io.plcLogic.stopSeek()
-      self._io.head.stop()
-      self._log.add(self.__class__.__name__, "SEEK_STOP", "Seek stop requested")
-      self._noteSeekStop = True
-      self._stopRequested = False
+        # If stop requested...
+        if self._stopRequested:
+            # We didn't finish this line.  Run it again.
+            self._io.plcLogic.stopSeek()
+            self._io.head.stop()
+            self._log.add(self.__class__.__name__, "SEEK_STOP", "Seek stop requested")
+            self._noteSeekStop = True
+            self._stopRequested = False
 
-    # Is movement done?
-    plcReady = True
-    if self._awaitPlcReady:
-      plcReadySignal = self._io.plcLogic.isReady()
-      axisBusy = self._plcMotionInFlight()
-      plcBusy = (not plcReadySignal) or axisBusy
-      if plcBusy:
-        self._plcObservedInFlight = True
-      plcReady = self._plcObservedInFlight and not plcBusy
+        # Is movement done?
+        plcReady = True
+        if self._awaitPlcReady:
+            plcReadySignal = self._io.plcLogic.isReady()
+            axisBusy = self._plcMotionInFlight()
+            plcBusy = (not plcReadySignal) or axisBusy
+            if plcBusy:
+                self._plcObservedInFlight = True
+                self._plcReadyStableCount = 0
+            elif not self._plcObservedInFlight:
+                # Some PLC simulations report "ready" continuously and never expose
+                # per-axis "seeking" bits. Allow a couple of stable ready/not-busy
+                # observations to count as completion so manual mode can return to STOP,
+                # without breaking real PLC transitions where "ready" briefly starts
+                # high before going busy.
+                self._plcReadyStableCount += 1
+                if self._plcReadyStableCount >= 2:
+                    self._plcObservedInFlight = True
+            plcReady = self._plcObservedInFlight and not plcBusy
 
-    headReady = (not self._awaitHeadReady) or self._io.head.isReady()
-    self._syncSubState()
-    if plcReady and headReady:
-      # If we were seeking and stopped pre-maturely, note where.
-      if self._noteSeekStop:
-        x = self._io.xAxis.getPosition()
-        y = self._io.yAxis.getPosition()
-        z = self._io.zAxis.getPosition()
-        self._log.add(
-          self.__class__.__name__,
-          "SEEK_STOP_LOCATION",
-          "Seek stopped at (" + str(x) + "," + str(y) + "," + str(z) + ")",
-          [x, y, z],
-        )
+        headReady = (not self._awaitHeadReady) or self._io.head.isReady()
+        self._syncSubState()
+        if plcReady and headReady:
+            # If we were seeking and stopped pre-maturely, note where.
+            if self._noteSeekStop:
+                x = self._io.xAxis.getPosition()
+                y = self._io.yAxis.getPosition()
+                z = self._io.zAxis.getPosition()
+                self._log.add(
+                    self.__class__.__name__,
+                    "SEEK_STOP_LOCATION",
+                    "Seek stopped at (" + str(x) + "," + str(y) + "," + str(z) + ")",
+                    [x, y, z],
+                )
 
-      # If we were jogging, note where it stopped.
-      if self._wasJogging:
-        x = self._io.xAxis.getPosition()
-        y = self._io.yAxis.getPosition()
-        z = self._io.zAxis.getPosition()
-        self._log.add(
-          self.__class__.__name__,
-          "JOG_STOP",
-          "Jog stopped at (" + str(x) + "," + str(y) + "," + str(z) + ")",
-          [x, y, z],
-        )
+            # If we were jogging, note where it stopped.
+            if self._wasJogging:
+                x = self._io.xAxis.getPosition()
+                y = self._io.yAxis.getPosition()
+                z = self._io.zAxis.getPosition()
+                self._log.add(
+                    self.__class__.__name__,
+                    "JOG_STOP",
+                    "Jog stopped at (" + str(x) + "," + str(y) + "," + str(z) + ")",
+                    [x, y, z],
+                )
 
-      self._isJogging = False
-      self._subState = self.SubStates.IDLE
-      self.changeState(self.stateMachine.States.STOP)
+            self._isJogging = False
+            self._subState = self.SubStates.IDLE
+            self.changeState(self.stateMachine.States.STOP)
 
-  # ---------------------------------------------------------------------
-  def handle(self, event):
-    if isinstance(event, StopMotionEvent):
-      self._stopRequested = True
-      return True
+    # ---------------------------------------------------------------------
+    def handle(self, event):
+        if isinstance(event, StopMotionEvent):
+            self._stopRequested = True
+            return True
 
-    if isinstance(event, SetManualJoggingEvent):
-      self._isJogging = event.isJogging
-      return True
+        if isinstance(event, SetManualJoggingEvent):
+            self._isJogging = event.isJogging
+            return True
 
-    return False
+        return False
 
 
 # end class

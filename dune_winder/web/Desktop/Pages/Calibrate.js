@@ -942,6 +942,11 @@ function Calibrate(modules)
         formatNumber( state.xBacklashCompensationMm, 3 ),
         suppressBacklashRefresh
       )
+      setFieldValueIfIdle(
+        "#manualCalibrationSkipWrapPins",
+        state.skipWrapPins || 0,
+        false
+      )
     }
 
     if ( state.mode == "gx" )
@@ -1014,6 +1019,26 @@ function Calibrate(modules)
     manualAction
     (
       commands.process.manualCalibrationSetXBacklashCompensation,
+      { value: value },
+      function()
+      {
+        refreshStateOnce()
+      }
+    )
+  }
+
+  function applySkipWrapPins()
+  {
+    if ( ! lastState || ! lastState.enabled || isGXMode() )
+      return
+
+    var value = parseInt( $( "#manualCalibrationSkipWrapPins" ).val(), 10 )
+    if ( isNaN( value ) || value < 0 )
+      value = 0
+
+    manualAction
+    (
+      commands.process.manualCalibrationSetSkipWrapPins,
       { value: value },
       function()
       {
@@ -1626,6 +1651,10 @@ function Calibrate(modules)
       }
     )
     .change( applyXBacklashInput )
+
+  $( "#manualCalibrationSkipWrapPins" )
+    .change( applySkipWrapPins )
+    .blur( applySkipWrapPins )
 
   $( "#manualCalibrationHeadAOffset" ).change( function() { applyGXOffsetInput( "headA", "#manualCalibrationHeadAOffset" ) } )
   $( "#manualCalibrationHeadBOffset" ).change( function() { applyGXOffsetInput( "headB", "#manualCalibrationHeadBOffset" ) } )

@@ -22,148 +22,159 @@ from typing import Optional
 
 
 class ControlStateMachine(LoggedStateMachine):
-  class States(Enum):
-    HARDWARE = auto()
-    STOP = auto()
-    WIND = auto()
-    MANUAL = auto()
+    class States(Enum):
+        HARDWARE = auto()
+        STOP = auto()
+        WIND = auto()
+        MANUAL = auto()
 
-  # end class
+    # end class
 
-  # ---------------------------------------------------------------------
-  def update(self):
-    """
-    Overridden update function.  Runs some base logic before any other
-    state.
-    """
+    # ---------------------------------------------------------------------
+    def update(self):
+        """
+        Overridden update function.  Runs some base logic before any other
+        state.
+        """
 
-    if not self._io.isFunctional():
-      # If PLC reports an error mid-head-transfer, clear any queued local
-      # head sequence steps before switching to hardware/error handling mode.
-      if self._io.plcLogic.isError():
-        self._io.head.clearQueuedTransfer()
+        if not self._io.isFunctional():
+            # If PLC reports an error mid-head-transfer, clear any queued local
+            # head sequence steps before switching to hardware/error handling mode.
+            if self._io.plcLogic.isError():
+                self._io.head.clearQueuedTransfer()
 
-      if self.getState() != self.States.HARDWARE:
+            # In simulation, treat PLC logic errors as a stop request rather than a
+            # full hardware reconnect cycle so the system lands in StopMode.
+            isSimulatedPlc = self._io.plc.__class__.__module__.endswith(
+                "simulated_plc"
+            ) or self._io.plc.__class__.__module__.endswith("ladder_simulated_plc")
+            if (
+                isSimulatedPlc
+                and self._io.plcLogic.isError()
+                and self.getState() == self.States.WIND
+            ):
+                self.changeState(self.States.STOP)
+            elif self.getState() != self.States.HARDWARE:
+                self.changeState(self.States.HARDWARE)
+        # Emergency stop.
+        elif self._io.estop.get() and self.getState() != self.States.STOP:
+            self.log.add(self.__class__.__name__, "ESTOP", "Emergency stop detected.")
+            self.changeState(self.States.STOP)
+
+        LoggedStateMachine.update(self)
+
+    # ---------------------------------------------------------------------
+    def dispatch(self, event):
+        """
+        Handle global control events and route all others to active mode.
+
+        Args:
+          event: Event payload object.
+
+        Returns:
+          True if handled, False if ignored.
+        """
+
+        if isinstance(event, SetLoopModeEvent):
+            self.windMode.setLoopMode(event.enabled)
+            return True
+
+        return LoggedStateMachine.dispatch(self, event)
+
+    # ---------------------------------------------------------------------
+    def isStopped(self):
+        """
+        See if state machine is in stop.
+
+        Return:
+          True if state machine is in stop.
+        """
+        return self.States.STOP == self.getState()
+
+    # ---------------------------------------------------------------------
+    def isInMotion(self):
+        """
+        Check to see if the machine is in motion.
+
+        Returns:
+          True if machine is in motion, False if not.
+        """
+        return self.getState() in (
+            self.States.WIND,
+            self.States.MANUAL,
+        )
+
+    # ---------------------------------------------------------------------
+    def isReadyForMovement(self):
+        """
+        Check to see if the state machine is in a state suitable for starting
+        motion.
+
+        Returns:
+          True if machine can begin motion.
+        """
+        return self.States.STOP == self.getState() and self.stopMode.isIdle()
+
+    # ---------------------------------------------------------------------
+    def isJogging(self):
+        """
+        Check if manual jogging is currently active.
+
+        Returns:
+          True if jogging, False if not.
+        """
+        return self.manualMode.isJogging()
+
+    # ---------------------------------------------------------------------
+    def getLoopMode(self):
+        """
+        See if G-Code loop mode is enabled.
+
+        Returns:
+          True if loop mode enabled.
+        """
+        return self.windMode.getLoopMode()
+
+    # ---------------------------------------------------------------------
+    def getWindTime(self):
+        """
+        Return the most recent wind runtime in seconds.
+        """
+        return self.windMode.getWindTime()
+
+    # ---------------------------------------------------------------------
+    def resetWindTime(self):
+        """
+        Clear accumulated wind runtime.
+        """
+        self.windMode.resetWindTime()
+
+    # ---------------------------------------------------------------------
+    def __init__(self, io: BaseIO, log: Log, systemTime: TimeSource):
+        """
+        Constructor.
+
+        Args:
+          io: Instance of I/O map.
+          log: Log file to write state changes.
+          systemTime: Instance of TimeSource.
+        """
+
+        LoggedStateMachine.__init__(self, log)
+        self.hardwareMode = HardwareMode(self, self.States.HARDWARE, io, log)
+        self.stopMode = StopMode(self, self.States.STOP, io, log)
+        self.windMode = WindMode(self, self.States.WIND, io, log)
+        self.manualMode = ManualMode(self, self.States.MANUAL, io, log)
+
         self.changeState(self.States.HARDWARE)
-    # Emergency stop.
-    elif self._io.estop.get() and self.getState() != self.States.STOP:
-      self.log.add(self.__class__.__name__, "ESTOP", "Emergency stop detected.")
-      self.changeState(self.States.STOP)
 
-    LoggedStateMachine.update(self)
+        self._io = io
 
-  # ---------------------------------------------------------------------
-  def dispatch(self, event):
-    """
-    Handle global control events and route all others to active mode.
+        self.systemTime = systemTime
 
-    Args:
-      event: Event payload object.
-
-    Returns:
-      True if handled, False if ignored.
-    """
-
-    if isinstance(event, SetLoopModeEvent):
-      self.windMode.setLoopMode(event.enabled)
-      return True
-
-    return LoggedStateMachine.dispatch(self, event)
-
-  # ---------------------------------------------------------------------
-  def isStopped(self):
-    """
-    See if state machine is in stop.
-
-    Return:
-      True if state machine is in stop.
-    """
-    return self.States.STOP == self.getState()
-
-  # ---------------------------------------------------------------------
-  def isInMotion(self):
-    """
-    Check to see if the machine is in motion.
-
-    Returns:
-      True if machine is in motion, False if not.
-    """
-    return self.getState() in (
-      self.States.WIND,
-      self.States.MANUAL,
-    )
-
-  # ---------------------------------------------------------------------
-  def isReadyForMovement(self):
-    """
-    Check to see if the state machine is in a state suitable for starting
-    motion.
-
-    Returns:
-      True if machine can begin motion.
-    """
-    return self.States.STOP == self.getState() and self.stopMode.isIdle()
-
-  # ---------------------------------------------------------------------
-  def isJogging(self):
-    """
-    Check if manual jogging is currently active.
-
-    Returns:
-      True if jogging, False if not.
-    """
-    return self.manualMode.isJogging()
-
-  # ---------------------------------------------------------------------
-  def getLoopMode(self):
-    """
-    See if G-Code loop mode is enabled.
-
-    Returns:
-      True if loop mode enabled.
-    """
-    return self.windMode.getLoopMode()
-
-  # ---------------------------------------------------------------------
-  def getWindTime(self):
-    """
-    Return the most recent wind runtime in seconds.
-    """
-    return self.windMode.getWindTime()
-
-  # ---------------------------------------------------------------------
-  def resetWindTime(self):
-    """
-    Clear accumulated wind runtime.
-    """
-    self.windMode.resetWindTime()
-
-  # ---------------------------------------------------------------------
-  def __init__(self, io: BaseIO, log: Log, systemTime: TimeSource):
-    """
-    Constructor.
-
-    Args:
-      io: Instance of I/O map.
-      log: Log file to write state changes.
-      systemTime: Instance of TimeSource.
-    """
-
-    LoggedStateMachine.__init__(self, log)
-    self.hardwareMode = HardwareMode(self, self.States.HARDWARE, io, log)
-    self.stopMode = StopMode(self, self.States.STOP, io, log)
-    self.windMode = WindMode(self, self.States.WIND, io, log)
-    self.manualMode = ManualMode(self, self.States.MANUAL, io, log)
-
-    self.changeState(self.States.HARDWARE)
-
-    self._io = io
-
-    self.systemTime = systemTime
-
-    # Runtime wiring shared by modes.
-    self.gCodeHandler: Optional[GCodeHandler] = None
-    self.machineCalibration = None
+        # Runtime wiring shared by modes.
+        self.gCodeHandler: Optional[GCodeHandler] = None
+        self.machineCalibration = None
 
 
 # end class

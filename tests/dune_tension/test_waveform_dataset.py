@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -11,7 +12,7 @@ from spectrum_analysis.waveform_dataset import WaveformParameters, generate_wave
 
 
 def _params(**overrides: float | int | str) -> WaveformParameters:
-    base = dict(
+    base: dict[str, Any] = dict(
         sample_rate=8000,
         duration=1.0,
         base_frequency=220.0,

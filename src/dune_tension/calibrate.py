@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import math
 import time
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -97,7 +97,7 @@ def calibrate(
     x_start, y_start = plc_io.get_cached_xy()
     y_lower = y_start - dy / 2
 
-    goto_kwargs = {"speed": cfg.speed} if cfg.speed is not None else {}
+    goto_kwargs: dict[str, Any] = {"speed": cfg.speed} if cfg.speed is not None else {}
     plc_io.goto_xy(x_start, y_lower, **goto_kwargs)
 
     if sampler is None:

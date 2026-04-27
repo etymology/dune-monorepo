@@ -1,0 +1,1160 @@
+-- allium: 3
+-- tension-measurement.allium
+
+-- Scope: DUNE APA wire-tension measurement behaviour for a reimplementation.
+-- Includes: measurement setup, wire targeting, focus-aware pose planning,
+--           legacy pulse measurements, streaming sweep/rescue measurements,
+--           accepted tension results, raw samples, summaries, clearing, and
+--           upload/review boundaries.
+-- Excludes:
+--   - Tk widget layout, Python package boundaries, threads, callbacks, and CLI flags
+--   - SQLite/CSV/PNG/WAV/JSON directory layout and schema details
+--   - PESTO, harmonic-comb, audio-device, PLC, servo, valve, and M2M protocol internals
+--   - Historical experiment/report scripts and UKAPA7 comparison notebooks
+--   - Exact GUI state persistence, logging format, and timing profiler output
+--
+-- Reimplementation intent:
+--   Storage and GUI may be redesigned completely. Preserve the domain contracts:
+--   what measurements mean, what evidence is retained, how results are accepted,
+--   how missing/cleared wires are defined, and how streaming provenance relates
+--   to final per-wire tension results.
+
+------------------------------------------------------------
+-- Boundary Entities
+------------------------------------------------------------
+
+entity Operator {
+  name: String
+}
+
+entity MeasurementHardware {
+  availability: available | unavailable | spoofed
+}
+
+entity AudioAnalyzer {
+  availability: available | unavailable
+}
+
+entity ArtifactStore {
+  availability: available | unavailable
+}
+
+entity UploadDestination {
+  name: String
+}
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+value Point2D {
+  x_mm: Decimal
+  y_mm: Decimal
+}
+
+value MeasurementPose {
+  x_true_mm: Decimal
+  y_true_mm: Decimal
+  focus_position: Decimal
+  focus_reference: Decimal
+  x_focus_correction_mm: Decimal
+  x_laser_mm: Decimal
+  side: Side
+
+  delta_focus: focus_position - focus_reference
+}
+
+value WireRange {
+  first: Integer
+  last: Integer
+}
+
+value MeasurementCondition {
+  expression: String
+}
+
+value FocusPlaneCoefficients {
+  x_slope: Decimal
+  y_slope: Decimal
+  intercept: Decimal
+}
+
+value TensionDerivation {
+  zone: Integer
+  wire_length_m: Decimal
+  tension_n: Decimal
+  tension_pass: Boolean
+}
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+contract MotionControl {
+  current_pose: (context: Any) -> MeasurementPose
+  move_to_pose: (pose: MeasurementPose) -> Boolean
+  move_along_segment: (start: MeasurementPose, end: MeasurementPose, speed_mm_s: Decimal) -> Boolean
+  reset_motion: (context: Any) -> Boolean
+
+  @invariant BoundedMotion
+    -- Motion commands either complete inside the measurable APA envelope or
+    -- report failure without creating an accepted result.
+}
+
+contract FocusControl {
+  current_focus: (context: Any) -> Decimal
+  set_focus: (focus_position: Decimal) -> Boolean
+
+  @invariant FocusXCompensation
+    -- Changing focus changes the effective laser X coordinate. A-side and
+    -- B-side compensation signs are opposite and must be applied consistently
+    -- unless the operator explicitly chooses manual/uncompensated focus.
+}
+
+contract ExcitationControl {
+  pulse_wire: (context: Any) -> Boolean
+
+  @invariant PulseSafety
+    -- Pulses are bounded, non-continuous excitations in this spec. Continuous
+    -- excitation requires a separate future spec.
+}
+
+contract AudioCapture {
+  capture_event: (duration: Duration, expected_frequency_hz: Decimal?) -> AudioEvent?
+  start_stream: (session: StreamingSession) -> Boolean
+  stop_stream: (session: StreamingSession) -> Boolean
+  captured_windows: (session: StreamingSession) -> Set<AudioWindow>
+}
+
+contract PitchAnalysis {
+  estimate_pitch: (event: AudioEvent, expected_frequency_hz: Decimal?) -> PitchEstimate
+  score_stream_frame: (window: AudioWindow, expected_frequency_hz: Decimal?) -> FrameScore
+
+  @invariant AnalysisExplainsConfidence
+    -- Every accepted pitch estimate carries a frequency and confidence score
+    -- sufficient for thresholding and later review.
+}
+
+contract MeasurementArtifacts {
+  append_sample: (sample: TensionSample) -> Boolean
+  append_result: (result: TensionResult) -> Boolean
+  clear_wire: (setup: MeasurementSetup, wire_number: Integer) -> Boolean
+  append_stream_event: (session: StreamingSession, artifact: Any) -> Boolean
+
+  @guidance
+    -- The implementation may use a database, event log, files, cloud storage,
+    -- or another durable model. The contract is behavioral, not a schema.
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum Layer { u | v | x | g }
+enum Side { a | b }
+enum MeasurementMode { legacy | stream_sweep | stream_rescue }
+enum RequestKind { calibrate | auto | list | zone | condition }
+enum MeasurementStatus { planned | running | skipped | no_result | queued_for_rescue | accepted | failed | interrupted }
+enum SessionStatus { planned | running | completed | interrupted | failed }
+enum SegmentMode { sweep | rescue }
+enum SegmentStatus { planned | running | completed | skipped | failed }
+enum CandidateStatus { provisional | queued_for_rescue | accepted | rejected }
+enum RescueStatus { queued | running | completed | failed | cancelled }
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity MeasurementSetup {
+  apa_name: String
+  layer: Layer
+  side: Side
+  flipped: Boolean
+  side_taped: Boolean
+  confidence_threshold: Decimal
+  confidence_source: neural_net | signal_amplitude
+  record_duration: Duration
+  measuring_timeout: Duration
+  manual_focus: Boolean
+  manual_focus_target: Decimal?
+  legacy_tension_condition: MeasurementCondition?
+}
+
+entity LayerGeometry {
+  layer: Layer
+  measurable_x: WireRange
+  measurable_y: WireRange
+  wire_numbers: WireRange
+  zones: Set<CombZone>
+}
+
+entity CombZone {
+  zone_number: Integer
+  x_min_mm: Decimal
+  x_max_mm: Decimal
+}
+
+entity WireTarget {
+  setup: MeasurementSetup
+  wire_number: Integer
+  classification: measurable | unmeasurable
+  nominal_pose: MeasurementPose?
+  expected_frequency_hz: Decimal?
+}
+
+entity FocusModel {
+  setup: MeasurementSetup
+  fit_state: empty | seeded | fitted
+  coefficients: FocusPlaneCoefficients?
+
+  anchors: FocusAnchor with focus_model = this
+}
+
+entity FocusAnchor {
+  focus_model: FocusModel
+  pose: MeasurementPose
+  source: manual | legacy_result | streaming_rescue
+  pitch_hz: Decimal?
+  confidence: Decimal?
+  captured_at: Timestamp
+}
+
+entity MeasurementRequest {
+  setup: MeasurementSetup
+  mode: MeasurementMode
+  kind: RequestKind
+  requested_wires: Set<Integer>
+  zone_filter: Set<Integer>
+  condition: MeasurementCondition?
+  skip_already_measured: Boolean
+  preserve_order: Boolean
+  requested_by: Operator
+  requested_at: Timestamp
+  state: planned | running | completed | interrupted | failed
+
+  measurements: WireMeasurement with request = this
+
+  transitions state {
+    planned -> running
+    running -> completed
+    running -> interrupted
+    running -> failed
+    terminal: completed, interrupted, failed
+  }
+}
+
+entity WireMeasurement {
+  request: MeasurementRequest
+  target: WireTarget
+  mode: MeasurementMode
+  status: MeasurementStatus
+  started_at: Timestamp?
+  completed_at: Timestamp?
+
+  samples: TensionSample with measurement = this
+  result: TensionResult with measurement = this
+
+  transitions status {
+    planned -> running
+    planned -> skipped
+    running -> accepted
+    running -> no_result
+    running -> queued_for_rescue
+    running -> failed
+    running -> interrupted
+    queued_for_rescue -> running
+    terminal: skipped, accepted, no_result, failed, interrupted
+  }
+}
+
+entity AudioEvent {
+  measurement: WireMeasurement?
+  captured_at: Timestamp
+  duration: Duration
+  expected_frequency_hz: Decimal?
+  retained: Boolean
+}
+
+entity AudioWindow {
+  session: StreamingSession?
+  segment: StreamingSegment?
+  start_time: Timestamp
+  end_time: Timestamp
+  pose: MeasurementPose
+  retained: Boolean
+}
+
+entity PitchEstimate {
+  source_event: AudioEvent?
+  source_window: AudioWindow?
+  frequency_hz: Decimal
+  confidence: Decimal
+  expected_frequency_hz: Decimal?
+}
+
+entity FrameScore {
+  window: AudioWindow
+  pose: MeasurementPose
+  comb_score: Decimal
+  spectral_flatness: Decimal
+  harmonic_valid: Boolean
+  expected_band_score: Decimal?
+  voiced_gate_pass: Boolean
+}
+
+entity TensionSample {
+  measurement: WireMeasurement
+  setup: MeasurementSetup
+  wire_number: Integer
+  pose: MeasurementPose
+  frequency_hz: Decimal
+  confidence: Decimal
+  derivation: TensionDerivation
+  captured_at: Timestamp
+  mode: MeasurementMode
+  stream_session: StreamingSession?
+
+  is_plausible: derivation.tension_n > config.minimum_physical_tension_n
+    and derivation.tension_n < config.maximum_physical_tension_n
+}
+
+entity TensionResult {
+  measurement: WireMeasurement
+  setup: MeasurementSetup
+  wire_number: Integer
+  pose: MeasurementPose
+  frequency_hz: Decimal
+  confidence: Decimal
+  derivation: TensionDerivation
+  measured_at: Timestamp
+  time_to_find: Duration
+  mode: MeasurementMode
+  stream_session: StreamingSession?
+
+  passes: derivation.tension_pass
+  is_plausible: derivation.tension_n > config.minimum_physical_tension_n
+    and derivation.tension_n < config.maximum_physical_tension_n
+}
+
+entity TensionSummary {
+  setup: MeasurementSetup
+  generated_at: Timestamp
+  selected_results: Set<TensionResult>
+  missing_wires: Set<Integer>
+  mean_tension_n: Decimal?
+  sigma_tension_n: Decimal?
+  modal_tension_n: Decimal?
+}
+
+entity StreamingSession {
+  setup: MeasurementSetup
+  mode: MeasurementMode
+  status: SessionStatus
+  started_at: Timestamp
+  completed_at: Timestamp?
+  focus_model: FocusModel
+
+  segments: StreamingSegment with session = this
+  evidence_bins: PitchEvidenceBin with session = this
+  candidates: WireCandidate with session = this
+  rescue_items: RescueQueueItem with session = this
+
+  transitions status {
+    planned -> running
+    running -> completed
+    running -> interrupted
+    running -> failed
+    terminal: completed, interrupted, failed
+  }
+}
+
+entity SweepCorridor {
+  setup: MeasurementSetup
+  wire_hint: Integer?
+  start_pose: MeasurementPose
+  end_pose: MeasurementPose
+  speed_mm_s: Decimal
+  focus_offset: Decimal
+  comb_safe: Boolean
+}
+
+entity StreamingSegment {
+  session: StreamingSession
+  mode: SegmentMode
+  status: SegmentStatus
+  start_pose: MeasurementPose
+  end_pose: MeasurementPose
+  cruise_start_at: Timestamp
+  cruise_end_at: Timestamp
+  wire_hint: Integer?
+
+  windows: AudioWindow with segment = this
+
+  transitions status {
+    planned -> running
+    planned -> skipped
+    running -> completed
+    running -> failed
+    terminal: completed, skipped, failed
+  }
+}
+
+entity PitchEvidenceBin {
+  session: StreamingSession
+  pose_center: Point2D
+  pitch_center_hz: Decimal
+  support_count: Integer
+  combined_confidence: Decimal
+  max_comb_score: Decimal
+  focus_response: Set<FocusResponsePoint>
+}
+
+entity FocusResponsePoint {
+  focus_delta: Decimal
+  support_count: Integer
+  combined_confidence: Decimal
+}
+
+entity WireCandidate {
+  session: StreamingSession
+  wire_number: Integer
+  source_mode: SegmentMode
+  status: CandidateStatus
+  support_count: Integer
+  best_pose: MeasurementPose
+  pitch_hz: Decimal
+  confidence: Decimal
+  angle_coherence_score: Decimal
+  focus_consistency_score: Decimal
+
+  transitions status {
+    provisional -> accepted
+    provisional -> queued_for_rescue
+    provisional -> rejected
+    queued_for_rescue -> accepted
+    queued_for_rescue -> rejected
+    terminal: accepted, rejected
+  }
+}
+
+entity RescueQueueItem {
+  session: StreamingSession
+  wire_number: Integer
+  status: RescueStatus
+  reason: String
+
+  transitions status {
+    queued -> running
+    queued -> cancelled
+    running -> completed
+    running -> failed
+    terminal: completed, failed, cancelled
+  }
+}
+
+entity UploadBatch {
+  setup: MeasurementSetup
+  destination: UploadDestination
+  results: Set<TensionResult>
+  state: pending | uploaded | failed
+
+  transitions state {
+    pending -> uploaded
+    pending -> failed
+    terminal: uploaded, failed
+  }
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+  minimum_physical_tension_n: Decimal = 2.0
+  maximum_physical_tension_n: Decimal = 10.0
+  maximum_passing_tension_n: Decimal = 8.5
+  nominal_tension_n: Decimal = 6.5
+  wire_density_kg_m: Decimal = 0.0001540460069
+  uv_taped_length_offset_m: Decimal = 0.016
+
+  x_layer_wire_range: WireRange = { first: 1, last: 480 }
+  g_layer_wire_range: WireRange = { first: 1, last: 481 }
+  uv_measured_wire_range: WireRange = { first: 8, last: 1146 }
+
+  measurable_x_min_mm: Decimal = 1050.0
+  measurable_x_max_mm: Decimal = 7015.0
+  measurable_y_min_mm: Decimal = 330.0
+  measurable_y_max_mm: Decimal = 2700.0
+
+  focus_mm_per_focus_unit: Decimal = 0.005
+  focus_x_mm_per_focus_unit: Decimal = 0.00288675
+
+  streaming_direct_accept_support: Integer = 2
+  streaming_direct_accept_confidence: Decimal = 0.7
+  streaming_direct_accept_angle_score: Decimal = 0.5
+  streaming_direct_accept_focus_score: Decimal = 0.5
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+rule StartMeasurementRequest {
+  when: MeasurementRequestStarted(request)
+  requires: request.state = planned
+
+  ensures: request.state = running
+}
+
+rule RecordPlannedMeasurementRequest {
+  when: MeasurementRequestPlanned(request)
+
+  ensures: request.state = planned
+}
+
+rule FailMeasurementRequest {
+  when: MeasurementRequestFailed(request)
+  requires: request.state = running
+
+  ensures: request.state = failed
+}
+
+rule DefineLayerGeometry {
+  when: MeasurementSetupCreated(setup)
+
+  ensures: LayerGeometry.created(
+    layer: setup.layer,
+    measurable_x: { first: config.measurable_x_min_mm, last: config.measurable_x_max_mm },
+    measurable_y: { first: config.measurable_y_min_mm, last: config.measurable_y_max_mm },
+    wire_numbers: expected_wire_range(setup.layer),
+    zones: comb_zones()
+  )
+}
+
+rule PlanWireTargets {
+  when: request: MeasurementRequest.state transitions_to running
+  requires: request.state = running
+
+  ensures:
+    for wire_number in wires_for_request(request):
+      WireTarget.created(
+        setup: request.setup,
+        wire_number: wire_number,
+        classification: target_classification(request.setup, wire_number),
+        nominal_pose: planned_pose(request.setup, wire_number),
+        expected_frequency_hz: expected_frequency(request.setup, wire_number)
+      )
+}
+
+rule SkipAlreadyMeasuredWires {
+  when: MeasurementRequestStarted(request)
+  requires: request.skip_already_measured
+
+  ensures:
+    for target in WireTargets where target.setup = request.setup and latest_plausible_result(target.setup, target.wire_number) != null:
+      WireMeasurement.created(
+        request: request,
+        target: target,
+        mode: request.mode,
+        status: skipped
+      )
+}
+
+rule StartWireMeasurement {
+  when: MeasureWire(request, target)
+  requires: request.state = running
+  requires: target.classification = measurable
+  requires: latest_plausible_result(target.setup, target.wire_number) = null or not request.skip_already_measured
+
+  ensures: WireMeasurement.created(
+    request: request,
+    target: target,
+    mode: request.mode,
+    status: running,
+    started_at: now
+  )
+}
+
+rule RejectUnmeasurableWire {
+  when: MeasureWire(request, target)
+  requires: request.state = running
+  requires: target.classification != measurable
+
+  ensures: WireMeasurement.created(
+    request: request,
+    target: target,
+    mode: request.mode,
+    status: skipped
+  )
+}
+
+rule LegacyPulseSample {
+  when: LegacyPulseCaptured(measurement, event)
+  requires: measurement.status = running
+  requires: measurement.mode = legacy
+  requires: event.retained
+
+  let estimate = AudioAnalyzer.estimate_pitch(event, measurement.target.expected_frequency_hz)
+  let derivation = derive_tension(
+    measurement.request.setup,
+    measurement.target.wire_number,
+    estimate.frequency_hz,
+    event_pose(event)
+  )
+
+  ensures: TensionSample.created(
+    measurement: measurement,
+    setup: measurement.request.setup,
+    wire_number: measurement.target.wire_number,
+    pose: event_pose(event),
+    frequency_hz: estimate.frequency_hz,
+    confidence: estimate.confidence,
+    derivation: derivation,
+    captured_at: now,
+    mode: legacy,
+    stream_session: null
+  )
+}
+
+rule LegacyAcceptedResult {
+  when: LegacySamplingComplete(measurement)
+  requires: measurement.status = running
+  requires: measurement.samples.any(s => s.is_plausible)
+
+  let best = best_legacy_sample(measurement.samples, measurement.request.setup.confidence_source)
+
+  ensures: TensionResult.created(
+    measurement: measurement,
+    setup: measurement.request.setup,
+    wire_number: measurement.target.wire_number,
+    pose: best.pose,
+    frequency_hz: best.frequency_hz,
+    confidence: best.confidence,
+    derivation: best.derivation,
+    measured_at: now,
+    time_to_find: now - measurement.started_at,
+    mode: legacy,
+    stream_session: null
+  )
+  ensures: measurement.status = accepted
+  ensures: measurement.completed_at = now
+}
+
+rule LegacyNoResult {
+  when: LegacySamplingComplete(measurement)
+  requires: measurement.status = running
+  requires: not measurement.samples.any(s => s.is_plausible)
+
+  ensures: measurement.status = no_result
+  ensures: measurement.completed_at = now
+}
+
+rule StartStreamingSweep {
+  when: StreamingSweepRequested(request, corridors)
+  requires: request.state = running
+  requires: request.mode = stream_sweep
+  requires: corridors.all(c => c.comb_safe)
+
+  let model = focus_model_for(request.setup)
+
+  ensures: StreamingSession.created(
+    setup: request.setup,
+    mode: stream_sweep,
+    status: running,
+    started_at: now,
+    focus_model: model
+  )
+  ensures:
+    for corridor in corridors:
+      SweepCorridor.created(
+        setup: request.setup,
+        wire_hint: corridor.wire_hint,
+        start_pose: corridor.start_pose,
+        end_pose: corridor.end_pose,
+        speed_mm_s: corridor.speed_mm_s,
+        focus_offset: corridor.focus_offset,
+        comb_safe: true
+      )
+}
+
+rule CompleteSweepSegment {
+  when: SweepSegmentCaptured(session, segment)
+  requires: session.status = running
+  requires: segment.status = running
+  requires: segment.mode = sweep
+
+  ensures: segment.status = completed
+  ensures:
+    for window in retained_windows(segment):
+      AudioWindow.created(
+        session: session,
+        segment: segment,
+        start_time: window.start_time,
+        end_time: window.end_time,
+        pose: window.pose,
+        retained: true
+      )
+}
+
+rule ScoreStreamingWindow {
+  when: window: AudioWindow.created
+  requires: window.retained
+  requires: window.session.status = running
+
+  let score = AudioAnalyzer.score_stream_frame(window, expected_frequency_for_window(window))
+
+  ensures: FrameScore.created(
+    window: window,
+    pose: window.pose,
+    comb_score: score.comb_score,
+    spectral_flatness: score.spectral_flatness,
+    harmonic_valid: score.harmonic_valid,
+    expected_band_score: score.expected_band_score,
+    voiced_gate_pass: score.voiced_gate_pass
+  )
+}
+
+rule EstimateVoicedWindowPitch {
+  when: frame: FrameScore.created
+  requires: frame.voiced_gate_pass
+
+  let estimate = AudioAnalyzer.estimate_pitch(frame.window, expected_frequency_for_window(frame.window))
+
+  ensures: PitchEstimate.created(
+    source_event: null,
+    source_window: frame.window,
+    frequency_hz: estimate.frequency_hz,
+    confidence: estimate.confidence,
+    expected_frequency_hz: estimate.expected_frequency_hz
+  )
+}
+
+rule AccumulatePitchEvidence {
+  when: estimate: PitchEstimate.created
+  requires: estimate.source_window != null
+  requires: estimate.confidence > 0.0
+
+  ensures: PitchEvidenceBin.created(
+    session: estimate.source_window.session,
+    pose_center: bin_center(estimate.source_window.pose),
+    pitch_center_hz: estimate.frequency_hz,
+    support_count: 1,
+    combined_confidence: estimate.confidence,
+    max_comb_score: max_comb_score(estimate.source_window),
+    focus_response: {
+      FocusResponsePoint {
+        focus_delta: estimate.source_window.pose.delta_focus,
+        support_count: 1,
+        combined_confidence: estimate.confidence
+      }
+    }
+  )
+}
+
+rule AggregateStreamingCandidates {
+  when: StreamingEvidenceReady(session)
+  requires: session.status = running
+
+  ensures:
+    for candidate in candidates_from_evidence(session):
+      WireCandidate.created(
+        session: session,
+        wire_number: candidate.wire_number,
+        source_mode: candidate.source_mode,
+        status: provisional,
+        support_count: candidate.support_count,
+        best_pose: candidate.best_pose,
+        pitch_hz: candidate.pitch_hz,
+        confidence: candidate.confidence,
+        angle_coherence_score: candidate.angle_coherence_score,
+        focus_consistency_score: candidate.focus_consistency_score
+      )
+}
+
+rule AcceptStrongStreamingCandidate {
+  when: candidate: WireCandidate.status becomes provisional
+  requires: candidate.support_count >= config.streaming_direct_accept_support
+  requires: candidate.confidence >= config.streaming_direct_accept_confidence
+  requires: candidate.angle_coherence_score >= config.streaming_direct_accept_angle_score
+  requires: candidate.focus_consistency_score >= config.streaming_direct_accept_focus_score
+
+  let derivation = derive_tension(
+    candidate.session.setup,
+    candidate.wire_number,
+    candidate.pitch_hz,
+    candidate.best_pose
+  )
+  let measurement = WireMeasurement{
+    request: active_request_for_session(candidate.session),
+    target: target_for(candidate.session.setup, candidate.wire_number)
+  }
+
+  ensures: TensionResult.created(
+    measurement: measurement,
+    setup: candidate.session.setup,
+    wire_number: candidate.wire_number,
+    pose: candidate.best_pose,
+    frequency_hz: candidate.pitch_hz,
+    confidence: candidate.confidence,
+    derivation: derivation,
+    measured_at: now,
+    time_to_find: now - candidate.session.started_at,
+    mode: stream_sweep,
+    stream_session: candidate.session
+  )
+  ensures: candidate.status = accepted
+  ensures: measurement.status = accepted
+  ensures: measurement.completed_at = now
+}
+
+rule QueueWeakStreamingCandidateForRescue {
+  when: candidate: WireCandidate.status becomes provisional
+  requires:
+    candidate.support_count < config.streaming_direct_accept_support
+    or candidate.confidence < config.streaming_direct_accept_confidence
+    or candidate.angle_coherence_score < config.streaming_direct_accept_angle_score
+    or candidate.focus_consistency_score < config.streaming_direct_accept_focus_score
+
+  ensures: candidate.status = queued_for_rescue
+  ensures: RescueQueueItem.created(
+    session: candidate.session,
+    wire_number: candidate.wire_number,
+    status: queued,
+    reason: "low_confidence_or_ambiguous"
+  )
+}
+
+rule RunStreamingRescue {
+  when: RescueRequested(session, wire_number)
+  requires: session.status = running
+  requires: predicted_position(session.setup, wire_number) != null
+
+  ensures: RescueQueueItem.created(
+    session: session,
+    wire_number: wire_number,
+    status: running,
+    reason: "operator_or_sweep_requested_rescue"
+  )
+  ensures:
+    for pose in rescue_probe_poses(session.setup, wire_number):
+      StreamingSegment.created(
+        session: session,
+        mode: rescue,
+        status: completed,
+        start_pose: pose,
+        end_pose: pose,
+        cruise_start_at: now,
+        cruise_end_at: now,
+        wire_hint: wire_number
+      )
+}
+
+rule AcceptRescueCandidate {
+  when: candidate: WireCandidate.status becomes provisional
+  requires: candidate.source_mode = rescue
+  requires: candidate.confidence > 0.0
+
+  let derivation = derive_tension(
+    candidate.session.setup,
+    candidate.wire_number,
+    candidate.pitch_hz,
+    candidate.best_pose
+  )
+  let measurement = WireMeasurement{
+    request: active_request_for_session(candidate.session),
+    target: target_for(candidate.session.setup, candidate.wire_number)
+  }
+
+  ensures: TensionResult.created(
+    measurement: measurement,
+    setup: candidate.session.setup,
+    wire_number: candidate.wire_number,
+    pose: candidate.best_pose,
+    frequency_hz: candidate.pitch_hz,
+    confidence: candidate.confidence,
+    derivation: derivation,
+    measured_at: now,
+    time_to_find: now - candidate.session.started_at,
+    mode: stream_rescue,
+    stream_session: candidate.session
+  )
+  ensures: candidate.status = accepted
+  ensures: FocusAnchor.created(
+    focus_model: candidate.session.focus_model,
+    pose: candidate.best_pose,
+    source: streaming_rescue,
+    pitch_hz: candidate.pitch_hz,
+    confidence: candidate.confidence,
+    captured_at: now
+  )
+  ensures: measurement.status = accepted
+  ensures: measurement.completed_at = now
+}
+
+rule CompleteMeasurementRequest {
+  when: AllRequestedMeasurementsSettled(request)
+  requires: request.state = running
+  requires: request.measurements.all(m => m.status in { skipped, accepted, no_result, failed, interrupted })
+
+  ensures: request.state = completed
+}
+
+rule InterruptMeasurementRequest {
+  when: OperatorStopsMeasurement(request)
+  requires: request.state = running
+
+  ensures: request.state = interrupted
+  ensures:
+    for measurement in request.measurements where status = planned | running | queued_for_rescue:
+      measurement.status = interrupted
+      measurement.completed_at = now
+}
+
+rule GenerateSummary {
+  when: SummaryRequested(setup)
+
+  ensures: TensionSummary.created(
+    setup: setup,
+    generated_at: now,
+    selected_results: latest_plausible_results(setup),
+    missing_wires: expected_wires(setup.layer) - latest_plausible_wire_numbers(setup),
+    mean_tension_n: mean(latest_plausible_results(setup).derivation.tension_n),
+    sigma_tension_n: sigma(latest_plausible_results(setup).derivation.tension_n),
+    modal_tension_n: mode(latest_plausible_results(setup).derivation.tension_n)
+  )
+}
+
+rule ClearMeasuredWires {
+  when: OperatorClearsWires(setup, wires)
+  requires: wires.count > 0
+
+  ensures:
+    for result in TensionResults where result.setup = setup and result.wire_number in wires:
+      not exists result
+  ensures:
+    for sample in TensionSamples where sample.setup = setup and sample.wire_number in wires:
+      not exists sample
+  ensures: SummaryRequested(setup)
+}
+
+rule CreateUploadBatch {
+  when: UploadRequested(setup, destination)
+
+  ensures: UploadBatch.created(
+    setup: setup,
+    destination: destination,
+    results: latest_plausible_results(setup),
+    state: pending
+  )
+}
+
+rule MarkUploadComplete {
+  when: UploadSucceeded(batch)
+  requires: batch.state = pending
+
+  ensures: batch.state = uploaded
+}
+
+rule MarkUploadFailed {
+  when: UploadFailed(batch)
+  requires: batch.state = pending
+
+  ensures: batch.state = failed
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant ResultHasMatchingTarget {
+  for result in TensionResults:
+    result.wire_number = result.measurement.target.wire_number
+      and result.setup = result.measurement.request.setup
+}
+
+invariant AcceptedMeasurementHasResult {
+  for measurement in WireMeasurements where status = accepted:
+    measurement.result != null
+}
+
+invariant SummaryUsesLatestPlausibleResults {
+  for summary in TensionSummaries:
+    summary.selected_results = latest_plausible_results(summary.setup)
+}
+
+invariant MissingWiresAreExpectedButNotSelected {
+  for summary in TensionSummaries:
+    summary.missing_wires = expected_wires(summary.setup.layer)
+      - summary.selected_results.wire_number
+}
+
+invariant TensionDerivedFromPitchAndLength {
+  for result in TensionResults:
+    result.derivation.tension_n = tension_from_frequency(
+      result.derivation.wire_length_m,
+      result.frequency_hz
+    )
+}
+
+invariant StreamingResultKeepsSessionProvenance {
+  for result in TensionResults where mode in { stream_sweep, stream_rescue }:
+    result.stream_session != null
+}
+
+invariant LegacyResultHasNoStreamingSession {
+  for result in TensionResults where mode = legacy:
+    result.stream_session = null
+}
+
+invariant SweepSegmentsDoNotCrossCombBoundaries {
+  for segment in StreamingSegments where mode = sweep:
+    same_comb_zone(segment.start_pose.x_laser_mm, segment.end_pose.x_laser_mm)
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface OperatorMeasurementConsole {
+  facing operator: Operator
+
+  exposes:
+    operator.name
+    for setup in MeasurementSetups:
+      setup.apa_name
+      setup.layer
+      setup.side
+      setup.flipped
+      setup.side_taped
+      setup.confidence_threshold
+      setup.confidence_source
+      setup.manual_focus
+      setup.manual_focus_target
+
+  provides:
+    MeasurementSetupCreated(setup)
+    MeasurementRequestPlanned(request)
+    MeasurementRequestStarted(request)
+    MeasurementRequestFailed(request) when request.state = running
+    MeasureWire(request, target)
+    StreamingSweepRequested(request, corridors)
+    RescueRequested(session, wire_number)
+    OperatorStopsMeasurement(request) when request.state = running
+    OperatorClearsWires(setup, wires)
+    SummaryRequested(setup)
+    UploadRequested(setup, destination)
+
+  related:
+    MeasurementRunStatus(request)
+    MeasurementSummaryView(setup)
+}
+
+surface MeasurementRunStatus {
+  facing operator: Operator
+
+  context request: MeasurementRequest
+
+  exposes:
+    request.state
+    request.mode
+    request.kind
+    request.requested_wires
+    for measurement in request.measurements:
+      measurement.target.wire_number
+      measurement.status
+      measurement.result.frequency_hz
+      measurement.result.confidence
+      measurement.result.derivation.tension_n
+      measurement.result.derivation.tension_pass
+}
+
+surface MeasurementSummaryView {
+  facing operator: Operator
+
+  context setup: MeasurementSetup
+
+  exposes:
+    for summary in TensionSummaries where setup = setup:
+      summary.generated_at
+      summary.selected_results
+      summary.missing_wires
+      summary.mean_tension_n
+      summary.sigma_tension_n
+      summary.modal_tension_n
+}
+
+surface HardwareBoundary {
+  facing runtime: MeasurementHardware
+
+  contracts:
+    fulfils MotionControl
+    fulfils FocusControl
+    fulfils ExcitationControl
+
+  exposes:
+    runtime.availability
+}
+
+surface AudioAnalysisBoundary {
+  facing analyzer: AudioAnalyzer
+
+  contracts:
+    fulfils AudioCapture
+    fulfils PitchAnalysis
+
+  exposes:
+    analyzer.availability
+}
+
+surface ArtifactBoundary {
+  facing store: ArtifactStore
+
+  contracts:
+    fulfils MeasurementArtifacts
+
+  exposes:
+    store.availability
+
+  @guarantee ReprocessableStreamingSessions
+    -- A streaming session exposes enough retained evidence to review accepted
+    -- and queued wires after the run without depending on the original GUI.
+}
+
+surface UploadBoundary {
+  facing destination: UploadDestination
+
+  context batch: UploadBatch
+
+  exposes:
+    destination.name
+    batch.setup.apa_name
+    batch.setup.layer
+    batch.results
+    batch.state
+
+  provides:
+    UploadSucceeded(batch) when batch.state = pending
+    UploadFailed(batch) when batch.state = pending
+}
+
+------------------------------------------------------------
+-- Deferred Specifications
+------------------------------------------------------------
+
+-- Detailed geometry, analysis, and query algorithms are intentionally left as
+-- black-box functions in this top-level spec. Current implementation references:
+--   - wire ranges and U/V geometry: dune_winder/uv-layer-geometry.allium
+--   - pose planning: src/dune_tension/tensiometer_functions.py
+--   - frequency/tension derivation: src/dune_tension/tension_calculation.py
+--   - legacy sample selection: src/dune_tension/tensiometer.py
+--   - streaming candidate/rescue logic: src/dune_tension/streaming/controller.py
+--   - latest plausible result queries: src/dune_tension/summaries.py
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Should a Rust reimplementation keep legacy mode as a production workflow or only as a compatibility fallback while streaming matures?"
+open question "What exact confidence thresholds and streaming candidate scores should be calibrated from real labeled audio before they become normative?"
+open question "Should streaming session artifacts be immutable append-only records, or may accepted candidates be revised in place during operator review?"
+open question "Should upload identity continue to be APA/layer scoped, or should uploads be explicitly tied to immutable measurement batches?"

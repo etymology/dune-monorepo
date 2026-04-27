@@ -96,5 +96,25 @@ function IncrementalJog( modules )
     )
   }
 
+  //-----------------------------------------------------------------------------
+  // Uses:
+  //   Make an incremental move in Z.
+  // Input:
+  //   offset - Value (+/-) to move.
+  //-----------------------------------------------------------------------------
+  this.moveZ = function( offset )
+  {
+    if ( ! motorStatus || ! motorStatus.motor )
+      return
+
+    var velocity = getVelocity()
+    var z = motorStatus.motor[ "zPosition" ] + offset
+    uiServices.call
+    (
+      commands.process.manualSeekZ,
+      { z: z, velocity: velocity }
+    )
+  }
+
   window[ "incrementalJog" ] = this
 }

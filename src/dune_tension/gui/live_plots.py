@@ -12,10 +12,15 @@ from matplotlib.figure import Figure
 from dune_tension.summaries import build_summary_plot_figure_for_config
 from spectrum_analysis.pitch_compare_config import PitchCompareConfig
 
+FigureCanvasTkAgg: Any = None
 try:  # pragma: no cover - backend availability depends on the runtime environment
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    from matplotlib.backends.backend_tkagg import (
+        FigureCanvasTkAgg as _FigureCanvasTkAgg,
+    )
+
+    FigureCanvasTkAgg = _FigureCanvasTkAgg
 except Exception:  # pragma: no cover - fall back to text placeholders in tests/headless
-    FigureCanvasTkAgg = None  # type: ignore[assignment]
+    pass
 
 LIVE_SUMMARY_FIGSIZE = (6.0, 5.6)
 LIVE_WAVEFORM_FIGSIZE = (5.6, 3.5)
@@ -140,7 +145,9 @@ class LivePlotManager:
         placeholder = (
             self.summary_placeholder if kind == "summary" else self.waveform_placeholder
         )
-        current_canvas = self.summary_canvas if kind == "summary" else self.waveform_canvas
+        current_canvas = (
+            self.summary_canvas if kind == "summary" else self.waveform_canvas
+        )
 
         if current_canvas is not None:
             try:
@@ -192,7 +199,9 @@ class LivePlotManager:
         analysis: Any | None,
     ) -> Figure:
         figure = Figure(figsize=LIVE_WAVEFORM_FIGSIZE, constrained_layout=True)
-        grid = figure.add_gridspec(2, 2, height_ratios=[2.2, 1.6], hspace=0.16, wspace=0.12)
+        grid = figure.add_gridspec(
+            2, 2, height_ratios=[2.2, 1.6], hspace=0.16, wspace=0.12
+        )
         waveform_axis = figure.add_subplot(grid[0, :])
         fft_axis = figure.add_subplot(grid[1, 0])
         activation_axis = figure.add_subplot(grid[1, 1])
@@ -203,7 +212,7 @@ class LivePlotManager:
             x_axis = (np.arange(shown.size) * stride) / float(samplerate)
             x_label = "Time (s)"
         else:
-            x_axis = np.arange(shown.size) * stride
+            x_axis = (np.arange(shown.size) * stride).astype(np.float64)
             x_label = "Sample Index"
 
         waveform_axis.plot(x_axis, shown, linewidth=1.0, color="#1f77b4")
@@ -220,7 +229,14 @@ class LivePlotManager:
     def _populate_fft_axis(axis: Any, waveform: np.ndarray, samplerate: int) -> None:
         cfg = PitchCompareConfig()
         if waveform.size == 0:
-            axis.text(0.5, 0.5, "No FFT data.", ha="center", va="center", transform=axis.transAxes)
+            axis.text(
+                0.5,
+                0.5,
+                "No FFT data.",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+            )
             axis.set_title("FFT")
             return
 
@@ -301,9 +317,13 @@ class LivePlotManager:
             cmap="viridis",
         )
         if predicted_frequencies is not None:
-            predicted_frequencies = np.asarray(predicted_frequencies, dtype=np.float32).reshape(-1)
+            predicted_frequencies = np.asarray(
+                predicted_frequencies, dtype=np.float32
+            ).reshape(-1)
             if predicted_frequencies.size == frame_times.size:
-                valid = np.isfinite(predicted_frequencies) & (predicted_frequencies > 0.0)
+                valid = np.isfinite(predicted_frequencies) & (
+                    predicted_frequencies > 0.0
+                )
                 valid &= predicted_frequencies >= float(cfg.min_frequency)
                 valid &= predicted_frequencies <= float(cfg.max_frequency)
                 if np.any(valid):

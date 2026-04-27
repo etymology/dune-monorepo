@@ -8,109 +8,107 @@ import re
 
 from dune_winder.recipes.template_recipe_base import TemplateRecipeBase
 from dune_winder.recipes.v_template_gcode import (
-  DEFAULT_V_TEMPLATE_ROW_COUNT,
-  OFFSET_IDS as V_OFFSET_IDS,
-  PULL_IN_IDS as V_PULL_IN_IDS,
-  WRAP_COUNT as V_WRAP_COUNT,
-  X_PULL_IN as DEFAULT_X_PULL_IN,
-  Y_PULL_IN as DEFAULT_Y_PULL_IN,
-  get_v_recipe_file_name,
-  write_v_template_file,
+    DEFAULT_V_TEMPLATE_ROW_COUNT,
+    OFFSET_IDS as V_OFFSET_IDS,
+    PULL_IN_IDS as V_PULL_IN_IDS,
+    WRAP_COUNT as V_WRAP_COUNT,
+    X_PULL_IN as DEFAULT_X_PULL_IN,
+    Y_PULL_IN as DEFAULT_Y_PULL_IN,
+    get_v_recipe_file_name,
+    write_v_template_file,
 )
 
 
 OFFSET_LABELS = {
-  "top_b_foot_end": "Top B / foot end",
-  "top_a_foot_end": "Top A / foot end",
-  "foot_a_corner": "Foot A",
-  "foot_b_corner": "Foot B",
-  "bottom_b_foot_end": "Bottom B / foot end",
-  "bottom_a_foot_end": "Bottom A / foot end",
-  "top_a_head_end": "Top A / head end",
-  "top_b_head_end": "Top B / head end",
-  "head_b_corner": "Head B",
-  "head_a_corner": "Head A",
-  "bottom_a_head_end": "Bottom A / head end",
-  "bottom_b_head_end": "Bottom B / head end",
+    "top_b_foot_end": "Top B / foot end",
+    "top_a_foot_end": "Top A / foot end",
+    "foot_a_corner": "Foot A",
+    "foot_b_corner": "Foot B",
+    "bottom_b_foot_end": "Bottom B / foot end",
+    "bottom_a_foot_end": "Bottom A / foot end",
+    "top_a_head_end": "Top A / head end",
+    "top_b_head_end": "Top B / head end",
+    "head_b_corner": "Head B",
+    "head_a_corner": "Head A",
+    "bottom_a_head_end": "Bottom A / head end",
+    "bottom_b_head_end": "Bottom B / head end",
 }
 
 PULL_IN_LABELS = {
-  "Y_PULL_IN": "Y Pull-In",
-  "X_PULL_IN": "X Pull-In",
+    "Y_PULL_IN": "Y Pull-In",
+    "X_PULL_IN": "X Pull-In",
 }
 
 PULL_IN_DEFAULTS = {
-  "Y_PULL_IN": DEFAULT_Y_PULL_IN,
-  "X_PULL_IN": DEFAULT_X_PULL_IN,
+    "Y_PULL_IN": DEFAULT_Y_PULL_IN,
+    "X_PULL_IN": DEFAULT_X_PULL_IN,
 }
 
 _HEADER_HASH_RE = re.compile(r"^\(\s*V-layer\s+([A-Z0-9-]+)\s*\)")
 
 
 class VTemplateRecipe(TemplateRecipeBase):
-  LAYER = "V"
-  SERVICE_NAME = "VTemplateRecipe"
-  OFFSET_IDS = V_OFFSET_IDS
-  OFFSET_LABELS = OFFSET_LABELS
-  PULL_IN_IDS = V_PULL_IN_IDS
-  PULL_IN_LABELS = PULL_IN_LABELS
-  PULL_IN_DEFAULTS = PULL_IN_DEFAULTS
-  WRAP_COUNT = V_WRAP_COUNT
-  DEFAULT_ROW_COUNT = DEFAULT_V_TEMPLATE_ROW_COUNT
-  HEADER_HASH_RE = _HEADER_HASH_RE
-  DRAFT_FILE_NAME = "V_Draft.json"
-  get_recipe_file_name = staticmethod(get_v_recipe_file_name)
-  write_template_file = staticmethod(write_v_template_file)
+    LAYER = "V"
+    SERVICE_NAME = "VTemplateRecipe"
+    OFFSET_IDS = V_OFFSET_IDS
+    OFFSET_LABELS = OFFSET_LABELS
+    PULL_IN_IDS = V_PULL_IN_IDS
+    PULL_IN_LABELS = PULL_IN_LABELS
+    PULL_IN_DEFAULTS = PULL_IN_DEFAULTS
+    WRAP_COUNT = V_WRAP_COUNT
+    DEFAULT_ROW_COUNT = DEFAULT_V_TEMPLATE_ROW_COUNT
+    HEADER_HASH_RE = _HEADER_HASH_RE
+    DRAFT_FILE_NAME = "V_Draft.json"
+    get_recipe_file_name = staticmethod(get_v_recipe_file_name)
+    write_template_file = staticmethod(write_v_template_file)
 
-  def _normalizePullInId(self, pullInId):
-    pullInId = str(pullInId).strip()
-    if pullInId not in self.PULL_IN_IDS:
-      raise ValueError("Unknown V pull-in: " + repr(pullInId))
-    return pullInId
+    def _normalizePullInId(self, pullInId):
+        pullInId = str(pullInId).strip()
+        if pullInId not in self.PULL_IN_IDS:
+            raise ValueError("Unknown V pull-in: " + repr(pullInId))
+        return pullInId
 
-  def _resetExtraState(self):
-    self._pullIns = dict(self.PULL_IN_DEFAULTS)
+    def _resetExtraState(self):
+        self._pullIns = dict(self.PULL_IN_DEFAULTS)
 
-  def _loadExtraStateData(self, data):
-    pullIns = data.get("pullIns", {})
-    if not isinstance(pullIns, dict):
-      return
-    for pullInId in self.PULL_IN_IDS:
-      if pullInId in pullIns:
-        self._pullIns[pullInId] = float(pullIns[pullInId])
+    def _loadExtraStateData(self, data):
+        pullIns = data.get("pullIns", {})
+        if not isinstance(pullIns, dict):
+            return
+        for pullInId in self.PULL_IN_IDS:
+            if pullInId in pullIns:
+                self._pullIns[pullInId] = float(pullIns[pullInId])
 
-  def _extraDraftState(self):
-    return {"pullIns": dict(self._pullIns)}
+    def _extraDraftState(self):
+        return {"pullIns": dict(self._pullIns)}
 
-  def _extraPublicState(self):
-    return {
-      "pullIns": dict(self._pullIns),
-      "pullInOrder": list(self.PULL_IN_IDS),
-      "pullInLabels": dict(self.PULL_IN_LABELS),
-    }
+    def _extraPublicState(self):
+        return {
+            "pullIns": dict(self._pullIns),
+            "pullInOrder": list(self.PULL_IN_IDS),
+            "pullInLabels": dict(self.PULL_IN_LABELS),
+        }
 
-  def _generationKwargs(self):
-    return {"named_inputs": dict(self._pullIns)}
+    def _generationKwargs(self):
+        return {"named_inputs": dict(self._pullIns)}
 
-  def setPullIn(self, pullInId, value):
-    self._ensureDraftStateLoaded()
+    def setPullIn(self, pullInId, value):
+        self._ensureDraftStateLoaded()
 
-    _, error = self._getActiveLayer()
-    if error is not None:
-      return self._errorResult(error)
+        _, error = self._getActiveLayer()
+        if error is not None:
+            return self._errorResult(error)
 
-    blocked = self._mutationGuard()
-    if blocked is not None:
-      return blocked
+        blocked = self._mutationGuard()
+        if blocked is not None:
+            return blocked
 
-    try:
-      pullInId = self._normalizePullInId(pullInId)
-    except ValueError as exception:
-      return self._errorResult(str(exception))
+        try:
+            pullInId = self._normalizePullInId(pullInId)
+        except ValueError as exception:
+            return self._errorResult(str(exception))
 
-    self._pullIns[pullInId] = float(value)
-    self._dirty = True
-    self._persistState()
-    return self._okResult(
-      {"pullInId": pullInId, "value": self._pullIns[pullInId]}
-    )
+        self._pullIns[pullInId] = float(value)
+        self._dirty = True
+        self._persistState()
+        return self._okResult({"pullInId": pullInId, "value": self._pullIns[pullInId]})

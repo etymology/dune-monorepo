@@ -108,6 +108,7 @@ def _compute_tension_stats(tensions: np.ndarray) -> dict:
     mean = float(np.mean(tensions))
     sigma = float(np.std(tensions, ddof=1))
     from scipy.stats import gaussian_kde
+
     kde = gaussian_kde(tensions)
     # Evaluate KDE on fine grid between min and max
     x_grid = np.linspace(tensions.min(), tensions.max(), 1000)
@@ -212,7 +213,11 @@ def build_summary_plot_figure(
             linewidth=2,
         )
 
-        rolling_mean = sorted_group["tension"].rolling(window=20, center=True, min_periods=20).mean()
+        rolling_mean = (
+            sorted_group["tension"]
+            .rolling(window=20, center=True, min_periods=20)
+            .mean()
+        )
         if rolling_mean.notna().any():
             first_valid = rolling_mean.first_valid_index()
             last_valid = rolling_mean.last_valid_index()
@@ -255,7 +260,6 @@ def build_summary_plot_figure(
     hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
 
     # Add mean, sigma, and PDF mode statistics per side
-    import matplotlib.pyplot as plt
     stats_text_parts = []
     for side_label, group in hist_df.groupby("side_label"):
         stats = _compute_tension_stats(group["tension"].values)

@@ -12,23 +12,13 @@ from dune_tension.layer_calibration import (
     load_layer_calibration_summary,
 )
 from dune_tension.tensiometer_functions import PlannedWirePose, WirePositionProvider
-from dune_winder.core.manual_calibration import LAYER_METADATA, _build_layer_metadata
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
 
 _EPSILON = 1e-9
 _SEGMENT_LENGTH_NEAR_TIE_FRACTION = 0.10
-
-_WRAP_X_SIGNS = {
-    "V": {
-        "A": {"top": -1, "foot": -1, "head": 1, "bottom": 1},
-        "B": {"top": 1, "foot": -1, "bottom": -1, "head": 1},
-    },
-    "U": {
-        "A": {"foot": -1, "head": 1, "top": 1, "bottom": -1},
-        "B": {"foot": -1, "head": 1, "top": -1, "bottom": 1},
-    },
-}
+LAYER_METADATA: dict[str, object] = {}
 
 
 @dataclass(frozen=True)
@@ -88,25 +78,31 @@ def _normalize_side(side: str) -> str:
     return value
 
 
+def _layout_for_layer(layer: str):
+    return get_uv_layout(_normalize_layer(layer))
+
+
 def _wrap_inclusive(value: int, low: int, high: int) -> int:
     span = int(high) - int(low) + 1
     return int(low) + ((int(value) - int(low)) % span)
 
 
-def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
+def wire_segment_to_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
+    """Return the canonical B-family endpoint pins for a U/V wire segment."""
+
     requested_layer = _normalize_layer(layer)
+    return _layout_for_layer(requested_layer).wire_segment_endpoints(
+        int(wire_number),
+        family="B",
+    )
+
+
+def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
     requested_side = _normalize_side(side)
-    number = int(wire_number)
-    delta = 1151 - number
-    pin_family = "F" if requested_side == "A" else "B"
-    if requested_layer == "V":
-        return (
-            f"{pin_family}{_wrap_inclusive(1199 - delta, 1, 2399)}",
-            f"{pin_family}{_wrap_inclusive(1200 + delta, 1, 2399)}",
-        )
-    return (
-        f"{pin_family}{_wrap_inclusive(1600 - delta, 1, 2401)}",
-        f"{pin_family}{_wrap_inclusive(1601 + delta, 1, 2401)}",
+    requested_layer = _normalize_layer(layer)
+    return _layout_for_layer(requested_layer).wire_segment_endpoints(
+        int(wire_number),
+        family=requested_side,
     )
 
 
@@ -219,7 +215,9 @@ def _segment_length(segment: tuple[tuple[float, float], tuple[float, float]]) ->
     return _vector_length(_vector_sub(segment[1], segment[0]))
 
 
-def _segment_midpoint(segment: tuple[tuple[float, float], tuple[float, float]]) -> tuple[float, float]:
+def _segment_midpoint(
+    segment: tuple[tuple[float, float], tuple[float, float]],
+) -> tuple[float, float]:
     return (
         float((segment[0][0] + segment[1][0]) / 2.0),
         float((segment[0][1] + segment[1][1]) / 2.0),
@@ -254,11 +252,17 @@ def _solve_tangent_candidates(
         across = math.sqrt(across_sq)
         base = _vector_scale(direction, along)
         for orientation in (-1.0, 1.0):
-            normal = _vector_add(base, _vector_scale(perpendicular, across * orientation))
+            normal = _vector_add(
+                base, _vector_scale(perpendicular, across * orientation)
+            )
             if _sign(normal[0]) != normal_x_sign:
                 continue
-            tangent_a = _vector_sub(center_a, _vector_scale(normal, distance_sign_a * radius_mm))
-            tangent_b = _vector_sub(center_b, _vector_scale(normal, distance_sign_b * radius_mm))
+            tangent_a = _vector_sub(
+                center_a, _vector_scale(normal, distance_sign_a * radius_mm)
+            )
+            tangent_b = _vector_sub(
+                center_b, _vector_scale(normal, distance_sign_b * radius_mm)
+            )
             if _sign(tangent_a[0] - center_a[0]) != int(tangent_x_sign_a):
                 continue
             if _sign(tangent_b[0] - center_b[0]) != int(tangent_x_sign_b):
@@ -267,10 +271,14 @@ def _solve_tangent_candidates(
     return candidates
 
 
-def plan_uv_wire(layer: str, side: str, wire_number: int, *, taped: bool = False) -> PlannedUVWire:
+def plan_uv_wire(
+    layer: str, side: str, wire_number: int, *, taped: bool = False
+) -> PlannedUVWire:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
-    geometry = _build_uv_plan_geometry_inputs(requested_layer, requested_side, wire_number)
+    geometry = _build_uv_plan_geometry_inputs(
+        requested_layer, requested_side, wire_number
+    )
     planned = _plan_uv_wire_geometry_cached(geometry)
     wire_length_m = length_lookup(
         requested_layer,
@@ -295,7 +303,9 @@ def plan_uv_wire(layer: str, side: str, wire_number: int, *, taped: bool = False
 def plan_uv_wire_zone(layer: str, side: str, wire_number: int) -> int:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
-    geometry = _build_uv_plan_geometry_inputs(requested_layer, requested_side, wire_number)
+    geometry = _build_uv_plan_geometry_inputs(
+        requested_layer, requested_side, wire_number
+    )
     return int(_plan_uv_wire_geometry_cached(geometry).zone)
 
 
@@ -304,6 +314,7 @@ def _build_uv_plan_geometry_inputs(
     side: str,
     wire_number: int,
 ) -> _UVPlanGeometryInputs:
+    layout = _layout_for_layer(layer)
     calibration = load_layer_calibration_summary(layer)
     offset = get_laser_offset(side)
     if offset is None:
@@ -314,13 +325,8 @@ def _build_uv_plan_geometry_inputs(
     center_a = (float(locations[pin_a]["x"]), float(locations[pin_a]["y"]))
     center_b = (float(locations[pin_b]["x"]), float(locations[pin_b]["y"]))
     pin_radius_mm = float(calibration.get("pinDiameterMm", 0.0)) / 2.0
-    metadata = LAYER_METADATA.get(layer)
-    if metadata is None:
-        metadata = _build_layer_metadata(layer)
-    pin_side_a = metadata["pinToBoard"][int(pin_a[1:])]["side"]
-    pin_side_b = metadata["pinToBoard"][int(pin_b[1:])]["side"]
-    tangent_sign_a = _WRAP_X_SIGNS[layer][side][pin_side_a]
-    tangent_sign_b = _WRAP_X_SIGNS[layer][side][pin_side_b]
+    tangent_sign_a = layout.wrap_orientation(pin_a).x_sign
+    tangent_sign_b = layout.wrap_orientation(pin_b).x_sign
 
     return _UVPlanGeometryInputs(
         layer=layer,
@@ -416,9 +422,13 @@ class LegacyUVWirePositionProvider:
     def invalidate(self) -> None:
         self._fallback_provider.invalidate()
 
-    def get_pose(self, config, wire_number: int, current_focus_position: int | None = None):
+    def get_pose(
+        self, config, wire_number: int, current_focus_position: int | None = None
+    ):
         if str(config.layer).upper() not in {"U", "V"}:
-            return self._fallback_provider.get_pose(config, wire_number, current_focus_position)
+            return self._fallback_provider.get_pose(
+                config, wire_number, current_focus_position
+            )
         try:
             planned = plan_uv_wire(
                 str(config.layer).upper(),
@@ -427,13 +437,17 @@ class LegacyUVWirePositionProvider:
                 taped=False,
             )
         except Exception as exc:
-            LOGGER.warning("U/V legacy planner failed for wire %s: %s", wire_number, exc)
+            LOGGER.warning(
+                "U/V legacy planner failed for wire %s: %s", wire_number, exc
+            )
             return None
         return PlannedWirePose(
             wire_number=int(wire_number),
             x=float(planned.midpoint[0]),
             y=float(planned.midpoint[1]),
-            focus_position=None if current_focus_position is None else int(current_focus_position),
+            focus_position=None
+            if current_focus_position is None
+            else int(current_focus_position),
             zone=(
                 int(planned.zone)
                 if getattr(planned, "zone", None) is not None

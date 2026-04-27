@@ -111,8 +111,8 @@ def test_compute_tensions_prefers_latest_plausible_measurement(
         ]
     )
 
-    tension_series, line_data, histogram_data, missing_wires = summaries._compute_tensions(
-        config, measurements
+    tension_series, line_data, histogram_data, missing_wires = (
+        summaries._compute_tensions(config, measurements)
     )
 
     assert tension_series["A"] == {1: pytest.approx(5.8)}
@@ -153,8 +153,11 @@ def test_build_summary_plot_figure_creates_two_panel_figure() -> None:
     )
 
     assert figure is not None
-    assert len(figure.axes) == 2
-    assert figure.axes[0].get_title() == "APA - Tension Scatter Plot with Trendline - Layer X"
+    assert len(figure.axes) == 4
+    assert (
+        figure.axes[0].get_title()
+        == "APA - Tension Scatter Plot with Trendline - Layer X"
+    )
     assert figure.axes[1].get_title() == "APA - Tension Histogram - Layer X"
 
 

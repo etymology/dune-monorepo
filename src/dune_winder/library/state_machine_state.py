@@ -11,75 +11,75 @@
 #   as the logic for the state.
 ###############################################################################
 class StateMachineState:
-  # ---------------------------------------------------------------------
-  def __init__(self, stateMachine, stateIndex: int):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, stateMachine, stateIndex: int):
+        """
+        Constructor.
 
-    Args:
-      stateMachine: Parent state machine.
-      stateIndex: Number that represents this state.
+        Args:
+          stateMachine: Parent state machine.
+          stateIndex: Number that represents this state.
 
-    """
+        """
 
-    self.stateMachine = stateMachine
-    self.stateMachine.addState(self, stateIndex)
+        self.stateMachine = stateMachine
+        self.stateMachine.addState(self, stateIndex)
 
-  # ---------------------------------------------------------------------
-  def changeState(self, state):
-    """
-    Transition to a new state.
+    # ---------------------------------------------------------------------
+    def changeState(self, state):
+        """
+        Transition to a new state.
 
-    Args:
-      newState: The state to transition into.
+        Args:
+          newState: The state to transition into.
 
-    Returns:
-      True if there was an error, false if not.
-    """
+        Returns:
+          True if there was an error, false if not.
+        """
 
-    return self.stateMachine.changeState(state)
+        return self.stateMachine.changeState(state)
 
-  # ---------------------------------------------------------------------
-  def enter(self):
-    """
-    Function called when entering this state.
+    # ---------------------------------------------------------------------
+    def enter(self):
+        """
+        Function called when entering this state.
 
-    Returns:
-      True if there was an error, false if not.
-    """
+        Returns:
+          True if there was an error, false if not.
+        """
 
-    return False
+        return False
 
-  # ---------------------------------------------------------------------
-  def exit(self):
-    """
-    Function called when exiting this state.
+    # ---------------------------------------------------------------------
+    def exit(self):
+        """
+        Function called when exiting this state.
 
-    Returns:
-      True if there was an error, false if not.
-    """
+        Returns:
+          True if there was an error, false if not.
+        """
 
-    return False
+        return False
 
-  # ---------------------------------------------------------------------
-  def update(self):
-    """
-    Update the state logic. Call periodically.
+    # ---------------------------------------------------------------------
+    def update(self):
+        """
+        Update the state logic. Call periodically.
 
-    """
+        """
 
-    return False
+        return False
 
-  # ---------------------------------------------------------------------
-  def handle(self, event):
-    """
-    Handle an externally dispatched event.
+    # ---------------------------------------------------------------------
+    def handle(self, event):
+        """
+        Handle an externally dispatched event.
 
-    Args:
-      event: Event payload object.
+        Args:
+          event: Event payload object.
 
-    Returns:
-      True if event was handled, False if ignored.
-    """
+        Returns:
+          True if event was handled, False if ignored.
+        """
 
-    return False
+        return False

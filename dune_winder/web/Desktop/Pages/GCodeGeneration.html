@@ -124,12 +124,19 @@
       <label for="gCodeGenerationUIncludeLeadMode">Include Lead Mode</label>
     </div>
     <div class="gCodeGenerationCheckboxRow">
+      <input type="checkbox" id="gCodeGenerationUYHover" />
+      <label for="gCodeGenerationUYHover">Y Hover</label>
+    </div>
+    <div class="gCodeGenerationCheckboxRow">
       <input type="checkbox" id="gCodeGenerationUStripG113Params" />
       <label for="gCodeGenerationUStripG113Params">Strip G113 Params</label>
     </div>
     <div class="gCodeGenerationButtonRow">
       <button type="button" id="gCodeGenerationUResetButton">
         Reset Defaults
+      </button>
+      <button type="button" id="gCodeGenerationUGenerateWrappingButton">
+        Generate U-layer.gc (Wrapping)
       </button>
       <button type="button" id="gCodeGenerationUGenerateButton">
         Generate U-layer.gc

@@ -14,12 +14,12 @@ UI_VERSION_PATH = WEB_ROOT / "version.xml"
 
 
 def project_path(*parts: str) -> Path:
-  return PACKAGE_ROOT.joinpath(*parts)
+    return PACKAGE_ROOT.joinpath(*parts)
 
 
 def web_path(*parts: str) -> Path:
-  return WEB_ROOT.joinpath(*parts)
+    return WEB_ROOT.joinpath(*parts)
 
 
 def plc_path(*parts: str) -> Path:
-  return PLC_ROOT.joinpath(*parts)
+    return PLC_ROOT.joinpath(*parts)

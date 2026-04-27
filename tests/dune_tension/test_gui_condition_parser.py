@@ -5,11 +5,7 @@ import types
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "dune_tension"
-    / "gui"
-    / "actions.py"
+    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "actions.py"
 )
 
 
@@ -19,7 +15,9 @@ def _load_actions_module(monkeypatch):
     gui_pkg = types.ModuleType("dune_tension.gui")
     gui_pkg.__path__ = []
 
-    monkeypatch.setitem(sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None))
+    monkeypatch.setitem(
+        sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None)
+    )
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
@@ -55,8 +53,8 @@ def _load_actions_module(monkeypatch):
 
     tensiometer_functions = types.ModuleType("dune_tension.tensiometer_functions")
     tensiometer_functions.make_config = lambda **kwargs: types.SimpleNamespace(**kwargs)
-    tensiometer_functions.normalize_confidence_source = (
-        lambda value: str(value).strip().lower().replace(" ", "_")
+    tensiometer_functions.normalize_confidence_source = lambda value: (
+        str(value).strip().lower().replace(" ", "_")
     )
     monkeypatch.setitem(
         sys.modules,
@@ -89,10 +87,9 @@ def _load_actions_module(monkeypatch):
 def test_condition_parser_supports_and_and_or(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     monkeypatch.setattr(
-        actions,
+        sys.modules["dune_tension.summaries"],
         "get_tension_series",
         lambda _config: {"A": {"1": 3.5, "2": 4.5, "3": 5.5, "4": 3.0}},
-        raising=False,
     )
 
     cfg = types.SimpleNamespace(side="A", layer="X")
@@ -104,10 +101,9 @@ def test_condition_parser_supports_and_and_or(monkeypatch):
 def test_condition_parser_keeps_comma_as_and(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     monkeypatch.setattr(
-        actions,
+        sys.modules["dune_tension.summaries"],
         "get_tension_series",
         lambda _config: {"A": {"1": 3.5, "2": 4.5, "3": 5.5, "4": 3.0}},
-        raising=False,
     )
 
     cfg = types.SimpleNamespace(side="A", layer="X")

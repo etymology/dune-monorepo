@@ -79,7 +79,10 @@ class PitchEvidenceField:
     ) -> PitchHypothesis | None:
         for hypothesis in hypotheses:
             tolerance = self._pitch_tolerance(hypothesis.pitch_center_hz, frequency_hz)
-            if abs(float(hypothesis.pitch_center_hz) - float(frequency_hz)) <= tolerance:
+            if (
+                abs(float(hypothesis.pitch_center_hz) - float(frequency_hz))
+                <= tolerance
+            ):
                 return hypothesis
         return None
 
@@ -119,14 +122,22 @@ class PitchEvidenceField:
 
     def observe(self, observation: PitchObservation) -> PitchEvidenceBin:
         evidence_bin = self._get_or_create_bin(observation)
-        if observation.source_window_id and observation.source_window_id not in evidence_bin.source_window_ids:
+        if (
+            observation.source_window_id
+            and observation.source_window_id not in evidence_bin.source_window_ids
+        ):
             evidence_bin.source_window_ids.append(observation.source_window_id)
             evidence_bin.source_window_count = len(evidence_bin.source_window_ids)
-        if observation.source_sweep_id and observation.source_sweep_id not in evidence_bin.source_sweep_ids:
+        if (
+            observation.source_sweep_id
+            and observation.source_sweep_id not in evidence_bin.source_sweep_ids
+        ):
             evidence_bin.source_sweep_ids.append(observation.source_sweep_id)
         evidence_bin.last_updated = observation.timestamp
 
-        hypothesis = self._match_hypothesis(evidence_bin.hypotheses, observation.frequency_hz)
+        hypothesis = self._match_hypothesis(
+            evidence_bin.hypotheses, observation.frequency_hz
+        )
         if hypothesis is None:
             hypothesis = PitchHypothesis(
                 pitch_center_hz=float(observation.frequency_hz),
@@ -144,8 +155,14 @@ class PitchEvidenceField:
             hypothesis.weighted_pitch_hz = float(observation.frequency_hz)
         else:
             hypothesis.weighted_pitch_hz = (
-                (hypothesis.weighted_pitch_hz * max(hypothesis.combined_confidence, 0.0))
-                + (float(observation.frequency_hz) * max(float(observation.confidence), 0.0))
+                (
+                    hypothesis.weighted_pitch_hz
+                    * max(hypothesis.combined_confidence, 0.0)
+                )
+                + (
+                    float(observation.frequency_hz)
+                    * max(float(observation.confidence), 0.0)
+                )
             ) / total_weight
         hypothesis.pitch_center_hz = float(hypothesis.weighted_pitch_hz)
         hypothesis.combined_confidence = merge_pitch_confidence(

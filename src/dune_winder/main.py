@@ -77,356 +77,376 @@ uiVersion = None
 
 # -----------------------------------------------------------------------
 def _parseOption(argument):
-  text = str(argument).strip()
-  option = text
-  value = "TRUE"
-  if "=" in text:
-    option, value = text.split("=", 1)
+    text = str(argument).strip()
+    option = text
+    value = "TRUE"
+    if "=" in text:
+        option, value = text.split("=", 1)
 
-  return option.strip().upper(), value.strip()
+    return option.strip().upper(), value.strip()
 
 
 # -----------------------------------------------------------------------
 def _resolvePlcMode(configuredMode, cliOverride):
-  source = cliOverride if cliOverride is not None else configuredMode
-  return AppConfig.normalizePlcMode(source)
+    source = cliOverride if cliOverride is not None else configuredMode
+    return AppConfig.normalizePlcMode(source)
 
 
 # -----------------------------------------------------------------------
 def _resolvePlcSimEngine(configuredEngine, cliOverride):
-  return resolve_plc_sim_engine(configuredEngine, envOverride=cliOverride)
+    return resolve_plc_sim_engine(configuredEngine, envOverride=cliOverride)
 
 
 # -----------------------------------------------------------------------
 def _normalizeCommand(command):
-  if isinstance(command, bytes):
-    return command.decode("utf-8", errors="replace")
-  return str(command)
+    if isinstance(command, bytes):
+        return command.decode("utf-8", errors="replace")
+    return str(command)
 
 
 # -----------------------------------------------------------------------
 def _normalizeLegacyManualGCode(command):
-  return " ".join(_normalizeCommand(command).strip().split()).upper()
+    return " ".join(_normalizeCommand(command).strip().split()).upper()
 
 
 # -----------------------------------------------------------------------
 def _looksLikeLegacyManualGCode(command):
-  commandText = _normalizeCommand(command).strip()
-  if not commandText:
-    return False
+    commandText = _normalizeCommand(command).strip()
+    if not commandText:
+        return False
 
-  return re.match(
-    r"^(?:[Gg]\d|[Xx]-?\d|[Yy]-?\d|[Zz]-?\d|[Ff]-?\d)",
-    commandText,
-  ) is not None
+    return (
+        re.match(
+            r"^(?:[Gg]\d|[Xx]-?\d|[Yy]-?\d|[Zz]-?\d|[Ff]-?\d)",
+            commandText,
+        )
+        is not None
+    )
 
 
 # -----------------------------------------------------------------------
 def _describeCaller(source):
-  if source is None:
-    return {"type": "ui-socket", "address": None, "port": None}
+    if source is None:
+        return {"type": "ui-socket", "address": None, "port": None}
 
-  if hasattr(source, "client_address"):
-    address = source.client_address
-    host = None
-    port = None
-    if isinstance(address, tuple):
-      if len(address) > 0:
-        host = address[0]
-      if len(address) > 1:
-        port = address[1]
-    return {"type": source.__class__.__name__, "address": host, "port": port}
+    if hasattr(source, "client_address"):
+        address = source.client_address
+        host = None
+        port = None
+        if isinstance(address, tuple):
+            if len(address) > 0:
+                host = address[0]
+            if len(address) > 1:
+                port = address[1]
+        return {"type": source.__class__.__name__, "address": host, "port": port}
 
-  return {"type": source.__class__.__name__, "address": None, "port": None}
+    return {"type": source.__class__.__name__, "address": None, "port": None}
 
 
 # -----------------------------------------------------------------------
 def _getSignalName(signalNumber):
-  try:
-    return signal.Signals(signalNumber).name
-  except ValueError:
-    return str(signalNumber)
+    try:
+        return signal.Signals(signalNumber).name
+    except ValueError:
+        return str(signalNumber)
 
 
 # -----------------------------------------------------------------------
 def _describeFrame(frame):
-  if frame is None:
-    return "<unknown>"
+    if frame is None:
+        return "<unknown>"
 
-  code = frame.f_code
-  return code.co_filename + ":" + str(frame.f_lineno) + " in " + code.co_name
+    code = frame.f_code
+    return code.co_filename + ":" + str(frame.f_lineno) + " in " + code.co_name
 
 
 # -----------------------------------------------------------------------
 def commandHandler(source, command):
-  """
-  Handle a remote command payload.
-  Prefer JSON API request envelopes, but still accept legacy raw manual
-  G-Code lines over the TCP socket.
+    """
+    Handle a remote command payload.
+    Prefer JSON API request envelopes, but still accept legacy raw manual
+    G-Code lines over the TCP socket.
 
-  Args:
-    command: JSON request payload (single command or batch envelope).
+    Args:
+      command: JSON request payload (single command or batch envelope).
 
-  Returns:
-    JSON envelope string.
-  """
-  commandText = _normalizeCommand(command)
-  caller = _describeCaller(source)
+    Returns:
+      JSON envelope string.
+    """
+    commandText = _normalizeCommand(command)
+    caller = _describeCaller(source)
 
-  if log:
-    log.add(
-      "Main",
-      "REMOTE_COMMAND",
-      "Remote command requested.",
-      [threading.current_thread().name, caller, commandText],
-    )
+    if log:
+        log.add(
+            "Main",
+            "REMOTE_COMMAND",
+            "Remote command requested.",
+            [threading.current_thread().name, caller, commandText],
+        )
 
-  try:
-    payload = json.loads(commandText)
-  except (TypeError, ValueError):
-    payload = None
+    try:
+        payload = json.loads(commandText)
+    except (TypeError, ValueError):
+        payload = None
 
-  if payload is None:
-    if commandRegistry is not None and _looksLikeLegacyManualGCode(commandText):
-      legacyCommand = _normalizeLegacyManualGCode(commandText)
-      response = commandRegistry.execute(
-        "process.execute_gcode_line",
-        {"line": legacyCommand},
-      )
-      return jsonDumps(response)
+    if payload is None:
+        if commandRegistry is not None and _looksLikeLegacyManualGCode(commandText):
+            legacyCommand = _normalizeLegacyManualGCode(commandText)
+            response = commandRegistry.execute(
+                "process.execute_gcode_line",
+                {"line": legacyCommand},
+            )
+            return jsonDumps(response)
 
-    response = {
-      "ok": False,
-      "data": None,
-      "error": {"code": "BAD_REQUEST", "message": "Request body must be valid JSON."},
-    }
+        response = {
+            "ok": False,
+            "data": None,
+            "error": {
+                "code": "BAD_REQUEST",
+                "message": "Request body must be valid JSON.",
+            },
+        }
+        return jsonDumps(response)
+
+    if commandRegistry is None:
+        response = {
+            "ok": False,
+            "data": None,
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "Command registry is not configured.",
+            },
+        }
+        return jsonDumps(response)
+
+    if isinstance(payload, dict) and "requests" in payload:
+        response = commandRegistry.executeBatchRequest(payload)
+    else:
+        response = commandRegistry.executeRequest(payload)
+
     return jsonDumps(response)
-
-  if commandRegistry is None:
-    response = {
-      "ok": False,
-      "data": None,
-      "error": {"code": "INTERNAL_ERROR", "message": "Command registry is not configured."},
-    }
-    return jsonDumps(response)
-
-  if isinstance(payload, dict) and "requests" in payload:
-    response = commandRegistry.executeBatchRequest(payload)
-  else:
-    response = commandRegistry.executeRequest(payload)
-
-  return jsonDumps(response)
 
 
 # -----------------------------------------------------------------------
 def signalHandler(signalNumber, frame):
-  """
-  Keyboard interrupt handler. Used to shutdown system for Ctrl-C.
+    """
+    Keyboard interrupt handler. Used to shutdown system for Ctrl-C.
 
-  Args:
-    signal: Ignored.
-    frame: Ignored.
-  """
-  signalName = _getSignalName(signalNumber)
-  frameDescription = _describeFrame(frame)
-  threadName = threading.current_thread().name
+    Args:
+      signal: Ignored.
+      frame: Ignored.
+    """
+    signalName = _getSignalName(signalNumber)
+    frameDescription = _describeFrame(frame)
+    threadName = threading.current_thread().name
 
-  if log:
-    log.add(
-      "Main",
-      "SIGNAL",
-      "Signal received; requesting shutdown.",
-      [signalNumber, signalName, threadName, frameDescription],
+    if log:
+        log.add(
+            "Main",
+            "SIGNAL",
+            "Signal received; requesting shutdown.",
+            [signalNumber, signalName, threadName, frameDescription],
+        )
+
+    PrimaryThread.stopAllThreads(
+        "signal",
+        [signalNumber, signalName, threadName, frameDescription],
     )
-
-  PrimaryThread.stopAllThreads(
-    "signal",
-    [signalNumber, signalName, threadName, frameDescription],
-  )
 
 
 # -----------------------------------------------------------------------
 def main():
-  global log, io, process, systemTime, configuration, machineCalibration, commandRegistry
-  global controlVersion, uiVersion
-  global isStartAPA, isLogEchoed, isIO_Logged
+    global \
+        log, \
+        io, \
+        process, \
+        systemTime, \
+        configuration, \
+        machineCalibration, \
+        commandRegistry
+    global controlVersion, uiVersion
+    global isStartAPA, isLogEchoed, isIO_Logged
 
-  # Handle command line.
-  plcModeOverride = None
-  plcSimEngineOverride = None
-  for argument in sys.argv[1:]:
-    option, value = _parseOption(argument)
+    # Handle command line.
+    plcModeOverride = None
+    plcSimEngineOverride = None
+    for argument in sys.argv[1:]:
+        option, value = _parseOption(argument)
 
-    if "START" == option:
-      isStartAPA = str(value).upper() == "TRUE"
-    elif "LOG" == option:
-      isLogEchoed = str(value).upper() == "TRUE"
-    elif "LOG_IO" == option:
-      isIO_Logged = str(value).upper() == "TRUE"
-    elif "PLC_MODE" == option:
-      plcModeOverride = value
-    elif "PLC_SIM_ENGINE" == option:
-      plcSimEngineOverride = value
+        if "START" == option:
+            isStartAPA = str(value).upper() == "TRUE"
+        elif "LOG" == option:
+            isLogEchoed = str(value).upper() == "TRUE"
+        elif "LOG_IO" == option:
+            isIO_Logged = str(value).upper() == "TRUE"
+        elif "PLC_MODE" == option:
+            plcModeOverride = value
+        elif "PLC_SIM_ENGINE" == option:
+            plcSimEngineOverride = value
 
-  # Install signal handler for Ctrl-C shutdown.
-  signal.signal(signal.SIGINT, signalHandler)
-
-  #
-  # Create various objects.
-  #
-
-  systemTime = SystemTime()
-
-  startTime = systemTime.get()
-
-  # Load configuration (creates with defaults if the file does not exist).
-  import pathlib
-  configuration = AppConfig.load(pathlib.Path(Settings.CONFIG_FILE))
-  plcMode = _resolvePlcMode(configuration.plcMode, plcModeOverride)
-  plcSimEngine = _resolvePlcSimEngine(
-    configuration.plcSimEngine,
-    plcSimEngineOverride,
-  )
-
-  # Persist on first run so the file exists for operators to inspect.
-  configuration.save()
-
-  # Ensure runtime directories exist on first run.
-  os.makedirs(Settings.CACHE_DIR, exist_ok=True)
-  os.makedirs(Settings.RECIPE_DIR, exist_ok=True)
-  os.makedirs(Settings.RECIPE_ARCHIVE_DIR, exist_ok=True)
-
-  # Setup log file.
-  log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
-  log.add("Main", "START", "Control system starts.")
-  plcShadowMode = bool(configuration.plcShadowMode)
-  log.add("Main", "PLC_MODE", "PLC backend mode selected.", [plcMode])
-  log.add("Main", "PLC_SIM_ENGINE", "PLC simulator engine selected.", [plcSimEngine])
-  log.add("Main", "PLC_SHADOW_MODE", "PLC shadow mode.", [plcShadowMode])
-
-  try:
-    io = ProductionIO(
-      configuration.plcAddress,
-      plcMode=plcMode,
-      plcSimEngine=plcSimEngine,
-      plcShadowMode=plcShadowMode,
-    )
-
-    # Use low-level I/O to avoid warning.
-    # (Low-level I/O is needed by remote commands.)
-    LowLevelIO.getTags()
-
-    # $$$TEMPORARY
-    machineCalibration = DefaultMachineCalibration(
-      Settings.MACHINE_CALIBRATION_PATH,
-      configuration.machineCalibrationFile,
-    )
-
-    # Primary control process.
-    process = Process(io, log, configuration, systemTime, machineCalibration)
-    controlVersion = Version(
-      str(CONTROL_VERSION_PATH),
-      str(SRC_ROOT),
-      Settings.CONTROL_FILES,
-    )
-    uiVersion = Version(
-      str(UI_VERSION_PATH),
-      str(WEB_ROOT),
-      Settings.UI_FILES,
-    )
-    commandRegistry = build_command_registry(
-      process,
-      io,
-      configuration,
-      LowLevelIO,
-      log,
-      machineCalibration,
-      systemTime=systemTime,
-      version=controlVersion,
-      uiVersion=uiVersion,
-    )
+    # Install signal handler for Ctrl-C shutdown.
+    signal.signal(signal.SIGINT, signalHandler)
 
     #
-    # Initialize threads.
+    # Create various objects.
     #
 
-    metricsCollector = MetricsCollector(io)
-    if metricsCollector.isEnabled():
-      io.pollCallbacks.append(metricsCollector.update)
-    else:
-      log.add(
-        "Main",
-        "METRICS_DISABLED",
-        "PLC metrics streaming disabled.",
-        [metricsCollector.disableReason()],
-      )
+    systemTime = SystemTime()
 
-    _ = UICommandServerThread(commandHandler, log)
-    _ = WebServerThread(log, commandRegistry)
-    _ = ControlThread(
-      io, log, process.controlStateMachine, systemTime, isIO_Logged
+    startTime = systemTime.get()
+
+    # Load configuration (creates with defaults if the file does not exist).
+    import pathlib
+
+    configuration = AppConfig.load(pathlib.Path(Settings.CONFIG_FILE))
+    plcMode = _resolvePlcMode(configuration.plcMode, plcModeOverride)
+    plcSimEngine = _resolvePlcSimEngine(
+        configuration.plcSimEngine,
+        plcSimEngineOverride,
     )
-    _ = CameraThread(io.camera, log, systemTime)
 
+    # Persist on first run so the file exists for operators to inspect.
+    configuration.save()
 
-    # Also stop on SIGTERM (e.g. `kill <pid>` or terminal close on Linux/Mac).
-    signal.signal(signal.SIGTERM, signalHandler)
+    # Ensure runtime directories exist on first run.
+    os.makedirs(Settings.CACHE_DIR, exist_ok=True)
+    os.makedirs(Settings.RECIPE_DIR, exist_ok=True)
+    os.makedirs(Settings.RECIPE_ARCHIVE_DIR, exist_ok=True)
 
-    # Begin operation.
-    PrimaryThread.startAllThreads()
-
-    # Load the single active workspace.
-    process.loadWorkspace()
-
-    if isStartAPA:
-      process.start()
+    # Setup log file.
+    log = Log(systemTime, Settings.LOG_FILE, isLogEchoed)
+    log.add("Main", "START", "Control system starts.")
+    plcShadowMode = bool(configuration.plcShadowMode)
+    # Check for environment variable override
+    envShadowMode = os.environ.get("PLC_SHADOW_MODE", "").strip().upper()
+    if envShadowMode in ("1", "TRUE", "YES"):
+        plcShadowMode = True
+    elif envShadowMode in ("0", "FALSE", "NO"):
+        plcShadowMode = False
+    log.add("Main", "PLC_MODE", "PLC backend mode selected.", [plcMode])
+    log.add("Main", "PLC_SIM_ENGINE", "PLC simulator engine selected.", [plcSimEngine])
+    log.add("Main", "PLC_SHADOW_MODE", "PLC shadow mode.", [plcShadowMode])
 
     try:
-      # While the program is running...
-      while PrimaryThread.isRunning:
-        time.sleep(0.1)
-    finally:
-      PrimaryThread.stopAllThreads()
-      log.add(
-        "Main",
-        "SHUTDOWN",
-        "Main loop exited; beginning shutdown sequence.",
-        [PrimaryThread.getStopContext(), PrimaryThread.getThreadStatus()],
-      )
+        io = ProductionIO(
+            configuration.plcAddress,
+            plcMode=plcMode,
+            plcSimEngine=plcSimEngine,
+            plcShadowMode=plcShadowMode,
+        )
 
-      # Shutdown the current processes.  In a finally block so state is always
-      # persisted regardless of how the loop exits (normal stop, exception,
-      # or signal).
-      process.closeWorkspace()
+        # Use low-level I/O to avoid warning.
+        # (Low-level I/O is needed by remote commands.)
+        LowLevelIO.getTags()
 
-      # Save configuration.
-      configuration.save()
+        # $$$TEMPORARY
+        machineCalibration = DefaultMachineCalibration(
+            Settings.MACHINE_CALIBRATION_PATH,
+            configuration.machineCalibrationFile,
+        )
 
-  except Exception as exception:
-    exceptionType, exceptionValue, exceptionTraceback = sys.exc_info()
-    tracebackString = repr(traceback.format_tb(exceptionTraceback))
-    if debugInterface:
-      traceback.print_tb(exceptionTraceback)
-      raise exception
-    else:
-      log.add(
-        "Main",
-        "FAILURE",
-        "Caught an exception.",
-        [exception, exceptionType, exceptionValue, tracebackString],
-      )
+        # Primary control process.
+        process = Process(io, log, configuration, systemTime, machineCalibration)
+        controlVersion = Version(
+            str(CONTROL_VERSION_PATH),
+            str(SRC_ROOT),
+            Settings.CONTROL_FILES,
+        )
+        uiVersion = Version(
+            str(UI_VERSION_PATH),
+            str(WEB_ROOT),
+            Settings.UI_FILES,
+        )
+        commandRegistry = build_command_registry(
+            process,
+            io,
+            configuration,
+            LowLevelIO,
+            log,
+            machineCalibration,
+            systemTime=systemTime,
+            version=controlVersion,
+            uiVersion=uiVersion,
+        )
 
-  elapsedTime = systemTime.getDelta(startTime)
-  deltaString = systemTime.getElapsedString(elapsedTime)
+        #
+        # Initialize threads.
+        #
 
-  # Log run-time of this operation.
-  log.add("Main", "RUN_TIME", "Ran for " + deltaString + ".", [elapsedTime])
+        metricsCollector = MetricsCollector(io)
+        if metricsCollector.isEnabled():
+            io.pollCallbacks.append(metricsCollector.update)
+        else:
+            log.add(
+                "Main",
+                "METRICS_DISABLED",
+                "PLC metrics streaming disabled.",
+                [metricsCollector.disableReason()],
+            )
 
-  # Sign off.
-  log.add("Main", "END", "Control system stops.")
+        _ = UICommandServerThread(commandHandler, log)
+        _ = WebServerThread(log, commandRegistry)
+        _ = ControlThread(io, log, process.controlStateMachine, systemTime, isIO_Logged)
+        _ = CameraThread(io.camera, log, systemTime)
+
+        # Also stop on SIGTERM (e.g. `kill <pid>` or terminal close on Linux/Mac).
+        signal.signal(signal.SIGTERM, signalHandler)
+
+        # Begin operation.
+        PrimaryThread.startAllThreads()
+
+        # Load the single active workspace.
+        process.loadWorkspace()
+
+        if isStartAPA:
+            process.start()
+
+        try:
+            # While the program is running...
+            while PrimaryThread.isRunning:
+                time.sleep(0.1)
+        finally:
+            PrimaryThread.stopAllThreads()
+            log.add(
+                "Main",
+                "SHUTDOWN",
+                "Main loop exited; beginning shutdown sequence.",
+                [PrimaryThread.getStopContext(), PrimaryThread.getThreadStatus()],
+            )
+
+            # Shutdown the current processes.  In a finally block so state is always
+            # persisted regardless of how the loop exits (normal stop, exception,
+            # or signal).
+            process.closeWorkspace()
+
+            # Save configuration.
+            configuration.save()
+
+    except Exception as exception:
+        exceptionType, exceptionValue, exceptionTraceback = sys.exc_info()
+        tracebackString = repr(traceback.format_tb(exceptionTraceback))
+        if debugInterface:
+            traceback.print_tb(exceptionTraceback)
+            raise exception
+        else:
+            log.add(
+                "Main",
+                "FAILURE",
+                "Caught an exception.",
+                [exception, exceptionType, exceptionValue, tracebackString],
+            )
+
+    elapsedTime = systemTime.getDelta(startTime)
+    deltaString = systemTime.getElapsedString(elapsedTime)
+
+    # Log run-time of this operation.
+    log.add("Main", "RUN_TIME", "Ran for " + deltaString + ".", [elapsedTime])
+
+    # Sign off.
+    log.add("Main", "END", "Control system stops.")
 
 
 # "If you think you understand quantum mechanics, you don't understand quantum
 # mechanics." -- Richard Feynman
 if __name__ == "__main__":
-  main()
+    main()

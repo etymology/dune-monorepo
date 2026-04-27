@@ -3,6 +3,7 @@
 All expression nodes carry an optional `typ` (PLCType) filled in by py_to_ir.
 All statement nodes have a `reg_map` available from the enclosing Routine scope.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Union
@@ -12,9 +13,11 @@ from .types import PLCType, Reg, SegField
 # Expression nodes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Const:
     """Numeric or bool literal."""
+
     value: float | int | bool
     typ: PLCType = PLCType.REAL
 
@@ -44,6 +47,7 @@ class Const:
 @dataclass
 class RegExpr:
     """A register reference used as an expression."""
+
     reg: Reg
     typ: PLCType = field(init=False)
 
@@ -57,6 +61,7 @@ class RegExpr:
 @dataclass
 class SegFieldExpr:
     """SegQueue[reg].Field used as an expression."""
+
     sf: SegField
     typ: PLCType = PLCType.REAL
 
@@ -67,7 +72,7 @@ class SegFieldExpr:
 @dataclass
 class BinOp:
     left: "Expr"
-    op: str   # "+", "-", "*", "/", "%", "**"
+    op: str  # "+", "-", "*", "/", "%", "**"
     right: "Expr"
     typ: PLCType = PLCType.REAL
 
@@ -81,7 +86,7 @@ class BinOp:
 
 @dataclass
 class UnaryOp:
-    op: str   # "-", "not"
+    op: str  # "-", "not"
     operand: "Expr"
     typ: PLCType = PLCType.REAL
 
@@ -94,6 +99,7 @@ class UnaryOp:
 @dataclass
 class CptCall:
     """A builtin that maps directly to a single CPT function: ABS, SQR, SIN, COS, ATN, TRUNC."""
+
     func: str
     args: list["Expr"]
     typ: PLCType = PLCType.REAL
@@ -114,17 +120,25 @@ Expr = Union[Const, RegExpr, SegFieldExpr, BinOp, UnaryOp, CptCall]
 # Condition nodes  (used as contacts on rungs)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Cmp:
     """EQU/NEQ/LES/LEQ/GRT/GEQ a b"""
-    op: str   # "==", "!=", "<", "<=", ">", ">="
+
+    op: str  # "==", "!=", "<", "<=", ">", ">="
     left: Expr
     right: Expr
 
     @property
     def instr(self) -> str:
-        return {"==": "EQU", "!=": "NEQ", "<": "LES", "<=": "LEQ",
-                ">": "GRT", ">=": "GEQ"}[self.op]
+        return {
+            "==": "EQU",
+            "!=": "NEQ",
+            "<": "LES",
+            "<=": "LEQ",
+            ">": "GRT",
+            ">=": "GEQ",
+        }[self.op]
 
     def negated(self) -> "Cmp":
         inv = {"==": "!=", "!=": "==", "<": ">=", "<=": ">", ">": "<=", ">=": "<"}
@@ -137,6 +151,7 @@ class Cmp:
 @dataclass
 class XicCond:
     """XIC bit — examine if closed."""
+
     reg: Reg | SegField
 
     def __str__(self) -> str:
@@ -149,6 +164,7 @@ class XicCond:
 @dataclass
 class XioCond:
     """XIO bit — examine if open."""
+
     reg: Reg | SegField
 
     def __str__(self) -> str:
@@ -161,6 +177,7 @@ class XioCond:
 @dataclass
 class AndCond:
     """Series (AND) of conditions — all must be true."""
+
     parts: list["Condition"]
 
     def negated(self) -> "OrCond":
@@ -171,6 +188,7 @@ class AndCond:
 class OrCond:
     """Parallel (OR) of conditions — at least one must be true.
     Emitted as BST ... NXB ... BND OTL BOOLS[k]."""
+
     parts: list["Condition"]
 
     def negated(self) -> AndCond:
@@ -180,6 +198,7 @@ class OrCond:
 @dataclass
 class IsInf:
     """math.isinf(x) — GEQ ABS(x) 3.4028235E+38"""
+
     expr: Expr
 
     def negated(self) -> "IsNotInf":
@@ -200,9 +219,11 @@ Condition = Union[Cmp, XicCond, XioCond, AndCond, OrCond, IsInf, IsNotInf]
 # Statement (IR node) types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Assign:
     """dest = expr  →  MOV or CPT rung."""
+
     dest: Reg | SegField
     expr: Expr
 
@@ -210,8 +231,9 @@ class Assign:
 @dataclass
 class SetBool:
     """OTL / OTU a BOOL register."""
+
     reg: Reg
-    value: bool   # True = OTL, False = OTU
+    value: bool  # True = OTL, False = OTU
 
 
 @dataclass
@@ -224,7 +246,8 @@ class If:
 @dataclass
 class Loop:
     """Counted loop: MOV 0 counter; LBL; GEQ counter limit JMP end; body; ADD 1; JMP; LBL."""
-    counter: Reg                    # DINTS[n]
+
+    counter: Reg  # DINTS[n]
     limit: "Reg | Const | RegExpr"  # exclusive upper bound
     body: list["IRNode"]
 
@@ -232,6 +255,7 @@ class Loop:
 @dataclass
 class JSRCall:
     """Jump to subroutine: pre-load args → JSR → read return regs."""
+
     routine: str
     # Each item: (dest_reg_in_callee, value_expr_from_caller)
     in_args: list[tuple[Reg, Expr]]
@@ -242,14 +266,16 @@ class JSRCall:
 @dataclass
 class Return:
     """Non-tail return: write value to output register, jump to routine end."""
+
     value: Expr | None
-    out_reg: Reg | None         # where to write the value
+    out_reg: Reg | None  # where to write the value
     end_label: str
 
 
 @dataclass
 class Fault:
     """raise ValueError(...) → OTL fault_bool, JMP end."""
+
     fault_reg: Reg
     end_label: str
 

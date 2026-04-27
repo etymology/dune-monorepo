@@ -24,13 +24,38 @@ def _parse_token_response(payload: str) -> tuple[str, str]:
     try:
         data = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise M2MError("ConnectToAPI() - ERROR: invalid token response payload") from exc
+        raise M2MError(
+            "ConnectToAPI() - ERROR: invalid token response payload"
+        ) from exc
 
     access_token = str(data.get("access_token") or "")
     token_type = str(data.get("token_type") or "")
     if not access_token or not token_type:
         raise M2MError("ConnectToAPI() - ERROR: token response missing required fields")
     return access_token, token_type
+
+
+def _parse_json_list_response(payload: str) -> list:
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise M2MError("M2M list response is not valid JSON") from exc
+
+    if isinstance(parsed, list):
+        return parsed
+
+    if isinstance(parsed, str):
+        try:
+            nested = json.loads(parsed)
+        except json.JSONDecodeError:
+            nested = [
+                item.strip() for item in parsed.strip("[]").split(",") if item.strip()
+            ]
+        if isinstance(nested, list):
+            return nested
+        raise M2MError("M2M list response did not contain a list")
+
+    raise M2MError("M2M list response did not contain a list")
 
 
 #############################################
@@ -303,11 +328,10 @@ def GetListOfComponents(componentTypeFormID, connection, headers):
             "GET", "/api/components/" + componentTypeFormID + "/list", headers=headers
         )
 
-        # The route response is the list of component UUIDs as a JSON formatted string (i.e. a string within a string)
+        # The route response may be either a JSON array or a string-encoded list;
+        # normalize both shapes to a plain Python list.
         responseText = connection.getresponse().read().decode("utf-8")
-
-        # Split the inner string by commas ... this will create an actual Python list of the UUID strings
-        componentUUIDs = responseText[1:-1].split(",")
+        componentUUIDs = _parse_json_list_response(responseText)
 
         # Return the list of UUIDs
         return componentUUIDs
@@ -384,9 +408,7 @@ def GetAction(actionID, connection, headers, version=0):
 
         # If the provided ID doesn't correspond to an existing action record, print an error and exit the function immediately
         if action is None:
-            raise M2MError(
-                f"GetAction() - ERROR: no action record with ID={actionID}"
-            )
+            raise M2MError(f"GetAction() - ERROR: no action record with ID={actionID}")
 
         # Return the Python dictionary containing the action record
         return action
@@ -411,9 +433,7 @@ def EditAction(actionID, actionData_fields, actionData_values, connection, heade
 
         # If the provided ID doesn't correspond to an existing action record, print an error and exit the function immediately
         if action is None:
-            raise M2MError(
-                f"EditAction() - ERROR: no action record with ID={actionID}"
-            )
+            raise M2MError(f"EditAction() - ERROR: no action record with ID={actionID}")
 
         # For each action information field to be edited, assign the new value
         # Note that only existing fields in the 'action.data' object should be edited
@@ -463,11 +483,10 @@ def GetListOfActions(actionTypeFormID, connection, headers):
             "GET", "/api/actions/" + actionTypeFormID + "/list", headers=headers
         )
 
-        # The route response is the list of action IDs as a JSON formatted string (i.e. a string within a string)
+        # The route response may be either a JSON array or a string-encoded list;
+        # normalize both shapes to a plain Python list.
         responseText = connection.getresponse().read().decode("utf-8")
-
-        # Split the inner string by commas ... this will create an actual Python list of the ID strings
-        actionIDs = responseText[1:-1].split(",")
+        actionIDs = _parse_json_list_response(responseText)
 
         # Return the list of IDs
         return actionIDs

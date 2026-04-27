@@ -13,3 +13,15 @@ dune_tension/data/streaming_runs/*
 *gui_state.json
 shadow_plc_errors.log
 .DS_Store
+node_modules/
+
+# LibreOffice temporary lock files
+~$*.ods
+
+# SQLite database files and temporary files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
+dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
+.claude/settings.local.json

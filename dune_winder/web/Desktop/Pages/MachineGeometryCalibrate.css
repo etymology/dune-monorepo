@@ -1,0 +1,293 @@
+#machineGeometryPage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.machineGeometryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.machineGeometryWideCard {
+  grid-column: 1 / span 2;
+}
+
+.machineGeometryCard {
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 18px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.machineGeometryCard h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #fff;
+}
+
+.machineGeometryHint {
+  margin: 0 0 12px 0;
+  color: #a8b2bd;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.machineGeometryLabel,
+.machineGeometrySectionTitle,
+.machineGeometryFieldRow label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c7d0d8;
+}
+
+.machineGeometrySectionTitle {
+  margin: 14px 0 8px 0;
+}
+
+.machineGeometrySummaryGrid,
+.machineGeometryInlineFields,
+.machineGeometryFilters,
+.machineGeometryTwoColumn {
+  display: grid;
+  gap: 10px;
+}
+
+.machineGeometrySummaryGrid,
+.machineGeometryInlineFields,
+.machineGeometryFilters,
+.machineGeometryTwoColumn {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.machineGeometryFieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.machineGeometryFieldRow input,
+.machineGeometryFieldRow select,
+#machineGeometryLastTrace {
+  padding: 7px 8px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background-color: #171717;
+  color: #e0e0e0;
+  font-size: 13px;
+}
+
+#machineGeometryLastTrace {
+  resize: vertical;
+  min-height: 86px;
+}
+
+.machineGeometryFieldRow input:focus,
+.machineGeometryFieldRow select:focus,
+#machineGeometryLastTrace:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.machineGeometryButtonRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.machineGeometryButtonRow button,
+.machineGeometryMiniButton {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 3px;
+  background-color: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.machineGeometryMiniButton {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.machineGeometryButtonRow button:hover,
+.machineGeometryMiniButton:hover {
+  background-color: #1d4ed8;
+}
+
+.machineGeometryButtonRow button:disabled,
+.machineGeometryMiniButton:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.machineGeometryTable {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #171717;
+  color: #e0e0e0;
+  font-size: 12px;
+}
+
+.machineGeometryTable th,
+.machineGeometryTable td {
+  border: 1px solid #444;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.machineGeometryTable thead {
+  background-color: #333;
+}
+
+.machineGeometryTable .numeric {
+  text-align: right;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.machineGeometryDraftBox {
+  min-height: 76px;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 3px;
+  background-color: #171717;
+  color: #d6dee6;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.machineGeometryMessage,
+.machineGeometryError,
+.machineGeometryWarning,
+.machineGeometryActivity {
+  padding: 12px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.machineGeometryMessage {
+  background-color: #16351e;
+  border: 1px solid #2f6b3a;
+  color: #b7f0c2;
+}
+
+.machineGeometryError {
+  background-color: #381818;
+  border: 1px solid #6b2f2f;
+  color: #ff8f8f;
+}
+
+.machineGeometryWarning {
+  background-color: #3d2d12;
+  border: 1px solid #8a6115;
+  color: #ffd88a;
+}
+
+.machineGeometryActivity {
+  background-color: #182536;
+  border: 1px solid #365270;
+  color: #d6e8ff;
+}
+
+.machineGeometryActivityStatus {
+  font-weight: 700;
+}
+
+.machineGeometryActivityProgress {
+  margin-top: 10px;
+}
+
+.machineGeometryActivityProgressRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #d6e8ff;
+}
+
+.machineGeometryActivityProgressTrack {
+  margin-top: 6px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.machineGeometryActivityProgressBar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #60a5fa, #93c5fd);
+  transition: width 0.2s ease;
+}
+
+.machineGeometryActivityProgressDetail {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #bcd3ea;
+}
+
+.machineGeometryActivityLog {
+  margin-top: 8px;
+  max-height: 126px;
+  overflow: auto;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  color: #bcd3ea;
+  white-space: pre-line;
+}
+
+.machineGeometryMeasurementsTable td:last-child,
+.machineGeometrySmallTable td:last-child {
+  white-space: nowrap;
+}
+
+.machineGeometryBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background-color: #334155;
+  color: #d6dee6;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.machineGeometryBadge.good {
+  background-color: #14532d;
+  color: #bbf7d0;
+}
+
+.machineGeometryBadge.warn {
+  background-color: #78350f;
+  color: #fde68a;
+}
+
+.machineGeometryBadge.neutral {
+  background-color: #374151;
+  color: #e5e7eb;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 1200px) {
+  .machineGeometryGrid,
+  .machineGeometrySummaryGrid,
+  .machineGeometryInlineFields,
+  .machineGeometryFilters,
+  .machineGeometryTwoColumn {
+    grid-template-columns: 1fr;
+  }
+
+  .machineGeometryWideCard {
+    grid-column: auto;
+  }
+}

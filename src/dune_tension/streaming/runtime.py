@@ -47,7 +47,9 @@ class AudioStreamService:
         self.hop_size = int(hop_size)
         self._clock = clock or time.monotonic
         self._source_factory = source_factory or self._default_source_factory
-        self._queue: "queue.Queue[TimedAudioChunk]" = queue.Queue(maxsize=max(1, int(queue_size)))
+        self._queue: "queue.Queue[TimedAudioChunk]" = queue.Queue(
+            maxsize=max(1, int(queue_size))
+        )
         self._source: AudioSource | None = None
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -136,15 +138,19 @@ def build_measurement_runtime(
     active_bundle = runtime_bundle or build_runtime_bundle(resolve_runtime_options())
     active_clock = clock or time.monotonic
     wire_positions = StreamingWirePositionProvider(active_bundle.wire_position_provider)
+
+    def streaming_repository_factory(
+        session_id: str | None = None,
+    ) -> StreamingSessionRepository:
+        return StreamingSessionRepository(session_id=session_id)
+
     return MeasurementRuntime(
         motion=active_bundle.motion,
         servo_controller=active_bundle.servo_controller,
         valve_controller=active_bundle.valve_controller,
         strum=active_bundle.strum,
         result_repository_factory=active_bundle.repository_factory,
-        streaming_repository_factory=lambda session_id=None: StreamingSessionRepository(
-            session_id=session_id
-        ),
+        streaming_repository_factory=streaming_repository_factory,
         audio_stream_factory=lambda sample_rate, hop_size: AudioStreamService(
             sample_rate=sample_rate,
             hop_size=hop_size,

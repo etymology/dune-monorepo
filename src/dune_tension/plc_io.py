@@ -7,7 +7,13 @@ from typing import Any
 
 import requests
 
-from dune_tension.geometry import MEASURABLE_X_MAX, MEASURABLE_X_MIN, MEASURABLE_Y_MAX, MEASURABLE_Y_MIN, comb_positions
+from dune_tension.geometry import (
+    MEASURABLE_X_MAX,
+    MEASURABLE_X_MIN,
+    MEASURABLE_Y_MAX,
+    MEASURABLE_Y_MIN,
+    comb_positions,
+)
 from dune_tension.plc_direct import (
     PLCCommunicationError,
     PLCTagReadError,
@@ -35,7 +41,7 @@ _REQUEST_EXCEPTION = getattr(
 )
 
 # Track the most recently commanded XY position
-_TRUE_XY = [None, None]
+_TRUE_XY: list[float | None] = [None, None]
 
 DEFAULT_TENSION_SERVER_URL = "http://192.168.137.1:5000"
 TENSION_SERVER_URL = DEFAULT_TENSION_SERVER_URL
@@ -216,7 +222,10 @@ def is_in_measurable_area(x_target: float, y_target: float) -> bool:
     This is distinct from the machine's physical motion limits, which are enforced by dune_winder.
     """
 
-    return MEASURABLE_X_MIN <= float(x_target) <= MEASURABLE_X_MAX and MEASURABLE_Y_MIN <= float(y_target) <= MEASURABLE_Y_MAX
+    return (
+        MEASURABLE_X_MIN <= float(x_target) <= MEASURABLE_X_MAX
+        and MEASURABLE_Y_MIN <= float(y_target) <= MEASURABLE_Y_MAX
+    )
 
 
 def _read_tag_server(tag_name: str) -> Any:
@@ -323,7 +332,10 @@ def _ensure_tracked_xy() -> tuple[float, float]:
 
     if _TRUE_XY[0] is None or _TRUE_XY[1] is None:
         _TRUE_XY[0], _TRUE_XY[1] = get_xy()
-    return tuple(_TRUE_XY)
+    x, y = _TRUE_XY
+    if x is None or y is None:
+        raise RuntimeError("Failed to seed tracked XY position.")
+    return x, y
 
 
 def _clamp_measurable_x(x_value: float) -> float:
@@ -407,7 +419,7 @@ def goto_xy(
     _ensure_tracked_xy()
 
     if check_comb:
-        cur_x = float(_TRUE_XY[0])
+        cur_x = _ensure_tracked_xy()[0]
         path_x = _clamp_measurable_x(cur_x)
         crosses = any(
             (path_x < c < x_target) or (x_target < c < path_x) for c in comb_positions
@@ -448,7 +460,9 @@ def goto_xy(
             )
 
     with _MOTION_LOCK:
-        if not allow_outside_measurable and not is_in_measurable_area(x_target, y_target):
+        if not allow_outside_measurable and not is_in_measurable_area(
+            x_target, y_target
+        ):
             LOGGER.warning(
                 "Target %s,%s is outside the measurable area. Please enter a valid position.",
                 x_target,
@@ -469,8 +483,7 @@ def goto_xy(
             ):
                 return False
         else:
-            start_live_x = _TRUE_XY[0]
-            start_live_y = _TRUE_XY[1]
+            start_live_x, start_live_y = _ensure_tracked_xy()
             idle_deadline = time.monotonic() + idle_timeout
             while True:
                 try:
@@ -624,13 +637,15 @@ _SPOOF_XY = [6300.0, 200.0]
 
 def spoof_get_xy() -> tuple[float, float]:
     """Return the current spoofed XY position."""
-    return tuple(_SPOOF_XY)
+    return _SPOOF_XY[0], _SPOOF_XY[1]
 
 
 def spoof_goto_xy(x_target: float, y_target: float, **_: object) -> bool:
     """Pretend to move the winder and update the spoofed position."""
     if not is_in_measurable_area(x_target, y_target):
-        LOGGER.warning("[spoof] Target %s,%s is outside the measurable area.", x_target, y_target)
+        LOGGER.warning(
+            "[spoof] Target %s,%s is outside the measurable area.", x_target, y_target
+        )
 
     LOGGER.info("[spoof] Moving to %s,%s", x_target, y_target)
     _SPOOF_XY[0] = x_target

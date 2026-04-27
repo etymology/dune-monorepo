@@ -15,56 +15,56 @@ from abc import ABCMeta, abstractmethod
 
 
 class IO_Device(metaclass=ABCMeta):
-  # Make class abstract.
-  device_instances: list["IO_Device"] = []
+    # Make class abstract.
+    device_instances: list["IO_Device"] = []
 
-  # ---------------------------------------------------------------------
-  def __init__(self, name):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, name):
+        """
+        Constructor.
 
-    Args:
-      name: Name of IO device.
+        Args:
+          name: Name of IO device.
 
-    """
+        """
 
-    self._name = name
-    IO_Device.device_instances.append(self)
+        self._name = name
+        IO_Device.device_instances.append(self)
 
-  # ---------------------------------------------------------------------
-  def getName(self):
-    """
-    Return the name of this instance.
+    # ---------------------------------------------------------------------
+    def getName(self):
+        """
+        Return the name of this instance.
 
-    Returns:
-      String name of this instance.
-    """
+        Returns:
+          String name of this instance.
+        """
 
-    return self._name
+        return self._name
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def initialize(self):
-    """
-    Abstract method to initialize/reinitialize hardware.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def initialize(self):
+        """
+        Abstract method to initialize/reinitialize hardware.
 
-    Returns:
-      True if the initialization had an error, false if not.
-    """
+        Returns:
+          True if the initialization had an error, false if not.
+        """
 
-    return True
+        return True
 
-  # ---------------------------------------------------------------------
-  @abstractmethod
-  def isNotFunctional(self):
-    """
-    Abstract method to see if hardware is in working order.
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def isNotFunctional(self):
+        """
+        Abstract method to see if hardware is in working order.
 
-    Returns:
-      True there is a problem with hardware, false if not.
-    """
+        Returns:
+          True there is a problem with hardware, false if not.
+        """
 
-    return True
+        return True
 
 
 # end class

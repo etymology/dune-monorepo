@@ -5,11 +5,7 @@ import types
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "dune_tension"
-    / "gui"
-    / "app.py"
+    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "app.py"
 )
 
 
@@ -22,7 +18,9 @@ def _load_app_module(monkeypatch):
     tk_stub.Canvas = object
     monkeypatch.setitem(sys.modules, "tkinter", tk_stub)
     tkfont_stub = types.ModuleType("tkinter.font")
-    tkfont_stub.nametofont = lambda _name: types.SimpleNamespace(configure=lambda **_kwargs: None)
+    tkfont_stub.nametofont = lambda _name: types.SimpleNamespace(
+        configure=lambda **_kwargs: None
+    )
     monkeypatch.setitem(sys.modules, "tkinter.font", tkfont_stub)
 
     dune_pkg = types.ModuleType("dune_tension")

@@ -148,7 +148,9 @@ def generate_assets(action_json: Path, summary_csv: Path, output_dir: Path) -> N
     comparison = build_comparison_frame(action_json, summary_csv)
     b_models, b_stats = build_model_comparison(action_json, summary_csv, -60, 60)
     corrected_model = next(
-        model for model in b_stats["model"].tolist() if model.startswith("reversed_shift_")
+        model
+        for model in b_stats["model"].tolist()
+        if model.startswith("reversed_shift_")
     )
     corrected_df = b_models[b_models["model"] == corrected_model].copy()
     best_shift = int(

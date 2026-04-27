@@ -108,7 +108,9 @@ def _select_table_dataframe(
     columns: Iterable[str] | None = None,
 ) -> pd.DataFrame:
     if not Path(file_path).exists():
-        return pd.DataFrame(columns=list(columns) if columns is not None else EXPECTED_COLUMNS)
+        return pd.DataFrame(
+            columns=list(columns) if columns is not None else EXPECTED_COLUMNS
+        )
 
     selected_columns = list(columns) if columns is not None else EXPECTED_COLUMNS
     normalized_columns = [col for col in EXPECTED_COLUMNS if col in selected_columns]
@@ -156,7 +158,8 @@ def _append_rows(
     columns = ", ".join(EXPECTED_COLUMNS)
     placeholders = ", ".join("?" for _ in EXPECTED_COLUMNS)
     values = [
-        tuple(normalized[col] for col in EXPECTED_COLUMNS) for normalized in normalized_rows
+        tuple(normalized[col] for col in EXPECTED_COLUMNS)
+        for normalized in normalized_rows
     ]
 
     owns_connection = conn is None
@@ -284,7 +287,9 @@ def update_results_dataframe(file_path: str, df: pd.DataFrame) -> None:
     _dataframe_cache[key] = normalized_df.copy()
     with connect_write_database(file_path) as conn:
         _ensure_tables(conn)
-        normalized_df.to_sql(TABLE_TENSION_SAMPLES, conn, if_exists="replace", index=False)
+        normalized_df.to_sql(
+            TABLE_TENSION_SAMPLES, conn, if_exists="replace", index=False
+        )
 
 
 def append_results_row(file_path: str, row: dict[str, Any]) -> None:
@@ -398,7 +403,9 @@ def find_outliers(
 
     subset = subset.sort_values("wire_number").reset_index(drop=True)
 
-    rolling_mean = subset["tension"].rolling(window=20, center=True, min_periods=20).mean()
+    rolling_mean = (
+        subset["tension"].rolling(window=20, center=True, min_periods=20).mean()
+    )
     if rolling_mean.notna().any():
         first_valid = rolling_mean.first_valid_index()
         last_valid = rolling_mean.last_valid_index()

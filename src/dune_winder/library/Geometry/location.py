@@ -11,160 +11,160 @@ from dune_winder.library.math_extra import MathExtra
 
 # ==============================================================================
 class Location:
-  # ---------------------------------------------------------------------
-  def __init__(self, x=0, y=0, z=0):
-    """
-    Constructor.
+    # ---------------------------------------------------------------------
+    def __init__(self, x=0, y=0, z=0):
+        """
+        Constructor.
 
-    Args:
-      x: Position on the x-axis.
-      y: Position on the y-axis.
-      z: Position on the z-axis.
-    """
-    self.x = float(x)
-    self.y = float(y)
-    self.z = float(z)
+        Args:
+          x: Position on the x-axis.
+          y: Position on the y-axis.
+          z: Position on the z-axis.
+        """
+        self.x = float(x)
+        self.y = float(y)
+        self.z = float(z)
 
-  # ---------------------------------------------------------------------
-  def center(self, location):
-    """
-    Return the center point between this and an other location.
+    # ---------------------------------------------------------------------
+    def center(self, location):
+        """
+        Return the center point between this and an other location.
 
-    Args:
-      location: The second location to center between.
+        Args:
+          location: The second location to center between.
 
-    Returns:
-      Instance of Location with the center point.
-    """
-    deltaX = abs(self.x - location.x)
-    deltaY = abs(self.y - location.y)
-    deltaZ = abs(self.z - location.z)
+        Returns:
+          Instance of Location with the center point.
+        """
+        deltaX = abs(self.x - location.x)
+        deltaY = abs(self.y - location.y)
+        deltaZ = abs(self.z - location.z)
 
-    x = deltaX / 2 + min(self.x, location.x)
-    y = deltaY / 2 + min(self.y, location.y)
-    z = deltaZ / 2 + min(self.z, location.z)
+        x = deltaX / 2 + min(self.x, location.x)
+        y = deltaY / 2 + min(self.y, location.y)
+        z = deltaZ / 2 + min(self.z, location.z)
 
-    return Location(x, y, z)
+        return Location(x, y, z)
 
-  # ---------------------------------------------------------------------
-  def add(self, location):
-    """
-    Add/offset this location by an other location.
+    # ---------------------------------------------------------------------
+    def add(self, location):
+        """
+        Add/offset this location by an other location.
 
-    Args:
-      location: Location to add to this instance.
+        Args:
+          location: Location to add to this instance.
 
-    Returns:
-      Instance of Location with results of add.
+        Returns:
+          Instance of Location with results of add.
 
-    Note:
-      Does not modify self.
-    """
-    return Location(self.x + location.x, self.y + location.y, self.z + location.z)
+        Note:
+          Does not modify self.
+        """
+        return Location(self.x + location.x, self.y + location.y, self.z + location.z)
 
-  # ---------------------------------------------------------------------
-  def sub(self, location):
-    """
-    Subtract/offset this location by an other location.
+    # ---------------------------------------------------------------------
+    def sub(self, location):
+        """
+        Subtract/offset this location by an other location.
 
-    Args:
-      location: Location to subtract to this instance.
+        Args:
+          location: Location to subtract to this instance.
 
-    Returns:
-      Instance of Location with results of subtract.
+        Returns:
+          Instance of Location with results of subtract.
 
-    Note:
-      Does not modify self.
-    """
-    return Location(self.x - location.x, self.y - location.y, self.z - location.z)
+        Note:
+          Does not modify self.
+        """
+        return Location(self.x - location.x, self.y - location.y, self.z - location.z)
 
-  # ---------------------------------------------------------------------
-  def asList(self):
-    """
-    Return the location as a list of three floating point values for X/Y/Z.
+    # ---------------------------------------------------------------------
+    def asList(self):
+        """
+        Return the location as a list of three floating point values for X/Y/Z.
 
-    Returns:
-      A list with 3 elements, [ x, y, z ].
-    """
-    return [self.x, self.y, self.z]
+        Returns:
+          A list with 3 elements, [ x, y, z ].
+        """
+        return [self.x, self.y, self.z]
 
-  # ---------------------------------------------------------------------
-  def copy(self, x=None, y=None, z=None):
-    """
-    Return a copy of this location.
+    # ---------------------------------------------------------------------
+    def copy(self, x=None, y=None, z=None):
+        """
+        Return a copy of this location.
 
-    Input:
-      x: Override X value.  Omit to copy.
-      y: Override Y value.  Omit to copy.
-      z: Override Z value.  Omit to copy.
+        Input:
+          x: Override X value.  Omit to copy.
+          y: Override Y value.  Omit to copy.
+          z: Override Z value.  Omit to copy.
 
-    Returns:
-      New instance at the same location.
-    """
+        Returns:
+          New instance at the same location.
+        """
 
-    if x is None:
-      x = self.x
+        if x is None:
+            x = self.x
 
-    if y is None:
-      y = self.y
+        if y is None:
+            y = self.y
 
-    if z is None:
-      z = self.z
+        if z is None:
+            z = self.z
 
-    return Location(x, y, z)
+        return Location(x, y, z)
 
-  # ---------------------------------------------------------------------
-  def __str__(self):
-    """
-    Get a string representation of object.
+    # ---------------------------------------------------------------------
+    def __str__(self):
+        """
+        Get a string representation of object.
 
-    Returns:
-      String representation of object in form (x, y, z) where x/y/z are
-      numbers.
-    """
+        Returns:
+          String representation of object in form (x, y, z) where x/y/z are
+          numbers.
+        """
 
-    return "(" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ")"
+        return "(" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ")"
 
-  # ---------------------------------------------------------------------
-  def __eq__(self, other):
-    """
-    Check to see if this location is equal to an other.
+    # ---------------------------------------------------------------------
+    def __eq__(self, other):
+        """
+        Check to see if this location is equal to an other.
 
-    Input:
-      other: An other instance of Location to compare.
+        Input:
+          other: An other instance of Location to compare.
 
-    Returns:
-      True if equal, False if not.
-    """
+        Returns:
+          True if equal, False if not.
+        """
 
-    result = False
-    if isinstance(other, Location):
-      result = (
-        MathExtra.isclose(self.x, other.x)
-        and MathExtra.isclose(self.y, other.y)
-        and MathExtra.isclose(self.z, other.z)
-      )
+        result = False
+        if isinstance(other, Location):
+            result = (
+                MathExtra.isclose(self.x, other.x)
+                and MathExtra.isclose(self.y, other.y)
+                and MathExtra.isclose(self.z, other.z)
+            )
 
-    return result
+        return result
 
-  # ---------------------------------------------------------------------
-  def __ne__(self, other):
-    """
-    Check to see if this location are not equal to an other.
+    # ---------------------------------------------------------------------
+    def __ne__(self, other):
+        """
+        Check to see if this location are not equal to an other.
 
-    Input:
-      other: An other instance of Location to compare.
+        Input:
+          other: An other instance of Location to compare.
 
-    Returns:
-      False if equal, True if not.
-    """
+        Returns:
+          False if equal, True if not.
+        """
 
-    result = True
-    if isinstance(object, Location):
-      result = (
-        not MathExtra.isclose(self.x, other.x)
-        or not MathExtra.isclose(self.y, other.y)
-        or not MathExtra.isclose(self.z, other.z)
-      )
+        result = True
+        if isinstance(object, Location):
+            result = (
+                not MathExtra.isclose(self.x, other.x)
+                or not MathExtra.isclose(self.y, other.y)
+                or not MathExtra.isclose(self.z, other.z)
+            )
 
-    return result
+        return result

@@ -1,0 +1,247 @@
+#rollerCalibratePage {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.rollerCalibrateMainLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.rollerCalibrateCard {
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 20px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.rollerCalibrateCard h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #fff;
+}
+
+.rollerCalibrateCard h3 {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.rollerCalibrateHint {
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 15px;
+}
+
+.rollerCalibrateInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.rollerCalibrateFieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rollerCalibrateFieldRow label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.rollerCalibrateFieldRow input,
+.rollerCalibrateFieldRow select {
+  padding: 6px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 13px;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.rollerCalibrateFieldRow input:focus,
+.rollerCalibrateFieldRow select:focus {
+  outline: none;
+  border-color: #0066cc;
+  background-color: #0f0f0f;
+}
+
+.rollerCalibrateFieldActionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rollerCalibrateFieldActionRow input {
+  flex: 1;
+}
+
+.rollerCalibrateInlineButton {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.rollerCalibrateButton {
+  padding: 8px 12px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rollerCalibrateButton:hover {
+  background-color: #0052a3;
+}
+
+.rollerCalibrateButton:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.rollerCalibrateResult {
+  padding: 12px;
+  background-color: #1a3a1a;
+  border: 1px solid #2d5a2d;
+  border-radius: 3px;
+  margin-bottom: 15px;
+  color: #90ee90;
+}
+
+.rollerCalibrateResult.hidden {
+  display: none;
+}
+
+.rollerCalibrateResult p {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+}
+
+.rollerCalibrateError {
+  padding: 12px;
+  background-color: #3a1a1a;
+  border: 1px solid #5a2d2d;
+  border-radius: 3px;
+  color: #ff6b6b;
+  margin-bottom: 15px;
+  font-size: 13px;
+}
+
+.rollerCalibrateError.hidden {
+  display: none;
+}
+
+.rollerCalibrateCount {
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 10px;
+}
+
+.rollerCalibrateMeasurementsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 15px;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.rollerCalibrateMeasurementsTable.hidden {
+  display: none;
+}
+
+.rollerCalibrateMeasurementsTable thead {
+  background-color: #333;
+}
+
+.rollerCalibrateMeasurementsTable th,
+.rollerCalibrateMeasurementsTable td {
+  padding: 6px 8px;
+  border: 1px solid #444;
+  text-align: left;
+}
+
+.rollerCalibrateMeasurementsTable th {
+  font-weight: 600;
+  color: #fff;
+}
+
+.rollerCalibrateMeasurementsTable .numeric {
+  text-align: right;
+  font-family: monospace;
+}
+
+.rollerCalibrateButtonGroup {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rollerCalibrateButtonGroup .rollerCalibrateButton {
+  flex: 1;
+  min-width: 120px;
+}
+
+.rollerCalibrateFittedTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 15px;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.rollerCalibrateFittedTable thead {
+  background-color: #333;
+}
+
+.rollerCalibrateFittedTable th,
+.rollerCalibrateFittedTable td {
+  padding: 6px 8px;
+  border: 1px solid #444;
+  text-align: left;
+}
+
+.rollerCalibrateFittedTable th {
+  font-weight: 600;
+  color: #fff;
+}
+
+.rollerCalibrateFittedTable .numeric {
+  text-align: right;
+  font-family: monospace;
+}
+
+.rollerCalibrateStats {
+  padding: 10px;
+  background-color: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 3px;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.rollerCalibrateStats p {
+  margin: 4px 0;
+}
+
+.rollerCalibrateStats .numeric {
+  font-family: monospace;
+  font-weight: 600;
+  color: #90ee90;
+}
+
+.hidden {
+  display: none !important;
+}

@@ -30,7 +30,10 @@ def test_read_tag_defaults_to_desktop_mode(monkeypatch):
         lambda _tag_name: pytest.fail("direct transport should not be used by default"),
     )
 
-    assert plc.read_tag("STATE", timeout=0.01, retry_interval=0.0) == ("STATE", "desktop")
+    assert plc.read_tag("STATE", timeout=0.01, retry_interval=0.0) == (
+        "STATE",
+        "desktop",
+    )
 
 
 def test_direct_mode_routes_reads_and_writes_to_direct_transport(monkeypatch):
@@ -39,12 +42,18 @@ def test_direct_mode_routes_reads_and_writes_to_direct_transport(monkeypatch):
     monkeypatch.setattr(
         plc,
         "_read_tag_server",
-        lambda _tag_name: pytest.fail("server transport should not be used in direct mode"),
+        lambda _tag_name: pytest.fail(
+            "server transport should not be used in direct mode"
+        ),
     )
     monkeypatch.setattr(
         plc,
         "_write_tag_direct",
-        lambda tag_name, value: {"tag": tag_name, "value": value, "transport": "direct"},
+        lambda tag_name, value: {
+            "tag": tag_name,
+            "value": value,
+            "transport": "direct",
+        },
     )
     monkeypatch.setattr(
         plc,
@@ -54,7 +63,10 @@ def test_direct_mode_routes_reads_and_writes_to_direct_transport(monkeypatch):
         ),
     )
 
-    assert plc.read_tag("STATE", timeout=0.01, retry_interval=0.0) == ("STATE", "direct")
+    assert plc.read_tag("STATE", timeout=0.01, retry_interval=0.0) == (
+        "STATE",
+        "direct",
+    )
     assert plc.write_tag("STATE", 7) == {
         "tag": "STATE",
         "value": 7,
@@ -159,7 +171,10 @@ def test_desktop_seek_xy_resets_while_waiting_for_ready_then_moves(monkeypatch):
 
     monkeypatch.setattr(desktop, "_post_command", _post_command)
 
-    assert desktop.desktop_seek_xy(1.0, 2.0, 300.0, move_timeout=0.5, idle_timeout=0.5) is True
+    assert (
+        desktop.desktop_seek_xy(1.0, 2.0, 300.0, move_timeout=0.5, idle_timeout=0.5)
+        is True
+    )
     assert ("process.acknowledge_error", {}) in calls
     assert ("process.manual_seek_xy", {"x": 1.0, "y": 2.0, "velocity": 300.0}) in calls
 
@@ -178,13 +193,16 @@ def test_desktop_seek_xy_can_return_after_command_acceptance(monkeypatch):
 
     monkeypatch.setattr(desktop, "_post_command", _post_command)
 
-    assert desktop.desktop_seek_xy(
-        1.0,
-        2.0,
-        300.0,
-        move_timeout=0.5,
-        wait_for_completion=False,
-    ) is True
+    assert (
+        desktop.desktop_seek_xy(
+            1.0,
+            2.0,
+            300.0,
+            move_timeout=0.5,
+            wait_for_completion=False,
+        )
+        is True
+    )
     assert calls == [
         ("process.get_control_state_name", {}),
         ("process.manual_seek_xy", {"x": 1.0, "y": 2.0, "velocity": 300.0}),
@@ -197,7 +215,9 @@ def test_invalid_mode_falls_back_to_desktop_with_warning(monkeypatch, caplog):
     monkeypatch.setattr(
         plc,
         "_read_tag_direct",
-        lambda _tag_name: pytest.fail("direct transport should not be used for invalid mode"),
+        lambda _tag_name: pytest.fail(
+            "direct transport should not be used for invalid mode"
+        ),
     )
 
     with caplog.at_level("WARNING"):

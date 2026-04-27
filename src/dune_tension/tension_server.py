@@ -73,7 +73,9 @@ def write_tag(tag_name: str) -> tuple[Any, int]:
     try:
         write_tag_value(tag_name, value)
     except PLCCommunicationError as exc:
-        app.logger.warning("PLC communication error writing %s=%r: %s", tag_name, value, exc)
+        app.logger.warning(
+            "PLC communication error writing %s=%r: %s", tag_name, value, exc
+        )
         return jsonify({"error": "PLC communication error"}), 502
     except PLCTagWriteError as exc:
         app.logger.warning("PLC tag write failed for %s=%r: %s", tag_name, value, exc)

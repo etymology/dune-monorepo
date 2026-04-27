@@ -238,9 +238,11 @@ def test_streaming_controller_run_sweep_accepts_candidate(tmp_path) -> None:
         voiced_window_min_frames=1,
     )
     controller.analysis = FastFrameAnalyzer(controller.analysis.config)
-    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: types.SimpleNamespace(
-        frequency=220.0,
-        confidence=0.91,
+    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: (
+        types.SimpleNamespace(
+            frequency=220.0,
+            confidence=0.91,
+        )
     )
 
     summary = controller.run_sweep(
@@ -261,7 +263,9 @@ def test_streaming_controller_run_sweep_accepts_candidate(tmp_path) -> None:
     assert (tmp_path / summary["session_id"] / "streaming.db").exists()
 
 
-def test_streaming_controller_run_sweep_uses_manual_focus_when_enabled(tmp_path) -> None:
+def test_streaming_controller_run_sweep_uses_manual_focus_when_enabled(
+    tmp_path,
+) -> None:
     sample_rate = 16000
     recorded_results: list = []
     audio = _harmonic_audio(sample_rate, 0.4)
@@ -308,9 +312,11 @@ def test_streaming_controller_run_sweep_uses_manual_focus_when_enabled(tmp_path)
         voiced_window_min_frames=1,
     )
     controller.analysis = FastFrameAnalyzer(controller.analysis.config)
-    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: types.SimpleNamespace(
-        frequency=220.0,
-        confidence=0.91,
+    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: (
+        types.SimpleNamespace(
+            frequency=220.0,
+            confidence=0.91,
+        )
     )
 
     summary = controller.run_sweep(
@@ -332,7 +338,9 @@ def test_streaming_controller_run_sweep_uses_manual_focus_when_enabled(tmp_path)
     assert recorded_results[0].focus_position == 5000
 
 
-def test_streaming_controller_run_rescue_uses_manual_focus_when_enabled(tmp_path) -> None:
+def test_streaming_controller_run_rescue_uses_manual_focus_when_enabled(
+    tmp_path,
+) -> None:
     sample_rate = 16000
     recorded_results: list = []
     audio = _harmonic_audio(sample_rate, 0.5)
@@ -376,9 +384,11 @@ def test_streaming_controller_run_rescue_uses_manual_focus_when_enabled(tmp_path
         voiced_window_min_frames=1,
     )
     controller.analysis = FastFrameAnalyzer(controller.analysis.config)
-    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: types.SimpleNamespace(
-        frequency=220.0,
-        confidence=0.91,
+    controller.pitch_worker._analyze_func = lambda *_args, **_kwargs: (
+        types.SimpleNamespace(
+            frequency=220.0,
+            confidence=0.91,
+        )
     )
 
     summary = controller.run_rescue(1)

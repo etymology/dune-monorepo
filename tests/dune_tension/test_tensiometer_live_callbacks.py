@@ -67,7 +67,9 @@ def test_collect_samples_invokes_audio_sample_callback(monkeypatch) -> None:
         "build",
         lambda spoof=False: _stub_audio_service(),
     )
-    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: audio_sample)
+    monkeypatch.setattr(
+        tensiometer_module, "acquire_audio", lambda **_kwargs: audio_sample
+    )
     monkeypatch.setattr(
         tensiometer_module,
         "wire_equation",

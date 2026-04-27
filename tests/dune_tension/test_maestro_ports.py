@@ -1,4 +1,5 @@
 import importlib
+import platform
 import sys
 from pathlib import Path
 import types
@@ -7,6 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 
 def test_controller_falls_back_across_ttyacm_ports(monkeypatch):
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+
     serial_stub = types.ModuleType("serial")
     attempted_ports = []
 

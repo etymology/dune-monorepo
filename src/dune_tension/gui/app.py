@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 import logging
-from typing import Any
+from typing import Any, cast
 import tkinter as tk
 import tkinter.font as tkfont
 
@@ -67,7 +67,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
     try:
         if root is None:
             LOGGER.info("Creating Tk root window.")
-        root = root or tk.Tk()
+        root = cast(tk.Tk, root or tk.Tk())
         install_tk_exception_logging(root)
         root.title("Tensiometer GUI")
         for font_name in ("TkDefaultFont", "TkTextFont", "TkFixedFont", "TkMenuFont"):
@@ -94,9 +94,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             log_text,
             summary_plot_frame,
             waveform_plot_frame,
-        ) = _create_widgets(
-            root, focus_command_var, estimated_time_var
-        )
+        ) = _create_widgets(root, focus_command_var, estimated_time_var)
         log_binding = configure_gui_logging(root, log_text)
         LOGGER.info(
             "GUI log panel attached. persistent_log=%s fault_log=%s",
@@ -152,7 +150,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
         _initialise_servo(ctx)
         _schedule_health_logging(ctx)
 
-        ctx.root.protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
+        cast(tk.Tk, ctx.root).protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
         ctx.root.after(1000, lambda: monitor_tension_logs(ctx))
         LOGGER.info("Entering Tk mainloop.")
         ctx.root.mainloop()
@@ -281,7 +279,9 @@ def _create_widgets(
         log_text = tk.Text(log_frame, wrap="word", state="disabled", width=44, height=5)
         log_text.grid(row=0, column=0, sticky="nsew")
         if hasattr(tk, "Scrollbar"):
-            scrollbar = tk.Scrollbar(log_frame, orient="vertical", command=log_text.yview)
+            scrollbar = tk.Scrollbar(
+                log_frame, orient="vertical", command=log_text.yview
+            )
             scrollbar.grid(row=0, column=1, sticky="ns")
             log_text.configure(yscrollcommand=scrollbar.set)
 
@@ -352,9 +352,7 @@ def _create_widgets(
     entry_confidence = tk.Entry(measure_frame)
     entry_confidence.grid(row=0, column=1)
     entry_confidence.insert(0, "0.5")
-    tk.Label(measure_frame, text="Confidence Source:").grid(
-        row=0, column=2, sticky="e"
-    )
+    tk.Label(measure_frame, text="Confidence Source:").grid(row=0, column=2, sticky="e")
     confidence_source_var = tk.StringVar(measure_frame, value="Neural Net")
     tk.OptionMenu(
         measure_frame,
@@ -377,9 +375,7 @@ def _create_widgets(
     entry_measuring_duration.grid(row=10, column=1)
     entry_measuring_duration.insert(0, "10")
 
-    tk.Label(measure_frame, text="Y Wiggle σ (mm):").grid(
-        row=11, column=0, sticky="e"
-    )
+    tk.Label(measure_frame, text="Y Wiggle σ (mm):").grid(row=11, column=0, sticky="e")
     entry_wiggle_y_sigma = tk.Entry(measure_frame)
     entry_wiggle_y_sigma.grid(row=11, column=1)
     entry_wiggle_y_sigma.insert(0, str(MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm))
@@ -389,16 +385,12 @@ def _create_widgets(
         text="Sweeping Wiggle",
         variable=sweeping_wiggle_var,
     ).grid(row=11, column=2, sticky="w")
-    tk.Label(measure_frame, text="Sweep +/- (mm):").grid(
-        row=11, column=3, sticky="e"
-    )
+    tk.Label(measure_frame, text="Sweep +/- (mm):").grid(row=11, column=3, sticky="e")
     entry_sweeping_wiggle_span_mm = tk.Entry(measure_frame, width=8)
     entry_sweeping_wiggle_span_mm.grid(row=11, column=4, sticky="w")
     entry_sweeping_wiggle_span_mm.insert(0, "1.0")
 
-    tk.Label(measure_frame, text="Focus Wiggle σ:").grid(
-        row=12, column=0, sticky="e"
-    )
+    tk.Label(measure_frame, text="Focus Wiggle σ:").grid(row=12, column=0, sticky="e")
     entry_focus_wiggle_sigma = tk.Entry(measure_frame)
     entry_focus_wiggle_sigma.grid(row=12, column=1)
     entry_focus_wiggle_sigma.insert(
@@ -498,7 +490,9 @@ def _create_widgets(
     btn_seek_pin.grid(row=0, column=2, padx=(6, 0))
     btn_move_laser_to_pin = tk.Button(laser_offset_frame, text="Move Laser To Pin")
     btn_move_laser_to_pin.grid(row=0, column=3, padx=(6, 0))
-    btn_capture_laser_offset = tk.Button(laser_offset_frame, text="Capture Laser Offset")
+    btn_capture_laser_offset = tk.Button(
+        laser_offset_frame, text="Capture Laser Offset"
+    )
     btn_capture_laser_offset.grid(row=0, column=4, padx=(6, 0))
     laser_offset_readout_var = tk.StringVar(laser_offset_frame, value="Side A: not set")
     tk.Label(laser_offset_frame, textvariable=laser_offset_readout_var).grid(
@@ -698,7 +692,9 @@ def _configure_root_minimum_size(
     except Exception:
         return
 
-    estimated_plot_width = int(max(LIVE_SUMMARY_FIGSIZE[0], LIVE_WAVEFORM_FIGSIZE[0]) * 100)
+    estimated_plot_width = int(
+        max(LIVE_SUMMARY_FIGSIZE[0], LIVE_WAVEFORM_FIGSIZE[0]) * 100
+    )
     side_width = max(side_width, estimated_plot_width)
 
     screen_width = _safe_screen_dimension(root, "winfo_screenwidth")

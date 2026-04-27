@@ -6,37 +6,39 @@ from dune_winder.paths import PLC_ROOT
 
 
 class PlcLadderMetadataTests(unittest.TestCase):
-  def test_loads_controller_program_tags_and_udts(self):
-    metadata = load_plc_metadata(PLC_ROOT)
+    def test_loads_controller_program_tags_and_udts(self):
+        metadata = load_plc_metadata(PLC_ROOT)
 
-    self.assertIn("STATE", metadata.controller_tags)
-    self.assertIn("MoveXY_State_2_3", metadata.programs)
-    self.assertIn("MOTION_INSTRUCTION", metadata.udts)
+        self.assertIn("STATE", metadata.controller_tags)
+        self.assertIn("MoveXY_State_2_3", metadata.programs)
+        self.assertIn("MOTION_INSTRUCTION", metadata.udts)
 
-  def test_tag_store_seeds_controller_and_program_values(self):
-    metadata = load_plc_metadata(PLC_ROOT)
-    tags = TagStore(metadata)
+    def test_tag_store_seeds_controller_and_program_values(self):
+        metadata = load_plc_metadata(PLC_ROOT)
+        tags = TagStore(metadata)
 
-    self.assertEqual(tags.get("STATE"), 0)
-    self.assertEqual(tags.get("QueueCtl.POS", program="motionQueue"), 0)
-    self.assertEqual(tags.get("CurSeg.Valid", program="motionQueue"), False)
+        self.assertEqual(tags.get("STATE"), 0)
+        self.assertEqual(tags.get("QueueCtl.POS", program="motionQueue"), 0)
+        self.assertEqual(tags.get("CurSeg.Valid", program="motionQueue"), False)
 
-    tags.set("QueueCtl.POS", 7, program="motionQueue")
-    tags.set("CurSeg.Valid", True, program="motionQueue")
-    tags.set("z_axis_gui_stop.PC", True, program="MoveZ_State_4_5")
+        tags.set("QueueCtl.POS", 7, program="motionQueue")
+        tags.set("CurSeg.Valid", True, program="motionQueue")
+        tags.set("z_axis_gui_stop.PC", True, program="MoveZ_State_4_5")
 
-    self.assertEqual(tags.get("QueueCtl.POS", program="motionQueue"), 7)
-    self.assertEqual(tags.get("CurSeg.Valid", program="motionQueue"), True)
-    self.assertEqual(tags.get("z_axis_gui_stop.PC", program="MoveZ_State_4_5"), True)
+        self.assertEqual(tags.get("QueueCtl.POS", program="motionQueue"), 7)
+        self.assertEqual(tags.get("CurSeg.Valid", program="motionQueue"), True)
+        self.assertEqual(
+            tags.get("z_axis_gui_stop.PC", program="MoveZ_State_4_5"), True
+        )
 
-  def test_program_tags_shadow_controller_tags(self):
-    metadata = load_plc_metadata(PLC_ROOT)
-    tags = TagStore(metadata)
+    def test_program_tags_shadow_controller_tags(self):
+        metadata = load_plc_metadata(PLC_ROOT)
+        tags = TagStore(metadata)
 
-    self.assertTrue(tags.exists("QueueCtl", program="motionQueue"))
-    self.assertTrue(tags.exists("STATE"))
-    self.assertFalse(tags.exists("QueueCtl"))
+        self.assertTrue(tags.exists("QueueCtl", program="motionQueue"))
+        self.assertTrue(tags.exists("STATE"))
+        self.assertFalse(tags.exists("QueueCtl"))
 
 
 if __name__ == "__main__":
-  unittest.main()
+    unittest.main()

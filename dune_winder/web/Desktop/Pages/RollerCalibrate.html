@@ -1,0 +1,175 @@
+<section id="rollerCalibratePage">
+  <section class="rollerCalibrateMainLayout">
+    <article class="rollerCalibrateCard">
+      <h2>Roller Arm Calibration</h2>
+      <p class="rollerCalibrateHint">
+        Calibrate roller offsets by providing executed GCode lines and actual positions
+        where the roller was tangent to the wire path.
+      </p>
+
+      <div class="rollerCalibrateInputGroup">
+        <div class="rollerCalibrateFieldRow">
+          <label for="rollerCalibrateGCodeLine">G-Code Line</label>
+          <div class="rollerCalibrateFieldActionRow">
+            <input
+              type="text"
+              id="rollerCalibrateGCodeLine"
+              placeholder="~anchorToTarget(B1201,B2001,offset=(1.25,-2.5))"
+            />
+            <button
+              type="button"
+              id="rollerCalibrateUseGCodeButton"
+              class="rollerCalibrateButton rollerCalibrateInlineButton"
+            >
+              Use Last Line
+            </button>
+          </div>
+        </div>
+
+        <div class="rollerCalibrateFieldRow">
+          <label for="rollerCalibrateLayer">Layer</label>
+          <select id="rollerCalibrateLayer">
+            <option value="U">U</option>
+            <option value="V">V</option>
+          </select>
+        </div>
+
+        <div class="rollerCalibrateFieldRow">
+          <label for="rollerCalibrateActualX">Actual X Position</label>
+          <div class="rollerCalibrateFieldActionRow">
+            <input type="number" id="rollerCalibrateActualX" step="0.001" />
+            <button
+              type="button"
+              id="rollerCalibrateUsePositionButton"
+              class="rollerCalibrateButton rollerCalibrateInlineButton"
+            >
+              Use Current Position
+            </button>
+          </div>
+        </div>
+
+        <div class="rollerCalibrateFieldRow">
+          <label for="rollerCalibrateActualY">Actual Y Position</label>
+          <input type="number" id="rollerCalibrateActualY" step="0.001" />
+        </div>
+
+        <button
+          type="button"
+          id="rollerCalibrateComputeButton"
+          class="rollerCalibrateButton"
+        >
+          Compute
+        </button>
+      </div>
+
+      <div id="rollerCalibrateResult" class="rollerCalibrateResult hidden">
+        <h3>Result</h3>
+        <p id="rollerCalibrateResultText"></p>
+        <button
+          type="button"
+          id="rollerCalibrateAddButton"
+          class="rollerCalibrateButton"
+        >
+          Add Measurement
+        </button>
+      </div>
+
+      <div id="rollerCalibrateMotorStatus" class="hidden"></div>
+
+      <div id="rollerCalibrateError" class="rollerCalibrateError hidden"></div>
+    </article>
+
+    <article class="rollerCalibrateCard">
+      <h2>Measurements</h2>
+      <p id="rollerCalibrateCount">No measurements recorded.</p>
+
+      <table id="rollerCalibrateMeasurementsTable" class="rollerCalibrateMeasurementsTable hidden">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>G-Code Line</th>
+            <th>Roller</th>
+            <th>y_cal</th>
+            <th>Δ</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="rollerCalibrateMeasurementsBody"></tbody>
+      </table>
+
+      <div class="rollerCalibrateButtonGroup">
+        <button
+          type="button"
+          id="rollerCalibrateClearButton"
+          class="rollerCalibrateButton"
+        >
+          Clear All
+        </button>
+        <button
+          type="button"
+          id="rollerCalibrateSaveButton"
+          class="rollerCalibrateButton"
+        >
+          Save Calibration
+        </button>
+      </div>
+    </article>
+
+    <article class="rollerCalibrateCard">
+      <h2>Fitted Roller Positions</h2>
+
+      <table class="rollerCalibrateFittedTable">
+        <thead>
+          <tr>
+            <th>Index</th>
+            <th>Position</th>
+            <th>Nominal y</th>
+            <th>Calibrated y</th>
+            <th>Δ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0</td>
+            <td>Left-Lower</td>
+            <td id="nominalY0" class="numeric">-</td>
+            <td id="calibratedY0" class="numeric">-</td>
+            <td id="deltaY0" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>1</td>
+            <td>Left-Upper</td>
+            <td id="nominalY1" class="numeric">-</td>
+            <td id="calibratedY1" class="numeric">-</td>
+            <td id="deltaY1" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Right-Lower</td>
+            <td id="nominalY2" class="numeric">-</td>
+            <td id="calibratedY2" class="numeric">-</td>
+            <td id="deltaY2" class="numeric">-</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Right-Upper</td>
+            <td id="nominalY3" class="numeric">-</td>
+            <td id="calibratedY3" class="numeric">-</td>
+            <td id="deltaY3" class="numeric">-</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="rollerCalibrateStats">
+        <p>
+          <strong>Center Displacement (Δy):</strong>
+          <span id="rollerCalibrateCenterDisp" class="numeric">0.0 mm</span>
+        </p>
+        <p>
+          <strong>Arm Tilt (θ):</strong>
+          <span id="rollerCalibrateArmTilt" class="numeric">0.000 rad (0.00°)</span>
+        </p>
+      </div>
+    </article>
+  </section>
+</section>

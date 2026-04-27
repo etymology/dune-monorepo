@@ -10,9 +10,10 @@ import pandas as pd
 
 from dune_tension.config import LAYER_LAYOUTS
 from dune_tension.data_cache import select_dataframe
-from dune_tension.geometry import MEASURABLE_X_MAX, MEASURABLE_X_MIN, MEASURABLE_Y_MAX, MEASURABLE_Y_MIN, refine_position
+from dune_tension.geometry import refine_position
 from dune_tension.paths import tension_data_db_path
 from dune_tension.plc_io import is_in_measurable_area
+from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
 CONFIDENCE_SOURCES = ("neural_net", "signal_amplitude")
@@ -30,7 +31,7 @@ def normalize_confidence_source(value: str | None) -> str:
 
 
 def check_stop_event(
-    stop_event: Event, message: str = "Measurement interrupted."
+    stop_event: Event | None, message: str = "Measurement interrupted."
 ) -> bool:
     """Print a message and return True if the stop event is set."""
     if stop_event is not None and stop_event.is_set():
@@ -90,10 +91,8 @@ def make_config(
     wire_min = layer_layout.wire_min
     wire_max = layer_layout.wire_max
 
-    if layer in ["U", "V"] and (
-        (layer == "U" and side == "A") or (layer == "V" and side == "B")
-    ):
-        dy = -dy
+    if layer in ["U", "V"]:
+        _dx, dy = get_uv_layout(layer).measurement_pitch(side)
     if flipped:
         dy = -dy
     return TensiometerConfig(
@@ -154,14 +153,15 @@ def _weighted_focus_fit(
     if total_weight <= 0:
         return None, None
 
-    y_mean = sum(weight * y for weight, y in zip(weight_values, y_values)) / total_weight
+    y_mean = (
+        sum(weight * y for weight, y in zip(weight_values, y_values)) / total_weight
+    )
     focus_mean = (
         sum(weight * focus for weight, focus in zip(weight_values, focus_values))
         / total_weight
     )
     variance = sum(
-        weight * (y - y_mean) ** 2
-        for weight, y in zip(weight_values, y_values)
+        weight * (y - y_mean) ** 2 for weight, y in zip(weight_values, y_values)
     )
     if variance <= 0:
         return None, None
@@ -183,7 +183,9 @@ class WirePositionProvider:
         dataframe_loader: Callable[..., Any] = select_dataframe,
     ) -> None:
         self._dataframe_loader = dataframe_loader
-        self._snapshots: dict[tuple[str, str, str, str], _WirePositionSnapshot | None] = {}
+        self._snapshots: dict[
+            tuple[str, str, str, str], _WirePositionSnapshot | None
+        ] = {}
 
     def _snapshot_key(self, config: TensiometerConfig) -> tuple[str, str, str, str]:
         return (
@@ -291,11 +293,9 @@ class WirePositionProvider:
         x = float(snapshot.xs[idx_closest])
         y = float(snapshot.ys[idx_closest] + dy_offset)
 
-        return (
-            refine_position(x, y, config.dx, config.dy)
-            if config.layer in ["V", "U"]
-            else (x, y)
-        )
+        if config.layer in ["V", "U"]:
+            return refine_position(x, y, config.dx, config.dy) or (x, y)
+        return x, y
 
     def _resolve_focus_position(
         self,
@@ -508,7 +508,7 @@ def measure_list(
     ],
     get_current_xy_func: Callable[[], tuple[float, float]],
     collect_func: Callable[[int, float, float, int | None], Optional[float]],
-    stop_event: Optional[object] = None,
+    stop_event: Event | None = None,
     preserve_order: bool = False,
     profile: bool = True,
     current_focus_position: int | None = None,

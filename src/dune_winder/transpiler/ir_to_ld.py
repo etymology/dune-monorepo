@@ -7,12 +7,36 @@ Output format: one rung per line, space-separated instructions.
   MOV src dest         for simple moves
   TRN src dest         for truncate (standalone, not inside CPT)
 """
+
 from __future__ import annotations
 from .ir import (
-    Assign, BinOp, Comment, Cmp, Condition, Const, CptCall, Expr,
-    Fault, If, IRNode, IsInf, IsNotInf, JSRCall, Loop, OrCond, AndCond,
-    Reg, RegExpr, Return, Routine, SegField, SegFieldExpr, SetBool, UnaryOp,
-    XicCond, XioCond,
+    Assign,
+    BinOp,
+    Comment,
+    Cmp,
+    Condition,
+    Const,
+    CptCall,
+    Expr,
+    Fault,
+    If,
+    IRNode,
+    IsInf,
+    IsNotInf,
+    JSRCall,
+    Loop,
+    OrCond,
+    AndCond,
+    Reg,
+    RegExpr,
+    Return,
+    Routine,
+    SegField,
+    SegFieldExpr,
+    SetBool,
+    UnaryOp,
+    XicCond,
+    XioCond,
 )
 from .types import PLCType
 
@@ -34,17 +58,19 @@ class LDEmitter:
         end_lbl = f"lbl_{routine.name}_end"
 
         # Header comments
-        self._lines.append(f"; {'='*60}")
+        self._lines.append(f"; {'=' * 60}")
         self._lines.append(f"; Routine: {routine.name}")
         for c in routine.alloc_comments:
             self._lines.append(c)
         if routine.in_params:
-            self._lines.append("; Inputs:  " +
-                "  ".join(f"{r}={n}" for n, r in routine.in_params))
+            self._lines.append(
+                "; Inputs:  " + "  ".join(f"{r}={n}" for n, r in routine.in_params)
+            )
         if routine.out_params:
-            self._lines.append("; Outputs: " +
-                "  ".join(f"{r}={n}" for n, r in routine.out_params))
-        self._lines.append(f"; {'='*60}")
+            self._lines.append(
+                "; Outputs: " + "  ".join(f"{r}={n}" for n, r in routine.out_params)
+            )
+        self._lines.append(f"; {'=' * 60}")
 
         for node in routine.body:
             self._emit_node(node, end_lbl)
@@ -312,7 +338,11 @@ class LDEmitter:
         self._lines.append(f"LBL {lbl_top}")
 
         # Exit condition: GEQ counter limit
-        limit_s = str(node.limit) if isinstance(node.limit, Reg) else self._expr_str(node.limit)
+        limit_s = (
+            str(node.limit)
+            if isinstance(node.limit, Reg)
+            else self._expr_str(node.limit)
+        )
         self._lines.append(f"GEQ {node.counter} {limit_s} JMP {lbl_end}")
 
         # Body
@@ -350,7 +380,8 @@ class LDEmitter:
         for src_reg, dest_reg in node.out_args:
             if src_reg.index >= 9000:
                 self._lines.append(
-                    f"; TODO: copy {node.routine}_ret_{src_reg.index - 9000} {dest_reg}")
+                    f"; TODO: copy {node.routine}_ret_{src_reg.index - 9000} {dest_reg}"
+                )
             else:
                 self._emit_reg_copy(str(src_reg), dest_reg)
 
@@ -365,19 +396,24 @@ class LDEmitter:
         lbl_done = self._next_label("atan2_done")
         # case x > 0
         self._lines.append(
-            f"GRT {x_s} 0.0 CPT {dest_s} ATN({y_s}/{x_s}) JMP {lbl_done}")
+            f"GRT {x_s} 0.0 CPT {dest_s} ATN({y_s}/{x_s}) JMP {lbl_done}"
+        )
         # case x < 0, y >= 0
         self._lines.append(
-            f"LES {x_s} 0.0 GEQ {y_s} 0.0 CPT {dest_s} ATN({y_s}/{x_s})+{_PI} JMP {lbl_done}")
+            f"LES {x_s} 0.0 GEQ {y_s} 0.0 CPT {dest_s} ATN({y_s}/{x_s})+{_PI} JMP {lbl_done}"
+        )
         # case x < 0, y < 0
         self._lines.append(
-            f"LES {x_s} 0.0 LES {y_s} 0.0 CPT {dest_s} ATN({y_s}/{x_s})-{_PI} JMP {lbl_done}")
+            f"LES {x_s} 0.0 LES {y_s} 0.0 CPT {dest_s} ATN({y_s}/{x_s})-{_PI} JMP {lbl_done}"
+        )
         # x = 0, y > 0
         self._lines.append(
-            f"EQU {x_s} 0.0 GRT {y_s} 0.0 MOV 1.5707963267949 {dest_s} JMP {lbl_done}")
+            f"EQU {x_s} 0.0 GRT {y_s} 0.0 MOV 1.5707963267949 {dest_s} JMP {lbl_done}"
+        )
         # x = 0, y < 0
         self._lines.append(
-            f"EQU {x_s} 0.0 LES {y_s} 0.0 MOV -1.5707963267949 {dest_s} JMP {lbl_done}")
+            f"EQU {x_s} 0.0 LES {y_s} 0.0 MOV -1.5707963267949 {dest_s} JMP {lbl_done}"
+        )
         # x = 0, y = 0
         self._lines.append(f"MOV 0.0 {dest_s}")
         self._lines.append(f"LBL {lbl_done}")
@@ -412,11 +448,11 @@ class LDEmitter:
         """
         dest_s = str(dest)
         lbl_done = self._next_label("ceil_done")
-        x_s = self._mat_str(x)                              # simple REAL tag
-        tmp_int = Reg(PLCType.DINT, self._alloc_dint())     # TRN result
-        tmp_float = Reg(PLCType.REAL, self._alloc_real())   # back-converted for cmp
-        self._lines.append(f"TRN {x_s} {tmp_int}")         # tmp_int = trunc(x)
-        self._lines.append(f"MOV {tmp_int} {tmp_float}")    # tmp_float = float(trunc)
+        x_s = self._mat_str(x)  # simple REAL tag
+        tmp_int = Reg(PLCType.DINT, self._alloc_dint())  # TRN result
+        tmp_float = Reg(PLCType.REAL, self._alloc_real())  # back-converted for cmp
+        self._lines.append(f"TRN {x_s} {tmp_int}")  # tmp_int = trunc(x)
+        self._lines.append(f"MOV {tmp_int} {tmp_float}")  # tmp_float = float(trunc)
         # If float(trunc) >= x: exact integer or negative — already the ceiling
         self._lines.append(f"GEQ {tmp_float} {x_s} JMP {lbl_done}")
         # Positive fractional: add 1
@@ -453,12 +489,16 @@ class LDEmitter:
                 j = i + 1
                 passed: list[str] = []
                 while j < len(lines) and (
-                        not lines[j].strip() or lines[j].lstrip().startswith(";")):
+                    not lines[j].strip() or lines[j].lstrip().startswith(";")
+                ):
                     passed.append(lines[j])
                     j += 1
                 if j < len(lines):
                     next_line = lines[j]
-                    if next_line.startswith("LBL ") and " " not in next_line[4:].strip():
+                    if (
+                        next_line.startswith("LBL ")
+                        and " " not in next_line[4:].strip()
+                    ):
                         # Next is also a bare label — emit current with NOP
                         result.append(line + " NOP")
                         result.extend(passed)

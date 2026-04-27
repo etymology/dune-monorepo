@@ -1,0 +1,141 @@
+---
+title: "UKAPA7 After Storage and Shipment"
+format:
+  revealjs:
+    theme: dark
+    background-color: "#111111"
+    slide-number: true
+    transition: none
+jupyter: python3
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{python}
+from pathlib import Path
+import sys
+
+
+def find_repo_root(start: Path) -> Path:
+    for path in (start, *start.parents):
+        if (path / "pyproject.toml").exists() and (path / "src/dune_tension").exists():
+            return path
+    raise RuntimeError("Could not find dune-monorepo root")
+
+
+ROOT = find_repo_root(Path.cwd())
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from dune_tension.ukapa7_comparison.generate_landscape_display_plots import (
+    save_layer_change_in_tension_plot,
+    save_layer_landscape_plot,
+)
+
+EXPERIMENT_DIR = ROOT / "dune_tension/experiments/UKAPA7_comparison"
+G_ACTION_JSON = ROOT / "dune_tension/apa_uk7g.json"
+U_ACTION_JSON = ROOT / "dune_tension/UKAPA7U.json"
+G_SUMMARY_CSV = ROOT / "dune_tension/data/tension_summaries/tension_summary_UKAPA7_G.csv"
+U_SUMMARY_CSV = ROOT / "dune_tension/data/tension_summaries/tension_summary_UKAPA7_U.csv"
+
+save_layer_landscape_plot(
+    action_json=G_ACTION_JSON,
+    summary_csv=G_SUMMARY_CSV,
+    layer="G",
+    output_path=EXPERIMENT_DIR / "ukapa7_landscape_G.png",
+)
+save_layer_change_in_tension_plot(
+    action_json=G_ACTION_JSON,
+    summary_csv=G_SUMMARY_CSV,
+    layer="G",
+    output_path=EXPERIMENT_DIR / "ukapa7_change_in_tension_G.png",
+)
+save_layer_landscape_plot(
+    action_json=U_ACTION_JSON,
+    summary_csv=U_SUMMARY_CSV,
+    layer="U",
+    output_path=EXPERIMENT_DIR / "ukapa7_landscape_U.png",
+)
+save_layer_change_in_tension_plot(
+    action_json=U_ACTION_JSON,
+    summary_csv=U_SUMMARY_CSV,
+    layer="U",
+    output_path=EXPERIMENT_DIR / "ukapa7_change_in_tension_U.png",
+)
+```
+
+## What happened?
+
+- The comparable Chicago tension measurements are lower than the UK measurements in every layer-side group.
+- The shift is not a single constant offset: G is lower by about `0.2-0.4 N`, while the currently measured U subset is lower by about `0.5-0.9 N`.
+- All current Chicago G and U summary values are within the `4.0-8.5 N` tension specification.
+- These data answer the tension question, but they do not by themselves identify a unique cause for the lower values.
+
+## Measurement basis
+
+- UK source data are the APA-UK007 action JSON records: U uploaded `2023-11-21`, G uploaded `2023-12-10`.
+- Chicago source data are the current `tension_summary_UKAPA7_G.csv` and `tension_summary_UKAPA7_U.csv` files.
+- The Chicago summary CSVs do not encode a measurement timestamp, so the deck does not rely on one.
+- Residuals are defined as `Chicago - UK`; negative values mean Chicago measured lower tension.
+
+## Coverage and limits
+
+- **G layer:** full A-side comparison with `481` wires; corrected B-side comparison with `480` wires after reversing and shifting the B index.
+- **U layer:** partial Chicago coverage only, with `385` aligned wires on side A and `641` on side B.
+- U-layer wires were accessed through a slit cut in the G wires near the middle of the APA.
+- The G and U comparisons were therefore not made under identical access and frame conditions.
+
+## G Layer
+
+- Side A: mean residual `-0.38 N`, median `-0.43 N`, `84%` of wires lower in Chicago.
+- Side B: mean residual `-0.20 N`, median `-0.30 N`, `71%` of wires lower in Chicago.
+- Residual widths are about `0.4 N` on both sides.
+- Some individual wires measured higher in Chicago, so the change is not uniform wire by wire.
+
+## G Layer Landscape
+
+![g both sides](ukapa7_landscape_G.png)
+
+## G Layer Change in Tension
+
+![G change in tension](ukapa7_change_in_tension_G.png)
+
+## U Layer
+
+- Side A subset: mean residual `-0.54 N`, median `-0.51 N`, `85%` of aligned wires lower in Chicago.
+- Side B subset: mean residual `-0.87 N`, median `-0.76 N`, `99%` of aligned wires lower in Chicago.
+- Residual widths are about `0.5 N` on both sides.
+- The U-layer result is a partial-subset comparison, not a full-layer comparison.
+
+## U Layer Landscape
+
+![U both sides](ukapa7_landscape_U.png)
+
+## U Layer Change in Tension
+
+![U change in tension](ukapa7_change_in_tension_U.png)
+
+## What the data do and do not show
+
+- The robust observation is downward shift: Chicago values are lower on average for G A, G B, U A, and U B.
+- The current Chicago values remain in specification: G ranges from `4.44` to `7.00 N`; U ranges from `4.03` to `6.41 N`.
+- The data do not show an out-of-spec tension signature after storage and shipment.
+- The data alone do not separate wire relaxation, measurement differences, access changes, frame state, or handling effects.
+
+## Bottom line
+
+- APA-UK007 tensions were lower when measured in Chicago than in the UK source records.
+- The lower shift is modest for G and larger in the measured U subset.
+- No measured Chicago G or U tension in these summary files falls outside the `4.0-8.5 N` specification.
+- Any recommendation beyond tension acceptance needs external acceptance criteria or inspection evidence not contained in these files.
+
+## G Wire Tension Profile
+
+![all g wires](../../data/tension_plots/tension_profile_cloud_G_mode_allsamples_cov0p5_it3_bins40.png)
+
+## U Wire Tension Profile
+
+![all u wires](../../data/tension_plots/tension_profile_cloud_U_noscale_allsamples_cov0p5_it3_bins40.png)

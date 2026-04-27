@@ -10,48 +10,48 @@ from .apa import APA_Geometry
 
 
 class LayerGeometry(APA_Geometry):
-  # -------------------------------------------------------------------
-  def __init__(self):
-    """
-    Constructor.
-    """
+    # -------------------------------------------------------------------
+    def __init__(self):
+        """
+        Constructor.
+        """
 
-    APA_Geometry.__init__(self)
+        APA_Geometry.__init__(self)
 
-    # Pitches are the number of wire crossings.
-    self.pitches = 400
+        # Pitches are the number of wire crossings.
+        self.pitches = 400
 
-    # Spacing between pins and X/Y.
-    self.pitchX = 8.0
-    self.pitchY = 5.75
+        # Spacing between pins and X/Y.
+        self.pitchX = 8.0
+        self.pitchY = 5.75
 
-    # Diameter of the wire (in mm).
-    self.wireDiameter = 0.15
-    self.wireRadius = self.wireDiameter / 2
+        # Diameter of the wire (in mm).
+        self.wireDiameter = 0.15
+        self.wireRadius = self.wireDiameter / 2
 
-    # Thickness of each layer board.
-    self.boardThickness = 3.175  # 1/8"
-    self.boardHalfThickness = self.boardThickness / 2
+        # Thickness of each layer board.
+        self.boardThickness = 3.175  # 1/8"
+        self.boardHalfThickness = self.boardThickness / 2
 
-    # Spacing between board.
-    self.boardSpacing = 3.35
+        # Spacing between board.
+        self.boardSpacing = 3.35
 
-    # Length of the layer on the frame.
-    # Around 6393.8923913044
-    self.layerLength = (
-      (2 * self.pitches - 0.5) * self.pitchX
-      + self.boardThickness * (self.pitchX / self.pitchY - 1)
-      - self.boardSpacing
-    )
+        # Length of the layer on the frame.
+        # Around 6393.8923913044
+        self.layerLength = (
+            (2 * self.pitches - 0.5) * self.pitchX
+            + self.boardThickness * (self.pitchX / self.pitchY - 1)
+            - self.boardSpacing
+        )
 
-    # Edge name to grid index.
-    self.edgeToGridIndex = {"L": 0, "T": 1, "R": 2, "B": 3}
+        # Edge name to grid index.
+        self.edgeToGridIndex = {"L": 0, "T": 1, "R": 2, "B": 3}
 
-    # Attributes populated by each concrete layer subclass.
-    self.pins: int
-    self.startPinFront: float
-    self.startPinBack: int
-    self.directionFront: int
-    self.directionBack: int
-    self.gridFront: list[list]
-    self.gridBack: list[list]
+        # Attributes populated by each concrete layer subclass.
+        self.pins: int
+        self.startPinFront: float
+        self.startPinBack: int
+        self.directionFront: int
+        self.directionBack: int
+        self.gridFront: list[list]
+        self.gridBack: list[list]

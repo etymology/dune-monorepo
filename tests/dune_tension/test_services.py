@@ -30,6 +30,7 @@ EXPECTED_COLUMNS = [
     "tension_pass",
 ]
 
+
 def _load_services(monkeypatch):
     sys.modules.pop("dune_tension.services", None)
     results_stub = types.ModuleType("dune_tension.results")
@@ -114,17 +115,11 @@ def test_result_repository_run_scope_batches_samples(monkeypatch) -> None:
     )
 
     with repository.run_scope():
-        repository.append_sample(
-            _make_result(EXPECTED_COLUMNS, wire_number=1)
-        )
-        repository.append_sample(
-            _make_result(EXPECTED_COLUMNS, wire_number=2)
-        )
+        repository.append_sample(_make_result(EXPECTED_COLUMNS, wire_number=1))
+        repository.append_sample(_make_result(EXPECTED_COLUMNS, wire_number=2))
         assert sample_batches == []
 
-        repository.append_result(
-            _make_result(EXPECTED_COLUMNS, wire_number=3)
-        )
+        repository.append_result(_make_result(EXPECTED_COLUMNS, wire_number=3))
         assert len(result_batches) == 1
         assert [row["wire_number"] for row in result_batches[0][1]] == [3]
 

@@ -138,6 +138,7 @@ def install_gui_crash_logging() -> GuiCrashLoggingBinding:
     sys.excepthook = excepthook
 
     if previous_threading_excepthook is not None:
+
         def threading_excepthook(args: Any) -> None:
             thread_name = getattr(getattr(args, "thread", None), "name", "unknown")
             handle_uncaught_exception(
@@ -154,7 +155,9 @@ def install_gui_crash_logging() -> GuiCrashLoggingBinding:
         previous_handler = signal.getsignal(signum)
         previous_signal_handlers[signum] = previous_handler
 
-        def handler(_signum: int, frame: FrameType | None, *, _prev: Any = previous_handler) -> None:
+        def handler(
+            _signum: int, frame: FrameType | None, *, _prev: Any = previous_handler
+        ) -> None:
             crash_logger.warning(
                 "Received signal %s (%s) at %s",
                 _signal_name(_signum),
@@ -250,9 +253,7 @@ def format_process_stats() -> str:
 def _iter_supported_signal_numbers() -> tuple[int, ...]:
     signal_names = ("SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT")
     return tuple(
-        getattr(signal, name)
-        for name in signal_names
-        if hasattr(signal, name)
+        getattr(signal, name) for name in signal_names if hasattr(signal, name)
     )
 
 

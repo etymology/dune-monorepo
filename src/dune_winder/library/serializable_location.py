@@ -10,12 +10,12 @@ from dune_winder.library.Geometry.location import Location
 
 
 class SerializableLocation(Location):
-  # ---------------------------------------------------------------------
-  @staticmethod
-  def fromLocation(location):
-    result = SerializableLocation()
-    result.x = location.x
-    result.y = location.y
-    result.z = location.z
+    # ---------------------------------------------------------------------
+    @staticmethod
+    def fromLocation(location):
+        result = SerializableLocation()
+        result.x = location.x
+        result.y = location.y
+        result.z = location.z
 
-    return result
+        return result

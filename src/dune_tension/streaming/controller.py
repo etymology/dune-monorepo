@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import logging
 import math
-from pathlib import Path
 import threading
 import time
 from typing import Callable, Iterable
@@ -26,13 +25,14 @@ from dune_tension.streaming.models import (
     RescueQueueItem,
     StreamingManifest,
     StreamingSegment,
+    StreamingSegmentMode,
     WireCandidate,
 )
 from dune_tension.streaming.pose import (
     build_measurement_pose,
     stage_x_for_laser_target,
 )
-from dune_tension.streaming.runtime import MeasurementRuntime
+from dune_tension.streaming.runtime import AudioStreamService, MeasurementRuntime
 from dune_tension.streaming.storage import StreamingSessionRepository
 from dune_tension.tensiometer_functions import make_config
 from dune_tension.tension_calculation import wire_equation
@@ -154,7 +154,7 @@ class StreamingMeasurementController:
         self.evidence_field = PitchEvidenceField()
         self._active_repo: StreamingSessionRepository | None = None
         self._active_session_id: str | None = None
-        self._active_audio_stream = None
+        self._active_audio_stream: AudioStreamService | None = None
 
     def _notify(self, **payload: object) -> None:
         try:
@@ -187,14 +187,21 @@ class StreamingMeasurementController:
             return float(self.config.default_focus)
         return float(focus_reference)
 
-    def _goto_stage_xy(self, x_stage: float, y_stage: float, *, speed_mm_s: float | None = None) -> bool:
+    def _goto_stage_xy(
+        self, x_stage: float, y_stage: float, *, speed_mm_s: float | None = None
+    ) -> bool:
         kwargs = {}
         if speed_mm_s is not None:
             kwargs["speed"] = float(speed_mm_s)
         try:
-            return self.runtime.motion.goto_xy(float(x_stage), float(y_stage), **kwargs) is not False
+            return (
+                self.runtime.motion.goto_xy(float(x_stage), float(y_stage), **kwargs)
+                is not False
+            )
         except TypeError:
-            return self.runtime.motion.goto_xy(float(x_stage), float(y_stage)) is not False
+            return (
+                self.runtime.motion.goto_xy(float(x_stage), float(y_stage)) is not False
+            )
 
     def _pulse_scheduler(
         self,
@@ -252,7 +259,9 @@ class StreamingMeasurementController:
             self._active_repo.upsert_pitch_bin(pitch_bin)
             self._notify(
                 comb_score=float(completed.job.max_comb_score),
-                focus_prediction=float(completed.job.window.pose_center.focus_reference),
+                focus_prediction=float(
+                    completed.job.window.pose_center.focus_reference
+                ),
             )
 
     def _corridor_segment(
@@ -265,8 +274,10 @@ class StreamingMeasurementController:
         y_mid = (float(corridor.y0) + float(corridor.y1)) / 2.0
         focus_reference = self._focus_reference_for_position(x_mid, y_mid)
         manual_focus = self._manual_focus_target()
-        focus = manual_focus if manual_focus is not None else (
-            float(focus_reference) + float(corridor.focus_offset)
+        focus = (
+            manual_focus
+            if manual_focus is not None
+            else (float(focus_reference) + float(corridor.focus_offset))
         )
         x_stage0 = stage_x_for_laser_target(
             x_laser_target=float(corridor.x0),
@@ -294,7 +305,9 @@ class StreamingMeasurementController:
             focus_reference=focus_reference,
             side=self.config.side,
         )
-        distance_mm = math.hypot(x_stage1 - x_stage0, float(corridor.y1) - float(corridor.y0))
+        distance_mm = math.hypot(
+            x_stage1 - x_stage0, float(corridor.y1) - float(corridor.y0)
+        )
         duration_s = distance_mm / max(float(corridor.speed_mm_s), 1e-6)
         planned_start = self.runtime.clock()
         planned_end = planned_start + duration_s
@@ -321,7 +334,7 @@ class StreamingMeasurementController:
         segment: StreamingSegment,
         chunks,
         expected_frequency_hz: float | None,
-        source_mode: str,
+        source_mode: StreamingSegmentMode,
         wire_hint: int | None = None,
     ) -> None:
         for chunk_index, chunk in enumerate(chunks):
@@ -376,7 +389,9 @@ class StreamingMeasurementController:
             return 0.0
         return active_score / (active_score + competitor_score)
 
-    def _aggregate_candidates(self, *, source_mode: str) -> dict[int, WireCandidate]:
+    def _aggregate_candidates(
+        self, *, source_mode: StreamingSegmentMode
+    ) -> dict[int, WireCandidate]:
         candidates: dict[int, WireCandidate] = {}
         points_by_wire: dict[int, list[tuple[float, float]]] = {}
         for pitch_bin in self.evidence_field.snapshot():
@@ -401,7 +416,11 @@ class StreamingMeasurementController:
                     )
                     focus_score = max(
                         0.0,
-                        1.0 - (abs(float(best_focus.delta_focus)) / max(self.config.focus_probe_step, 1.0)),
+                        1.0
+                        - (
+                            abs(float(best_focus.delta_focus))
+                            / max(self.config.focus_probe_step, 1.0)
+                        ),
                     )
                 pose = build_measurement_pose(
                     x_true=pitch_bin.x_bin,
@@ -420,7 +439,7 @@ class StreamingMeasurementController:
                 if candidate is None:
                     candidate = WireCandidate(
                         wire_number=int(predicted.wire_number),
-                        source_mode=str(source_mode),
+                        source_mode=source_mode,
                         support_count=0,
                         best_pose=pose,
                         best_comb_score=float(dominant.max_comb_score),
@@ -438,7 +457,9 @@ class StreamingMeasurementController:
                 if float(dominant.max_comb_score) >= float(candidate.best_comb_score):
                     candidate.best_comb_score = float(dominant.max_comb_score)
                     candidate.best_pose = pose
-                points_by_wire[predicted.wire_number].append((pitch_bin.x_bin, pitch_bin.y_bin))
+                points_by_wire[predicted.wire_number].append(
+                    (pitch_bin.x_bin, pitch_bin.y_bin)
+                )
 
         direction = self.runtime.wire_positions.wire_direction(
             layer=self.config.layer,
@@ -458,8 +479,15 @@ class StreamingMeasurementController:
             )
         return candidates
 
-    def _persist_final_result(self, candidate: WireCandidate, measurement_mode: str) -> TensionResult:
-        avg_frequency = float(np.average(candidate.pitch_estimates, weights=np.maximum(candidate.pitch_confidences, 1e-6)))
+    def _persist_final_result(
+        self, candidate: WireCandidate, measurement_mode: str
+    ) -> TensionResult:
+        avg_frequency = float(
+            np.average(
+                candidate.pitch_estimates,
+                weights=np.maximum(candidate.pitch_confidences, 1e-6),
+            )
+        )
         avg_confidence = float(np.mean(candidate.pitch_confidences))
         result = TensionResult.from_measurement(
             apa_name=self.config.apa_name,
@@ -536,7 +564,9 @@ class StreamingMeasurementController:
                     corridor=corridor,
                     segment_index=index,
                 )
-                self._notify(segment_id=segment.segment_id, corridor_id=corridor.corridor_id)
+                self._notify(
+                    segment_id=segment.segment_id, corridor_id=corridor.corridor_id
+                )
                 self._set_focus(segment.pose0.focus)
                 self._goto_stage_xy(x_stage0, y0)
                 pulse_stop = threading.Event()
@@ -657,7 +687,9 @@ class StreamingMeasurementController:
         )
         if predicted is None:
             repo.close()
-            raise ValueError(f"No cached wire position available for wire {wire_number}")
+            raise ValueError(
+                f"No cached wire position available for wire {wire_number}"
+            )
         x_target, y_target = predicted
         zone = zone_lookup(x_target)
         length = length_lookup(self.config.layer, int(wire_number), zone)
@@ -669,8 +701,16 @@ class StreamingMeasurementController:
         )
         trials = [
             (along, focus_offset)
-            for along in (-self.config.rescue_position_step_mm, 0.0, self.config.rescue_position_step_mm)
-            for focus_offset in (-self.config.focus_probe_step, 0.0, self.config.focus_probe_step)
+            for along in (
+                -self.config.rescue_position_step_mm,
+                0.0,
+                self.config.rescue_position_step_mm,
+            )
+            for focus_offset in (
+                -self.config.focus_probe_step,
+                0.0,
+                self.config.focus_probe_step,
+            )
         ]
         manual_focus = self._manual_focus_target()
         if manual_focus is not None:
@@ -695,8 +735,10 @@ class StreamingMeasurementController:
                 x_laser = float(x_target) + (float(direction[0]) * float(along_offset))
                 y_laser = float(y_target) + (float(direction[1]) * float(along_offset))
                 focus_reference = self._focus_reference_for_position(x_laser, y_laser)
-                focus = manual_focus if manual_focus is not None else (
-                    float(focus_reference) + float(focus_offset)
+                focus = (
+                    manual_focus
+                    if manual_focus is not None
+                    else (float(focus_reference) + float(focus_offset))
                 )
                 x_stage = stage_x_for_laser_target(
                     x_laser_target=x_laser,
@@ -776,7 +818,11 @@ class StreamingMeasurementController:
                     "frequency": result.frequency,
                     "confidence": result.confidence,
                 }
-            return {"session_id": repo.session_id, "wire_number": wire_number, "status": "no_result"}
+            return {
+                "session_id": repo.session_id,
+                "wire_number": wire_number,
+                "status": "no_result",
+            }
         finally:
             audio_stream.stop()
             repo.close()

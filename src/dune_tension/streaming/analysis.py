@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import itertools
 import logging
-import math
 import queue
 import threading
 import uuid
@@ -13,6 +12,7 @@ import numpy as np
 
 from dune_tension.streaming.models import (
     PitchResult,
+    StreamingSegmentMode,
     StreamingFrame,
     StreamingSegment,
     VoicedWindow,
@@ -49,7 +49,7 @@ class VoicedAudioWindow:
     window: VoicedWindow
     audio: np.ndarray
     expected_frequency_hz: float | None
-    source_mode: str
+    source_mode: StreamingSegmentMode
     max_comb_score: float = 0.0
 
 
@@ -119,7 +119,8 @@ class FastFrameAnalyzer:
         ):
             frame_audio = audio[frame_start : frame_start + self.config.frame_size]
             frame_mid_time = chunk.start_time + (
-                (frame_start + (self.config.frame_size / 2)) / float(self.config.sample_rate)
+                (frame_start + (self.config.frame_size / 2))
+                / float(self.config.sample_rate)
             )
             pose, in_cruise = interpolate_segment_pose(segment, frame_mid_time)
             comb_score, spectral_flatness, harmonic_valid = harmonic_comb_response(
@@ -162,7 +163,9 @@ class FastFrameAnalyzer:
                     spectral_flatness=float(spectral_flatness),
                     harmonic_valid=bool(harmonic_valid),
                     expected_band_score=(
-                        None if expected_band_score is None else float(expected_band_score)
+                        None
+                        if expected_band_score is None
+                        else float(expected_band_score)
                     ),
                     voiced_gate_pass=voiced_gate_pass,
                     audio_chunk_ref=audio_chunk_ref,
@@ -179,7 +182,7 @@ class FastFrameAnalyzer:
         audio_chunk_ref: str | None,
         wire_hint: int | None = None,
         expected_frequency_hz: float | None = None,
-        source_mode: str = "sweep",
+        source_mode: StreamingSegmentMode = "sweep",
     ) -> list[VoicedAudioWindow]:
         audio = np.asarray(chunk.audio, dtype=np.float32).reshape(-1)
         windows: list[VoicedAudioWindow] = []
@@ -225,7 +228,9 @@ class FastFrameAnalyzer:
                     audio=window_audio,
                     expected_frequency_hz=expected_frequency_hz,
                     source_mode=source_mode,
-                    max_comb_score=max(float(frame.comb_score) for frame in frame_slice),
+                    max_comb_score=max(
+                        float(frame.comb_score) for frame in frame_slice
+                    ),
                 )
             )
             start_index = None
@@ -262,8 +267,8 @@ class AsyncPitchWorker:
         self.sample_rate = int(sample_rate)
         self._analyze_func = analyze_func or analyze_audio_with_pesto
         self._logger = logger or LOGGER
-        self._queue: "queue.PriorityQueue[tuple[int, int, VoicedAudioWindow | None]]" = (
-            queue.PriorityQueue(maxsize=max(1, int(max_queue_size)))
+        self._queue: "queue.PriorityQueue[tuple[int, int, VoicedAudioWindow | None]]" = queue.PriorityQueue(
+            maxsize=max(1, int(max_queue_size))
         )
         self._results: "queue.Queue[CompletedPitchJob]" = queue.Queue()
         self._stop_event = threading.Event()
@@ -299,7 +304,7 @@ class AsyncPitchWorker:
                     confidence=float(getattr(analysis, "confidence", float("nan"))),
                     expected_frequency_hz=job.expected_frequency_hz,
                     frame_count=int(job.audio.size),
-                    source_mode=str(job.source_mode),
+                    source_mode=job.source_mode,
                 )
                 self._results.put(CompletedPitchJob(job=job, pitch_result=pitch_result))
             except Exception as exc:

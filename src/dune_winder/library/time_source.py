@@ -18,80 +18,80 @@ from abc import ABCMeta, abstractmethod
 
 
 class TimeSource(metaclass=ABCMeta):
-  # Make class abstract.
-  @abstractmethod
-  def sleep(self, sleepTime):
-    """
-    Sleep for specified time (in seconds).
+    # Make class abstract.
+    @abstractmethod
+    def sleep(self, sleepTime):
+        """
+        Sleep for specified time (in seconds).
 
-    Args:
-      sleepTime: Time to sleep (in seconds and can be fractional).
-    """
-    pass
+        Args:
+          sleepTime: Time to sleep (in seconds and can be fractional).
+        """
+        pass
 
-  # -------------------------------------------------------------------
-  @abstractmethod
-  def get(self):
-    """
-    Return the current time.
+    # -------------------------------------------------------------------
+    @abstractmethod
+    def get(self):
+        """
+        Return the current time.
 
-    Returns:
-      Returns current time.
-    """
+        Returns:
+          Returns current time.
+        """
 
-    pass
+        pass
 
-  # -------------------------------------------------------------------
-  @abstractmethod
-  def getDelta(self, then, now):
-    """
-    Return the amount of time between two time stamps.
+    # -------------------------------------------------------------------
+    @abstractmethod
+    def getDelta(self, then, now):
+        """
+        Return the amount of time between two time stamps.
 
-    Args:
-      then - Starting time.
-      now - Current time.  If omitted, the current time is used.
+        Args:
+          then - Starting time.
+          now - Current time.  If omitted, the current time is used.
 
-    Returns:
-      Time between to time stamps.
-    """
+        Returns:
+          Time between to time stamps.
+        """
 
-    pass
+        pass
 
-  # -------------------------------------------------------------------
-  def getElapsedString(self, seconds):
-    """
-    Return a string representing elapsed time.
+    # -------------------------------------------------------------------
+    def getElapsedString(self, seconds):
+        """
+        Return a string representing elapsed time.
 
-    Args:
-      seconds - Elapsed seconds.
+        Args:
+          seconds - Elapsed seconds.
 
-    Returns:
-      String representing elapsed time.
+        Returns:
+          String representing elapsed time.
 
-    Example:
-      1d 2h 3m 4.567s
-      For 1 day, 2 hours, 3 minutes, 4.567 seconds.
-    """
+        Example:
+          1d 2h 3m 4.567s
+          For 1 day, 2 hours, 3 minutes, 4.567 seconds.
+        """
 
-    deltaString = ""
-    days = int(seconds / (60 * 60 * 24))
-    seconds -= days * (60 * 60 * 24)
+        deltaString = ""
+        days = int(seconds / (60 * 60 * 24))
+        seconds -= days * (60 * 60 * 24)
 
-    hours = int(seconds / (60 * 60))
-    seconds -= hours * (60 * 60)
+        hours = int(seconds / (60 * 60))
+        seconds -= hours * (60 * 60)
 
-    minutes = int(seconds / (60))
-    seconds -= minutes * (60)
+        minutes = int(seconds / (60))
+        seconds -= minutes * (60)
 
-    if days > 0:
-      deltaString += str(days) + "d "
+        if days > 0:
+            deltaString += str(days) + "d "
 
-    if hours > 0:
-      deltaString += str(hours) + "h "
+        if hours > 0:
+            deltaString += str(hours) + "h "
 
-    if minutes > 0:
-      deltaString += str(minutes) + "m "
+        if minutes > 0:
+            deltaString += str(minutes) + "m "
 
-    deltaString += "{:2.3f}s".format(seconds)
+        deltaString += "{:2.3f}s".format(seconds)
 
-    return deltaString
+        return deltaString

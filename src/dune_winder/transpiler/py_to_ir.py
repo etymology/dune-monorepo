@@ -10,21 +10,43 @@ its call tree:
   - replace(seg, speed=x) → SegQueue write
   - Optional/None handling → companion BOOL
 """
+
 from __future__ import annotations
 
 import ast
-import math
 from typing import Any
 
 from .builtins import CONST_MAP, CPT_INLINE, EXPAND, SEG_ATTR_MAP, SEG_FIELD_TYPE
 from .ir import (
-    Assign, AndCond, BinOp, Comment, Cmp, Condition, Const, CptCall, Expr,
-    Fault, If, IRNode, IsInf, IsNotInf, JSRCall, Loop, OrCond, Reg,
-    RegExpr, Return, Routine, SegField, SegFieldExpr, SetBool, UnaryOp,
-    XicCond, XioCond,
+    Assign,
+    AndCond,
+    BinOp,
+    Comment,
+    Cmp,
+    Condition,
+    Const,
+    CptCall,
+    Expr,
+    Fault,
+    If,
+    IRNode,
+    IsInf,
+    JSRCall,
+    Loop,
+    OrCond,
+    Reg,
+    RegExpr,
+    Return,
+    Routine,
+    SegField,
+    SegFieldExpr,
+    SetBool,
+    UnaryOp,
+    XicCond,
+    XioCond,
 )
 from .regalloc import RegisterAllocator
-from .types import PLCType, SegField as SegFieldType, plc_type_from_annotation
+from .types import PLCType, plc_type_from_annotation
 
 
 # Names of MotionSegment-typed variables within a function
@@ -32,15 +54,23 @@ _SEG_TYPES = {"MotionSegment", "seg", "start", "seg1", "seg2"}
 
 # Python comparison op → our op string
 _CMP_OPS = {
-    ast.Eq: "==", ast.NotEq: "!=",
-    ast.Lt: "<",  ast.LtE: "<=",
-    ast.Gt: ">",  ast.GtE: ">=",
+    ast.Eq: "==",
+    ast.NotEq: "!=",
+    ast.Lt: "<",
+    ast.LtE: "<=",
+    ast.Gt: ">",
+    ast.GtE: ">=",
 }
 
 # Python binary op → string
 _BIN_OPS = {
-    ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/",
-    ast.Mod: "%", ast.Pow: "**", ast.FloorDiv: "/",
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "*",
+    ast.Div: "/",
+    ast.Mod: "%",
+    ast.Pow: "**",
+    ast.FloorDiv: "/",
 }
 
 
@@ -184,8 +214,7 @@ class PythonToIR(ast.NodeVisitor):
         return PLCType.REAL
 
     def _handle_list_param(
-        self, func_def: ast.FunctionDef, scope: _Scope,
-        in_params: list[tuple[str, Reg]]
+        self, func_def: ast.FunctionDef, scope: _Scope, in_params: list[tuple[str, Reg]]
     ) -> None:
         """Allocate seg_count and start_xy regs for functions that take a list."""
         for arg in func_def.args.args:
@@ -202,10 +231,15 @@ class PythonToIR(ast.NodeVisitor):
                 rv = self.alloc.alloc(PLCType.BOOL, f"{arg.arg}_valid")
                 scope.vars[f"{arg.arg}_x"] = rx
                 scope.vars[f"{arg.arg}_y"] = ry
-                scope.vars[f"{arg.arg}"] = rv   # None check → XIO rv
+                scope.vars[f"{arg.arg}"] = rv  # None check → XIO rv
                 scope.optional_valid[arg.arg] = rv
-                in_params.extend([(f"{arg.arg}_x", rx), (f"{arg.arg}_y", ry),
-                                   (f"{arg.arg}_valid", rv)])
+                in_params.extend(
+                    [
+                        (f"{arg.arg}_x", rx),
+                        (f"{arg.arg}_y", ry),
+                        (f"{arg.arg}_valid", rv),
+                    ]
+                )
 
     def _alloc_return_regs(
         self, func_def: ast.FunctionDef, scope: _Scope
@@ -220,8 +254,10 @@ class PythonToIR(ast.NodeVisitor):
         if ann.startswith("tuple[float"):
             # e.g. tuple[float, float]
             parts = ann.count("float")
-            regs = [self.alloc.alloc(PLCType.REAL, f"{func_def.name}_ret_{i}")
-                    for i in range(parts)]
+            regs = [
+                self.alloc.alloc(PLCType.REAL, f"{func_def.name}_ret_{i}")
+                for i in range(parts)
+            ]
             scope.ret_regs = regs
             return [(f"return_{i}", r) for i, r in enumerate(regs)]
         if ann.startswith("Optional[float"):
@@ -262,13 +298,14 @@ class PythonToIR(ast.NodeVisitor):
     def _conv_expr_stmt(self, call: ast.Call, scope: _Scope) -> list[IRNode]:
         """Handle expression statements that are calls: out.append(replace(...))."""
         # out.append(replace(seg, field=val, ...))
-        if (isinstance(call.func, ast.Attribute)
-                and call.func.attr == "append"
-                and call.args):
+        if (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr == "append"
+            and call.args
+        ):
             inner = call.args[0]
             if isinstance(inner, ast.Call):
-                inner_name = (inner.func.id if isinstance(inner.func, ast.Name)
-                              else "")
+                inner_name = inner.func.id if isinstance(inner.func, ast.Name) else ""
                 if inner_name == "replace":
                     return self._conv_replace(inner, scope)
         # replace(seg, ...) as bare statement
@@ -316,15 +353,19 @@ class PythonToIR(ast.NodeVisitor):
 
     def _conv_assign(self, node: ast.Assign, scope: _Scope) -> list[IRNode]:
         # Tuple unpacking: a, b = func(...)
-        if (len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Tuple)
-                and isinstance(node.value, ast.Call)):
+        if (
+            len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Tuple)
+            and isinstance(node.value, ast.Call)
+        ):
             return self._conv_tuple_unpack(node.targets[0], node.value, scope)
 
         # Tuple unpacking from a previously-returned tuple var: cx, cy = center
-        if (len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Tuple)
-                and isinstance(node.value, ast.Name)):
+        if (
+            len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Tuple)
+            and isinstance(node.value, ast.Name)
+        ):
             name = node.value.id
             if name in scope.tuple_vars:
                 src_regs = scope.tuple_vars[name]
@@ -342,8 +383,7 @@ class PythonToIR(ast.NodeVisitor):
                 return self._conv_replace(call, scope)
 
         # Single-return subroutine call: x = known_func(...)
-        if (len(node.targets) == 1
-                and isinstance(node.value, ast.Call)):
+        if len(node.targets) == 1 and isinstance(node.value, ast.Call):
             func_name = self._call_name(node.value)
             if func_name in self.routine_name_map:
                 return self._conv_single_jsr(node.targets[0], node.value, scope)
@@ -406,8 +446,11 @@ class PythonToIR(ast.NodeVisitor):
             if isinstance(node.test.operand, ast.Name):
                 name = node.test.operand.id
                 if name == scope.list_var:
-                    cond: Condition = Cmp("==", RegExpr(
-                        scope.vars[self.seg_count_var]), Const(0, PLCType.DINT))
+                    cond: Condition = Cmp(
+                        "==",
+                        RegExpr(scope.vars[self.seg_count_var]),
+                        Const(0, PLCType.DINT),
+                    )
                     then = []
                     for s in node.body:
                         then.extend(self._convert_stmt(s, scope))
@@ -430,9 +473,11 @@ class PythonToIR(ast.NodeVisitor):
         body_nodes: list[IRNode] = []
 
         # Detect enumerate pattern
-        if (isinstance(node.iter, ast.Call)
-                and isinstance(node.iter.func, ast.Name)
-                and node.iter.func.id == "enumerate"):
+        if (
+            isinstance(node.iter, ast.Call)
+            and isinstance(node.iter.func, ast.Name)
+            and node.iter.func.id == "enumerate"
+        ):
             idx_name, seg_name = None, None
             if isinstance(node.target, ast.Tuple) and len(node.target.elts) == 2:
                 t0, t1 = node.target.elts
@@ -447,8 +492,9 @@ class PythonToIR(ast.NodeVisitor):
             scope.loop_idx = counter
             scope.seg_var = seg_name
 
-            limit = scope.vars.get(self.seg_count_var,
-                                   self.alloc.alloc(PLCType.DINT, self.seg_count_var))
+            limit = scope.vars.get(
+                self.seg_count_var, self.alloc.alloc(PLCType.DINT, self.seg_count_var)
+            )
 
             for s in node.body:
                 body_nodes.extend(self._convert_stmt(s, scope))
@@ -458,9 +504,11 @@ class PythonToIR(ast.NodeVisitor):
             return [Loop(counter, limit, body_nodes)]
 
         # range() loop
-        if (isinstance(node.iter, ast.Call)
-                and isinstance(node.iter.func, ast.Name)
-                and node.iter.func.id == "range"):
+        if (
+            isinstance(node.iter, ast.Call)
+            and isinstance(node.iter.func, ast.Name)
+            and node.iter.func.id == "range"
+        ):
             var_name = node.target.id if isinstance(node.target, ast.Name) else "_i"
             counter = self.alloc.alloc(PLCType.IDX, var_name)
             scope.vars[var_name] = counter
@@ -477,9 +525,6 @@ class PythonToIR(ast.NodeVisitor):
             if not (isinstance(start_expr, Const) and start_expr.value == 0):
                 tmp = self.alloc.alloc(PLCType.DINT, f"{var_name}_start")
                 nodes.append(Assign(tmp, start_expr))
-                counter_init: Expr = RegExpr(tmp)
-            else:
-                counter_init = Const(0, PLCType.DINT)
             for s in node.body:
                 body_nodes.extend(self._convert_stmt(s, scope))
             limit_reg: Expr
@@ -583,8 +628,11 @@ class PythonToIR(ast.NodeVisitor):
         for kw in call.keywords:
             field_name = kw.arg
             plc_field = {
-                "speed": "Speed", "accel": "Accel", "decel": "Decel",
-                "jerk_accel": "JerkAccel", "jerk_decel": "JerkDecel",
+                "speed": "Speed",
+                "accel": "Accel",
+                "decel": "Decel",
+                "jerk_accel": "JerkAccel",
+                "jerk_decel": "JerkDecel",
                 "term_type": "TermType",
             }.get(field_name or "")
             if plc_field and scope.loop_idx is not None:
@@ -651,8 +699,7 @@ class PythonToIR(ast.NodeVisitor):
                 return RegExpr(scope.loop_idx)
             # list variable — return seg_count
             if name == scope.list_var:
-                return RegExpr(scope.vars.get(self.seg_count_var,
-                                              Reg(PLCType.DINT, 0)))
+                return RegExpr(scope.vars.get(self.seg_count_var, Reg(PLCType.DINT, 0)))
             if name in scope.vars:
                 return RegExpr(scope.vars[name])
             if name in scope.optional_valid:
@@ -678,9 +725,11 @@ class PythonToIR(ast.NodeVisitor):
             right = self._conv_expr(node.right, scope)
             op = _BIN_OPS.get(type(node.op), "+")
             typ = PLCType.REAL
-            if (getattr(left, "typ", PLCType.REAL) == PLCType.DINT
-                    and getattr(right, "typ", PLCType.REAL) == PLCType.DINT
-                    and op in ("+", "-", "*")):
+            if (
+                getattr(left, "typ", PLCType.REAL) == PLCType.DINT
+                and getattr(right, "typ", PLCType.REAL) == PLCType.DINT
+                and op in ("+", "-", "*")
+            ):
                 typ = PLCType.DINT
             return BinOp(left, op, right, typ)
 
@@ -818,15 +867,18 @@ class PythonToIR(ast.NodeVisitor):
 
     def _conv_compare(self, node: ast.Compare, scope: _Scope) -> Condition:
         # Handle 'x is None' / 'x is not None'
-        if (len(node.ops) == 1 and isinstance(node.ops[0], (ast.Is, ast.IsNot))
-                and isinstance(node.comparators[0], ast.Constant)
-                and node.comparators[0].value is None):
+        if (
+            len(node.ops) == 1
+            and isinstance(node.ops[0], (ast.Is, ast.IsNot))
+            and isinstance(node.comparators[0], ast.Constant)
+            and node.comparators[0].value is None
+        ):
             name = ast.unparse(node.left)
             valid_reg = scope.optional_valid.get(name)
             if valid_reg is not None:
                 if isinstance(node.ops[0], ast.Is):
-                    return XioCond(valid_reg)   # is None → XIO valid
-                return XicCond(valid_reg)        # is not None → XIC valid
+                    return XioCond(valid_reg)  # is None → XIO valid
+                return XicCond(valid_reg)  # is not None → XIC valid
 
         left = self._conv_expr(node.left, scope)
         parts: list[Condition] = []
@@ -861,15 +913,18 @@ class PythonToIR(ast.NodeVisitor):
         result = []
         for i, arg_node in enumerate(call.args):
             # Detect MotionSegment-typed arg → pass loop index
-            is_seg = (isinstance(arg_node, ast.Name)
-                      and (arg_node.id == scope.seg_var
-                           or arg_node.id in _SEG_TYPES))
+            is_seg = isinstance(arg_node, ast.Name) and (
+                arg_node.id == scope.seg_var or arg_node.id in _SEG_TYPES
+            )
             if is_seg and scope.loop_idx is not None:
                 expr: Expr = RegExpr(scope.loop_idx)
             else:
                 expr = self._conv_expr(arg_node, scope)
-            dest_reg = in_regs[i] if i < len(in_regs) else self.alloc.alloc(
-                PLCType.REAL, f"_jsr_arg_{i}")
+            dest_reg = (
+                in_regs[i]
+                if i < len(in_regs)
+                else self.alloc.alloc(PLCType.REAL, f"_jsr_arg_{i}")
+            )
             result.append((dest_reg, expr))
         return result
 

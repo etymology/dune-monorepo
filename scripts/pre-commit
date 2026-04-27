@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Pre-commit hook: format/lint staged Python files with ruff, type-check them
+# with ty, and lint staged Markdown files with markdownlint-cli2.
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -euo pipefail
+
+# ── Python ────────────────────────────────────────────────────────────────────
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM \
+  | grep '\.py$' \
+  | grep -v '^src/dune_winder/manual_port.py$' \
+  || true)
+
+if [ -n "$STAGED_PY" ]; then
+  echo "ruff: formatting staged Python files…"
+  echo "$STAGED_PY" | xargs uv run ruff format
+
+  echo "ruff: auto-fixing lint issues…"
+  echo "$STAGED_PY" | xargs uv run ruff check --fix
+
+  # Re-stage any files ruff modified
+  echo "$STAGED_PY" | xargs git add
+
+  echo "ty: type-checking staged Python files…"
+  uv run ty check
+fi
+
+# ── PLC studio_copy.rllscrap → pasteable.rll ─────────────────────────────────
+# When a studio_copy.rllscrap is staged, regenerate sibling pasteable.rll files
+# and refresh manifest.json so the commit captures both sides of the source-of-
+# truth pair. Runs `plc-sync --offline`, which never touches the live PLC.
+STAGED_RLLSCRAP=$(git diff --cached --name-only --diff-filter=ACM \
+  | grep 'studio_copy\.rllscrap$' \
+  || true)
+
+if [ -n "$STAGED_RLLSCRAP" ]; then
+  echo "plc-sync: regenerating pasteable.rll + manifest from staged .rllscrap…"
+  uv run plc-sync --offline
+  # Re-stage regenerated pasteable.rll files and the refreshed manifest.
+  git add 'dune_winder/plc/**/pasteable.rll' 'dune_winder/plc/manifest.json' 2>/dev/null || true
+fi
+
+# ── Markdown ──────────────────────────────────────────────────────────────────
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
+
+if [ -n "$STAGED_MD" ]; then
+  echo "markdownlint-cli2: linting staged Markdown files…"
+  echo "$STAGED_MD" | xargs markdownlint-cli2 --fix
+
+  # Re-stage any files markdownlint modified
+  echo "$STAGED_MD" | xargs git add
+fi

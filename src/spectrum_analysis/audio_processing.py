@@ -417,7 +417,11 @@ def _acquire_audio_snr(
     deadline = None if timeout is None else start_time + max(float(timeout), 0.0)
     try:
         while collected_samples < max_samples:
-            if deadline is not None and time.time() >= deadline and not recording_started:
+            if (
+                deadline is not None
+                and time.time() >= deadline
+                and not recording_started
+            ):
                 LOGGER.info("Timeout reached while waiting for audio event.")
                 break
             chunk = source.read()

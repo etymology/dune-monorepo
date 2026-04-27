@@ -48,6 +48,7 @@ function GCodeGeneration( modules )
     { key: "Y_PULL_IN", label: "Y Pull-In" },
     { key: "X_PULL_IN", label: "X Pull-In" }
   ]
+  var uYHoverValue = 5.0
 
   var gxOffsetSpecs = [
     { key: "headA", selector: "#gCodeGenerationGXHeadAOffset" },
@@ -335,6 +336,7 @@ function GCodeGeneration( modules )
         }
       )
       $( "#gCodeGenerationUAddFootPauses" ).prop( "checked", false )
+      $( "#gCodeGenerationUYHover" ).prop( "checked", false )
       setControlsDisabled( "#gCodeGenerationUCard", true )
       setNotes(
         [
@@ -366,6 +368,7 @@ function GCodeGeneration( modules )
     $( "#gCodeGenerationUTransferPause" ).prop( "checked", !! state.transferPause )
     $( "#gCodeGenerationUAddFootPauses" ).prop( "checked", !! state.addFootPauses )
     $( "#gCodeGenerationUIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
+    $( "#gCodeGenerationUYHover" ).prop( "checked", !! state.pullIns && $.isNumeric( state.pullIns.Y_HOVER ) && parseFloat( state.pullIns.Y_HOVER ) > 0 )
     $( "#gCodeGenerationUStripG113Params" ).prop( "checked", !! state.stripG113Params )
     setControlsDisabled( "#gCodeGenerationUCard", ! state.enabled )
 
@@ -387,6 +390,7 @@ function GCodeGeneration( modules )
     setNotes(
       [
         "Adjust the 12 U offsets, U pull-in distances, and optional transfer pause and include-lead-mode, then generate the live U-layer.gc file.",
+        "Y Hover toggles the alternating-side hover offset by setting U Y_HOVER to 5 mm when enabled and 0 when disabled.",
         "The generated recipe includes N-line numbering and wrap-level identifiers on each emitted line.",
         "The header hash updates each time the file is regenerated."
       ]
@@ -949,12 +953,47 @@ function GCodeGeneration( modules )
     )
     actions.push(
       {
+        command: commands.process.uTemplateSetPullIn,
+        args:
+        {
+          pull_in_id: "Y_HOVER",
+          value: $( "#gCodeGenerationUYHover" ).is( ":checked" ) ? uYHoverValue : 0
+        }
+      }
+    )
+    actions.push(
+      {
         command: commands.process.uTemplateSetStripG113Params,
         args: { enabled: $( "#gCodeGenerationUStripG113Params" ).is( ":checked" ) }
       }
     )
 
     return actions
+  }
+
+  function generateURecipe( commandName, successMessage )
+  {
+    var actions = buildUSaveActions()
+    if ( ! actions )
+      return
+
+    runSequentialPageActions
+    (
+      actions,
+      function()
+      {
+        pageAction
+        (
+          commandName,
+          {},
+          function()
+          {
+            setMessage( successMessage, "success" )
+            refreshUStateOnce()
+          }
+        )
+      }
+    )
   }
 
   function applyVOffsetInput( offsetId )
@@ -1177,6 +1216,25 @@ function GCodeGeneration( modules )
     )
   }
 
+  function applyUYHover()
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.uTemplateSetPullIn,
+      {
+        pull_in_id: "Y_HOVER",
+        value: $( "#gCodeGenerationUYHover" ).is( ":checked" ) ? uYHoverValue : 0
+      },
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
   function applyGXOffsetInput( offsetId, selector )
   {
     if ( ! isGXLayer( activeLayer ) || ! lastManualState || lastManualState.mode != "gx" )
@@ -1372,6 +1430,15 @@ function GCodeGeneration( modules )
       }
     )
 
+  $( "#gCodeGenerationUYHover" )
+    .change
+    (
+      function()
+      {
+        applyUYHover()
+      }
+    )
+
   $( "#gCodeGenerationUAddFootPauses" )
     .change
     (
@@ -1455,26 +1522,21 @@ function GCodeGeneration( modules )
     (
       function()
       {
-        var actions = buildUSaveActions()
-        if ( ! actions )
-          return
+        generateURecipe(
+          commands.process.uTemplateGenerateRecipeFile,
+          "Generated the live U-layer.gc recipe."
+        )
+      }
+    )
 
-        runSequentialPageActions
-        (
-          actions,
-          function()
-          {
-            pageAction
-            (
-              commands.process.uTemplateGenerateRecipeFile,
-              {},
-              function()
-              {
-                setMessage( "Generated the live U-layer.gc recipe.", "success" )
-                refreshUStateOnce()
-              }
-            )
-          }
+  $( "#gCodeGenerationUGenerateWrappingButton" )
+    .click
+    (
+      function()
+      {
+        generateURecipe(
+          commands.process.uTemplateGenerateRecipeFileWrapping,
+          "Generated the live U-layer.gc wrapping recipe."
         )
       }
     )
