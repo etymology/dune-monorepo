@@ -43,6 +43,7 @@
   "headRollerRadius": 6.5,
   "headRollerGap": 1,
   "pinDiameter": 2.25,
+  "targetPinClearance": 1.0,
   "v_x_max": 825.0,
   "v_y_max": 600.0,
   "cameraWireOffsetX": 58.3,

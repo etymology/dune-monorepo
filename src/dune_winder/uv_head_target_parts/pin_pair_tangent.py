@@ -77,6 +77,8 @@ def _cached_compute_pin_pair_tangent_geometry(
         )
 
     pin_radius = float(machine_cal.pinDiameter) / 2.0
+    target_pin_clearance = float(machine_cal.targetPinClearance)
+    target_pin_radius = pin_radius + target_pin_clearance
     transfer_bounds = RectBounds(
         left=float(machine_cal.transferLeft),
         top=float(machine_cal.transferTop),
@@ -86,7 +88,9 @@ def _cached_compute_pin_pair_tangent_geometry(
     anchor_tangent_sides = tangent_sides(normalized_layer, pin_a_name)
     wrapped_tangent_sides = tangent_sides(normalized_layer, pin_b_name)
 
-    candidates = _tangent_candidates_for_pin_pair(pin_a_pt, pin_b_pt, pin_radius)
+    candidates = _tangent_candidates_for_pin_pair(
+        pin_a_pt, pin_b_pt, pin_radius, point_b_radius=target_pin_radius
+    )
     tangent_a, tangent_b, _, _ = _select_tangent_solution(
         candidates,
         transfer_bounds,

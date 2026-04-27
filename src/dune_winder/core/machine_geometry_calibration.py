@@ -254,6 +254,10 @@ def _project_machine_xy_measurement_payload(
             float(target_location.z),
         )
 
+    pin_radius = float(machine_calibration.pinDiameter) / 2.0
+    target_pin_clearance = float(machine_calibration.targetPinClearance)
+    target_pin_radius = pin_radius + target_pin_clearance
+
     plan = plan_wrap_transition(
         layer=layer_name,
         anchor_pin=command.anchor_pin,
@@ -276,7 +280,8 @@ def _project_machine_xy_measurement_payload(
         ),
         z_front=float(machine_calibration.zFront),
         z_back=float(machine_calibration.zBack),
-        pin_radius=float(machine_calibration.pinDiameter) / 2.0,
+        pin_radius=pin_radius,
+        target_pin_radius=target_pin_radius,
         head_arm_length=float(machine_calibration.headArmLength),
         head_roller_radius=float(machine_calibration.headRollerRadius),
         head_roller_gap=float(machine_calibration.headRollerGap),

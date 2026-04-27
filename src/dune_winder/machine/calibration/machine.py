@@ -59,6 +59,7 @@ _FIELDS = (
     "headRollerRadius",
     "headRollerGap",
     "pinDiameter",
+    "targetPinClearance",
     "v_x_max",
     "v_y_max",
     "cameraWireOffsetX",
@@ -141,6 +142,12 @@ class MachineCalibration:
 
         # Diameter of U/V layer pin.
         self.pinDiameter = None
+
+        # Clearance (mm) between the wire and the target pin surface for
+        # ~anchorToTarget moves.  The target pin is treated as a virtual circle
+        # of radius pinDiameter/2 + targetPinClearance for outbound tangent
+        # selection so the wire lands this far from the actual pin surface.
+        self.targetPinClearance = 1.0
 
         # Maximum axis component velocities for queued motion (mm/min).
         self.v_x_max = None

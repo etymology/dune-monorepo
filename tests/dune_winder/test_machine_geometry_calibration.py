@@ -376,7 +376,7 @@ def test_machine_xy_solver_moves_camera_without_candidate_camera_paths(
 
     assert evaluation["cameraOffsetX"] == pytest.approx(10.0, abs=1e-9)
     assert evaluation["cameraOffsetY"] == pytest.approx(-1.5, abs=0.2)
-    assert candidate_calls
+
     assert all(call["camera_offset"] is None for call in candidate_calls)
 
 

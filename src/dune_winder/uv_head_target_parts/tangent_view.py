@@ -92,6 +92,8 @@ def compute_uv_tangent_view(
             float(pin_b_point_override.z),
         )
     pin_radius = float(machine_calibration.pinDiameter) / 2.0
+    target_pin_clearance = float(machine_calibration.targetPinClearance)
+    target_pin_radius = pin_radius + target_pin_clearance
     transfer_bounds = RectBounds(
         left=float(machine_calibration.transferLeft),
         top=float(machine_calibration.transferTop),
@@ -186,6 +188,7 @@ def compute_uv_tangent_view(
         Point2D(pin_a_point.x, pin_a_point.y),
         Point2D(pin_b_point.x, pin_b_point.y),
         pin_radius,
+        point_b_radius=target_pin_radius,
     )
     tangent_point_a, tangent_point_b, clipped_start, clipped_end = (
         _select_tangent_solution(
@@ -270,6 +273,7 @@ def compute_uv_tangent_view(
             pin_a_point=pin_a_point,
             pin_b_point=pin_b_point,
             pin_radius=pin_radius,
+            target_pin_radius=target_pin_radius,
             anchor_tangent_sides=anchor_tangent_sides,
             wrapped_tangent_sides=wrapped_tangent_sides,
             z_retracted=z_retracted,

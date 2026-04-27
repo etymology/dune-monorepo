@@ -112,6 +112,7 @@ def _compute_alternating_projection_data(
     pin_a_point: Point3D,
     pin_b_point: Point3D,
     pin_radius: float,
+    target_pin_radius: float,
     anchor_tangent_sides: tuple[str, str],
     wrapped_tangent_sides: tuple[str, str],
     z_retracted: float,
@@ -140,7 +141,7 @@ def _compute_alternating_projection_data(
     wrapped_contact = _segment_contact_for_wrap_side(
         wrapped_center,
         plane=plane,
-        pin_radius=pin_radius,
+        pin_radius=target_pin_radius,
         tangent_sides_value=wrapped_tangent_sides,
     )
     wrap_line_start, wrap_line_end = _extend_segment_to_machine_z_planes(

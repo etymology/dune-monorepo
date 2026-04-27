@@ -129,7 +129,11 @@ def _tangent_candidates_for_pin_pair(
     point_a: Point2D,
     point_b: Point2D,
     pin_radius: float,
+    *,
+    point_b_radius: float | None = None,
 ) -> list[tuple[Point2D, Point2D]]:
+    radius_a = pin_radius
+    radius_b = pin_radius if point_b_radius is None else point_b_radius
     if (
         _length_2d(Point2D(point_b.x - point_a.x, point_b.y - point_a.y))
         <= _AXIS_EPSILON
@@ -139,12 +143,12 @@ def _tangent_candidates_for_pin_pair(
         WaypointCircle(
             waypoint_xy=(point_a.x, point_a.y),
             center_xy=(point_a.x, point_a.y),
-            radius=pin_radius,
+            radius=radius_a,
         ),
         WaypointCircle(
             waypoint_xy=(point_b.x, point_b.y),
             center_xy=(point_b.x, point_b.y),
-            radius=pin_radius,
+            radius=radius_b,
         ),
     )
     return [

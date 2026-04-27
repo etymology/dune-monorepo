@@ -354,6 +354,8 @@ def _tangent_candidates_for_pin_pair(
     point_a: Point2D,
     point_b: Point2D,
     pin_radius: float,
+    *,
+    point_b_radius: float | None = None,
 ) -> list[tuple[Point2D, Point2D]]:
     if (
         _length_2d(Point2D(point_b.x - point_a.x, point_b.y - point_a.y))
@@ -362,16 +364,18 @@ def _tangent_candidates_for_pin_pair(
         raise UvWrapGeometryError(
             "Cannot compute a tangent for coincident pin centers."
         )
+    radius_a = pin_radius
+    radius_b = pin_radius if point_b_radius is None else point_b_radius
     tangent_pairs = circle_pair_tangent_pairs(
         WaypointCircle(
             waypoint_xy=(point_a.x, point_a.y),
             center_xy=(point_a.x, point_a.y),
-            radius=pin_radius,
+            radius=radius_a,
         ),
         WaypointCircle(
             waypoint_xy=(point_b.x, point_b.y),
             center_xy=(point_b.x, point_b.y),
-            radius=pin_radius,
+            radius=radius_b,
         ),
     )
     return [
@@ -668,6 +672,7 @@ def plan_wrap_transition(
     z_front: float,
     z_back: float,
     pin_radius: float,
+    target_pin_radius: float | None = None,
     head_arm_length: float,
     head_roller_radius: float,
     head_roller_gap: float,
@@ -688,12 +693,17 @@ def plan_wrap_transition(
         if transfer_required:
             transfer_xy = _nearest_point_in_bounds(current_xy, transfer_bounds)
 
+    actual_target_pin_radius = (
+        pin_radius if target_pin_radius is None else target_pin_radius
+    )
+
     same_side = pin_family(normalized_anchor_pin) == target_family
     if same_side:
         candidates = _tangent_candidates_for_pin_pair(
             anchor_point_2d,
             target_point_2d,
             pin_radius,
+            point_b_radius=actual_target_pin_radius,
         )
         tangent_point_a, tangent_point_b, clipped_start, clipped_end = (
             _select_tangent_solution(
@@ -762,7 +772,7 @@ def plan_wrap_transition(
     target_contact = _segment_contact_for_wrap_side(
         _project_point3_to_plane(target_pin_point, plane),
         plane=plane,
-        pin_radius=pin_radius,
+        pin_radius=actual_target_pin_radius,
         tangent_sides_value=tangent_sides(normalized_layer, normalized_target_pin),
     )
     front_projection, back_projection = _extend_segment_to_machine_z_planes(

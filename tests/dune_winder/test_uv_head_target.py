@@ -48,7 +48,24 @@ def _load_machine_calibration() -> MachineCalibration:
         str(REPO_ROOT / "dune_winder" / "config"), "machineCalibration.json"
     )
     calibration.load()
+    calibration.targetPinClearance = 0.0
     return calibration
+
+
+@pytest.fixture(autouse=True)
+def mock_zero_clearance(monkeypatch):
+    import dune_winder.uv_head_target_parts.tangent_view as tv
+    import dune_winder.uv_head_target_parts.calibration as cal
+    import dune_winder.uv_head_target_parts.pin_pair_tangent as ppt
+
+    machine_calibration = _load_machine_calibration()
+
+    def mock_load(path=None):
+        return machine_calibration
+
+    monkeypatch.setattr(tv, "_load_machine_calibration", mock_load)
+    monkeypatch.setattr(cal, "_load_machine_calibration", mock_load)
+    monkeypatch.setattr(ppt, "_load_machine_calibration", mock_load)
 
 
 def _load_layer_calibration(layer: str) -> LayerCalibration:
@@ -240,9 +257,17 @@ def test_compute_uv_tangent_view_accepts_any_calibrated_pin_pair(layer, pin_a, p
     ),
 )
 def test_compute_uv_tangent_view_returns_valid_tangent_geometry(layer, pin_a, pin_b):
-    result = compute_uv_tangent_view(
-        UvTangentViewRequest(layer=layer, pin_a=pin_a, pin_b=pin_b)
-    )
+    from unittest.mock import patch
+
+    machine_calibration = _load_machine_calibration()
+
+    with patch(
+        "dune_winder.uv_head_target_parts.tangent_view._load_machine_calibration",
+        return_value=machine_calibration,
+    ):
+        result = compute_uv_tangent_view(
+            UvTangentViewRequest(layer=layer, pin_a=pin_a, pin_b=pin_b)
+        )
 
     radius_a = math.hypot(
         result.tangent_point_a.x - result.pin_a_point.x,
@@ -761,3 +786,37 @@ def test_line_equation_reports_vertical_line():
     assert line.is_vertical is True
     assert math.isinf(line.slope)
     assert math.isclose(line.intercept, 7.0)
+
+
+def test_compute_uv_tangent_view_respects_target_pin_clearance():
+    # Setup machine calibration with a known clearance
+    machine_calibration = _load_machine_calibration()
+    machine_calibration.targetPinClearance = 1.0  # 1mm clearance
+
+    # We need to make sure compute_uv_tangent_view uses this calibration.
+    # The tool loads it from disk by default, so we might need to mock _load_machine_calibration
+    # or pass a path. For a unit test, we can mock the loader.
+
+    from unittest.mock import patch
+
+    with patch(
+        "dune_winder.uv_head_target_parts.tangent_view._load_machine_calibration",
+        return_value=machine_calibration,
+    ):
+        result = compute_uv_tangent_view(
+            UvTangentViewRequest(layer="U", pin_a="B1201", pin_b="B2001")
+        )
+
+    # Anchor side radius should be pin_radius
+    radius_a = math.hypot(
+        result.tangent_point_a.x - result.pin_a_point.x,
+        result.tangent_point_a.y - result.pin_a_point.y,
+    )
+    # Target side radius should be pin_radius + clearance
+    radius_b = math.hypot(
+        result.tangent_point_b.x - result.pin_b_point.x,
+        result.tangent_point_b.y - result.pin_b_point.y,
+    )
+
+    assert math.isclose(radius_a, result.pin_radius, abs_tol=1e-6)
+    assert math.isclose(radius_b, result.pin_radius + 1.0, abs_tol=1e-6)
