@@ -25,6 +25,21 @@ if [ -n "$STAGED_PY" ]; then
   uv run ty check
 fi
 
+# ── PLC studio_copy.rllscrap → pasteable.rll ─────────────────────────────────
+# When a studio_copy.rllscrap is staged, regenerate sibling pasteable.rll files
+# and refresh manifest.json so the commit captures both sides of the source-of-
+# truth pair. Runs `plc-sync --offline`, which never touches the live PLC.
+STAGED_RLLSCRAP=$(git diff --cached --name-only --diff-filter=ACM \
+  | grep 'studio_copy\.rllscrap$' \
+  || true)
+
+if [ -n "$STAGED_RLLSCRAP" ]; then
+  echo "plc-sync: regenerating pasteable.rll + manifest from staged .rllscrap…"
+  uv run plc-sync --offline
+  # Re-stage regenerated pasteable.rll files and the refreshed manifest.
+  git add 'dune_winder/plc/**/pasteable.rll' 'dune_winder/plc/manifest.json' 2>/dev/null || true
+fi
+
 # ── Markdown ──────────────────────────────────────────────────────────────────
 STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
 

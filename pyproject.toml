@@ -29,6 +29,8 @@ dune-winder = "dune_winder.main:main"
 plc-rung-transform = "dune_winder.plc_rung_transform:main"
 plc-import = "dune_winder.plc_import:main"
 plc-manifest = "dune_winder.plc_manifest:main"
+plc-sync = "dune_winder.plc_sync:main"
+plc-convert-rllscrap = "dune_winder.convert_plc_rllscrap:main"
 # dune_tension
 dune-tension-gui = "dune_tension.main:main"
 dune-tension-periodic-plots = "dune_tension.periodic_save_plots:main"
