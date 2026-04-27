@@ -67,29 +67,33 @@ save_layer_change_in_tension_plot(
 )
 ```
 
-# UKAPA7 After Storage and Shipment
+## What happened?
 
-## Tension changes
+- The comparable Chicago tension measurements are lower than the UK measurements in every layer-side group.
+- The shift is not a single constant offset: G is lower by about `0.2-0.4 N`, while the currently measured U subset is lower by about `0.5-0.9 N`.
+- All current Chicago G and U summary values are within the `4.0-8.5 N` tension specification.
+- These data answer the tension question, but they do not by themselves identify a unique cause for the lower values.
 
-- We compare UK factory measurements uploaded to the database on December 10, 2023 against Chicago measurements from March 11, 2026.
-- Chicago tensions are on average lower ($\Delta \sim 0.5$ N, $\sigma = 0.4$ N) probably due to relaxation during storage.
-- No tensions are out of spec [4-8.5], no evidence of shipping damage.
-- The tensions
+## Measurement basis
 
-## Measurement conditions
+- UK source data are the APA-UK007 action JSON records: U uploaded `2023-11-21`, G uploaded `2023-12-10`.
+- Chicago source data are the current `tension_summary_UKAPA7_G.csv` and `tension_summary_UKAPA7_U.csv` files.
+- The Chicago summary CSVs do not encode a measurement timestamp, so the deck does not rely on one.
+- Residuals are defined as `Chicago - UK`; negative values mean Chicago measured lower tension.
 
-- In the absence of a DWA we were able to measure the outer two layers of wires before disassembly.
-- **G layer:** full comparison on both sides, `481` aligned wires on side A and `481` on side B.
+## Coverage and limits
+
+- **G layer:** full A-side comparison with `481` wires; corrected B-side comparison with `480` wires after reversing and shifting the B index.
 - **U layer:** partial Chicago coverage only, with `385` aligned wires on side A and `641` on side B.
-- U layer wires were accessed through a "slit" cut in the G wires near the middle of the APA.
-- The measurements were taken in similar but not identical ways
-- The frame is in a similar state for the G layer but not for the U layer due to the added tension of the G layer over it.
+- U-layer wires were accessed through a slit cut in the G wires near the middle of the APA.
+- The G and U comparisons were therefore not made under identical access and frame conditions.
 
 ## G Layer
 
-- Most wires on both sides changed by `-0.45 N` (Chicago lower).
-- On a wire-by-wire basis, differences range from `-1.63` to `+1.32` with `σ = 0.4`
-- Actual increase in tension is less likely than compounded measurement uncertainties
+- Side A: mean residual `-0.38 N`, median `-0.43 N`, `84%` of wires lower in Chicago.
+- Side B: mean residual `-0.20 N`, median `-0.30 N`, `71%` of wires lower in Chicago.
+- Residual widths are about `0.4 N` on both sides.
+- Some individual wires measured higher in Chicago, so the change is not uniform wire by wire.
 
 ## G Layer Landscape
 
@@ -101,10 +105,10 @@ save_layer_change_in_tension_plot(
 
 ## U Layer
 
-- Most wires dropped about `-0.5N`
-- Differences from `-3.1` to `+0.68` `σ = 0.5`
-- The negative outliers suggest measurement errors in the UK data
-- Frame deformation after the G layer may have changed the shape of the U-layer tension distribution
+- Side A subset: mean residual `-0.54 N`, median `-0.51 N`, `85%` of aligned wires lower in Chicago.
+- Side B subset: mean residual `-0.87 N`, median `-0.76 N`, `99%` of aligned wires lower in Chicago.
+- Residual widths are about `0.5 N` on both sides.
+- The U-layer result is a partial-subset comparison, not a full-layer comparison.
 
 ## U Layer Landscape
 
@@ -114,17 +118,19 @@ save_layer_change_in_tension_plot(
 
 ![U change in tension](ukapa7_change_in_tension_U.png)
 
-## Discussion
+## What the data do and do not show
 
-- ~0.5N decrease over 2.25y consistent with wire relaxation under stress
-- The modal decrease is clear but on the individual wire level, noisy
-- Huge drops (`-3N`) probably the result of mistaken measurements at Daresbury
+- The robust observation is downward shift: Chicago values are lower on average for G A, G B, U A, and U B.
+- The current Chicago values remain in specification: G ranges from `4.44` to `7.00 N`; U ranges from `4.03` to `6.41 N`.
+- The data do not show an out-of-spec tension signature after storage and shipment.
+- The data alone do not separate wire relaxation, measurement differences, access changes, frame state, or handling effects.
 
-## Recommendations
+## Bottom line
 
-- Changes in tension even large ones shouldn't disqualify acceptance if the final tension is acceptable.
-- Consortium should establish standards for the final acceptable tensions before installation, taking into account decreasing rate of relaxation
-- Plausibly, 5.5->5.0 N over 3 years => 5.0->4.8-4.9 N over the next several years
+- APA-UK007 tensions were lower when measured in Chicago than in the UK source records.
+- The lower shift is modest for G and larger in the measured U subset.
+- No measured Chicago G or U tension in these summary files falls outside the `4.0-8.5 N` specification.
+- Any recommendation beyond tension acceptance needs external acceptance criteria or inspection evidence not contained in these files.
 
 ## G Wire Tension Profile
 
