@@ -21,6 +21,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "sounddevice>=0.5.2",
     "ty>=0.0.32",
+    "scikit-learn>=1.8.0",
 ]
 
 [project.scripts]
