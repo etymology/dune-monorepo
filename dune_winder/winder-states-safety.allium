@@ -10,11 +10,10 @@
 --   - Web/API transport details
 --   - PLC communication protocol details
 --   - Tension PID tuning internals beyond safety trip behaviour
---   - Low-level queue handshake details covered by plc-motion.allium
+--   - Low-level queue handshake details
 
 use "./dune-winder.allium" as runtime
 use "./head-transfer.allium" as transfer
-use "./plc-motion.allium" as plc
 
 -- ==========================================================================
 -- Enumerations

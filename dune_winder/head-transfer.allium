@@ -8,14 +8,12 @@
 --           multi-step protocol, G106 legacy latch protocol, Z motion
 --           interlocks during transfer, sensor fusion for head position
 -- Excludes:
---   - PLC state dispatcher (see plc-motion.allium)
---   - XY motion and queued motion (see plc-motion.allium)
---   - Tension control, EOT handling (see plc-motion.allium)
+--   - PLC state dispatcher
+--   - XY motion and queued motion
+--   - Tension control, EOT handling
 --   - Latch homing (state 7 — deprecated, never used, pending removal)
 --   - Latch state 8 (deprecated pending removal)
 --   - PLC tag communication protocol (pycomm3 details)
-
-use "./plc-motion.allium" as plc
 
 -- ==========================================================================
 -- External entities
