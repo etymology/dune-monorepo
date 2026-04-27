@@ -278,6 +278,23 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(io.plcLogic.xy_moves[-1][:2], (6974.0, 0.0))
 
+    def test_tilde_increment_reads_live_xy_before_applying_offset(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        error = handler.executeG_CodeLine("~goto(7174,0)")
+        self.assertIsNone(error)
+        io.xAxis.setPosition(7300.0)
+        io.yAxis.setPosition(10.0)
+        handler._x = 7174.0
+        handler._y = 0.0
+
+        error = handler.executeG_CodeLine("~increment(-200,0)")
+
+        self.assertIsNone(error)
+        self.assertEqual(io.plcLogic.xy_moves[-1][:2], (7100.0, 10.0))
+
     def test_anchor_to_target_applies_offset_keyword_to_target_pin(self):
         handler, io, machine_calibration, layer_calibration = self._build_handler(
             500.0, 500.0

@@ -258,6 +258,19 @@ class GCodeHandlerBase:
         return parts
 
     # ---------------------------------------------------------------------
+    def _read_fresh_xy(self):
+        io = getattr(self, "_io", None)
+        if io is not None:
+            try:
+                return float(io.xAxis.getPosition()), float(io.yAxis.getPosition())
+            except Exception:
+                pass
+
+        if self._x is None or self._y is None:
+            return None
+        return float(self._x), float(self._y)
+
+    # ---------------------------------------------------------------------
     def _wrap_symbolic_numbers(self):
         layer = None
         if self._layerCalibration is not None:
@@ -702,10 +715,12 @@ class GCodeHandlerBase:
                 raise GCodeExecutionError(
                     "~increment requires two arguments.", [raw_text]
                 )
-            if self._x is None or self._y is None:
+            current_xy = self._read_fresh_xy()
+            if current_xy is None:
                 raise GCodeExecutionError(
                     "~increment requires a known current XY position.", [raw_text]
                 )
+            self._x, self._y = current_xy
             self._x += float(self._eval_numeric_macro_expr(arguments[0]))
             self._y += float(self._eval_numeric_macro_expr(arguments[1]))
             self._instruction_contains_x = True
