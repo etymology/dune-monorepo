@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pre-commit hook: format/lint staged Python files with ruff, type-check them
-# with mypy, and lint staged Markdown files with markdownlint-cli2.
+# with ty, and lint staged Markdown files with markdownlint-cli2.
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 set -euo pipefail
@@ -21,8 +21,8 @@ if [ -n "$STAGED_PY" ]; then
   # Re-stage any files ruff modified
   echo "$STAGED_PY" | xargs git add
 
-  echo "mypy: type-checking staged Python files…"
-  echo "$STAGED_PY" | xargs uv run mypy --show-error-codes --pretty
+  echo "ty: type-checking staged Python files…"
+  uv run ty check
 fi
 
 # ── Markdown ──────────────────────────────────────────────────────────────────

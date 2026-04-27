@@ -21,7 +21,7 @@ uv run python -m <module>        # Run a module
 uv run pytest                    # Run tests (do NOT call pytest directly)
 uv run ruff check src tests      # Lint
 uv run ruff format src tests     # Format
-uv run mypy <paths>              # Static type check changed files
+uv run ty check                  # Static type check all files
 uv run dune-winder               # APA winder control software
 uv run dune-tension-gui          # Wire tension GUI
 ```
@@ -38,18 +38,18 @@ make format    # uv run ruff format src tests
 
 ## Static type checking
 
-Run mypy on changed Python files before considering them complete:
+Run ty on all files before considering a task complete:
 
 ```bash
-uv run mypy path/to/changed_file.py
+uv run ty check
 ```
 
-When mypy reports failures, include the `file:line` location and error code in
+When ty reports failures, include the `file:line` location and error code in
 your notes or review comments so the complaint is annotated where it occurs.
 
 ---
 
-## Pre-commit hook (ruff + mypy + markdownlint-cli2)
+## Pre-commit hook (ruff + ty + markdownlint-cli2)
 
 A pre-commit script lives at `scripts/pre-commit`. It runs automatically on
 staged files before every commit. **Install it once in a fresh clone:**
@@ -63,7 +63,7 @@ What it does:
 
 - **Python (`.py`)** — `uv run ruff format` then
   `uv run ruff check --fix`, re-stages modified files, then
-  `uv run mypy --show-error-codes --pretty`.
+  `uv run ty check`.
 - **Markdown (`.md`)** — `markdownlint-cli2 --fix`, re-stages modified files.
 
 The hook is idempotent — each section skips silently if no matching files are staged.

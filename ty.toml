@@ -1,0 +1,9 @@
+# Type checker configuration for ty (Astral)
+# https://ty.readthedocs.io/
+
+[src]
+exclude = [
+    "src/dune_winder/plc_generated/**",  # Auto-generated PLC ladder code (dynamic module imports)
+    "src/dune_winder/manual_port.py",    # Manual port integration (legacy)
+    "src/dune_tension/m2m/**",           # Third-party measurement API wrapper
+]
