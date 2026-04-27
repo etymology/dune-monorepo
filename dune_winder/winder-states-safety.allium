@@ -323,7 +323,6 @@ config {
   position_acceptance_tolerance: Float = 0.1
   latch_timeout: Duration = 10.seconds
   latch_retry_interval: Duration = 1.seconds
-  g206_settle_delay: Duration = 0.5.seconds
   g206_extend_timeout: Duration = 10.seconds
   preemptive_latch_retry_count: Integer = 3
   max_velocity: Float
@@ -515,7 +514,6 @@ rule StageToFixedG206Transfer {
 
   ensures: SafeZMoveRequested(config.extended_z_position, velocity)
   ensures: head_controller.mode = extending_to_transfer
-  ensures: PlannedActuatorTransitions([stage_latched, rocker_at_fixed, mid_engagement])
 }
 
 rule FixedToStageG206Transfer {
@@ -525,7 +523,6 @@ rule FixedToStageG206Transfer {
 
   ensures: SafeZMoveRequested(config.extended_z_position, velocity)
   ensures: head_controller.mode = extending_to_transfer
-  ensures: PlannedActuatorTransitions([mid_engagement, stage_latched])
 }
 
 rule G206LatchingRequiresEnableActuator {
@@ -860,12 +857,6 @@ invariant ActuatorPositionSafety {
   --   safe Z withdrawal from the fixed mount.
   -- ACTUATOR_POS = 3 is transient and must not allow Z withdrawal.
   -- ACTUATOR_POS = 0 is an intermediate/free-space cycle state.
-}
-
-invariant LatchPulseRequiresMechanicalEnable {
-  -- The latch output may only pulse when ENABLE_ACTUATOR is true.
-  -- ENABLE_ACTUATOR requires stage present, fixed present, and Z extended
-  -- for head-transfer latching.
 }
 
 invariant XYCollisionEnvelope {
