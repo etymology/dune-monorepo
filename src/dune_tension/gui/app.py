@@ -27,6 +27,7 @@ from dune_tension.gui.actions import (
     measure_zone_button,
     monitor_tension_logs,
     move_laser_to_pin_button,
+    refresh_connections,
     refresh_tension_logs,
     refresh_uv_laser_offset_controls,
     seek_camera_to_pin,
@@ -309,6 +310,9 @@ def _create_widgets(
 
     btn_refresh_plots = tk.Button(bottom_frame, text="Refresh Plots")
     btn_refresh_plots.grid(row=4, column=0, sticky="ew", pady=(6, 0))
+
+    btn_refresh_connections = tk.Button(bottom_frame, text="Refresh Connections")
+    btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
 
     tk.Label(apa_frame, text="APA Name:").grid(row=0, column=0, sticky="e")
     entry_apa = tk.Entry(apa_frame)
@@ -650,6 +654,7 @@ def _create_widgets(
         "calibrate_noise": btn_calibrate_noise,
         "manual_go": btn_manual_go,
         "refresh_plots": btn_refresh_plots,
+        "refresh_connections": btn_refresh_connections,
         "seek_pin": btn_seek_pin,
         "move_laser_to_pin": btn_move_laser_to_pin,
         "capture_laser_offset": btn_capture_laser_offset,
@@ -793,6 +798,7 @@ def _configure_commands(
     )
     buttons["manual_go"].configure(command=lambda: manual_goto(ctx))
     buttons["refresh_plots"].configure(command=lambda: refresh_tension_logs(ctx))
+    buttons["refresh_connections"].configure(command=lambda: refresh_connections(ctx))
     buttons["seek_pin"].configure(command=lambda: seek_camera_to_pin(ctx))
     buttons["move_laser_to_pin"].configure(
         command=lambda: move_laser_to_pin_button(ctx)
