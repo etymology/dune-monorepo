@@ -1,12 +1,13 @@
 -- allium: 3
--- uv-layer-geometry.allium
+-- layer-geometry.allium
 
--- Scope: Final U/V APA wire geometry shared by dune_winder and dune_tension.
--- Includes: U/V frame pin systems, A/B pin-side equivalence, board-edge ranges,
+-- Scope: Final APA wire geometry for all four detector layers (U, V, X, G).
+-- Currently specifies: U/V frame pin systems, A/B pin-side equivalence, board-edge ranges,
 --           final wire-segment endpoint formulas, endpoint edge classification,
 --           continuous pin succession for the single applied wire path,
 --           and wrap-side tangent normal signs needed to identify the occupied
 --           tangent side of a pin.
+-- Placeholder: X and G layer geometry (full specification deferred).
 -- Excludes:
 --   - G-code rendering, G-code parsing, and template syntax
 --   - Roller-arm, head-transfer, pull-in, hover, pause, and offset mechanics
@@ -15,8 +16,8 @@
 --   - Calibration acquisition workflow and machine-space fitting
 --
 -- Spec split:
---   This is the base geometry spec: where each final U/V wire segment goes.
---   U/V recipe generation should be specified separately as "how the final geometry
+--   This is the base geometry spec: where each final wire segment goes.
+--   Recipe generation should be specified separately as "how the final geometry
 --   is applied over time". Tension measurement should be specified separately as
 --   "how a final wire segment is projected into measurable laser poses".
 
@@ -26,7 +27,7 @@ value PinRange {
 }
 
 value PinName {
-  layer: UvLayer
+  layer: Layer
   side: PinSide
   number: Integer
 }
@@ -41,12 +42,12 @@ value WrapSide {
   y_sign: Integer
 }
 
-enum UvLayer { u | v }
+enum Layer { u | v | x | g }
 enum PinSide { a | b }
 enum FrameEdge { head | bottom | foot | top }
 
-entity UvLayerFrame {
-  layer: UvLayer
+entity LayerFrame {
+  layer: Layer
   pin_count: Integer
   formula_segment_min: Integer
   formula_segment_max: Integer
@@ -68,8 +69,8 @@ entity UvLayerFrame {
   named_head_top_end: Integer
 }
 
-entity UvWireSegment {
-  layer: UvLayer
+entity WireSegment {
+  layer: Layer
   segment_number: Integer
   endpoints_b: PinPair
   endpoints_a: PinPair
@@ -77,8 +78,8 @@ entity UvWireSegment {
   end_edge: FrameEdge
 }
 
-entity UvContinuousWrapPath {
-  layer: UvLayer
+entity ContinuousWrapPath {
+  layer: Layer
   wrap_number_zero_based: Integer
   pin_succession: List<PinName>
   next_wrap_start: PinName?
@@ -89,22 +90,29 @@ entity PinWrapClassification {
   wrap_side: WrapSide
 }
 
-entity UvEndpointEdgeMapping {
-  layer: UvLayer
+entity EndpointEdgeMapping {
+  layer: Layer
   segment_number: Integer
   start_edge: FrameEdge
   end_edge: FrameEdge
 }
 
 config {
+  -- U/V layer pin counts
   u_pin_count: Integer = 2401
   v_pin_count: Integer = 2399
 
+  -- X/G layer pin counts (placeholder: to be specified)
+  x_pin_count: Integer = 480
+  g_pin_count: Integer = 481
+
+  -- Segment ranges (shared across U/V; X/G may differ)
   formula_segment_min: Integer = 1
   formula_segment_max: Integer = 1151
   measurable_segment_min: Integer = 8
   measurable_segment_max: Integer = 1146
 
+  -- U/V frame edge pin ranges
   u_head: PinRange = { first: 1, last: 400 }
   u_bottom: PinRange = { first: 401, last: 1200 }
   u_foot: PinRange = { first: 1201, last: 1601 }
@@ -115,25 +123,40 @@ config {
   v_foot: PinRange = { first: 1200, last: 1599 }
   v_top: PinRange = { first: 1600, last: 2399 }
 
+  -- X/G frame edge pin ranges (placeholder)
+  x_head: PinRange = { first: 1, last: 240 }
+  x_bottom: PinRange = { first: 241, last: 360 }
+  x_foot: PinRange = { first: 361, last: 480 }
+  x_top: PinRange = { first: 481, last: 480 }
+
+  g_head: PinRange = { first: 1, last: 240 }
+  g_bottom: PinRange = { first: 241, last: 361 }
+  g_foot: PinRange = { first: 362, last: 481 }
+  g_top: PinRange = { first: 482, last: 481 }
+
+  -- U/V segment endpoint formulas
   u_segment_1_start_b: Integer = 450
   u_segment_1_end_b: Integer = 350
   v_segment_1_start_b: Integer = 49
   v_segment_1_end_b: Integer = 2350
 
+  -- Wrap geometry (U/V specific)
   wrap_count: Integer = 400
   first_wrap_index: Integer = 0
   last_wrap_index: Integer = 399
 }
 
 given {
-  u_frame: UvLayerFrame
-  v_frame: UvLayerFrame
+  u_frame: LayerFrame
+  v_frame: LayerFrame
+  x_frame: LayerFrame
+  g_frame: LayerFrame
 }
 
 rule DefineUvLayerFrames {
   when: UvGeometryLoaded()
 
-  ensures: UvLayerFrame.created(
+  ensures: LayerFrame.created(
     layer: u,
     pin_count: config.u_pin_count,
     formula_segment_min: config.formula_segment_min,
@@ -154,7 +177,7 @@ rule DefineUvLayerFrames {
     named_head_top_end: 1
   )
 
-  ensures: UvLayerFrame.created(
+  ensures: LayerFrame.created(
     layer: v,
     pin_count: config.v_pin_count,
     formula_segment_min: config.formula_segment_min,
@@ -176,8 +199,59 @@ rule DefineUvLayerFrames {
   )
 }
 
+rule DefineXgLayerFrames {
+  when: XgGeometryLoaded()
+
+  ensures: LayerFrame.created(
+    layer: x,
+    pin_count: config.x_pin_count,
+    formula_segment_min: config.formula_segment_min,
+    formula_segment_max: config.formula_segment_max,
+    measurable_segment_min: config.measurable_segment_min,
+    measurable_segment_max: config.measurable_segment_max,
+    head: config.x_head,
+    bottom: config.x_bottom,
+    foot: config.x_foot,
+    top: config.x_top,
+    named_bottom_foot_end: 360,
+    named_bottom_head_end: 241,
+    named_top_foot_end: 481,
+    named_top_head_end: 480,
+    named_foot_bottom_end: 361,
+    named_foot_top_end: 480,
+    named_head_bottom_end: 240,
+    named_head_top_end: 1
+  )
+
+  ensures: LayerFrame.created(
+    layer: g,
+    pin_count: config.g_pin_count,
+    formula_segment_min: config.formula_segment_min,
+    formula_segment_max: config.formula_segment_max,
+    measurable_segment_min: config.measurable_segment_min,
+    measurable_segment_max: config.measurable_segment_max,
+    head: config.g_head,
+    bottom: config.g_bottom,
+    foot: config.g_foot,
+    top: config.g_top,
+    named_bottom_foot_end: 361,
+    named_bottom_head_end: 241,
+    named_top_foot_end: 482,
+    named_top_head_end: 481,
+    named_foot_bottom_end: 362,
+    named_foot_top_end: 481,
+    named_head_bottom_end: 240,
+    named_head_top_end: 1
+  )
+
+  @guidance
+    -- X/G geometry is specified here as placeholders based on typical
+    -- APA geometry. Full specification with actual endpoint formulas,
+    -- wrap paths, and segment details will be added later.
+}
+
 invariant WireSegmentEndpointsAreOppositeSideEquivalent {
-  for segment in UvWireSegment:
+  for segment in WireSegment:
     segment.endpoints_a.start = translate_side(segment.endpoints_b.start, a)
       and segment.endpoints_a.end = translate_side(segment.endpoints_b.end, a)
 }
@@ -189,7 +263,7 @@ rule DefineUvWireSegment {
   requires: segment_number >= config.formula_segment_min
   requires: segment_number <= config.formula_segment_max
 
-  ensures: UvWireSegment.created(
+  ensures: WireSegment.created(
     layer: layer,
     segment_number: segment_number,
     endpoints_b: b_side_segment_endpoints(layer, segment_number),
@@ -234,6 +308,27 @@ rule DefineUvWireSegment {
     --   V segment 1151 -> A1600, A1599
 }
 
+rule DefineXgWireSegment {
+  when: NeedXgWireSegment(layer, segment_number)
+
+  requires: layer in { x, g }
+  requires: segment_number >= config.formula_segment_min
+  requires: segment_number <= config.formula_segment_max
+
+  ensures: WireSegment.created(
+    layer: layer,
+    segment_number: segment_number,
+    endpoints_b: xg_b_side_segment_endpoints(layer, segment_number),
+    endpoints_a: xg_a_side_segment_endpoints(layer, segment_number),
+    start_edge: edge_for_pin(xg_b_side_segment_endpoints(layer, segment_number).start),
+    end_edge: edge_for_pin(xg_b_side_segment_endpoints(layer, segment_number).end)
+  )
+
+  @guidance
+    -- X/G segment endpoint formulas will be specified when full geometry
+    -- is available. Until then, these rules are placeholders.
+}
+
 rule DefineUvContinuousWrapPath {
   when: NeedUvContinuousWrapPath(layer, wrap_number)
 
@@ -241,7 +336,7 @@ rule DefineUvContinuousWrapPath {
   requires: wrap_number >= config.first_wrap_index
   requires: wrap_number <= config.last_wrap_index
 
-  ensures: UvContinuousWrapPath.created(
+  ensures: ContinuousWrapPath.created(
     layer: layer,
     wrap_number_zero_based: wrap_number,
     pin_succession: continuous_wrap_pins(layer, wrap_number),
@@ -301,7 +396,7 @@ rule DefineUvContinuousWrapPath {
 rule ClassifyPinWrapSide {
   when: NeedWrapSide(pin)
 
-  requires: pin.layer in { u, v }
+  requires: pin.layer in { u, v, x, g }
   requires: pin.side in { a, b }
   requires: pin.number >= 1
   requires: pin.number <= pin_count(pin.layer)
@@ -325,7 +420,7 @@ rule ClassifyPinWrapSide {
     --   y_sign in {-1, 1}
     --
     -- A compact parity rule for the signs is:
-    --   layer_bit = 0 for U, 1 for V
+    --   layer_bit = 0 for U, 1 for V, 2 for X, 3 for G
     --   side_bit = 0 for B, 1 for A
     --   x_edge_bit = 0 for bottom, 1 for top
     --   y_edge_bit = 0 for head, 1 for foot
@@ -345,14 +440,14 @@ rule ClassifyPinWrapSide {
 }
 
 rule ReportEndpointEdgesForTensionConsumers {
-  when: NeedUvEndpointEdgeMapping(layer, segment_number)
+  when: NeedEndpointEdgeMapping(layer, segment_number)
 
   requires: segment_number >= config.measurable_segment_min
   requires: segment_number <= config.measurable_segment_max
 
-  let segment = UvWireSegment(layer: layer, segment_number: segment_number)
+  let segment = WireSegment(layer: layer, segment_number: segment_number)
 
-  ensures: UvEndpointEdgeMapping.created(
+  ensures: EndpointEdgeMapping.created(
     layer: layer,
     segment_number: segment_number,
     start_edge: segment.start_edge,

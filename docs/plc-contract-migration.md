@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document describes the current PLC contract, the problems it creates, and the target protocol for migration.
+This document describes the current PLC contract, the problems it creates, and
+the target protocol for migration.
 
 ## Current Contract
 
@@ -14,10 +15,13 @@ The current `PLC.Tag` class provides a simple value cache without freshness meta
 - **Read API**: `get()` returns cached value directly
 - **Write API**: `set(value)` writes to PLC and updates cached value
 - **Polling**: `poll()` and `pollAll()` update cached values from PLC reads
-- **Default fallback**: If PLC is not functional, `get()` returns `_attributes.defaultValue`
-- **No metadata**: No timestamp, quality flag, freshness indicator, or error information attached to cached values
+- **Default fallback**: If PLC is not functional, `get()` returns
+  `_attributes.defaultValue`
+- **No metadata**: No timestamp, quality flag, freshness indicator, or error
+  information attached to cached values
 
 **Limitation**: Callers cannot distinguish between:
+
 - A fresh value that was just read
 - A stale value from minutes ago
 - A default value because the PLC is offline
@@ -27,17 +31,22 @@ The current `PLC.Tag` class provides a simple value cache without freshness meta
 
 The `PLC_Logic` class uses two shared tags for state transitions:
 
-- **STATE_REQUEST**: Shared command tag written by host to request a state transition
-- **MOVE_TYPE**: Shared command tag written by host to specify motion type for multi-axis moves
+- **STATE_REQUEST**: Shared command tag written by host to request a state
+  transition
+- **MOVE_TYPE**: Shared command tag written by host to specify motion type for
+  multi-axis moves
 
 **Limitations**:
-- STATE_REQUEST is used as a command, acknowledgement flag, reset flag, and stop signal
+
+- STATE_REQUEST is used as a command, acknowledgement flag, reset flag, and
+  stop signal
 - No request-id to correlate which state request was accepted/rejected
 - No explicit status for request acceptance, active state, completion, or failure
 - PLC ladder logic has implicit assumptions about when requests are ready to accept
 - No explicit failure codes beyond ERROR_CODE
 
 **Current dispatch flow**:
+
 1. Host writes STATE_REQUEST = target_state
 2. Host writes MOVE_TYPE = movement_type
 3. PLC ladder logic reads STATE_REQUEST in READY state and transitions to it
@@ -49,11 +58,13 @@ The `PLC_Logic` class uses two shared tags for state transitions:
 The queued motion interface demonstrates a more explicit protocol:
 
 **Tags**:
+
 - `IncomingSegReqID`: Request ID being sent by host
 - `LastIncomingSegReqID`: Last request ID acknowledged by PLC
 - `IncomingSegAck`: Increment-based acknowledgement counter
 
 **Flow**:
+
 1. Host writes increment `IncomingSegReqID` with new segment data
 2. Host polls `LastIncomingSegReqID` waiting for acknowledgement
 3. PLC ladder logic reads new request ID, validates segment, increments acknowledgement
@@ -62,6 +73,7 @@ The queued motion interface demonstrates a more explicit protocol:
 6. PLC can emit fault codes distinct from the global ERROR_CODE
 
 **Benefits**:
+
 - Request ID allows host to confirm which request was accepted
 - Explicit acknowledgement eliminates implicit readiness assumptions
 - Separate status and fault codes for diagnostics
@@ -71,7 +83,9 @@ The queued motion interface demonstrates a more explicit protocol:
 
 ### Goal
 
-Make host-side reads explicit about freshness and failure behavior. Introduce a request-id/state-status protocol similar to queued motion that improves reliability and diagnostics.
+Make host-side reads explicit about freshness and failure behavior. Introduce a
+request-id/state-status protocol similar to queued motion that improves
+reliability and diagnostics.
 
 ### PLC.Tag Enhancements (Task 3)
 
@@ -82,7 +96,8 @@ The new contract will add optional metadata without breaking existing `get()` ca
 - **New APIs**:
   - `sample()` → returns sample with metadata
   - `read_fresh()` → update metadata and require fresh data or raise
-  - `read_with_policy(allow_stale=False, allow_error=False)` → explicit freshness policy
+- `read_with_policy(allow_stale=False, allow_error=False)` -> explicit
+  freshness policy
   - `write_result()` → returns success/error instead of boolean
 
 ### State Request Protocol (Tasks 4-5)
@@ -90,15 +105,20 @@ The new contract will add optional metadata without breaking existing `get()` ca
 Replace STATE_REQUEST with an explicit request-id/status protocol:
 
 **New controller-scope tags** (task 5):
-- `STATE_REQ_ID`: Request ID from host (host increments/changes when requesting state transition)
+
+- `STATE_REQ_ID`: Request ID from host. The host increments or changes this
+  value when requesting a state transition.
 - `STATE_REQ_TARGET`: Target state requested
 - `STATE_REQ_ACK_ID`: Last request ID acknowledged by PLC
-- `STATE_REQ_STATUS`: Current status (IDLE, ACCEPTED, ACTIVE, DONE, FAILED, CANCELLED)
-- `STATE_REQ_RESULT`: Detailed result code (target rejected, timeout, motion error, etc.)
+- `STATE_REQ_STATUS`: Current status (IDLE, ACCEPTED, ACTIVE, DONE, FAILED,
+  CANCELLED)
+- `STATE_REQ_RESULT`: Detailed result code (target rejected, timeout, motion
+  error, etc.)
 - `STATE_ACTIVE_ID`: Request ID of currently active state
 - `STATE_ACTIVE_TARGET`: Target state of currently active state
 
 **Protocol flow** (task 4 design, task 5 ladder):
+
 1. Host checks current state and preconditions (fresh reads required for safety)
 2. Host writes `STATE_REQ_ID`, `STATE_REQ_TARGET` to request state transition
 3. Host polls `STATE_REQ_STATUS` waiting for `ACCEPTED` or `FAILED`
@@ -111,6 +131,7 @@ Replace STATE_REQUEST with an explicit request-id/status protocol:
 10. Host can cancel by writing different `STATE_REQ_ID` at any time
 
 **Backward compatibility** (task 5):
+
 - READY state continues to check legacy STATE_REQUEST during migration window
 - Simulator and tests explicitly mark legacy fallback as compatibility behavior
 - Migration window ends when all callers use new protocol (task 8)
@@ -119,7 +140,8 @@ Replace STATE_REQUEST with an explicit request-id/status protocol:
 
 After new APIs are available, require explicit policies for reads:
 
-- **Interlock and safety reads**: Require fresh samples, fail closed on communication error
+- **Interlock and safety reads**: Require fresh samples and fail closed on
+  communication error
 - **Status/UI getters**: Allow cached or stale samples, expose quality when useful
 - **Collision detection reads**: Coherent snapshots across related tags
 - **PLC state validation**: Distinguish stale data from true READY state
@@ -141,8 +163,9 @@ After new APIs are available, require explicit policies for reads:
 ### Current Contract Tests (Task 1)
 
 Characterize existing behavior before changes:
+
 - PLC.Tag.get() returns cached values without freshness metadata
-- PLC_Logic._readTagNow falls back to cached data on read failure
+- `PLC_Logic._readTagNow` falls back to cached data on read failure
 - READY dispatch consumes STATE_REQUEST
 - Queued motion request-id acknowledgement behavior
 - ERROR_CODE reporting for motion errors
@@ -165,4 +188,5 @@ Characterize existing behavior before changes:
 - Queued motion interface: `src/dune_winder/queued_motion/plc_interface.py`
 - PLC.Tag: `src/dune_winder/io/devices/plc.py`
 - PLC_Logic: `src/dune_winder/io/controllers/plc_logic.py`
-- PLC proposal workflow: `.harness/plans/improve-plc-contract-migration.json` tasks 5-6
+- PLC proposal workflow:
+  `.harness/plans/improve-plc-contract-migration.json` tasks 5-6

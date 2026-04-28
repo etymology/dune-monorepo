@@ -90,6 +90,8 @@ value TensionDerivation {
 -- Contracts
 ------------------------------------------------------------
 
+-- Shared hardware control contracts (defined in core.allium; duplicated here for spec completeness)
+
 contract MotionControl {
   current_pose: (context: Any) -> MeasurementPose
   move_to_pose: (pose: MeasurementPose) -> Boolean
@@ -117,6 +119,35 @@ contract ExcitationControl {
   @invariant PulseSafety
     -- Pulses are bounded, non-continuous excitations in this spec. Continuous
     -- excitation requires a separate future spec.
+}
+
+-- Measurement-specific contracts
+
+contract AudioCapture {
+  capture_event: (duration: Duration, expected_frequency_hz: Decimal?) -> AudioEvent?
+  start_stream: (session: StreamingSession) -> Boolean
+  stop_stream: (session: StreamingSession) -> Boolean
+  captured_windows: (session: StreamingSession) -> Set<AudioWindow>
+}
+
+contract PitchAnalysis {
+  estimate_pitch: (event: AudioEvent, expected_frequency_hz: Decimal?) -> PitchEstimate
+  score_stream_frame: (window: AudioWindow, expected_frequency_hz: Decimal?) -> FrameScore
+
+  @invariant AnalysisExplainsConfidence
+    -- Every accepted pitch estimate carries a frequency and confidence score
+    -- sufficient for thresholding and later review.
+}
+
+contract MeasurementArtifacts {
+  append_sample: (sample: TensionSample) -> Boolean
+  append_result: (result: TensionResult) -> Boolean
+  clear_wire: (setup: MeasurementSetup, wire_number: Integer) -> Boolean
+  append_stream_event: (session: StreamingSession, artifact: Any) -> Boolean
+
+  @guidance
+    -- The implementation may use a database, event log, files, cloud storage,
+    -- or another durable model. The contract is behavioral, not a schema.
 }
 
 contract AudioCapture {
@@ -1143,7 +1174,8 @@ surface UploadBoundary {
 
 -- Detailed geometry, analysis, and query algorithms are intentionally left as
 -- black-box functions in this top-level spec. Current implementation references:
---   - wire ranges and U/V geometry: dune_winder/uv-layer-geometry.allium
+--   - wire geometry (all layers): specs/layer-geometry.allium
+--   - winder state and safety: specs/winder-states.allium
 --   - pose planning: src/dune_tension/tensiometer_functions.py
 --   - frequency/tension derivation: src/dune_tension/tension_calculation.py
 --   - legacy sample selection: src/dune_tension/tensiometer.py

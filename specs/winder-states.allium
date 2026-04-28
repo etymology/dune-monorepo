@@ -1,16 +1,51 @@
 -- allium: 3
--- winder-states-safety.allium
+-- winder-states.allium
 
--- Scope: State and safety behaviour of the DUNE winder runtime and PLC.
--- Includes: Runtime control modes, PLC state values, head.py head-position
---           meanings, head transfer state, collision prevention, movement
---           preflight checks, PLC hard interlocks, and operator diagnostics.
+-- Scope: State, transfer protocol, and safety behaviour of the DUNE winder runtime and PLC.
+-- Includes: Runtime control modes, PLC state values, head-transfer protocol (G206/G106),
+--           latch actuator state machine, Z-axis coordination, head position and transfer
+--           state, collision prevention, movement preflight checks, PLC hard interlocks,
+--           and operator diagnostics.
 -- Excludes:
 --   - Recipe/template generation
 --   - Web/API transport details
---   - PLC communication protocol details
+--   - PLC communication protocol details (pycomm3 details)
 --   - Tension PID tuning internals beyond safety trip behaviour
 --   - Low-level queue handshake details
+--   - Latch homing (state 7 — deprecated, never used, pending removal)
+--   - Latch state 8 (deprecated pending removal)
+
+-- ==========================================================================
+-- External entities
+-- ==========================================================================
+
+-- Physical sensors are read-only from this spec's perspective.
+-- Their values are determined by the mechanical state of the machine.
+
+external entity ZAxis {
+  actual_position: Decimal
+}
+
+external entity Axis {
+  actual_position: Decimal
+  actual_velocity: Decimal
+  moving: Boolean
+  physical_fault: Boolean
+  sto_inhibit: Boolean
+}
+
+external entity SafetyCircuit {
+  healthy: Boolean
+  tripped: Boolean
+  reset_button: Boolean
+}
+
+external entity TensionControl {
+  enabled: Boolean
+  stable: Boolean
+  wire_break: Boolean
+  overtension: Boolean
+}
 
 -- ==========================================================================
 -- Enumerations
@@ -56,24 +91,17 @@ enum HeadControllerMode {
   error                      -- 4
 }
 
--- Numeric values match Head constants in src/dune_winder/io/controllers/head.py.
--- PLC HEAD_POS only represents absent/stage/fixed. The Python head position
--- expands the stage side into three useful Z targets.
-enum HeadPosition {
-  absent       -- -1: no stable, trusted head location
-  stage_side   --  0: head latched to Z stage at retracted Z
-  level_a_side --  1: head latched to Z stage at front/layer-A Z
-  level_b_side --  2: head latched to Z stage at back/layer-B Z
-  fixed_side   --  3: head parked on fixed mount at retracted Z
+-- Numeric encoding matches PLC ACTUATOR_POS tag for traceability.
+-- The rocker is a single mechanism: moving toward one side mechanically
+-- disengages the other. This is the core of the transfer principle.
+enum ActuatorPosition {
+  transition_engaged   -- 0: TOP=0, MID=0, Z_STAGE_LATCHED not yet asserted
+  stage_latched        -- 1: Z_STAGE_LATCHED sensor asserted (stable)
+  mid_engagement       -- 2: TOP=1, MID=1 — safe withdrawal point
+  rocker_at_fixed      -- 3: TOP=1, MID=0 — rocker pushed to fixed side
 }
 
--- Numeric values match ACTUATOR_POS.
-enum ActuatorPosition {
-  transition_engaged -- 0: neither top nor mid; transient or free-space cycle
-  stage_latched      -- 1: stage latch sensor settled
-  mid_engagement     -- 2: fixed side is safe for Z withdrawal
-  rocker_at_fixed    -- 3: fixed rocker engaged; transient and unsafe to withdraw
-}
+enum HeadSide { stage | fixed }
 
 enum SafetyDiagnosticCode {
   none
@@ -105,28 +133,16 @@ enum SafetyDiagnosticCode {
 }
 
 -- ==========================================================================
--- External entities
+-- Value Types
 -- ==========================================================================
 
-external entity Axis {
-  actual_position: Decimal
-  actual_velocity: Decimal
-  moving: Boolean
-  physical_fault: Boolean
-  sto_inhibit: Boolean
+value XYPoint {
+  x: Decimal
+  y: Decimal
 }
 
-external entity SafetyCircuit {
-  healthy: Boolean
-  tripped: Boolean
-  reset_button: Boolean
-}
-
-external entity TensionControl {
-  enabled: Boolean
-  stable: Boolean
-  wire_break: Boolean
-  overtension: Boolean
+value ZPoint {
+  z: Decimal
 }
 
 -- ==========================================================================
@@ -209,7 +225,7 @@ entity HeadController {
   mode: HeadControllerMode
   requested_position: HeadPosition?
   target_z: Decimal?
-  latch_target: stage_side | fixed_side | null
+  latch_target: stage | fixed | null
   active_transfer: Boolean
   last_error: String?
 
@@ -225,6 +241,70 @@ entity HeadController {
     error -> idle
     terminal: none
   }
+}
+
+-- Head position from the protocol perspective (latch-based).
+-- Derived from sensor fusion of latch sensors and actuator state.
+entity HeadPosition {
+  side: stage | fixed | floating | absent
+
+  transitions side {
+    stage -> floating
+    fixed -> floating
+    floating -> stage
+    floating -> fixed
+    terminal: none
+  }
+}
+
+-- Actuator rocker state machine; position is derived from sensor fusion.
+entity ActuatorState {
+  position: ActuatorPosition
+  top_sensor: Boolean
+  mid_sensor: Boolean
+
+  -- Sensor fusion: position is derived from sensor combination
+  -- position = transition_engaged  when NOT top AND NOT mid AND NOT z_stage_latched
+  -- position = stage_latched       when z_stage_latched (after Delay_Z_Latched)
+  -- position = mid_engagement      when top AND mid (after delay_mid_position)
+  -- position = rocker_at_fixed     when top AND NOT mid
+
+  transitions position {
+    transition_engaged -> stage_latched
+    transition_engaged -> rocker_at_fixed
+    stage_latched -> transition_engaged
+    mid_engagement -> transition_engaged
+    mid_engagement -> rocker_at_fixed
+    rocker_at_fixed -> mid_engagement
+    rocker_at_fixed -> transition_engaged
+    terminal: none
+  }
+}
+
+entity TransferPreconditions {
+  z_stage_present: Boolean
+  z_fixed_present: Boolean
+  z_stage_latched: Boolean
+  z_fixed_latched: Boolean
+  z_extended: Boolean
+
+  -- Derived: all three conditions must hold for any latch pulsing
+  enable_actuator: z_extended and z_stage_present and z_fixed_present
+
+  -- Derived: safe to retract Z from fixed mount
+  -- Asserted after z_fixed_latched with 100ms settling delay
+  z_safe_to_withdraw: Boolean
+}
+
+entity TransferCommand {
+  protocol: g206 | g106
+  target: HeadSide
+  origin: HeadSide
+
+  -- Timing
+  started_at: Timestamp
+  latch_timeout: Duration
+  extend_timeout: Duration
 }
 
 entity HeadTransferState {
@@ -284,15 +364,6 @@ entity MachineSwitches {
     plus_x_eot and minus_x_eot and plus_y_eot and minus_y_eot and z_eot
 }
 
-value XYPoint {
-  x: Decimal
-  y: Decimal
-}
-
-value ZPoint {
-  z: Decimal
-}
-
 entity MotionSafetyEnvelope {
   limit_left: Decimal
   limit_right: Decimal
@@ -343,17 +414,37 @@ entity QueuedMotionController {
 -- ==========================================================================
 
 config {
+  -- Z positions (mm)
   retracted_z_position: Decimal = 0.0
   extended_z_position: Decimal = 418.0
   front_z_position: Decimal = 150.0
   back_z_position: Decimal = 250.0
+
+  -- Z extension detection threshold
   z_extended_threshold: Decimal = 415.0
+
+  -- Head final position tolerance
   head_final_z_tolerance: Decimal = 1.0
   position_acceptance_tolerance: Decimal = 0.1
+
+  -- Timeouts
   latch_timeout: Duration = 10.seconds
   latch_retry_interval: Duration = 1.seconds
+  extend_timeout: Duration = 10.seconds
   g206_extend_timeout: Duration = 10.seconds
+
+  -- Bounded recovery before moving Z while fixed-latched
+  fixed_latch_recovery_attempts: Integer = 3
   preemptive_latch_retry_count: Integer = 3
+
+  -- Z velocity for transfer moves
+  transfer_velocity: Decimal = 300.0
+
+  -- Sensor settling delays
+  delay_z_latched: Duration = 50.milliseconds
+  delay_mid_position: Duration = 50.milliseconds
+  delay_fixed_latched: Duration = 100.milliseconds
+
   max_velocity: Decimal
 }
 
@@ -361,11 +452,53 @@ config {
 -- Given
 -- ==========================================================================
 
+-- ==========================================================================
+-- Contracts
+-- ==========================================================================
+
+-- Shared hardware control contracts (defined in core.allium; duplicated here for spec completeness)
+
+contract MotionControl {
+  current_pose: (context: Any) -> Any
+  move_to_pose: (pose: Any) -> Boolean
+  move_along_segment: (start: Any, end: Any, speed_mm_s: Decimal) -> Boolean
+  reset_motion: (context: Any) -> Boolean
+
+  @invariant BoundedMotion
+    -- Motion commands either complete inside the measurable APA envelope or
+    -- report failure without creating an accepted result.
+}
+
+contract FocusControl {
+  current_focus: (context: Any) -> Decimal
+  set_focus: (focus_position: Decimal) -> Boolean
+
+  @invariant FocusXCompensation
+    -- Changing focus changes the effective laser X coordinate. A-side and
+    -- B-side compensation signs are opposite and must be applied consistently
+    -- unless the operator explicitly chooses manual/uncompensated focus.
+}
+
+contract ExcitationControl {
+  pulse_wire: (context: Any) -> Boolean
+
+  @invariant PulseSafety
+    -- Pulses are bounded, non-continuous excitations in this spec. Continuous
+    -- excitation requires a separate future spec.
+}
+
+-- ==========================================================================
+-- Given: Domain Entities
+-- ==========================================================================
+
 given {
   runtime_controller: RuntimeController
   plc_controller: PLCController
   head_controller: HeadController
+  actuator: ActuatorState
+  head_position: HeadPosition
   head_state: HeadTransferState
+  preconditions: TransferPreconditions
   switches: MachineSwitches
   x_axis: Axis
   y_axis: Axis
@@ -441,7 +574,387 @@ rule HMIStopStopsMotionAndQueue {
 }
 
 -- ==========================================================================
--- Rules: head position meaning and transfer
+-- Rules: head position and transfer (from head-transfer.allium)
+-- ==========================================================================
+
+rule G206TransferStageToFixed {
+  when: G206Transfer(target: fixed)
+
+  requires: head_position.side = stage
+  requires: actuator.position = stage_latched
+
+  let command = TransferCommand.created(
+    protocol: g206,
+    target: fixed,
+    origin: stage,
+    started_at: now,
+    latch_timeout: config.latch_timeout,
+    extend_timeout: config.extend_timeout
+  )
+
+  ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
+  ensures: command
+
+  @guidance
+    -- Stage-to-fixed transfer starts only from the strict stage state.
+    -- The command first extends Z to the transfer position. Latching does
+    -- not begin until Z is extended and the actuator is enabled. The head
+    -- controller then requests the PLC latch state until the strict fixed
+    -- target is observed:
+    -- fixed-latched, stage not latched, actuator at mid_engagement.
+}
+
+rule G206TransferFixedToStage {
+  when: G206Transfer(target: stage)
+
+  requires: head_position.side = fixed
+
+  let command = TransferCommand.created(
+    protocol: g206,
+    target: stage,
+    origin: fixed,
+    started_at: now,
+    latch_timeout: config.latch_timeout,
+    extend_timeout: config.extend_timeout
+  )
+
+  ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
+  ensures: command
+
+  @guidance
+    -- Fixed-to-stage transfer starts from a stable fixed-latched state.
+    -- Before any Z movement, fixed-latched movement safety still applies:
+    -- the actuator must be at mid_engagement, or the controller must
+    -- recover that state using the bounded fixed-latch recovery rule.
+    -- The command then extends Z and requests the PLC latch state until
+    -- the strict stage target is observed.
+}
+
+rule G206TransferSameSide {
+  when: G206Transfer(target)
+
+  requires: head_position.side = target
+
+  ensures: SafeZMoveToFinalPosition(target)
+
+  @guidance
+    -- If the head is already on the target side, no latch operation
+    -- is needed. Only a Z move to the final position is issued. The same
+    -- fixed-latched Z movement safety rule applies before that move.
+}
+
+rule G206TransferRejectedAbsent {
+  when: G206Transfer(target)
+
+  requires: head_position.side = absent or head_position.side = floating
+
+  ensures: TransferError("Head transfer requires a valid stable starting state.")
+
+  @guidance
+    -- Cannot initiate a transfer when head position is indeterminate.
+    -- Operator must resolve the mechanical state first.
+}
+
+rule G206TransferRejectedBadActuator {
+  when: G206Transfer(target: fixed)
+  requires: head_position.side = stage
+  requires: actuator.position != stage_latched
+
+  ensures: TransferError("Stage-latched transfers require ACTUATOR_POS 1.")
+}
+
+rule G106TransferInitiate {
+  when: G106Transfer(target)
+
+  requires: head_position.side = stage or head_position.side = fixed
+  requires: head_position.side != target
+  requires: preconditions.z_stage_present or preconditions.z_fixed_present
+
+  ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
+  ensures: TransferCommand.created(
+    protocol: g106,
+    target: target,
+    origin: head_position.side,
+    started_at: now,
+    latch_timeout: config.latch_timeout,
+    extend_timeout: config.extend_timeout
+  )
+
+  @guidance
+    -- Legacy protocol: extend Z, then request the PLC latch state until
+    -- the target latch sensor asserts or timeout.
+    -- Does not enforce intermediate actuator position states.
+    -- Does not require strict actuator position preconditions.
+    -- Retained for backward compatibility; prefer G206 for new code.
+}
+
+rule G106TransferSameSide {
+  when: G106Transfer(target)
+  requires: head_position.side = target
+  ensures: ZMoveToFinalPosition(target)
+}
+
+rule ZExtensionReady {
+  when: ZExtendComplete(command)
+  requires: command.protocol = g206
+  requires: preconditions.enable_actuator
+
+  ensures: LatchingPhaseStarted()
+  ensures: PLCLatchStateRequested()
+
+  @guidance
+    -- Z has reached extended position and all three enable conditions
+    -- are met (z_extended, z_stage_present, z_fixed_present).
+    -- Transition to latching phase and immediately issue the first
+    -- request for the PLC latch state.
+}
+
+rule ZExtensionTimeout {
+  when: command: TransferCommand.started_at + command.extend_timeout <= now
+  requires: not preconditions.z_extended
+
+  ensures: TransferError(
+    "Head transfer did not reach Z_EXTENDED before latching."
+  )
+}
+
+rule ZExtensionEnableTimeout {
+  when: command: TransferCommand.started_at + command.extend_timeout <= now
+  requires: preconditions.z_extended
+  requires: not preconditions.enable_actuator
+
+  ensures: TransferError(
+    "Head transfer reached extension but ENABLE_ACTUATOR never became true."
+  )
+
+  @guidance
+    -- Z is physically extended but stage or fixed presence sensor
+    -- is not asserted. Mechanical alignment issue.
+}
+
+rule G206LatchStateRequest {
+  when: PLCLatchStateReady(command)
+  requires: command.protocol = g206
+  requires: preconditions.enable_actuator
+
+  ensures: PLCLatchStateRequested()
+
+  @guidance
+    -- Latching is a PLC state request, like other PLC motion states.
+    -- The head-transfer controller requests that state only while the
+    -- actuator is enabled and the latch target has not been reached.
+    -- If the PLC has not acknowledged readiness or is busy, the transfer
+    -- waits. A rejected request does not by itself fail the transfer;
+    -- timeout governs the latching phase.
+}
+
+rule G206LatchTargetReached {
+  when: StrictLatchTargetReached(command)
+  requires: command.protocol = g206
+
+  ensures: SafeZMoveToFinalPosition(command.target)
+
+  @guidance
+    -- G206 does not require the port to model every intermediate
+    -- actuator transition. It keeps requesting the PLC latch state until
+    -- the strict target for the requested side is observed, then performs
+    -- the final Z move. For fixed target, safe final Z movement requires the
+    -- actuator to be at mid_engagement.
+}
+
+rule G206LatchTimeout {
+  when: command: TransferCommand.started_at + command.latch_timeout <= now
+  requires: command.protocol = g206
+
+  ensures: TransferError(
+    "Latch phase timed out while targeting latch side."
+  )
+
+  @guidance
+    -- The entire latch timeout covers the latching phase only
+    -- (not the Z extension phase, which has its own timeout).
+    -- The timeout also covers waiting for ENABLE_ACTUATOR during
+    -- latching if that signal is lost or never becomes true.
+    -- If timed out, actuator may be in any intermediate state.
+    -- Recovery requires operator intervention.
+}
+
+rule G106LatchStateRequest {
+  when: PLCLatchStateReady(command)
+  requires: command.protocol = g106
+  requires: preconditions.enable_actuator
+
+  ensures: PLCLatchStateRequested()
+
+  @guidance
+    -- Legacy: request the same PLC latch state until the legacy target
+    -- condition is observed or the latch phase times out.
+}
+
+rule G106LatchTargetReached {
+  when: LegacyLatchTargetReached(command)
+  requires: command.protocol = g106
+
+  ensures: ZMoveToFinalPosition(command.target)
+
+  @guidance
+    -- Legacy target check: latch sensor for target side asserts
+    -- AND actuator position = mid_engagement (2).
+    -- Less strict than G206 — does not verify intermediate states.
+}
+
+rule G106LatchTimeout {
+  when: command: TransferCommand.started_at + command.latch_timeout <= now
+  requires: command.protocol = g106
+
+  ensures: TransferError("Latch transfer timed out.")
+}
+
+rule ZFinalMoveComplete {
+  when: ZMoveComplete(command)
+
+  ensures: TransferComplete(command)
+
+  @guidance
+    -- Z has reached final target position within tolerance (1.0 mm).
+    -- For G206: additionally verifies strict final state:
+    --   stage target: z_stage_latched AND actuator = stage_latched (1)
+    --   fixed target: z_fixed_latched AND actuator = mid_engagement (2)
+    -- If final state does not match, G206 reports an error.
+    -- G106 accepts the final position without strict actuator check.
+}
+
+rule G206FinalStateVerificationFailed {
+  when: ZMoveComplete(command)
+  requires: command.protocol = g206
+  requires: not StrictFinalStateReached(command)
+
+  ensures: TransferError(
+    "Head transfer final state did not settle as requested."
+  )
+}
+
+rule TransferCancelledByPLCError {
+  when: PLCErrorDuringTransfer()
+
+  ensures: TransferAborted("PLC entered error state during head transfer.")
+  ensures: AllTransferStateCleared()
+}
+
+rule TransferStopRequested {
+  when: StopTransfer()
+
+  ensures: TransferAborted("Transfer stopped by operator.")
+  ensures: AllTransferStateCleared()
+
+  @guidance
+    -- If in SEEKING_TO_FINAL_POSITION, PLC seek is stopped.
+    -- All latch retry state and G206 transition state is cleared.
+}
+
+rule RockerUnlatchFromStage {
+  when: PLCLatchStateAcknowledged()
+  requires: actuator.position = stage_latched
+
+  ensures: actuator.position = transition_engaged
+
+  @guidance
+    -- A PLC latch cycle when stage-latched (1) begins the unlatch sequence.
+    -- Actuator passes through transition_engaged (0) as sensors
+    -- deassert. The rocker then swings to rocker_at_fixed (3).
+    -- This is a mechanical response to the PLC-managed latch cycle:
+    --   1 → 0 (sensors clear) → 3 (rocker reaches fixed side)
+    -- Head becomes floating during this transition.
+}
+
+rule RockerSwingToFixed {
+  when: actuator: ActuatorState.position becomes transition_engaged
+  requires: head_position.side = floating
+
+  ensures: actuator.position = rocker_at_fixed
+
+  @guidance
+    -- After departing stage_latched, the rocker momentum carries it
+    -- to rocker_at_fixed (3). This is a mechanical consequence, not
+    -- a commanded action. TOP sensor asserts, MID stays deasserted.
+}
+
+rule RockerSettleToMid {
+  when: actuator: ActuatorState.position becomes rocker_at_fixed
+
+  ensures: actuator.position = mid_engagement
+
+  @guidance
+    -- After reaching rocker_at_fixed (3), the rocker settles back
+    -- to mid_engagement (2). This completes the unlatch-from-stage
+    -- sequence. State 2 is the safe withdrawal point.
+    -- The settle happens mechanically; timing depends on the
+    -- physical system but is typically under 2 seconds.
+}
+
+rule ZMoveBlockedDuringFloating {
+  when: ZMoveRequested()
+  requires: head_position.side = floating
+
+  ensures: ZMoveRejected("Cannot move Z while head is floating.")
+
+  @guidance
+    -- When the head is unlatched and in transit between sides,
+    -- Z axis movement is blocked to prevent mechanical damage.
+}
+
+rule ZWithdrawalRequiresState2 {
+  when: ZRetractRequested()
+  requires: preconditions.z_fixed_latched
+  requires: actuator.position != mid_engagement
+
+  ensures: BoundedLatchRecoveryStarted(config.fixed_latch_recovery_attempts)
+}
+
+rule ZWithdrawalRecoverySucceeded {
+  when: BoundedLatchRecoveryComplete()
+  requires: preconditions.z_fixed_latched
+  requires: actuator.position = mid_engagement
+
+  ensures: ZMoveAllowed()
+
+  @guidance
+    -- Before any Z move while fixed-latched, the controller may request
+    -- the PLC latch state a bounded number of times to recover mid_engagement.
+    -- This applies both to same-side fixed moves and fixed-to-stage
+    -- transfer initiation.
+}
+
+rule ZWithdrawalRecoveryFailed {
+  when: BoundedLatchRecoveryComplete()
+  requires: preconditions.z_fixed_latched
+  requires: actuator.position != mid_engagement
+
+  ensures: ZMoveRejected(
+    "Cannot retract Z while fixed-latched unless actuator is at position 2."
+  )
+
+  @guidance
+    -- When the head is latched to the fixed mount, Z can only move after
+    -- the actuator reaches mid_engagement. If bounded recovery cannot
+    -- establish that state, the requested Z move or transfer is rejected.
+}
+
+rule ZFreeMovementWhenFixedParked {
+  when: ZMoveRequested()
+  requires: preconditions.z_fixed_latched
+  requires: actuator.position = mid_engagement
+
+  ensures: ZMoveAllowed()
+
+  @guidance
+    -- When head is safely parked on the fixed mount with actuator
+    -- at mid_engagement, Z can move freely at high speed (1000 units/s)
+    -- because there is no mechanical coupling to the Z stage.
+}
+
+-- ==========================================================================
+-- Rules: head position meaning and transfer (winder-specific)
 -- ==========================================================================
 
 rule HeadPositionReadAbsent {
@@ -449,55 +962,39 @@ rule HeadPositionReadAbsent {
   requires: not head_state.stable_stage
   requires: not head_state.stable_fixed
 
-  ensures: head_state.position = absent
+  ensures: head_position.side = absent
 }
 
 rule HeadPositionReadFixed {
   when: ReadHeadPosition()
   requires: head_state.stable_fixed
 
-  ensures: head_state.position = fixed_side
+  ensures: head_position.side = fixed
 }
 
-rule HeadPositionReadStageZTarget {
+rule HeadPositionReadStage {
   when: ReadHeadPosition()
   requires: head_state.stable_stage
 
-  ensures:
-    if Near(z_axis.actual_position, config.retracted_z_position, config.head_final_z_tolerance):
-      head_state.position = stage_side
-    if Near(z_axis.actual_position, config.front_z_position, config.head_final_z_tolerance):
-      head_state.position = level_a_side
-    if Near(z_axis.actual_position, config.back_z_position, config.head_final_z_tolerance):
-      head_state.position = level_b_side
-
-  @guidance
-    -- LEVEL_A_SIDE and LEVEL_B_SIDE are not separate PLC latch states.
-    -- They are stage-side head positions distinguished by Z location.
+  ensures: head_position.side = stage
 }
 
 rule HeadTransferTargetResolution {
   when: SetHeadPosition(target, velocity)
-  requires: target in { stage_side, level_a_side, level_b_side, fixed_side }
+  requires: target in { stage, fixed }
 
   ensures:
-    if target = stage_side:
+    if target = stage:
       head_controller.target_z = config.retracted_z_position
-      head_controller.latch_target = stage_side
-    if target = level_a_side:
-      head_controller.target_z = config.front_z_position
-      head_controller.latch_target = stage_side
-    if target = level_b_side:
-      head_controller.target_z = config.back_z_position
-      head_controller.latch_target = stage_side
-    if target = fixed_side:
+      head_controller.latch_target = stage
+    if target = fixed:
       head_controller.target_z = config.retracted_z_position
-      head_controller.latch_target = fixed_side
+      head_controller.latch_target = fixed
 }
 
 rule HeadTransferRejectsUnknownPosition {
   when: SetHeadPosition(target, velocity)
-  requires: target not in { stage_side, level_a_side, level_b_side, fixed_side }
+  requires: target not in { stage, fixed }
 
   ensures: OperatorDiagnostic.created(
     message: "Unknown head transfer request.",
@@ -519,8 +1016,8 @@ rule HeadTransferRequiresStableStart {
 
 rule StageTransferRequiresActuatorOne {
   when: SetHeadPosition(target, velocity)
-  requires: head_state.position in { stage_side, level_a_side, level_b_side }
-  requires: head_state.actuator_position != stage_latched
+  requires: head_position.side = stage
+  requires: actuator.position != stage_latched
 
   ensures: OperatorDiagnostic.created(
     message: "Stage-latched transfers require ACTUATOR_POS 1.",
@@ -532,14 +1029,14 @@ rule StageTransferRequiresActuatorOne {
 rule SameSideHeadMoveOnlyMovesZ {
   when: SetHeadPosition(target, velocity)
   requires: head_state.valid_stable_start
-  requires: HeadSide(target) = HeadSide(head_state.position)
+  requires: head_position.side = target
 
   ensures: SafeZMoveRequested(head_controller.target_z, velocity)
   ensures: head_controller.mode = seeking_to_final_position
 }
 
 rule StageToFixedG206Transfer {
-  when: SetHeadPosition(fixed_side, velocity)
+  when: SetHeadPosition(fixed, velocity)
   requires: head_state.stable_stage
 
   ensures: SafeZMoveRequested(config.extended_z_position, velocity)
@@ -548,7 +1045,7 @@ rule StageToFixedG206Transfer {
 
 rule FixedToStageG206Transfer {
   when: SetHeadPosition(target, velocity)
-  requires: target in { stage_side, level_a_side, level_b_side }
+  requires: target = stage
   requires: head_state.stable_fixed
 
   ensures: SafeZMoveRequested(config.extended_z_position, velocity)
@@ -1111,6 +1608,140 @@ rule OvertensionTripsPLC {
 }
 
 -- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant ActuatorEngagementRequiresExtension {
+  -- The PLC latch state may be requested only when ALL of:
+  --   z_extended = true
+  --   z_stage_present = true
+  --   z_fixed_present = true
+  -- These three conditions derive ENABLE_ACTUATOR.
+  -- If any condition becomes false during latching, the PLC latch state
+  -- must not continue.
+  -- PLC enforces: XIC Z_STAGE_PRESENT XIC Z_FIXED_PRESENT XIC Z_EXTENDED OTE ENABLE_ACTUATOR
+}
+
+invariant RockerAtFixedIsTransient {
+  -- ACTUATOR_POS = 3 (rocker_at_fixed) is a transient mechanical state.
+  -- The rocker is pushed to the fixed side: the latch is engaged at
+  -- the fixed end and unlatched at the stage end.
+  -- Z withdrawal is NOT SAFE in this state — the latch physically
+  -- interferes with the fixed mount.
+  -- The system must wait for the rocker to settle back to state 2
+  -- (mid_engagement) before allowing Z retraction.
+  -- Violation: if ACTUATOR_POS remains at 3 beyond settling timeout,
+  --   report error "ROCKER_STUCK_AT_FIXED".
+}
+
+invariant MidEngagementIsSafeWithdrawal {
+  -- ACTUATOR_POS = 2 (mid_engagement) is the safe withdrawal point.
+  -- At this position:
+  --   Neither side is mechanically engaged by the latch rocker.
+  --   Z can safely retract without interference.
+  --   The PLC latch state can move the actuator from this state.
+  -- This is the stable transit point for all transfer operations.
+}
+
+invariant HeadPositionCoherence {
+  -- head_position.side = stage  IFF stage_latched AND NOT fixed_latched
+  -- head_position.side = fixed  IFF fixed_latched AND NOT stage_latched
+  -- head_position.side = floating IFF NOT stage_latched AND NOT fixed_latched
+  -- head_position.side = absent IFF NOT stage_present AND NOT fixed_present
+  --
+  -- Both latched simultaneously is a mechanical fault:
+  --   stage_latched AND fixed_latched → error "DUAL_LATCH_FAULT"
+}
+
+invariant G206StrictStartingState {
+  -- G206 transfers enforce strict actuator position preconditions:
+  --   From stage: actuator MUST be at stage_latched (1)
+  --   From fixed: the head must be fixed-latched; before Z movement,
+  --     the fixed-latched Z movement safety rule ensures actuator
+  --     mid_engagement or rejects the transfer.
+  -- This catches cases where a prior transfer left the actuator
+  -- in an unexpected stage-side position, preventing cascading failures.
+  -- G106 does not enforce this — another reason to prefer G206.
+}
+
+invariant G206StrictFinalState {
+  -- G206 verifies strict final state after Z reaches target:
+  --   Target stage: z_stage_latched AND actuator = stage_latched (1)
+  --     AND z_position within 1.0 mm of target
+  --   Target fixed: z_fixed_latched AND actuator = mid_engagement (2)
+  --     AND z_position within 1.0 mm of retracted position
+  -- If final state does not match, the transfer is reported as failed
+  -- even though Z reached the target position.
+}
+
+invariant NoZMotionWhileFloating {
+  -- When head_position.side = floating, Z axis motion is blocked.
+  -- The head is unlatched and mechanically unconstrained.
+  -- Moving Z while floating risks dropping the head or
+  -- damaging the latch mechanism.
+}
+
+invariant PLCLatchStateReadiness {
+  -- Latching is represented to the head-transfer controller as a PLC state,
+  -- not as direct control of latch output timing. The controller requests
+  -- that state only when the PLC can accept a new state request and the
+  -- actuator enable signal is true. If either condition is false, the
+  -- transfer waits until the latch phase times out or the condition becomes
+  -- true.
+}
+
+invariant PLCHeadPosIsCoarse {
+  -- The PLC HEAD_POS tag is not the same as HeadPosition.
+  -- PLC HEAD_POS = -1 when neither stage nor fixed latch is asserted.
+  -- PLC HEAD_POS = 0 when the head is stage-latched, or when fixed-latched
+  --   while ACTUATOR_POS = 3 during the unsafe transient.
+  -- PLC HEAD_POS = 3 when fixed-latched and ACTUATOR_POS = 2.
+}
+
+invariant ActuatorPositionSafety {
+  -- ACTUATOR_POS = 1 is required for a trusted stage-latched start.
+  -- ACTUATOR_POS = 2 is required for a trusted fixed-latched state and for
+  --   safe Z withdrawal from the fixed mount.
+  -- ACTUATOR_POS = 3 is transient and must not allow Z withdrawal.
+  -- ACTUATOR_POS = 0 is an intermediate/free-space cycle state.
+}
+
+invariant XYCollisionEnvelope {
+  -- Every manual, interpreted G-code, and queued XY path must remain inside
+  -- machine travel bounds, avoid the forbidden transfer region, avoid the
+  -- winding-head pivot keepout, and avoid active Z-collision keepouts.
+  -- Arc paths are checked by sampling/interpolation before acceptance.
+}
+
+invariant QueuedMotionFailuresAreTerminalForCurrentBlock {
+  -- Any queued-motion validation error, PLC queue fault, PLC motion fault,
+  -- handshake timeout, start timeout, idle timeout, disconnected PLC, unknown
+  -- start point, PLC tag read/write failure, active parallel queue, or
+  -- pre-start speed-correction failure prevents further movement from the
+  -- current queued block until the queue is reset or a new block/session is
+  -- started.
+}
+
+invariant ZExtendedCollisionEnvelope {
+  -- When Z is above the configured collision threshold, XY paths must avoid:
+  --   - APA collision zones outside the head/foot transfer slots
+  --   - Head support keepouts when the matching head frame lock is active
+  --   - Foot support keepouts when the matching foot frame lock is active
+}
+
+invariant RuntimeAndPLCBothEnforceSafety {
+  -- Python preflight checks are user-facing and provide descriptive messages.
+  -- PLC interlocks remain authoritative and trip the machine even if Python
+  -- validation is bypassed or stale.
+}
+
+invariant ErrorStateRequiresOperatorRecovery {
+  -- PLC error state blocks new motion until a reset clears ERROR_CODE and
+  -- returns the PLC to ready. EOT recovery is a separate state that moves only
+  -- away from the tripped travel limits.
+}
+
+-- ==========================================================================
 -- Surfaces
 -- ==========================================================================
 
@@ -1172,68 +1803,23 @@ surface MachineFeedbackInputs {
     StopSignalActive(signal)
     ReadHeadPosition()
     FinalZMoveComplete()
+    G206Transfer(target)
+    G106Transfer(target)
+    ZExtendComplete(command)
+    ZRetractRequested()
+    ZMoveRequested()
+    PLCLatchStateReady(command)
+    PLCLatchStateAcknowledged()
+    StrictLatchTargetReached(command)
+    LegacyLatchTargetReached(command)
+    ZMoveComplete(command)
+    PLCErrorDuringTransfer()
+    StopTransfer()
 
   @guidance
     -- These events come from machine state, IO health, switches, PLC feedback,
     -- or other sensor-derived observations. The field-transition rules below
     -- also consume sensor-updated entities directly via `becomes` triggers.
-}
-
--- ==========================================================================
--- Invariants
--- ==========================================================================
-
-invariant PLCHeadPosIsCoarse {
-  -- The PLC HEAD_POS tag is not the same as HeadPosition.
-  -- PLC HEAD_POS = -1 when neither stage nor fixed latch is asserted.
-  -- PLC HEAD_POS = 0 when the head is stage-latched, or when fixed-latched
-  --   while ACTUATOR_POS = 3 during the unsafe transient.
-  -- PLC HEAD_POS = 3 when fixed-latched and ACTUATOR_POS = 2.
-  -- HeadPosition level_a_side and level_b_side are Python/runtime meanings
-  -- derived from stage-side latch plus Z position.
-}
-
-invariant ActuatorPositionSafety {
-  -- ACTUATOR_POS = 1 is required for a trusted stage-latched start.
-  -- ACTUATOR_POS = 2 is required for a trusted fixed-latched state and for
-  --   safe Z withdrawal from the fixed mount.
-  -- ACTUATOR_POS = 3 is transient and must not allow Z withdrawal.
-  -- ACTUATOR_POS = 0 is an intermediate/free-space cycle state.
-}
-
-invariant XYCollisionEnvelope {
-  -- Every manual, interpreted G-code, and queued XY path must remain inside
-  -- machine travel bounds, avoid the forbidden transfer region, avoid the
-  -- winding-head pivot keepout, and avoid active Z-collision keepouts.
-  -- Arc paths are checked by sampling/interpolation before acceptance.
-}
-
-invariant QueuedMotionFailuresAreTerminalForCurrentBlock {
-  -- Any queued-motion validation error, PLC queue fault, PLC motion fault,
-  -- handshake timeout, start timeout, idle timeout, disconnected PLC, unknown
-  -- start point, PLC tag read/write failure, active parallel queue, or
-  -- pre-start speed-correction failure prevents further movement from the
-  -- current queued block until the queue is reset or a new block/session is
-  -- started.
-}
-
-invariant ZExtendedCollisionEnvelope {
-  -- When Z is above the configured collision threshold, XY paths must avoid:
-  --   - APA collision zones outside the head/foot transfer slots
-  --   - Head support keepouts when the matching head frame lock is active
-  --   - Foot support keepouts when the matching foot frame lock is active
-}
-
-invariant RuntimeAndPLCBothEnforceSafety {
-  -- Python preflight checks are user-facing and provide descriptive messages.
-  -- PLC interlocks remain authoritative and trip the machine even if Python
-  -- validation is bypassed or stale.
-}
-
-invariant ErrorStateRequiresOperatorRecovery {
-  -- PLC error state blocks new motion until a reset clears ERROR_CODE and
-  -- returns the PLC to ready. EOT recovery is a separate state that moves only
-  -- away from the tripped travel limits.
 }
 
 -- ==========================================================================
@@ -1259,6 +1845,12 @@ invariant ErrorStateRequiresOperatorRecovery {
 -- ==========================================================================
 -- Open questions
 -- ==========================================================================
+
+open question "State 0 (transition_engaged) occurs in two distinct scenarios: head absent cycling (0→3→2) and head present transient. Should these be modeled as separate states, or is the current unified model sufficient?"
+
+open question "The rocker settling time from state 3 to state 2 is mechanically determined and not directly timed in the PLC. Should the spec define a maximum settling duration with error handling if exceeded?"
+
+open question "G106 legacy protocol: should it be formally deprecated in the spec, or maintained as a supported alternative? Current Python code supports both."
 
 open question "Should PLC HEAD_POS = 0 during ACTUATOR_POS = 3 be exposed as a distinct transient head position in operator-facing status, rather than sharing the stage-side code?"
 
