@@ -216,13 +216,13 @@ def _plot_layer_residuals(
             subset["wire_number"],
             residual,
             s=10,
-            alpha=0.25,
+            alpha=0.4,
             color=colors[side],
         )
         top_ax.plot(
             subset["wire_number"],
-            _rolling_mean(residual.reset_index(drop=True)),
-            linewidth=2,
+            _rolling_mean(residual.reset_index(drop=True), window=3),
+            linewidth=1.2,
             color=colors[side],
             label=label,
         )
