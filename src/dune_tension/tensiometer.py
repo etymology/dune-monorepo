@@ -30,7 +30,6 @@ from dune_tension.tensiometer_functions import (
     normalize_confidence_source,
     plan_measurement_poses,
 )
-from dune_tension.uv_wire_planner import LegacyUVWirePositionProvider
 from dune_tension.plc_io import is_in_measurable_area
 
 LOGGER = logging.getLogger(__name__)
@@ -481,12 +480,7 @@ class Tensiometer:
         self.motion = motion or MotionService.build(spoof_movement=spoof_movement)
         self.audio = audio or AudioCaptureService.build(spoof=spoof)
         self.repository = repository or ResultRepository(self.config.data_path)
-        provider = wire_position_provider or WirePositionProvider()
-        self.wire_position_provider = (
-            LegacyUVWirePositionProvider(provider)
-            if type(provider) is WirePositionProvider
-            else provider
-        )
+        self.wire_position_provider = wire_position_provider or WirePositionProvider()
         self.noise_threshold = self.audio.noise_threshold
         self.samplerate = self.audio.samplerate
         self.record_audio_func = self.audio.record_audio

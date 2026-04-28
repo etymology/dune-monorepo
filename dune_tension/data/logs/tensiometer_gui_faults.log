@@ -104,3 +104,73 @@ Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, nu
 [2026-04-13T17:28:27] starting fault capture pid=32386 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
 
 [2026-04-13T17:45:59] starting fault capture pid=34037 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T16:33:54] starting fault capture pid=5984 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T16:36:54] starting fault capture pid=6661 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T16:37:13] starting fault capture pid=6832 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T16:58:06] starting fault capture pid=18723 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T17:25:00] starting fault capture pid=27077 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T17:28:46] starting fault capture pid=28254 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-27T17:30:34] starting fault capture pid=29686 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:04:45] starting fault capture pid=74542 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:05:30] starting fault capture pid=74681 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:09:55] starting fault capture pid=75849 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:11:42] starting fault capture pid=76503 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:35:12] starting fault capture pid=78999 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:36:05] starting fault capture pid=79225 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:44:01] starting fault capture pid=80133 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T10:55:28] starting fault capture pid=81822 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:14:31] starting fault capture pid=88305 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:17:25] starting fault capture pid=89067 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:24:57] starting fault capture pid=5249 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:36:00] starting fault capture pid=36767 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:45:32] starting fault capture pid=40012 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:48:50] starting fault capture pid=42568 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T12:52:10] starting fault capture pid=44510 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:04:00] starting fault capture pid=52174 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:05:05] starting fault capture pid=52451 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:06:14] starting fault capture pid=52795 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:07:13] starting fault capture pid=53105 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:14:39] starting fault capture pid=55228 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:15:55] starting fault capture pid=55910 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:23:35] starting fault capture pid=60832 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:29:45] starting fault capture pid=63099 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:35:07] starting fault capture pid=63701 argv=src/dune_tension/main.py
+
+[2026-04-28T13:41:28] starting fault capture pid=65928 argv=src/dune_tension/main.py
+
+[2026-04-28T13:57:41] starting fault capture pid=68888 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T13:59:40] starting fault capture pid=69696 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-28T14:16:29] starting fault capture pid=78082 argv=/home/dune/dune-monorepo/src/dune_tension/main.py

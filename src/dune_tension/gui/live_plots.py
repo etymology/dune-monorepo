@@ -23,7 +23,7 @@ except Exception:  # pragma: no cover - fall back to text placeholders in tests/
     pass
 
 LIVE_SUMMARY_FIGSIZE = (6.0, 5.6)
-LIVE_WAVEFORM_FIGSIZE = (5.6, 3.5)
+LIVE_WAVEFORM_FIGSIZE = (11.2, 7.0)
 
 
 class LivePlotManager:

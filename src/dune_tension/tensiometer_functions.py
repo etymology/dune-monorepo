@@ -304,7 +304,9 @@ class WirePositionProvider:
                 layer=config.layer,
                 pin_a=pin_a,
                 pin_b=pin_b,
-                layer_calibration_path=get_local_layer_calibration_path(config.layer),
+                layer_calibration_path=str(
+                    get_local_layer_calibration_path(config.layer)
+                ),
             )
         except Exception as exc:
             LOGGER.warning(

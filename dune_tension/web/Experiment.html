@@ -43,11 +43,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Wire Number:</label>
-                    <input type="number" id="wire-number" value="100">
+                    <input type="number" id="wire-number" value="600" placeholder="e.g., 600">
                 </div>
                 <div class="form-group">
                     <label>Zone (1-5):</label>
-                    <input type="number" id="zone" value="1" min="1" max="5">
+                    <input type="number" id="zone" value="3" min="1" max="5">
                 </div>
             </div>
             <div class="form-row">
@@ -79,9 +79,23 @@
                     <input type="number" id="record-duration" value="0.5" step="0.1">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Confidence Threshold:</label>
+                    <input type="number" id="measure-conf-threshold" value="2.0" step="0.1" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Wiggle Span (mm ±):</label>
+                    <input type="number" id="sweeping-wiggle-span" value="1.0" step="0.1" min="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" id="sweeping-wiggle" checked> Sweeping Wiggle</label>
+            </div>
             <div class="button-group">
                 <button id="start-btn">Start Experiment Loop</button>
                 <button id="collect-raw-btn" style="background-color: #e67e22;">Collect Raw Samples</button>
+                <button id="stop-btn" style="background-color: #c0392b;" disabled>Stop</button>
             </div>
         </section>
 

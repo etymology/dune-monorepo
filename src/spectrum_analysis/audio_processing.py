@@ -494,6 +494,7 @@ def acquire_audio(
             expected_f0=expected_f0,
             sample_rate=cfg.sample_rate,
             max_record_seconds=cfg.max_record_seconds,
+            timeout_seconds=timeout if timeout is not None else cfg.max_record_seconds,
             comb_cfg=cfg.comb_trigger,
         )
         return discard_leading_audio(audio, cfg.sample_rate)

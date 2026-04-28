@@ -81,7 +81,7 @@ def start_experiment():
 
 def figure_to_base64(fig: Figure) -> str:
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight")
+    fig.savefig(buf, format="png", bbox_inches="tight", dpi=200)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
@@ -122,12 +122,12 @@ def get_summary_plot():
     df["harmonicity"] = pd.to_numeric(df["harmonicity"], errors="coerce")
     df = df.dropna(subset=["tension"])
 
-    fig = Figure(figsize=(12, 10), constrained_layout=True)
+    fig = Figure(figsize=(32, 10), constrained_layout=True)
     gs = fig.add_gridspec(3, 2)
 
     # 1. Tension Distribution (Histogram)
     ax_hist = fig.add_subplot(gs[0, 0])
-    df["tension"].hist(ax=ax_hist, bins=20, color="skyblue", edgecolor="black")
+    ax_hist.hist(df["tension"].dropna(), bins=20, color="skyblue", edgecolor="black")
     ax_hist.set_title("Tension Distribution")
     ax_hist.set_xlabel("Tension (N)")
     ax_hist.set_ylabel("Count")
@@ -167,6 +167,9 @@ def get_summary_plot():
 
 @app.route("/experiment/measure", methods=["POST"])
 def measure_wire():
+    import logging
+    logger = logging.getLogger(__name__)
+
     data = request.get_json()
 
     wire_number = int(data.get("wire_number"))
@@ -175,6 +178,11 @@ def measure_wire():
     layer = data.get("layer", "U")
     side = data.get("side", "A")
     capos_on_combs = data.get("capos_on_combs", [])  # List of ints 1-4
+    confidence_threshold = float(data.get("confidence_threshold", 2.0))
+    sweeping_wiggle = bool(data.get("sweeping_wiggle", True))
+    sweeping_wiggle_span_mm = float(data.get("sweeping_wiggle_span_mm", 1.0))
+
+    logger.info(f"measure_wire: wire={wire_number}, zone={zone}, layer={layer}, side={side}")
 
     # Calculate capo_left/capo_right
     capo_left = False
@@ -199,8 +207,13 @@ def measure_wire():
 
     repo = ExperimentResultRepository(EXPERIMENT_DB_PATH, metadata)
 
-    options = resolve_runtime_options()
-    runtime = build_runtime_bundle(options)
+    try:
+        options = resolve_runtime_options()
+        runtime = build_runtime_bundle(options)
+        logger.info("Runtime bundle built successfully")
+    except Exception as e:
+        logger.error(f"Failed to build runtime bundle: {e}")
+        return jsonify({"status": "error", "message": f"Failed to build runtime: {e}"}), 500
 
     # Override repository factory and wire position provider
     runtime = type(runtime)(
@@ -213,13 +226,21 @@ def measure_wire():
         wire_position_provider=runtime.wire_position_provider,
     )
 
-    tm = build_tensiometer(
-        apa_name=apa_name,
-        layer=layer,
-        side=side,
-        runtime_bundle=runtime,
-        samples_per_wire=data.get("samples_per_wire", 1),
-    )
+    try:
+        tm = build_tensiometer(
+            apa_name=apa_name,
+            layer=layer,
+            side=side,
+            runtime_bundle=runtime,
+            samples_per_wire=data.get("samples_per_wire", 1),
+            confidence_threshold=confidence_threshold,
+            sweeping_wiggle=sweeping_wiggle,
+            sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
+        )
+        logger.info(f"Tensiometer built successfully with config: {tm.config}")
+    except Exception as e:
+        logger.error(f"Failed to build tensiometer: {e}")
+        return jsonify({"status": "error", "message": f"Failed to build tensiometer: {e}"}), 500
 
     # Set audio callback
     tm.audio_sample_callback = state.audio_callback
@@ -227,12 +248,21 @@ def measure_wire():
     result = None
     with repo.run_scope():
         # Figure out where to measure
-        pose = runtime.wire_position_provider.get_pose_for_zone(
-            tm.config,
-            wire_number,
-            zone,
-            current_focus_position=data.get("focus_position"),
-        )
+        if runtime.wire_position_provider is None:
+            return jsonify({"status": "error", "message": "Wire position provider not available"}), 500
+
+        try:
+            logger.info(f"Getting pose for wire {wire_number} zone {zone}")
+            pose = runtime.wire_position_provider.get_pose_for_zone(
+                tm.config,
+                wire_number,
+                zone,
+                current_focus_position=data.get("focus_position"),
+            )
+            logger.info(f"Pose result: {pose}")
+        except Exception as e:
+            logger.error(f"Error getting pose: {e}", exc_info=True)
+            return jsonify({"status": "error", "message": f"Error getting pose: {e}"}), 500
 
         if pose:
             result = tm.goto_collect_wire_data(
@@ -315,11 +345,17 @@ def collect_raw():
 
         from spectrum_analysis.pitch_compare_config import PitchCompareConfig
         from spectrum_analysis.audio_processing import acquire_audio
+        from dune_tension.geometry import length_lookup
+        from dune_tension.tension_calculation import wire_equation
+
+        length = length_lookup(layer, wire_number, zone)
+        expected_frequency = wire_equation(length=length)["frequency"]
 
         cfg = PitchCompareConfig(
             sample_rate=tm.samplerate,
             noise_duration=record_duration,
             input_mode="mic" if not options.spoof_audio else "file",
+            expected_f0=expected_frequency,
         )
 
         for i in range(samples_to_collect):

@@ -1,3 +1,6 @@
+let stopRequested = false;
+document.getElementById('stop-btn').addEventListener('click', () => { stopRequested = true; });
+
 document.getElementById('start-btn').addEventListener('click', async () => {
     const name = document.getElementById('exp-name').value;
     const apa_name = document.getElementById('apa-name').value;
@@ -8,7 +11,10 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     const known_tension = parseFloat(document.getElementById('known-tension').value) || null;
     const focus_position = parseInt(document.getElementById('focus-pos').value);
     const samples_per_wire = parseInt(document.getElementById('samples-per-wire').value);
-    
+    const confidence_threshold = parseFloat(document.getElementById('measure-conf-threshold').value);
+    const sweeping_wiggle = document.getElementById('sweeping-wiggle').checked;
+    const sweeping_wiggle_span_mm = parseFloat(document.getElementById('sweeping-wiggle-span').value);
+
     const capos_on_combs = Array.from(document.querySelectorAll('input[name="capo-comb"]:checked'))
         .map(cb => parseInt(cb.value));
 
@@ -17,6 +23,10 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     const progressBar = document.getElementById('progress-bar');
     const audioPlot = document.getElementById('audio-plot');
     const summaryPlot = document.getElementById('summary-plot');
+
+    stopRequested = false;
+    document.getElementById('stop-btn').disabled = false;
+    document.getElementById('start-btn').disabled = true;
 
     statusDisplay.textContent = "Starting experiment...";
     progressBar.style.width = "0%";
@@ -57,6 +67,10 @@ document.getElementById('start-btn').addEventListener('click', async () => {
 
         // 2. Run Measurement Loop
         for (let i = 0; i < samples_per_wire; i++) {
+            if (stopRequested) {
+                statusDisplay.textContent = "Stopped.";
+                break;
+            }
             statusDisplay.textContent = `Measuring sample ${i + 1} of ${samples_per_wire}...`;
             
             const measureResponse = await fetch('/experiment/measure', {
@@ -74,6 +88,9 @@ document.getElementById('start-btn').addEventListener('click', async () => {
                     focus_position,
                     capos_on_combs,
                     samples_per_wire: 1,
+                    confidence_threshold,
+                    sweeping_wiggle,
+                    sweeping_wiggle_span_mm,
                 })
             });
             
@@ -102,13 +119,16 @@ document.getElementById('start-btn').addEventListener('click', async () => {
             progressBar.style.width = `${((i + 1) / samples_per_wire) * 100}%`;
         }
 
-        if (statusDisplay.textContent !== "Experiment complete.") {
+        if (!stopRequested && statusDisplay.textContent !== "Experiment complete.") {
              statusDisplay.textContent = "Experiment finished.";
         }
 
     } catch (error) {
         statusDisplay.textContent = `Error: ${error.message}`;
         console.error(error);
+    } finally {
+        document.getElementById('stop-btn').disabled = true;
+        document.getElementById('start-btn').disabled = false;
     }
 });
 
