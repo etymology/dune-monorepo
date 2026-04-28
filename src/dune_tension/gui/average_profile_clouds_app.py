@@ -60,6 +60,7 @@ class AverageProfileExplorerApp:
         self._latest_options: AverageProfileCloudOptions | None = None
         self._latest_results: dict[str, list[LayerAnalysisResult]] | None = None
         self._tab_state: dict[str, LayerTabState] = {}
+        self._rendered_layers: set[str] = set()
         self._controls_visible = True
 
         self.source_var = tk.StringVar(
@@ -73,9 +74,6 @@ class AverageProfileExplorerApp:
         self.min_coverage_var = tk.StringVar(
             master=root, value=str(AverageProfileCloudOptions().min_coverage)
         )
-        self.iterations_var = tk.StringVar(
-            master=root, value=str(AverageProfileCloudOptions().iterations)
-        )
         self.exclude_regex_var = tk.StringVar(
             master=root, value=AverageProfileCloudOptions().exclude_apa_regex
         )
@@ -84,9 +82,6 @@ class AverageProfileExplorerApp:
         )
         self.moving_average_var = tk.StringVar(
             master=root, value=str(AverageProfileCloudOptions().moving_average_window)
-        )
-        self.no_scaling_var = tk.BooleanVar(
-            master=root, value=AverageProfileCloudOptions().no_scaling
         )
         self.average_per_wire_var = tk.BooleanVar(
             master=root, value=AverageProfileCloudOptions().average_per_wire
@@ -108,6 +103,9 @@ class AverageProfileExplorerApp:
         self._build_layout()
         self._bind_auto_refresh()
         self._sync_split_by_location_state()
+
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+
         self.schedule_refresh()
 
     def _build_layout(self) -> None:
@@ -155,19 +153,16 @@ class AverageProfileExplorerApp:
             controls, "Min Coverage", 2, 0, variable=self.min_coverage_var, width=12
         )
         self._add_labeled_entry(
-            controls, "Iterations", 2, 2, variable=self.iterations_var, width=12
+            controls, "Exclude Regex", 2, 2, variable=self.exclude_regex_var, width=44
         )
         self._add_labeled_entry(
-            controls, "Exclude Regex", 3, 0, variable=self.exclude_regex_var, width=44
-        )
-        self._add_labeled_entry(
-            controls, "Bins", 3, 2, variable=self.bins_var, width=12
+            controls, "Bins", 3, 0, variable=self.bins_var, width=12
         )
         self._add_labeled_entry(
             controls,
             "Moving Avg",
-            4,
-            0,
+            3,
+            2,
             variable=self.moving_average_var,
             width=12,
         )
@@ -175,7 +170,7 @@ class AverageProfileExplorerApp:
             controls,
             "Plot Mode",
             4,
-            2,
+            0,
             variable=self.plot_mode_var,
             kind="plot_mode_combo",
             width=24,
@@ -185,36 +180,30 @@ class AverageProfileExplorerApp:
         toggles.grid(row=5, column=0, columnspan=4, sticky="w")
         ttk.Checkbutton(
             toggles,
-            text="No scaling",
-            variable=self.no_scaling_var,
-            command=self.schedule_refresh,
-        ).grid(row=0, column=0, sticky="w", padx=(0, 8))
-        ttk.Checkbutton(
-            toggles,
             text="Average per wire",
             variable=self.average_per_wire_var,
             command=self.schedule_refresh,
-        ).grid(row=0, column=1, sticky="w", padx=(0, 8))
+        ).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.split_by_location_button = ttk.Checkbutton(
             toggles,
             text="Split by location",
             variable=self.split_by_location_var,
             command=self.schedule_refresh,
         )
-        self.split_by_location_button.grid(row=0, column=2, sticky="w")
+        self.split_by_location_button.grid(row=0, column=1, sticky="w")
         self.show_all_locations_button = ttk.Checkbutton(
             toggles,
             text="All locations on same plot",
             variable=self.show_all_locations_var,
             command=self.schedule_refresh,
         )
-        self.show_all_locations_button.grid(row=0, column=3, sticky="w", padx=(8, 0))
+        self.show_all_locations_button.grid(row=0, column=2, sticky="w", padx=(8, 0))
         ttk.Checkbutton(
             toggles,
             text="Split by side (A/B)",
             variable=self.split_by_side_var,
             command=self.schedule_refresh,
-        ).grid(row=0, column=4, sticky="w", padx=(8, 0))
+        ).grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         actions = ttk.Frame(controls)
         actions.grid(row=6, column=0, columnspan=4, sticky="ew", pady=(8, 0))
@@ -289,7 +278,6 @@ class AverageProfileExplorerApp:
             self.db_path_var,
             self.csv_dir_var,
             self.min_coverage_var,
-            self.iterations_var,
             self.exclude_regex_var,
             self.bins_var,
             self.moving_average_var,
@@ -383,28 +371,38 @@ class AverageProfileExplorerApp:
 
         self._latest_options = options
         self._latest_results = results
-        total_plots = 0
-        plot_mode = self._selected_plot_mode()
-        for layer, layer_results in results.items():
-            self._render_layer_results(layer, layer_results, options)
-            split_by_side = self._should_split_by_side_for_mode(
-                options, plot_mode=plot_mode
-            )
-            if split_by_side:
-                total_plots += sum(
-                    sum(
-                        1
-                        for side in ("A", "B")
-                        if not result.cloud.empty
-                        and (result.cloud["side"] == side).any()
+        self._rendered_layers = set()
+
+        # Only render the active tab immediately.
+        current_tab_id = self.notebook.select()
+        active_layer = None
+        for layer, state in self._tab_state.items():
+            if str(state.frame) == str(current_tab_id):
+                active_layer = layer
+                break
+
+        if active_layer:
+            self._render_layer_results(active_layer, results[active_layer], options)
+            self._rendered_layers.add(active_layer)
+
+        self.global_status_var.set("Ready. Active tab rendered.")
+
+    def _on_tab_changed(self, _event: Any = None) -> None:
+        if self._latest_results is None or self._latest_options is None:
+            return
+
+        current_tab_id = self.notebook.select()
+        for layer, state in self._tab_state.items():
+            if str(state.frame) == str(current_tab_id):
+                if layer not in self._rendered_layers:
+                    self.global_status_var.set(f"Rendering {layer}...")
+                    self.root.update_idletasks()
+                    self._render_layer_results(
+                        layer, self._latest_results[layer], self._latest_options
                     )
-                    for result in layer_results
-                )
-            else:
-                total_plots += sum(
-                    1 for result in layer_results if not result.cloud.empty
-                )
-        self.global_status_var.set(f"Ready. Rendered {total_plots} plot(s).")
+                    self._rendered_layers.add(layer)
+                    self.global_status_var.set("Ready.")
+                break
 
     def collect_options(self) -> AverageProfileCloudOptions:
         return normalize_options(
@@ -414,11 +412,9 @@ class AverageProfileExplorerApp:
                 "layers": self.layers_var.get().strip(),
                 "csv_dir": self.csv_dir_var.get().strip(),
                 "min_coverage": self.min_coverage_var.get().strip(),
-                "iterations": self.iterations_var.get().strip(),
                 "exclude_apa_regex": self.exclude_regex_var.get(),
                 "bins": self.bins_var.get().strip(),
                 "moving_average_window": self.moving_average_var.get().strip(),
-                "no_scaling": self.no_scaling_var.get(),
                 "average_per_wire": self.average_per_wire_var.get(),
                 "split_by_location": self.split_by_location_var.get(),
                 "show_all_locations": self.show_all_locations_var.get(),
@@ -598,6 +594,9 @@ class AverageProfileExplorerApp:
                         plot_mode=plot_mode,
                     )
                     image = self._figure_to_photo_image(figure)
+                    # Explicitly clear and close the figure to save memory.
+                    figure.clear()
+
                     widget = ttk.Label(content, image=image)
                     cast(Any, widget).image = image
                     widget.grid(row=inner_row, column=0, sticky="nsew", pady=(0, 8))
@@ -618,6 +617,9 @@ class AverageProfileExplorerApp:
                     plot_mode=plot_mode,
                 )
                 image = self._figure_to_photo_image(figure)
+                # Explicitly clear and close the figure to save memory.
+                figure.clear()
+
                 widget = ttk.Label(state.content_frame, image=image)
                 cast(Any, widget).image = image
                 widget.grid(row=row * 2 + 1, column=0, sticky="nsew")

@@ -13,10 +13,11 @@ class: invert
 
 - The comparable Chicago tension measurements are lower than the UK measurements in every layer-side group.
 - The shift is not a single constant offset: G is lower by about `0.2-0.4 N`,
-  while the currently measured U subset is lower by about `0.5-0.9 N`.
+  while the currently measured U subset is lower by about `0.5-0.9 N`
+- Some combination of uniform relaxation and small changes in frame shape
 - All current Chicago G and U summary values are within the `4.0-8.5 N`
   tension specification.
-- Some apparently large shifts in tension are probably due to measurement errors at Daresbury.
+- No obvious sign of shipping damage
 
 ---
 
@@ -24,7 +25,7 @@ class: invert
 
 - UK source data are the APA-UK007 action JSON records: U uploaded
   `2023-11-21`, G uploaded `2023-12-10`.
-  - The exact setup is not known, probably laser+ziptie+labview
+  - Probably laser+ziptie+labview
 - Chicago source data from March 11 2026
   - Chicago winder using laser+compressed air+python
 - Residuals are defined as `Chicago - UK`; negative values mean Chicago measured
@@ -54,12 +55,10 @@ class: invert
 
 ---
 
-Tensions
 ![g both sides](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_landscape_G.png)
 
 ---
 
-Differences
 ![G change in tension](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_change_in_tension_G.png)
 
 ---
@@ -76,12 +75,10 @@ Differences
 
 ---
 
-Tensions
 ![U both sides](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_landscape_U.png)
 
 ---
 
-Differences
 ![U change in tension](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_change_in_tension_U.png)
 
 ---
@@ -103,10 +100,8 @@ Differences
 
 ---
 
-Aggregate of all G wires Chicago+Daresbury
-![all g wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_G_mode_allsamples_cov0p5_it3_bins40.png)
+![all g wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_G_dunedb_noscale_avgwire_cov0p5_bins40_win5_daresbury.pngg)
 
 ---
 
-Aggregate of all U wires Chicago+Daresbury
-![all u wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_U_noscale_allsamples_cov0p5_it3_bins40.png)
+![all u wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_U_dunedb_noscale_avgwire_cov0p5_bins40_win5_daresbury.png)
