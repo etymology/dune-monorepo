@@ -71,11 +71,11 @@ def _plot_side_raw(
     ]
     for color, name, values in pairs:
         label = f"{name} ({_stats_text(values)})"
-        top_ax.scatter(wire_numbers, values, s=10, alpha=0.25, color=color)
+        top_ax.scatter(wire_numbers, values, s=10, alpha=0.12, color=color)
         top_ax.plot(
             wire_numbers,
-            _rolling_mean(values.reset_index(drop=True)),
-            linewidth=2,
+            _rolling_mean(values.reset_index(drop=True), window=5),
+            linewidth=1.2,
             color=color,
             label=label,
         )
