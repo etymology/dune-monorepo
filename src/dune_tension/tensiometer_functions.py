@@ -295,9 +295,16 @@ class WirePositionProvider:
 
         layout = get_uv_layout(config.layer)
         try:
-            pin_a, pin_b = layout.wire_segment_endpoints(wire_number, family=config.side)
+            from dune_tension.layer_calibration import get_local_layer_calibration_path
+
+            pin_a, pin_b = layout.wire_segment_endpoints(
+                wire_number, family=config.side
+            )
             geom = compute_pin_pair_tangent_geometry(
-                layer=config.layer, pin_a=pin_a, pin_b=pin_b
+                layer=config.layer,
+                pin_a=pin_a,
+                pin_b=pin_b,
+                layer_calibration_path=get_local_layer_calibration_path(config.layer),
             )
         except Exception as exc:
             LOGGER.warning(
