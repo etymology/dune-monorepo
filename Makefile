@@ -1,4 +1,4 @@
-.PHONY: test lint format
+.PHONY: test lint format check
 
 test:
 	uv run pytest
@@ -8,3 +8,5 @@ lint:
 
 format:
 	uv run ruff format src tests
+
+check: lint test
