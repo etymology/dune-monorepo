@@ -1351,13 +1351,17 @@ class Tensiometer:
             y: float,
             focus_position: int | None,
             zone: int | None,
+            amplitude: float = 0.0,
+            harmonicity: float = 0.0,
         ) -> TensionResult:
             LOGGER.info(
-                "Sample of wire %s: measured frequency %.2f Hz %s with confidence %.2f",
+                "Sample of wire %s: measured frequency %.2f Hz %s with confidence %.2f (amp=%.4f, harm=%.4f)",
                 wire_number,
                 frequency,
                 wire_equation(length=length, frequency=frequency),
                 confidence,
+                amplitude,
+                harmonicity,
             )
             return TensionResult.from_measurement(
                 apa_name=self.config.apa_name,
@@ -1372,6 +1376,8 @@ class Tensiometer:
                 zone=zone,
                 time=self._now(),
                 taped=self._is_current_side_taped(),
+                amplitude=amplitude,
+                harmonicity=harmonicity,
             )
 
         def _analyze_sample(
@@ -1382,6 +1388,39 @@ class Tensiometer:
                 expected_frequency,
             )
             _publish_audio_sample(sample.audio_sample, analysis)
+
+            # Calculate harmonicity for the result
+            harmonicity = 0.0
+            from spectrum_analysis.comb_trigger import (
+                harmonic_comb_response,
+                HarmonicCombConfig,
+            )
+
+            comb_cfg = HarmonicCombConfig()
+            frame_size = comb_cfg.frame_size
+            if sample.audio_sample.size >= frame_size:
+                frame = sample.audio_sample[:frame_size]
+                window = np.hanning(frame_size).astype(np.float32)
+                freq_bins = np.fft.rfftfreq(frame_size, d=1.0 / self.samplerate)
+                # Use analysis.frequency if available, else expected_frequency
+                f0 = (
+                    frequency
+                    if np.isfinite(frequency)
+                    else (expected_frequency or 100.0)
+                )
+                candidates = np.array([f0])
+                weights = comb_cfg.harmonic_weights()
+                r_value, _sfm, _valid = harmonic_comb_response(
+                    frame,
+                    self.samplerate,
+                    window,
+                    freq_bins,
+                    candidates,
+                    weights,
+                    comb_cfg.min_harmonics,
+                )
+                harmonicity = float(r_value)
+
             wire_result = _build_wire_result(
                 confidence=sample.confidence,
                 frequency=frequency,
@@ -1389,6 +1428,8 @@ class Tensiometer:
                 y=sample.y,
                 focus_position=sample.focus_position,
                 zone=measured_zone,
+                amplitude=self._sample_rms(sample.audio_sample),
+                harmonicity=harmonicity,
             )
             self.repository.append_sample(wire_result)
             return wire_result
