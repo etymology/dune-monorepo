@@ -484,9 +484,13 @@ def _move_laser_to_pin(ctx: GUIContext, layer: str, side: str, pin_name: str) ->
     target_y = float(pin_y) - float(offset["y"])
     goto_xy = cast(Any, getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy))
     try:
-        result = goto_xy(target_x, target_y)
+        result = goto_xy(target_x, target_y, allow_outside_measurable=True)
     except TypeError:
-        result = goto_xy(target_x, target_y, speed=None)
+        # Fallback for old motion service versions
+        try:
+            result = goto_xy(target_x, target_y, speed=None)
+        except TypeError:
+            result = goto_xy(target_x, target_y)
     return result is not False
 
 
@@ -1577,6 +1581,63 @@ def interrupt(ctx: GUIContext) -> None:
     ctx.stop_event.set()
     ctx.servo_controller.stop_loop()
     _set_estimated_time(ctx, "Interrupted")
+
+
+def _check_connections(ctx: GUIContext) -> dict[str, bool]:
+    """Check connection status for all controllers."""
+    try:
+        from dune_tension.plc_io import is_plc_available as check_plc
+    except ImportError:
+        def check_plc() -> bool:
+            return False
+
+    from dune_tension.maestro import DummyController
+
+    connections = {
+        "plc": check_plc(),
+        "servo": not isinstance(ctx.servo_controller.servo, DummyController),
+        "valve": ctx.valve_controller is not None,
+    }
+    return connections
+
+
+def refresh_connections(ctx: GUIContext) -> None:
+    """Refresh controller connections, retrying until all are available."""
+
+    def refresh_worker() -> None:
+        LOGGER.info("Starting connection refresh...")
+        max_retries = 30
+        retry_interval_ms = 1000
+
+        for attempt in range(1, max_retries + 1):
+            connections = _check_connections(ctx)
+            all_connected = all(connections.values())
+
+            status = ", ".join(
+                f"{name}={'✓' if status else '✗'}"
+                for name, status in sorted(connections.items())
+            )
+            LOGGER.info(f"Connection check (attempt {attempt}): {status}")
+
+            if all_connected:
+                LOGGER.info("All connections established successfully.")
+                return
+
+            if attempt < max_retries:
+                import time
+
+                time.sleep(retry_interval_ms / 1000.0)
+
+        LOGGER.warning("Failed to establish all connections after %d retries", max_retries)
+
+    try:
+        Thread(
+            target=refresh_worker,
+            name="gui-refresh-connections",
+            daemon=True,
+        ).start()
+    except Exception as exc:
+        LOGGER.exception("Failed to start connection refresh: %s", exc)
 
 
 def monitor_tension_logs(ctx: GUIContext) -> None:
