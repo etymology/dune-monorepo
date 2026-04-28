@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -295,6 +296,24 @@ def print_verdict(verdict: dict, task_id: str, verbose: bool, raw_output: str) -
     print()
 
 
+def save_prompt(prompt: str, task_id: str, plan_slug: str) -> Path:
+    """Save evaluation prompt to a file and return the path."""
+    FEEDBACK_DIR.mkdir(exist_ok=True)
+    prompt_path = FEEDBACK_DIR / f"{plan_slug}_{task_id}_prompt.txt"
+    prompt_path.write_text(prompt)
+    return prompt_path
+
+
+def parse_verdict_from_file(result_path: Path) -> dict:
+    """Parse verdict from a file containing Claude's evaluation output."""
+    if not result_path.exists():
+        return {
+            "overall": "FAIL",
+            "parse_error": f"Result file not found: {result_path}",
+        }
+    return parse_verdict(result_path.read_text())
+
+
 def main():
     parser = argparse.ArgumentParser(description="Agent harness evaluator")
     parser.add_argument("--task", required=True, help="Task ID to evaluate (e.g., 1)")
@@ -304,6 +323,10 @@ def main():
         "--verbose",
         action="store_true",
         help="Show full evaluator output",
+    )
+    parser.add_argument(
+        "--result",
+        help="Path to evaluation result file (for parsing verdicts from prior runs)",
     )
     args = parser.parse_args()
 
@@ -322,48 +345,51 @@ def main():
         print(f"Task {args.task} not found in plan.")
         sys.exit(1)
 
-    print(f"\n── Evaluating task {task['id']}: {task['title']} ──")
+    # If result file is provided, parse verdict from it
+    if args.result:
+        result_path = Path(args.result)
+        if not result_path.is_absolute():
+            result_path = ROOT / result_path
+        verdict = parse_verdict_from_file(result_path)
+        print_verdict(
+            verdict,
+            args.task,
+            verbose=args.verbose,
+            raw_output=result_path.read_text() if result_path.exists() else "",
+        )
+
+        # Persist feedback
+        FEEDBACK_DIR.mkdir(exist_ok=True)
+        feedback_path = FEEDBACK_DIR / f"{plan['slug']}_{args.task}.json"
+        feedback_path.write_text(json.dumps(verdict, indent=2) + "\n")
+
+        if verdict["overall"] == "PASS":
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+    # Generate evaluation prompt
+    print(f"\n── Evaluating task {task['id']}: {task['title']} ──\n")
 
     prompt = build_eval_prompt(plan, task, auto_fix=args.fix)
+
+    # Save prompt to file
+    prompt_path = save_prompt(prompt, args.task, plan["slug"])
 
     allowed_tools = "Bash,Read,Glob,Grep"
     if args.fix:
         allowed_tools += ",Edit,Write"
 
-    result = subprocess.run(
-        [
-            "claude",
-            "-p",
-            prompt,
-            "--allowedTools",
-            allowed_tools,
-            "--output-format",
-            "text",
-        ],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
+    print(f"Evaluation prompt saved to: {prompt_path}\n")
+    print("To evaluate, run:")
+    print(
+        f'  claude -p "$(cat {prompt_path})" --allowedTools {allowed_tools} --output-format text > /tmp/eval_result.txt\n'
     )
-
-    raw_output = result.stdout or ""
-    if result.returncode != 0:
-        print(f"Claude session failed (exit code {result.returncode})")
-        if result.stderr:
-            print(result.stderr)
-        sys.exit(1)
-
-    verdict = parse_verdict(raw_output)
-    print_verdict(verdict, args.task, verbose=args.verbose, raw_output=raw_output)
-
-    # Persist feedback
-    FEEDBACK_DIR.mkdir(exist_ok=True)
-    feedback_path = FEEDBACK_DIR / f"{plan['slug']}_{args.task}.json"
-    feedback_path.write_text(json.dumps(verdict, indent=2) + "\n")
-
-    if verdict["overall"] == "PASS":
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    print("Then parse the verdict with:")
+    print(
+        f"  python .harness/evaluator.py --plan {args.plan} --task {args.task} --result /tmp/eval_result.txt"
+    )
+    print()
 
 
 if __name__ == "__main__":
