@@ -227,6 +227,7 @@ def measure_wire():
     result = None
     with repo.run_scope():
         # Figure out where to measure
+        assert runtime.wire_position_provider is not None
         pose = runtime.wire_position_provider.get_pose_for_zone(
             tm.config,
             wire_number,
@@ -302,6 +303,7 @@ def collect_raw():
 
     results = []
     with repo.run_scope():
+        assert runtime.wire_position_provider is not None
         pose = runtime.wire_position_provider.get_pose_for_zone(
             tm.config,
             wire_number,

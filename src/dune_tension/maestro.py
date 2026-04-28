@@ -115,6 +115,8 @@ class Controller:
     # Send a Pololu command out the serial pnoort
     def sendCmd(self, cmd):
         with self.lock:
+            if self.usb is None:
+                return
             cmdStr = self.PololuCmd + cmd
             if PY2:
                 self.usb.write(cmdStr)
@@ -190,6 +192,8 @@ class Controller:
         cmd = chr(0x10) + chr(chan)
         with self.lock:
             self.sendCmd(cmd)
+            if self.usb is None:
+                return 0
             lsb = ord(self.usb.read())
             msb = ord(self.usb.read())
         return (msb << 8) + lsb
@@ -211,6 +215,8 @@ class Controller:
         cmd = chr(0x13)
         with self.lock:
             self.sendCmd(cmd)
+            if self.usb is None:
+                return False
             return self.usb.read() != chr(0)
 
     # Run a Maestro Script subroutine in the currently active script. Scripts can

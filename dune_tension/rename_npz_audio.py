@@ -17,7 +17,7 @@ def rename_first_array(npz_file: Path) -> None:
     new_arrays.update(arrays)
     tmp_path = npz_file.with_suffix(npz_file.suffix + ".tmp")
     with tmp_path.open("wb") as f:
-        np.savez(f, **new_arrays)  # type: ignore
+        np.savez(f, **new_arrays)
     tmp_path.replace(npz_file)
 
 

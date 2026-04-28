@@ -57,6 +57,8 @@ class MotionSafetyLimits:
     support_collision_middle_max_y: float = 1550.0
     support_collision_top_min_y: float = 2200.0
     support_collision_top_max_y: float = 2650.0
+    zlimit_front: float = 0.0
+    zlimit_rear: float = 0.0
     geometry_epsilon: float = 1e-9
 
 

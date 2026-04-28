@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import is_dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -29,7 +29,7 @@ from dune_tension.streaming.models import (
 
 
 def make_stream_session_id(now: datetime | None = None) -> str:
-    timestamp = (now or datetime.utcnow()).strftime("%Y%m%dT%H%M%S")
+    timestamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%S")
     return f"{timestamp}-{uuid.uuid4().hex[:8]}"
 
 

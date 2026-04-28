@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass, fields
 from datetime import datetime
-from typing import Any, Iterator, Mapping, Iterable
+from typing import Any, Iterator, Mapping, Iterable, ContextManager
 
 from dune_tension.results import TensionResult, EXPECTED_COLUMNS
 import dune_tension.data_cache as data_cache
@@ -76,7 +76,7 @@ class ExperimentResultRepository:
             self._schema_ready = True
         return self._conn
 
-    def run_scope(self) -> Iterator["ExperimentResultRepository"]:
+    def run_scope(self) -> ContextManager["ExperimentResultRepository"]:
         # Mocking contextmanager behavior for simplicity in this bridge
         from contextlib import contextmanager
 
