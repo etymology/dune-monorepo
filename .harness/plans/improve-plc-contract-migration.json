@@ -1,0 +1,260 @@
+{
+  "slug": "improve-plc-contract-migration",
+  "title": "Migrate PLC Tag Freshness and State Request Contract",
+  "type": "improvement",
+  "created": "2026-04-28",
+  "status": "planned",
+  "context": "The current winder PLC contract uses PLC.Tag as a value-only cache with no timestamp, quality, error, or freshness controls, and it uses STATE_REQUEST as a shared command, acknowledgement, reset flag, and stop signal. This migration makes host-side reads explicit about freshness and failure behavior, introduces a request-id/state-status protocol similar to queued motion, and improves ladder reliability around request acceptance, completion, cancellation, and failures. PLC ladder edits must follow the repository PLC proposal workflow before any pasteable.rll changes are written.",
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Document and test the current PLC contract",
+      "description": "Create characterization coverage for the existing tag cache, direct read fallback, STATE_REQUEST dispatch, and queue request-id behavior before changing the contract. Capture the intended migration target in a short design note so later tasks have an explicit source of truth.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "A design note documents current PLC.Tag semantics, current STATE_REQUEST semantics, and the target freshness/request-id protocol",
+        "Tests characterize that PLC.Tag.get returns cached values without freshness metadata",
+        "Tests characterize that PLC_Logic._readTagNow falls back to cached data on read failure",
+        "Tests characterize READY dispatch from STATE_REQUEST and MOVE_TYPE using the simulator or ladder runtime",
+        "Tests characterize queued motion request-id acknowledgement as the reference protocol",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "docs/design-docs/plc-contract-migration.md",
+        "tests/dune_winder/test_plc_tag_contract.py",
+        "tests/dune_winder/test_plc_logic.py",
+        "tests/dune_winder/test_ladder_simulated_plc.py",
+        "tests/dune_winder/test_queued_motion.py"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "2",
+      "title": "Fix immediate PLC contract drift",
+      "description": "Address small correctness gaps found during the audit before layering on a new protocol. Keep this as a focused bug-fix task so later protocol changes do not obscure existing defects.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "PLC_Logic.ERROR_CODES includes every ERROR_CODE emitted by checked-in PLC ladder for XY, Z, transfer, latch, EOT, tension, and queued motion paths",
+        "YZ transfer ladder logic checks the correct transfer interlock for in-flight loss of transfer",
+        "YZ transfer completion compares the Y axis against yz_position_target[0] and the Z axis against yz_position_target[1]",
+        "Simulator and monoroutine equivalence tests cover the corrected YZ transfer checks",
+        "PLC ladder changes are presented through the required PLC change proposal format before any pasteable.rll file is edited",
+        "uv run plc-manifest status shows no unexpected modified PLC artifacts before ladder work begins",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "src/dune_winder/io/controllers/plc_logic.py",
+        "dune_winder/plc/state_13_move_yz/main/pasteable.rll",
+        "src/dune_winder/io/devices/simulated_plc.py",
+        "src/dune_winder/io/devices/ladder_simulated_plc.py",
+        "src/dune_winder/io/devices/monoroutine_simulated_plc.py",
+        "tests/dune_winder/test_plc_logic.py",
+        "tests/dune_winder/test_ladder_simulated_plc.py",
+        "tests/dune_winder/test_monoroutine_equivalence.py"
+      ],
+      "depends_on": [
+        "1"
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Add freshness-aware PLC tag samples",
+      "description": "Extend PLC.Tag with backward-compatible sample metadata and explicit read/write APIs. Existing get/set callers should keep working while new callers can require fresh data or inspect stale/error/default quality.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "PLC.Tag records value, read timestamp, scan id, quality, and last error for each read or write",
+        "PLC.Tag.get preserves the existing cached-value behavior for compatibility",
+        "A new cached/sample API lets callers reject missing data, stale data, default data, or read errors",
+        "A new direct read API updates sample metadata and can raise on communication failure instead of silently returning cached data",
+        "A new write API returns an explicit success/error result while PLC.Tag.set remains backward compatible",
+        "Tag registries are isolated by PLC instance or poll group so separate PLC objects do not poll each other's tags",
+        "Unit tests cover fresh, stale, default, error, write-success, write-failure, and duplicate-tag cases",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "src/dune_winder/io/devices/plc.py",
+        "src/dune_winder/io/devices/controllogix_plc.py",
+        "src/dune_winder/io/devices/simulated_plc.py",
+        "src/dune_winder/io/devices/ladder_simulated_plc.py",
+        "tests/dune_winder/test_plc_tag_contract.py",
+        "tests/dune_winder/test_controllogix_plc.py",
+        "tests/dune_winder/test_plc_ladder_runtime.py"
+      ],
+      "depends_on": [
+        "1"
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Introduce a host-side state command client",
+      "description": "Add a typed state command layer around PLC_Logic that can use the future request-id/status tags when available and can fall back to legacy STATE_REQUEST while the ladder migration is in progress.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "A typed state command client exposes request, wait_accepted, wait_active, wait_complete, cancel, and reset operations",
+        "PLC_Logic._requestState delegates through the state command client without changing public PLC_Logic methods",
+        "Safety-sensitive precondition reads can require fresh samples and raise when the PLC cannot provide fresh data",
+        "Legacy fallback still writes STATE_REQUEST for existing PLCs that do not expose the new protocol tags",
+        "Timeouts and failure paths include state, requested target, request id when present, and ERROR_CODE details",
+        "Tests cover new-protocol success, legacy fallback success, stale precondition rejection, acknowledgement timeout, completion timeout, and PLC error transition",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "src/dune_winder/io/controllers/plc_logic.py",
+        "src/dune_winder/io/controllers/plc_state_command.py",
+        "src/dune_winder/io/devices/plc.py",
+        "tests/dune_winder/test_plc_state_command.py",
+        "tests/dune_winder/test_plc_logic.py"
+      ],
+      "depends_on": [
+        "3"
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Add PLC state request-id tags and READY dispatcher proposal",
+      "description": "Design the ladder-side protocol tags and READY-state dispatch behavior. This task should produce a PLC change proposal first, then apply the change only after the user accepts the proposed paste workflow.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "New controller-scope tags are listed explicitly with scope, type, initial value, and reason before ladder edits are made",
+        "The proposed protocol includes STATE_REQ_ID, STATE_REQ_TARGET, STATE_REQ_ACK_ID, STATE_REQ_STATUS, STATE_REQ_RESULT, STATE_ACTIVE_ID, and STATE_ACTIVE_TARGET or documented equivalent names",
+        "READY accepts a new request only when the request id differs from the acknowledged id and the requested target is valid",
+        "READY rejects invalid targets with status/result instead of blindly moving STATE_REQUEST into NEXTSTATE",
+        "READY latches active request id and target before changing NEXTSTATE",
+        "Legacy STATE_REQUEST dispatch continues to work during migration and is explicitly marked as compatibility behavior",
+        "PLC change proposal includes unified diffs for affected pasteable.rll routines and all tag additions",
+        "uv run plc-manifest status shows no unexpected modified PLC artifacts before ladder work begins",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "dune_winder/plc/controller_level_tags.json",
+        "dune_winder/plc/state_1_ready/main/pasteable.rll",
+        "dune_winder/plc/main/main/pasteable.rll",
+        "src/dune_winder/io/devices/ladder_simulated_plc.py",
+        "src/dune_winder/io/devices/monoroutine_simulated_plc.py",
+        "tests/dune_winder/test_ladder_simulated_plc.py",
+        "tests/dune_winder/test_monoroutine_equivalence.py"
+      ],
+      "depends_on": [
+        "4"
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Publish lifecycle status from motion state routines",
+      "description": "Update XY, Z, XZ, YZ, latch, unservo, EOT, and HMI stop routines to report accepted, active, done, failed, cancelled, and reset outcomes through the new protocol while preserving existing machine behavior.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Each state routine sets DONE only after the physical completion condition that currently returns to READY",
+        "Each state routine sets FAILED with a specific result code when it transitions to ERROR",
+        "Each state routine clears active request metadata only after publishing a terminal result visible to the host",
+        "HMI stop and EOT recovery use explicit cancellation or recovery statuses instead of relying only on STATE_REQUEST being cleared",
+        "Motion instruction ER bits for XY, Z, XZ, and YZ paths produce deterministic failure statuses",
+        "State routine changes are presented through the required PLC change proposal format before any pasteable.rll file is edited",
+        "Simulator and monoroutine equivalence tests cover DONE and FAILED publication for at least XY, Z, XZ, YZ, latch, and HMI stop",
+        "uv run plc-manifest status shows no unexpected modified PLC artifacts before ladder work begins",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "dune_winder/plc/state_3_move_xy/main/pasteable.rll",
+        "dune_winder/plc/state_5_move_z/main/pasteable.rll",
+        "dune_winder/plc/state_6_latch/main/pasteable.rll",
+        "dune_winder/plc/state_9_unservo/main/pasteable.rll",
+        "dune_winder/plc/state_11_eot_trip/main/pasteable.rll",
+        "dune_winder/plc/state_12_move_xz/main/pasteable.rll",
+        "dune_winder/plc/state_13_move_yz/main/pasteable.rll",
+        "dune_winder/plc/state_14_hmi_stop/main/pasteable.rll",
+        "src/dune_winder/io/devices/ladder_simulated_plc.py",
+        "tests/dune_winder/test_ladder_simulated_plc.py",
+        "tests/dune_winder/test_monoroutine_equivalence.py"
+      ],
+      "depends_on": [
+        "5"
+      ]
+    },
+    {
+      "id": "7",
+      "title": "Add state command watchdogs and failure taxonomy",
+      "description": "Make failures diagnosable and deterministic by adding protocol-level timeout/result codes in the host and PLC simulator, then wiring those codes into PLC_Logic error reporting.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "State command result codes distinguish rejected target, stale precondition, acknowledgement timeout, active timeout, completion timeout, PLC ERROR transition, motion ER, EOT, cancel complete, and reset complete",
+        "Host-side exceptions include request id, requested target, current state, state request status, state request result, and ERROR_CODE",
+        "PLC_Logic.getErrorCodeString reports new PLC and protocol result codes without returning Unknown for known checked-in paths",
+        "Simulated PLCs can exercise acknowledgement timeout, completion timeout, cancellation, and reset paths deterministically",
+        "Tests cover result-code mapping and exception messages for each failure category",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "src/dune_winder/io/controllers/plc_logic.py",
+        "src/dune_winder/io/controllers/plc_state_command.py",
+        "src/dune_winder/io/devices/simulated_plc.py",
+        "src/dune_winder/io/devices/ladder_simulated_plc.py",
+        "tests/dune_winder/test_plc_state_command.py",
+        "tests/dune_winder/test_plc_logic.py",
+        "tests/dune_winder/test_simulated_plc.py"
+      ],
+      "depends_on": [
+        "4",
+        "6"
+      ]
+    },
+    {
+      "id": "8",
+      "title": "Migrate PLC_Logic callers to explicit freshness policies",
+      "description": "Replace ad hoc cached reads and one-off _readTagNow calls in PLC_Logic and queued motion integration with documented freshness policies appropriate to each consumer.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Interlock and safety precondition reads require fresh samples and fail closed on communication errors",
+        "UI/status getters can explicitly allow cached or stale samples and expose sample quality when useful",
+        "Queued motion collision-state reads use a coherent snapshot for related tags",
+        "PLC_Logic.isReady distinguishes stale state data from a true READY state",
+        "Tests cover safe failure on stale X_XFER_OK, Y_XFER_OK, ENABLE_ACTUATOR, STATE, and ERROR_CODE reads",
+        "No remaining host-side safety decision silently falls back to cached PLC data without an explicit allow_stale policy",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "src/dune_winder/io/controllers/plc_logic.py",
+        "src/dune_winder/queued_motion/plc_interface.py",
+        "src/dune_winder/gcode/handler.py",
+        "src/dune_winder/io/controllers/head.py",
+        "tests/dune_winder/test_plc_logic.py",
+        "tests/dune_winder/test_head_g106_transfer.py",
+        "tests/dune_winder/test_queued_motion.py"
+      ],
+      "depends_on": [
+        "3",
+        "7"
+      ]
+    },
+    {
+      "id": "9",
+      "title": "Update PLC sync artifacts and migration documentation",
+      "description": "Finalize the migration documentation, simulator coverage, and checked-in PLC artifacts after the human pasteback workflow produces updated studio_copy.rllscrap files.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "After user pasteback, updated studio_copy.rllscrap files are regenerated with uv run plc-sync --offline",
+        "Generated pasteable.rll files round-trip cleanly from studio_copy.rllscrap",
+        "plc-manifest status is clean or only shows intentional updated artifacts before staging",
+        "Documentation explains how new host code chooses cached, fresh, snapshot, and fail-closed reads",
+        "Documentation explains the state request-id/status protocol and the legacy STATE_REQUEST compatibility window",
+        "Direct legacy STATE_REQUEST writes are documented as deprecated except in compatibility tests",
+        "uv run pytest tests/dune_winder passes",
+        "uv run ty check passes"
+      ],
+      "files": [
+        "docs/design-docs/plc-contract-migration.md",
+        "dune_winder/plc/manifest.json",
+        "dune_winder/plc/controller_level_tags.json",
+        "dune_winder/plc/*/*/studio_copy.rllscrap",
+        "dune_winder/plc/*/*/pasteable.rll",
+        "tests/dune_winder/test_ladder_simulated_plc.py",
+        "tests/dune_winder/test_monoroutine_equivalence.py"
+      ],
+      "depends_on": [
+        "2",
+        "6",
+        "8"
+      ]
+    }
+  ]
+}
