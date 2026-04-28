@@ -30,6 +30,9 @@ for i, column in enumerate(columns_to_analyze):
     gmm.fit(column_data.values.reshape(-1, 1))
 
     # Extract parameters from the fitted GMM
+    assert gmm.means_ is not None
+    assert gmm.covariances_ is not None
+    assert gmm.weights_ is not None
     means = gmm.means_.flatten()
     stds = np.sqrt(gmm.covariances_).flatten()
     weights = gmm.weights_

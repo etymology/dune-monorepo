@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from typing import cast, Tuple, Any
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -57,7 +58,8 @@ if os.path.exists(db_path):
     df_all["parsed_time"] = pd.to_datetime(
         df_all["time"], format="%Y-%m-%d_%H-%M-%S", errors="coerce"
     )
-    for (apa, lyr), group in df_all.groupby(["apa_name", "layer"]):
+    for key, group in df_all.groupby(["apa_name", "layer"]):
+        apa, lyr = cast(Tuple[Any, Any], key)
         csv_data[(apa, lyr)] = group
 
 # Process each audio file

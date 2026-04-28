@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tension Experiment - Systematics Characterization</title>
+    <link rel="stylesheet" href="Experiment.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Tension Systematics Characterization</h1>
+        
+        <section id="experiment-setup">
+            <h2>1. Setup Experiment</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Experiment Name:</label>
+                    <input type="text" id="exp-name" value="Focus Sensitivity Test">
+                </div>
+                <div class="form-group">
+                    <label>APA Name:</label>
+                    <input type="text" id="apa-name" value="TEST_APA">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Layer:</label>
+                    <select id="layer">
+                        <option value="U">U Layer</option>
+                        <option value="V">V Layer</option>
+                        <option value="X">X Layer</option>
+                        <option value="G">G Layer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Side:</label>
+                    <select id="side">
+                        <option value="A">Side A</option>
+                        <option value="B">Side B</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Wire Number:</label>
+                    <input type="number" id="wire-number" value="100">
+                </div>
+                <div class="form-group">
+                    <label>Zone (1-5):</label>
+                    <input type="number" id="zone" value="1" min="1" max="5">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Known Tension (N):</label>
+                    <input type="number" id="known-tension" step="0.1" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label>Focus Position:</label>
+                    <input type="number" id="focus-pos" value="4000">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Capos on Combs:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="capo-comb" value="1"> Comb 1 (Z1-2)</label>
+                    <label><input type="checkbox" name="capo-comb" value="2"> Comb 2 (Z2-3)</label>
+                    <label><input type="checkbox" name="capo-comb" value="3"> Comb 3 (Z3-4)</label>
+                    <label><input type="checkbox" name="capo-comb" value="4"> Comb 4 (Z4-5)</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Samples per Wire:</label>
+                    <input type="number" id="samples-per-wire" value="5">
+                </div>
+                <div class="form-group">
+                    <label>Record Duration (s):</label>
+                    <input type="number" id="record-duration" value="0.5" step="0.1">
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="start-btn">Start Experiment Loop</button>
+                <button id="collect-raw-btn" style="background-color: #e67e22;">Collect Raw Samples</button>
+            </div>
+        </section>
+
+        <section id="reanalysis">
+            <h2>2. Reanalyze Raw Data</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Experiment ID:</label>
+                    <input type="text" id="reanalyze-exp-id" placeholder="Paste experiment UUID">
+                </div>
+                <div class="form-group">
+                    <label>Conf Threshold:</label>
+                    <input type="number" id="conf-threshold" value="0.7" step="0.05" min="0" max="1">
+                </div>
+            </div>
+            <button id="reanalyze-btn" style="background-color: #9b59b6;">Reanalyze Experiment</button>
+            <div id="reanalyze-results" style="margin-top: 10px;"></div>
+        </section>
+
+        <section id="live-plots">
+            <h2>3. Live Previews</h2>
+            <div class="plot-container">
+                <div class="plot-box full-width">
+                    <h3>Last Recorded Sound & Pesto</h3>
+                    <img id="audio-plot" src="" alt="Audio Diagnostics Plot">
+                </div>
+                <div class="plots-grid">
+                    <div class="plot-box">
+                        <h3>Experiment Distributions</h3>
+                        <img id="summary-plot" src="" alt="Summary Plot">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="live-results">
+            <h2>4. Live Progress</h2>
+            <div id="status-display">Idle</div>
+            <div id="progress-bar-container">
+                <div id="progress-bar"></div>
+            </div>
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Freq (Hz)</th>
+                        <th>Tension (N)</th>
+                        <th>Conf</th>
+                        <th>X, Y</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Results will be appended here -->
+                </tbody>
+            </table>
+        </section>
+    </div>
+    <script src="Experiment.js"></script>
+</body>
+</html>

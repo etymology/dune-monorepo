@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from typing import Any
 import numpy as np
 
 
@@ -12,11 +13,11 @@ def rename_first_array(npz_file: Path) -> None:
         arrays = {name: data[name] for name in data.files}
     first_key = data.files[0]
     audio_array = arrays.pop(first_key)
-    new_arrays = {"audio": audio_array, "samplerate": np.array(41000)}
+    new_arrays: dict[str, Any] = {"audio": audio_array, "samplerate": np.array(41000)}
     new_arrays.update(arrays)
     tmp_path = npz_file.with_suffix(npz_file.suffix + ".tmp")
     with tmp_path.open("wb") as f:
-        np.savez(f, **new_arrays)
+        np.savez(f, **new_arrays)  # type: ignore
     tmp_path.replace(npz_file)
 
 
