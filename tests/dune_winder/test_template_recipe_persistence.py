@@ -33,6 +33,11 @@ class FakeControlStateMachine:
         return self.ready
 
 
+class FakeIO:
+    def __init__(self):
+        self.status = {}
+
+
 class FakeWorkspace:
     def __init__(self, layer, path, recipeDirectory, recipeArchiveDirectory):
         self._layer = layer
@@ -56,6 +61,7 @@ class FakeProcess:
         )
         self._systemTime = FakeTimeSource()
         self._log = FakeLog()
+        self._io = FakeIO()
         self.controlStateMachine = FakeControlStateMachine(True)
 
         recipeDirectory = os.path.join(rootDirectory, "gc_files")
@@ -71,6 +77,16 @@ class FakeProcess:
 
     def getRecipeLayer(self):
         return self.workspace.getLayer()
+
+    def manualSeekXY(
+        self,
+        xPosition=None,
+        yPosition=None,
+        velocity=None,
+        acceleration=None,
+        deceleration=None,
+    ):
+        return False
 
 
 def _build_configuration(rootDirectory):
