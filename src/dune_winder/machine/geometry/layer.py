@@ -6,6 +6,8 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
+from dune_winder.library.Geometry.location import Location
+
 from .apa import APA_Geometry
 
 
@@ -17,6 +19,9 @@ class LayerGeometry(APA_Geometry):
         """
 
         APA_Geometry.__init__(self)
+
+        self.apaOffset: Location
+        self.pinDiameter: float = 0.0
 
         # Pitches are the number of wire crossings.
         self.pitches = 400

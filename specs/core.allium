@@ -1,0 +1,72 @@
+-- allium: 3
+-- core.allium
+
+-- Scope: Shared foundational types and contracts used across all DUNE specs.
+-- Includes: Detector layer enum, pin/frame geometry types, hardware control contracts.
+-- Excludes: Domain-specific entities (measurement, state machines, etc.)
+
+-- ==========================================================================
+-- Enumerations
+-- ==========================================================================
+
+enum Layer { u | v | x | g }
+enum PinSide { a | b }
+enum FrameEdge { head | bottom | foot | top }
+
+-- ==========================================================================
+-- Value Types
+-- ==========================================================================
+
+value PinRange {
+  first: Integer
+  last: Integer
+}
+
+value PinName {
+  layer: Layer
+  side: PinSide
+  number: Integer
+}
+
+value PinPair {
+  start: PinName
+  end: PinName
+}
+
+value WrapSide {
+  x_sign: Integer
+  y_sign: Integer
+}
+
+-- ==========================================================================
+-- Hardware Control Contracts
+-- ==========================================================================
+
+contract MotionControl {
+  current_pose: (context: Any) -> Any
+  move_to_pose: (pose: Any) -> Boolean
+  move_along_segment: (start: Any, end: Any, speed_mm_s: Decimal) -> Boolean
+  reset_motion: (context: Any) -> Boolean
+
+  @invariant BoundedMotion
+    -- Motion commands either complete inside the measurable APA envelope or
+    -- report failure without creating an accepted result.
+}
+
+contract FocusControl {
+  current_focus: (context: Any) -> Decimal
+  set_focus: (focus_position: Decimal) -> Boolean
+
+  @invariant FocusXCompensation
+    -- Changing focus changes the effective laser X coordinate. A-side and
+    -- B-side compensation signs are opposite and must be applied consistently
+    -- unless the operator explicitly chooses manual/uncompensated focus.
+}
+
+contract ExcitationControl {
+  pulse_wire: (context: Any) -> Boolean
+
+  @invariant PulseSafety
+    -- Pulses are bounded, non-continuous excitations in this spec. Continuous
+    -- excitation requires a separate future spec.
+}

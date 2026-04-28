@@ -61,7 +61,7 @@ import matplotlib.pyplot as plt
 try:
     import sounddevice as sd
 except Exception:
-    sd = None  # type: ignore
+    sd = None
 
 # Optional PESTO imports are loaded lazily only if --pesto is set
 torch: Any = None
@@ -91,11 +91,11 @@ try:
     from spectrum_analysis.pitch_compare_config import PitchCompareConfig
 except ImportError:
     SHARED_NOISE_TOOLS_AVAILABLE = False
-    SharedNoiseProfile = None  # type: ignore
-    PitchCompareConfig = None  # type: ignore
-    shared_compute_noise_profile = None  # type: ignore
-    shared_save_noise_profile = None  # type: ignore
-    shared_wiener_filter = None  # type: ignore
+    SharedNoiseProfile = None
+    PitchCompareConfig = None
+    shared_compute_noise_profile = None
+    shared_save_noise_profile = None
+    shared_wiener_filter = None
 
 
 def dbfs(x: np.ndarray) -> np.ndarray:

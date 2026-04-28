@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 import errno
 import copy
 import json
@@ -360,7 +361,8 @@ def _live_roller_y_cals(
     calibration = getattr(machine_calibration, "rollerArmCalibration", None)
     if calibration is None:
         return (nominal, nominal, nominal, nominal)
-    return tuple(float(value) for value in calibration.fitted_y_cals[:4])
+    vals = [float(value) for value in calibration.fitted_y_cals[:4]]
+    return (vals[0], vals[1], vals[2], vals[3])
 
 
 def _error_text(exception):
@@ -1923,7 +1925,7 @@ class MachineGeometryCalibration:
                     payload["estimatedSecondsRemaining"] = 0.0
             return payload
 
-        progress_state = {
+        progress_state: dict[str, Any] = {
             "startedAt": time.time(),
             "completed": 0,
             "total": None,
@@ -2462,7 +2464,7 @@ class MachineGeometryCalibration:
         solve_started_at = time.time()
         self._clearMachineSolveRequests(operation_id)
         self._registerMachineSolveOperation(operation_id)
-        progress_checkpoint = {
+        progress_checkpoint: dict[str, Any] = {
             "time": 0.0,
             "step": None,
             "message": None,
@@ -3033,7 +3035,7 @@ class MachineGeometryCalibration:
                 "liveZPlaneCalibration": self._liveLayerPlaneSummary(layer),
                 "draftZPlaneCalibration": draft.get("zPlaneCalibration"),
                 "draftZPlaneStale": (
-                    draft.get("zPlaneSolve", {}).get("measurementRevision")
+                    (draft.get("zPlaneSolve") or {}).get("measurementRevision")
                     != self._measurementRevision()
                     if draft.get("zPlaneSolve")
                     else False

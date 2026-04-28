@@ -79,6 +79,7 @@ class WinderWorkspace:
 
         state = cls._defaultState()
         doc = xml.dom.minidom.parse(str(xmlPath))
+        assert doc.documentElement is not None
         root = doc.documentElement.firstChild
         while root and root.nodeType != root.ELEMENT_NODE:
             root = root.nextSibling

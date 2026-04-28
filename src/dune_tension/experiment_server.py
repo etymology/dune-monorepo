@@ -168,6 +168,7 @@ def get_summary_plot():
 @app.route("/experiment/measure", methods=["POST"])
 def measure_wire():
     import logging
+
     logger = logging.getLogger(__name__)
 
     data = request.get_json()
@@ -182,7 +183,9 @@ def measure_wire():
     sweeping_wiggle = bool(data.get("sweeping_wiggle", True))
     sweeping_wiggle_span_mm = float(data.get("sweeping_wiggle_span_mm", 1.0))
 
-    logger.info(f"measure_wire: wire={wire_number}, zone={zone}, layer={layer}, side={side}")
+    logger.info(
+        f"measure_wire: wire={wire_number}, zone={zone}, layer={layer}, side={side}"
+    )
 
     # Calculate capo_left/capo_right
     capo_left = False
@@ -213,7 +216,9 @@ def measure_wire():
         logger.info("Runtime bundle built successfully")
     except Exception as e:
         logger.error(f"Failed to build runtime bundle: {e}")
-        return jsonify({"status": "error", "message": f"Failed to build runtime: {e}"}), 500
+        return jsonify(
+            {"status": "error", "message": f"Failed to build runtime: {e}"}
+        ), 500
 
     # Override repository factory and wire position provider
     runtime = type(runtime)(
@@ -240,7 +245,9 @@ def measure_wire():
         logger.info(f"Tensiometer built successfully with config: {tm.config}")
     except Exception as e:
         logger.error(f"Failed to build tensiometer: {e}")
-        return jsonify({"status": "error", "message": f"Failed to build tensiometer: {e}"}), 500
+        return jsonify(
+            {"status": "error", "message": f"Failed to build tensiometer: {e}"}
+        ), 500
 
     # Set audio callback
     tm.audio_sample_callback = state.audio_callback
@@ -248,21 +255,13 @@ def measure_wire():
     result = None
     with repo.run_scope():
         # Figure out where to measure
-        if runtime.wire_position_provider is None:
-            return jsonify({"status": "error", "message": "Wire position provider not available"}), 500
-
-        try:
-            logger.info(f"Getting pose for wire {wire_number} zone {zone}")
-            pose = runtime.wire_position_provider.get_pose_for_zone(
-                tm.config,
-                wire_number,
-                zone,
-                current_focus_position=data.get("focus_position"),
-            )
-            logger.info(f"Pose result: {pose}")
-        except Exception as e:
-            logger.error(f"Error getting pose: {e}", exc_info=True)
-            return jsonify({"status": "error", "message": f"Error getting pose: {e}"}), 500
+        assert runtime.wire_position_provider is not None
+        pose = runtime.wire_position_provider.get_pose_for_zone(
+            tm.config,
+            wire_number,
+            zone,
+            current_focus_position=data.get("focus_position"),
+        )
 
         if pose:
             result = tm.goto_collect_wire_data(
@@ -332,6 +331,7 @@ def collect_raw():
 
     results = []
     with repo.run_scope():
+        assert runtime.wire_position_provider is not None
         pose = runtime.wire_position_provider.get_pose_for_zone(
             tm.config,
             wire_number,

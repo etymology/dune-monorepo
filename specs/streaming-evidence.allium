@@ -1,0 +1,400 @@
+-- allium: 3
+-- streaming-evidence.allium
+
+-- Scope: Streaming tension measurement — the evidence model that accumulates
+--        audio frames into voiced windows, pitch observations into wire candidates,
+--        and wire candidates into accepted tension results.
+-- Includes: StreamingSession, StreamingSegment, StreamingFrame, VoicedWindow,
+--           PitchObservation, PitchEvidenceBin, WireCandidate, RescueQueueItem,
+--           all status lifecycles and the transitions that drive them
+-- Excludes: audio device drivers, PLC motion control, GUI, SQLite/WAV storage
+--           format, PESTO/CREPE pitch algorithm internals, focus-plane fitting
+--
+-- tension-measurement.allium specifies the session-level lifecycle (what
+-- measurements mean, how results are accepted, what evidence is retained).
+-- This spec specifies the intermediate evidence entities that accumulate during
+-- a streaming session and feed into those final results.
+
+use "./core.allium" as core
+
+-- ==========================================================================
+-- Enumerations / status types
+-- ==========================================================================
+
+enum MeasurementMode { legacy | stream_sweep | stream_rescue }
+enum SegmentMode     { sweep | rescue }
+enum SegmentStatus   { planned | running | completed | failed | skipped }
+enum WireCandidateStatus { provisional | queued_for_rescue | accepted | rejected }
+enum RescueStatus    { queued | running | completed | failed | cancelled }
+
+-- ==========================================================================
+-- Value Types
+-- ==========================================================================
+
+value MeasurementPose {
+    x_true:           Decimal   -- laser X position after focus correction (mm)
+    y_true:           Decimal   -- Y position along scan axis (mm)
+    focus:            Decimal   -- actual focus position
+    focus_reference:  Decimal   -- nominal focus at this XY
+    x_focus_correction: Decimal -- X adjustment applied due to focus offset
+    x_laser:          Decimal   -- x_true before focus correction
+
+    delta_focus: focus - focus_reference
+}
+
+value FocusResponsePoint {
+    delta_focus:          Decimal
+    support_count:        Integer
+    combined_confidence:  Decimal
+}
+
+-- A single pitch frequency detected from one audio chunk at one pose.
+value PitchObservation {
+    observation_id:    String
+    x_true:            Decimal
+    y_true:            Decimal
+    frequency_hz:      Decimal
+    confidence:        Decimal
+    comb_score:        Decimal
+    focus_delta:       Decimal
+    source_window_id:  String?
+    source_sweep_id:   String?
+}
+
+-- A position in wire space predicted from geometry (used to seed rescue scans).
+value PredictedWire {
+    wire_number: Integer
+    x_true:      Decimal
+    y_true:      Decimal
+}
+
+-- ==========================================================================
+-- Session
+-- ==========================================================================
+
+entity StreamingSession {
+    session_id:      String
+    mode:            MeasurementMode
+    apa_name:        String
+    layer:           core/Layer
+    side:            String   -- "A" or "B"
+    flipped:         Boolean
+
+    segments: StreamingSegment with session = this
+    candidates: WireCandidate with session = this
+
+    active_segments:    segments where status = running
+    completed_segments: segments where status = completed
+    accepted_candidates: candidates where status = accepted
+}
+
+-- ==========================================================================
+-- StreamingSegment
+-- ==========================================================================
+
+-- A single planned scan path from pose0 to pose1.  Sweep segments scan a
+-- corridor looking for voiced windows; rescue segments revisit a specific
+-- wire position for a targeted re-measurement.
+
+entity StreamingSegment {
+    segment_id: String
+    session:    StreamingSession
+    mode:       SegmentMode
+    pose0:      MeasurementPose
+    pose1:      MeasurementPose
+    speed_mm_s: Decimal
+
+    planned_start_time: Decimal
+    planned_end_time:   Decimal
+    cruise_start_time:  Decimal   -- audio-valid window start (after ramp-up)
+    cruise_end_time:    Decimal   -- audio-valid window end (before ramp-down)
+
+    wire_hint: Integer?    -- if rescue mode, the target wire number
+    status:    SegmentStatus
+
+    transitions status {
+        planned   -> running
+        running   -> completed
+        running   -> failed
+        running   -> skipped
+        terminal: completed, failed, skipped
+    }
+
+    frames:  StreamingFrame with segment = this
+    windows: VoicedWindow   with segment = this
+
+    @guidance
+        -- cruise_start_time > planned_start_time: the head needs time to
+        -- reach target velocity before audio frames are meaningful.
+        -- cruise_end_time < planned_end_time: audio stops before deceleration.
+        -- Frames whose timestamp falls outside [cruise_start_time, cruise_end_time]
+        -- are retained for diagnostics but excluded from evidence aggregation.
+}
+
+rule SegmentBecomesRunning {
+    when: _: StreamingSegment.status transitions_to running
+
+    @guidance
+        -- Fired when the motion controller confirms the segment has started.
+        -- The segment's pose is now tracking live hardware positions.
+}
+
+rule SegmentBecomesCompleted {
+    when: segment: StreamingSegment.status transitions_to completed
+    requires: segment.frames.count >= 0   -- zero frames is valid (silent wire)
+
+    @guidance
+        -- A segment completes when the head reaches pose1 and the audio
+        -- capture window closes.  At this point all frames and voiced windows
+        -- for the segment are final.
+}
+
+-- ==========================================================================
+-- StreamingFrame
+-- ==========================================================================
+
+-- A single audio+pose observation recorded during a segment.
+
+entity StreamingFrame {
+    frame_id:              String
+    segment:               StreamingSegment?
+    timestamp:             Decimal
+    pose:                  MeasurementPose
+    rms:                   Decimal   -- RMS amplitude of the audio window
+    comb_score:            Decimal   -- harmonic comb filter score
+    spectral_flatness:     Decimal
+    harmonic_valid:        Boolean
+    expected_band_score:   Decimal?  -- if a wire is expected here, band score
+    voiced_gate_pass:      Boolean   -- true when comb_score clears the voiced threshold
+
+    @guidance
+        -- voiced_gate_pass is the primary gate: only frames that pass the voiced
+        -- gate are aggregated into VoicedWindow evidence.
+        -- expected_band_score is non-null only during rescue segments when the
+        -- target wire's expected frequency band is known from prior sweep results.
+}
+
+-- ==========================================================================
+-- VoicedWindow
+-- ==========================================================================
+
+-- A contiguous run of voiced frames from a single segment, representing a
+-- candidate wire detection.
+
+entity VoicedWindow {
+    window_id:   String
+    segment:     StreamingSegment?
+    start_time:  Decimal
+    end_time:    Decimal
+    pose_center: MeasurementPose   -- pose at the temporal midpoint of the window
+    wire_hint:   Integer?          -- wire number hint from the parent segment
+
+    frames: StreamingFrame with window = this
+
+    @guidance
+        -- A VoicedWindow is created when a run of consecutive StreamingFrames
+        -- all satisfy voiced_gate_pass = true.  The window closes when either
+        -- a frame fails the gate or the segment completes.
+        -- The pose_center is the pose at the frame closest to the temporal midpoint.
+}
+
+-- ==========================================================================
+-- Pitch evidence accumulation
+-- ==========================================================================
+
+-- Evidence bins aggregate PitchObservations by spatial position to disambiguate
+-- wires that are close together in Y.
+
+entity PitchEvidenceBin {
+    bin_id:             String
+    session:            StreamingSession
+    x_bin:              Decimal       -- bin centre X (mm)
+    y_bin:              Decimal       -- bin centre Y (mm)
+    bin_size_mm:        Decimal
+    hypotheses:         List<PitchHypothesis>
+    source_window_count: Integer
+    source_sweep_ids:   List<String>
+    source_window_ids:  List<String>
+}
+
+value PitchHypothesis {
+    pitch_center_hz:      Decimal   -- cluster centre
+    support_count:        Integer   -- number of observations in this hypothesis
+    weighted_pitch_hz:    Decimal   -- confidence-weighted mean frequency
+    combined_confidence:  Decimal
+    max_pitch_confidence: Decimal
+    max_comb_score:       Decimal
+    focus_response:       List<FocusResponsePoint>
+}
+
+value PitchResult {
+    pitch_result_id:        String
+    window_id:              String
+    frequency_hz:           Decimal
+    confidence:             Decimal
+    expected_frequency_hz:  Decimal?
+    frame_count:            Integer
+    source_mode:            SegmentMode
+}
+
+-- ==========================================================================
+-- WireCandidate
+-- ==========================================================================
+
+-- A consolidated evidence record for a single wire number, built from one or
+-- more voiced windows / pitch results.
+
+entity WireCandidate {
+    wire_number:           Integer
+    session:               StreamingSession
+    source_mode:           SegmentMode
+    support_count:         Integer
+    best_pose:             MeasurementPose
+    best_comb_score:       Decimal
+    pitch_estimates:       List<Decimal>
+    pitch_confidences:     List<Decimal>
+    angle_coherence_score: Decimal
+    focus_consistency_score: Decimal
+    status:                WireCandidateStatus
+
+    transitions status {
+        provisional       -> queued_for_rescue
+        provisional       -> accepted
+        provisional       -> rejected
+        queued_for_rescue -> accepted
+        queued_for_rescue -> rejected
+        terminal: accepted, rejected
+    }
+
+    @guidance
+        -- A WireCandidate is created in provisional status when sufficient
+        -- voiced-window evidence has been gathered for wire_number during a
+        -- sweep segment.
+        --
+        -- Transitions:
+        --   provisional → queued_for_rescue:
+        --     The candidate's pitch estimate is uncertain (low confidence or
+        --     inconsistent focus response); a rescue segment will be planned
+        --     to gather more evidence.
+        --
+        --   provisional → accepted:
+        --     The candidate has sufficient high-confidence pitch evidence and
+        --     no rescue is needed.
+        --
+        --   queued_for_rescue → accepted:
+        --     The rescue segment completed and resolved the candidate.
+        --
+        --   any → rejected:
+        --     All attempts (initial sweep + rescue) failed to produce a
+        --     reliable frequency estimate.  The wire is marked missing/failed
+        --     in the parent TensionResult.
+}
+
+rule CandidateAcceptedOnHighConfidenceEvidence {
+    when: candidate: WireCandidate.status = provisional
+
+    requires:
+        candidate.pitch_estimates.count >= 1
+        and candidate.best_comb_score >= config.acceptance_comb_score_threshold
+
+    ensures: candidate.status = accepted
+
+    @guidance
+        -- The exact threshold values are runtime-configurable via the session
+        -- manifest (StreamingManifest.runtime_config).  Default values are
+        -- specified in streaming/controller.py.
+}
+
+rule CandidateQueuedForRescueOnLowConfidence {
+    when: candidate: WireCandidate.status = provisional
+
+    requires:
+        candidate.pitch_estimates.count >= 1
+        and candidate.best_comb_score < config.acceptance_comb_score_threshold
+
+    ensures: candidate.status = queued_for_rescue
+
+    @guidance
+        -- The rescue queue is drained between sweep corridor passes.
+        -- A RescueQueueItem is created for this wire, and a targeted rescue
+        -- segment is planned at best_pose.
+}
+
+-- ==========================================================================
+-- Rescue queue
+-- ==========================================================================
+
+entity RescueQueueItem {
+    queue_id:          String
+    session:           StreamingSession
+    wire_number:       Integer
+    status:            RescueStatus
+    seed_segment_id:   String?   -- segment that produced the provisional candidate
+    seed_window_id:    String?   -- window from that segment that triggered rescue
+    reason:            String
+
+    transitions status {
+        queued  -> running
+        queued  -> cancelled
+        running -> completed
+        running -> failed
+        terminal: completed, failed, cancelled
+    }
+
+    @guidance
+        -- seed_segment_id and seed_window_id are used to retrieve the best
+        -- prior evidence for planning the rescue scan path and expected frequency.
+}
+
+rule RescueItemDispatched {
+    when: item: RescueQueueItem.status transitions_to running
+
+    @guidance
+        -- A rescue StreamingSegment is created with mode = rescue and
+        -- wire_hint = item.wire_number.  The segment pose covers the
+        -- vicinity of the seed window's pose_center.
+}
+
+rule RescueItemCompleted {
+    when: item: RescueQueueItem.status transitions_to completed
+
+    @guidance
+        -- The rescue segment has completed.  The associated WireCandidate
+        -- is re-evaluated against acceptance criteria and transitions to
+        -- accepted or rejected accordingly.
+}
+
+-- ==========================================================================
+-- Config
+-- ==========================================================================
+
+config {
+    acceptance_comb_score_threshold: Decimal = 0.5
+    min_support_count_for_acceptance: Integer = 1
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant WireCandidateWireNumberIsUniquePerSession {
+    -- Within a StreamingSession there is at most one non-rejected WireCandidate
+    -- per wire_number.  Duplicate detections from multiple sweep passes are
+    -- merged into the existing candidate rather than creating a new one.
+}
+
+invariant RescueItemHasMatchingCandidate {
+    -- Every RescueQueueItem with status = queued or running has a corresponding
+    -- WireCandidate in status = queued_for_rescue.
+}
+
+invariant AcceptedCandidateHasPitchEstimate {
+    -- Every WireCandidate with status = accepted has at least one entry in
+    -- pitch_estimates.
+}
+
+invariant SegmentFramesWithinCruiseWindow {
+    -- StreamingFrames that are outside [segment.cruise_start_time,
+    -- segment.cruise_end_time] must not contribute to any VoicedWindow
+    -- or PitchEvidenceBin for that segment.
+}
