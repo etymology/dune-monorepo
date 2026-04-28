@@ -302,7 +302,7 @@ _ENDPOINT_PINS = {
 _LAYOUT_SPECS = {
     "U": {
         "wire_segment_1_pin_a": 450,
-        "wire_segment_1_pin_b": 350,
+        "wire_segment_1_pin_b": 352,
         "wire_segment_formula_min": 1,
         "wire_segment_formula_max": 1151,
         "wire_segment_min": 8,
@@ -739,15 +739,9 @@ class UvLayerLayout:
         pin_b = _wrap_inclusive(
             self._wire_segment_1_pin_b - (number - 1), 1, self.pin_max
         )
-        endpoints = (
-            self.format_pin_name("B", pin_a),
-            self.format_pin_name("B", pin_b),
-        )
-        if normalized_family == "B":
-            return endpoints
-        return tuple(
-            self.translate_pin(pin_name, target_family=normalized_family)
-            for pin_name in endpoints
+        return (
+            self.format_pin_name(normalized_family, pin_a),
+            self.format_pin_name(normalized_family, pin_b),
         )
 
     def wrap_orientation(self, pin_name: str) -> WrapOrientation:
