@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from collections import deque
 from dataclasses import dataclass
 import logging
@@ -292,6 +293,7 @@ def record_with_harmonic_comb(
     max_record_seconds: float,
     timeout_seconds: float | None = None,
     comb_cfg: HarmonicCombConfig = HarmonicCombConfig(),
+    recording_started_callback: Callable[[], None] | None = None,
 ) -> np.ndarray | None:
     """Record audio using the harmonic comb trigger."""
     start_time = time.time()
@@ -397,6 +399,8 @@ def record_with_harmonic_comb(
                         recent_chunks.clear()
                         recent_samples = 0
                         LOGGER.info("Recording started (harmonic comb trigger).")
+                        if recording_started_callback is not None:
+                            recording_started_callback()
                         if collected_samples >= max_samples:
                             stop_recording = True
                             break

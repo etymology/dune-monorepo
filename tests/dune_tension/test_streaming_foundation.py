@@ -31,7 +31,9 @@ from spectrum_analysis.comb_trigger import (
     HarmonicCombTriggerLearner,
     HarmonicCombTriggerObservation,
     harmonic_comb_response,
+    record_with_harmonic_comb,
 )
+import spectrum_analysis.comb_trigger as comb_trigger_module
 
 
 def test_tension_result_defaults_to_legacy_measurement_mode() -> None:
@@ -295,6 +297,54 @@ def test_harmonic_comb_trigger_learner_tightens_low_rejected_capture() -> None:
 
     assert config.on_rmax > 0.03
     assert config.off_rmax < config.on_rmax
+
+
+def test_harmonic_comb_recording_started_callback_runs_on_trigger(monkeypatch) -> None:
+    class FakeMicSource:
+        def __init__(self, _sample_rate: int, _hop: int) -> None:
+            self.chunks = [np.ones(64, dtype=np.float32)]
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def read(self) -> np.ndarray:
+            if self.chunks:
+                return self.chunks.pop(0)
+            return np.zeros(0, dtype=np.float32)
+
+    callback_count = 0
+
+    def mark_recording_started() -> None:
+        nonlocal callback_count
+        callback_count += 1
+
+    monkeypatch.setattr(comb_trigger_module, "sd", object())
+    monkeypatch.setattr(comb_trigger_module, "MicSource", FakeMicSource)
+    monkeypatch.setattr(
+        comb_trigger_module,
+        "harmonic_comb_response",
+        lambda *_args, **_kwargs: (0.2, 0.2, True),
+    )
+
+    audio = record_with_harmonic_comb(
+        expected_f0=120.0,
+        sample_rate=8000,
+        max_record_seconds=0.008,
+        timeout_seconds=1.0,
+        comb_cfg=HarmonicCombConfig(
+            frame_size=64,
+            hop_size=32,
+            on_rmax=0.03,
+            on_frames=1,
+        ),
+        recording_started_callback=mark_recording_started,
+    )
+
+    assert audio is not None
+    assert callback_count == 1
 
 
 def test_harmonic_comb_trigger_learner_relaxes_for_accepted_triplet_above_floor() -> (
