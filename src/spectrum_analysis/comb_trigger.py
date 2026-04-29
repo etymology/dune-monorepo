@@ -5,11 +5,11 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 import logging
+import time
 
 import numpy as np
 
 from spectrum_analysis.audio_sources import MicSource, sd
-import time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,15 +23,19 @@ class HarmonicCombConfig:
     candidate_count: int = 36
     harmonic_weight_count: int = 10
     min_harmonics: int = 3
-    on_rmax: float = 0.08
-    off_rmax: float = 0.03
-    sfm_max: float = 0.6
-    on_frames: int = 2
+    on_rmax: float = 0.03
+    off_rmax: float = 0.015
+    sfm_max: float = 0.85
+    on_frames: int = 1
     off_frames: int = 5
     harmonicity_floor: float = 0.0
-    harmonicity_floor_multiplier: float = 1.5
-    harmonicity_floor_margin: float = 0.02
+    harmonicity_floor_multiplier: float = 1.1
+    harmonicity_floor_margin: float = 0.005
     learning_rate: float = 0.35
+    accepted_harmonicity_fraction: float = 0.8
+    rejected_harmonicity_margin: float = 1.15
+    rejection_growth: float = 1.25
+    strict_learning_rate_multiplier: float = 1.5
 
     def harmonic_weights(self) -> np.ndarray:
         """Return per-harmonic weights used when scoring candidates."""
@@ -81,11 +85,12 @@ class HarmonicCombTriggerLearner:
 
         if observation.accepted_by_triplet:
             self.accepted_count += 1
-            target_on = max(floor, harmonicity * 0.8)
-            if target_on < current_on:
-                self.config.on_rmax = _blend(current_on, target_on, learning_rate)
-            else:
-                self.config.on_rmax = max(float(self.config.on_rmax), floor)
+            accepted_fraction = _positive_or_default(
+                self.config.accepted_harmonicity_fraction,
+                default=0.8,
+            )
+            target_on = max(floor, harmonicity * accepted_fraction)
+            self.config.on_rmax = _blend(current_on, target_on, learning_rate)
 
             target_sfm = min(
                 0.95, max(float(self.config.sfm_max), spectral_flatness + 0.05)
@@ -96,9 +101,36 @@ class HarmonicCombTriggerLearner:
         else:
             self.rejected_count += 1
             self.config.on_rmax = max(float(self.config.on_rmax), floor)
-            if harmonicity >= current_on * 0.8:
-                target_on = min(0.95, max(current_on, harmonicity * 1.1, floor))
-                self.config.on_rmax = _blend(current_on, target_on, learning_rate)
+            rejection_margin = _positive_or_default(
+                self.config.rejected_harmonicity_margin,
+                default=1.15,
+            )
+            rejection_growth = max(
+                _positive_or_default(self.config.rejection_growth, default=1.25),
+                1.0,
+            )
+            strict_learning_rate = min(
+                1.0,
+                learning_rate
+                * _positive_or_default(
+                    self.config.strict_learning_rate_multiplier,
+                    default=1.5,
+                ),
+            )
+            target_on = min(
+                0.95,
+                max(
+                    current_on,
+                    current_on * rejection_growth,
+                    harmonicity * rejection_margin,
+                    floor,
+                ),
+            )
+            self.config.on_rmax = _blend(
+                current_on,
+                target_on,
+                strict_learning_rate,
+            )
 
             if spectral_flatness <= float(self.config.sfm_max):
                 target_sfm = max(0.25, spectral_flatness - 0.05)
@@ -124,6 +156,13 @@ def _finite_nonnegative(value: float, *, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
     if not np.isfinite(result) or result < 0.0:
+        return default
+    return result
+
+
+def _positive_or_default(value: float, *, default: float) -> float:
+    result = _finite_nonnegative(value, default=default)
+    if result <= 0.0:
         return default
     return result
 

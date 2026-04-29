@@ -52,14 +52,14 @@ impl Default for HarmonicCombCaptureConfig {
             candidate_count: 36,
             harmonic_weight_count: 10,
             min_harmonics: 3,
-            on_score: 0.08,
-            off_score: 0.03,
-            spectral_flatness_max: 0.6,
-            on_frames: 2,
+            on_score: 0.03,
+            off_score: 0.015,
+            spectral_flatness_max: 0.85,
+            on_frames: 1,
             off_frames: 5,
             harmonicity_floor_frames: 16,
-            harmonicity_floor_multiplier: 1.5,
-            harmonicity_floor_margin: 0.02,
+            harmonicity_floor_multiplier: 1.1,
+            harmonicity_floor_margin: 0.005,
             noise_rms_multiplier: 2.0,
         }
     }
@@ -612,6 +612,17 @@ mod tests {
         assert!(!state.push_chunk(&[0.01, -0.01]));
 
         assert!(state.finish().is_none());
+    }
+
+    #[test]
+    fn harmonic_comb_defaults_start_permissive() {
+        let cfg = HarmonicCombCaptureConfig::default();
+
+        assert!(cfg.on_score <= 0.03);
+        assert!(cfg.off_score < cfg.on_score);
+        assert_eq!(cfg.on_frames, 1);
+        assert!(cfg.spectral_flatness_max >= 0.8);
+        assert!(cfg.harmonicity_floor_margin <= 0.005);
     }
 
     #[test]

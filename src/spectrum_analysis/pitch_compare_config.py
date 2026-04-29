@@ -86,6 +86,14 @@ class PitchCompareConfig:
             ),
             "comb_trigger_harmonicity_floor_margin": "harmonicity_floor_margin",
             "comb_trigger_learning_rate": "learning_rate",
+            "comb_trigger_accepted_harmonicity_fraction": (
+                "accepted_harmonicity_fraction"
+            ),
+            "comb_trigger_rejected_harmonicity_margin": ("rejected_harmonicity_margin"),
+            "comb_trigger_rejection_growth": "rejection_growth",
+            "comb_trigger_strict_learning_rate_multiplier": (
+                "strict_learning_rate_multiplier"
+            ),
         }
 
         for legacy_key, new_key in comb_aliases.items():
