@@ -65,10 +65,9 @@ def use_pytorch_backend() -> bool:
     env_backend = os.environ.get("PESTO_BACKEND", "").lower()
     if env_backend == "pytorch":
         return True
-    if env_backend == "onnx":
+    if env_backend in {"onnx", "rust_onnx"}:
         return False
-
-    return not _check_onnx_backend_available()
+    return True
 
 
 @dataclass(frozen=True)
@@ -174,8 +173,35 @@ def _coerce_analysis_result(result: Any) -> PestoAnalysisResult:
             else float(result.expected_frequency)
         ),
         frame_times=np.asarray(result.frame_times, dtype=np.float32),
-        predicted_frequencies=np.asarray(result.predicted_frequencies, dtype=np.float32),
+        predicted_frequencies=np.asarray(
+            result.predicted_frequencies, dtype=np.float32
+        ),
         frame_confidences=np.asarray(result.frame_confidences, dtype=np.float32),
+        activation_map=None
+        if activation_map is None
+        else np.asarray(activation_map, dtype=np.float32),
+        activation_freq_axis=None
+        if activation_freq_axis is None
+        else np.asarray(activation_freq_axis, dtype=np.float32),
+    )
+
+
+def _coerce_rust_analysis_result(result: dict[str, Any]) -> PestoAnalysisResult:
+    activation_map = result.get("activation_map")
+    activation_freq_axis = result.get("activation_freq_axis")
+    return PestoAnalysisResult(
+        frequency=float(result["frequency"]),
+        confidence=float(result["confidence"]),
+        expected_frequency=(
+            None
+            if result.get("expected_frequency") is None
+            else float(result["expected_frequency"])
+        ),
+        frame_times=np.asarray(result["frame_times"], dtype=np.float32),
+        predicted_frequencies=np.asarray(
+            result["predicted_frequencies"], dtype=np.float32
+        ),
+        frame_confidences=np.asarray(result["frame_confidences"], dtype=np.float32),
         activation_map=None
         if activation_map is None
         else np.asarray(activation_map, dtype=np.float32),
@@ -313,6 +339,27 @@ def analyze_audio_with_pesto(
 
     if sample_rate <= 0:
         raise ValueError("sample_rate must be positive.")
+
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_try_rust_pesto():
+            rust_result = rust_audio.analyze_pesto_onnx(
+                audio,
+                sample_rate,
+                expected_frequency=expected_frequency,
+                include_activations=include_activations,
+                model_name=DEFAULT_PESTO_MODEL_NAME,
+            )
+            if rust_result is not None:
+                LOGGER.debug("Using Rust ONNX backend for PESTO inference")
+                return _coerce_rust_analysis_result(rust_result)
+    except Exception as exc:
+        import os
+
+        if os.environ.get("PESTO_BACKEND", "").strip().lower() == "rust_onnx":
+            raise
+        LOGGER.warning("Rust ONNX backend failed, falling back: %s", exc)
 
     if not use_pytorch_backend():
         try:

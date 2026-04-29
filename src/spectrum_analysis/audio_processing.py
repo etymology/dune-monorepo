@@ -91,6 +91,20 @@ def discard_leading_audio(
     shaped = np.asarray(audio, dtype=np.float32)
     if shaped.size == 0:
         return shaped
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.discard_leading_audio(
+                shaped,
+                sample_rate,
+                discard_seconds,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
 
     discard_samples = max(int(round(float(discard_seconds) * int(sample_rate))), 0)
     if discard_samples <= 0:
@@ -473,6 +487,21 @@ def remove_clicks(
     avoid corrupting genuinely loud or saturated signals.
     """
     audio = np.asarray(audio, dtype=np.float32)
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.remove_clicks(
+                audio,
+                threshold_sigma=threshold_sigma,
+                max_click_fraction=max_click_fraction,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
     if audio.size < 4:
         return audio
 
@@ -510,6 +539,17 @@ def acquire_audio(
             )
         audio, _ = load_audio(Path(cfg.input_audio_path), cfg.sample_rate)
         return remove_clicks(audio)
+
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_capture_backend():
+            return rust_audio.acquire_audio(cfg, noise_rms, timeout)
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
 
     trigger_mode = getattr(cfg, "trigger_mode", "snr")
 

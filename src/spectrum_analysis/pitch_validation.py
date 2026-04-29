@@ -64,6 +64,22 @@ def autocorrelation_pitch(
     to lags that correspond to [*f_min*, *f_max*] Hz.  Returns ``nan`` when no
     clear pitch can be extracted.
     """
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.autocorrelation_pitch(
+                audio,
+                sample_rate,
+                f_min=f_min,
+                f_max=f_max,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
     acf, lag_min, lag_max = _normalized_autocorrelation(
         audio,
         sample_rate,
@@ -98,6 +114,25 @@ def autocorrelation_has_peak_near(
     local peak in the target band whose height is at least *threshold_ratio*
     of the strongest local ACF peak in the searched frequency range.
     """
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.autocorrelation_has_peak_near(
+                audio,
+                sample_rate,
+                frequency,
+                tolerance_ratio=tolerance_ratio,
+                threshold_ratio=threshold_ratio,
+                f_min=f_min,
+                f_max=f_max,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
     if not np.isfinite(frequency) or frequency <= 0.0:
         return False
 
@@ -172,6 +207,23 @@ def fft_has_peak_near(
     band [frequency*(1-tolerance_ratio), frequency*(1+tolerance_ratio)] is at
     least *threshold_ratio* of the global spectral maximum.
     """
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.fft_has_peak_near(
+                audio,
+                sample_rate,
+                frequency,
+                tolerance_ratio=tolerance_ratio,
+                threshold_ratio=threshold_ratio,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
     if not np.isfinite(frequency) or frequency <= 0.0:
         return False
 
@@ -215,6 +267,27 @@ def nn_pitch_is_corroborated(
        *nn_frequency* (≈ ±2.5 semitones at 15 %).
     2. The FFT has a notable peak within *fft_tolerance_ratio* of *nn_frequency*.
     """
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.nn_pitch_is_corroborated(
+                audio,
+                sample_rate,
+                nn_frequency,
+                f_min=f_min,
+                f_max=f_max,
+                acf_tolerance_ratio=acf_tolerance_ratio,
+                fft_tolerance_ratio=fft_tolerance_ratio,
+                fft_threshold_ratio=fft_threshold_ratio,
+                acf_peak_threshold_ratio=acf_peak_threshold_ratio,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
     if not np.isfinite(nn_frequency) or nn_frequency <= 0.0:
         return False
 

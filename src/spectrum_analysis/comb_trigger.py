@@ -54,6 +54,24 @@ def harmonic_comb_response(
     weights: np.ndarray,
     min_harmonics: int,
 ) -> tuple[float, float, bool]:
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.harmonic_comb_response(
+                frame,
+                sample_rate,
+                window,
+                candidates,
+                weights,
+                min_harmonics,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
     windowed = frame * window
     spectrum = np.fft.rfft(windowed)
     magnitude = np.abs(spectrum)

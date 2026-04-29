@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+import json
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -114,6 +115,33 @@ def _find_onnx_model_path(model_name: str, model_type: str) -> Optional[Path]:
     return None
 
 
+def _find_onnx_manifest_path(model_name: str) -> Optional[Path]:
+    filename = f"{model_name}_manifest.json"
+    candidate_paths = [
+        Path(__file__).resolve().parent.parent.parent
+        / "dune_tension"
+        / "data"
+        / "pesto_onnx"
+        / filename,
+        Path(__file__).resolve().parent / "pesto_onnx" / filename,
+        Path("dune_tension") / "data" / "pesto_onnx" / filename,
+    ]
+    for path in candidate_paths:
+        if path.exists():
+            return path
+    return None
+
+
+def _load_onnx_manifest(model_name: str) -> dict[str, Any]:
+    path = _find_onnx_manifest_path(model_name)
+    if path is None:
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 def _reduce_activations_alwa(
     activations: np.ndarray, bins_per_semitone: int
 ) -> np.ndarray:
@@ -190,7 +218,10 @@ class ONNXPestoModel:
         model_name: str,
         bins_per_semitone: int = 2,
         fmin: float = 32.7,
-        num_octaves: int = 6,
+        n_bins: int = 251,
+        crop_min_steps: int = -16,
+        crop_max_steps: int = 16,
+        shift: float = 0.0,
         hop_size_ms: float = 5.0,
     ):
         """Initialize ONNX PESTO model.
@@ -213,7 +244,10 @@ class ONNXPestoModel:
         self.model_name = model_name
         self.bins_per_semitone = bins_per_semitone
         self.fmin = fmin
-        self.num_octaves = num_octaves
+        self.n_bins = n_bins
+        self.crop_min_steps = crop_min_steps
+        self.crop_max_steps = crop_max_steps
+        self.shift = shift
         self.hop_size_ms = hop_size_ms
 
         _LOGGER.info("Loading ONNX encoder from %s", encoder_path)
@@ -228,7 +262,7 @@ class ONNXPestoModel:
             providers=["CPUExecutionProvider"],
         )
 
-        self.num_freq_bins = 12 * bins_per_semitone * num_octaves
+        self.num_freq_bins = n_bins
         self.output_dim = 128 * bins_per_semitone
 
         _LOGGER.info(
@@ -248,15 +282,20 @@ class ONNXPestoModel:
             raise RuntimeError("PESTO library is not available")
 
         if not hasattr(self, "_preprocessor"):
-            from pesto import Preprocessor
+            from pesto.data import Preprocessor
 
             self._preprocessor = Preprocessor(
                 hop_size=self.hop_size_ms,
                 sampling_rate=None,
                 fmin=self.fmin,
-                harmonics=6,
+                harmonics=[1],
                 bins_per_semitone=self.bins_per_semitone,
-                n_octaves=self.num_octaves,
+                n_bins=self.n_bins,
+                center_bins=True,
+                gamma=7,
+                center=True,
+                streaming=False,
+                max_batch_size=1,
             )
 
         return self._preprocessor
@@ -299,7 +338,10 @@ class ONNXPestoModel:
                 )[0]
                 confidence = confidence_output.squeeze(-1).astype(np.float32)
 
-                encoder_input = cqt_output.cpu().numpy().astype(np.float32)
+                encoder_tensor = cqt_output[
+                    ..., self.crop_max_steps : self.crop_min_steps
+                ]
+                encoder_input = encoder_tensor.cpu().numpy().astype(np.float32)
 
             activations_output = self.encoder_session.run(
                 ["activations"], {"hcqt_features": encoder_input}
@@ -308,6 +350,10 @@ class ONNXPestoModel:
 
         else:
             raise RuntimeError("PyTorch is required for HCQT preprocessing")
+
+        bin_shift = int(round(float(self.shift) * int(self.bins_per_semitone)))
+        if bin_shift:
+            activations = np.roll(activations, -bin_shift, axis=-1)
 
         predictions = _reduce_activations_alwa(activations, self.bins_per_semitone)
 
@@ -351,13 +397,18 @@ def load_onnx_model(
         _LOGGER.warning("ONNX models not found for %s", model_name)
         return None
 
+    manifest = _load_onnx_manifest(model_name)
+    hparams = manifest.get("hparams", {})
     model = ONNXPestoModel(
         encoder_path=encoder_path,
         confidence_path=confidence_path,
         model_name=model_name,
-        bins_per_semitone=2,
-        fmin=32.7,
-        num_octaves=6,
+        bins_per_semitone=int(hparams.get("bins_per_semitone", 3)),
+        fmin=float(hparams.get("fmin", 27.5)),
+        n_bins=int(hparams.get("n_bins", 251)),
+        crop_min_steps=int(hparams.get("crop_min_steps", -16)),
+        crop_max_steps=int(hparams.get("crop_max_steps", 16)),
+        shift=float(hparams.get("shift", 6.677955627441406)),
         hop_size_ms=step_size_ms,
     )
 

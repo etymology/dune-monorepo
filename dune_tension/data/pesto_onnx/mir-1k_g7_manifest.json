@@ -1,0 +1,38 @@
+{
+  "confidence_sha256": "9e72968961ddf779d00e7da3186d434caec152b925ff64ec6c637208045caed6",
+  "encoder_sha256": "e6a923fc118b43714e8f9a5c583983d8315ee3bf53af0209ac0c4b3e41048b7f",
+  "export_command": [
+    "export_pesto_onnx.py",
+    "--model-name",
+    "mir-1k_g7",
+    "--step-size",
+    "5.0",
+    "--sampling-rate",
+    "44100"
+  ],
+  "hparams": {
+    "bins_per_semitone": 3,
+    "center": true,
+    "center_bins": true,
+    "crop_max_steps": 16,
+    "crop_min_steps": -16,
+    "fmax": null,
+    "fmin": 27.5,
+    "gamma": 7.0,
+    "harmonics": [
+      1
+    ],
+    "n_bins": 251,
+    "output_dim": 384,
+    "shift": 6.677955627441406,
+    "step_size_ms": 5.0
+  },
+  "model_name": "mir-1k_g7",
+  "onnx": {
+    "confidence_input": "energy",
+    "confidence_output": "confidence",
+    "encoder_input": "hcqt_features",
+    "encoder_output": "activations",
+    "opset_version": 18
+  }
+}

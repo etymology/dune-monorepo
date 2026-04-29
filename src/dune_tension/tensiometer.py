@@ -1052,6 +1052,16 @@ class Tensiometer:
         audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
         if audio_array.size == 0:
             return 0.0
+        try:
+            from dune_tension import rust_audio
+
+            if rust_audio.should_use_audio_backend():
+                return rust_audio.rms(audio_array)
+        except Exception:
+            import os
+
+            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+                raise
         audio_float = audio_array.astype(np.float64, copy=False)
         return float(np.sqrt(np.mean(np.square(audio_float))))
 
@@ -1071,6 +1081,20 @@ class Tensiometer:
             return float("nan")
         if not np.isfinite(frequency) or frequency <= 0.0:
             return float("nan")
+        try:
+            from dune_tension import rust_audio
+
+            if rust_audio.should_use_audio_backend():
+                return rust_audio.triangle_reference_rms(
+                    sample_rate,
+                    duration,
+                    frequency,
+                )
+        except Exception:
+            import os
+
+            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+                raise
 
         sample_count = max(int(round(duration * sample_rate)), 1)
         times = np.arange(sample_count, dtype=np.float64) / float(sample_rate)
@@ -1109,6 +1133,7 @@ class Tensiometer:
         from spectrum_analysis.pitch_validation import nn_pitch_is_corroborated
 
         analysis = None
+        require_corroboration = False
         try:
             analysis = analyze_audio_with_pesto(
                 audio_sample,
@@ -1117,6 +1142,7 @@ class Tensiometer:
                 include_activations=True,
             )
             frequency, confidence = analysis.frequency, analysis.confidence
+            require_corroboration = True
         except Exception:
             frequency, confidence = estimate_pitch_from_audio(
                 audio_sample,
@@ -1124,7 +1150,7 @@ class Tensiometer:
                 expected_frequency,
             )
 
-        if np.isfinite(frequency) and frequency > 0.0:
+        if require_corroboration and np.isfinite(frequency) and frequency > 0.0:
             corroborated = nn_pitch_is_corroborated(
                 np.asarray(audio_sample, dtype=np.float64),
                 self.samplerate,
@@ -1132,7 +1158,9 @@ class Tensiometer:
             )
             if corroborated:
                 # ACF and FFT agree: accept regardless of NN confidence.
-                confidence = max(float(confidence), float(self.config.confidence_threshold))
+                confidence = max(
+                    float(confidence), float(self.config.confidence_threshold)
+                )
                 LOGGER.debug(
                     "NN pitch %.1f Hz corroborated by ACF/FFT; confidence=%.2f.",
                     frequency,
@@ -1450,8 +1478,9 @@ class Tensiometer:
 
             comb_cfg = HarmonicCombConfig()
             frame_size = comb_cfg.frame_size
-            if sample.audio_sample.size >= frame_size:
-                frame = sample.audio_sample[:frame_size]
+            harmonicity_audio = np.asarray(sample.audio_sample, dtype=np.float32)
+            if harmonicity_audio.size >= frame_size:
+                frame = harmonicity_audio[:frame_size]
                 window = np.hanning(frame_size).astype(np.float32)
                 freq_bins = np.fft.rfftfreq(frame_size, d=1.0 / self.samplerate)
                 # Use analysis.frequency if available, else expected_frequency

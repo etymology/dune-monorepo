@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from serial.tools import list_ports
+try:
+    from serial.tools import list_ports as _serial_list_ports
+except Exception:  # pragma: no cover - exercised by dummy-controller test stubs
+    _serial_list_ports = None
 
 
 def build_candidate_ports(
@@ -29,7 +32,7 @@ def build_candidate_ports(
     if preferred_port:
         candidates.append(preferred_port)
 
-    for port in list_ports.comports():
+    for port in _iter_comports():
         device = getattr(port, "device", None)
         if not device:
             continue
@@ -52,6 +55,12 @@ def build_candidate_ports(
             if candidate not in candidates:
                 candidates.append(candidate)
     return candidates
+
+
+def _iter_comports() -> Iterable[Any]:
+    if _serial_list_ports is None:
+        return ()
+    return _serial_list_ports.comports()
 
 
 def is_serial_permission_error(exc: Exception) -> bool:

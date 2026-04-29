@@ -44,6 +44,8 @@ uv run pytest tests/dune_tension    # tension tests only
 uv run pytest tests/dune_winder     # winder tests only
 uv run ruff check src tests         # lint
 uv run ruff format src tests        # format
+uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
+cargo test --workspace --manifest-path rust/Cargo.toml
 make test                           # shorthand via Makefile
 ```
 
@@ -56,6 +58,10 @@ the root workflow.
 ## Layout
 
 All Python source lives under [`src/`](src/): `dune_winder`, `dune_tension`, `spectrum_analysis`.
+
+Rust source lives under [`rust/`](rust/). It currently provides the optional
+`dune_tension._rust_audio` extension for the live audio hot path and PESTO ONNX
+inference, with the workspace laid out for a broader future rewrite.
 
 Data artifacts stay in their own subdirectories and are **not** Python packages:
 
