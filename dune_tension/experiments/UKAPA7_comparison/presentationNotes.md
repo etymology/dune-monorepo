@@ -60,6 +60,10 @@ Blue is the A side, Green is the B side.
   wires lower in Chicago.
 - Residual widths are about `0.5 N` on both sides.
 
+Orange lines are the UK, blue lines are chicago. Left is the A side, right is the B side
+The lines are moving average of 3.
+The wire numberings go from bottom to top on the A side and top to bottom on the B side.
+
 2.3/5.75*8*0.218 = .7mm over the length of a long wire for a -0.5 change in tension assuming youngs mod E = 130Gpa
 
 ---
