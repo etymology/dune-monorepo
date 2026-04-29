@@ -9,8 +9,10 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
-torch = None  # type: ignore
-load_model = None  # type: ignore
+from spectrum_analysis.pitch_consensus import estimate_pitch_consensus
+
+torch: Any | None = None
+load_model: Any | None = None
 _RUNTIME_DEPS_LOADED = False
 _MODEL_CACHE: dict[tuple[str, float, int], Any] = {}
 DEFAULT_PESTO_MODEL_NAME = "mir-1k_g7"
@@ -84,7 +86,7 @@ class PestoAnalysisResult:
 
 
 def _to_numpy(value: Any) -> np.ndarray:
-    if torch is not None and isinstance(value, torch.Tensor):  # type: ignore[union-attr]
+    if torch is not None and isinstance(value, torch.Tensor):
         return value.detach().cpu().numpy()
     return np.asarray(value)
 
@@ -160,6 +162,29 @@ def _empty_analysis_result() -> PestoAnalysisResult:
     )
 
 
+def _coerce_analysis_result(result: Any) -> PestoAnalysisResult:
+    activation_map = result.activation_map
+    activation_freq_axis = result.activation_freq_axis
+    return PestoAnalysisResult(
+        frequency=float(result.frequency),
+        confidence=float(result.confidence),
+        expected_frequency=(
+            None
+            if result.expected_frequency is None
+            else float(result.expected_frequency)
+        ),
+        frame_times=np.asarray(result.frame_times, dtype=np.float32),
+        predicted_frequencies=np.asarray(result.predicted_frequencies, dtype=np.float32),
+        frame_confidences=np.asarray(result.frame_confidences, dtype=np.float32),
+        activation_map=None
+        if activation_map is None
+        else np.asarray(activation_map, dtype=np.float32),
+        activation_freq_axis=None
+        if activation_freq_axis is None
+        else np.asarray(activation_freq_axis, dtype=np.float32),
+    )
+
+
 def _activation_frequency_axis(model: Any, num_bins: int) -> np.ndarray:
     bins_per_semitone = max(int(getattr(model, "bins_per_semitone", 1)), 1)
     preprocessor = getattr(model, "preprocessor", None)
@@ -223,16 +248,16 @@ def _ensure_runtime_dependencies() -> bool:
         return False
 
     try:  # pragma: no cover - dependency availability depends on environment
-        import torch as torch_module  # type: ignore
-        from pesto import load_model as pesto_load_model  # type: ignore
+        import torch as torch_module
+        from pesto import load_model as pesto_load_model
     except Exception:
-        torch = None  # type: ignore
-        load_model = None  # type: ignore
+        torch = None
+        load_model = None
         _RUNTIME_DEPS_LOADED = True
         return False
 
-    torch = torch_module  # type: ignore
-    load_model = pesto_load_model  # type: ignore
+    torch = torch_module
+    load_model = pesto_load_model
     _RUNTIME_DEPS_LOADED = True
     return True
 
@@ -294,17 +319,23 @@ def analyze_audio_with_pesto(
             from spectrum_analysis import pesto_onnx
 
             LOGGER.debug("Using ONNX backend for PESTO inference")
-            return pesto_onnx.analyze_audio_with_onnx(
-                audio,
-                sample_rate,
-                expected_frequency=expected_frequency,
-                include_activations=include_activations,
+            return _coerce_analysis_result(
+                pesto_onnx.analyze_audio_with_onnx(
+                    audio,
+                    sample_rate,
+                    expected_frequency=expected_frequency,
+                    include_activations=include_activations,
+                )
             )
         except Exception as exc:
             LOGGER.warning("ONNX backend failed, falling back to PyTorch: %s", exc)
 
     if not _ensure_runtime_dependencies():
         LOGGER.warning("pesto-pitch is unavailable; cannot estimate pitch.")
+        return _empty_analysis_result()
+    active_torch = torch
+    if active_torch is None:
+        LOGGER.warning("torch is unavailable; cannot estimate pitch.")
         return _empty_analysis_result()
 
     audio_array = np.asarray(audio, dtype=np.float32).reshape(-1)
@@ -335,11 +366,13 @@ def analyze_audio_with_pesto(
     original_sample_count = int(audio_array.size)
     padded_audio_array, pad_width = _pad_short_audio_for_model(audio_array, model)
     audio_tensor = (
-        torch.from_numpy(padded_audio_array).to(dtype=torch.float32).unsqueeze(0)
+        active_torch.from_numpy(padded_audio_array)
+        .to(dtype=active_torch.float32)
+        .unsqueeze(0)
     )
 
     try:
-        with torch.inference_mode():
+        with active_torch.inference_mode():
             outputs = model(
                 audio_tensor,
                 sr=augmented_sample_rate,
@@ -393,18 +426,20 @@ def analyze_audio_with_pesto(
             if np.any(expected_mask):
                 valid = expected_mask
 
-    if np.any(valid):
-        weighted_frequencies = predicted_frequencies[valid]
-        weights = confidence_values[valid]
-        weight_sum = float(np.sum(weights))
-        if weight_sum <= 0.0:
-            frequency = float(np.mean(weighted_frequencies))
-        else:
-            frequency = float(np.average(weighted_frequencies, weights=weights))
-        confidence = float(np.mean(weights))
-    else:
-        frequency = float("nan")
-        confidence = float("nan")
+    consensus = estimate_pitch_consensus(
+        predicted_frequencies,
+        confidence_values,
+        valid,
+    )
+    frequency = consensus.frequency
+    confidence = consensus.confidence
+    if consensus.area_count > 1:
+        LOGGER.debug(
+            "PESTO pitch consensus selected %s/%s frames from %s pitch areas.",
+            consensus.selected_frame_count,
+            consensus.total_frame_count,
+            consensus.area_count,
+        )
 
     activation_map: np.ndarray | None = None
     activation_freq_axis: np.ndarray | None = None

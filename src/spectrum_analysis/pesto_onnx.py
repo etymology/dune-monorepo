@@ -17,13 +17,15 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
+from spectrum_analysis.pitch_consensus import estimate_pitch_consensus
+
 
 _LOGGER = logging.getLogger(__name__)
 
-onnxruntime = None  # type: ignore
-onnx = None  # type: ignore
-pesto = None  # type: ignore
-torch = None  # type: ignore
+onnxruntime: Any | None = None
+onnx: Any | None = None
+pesto: Any | None = None
+torch: Any | None = None
 _RUNTIME_DEPS_LOADED = False
 
 _ONNX_MODEL_CACHE: dict[str, ONNXPestoModel] = {}
@@ -56,24 +58,24 @@ def _ensure_runtime_dependencies() -> bool:
         return onnxruntime is not None and pesto is not None and torch is not None
 
     try:
-        import onnx as onnx_module  # type: ignore
-        import onnxruntime as ort_module  # type: ignore
-        import torch as torch_module  # type: ignore
-        from pesto import load_model as pesto_load_model  # type: ignore
+        import onnx as onnx_module
+        import onnxruntime as ort_module
+        import torch as torch_module
+        from pesto import load_model as pesto_load_model
     except Exception as e:
         _LOGGER.debug("Failed to import ONNX Runtime, PyTorch, or pesto: %s", e)
-        onnxruntime = None  # type: ignore
-        onnx = None  # type: ignore
-        pesto = None  # type: ignore
-        torch = None  # type: ignore
+        onnxruntime = None
+        onnx = None
+        pesto = None
+        torch = None
         _RUNTIME_DEPS_LOADED = True
         return False
 
-    onnxruntime = ort_module  # type: ignore
-    onnx = onnx_module  # type: ignore
-    torch = torch_module  # type: ignore
+    onnxruntime = ort_module
+    onnx = onnx_module
+    torch = torch_module
     pesto_load_model  # noqa: B018
-    pesto = onnxruntime  # type: ignore
+    pesto = onnxruntime
     _RUNTIME_DEPS_LOADED = True
     return True
 
@@ -204,6 +206,9 @@ class ONNXPestoModel:
         """
         if not _ensure_runtime_dependencies():
             raise RuntimeError("ONNX Runtime dependencies are not available")
+        runtime = onnxruntime
+        if runtime is None:
+            raise RuntimeError("ONNX Runtime is not available")
 
         self.model_name = model_name
         self.bins_per_semitone = bins_per_semitone
@@ -212,13 +217,13 @@ class ONNXPestoModel:
         self.hop_size_ms = hop_size_ms
 
         _LOGGER.info("Loading ONNX encoder from %s", encoder_path)
-        self.encoder_session = onnxruntime.InferenceSession(
+        self.encoder_session = runtime.InferenceSession(
             str(encoder_path),
             providers=["CPUExecutionProvider"],
         )
 
         _LOGGER.info("Loading ONNX confidence classifier from %s", confidence_path)
-        self.confidence_session = onnxruntime.InferenceSession(
+        self.confidence_session = runtime.InferenceSession(
             str(confidence_path),
             providers=["CPUExecutionProvider"],
         )
@@ -262,7 +267,7 @@ class ONNXPestoModel:
         sample_rate: int,
         convert_to_freq: bool = False,
         return_activations: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
         """Run forward pass through the PESTO model.
 
         Args:
@@ -310,7 +315,7 @@ class ONNXPestoModel:
             predictions = 440.0 * np.power(2.0, (predictions - 69.0) / 12.0)
 
         if not return_activations:
-            return predictions, confidence, vol.cpu().numpy().astype(np.float32)
+            return predictions, confidence, vol.cpu().numpy().astype(np.float32), None
 
         return (
             predictions,
@@ -450,18 +455,20 @@ def analyze_audio_with_onnx(
             if np.any(expected_mask):
                 valid = expected_mask
 
-    if np.any(valid):
-        weighted_frequencies = predicted_frequencies[valid]
-        weights = confidence_values[valid]
-        weight_sum = float(np.sum(weights))
-        if weight_sum <= 0.0:
-            frequency = float(np.mean(weighted_frequencies))
-        else:
-            frequency = float(np.average(weighted_frequencies, weights=weights))
-        confidence_avg = float(np.mean(weights))
-    else:
-        frequency = float("nan")
-        confidence_avg = float("nan")
+    consensus = estimate_pitch_consensus(
+        predicted_frequencies,
+        confidence_values,
+        valid,
+    )
+    frequency = consensus.frequency
+    confidence_avg = consensus.confidence
+    if consensus.area_count > 1:
+        _LOGGER.debug(
+            "ONNX PESTO pitch consensus selected %s/%s frames from %s pitch areas.",
+            consensus.selected_frame_count,
+            consensus.total_frame_count,
+            consensus.area_count,
+        )
 
     activation_map: np.ndarray | None = None
     activation_freq_axis: np.ndarray | None = None
