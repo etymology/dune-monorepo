@@ -6,7 +6,7 @@
 --        support keepouts when the Z axis is extended.
 -- Includes: MotionSafetyLimits value type, CollisionState, MotionSegment model,
 --           forbidden-region geometry, arc chord-step algorithm, validation rules
--- Excludes: PLC communication protocol, motion queue handshake, G-code parsing,
+-- Excludes: PLC communication protocol, motion queue handshake, macro parsing,
 --           axis servo tuning, estop/safety-circuit wiring (see winder-states.allium)
 --
 -- Port-correctness note: the safety validation is pure geometry running in Python

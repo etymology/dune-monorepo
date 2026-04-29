@@ -2,7 +2,7 @@
 -- winder-states.allium
 
 -- Scope: State, transfer protocol, and safety behaviour of the DUNE winder runtime and PLC.
--- Includes: Runtime control modes, PLC state values, head-transfer protocol (G206/G106),
+-- Includes: Runtime control modes, PLC state values, head-transfer protocol (modern/legacy),
 --           latch actuator state machine, Z-axis coordination, head position and transfer
 --           state, collision prevention, movement preflight checks, PLC hard interlocks,
 --           and operator diagnostics.
@@ -297,7 +297,7 @@ entity TransferPreconditions {
 }
 
 entity TransferCommand {
-  protocol: g206 | g106
+  protocol: modern | legacy
   target: HeadSide
   origin: HeadSide
 
@@ -431,7 +431,7 @@ config {
   latch_timeout: Duration = 10.seconds
   latch_retry_interval: Duration = 1.seconds
   extend_timeout: Duration = 10.seconds
-  g206_extend_timeout: Duration = 10.seconds
+  modern_extend_timeout: Duration = 10.seconds
 
   -- Bounded recovery before moving Z while fixed-latched
   fixed_latch_recovery_attempts: Integer = 3
@@ -520,10 +520,10 @@ rule MovementRequestRequiresRuntimeIdle {
 }
 
 rule WindAndManualWaitForHeadTransfer {
-  when: GCodeLineWouldAdvance()
+  when: MacroStepWouldAdvance()
   requires: head_controller.active_transfer
 
-  ensures: GCodeLineWaits()
+  ensures: MacroStepWaits()
   ensures:
     if runtime_controller.mode = wind:
       WindSubState() = head_transfer
@@ -541,17 +541,17 @@ rule HMIStopStopsMotionAndQueue {
 }
 
 -- ==========================================================================
--- Rules: head position and transfer (from head-transfer.allium)
+-- Rules: head position and transfer
 -- ==========================================================================
 
-rule G206TransferStageToFixed {
-  when: G206Transfer(target: fixed)
+rule ModernTransferStageToFixed {
+  when: ModernTransfer(target: fixed)
 
   requires: head_position.side = stage
   requires: actuator.position = stage_latched
 
   let command = TransferCommand.created(
-    protocol: g206,
+    protocol: modern,
     target: fixed,
     origin: stage,
     started_at: now,
@@ -571,13 +571,13 @@ rule G206TransferStageToFixed {
     -- fixed-latched, stage not latched, actuator at mid_engagement.
 }
 
-rule G206TransferFixedToStage {
-  when: G206Transfer(target: stage)
+rule ModernTransferFixedToStage {
+  when: ModernTransfer(target: stage)
 
   requires: head_position.side = fixed
 
   let command = TransferCommand.created(
-    protocol: g206,
+    protocol: modern,
     target: stage,
     origin: fixed,
     started_at: now,
@@ -597,8 +597,8 @@ rule G206TransferFixedToStage {
     -- the strict stage target is observed.
 }
 
-rule G206TransferSameSide {
-  when: G206Transfer(target)
+rule ModernTransferSameSide {
+  when: ModernTransfer(target)
 
   requires: head_position.side = target
 
@@ -610,8 +610,8 @@ rule G206TransferSameSide {
     -- fixed-latched Z movement safety rule applies before that move.
 }
 
-rule G206TransferRejectedAbsent {
-  when: G206Transfer(target)
+rule ModernTransferRejectedAbsent {
+  when: ModernTransfer(target)
 
   requires: head_position.side = absent or head_position.side = floating
 
@@ -622,16 +622,16 @@ rule G206TransferRejectedAbsent {
     -- Operator must resolve the mechanical state first.
 }
 
-rule G206TransferRejectedBadActuator {
-  when: G206Transfer(target: fixed)
+rule ModernTransferRejectedBadActuator {
+  when: ModernTransfer(target: fixed)
   requires: head_position.side = stage
   requires: actuator.position != stage_latched
 
   ensures: TransferError("Stage-latched transfers require ACTUATOR_POS 1.")
 }
 
-rule G106TransferInitiate {
-  when: G106Transfer(target)
+rule LegacyTransferInitiate {
+  when: LegacyTransfer(target)
 
   requires: head_position.side = stage or head_position.side = fixed
   requires: head_position.side != target
@@ -639,7 +639,7 @@ rule G106TransferInitiate {
 
   ensures: ZExtendStarted(config.extended_z_position, config.transfer_velocity)
   ensures: TransferCommand.created(
-    protocol: g106,
+    protocol: legacy,
     target: target,
     origin: head_position.side,
     started_at: now,
@@ -652,18 +652,18 @@ rule G106TransferInitiate {
     -- the target latch sensor asserts or timeout.
     -- Does not enforce intermediate actuator position states.
     -- Does not require strict actuator position preconditions.
-    -- Retained for backward compatibility; prefer G206 for new code.
+    -- Retained for backward compatibility; prefer modern for new code.
 }
 
-rule G106TransferSameSide {
-  when: G106Transfer(target)
+rule LegacyTransferSameSide {
+  when: LegacyTransfer(target)
   requires: head_position.side = target
   ensures: ZMoveToFinalPosition(target)
 }
 
 rule ZExtensionReady {
   when: ZExtendComplete(command)
-  requires: command.protocol = g206
+  requires: command.protocol = modern
   requires: preconditions.enable_actuator
 
   ensures: LatchingPhaseStarted()
@@ -699,9 +699,9 @@ rule ZExtensionEnableTimeout {
     -- is not asserted. Mechanical alignment issue.
 }
 
-rule G206LatchStateRequest {
+rule ModernLatchStateRequest {
   when: PLCLatchStateReady(command)
-  requires: command.protocol = g206
+  requires: command.protocol = modern
   requires: preconditions.enable_actuator
 
   ensures: PLCLatchStateRequested()
@@ -715,23 +715,23 @@ rule G206LatchStateRequest {
     -- timeout governs the latching phase.
 }
 
-rule G206LatchTargetReached {
+rule ModernLatchTargetReached {
   when: StrictLatchTargetReached(command)
-  requires: command.protocol = g206
+  requires: command.protocol = modern
 
   ensures: SafeZMoveToFinalPosition(command.target)
 
   @guidance
-    -- G206 does not require the port to model every intermediate
+    -- Modern protocol does not require the port to model every intermediate
     -- actuator transition. It keeps requesting the PLC latch state until
     -- the strict target for the requested side is observed, then performs
     -- the final Z move. For fixed target, safe final Z movement requires the
     -- actuator to be at mid_engagement.
 }
 
-rule G206LatchTimeout {
+rule ModernLatchTimeout {
   when: command: TransferCommand.started_at + command.latch_timeout <= now
-  requires: command.protocol = g206
+  requires: command.protocol = modern
 
   ensures: TransferError(
     "Latch phase timed out while targeting latch side."
@@ -746,9 +746,9 @@ rule G206LatchTimeout {
     -- Recovery requires operator intervention.
 }
 
-rule G106LatchStateRequest {
+rule LegacyLatchStateRequest {
   when: PLCLatchStateReady(command)
-  requires: command.protocol = g106
+  requires: command.protocol = legacy
   requires: preconditions.enable_actuator
 
   ensures: PLCLatchStateRequested()
@@ -758,21 +758,21 @@ rule G106LatchStateRequest {
     -- condition is observed or the latch phase times out.
 }
 
-rule G106LatchTargetReached {
+rule LegacyLatchTargetReached {
   when: LegacyLatchTargetReached(command)
-  requires: command.protocol = g106
+  requires: command.protocol = legacy
 
   ensures: ZMoveToFinalPosition(command.target)
 
   @guidance
     -- Legacy target check: latch sensor for target side asserts
     -- AND actuator position = mid_engagement (2).
-    -- Less strict than G206 — does not verify intermediate states.
+    -- Less strict than modern — does not verify intermediate states.
 }
 
-rule G106LatchTimeout {
+rule LegacyLatchTimeout {
   when: command: TransferCommand.started_at + command.latch_timeout <= now
-  requires: command.protocol = g106
+  requires: command.protocol = legacy
 
   ensures: TransferError("Latch transfer timed out.")
 }
@@ -784,16 +784,16 @@ rule ZFinalMoveComplete {
 
   @guidance
     -- Z has reached final target position within tolerance (1.0 mm).
-    -- For G206: additionally verifies strict final state:
+    -- For modern: additionally verifies strict final state:
     --   stage target: z_stage_latched AND actuator = stage_latched (1)
     --   fixed target: z_fixed_latched AND actuator = mid_engagement (2)
-    -- If final state does not match, G206 reports an error.
-    -- G106 accepts the final position without strict actuator check.
+    -- If final state does not match, modern protocol reports an error.
+    -- Legacy accepts the final position without strict actuator check.
 }
 
-rule G206FinalStateVerificationFailed {
+rule ModernFinalStateVerificationFailed {
   when: ZMoveComplete(command)
-  requires: command.protocol = g206
+  requires: command.protocol = modern
   requires: not StrictFinalStateReached(command)
 
   ensures: TransferError(
@@ -816,7 +816,7 @@ rule TransferStopRequested {
 
   @guidance
     -- If in SEEKING_TO_FINAL_POSITION, PLC seek is stopped.
-    -- All latch retry state and G206 transition state is cleared.
+    -- All latch retry state and modern transition state is cleared.
 }
 
 rule RockerUnlatchFromStage {
@@ -1002,7 +1002,7 @@ rule SameSideHeadMoveOnlyMovesZ {
   ensures: head_controller.mode = seeking_to_final_position
 }
 
-rule StageToFixedG206Transfer {
+rule StageToFixedModernTransfer {
   when: SetHeadPosition(fixed, velocity)
   requires: head_state.stable_stage
 
@@ -1010,7 +1010,7 @@ rule StageToFixedG206Transfer {
   ensures: head_controller.mode = extending_to_transfer
 }
 
-rule FixedToStageG206Transfer {
+rule FixedToStageModernTransfer {
   when: SetHeadPosition(target, velocity)
   requires: target = stage
   requires: head_state.stable_fixed
@@ -1019,7 +1019,7 @@ rule FixedToStageG206Transfer {
   ensures: head_controller.mode = extending_to_transfer
 }
 
-rule G206LatchingRequiresEnableActuator {
+rule ModernLatchingRequiresEnableActuator {
   when: head_controller: HeadController.mode becomes latching
   requires: not head_state.enable_actuator
   requires: LatchWaitExpired(config.latch_timeout)
@@ -1031,9 +1031,9 @@ rule G206LatchingRequiresEnableActuator {
   ensures: head_controller.mode = idle
 }
 
-rule G206ExtensionRequiresZExtended {
+rule ModernExtensionRequiresZExtended {
   when: head_controller: HeadController.mode = extending_to_transfer
-  requires: ExtendWaitExpired(config.g206_extend_timeout)
+  requires: ExtendWaitExpired(config.modern_extend_timeout)
   requires: not head_state.z_extended
 
   ensures: OperatorDiagnostic.created(
@@ -1043,9 +1043,9 @@ rule G206ExtensionRequiresZExtended {
   ensures: head_controller.mode = idle
 }
 
-rule G206ExtensionRequiresEnableActuator {
+rule ModernExtensionRequiresEnableActuator {
   when: head_controller: HeadController.mode = extending_to_transfer
-  requires: ExtendWaitExpired(config.g206_extend_timeout)
+  requires: ExtendWaitExpired(config.modern_extend_timeout)
   requires: head_state.z_extended
   requires: not head_state.enable_actuator
 
@@ -1084,8 +1084,8 @@ rule FixedLatchBlocksUnsafeZMove {
 -- Rules: Python preflight safety validation
 -- ==========================================================================
 
-rule ManualGCodeSpeedLimit {
-  when: ManualGCodeLineParsed(line)
+rule ManualMacroStepSpeedLimit {
+  when: ManualMacroStepParsed(line)
   requires: line.feed_rate < 0 or line.feed_rate > config.max_velocity
 
   ensures: OperatorDiagnostic.created(
@@ -1094,8 +1094,8 @@ rule ManualGCodeSpeedLimit {
   )
 }
 
-rule ManualGCodeZLimit {
-  when: ManualGCodeLineParsed(line)
+rule ManualMacroStepZLimit {
+  when: ManualMacroStepParsed(line)
   requires: line.target_z < envelope.z_limit_front
       or line.target_z > envelope.z_limit_rear
 
@@ -1105,8 +1105,8 @@ rule ManualGCodeZLimit {
   )
 }
 
-rule ManualGCodeXZLimit {
-  when: ManualGCodeLineParsed(line)
+rule ManualMacroStepXZLimit {
+  when: ManualMacroStepParsed(line)
   requires: line.kind = xz_move
   requires: line.target_x < envelope.limit_left
       or line.target_x > envelope.limit_right
@@ -1117,8 +1117,8 @@ rule ManualGCodeXZLimit {
   )
 }
 
-rule ManualGCodeYZLimit {
-  when: ManualGCodeLineParsed(line)
+rule ManualMacroStepYZLimit {
+  when: ManualMacroStepParsed(line)
   requires: line.kind = yz_move
   requires: line.target_y < envelope.limit_bottom
       or line.target_y > envelope.limit_top
@@ -1620,19 +1620,19 @@ invariant HeadPositionCoherence {
   --   stage_latched AND fixed_latched → error "DUAL_LATCH_FAULT"
 }
 
-invariant G206StrictStartingState {
-  -- G206 transfers enforce strict actuator position preconditions:
+invariant ModernStrictStartingState {
+  -- Modern transfers enforce strict actuator position preconditions:
   --   From stage: actuator MUST be at stage_latched (1)
   --   From fixed: the head must be fixed-latched; before Z movement,
   --     the fixed-latched Z movement safety rule ensures actuator
   --     mid_engagement or rejects the transfer.
   -- This catches cases where a prior transfer left the actuator
   -- in an unexpected stage-side position, preventing cascading failures.
-  -- G106 does not enforce this — another reason to prefer G206.
+  -- Legacy does not enforce this — another reason to prefer modern.
 }
 
-invariant G206StrictFinalState {
-  -- G206 verifies strict final state after Z reaches target:
+invariant ModernStrictFinalState {
+  -- Modern protocol verifies strict final state after Z reaches target:
   --   Target stage: z_stage_latched AND actuator = stage_latched (1)
   --     AND z_position within 1.0 mm of target
   --   Target fixed: z_fixed_latched AND actuator = mid_engagement (2)
@@ -1674,7 +1674,7 @@ invariant ActuatorPositionSafety {
 }
 
 invariant XYCollisionEnvelope {
-  -- Every manual, interpreted G-code, and queued XY path must remain inside
+  -- Every manual, interpreted macro, and queued XY path must remain inside
   -- machine travel bounds, avoid the forbidden transfer region, avoid the
   -- winding-head pivot keepout, and avoid active Z-collision keepouts.
   -- Arc paths are checked by sampling/interpolation before acceptance.
@@ -1722,7 +1722,7 @@ surface OperatorMovementControls {
     OperatorRequestsMovement(command)
     StopMotionRequested()
     SetHeadPosition(target, velocity)
-    ManualGCodeLineParsed(line)
+    ManualMacroStepParsed(line)
     XYMoveRequested(start, target)
     XZMoveRequested(target_x, target_z)
     YZMoveRequested(target_y, target_z)
@@ -1732,7 +1732,7 @@ surface OperatorMovementControls {
 
   @guidance
     -- These are human-initiated commands or command payloads accepted from
-    -- operator-facing controls, manual G-code, recipe playback, or queued
+    -- operator-facing controls, manual macro steps, recipe playback, or queued
     -- motion tooling. They are separate from sensor feedback and PLC status.
 }
 
@@ -1743,7 +1743,7 @@ surface RuntimeExecutionEvents {
     runtime.running
 
   provides:
-    GCodeLineWouldAdvance()
+    MacroStepWouldAdvance()
     SafeZMoveRequested(target_z, velocity)
     QueuedAckDeadlineExpired(expected_ack, last_ack)
     QueuedStartDeadlineExpired()
@@ -1770,8 +1770,8 @@ surface MachineFeedbackInputs {
     StopSignalActive(signal)
     ReadHeadPosition()
     FinalZMoveComplete()
-    G206Transfer(target)
-    G106Transfer(target)
+    ModernTransfer(target)
+    LegacyTransfer(target)
     ZExtendComplete(command)
     ZRetractRequested()
     ZMoveRequested()
@@ -1817,7 +1817,7 @@ open question "State 0 (transition_engaged) occurs in two distinct scenarios: he
 
 open question "The rocker settling time from state 3 to state 2 is mechanically determined and not directly timed in the PLC. Should the spec define a maximum settling duration with error handling if exceeded?"
 
-open question "G106 legacy protocol: should it be formally deprecated in the spec, or maintained as a supported alternative? Current Python code supports both."
+open question "Legacy protocol: should it be formally deprecated in the spec, or maintained as a supported alternative? Current Python code supports both."
 
 open question "Should PLC HEAD_POS = 0 during ACTUATOR_POS = 3 be exposed as a distinct transient head position in operator-facing status, rather than sharing the stage-side code?"
 

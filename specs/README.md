@@ -52,10 +52,9 @@ Queued-motion safety validation. Covers machine envelope limits, forbidden
 regions, collision-state sampling, arc discretisation, and validation results
 before segments are handed to the PLC queue.
 
-### `gcode-opcodes.allium`
+### `winder-macros.allium`
 
-The winder-specific G-code opcode model used by recipe templates to drive
-machine motion, head positioning, wire management, and wrap sequencing.
+The high-level winder macro model used by recipe templates to drive machine motion, head positioning, and wrap sequencing through composite state transitions (e.g. `anchorToTarget`).
 
 ### `winder-states.allium`
 
@@ -99,7 +98,7 @@ Common exclusions:
 - Reference `winder-states.allium` for safety interlocks and state transitions.
 - Use `layer-geometry.allium` and `uv-wrap-geometry.allium` for wire geometry.
 - Use `motion-safety.allium` for queued-motion safety validation.
-- Use `gcode-opcodes.allium` for recipe execution semantics.
+- Use `winder-macros.allium` for recipe execution semantics.
 
 ### For Python Implementation
 
