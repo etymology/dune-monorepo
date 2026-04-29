@@ -217,6 +217,7 @@ fn acquire_audio<'py>(
                 .unwrap_or(default_comb.spectral_flatness_max),
             on_frames: comb_on_frames.unwrap_or(default_comb.on_frames),
             off_frames: comb_off_frames.unwrap_or(default_comb.off_frames),
+            ..default_comb
         },
     };
     acquire_audio_core(&cfg, noise_rms, timeout)

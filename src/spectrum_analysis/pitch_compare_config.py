@@ -80,6 +80,12 @@ class PitchCompareConfig:
             "comb_trigger_hop_size": "hop_size",
             "comb_trigger_candidate_count": "candidate_count",
             "comb_trigger_harmonic_weight_count": "harmonic_weight_count",
+            "comb_trigger_harmonicity_floor": "harmonicity_floor",
+            "comb_trigger_harmonicity_floor_multiplier": (
+                "harmonicity_floor_multiplier"
+            ),
+            "comb_trigger_harmonicity_floor_margin": "harmonicity_floor_margin",
+            "comb_trigger_learning_rate": "learning_rate",
         }
 
         for legacy_key, new_key in comb_aliases.items():

@@ -298,6 +298,10 @@ def acquire_audio(
 ) -> np.ndarray | None:
     extension = _require_extension("Rust audio capture")
     comb = getattr(cfg, "comb_trigger", None)
+    comb_on_score = getattr(comb, "on_rmax", None)
+    harmonicity_threshold = getattr(comb, "harmonicity_threshold", None)
+    if callable(harmonicity_threshold):
+        comb_on_score = harmonicity_threshold()
     captured = extension.acquire_audio(
         int(cfg.sample_rate),
         float(cfg.max_record_seconds),
@@ -312,7 +316,7 @@ def acquire_audio(
         _optional_int(getattr(comb, "candidate_count", None)),
         _optional_int(getattr(comb, "harmonic_weight_count", None)),
         _optional_int(getattr(comb, "min_harmonics", None)),
-        _optional_float(getattr(comb, "on_rmax", None)),
+        _optional_float(comb_on_score),
         _optional_float(getattr(comb, "off_rmax", None)),
         _optional_float(getattr(comb, "sfm_max", None)),
         _optional_int(getattr(comb, "on_frames", None)),

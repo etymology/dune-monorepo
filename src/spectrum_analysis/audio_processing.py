@@ -575,6 +575,8 @@ def acquire_audio(
             timeout_seconds=timeout if timeout is not None else cfg.max_record_seconds,
             comb_cfg=cfg.comb_trigger,
         )
+        if audio is None:
+            return None
         return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
     except ValueError:
         LOGGER.warning("Invalid frequency band; falling back to RMS trigger.")

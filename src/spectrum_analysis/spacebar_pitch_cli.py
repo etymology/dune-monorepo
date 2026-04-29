@@ -195,7 +195,7 @@ def _handle_trigger(
         print(f"[ERROR] Recording failed: {exc}", file=sys.stderr)
         return
 
-    if audio.size == 0:
+    if audio is None or audio.size == 0:
         print("[WARN] No audio captured.")
         return
 

@@ -504,6 +504,51 @@ def test_amplitude_confidence_falls_back_to_raw_rms_when_reference_invalid() -> 
     assert confidence == pytest.approx(1.0)
 
 
+def test_collect_samples_uses_harmonic_comb_capture(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    captured_configs = []
+
+    def _acquire_audio(**kwargs):
+        captured_configs.append(kwargs["cfg"])
+        return None
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", _acquire_audio)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+
+    times = iter([0.0, 0.02])
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        record_duration=1.0,
+        measuring_duration=0.01,
+        time_provider=lambda: next(times),
+    )
+    tensiometer.strum_func = lambda: None
+
+    tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=0.0,
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert captured_configs
+    assert captured_configs[0].trigger_mode == "harmonic_comb"
+    assert captured_configs[0].comb_trigger is tensiometer._harmonic_comb_config
+
+
 def test_amplitude_mode_skips_pesto_until_threshold_then_analyzes_once(monkeypatch):
     _patch_result_physics(monkeypatch)
     repository = DummyRepository()

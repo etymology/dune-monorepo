@@ -1,4 +1,4 @@
-#[cfg(feature = "cpal-capture")]
+#[cfg(any(feature = "cpal-capture", test))]
 use std::collections::VecDeque;
 #[cfg(feature = "cpal-capture")]
 use std::sync::mpsc;
@@ -14,7 +14,11 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, SampleRate, StreamConfig};
 
 #[cfg(feature = "cpal-capture")]
-use crate::dsp::{discard_leading_audio, hanning, harmonic_comb_response, remove_clicks};
+use crate::dsp::discard_leading_audio;
+#[cfg(feature = "cpal-capture")]
+use crate::dsp::{hanning, harmonic_comb_response, rms};
+#[cfg(any(feature = "cpal-capture", test))]
+use crate::dsp::{remove_clicks, CombResponse};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TriggerMode {
@@ -34,6 +38,10 @@ pub struct HarmonicCombCaptureConfig {
     pub spectral_flatness_max: f64,
     pub on_frames: usize,
     pub off_frames: usize,
+    pub harmonicity_floor_frames: usize,
+    pub harmonicity_floor_multiplier: f64,
+    pub harmonicity_floor_margin: f64,
+    pub noise_rms_multiplier: f64,
 }
 
 impl Default for HarmonicCombCaptureConfig {
@@ -44,11 +52,15 @@ impl Default for HarmonicCombCaptureConfig {
             candidate_count: 36,
             harmonic_weight_count: 10,
             min_harmonics: 3,
-            on_score: 1e-13,
-            off_score: 1e-15,
+            on_score: 0.08,
+            off_score: 0.03,
             spectral_flatness_max: 0.6,
             on_frames: 2,
             off_frames: 5,
+            harmonicity_floor_frames: 16,
+            harmonicity_floor_multiplier: 1.5,
+            harmonicity_floor_margin: 0.02,
+            noise_rms_multiplier: 2.0,
         }
     }
 }
@@ -84,7 +96,7 @@ pub fn acquire_audio(
             TriggerMode::Snr => acquire_audio_snr(cfg, noise_rms, timeout_seconds)?,
             TriggerMode::HarmonicComb => match cfg.expected_f0 {
                 Some(expected_f0) if expected_f0.is_finite() && expected_f0 > 0.0 => {
-                    acquire_audio_harmonic_comb(cfg, expected_f0, timeout_seconds)?
+                    acquire_audio_harmonic_comb(cfg, expected_f0, noise_rms, timeout_seconds)?
                 }
                 _ => acquire_audio_snr(cfg, noise_rms, timeout_seconds)?,
             },
@@ -198,10 +210,155 @@ fn acquire_audio_snr(
     Ok(state.finish())
 }
 
+#[cfg(any(feature = "cpal-capture", test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HarmonicTriggerEvent {
+    Waiting,
+    StartRecording,
+    Recording,
+    StopRecording,
+}
+
+#[cfg(any(feature = "cpal-capture", test))]
+#[derive(Debug, Clone)]
+struct HarmonicNoiseFloor {
+    scores: VecDeque<f64>,
+    capacity: usize,
+}
+
+#[cfg(any(feature = "cpal-capture", test))]
+impl HarmonicNoiseFloor {
+    fn new(capacity: usize) -> Self {
+        let capacity = capacity.max(1);
+        Self {
+            scores: VecDeque::with_capacity(capacity),
+            capacity,
+        }
+    }
+
+    fn push(&mut self, score: f64) {
+        if !score.is_finite() || score < 0.0 {
+            return;
+        }
+        while self.scores.len() >= self.capacity {
+            self.scores.pop_front();
+        }
+        self.scores.push_back(score);
+    }
+
+    fn percentile(&self, quantile: f64) -> Option<f64> {
+        if self.scores.is_empty() {
+            return None;
+        }
+        let mut values = self.scores.iter().copied().collect::<Vec<_>>();
+        values.sort_by(|left, right| left.total_cmp(right));
+        let index = ((values.len() - 1) as f64 * quantile.clamp(0.0, 1.0)).round() as usize;
+        values.get(index).copied()
+    }
+}
+
+#[cfg(any(feature = "cpal-capture", test))]
+#[derive(Debug, Clone)]
+struct HarmonicTriggerState {
+    comb: HarmonicCombCaptureConfig,
+    noise_rms: f64,
+    floor: HarmonicNoiseFloor,
+    on_counter: usize,
+    off_counter: usize,
+    triggered: bool,
+}
+
+#[cfg(any(feature = "cpal-capture", test))]
+impl HarmonicTriggerState {
+    fn new(comb: &HarmonicCombCaptureConfig, noise_rms: f64) -> Self {
+        Self {
+            comb: comb.clone(),
+            noise_rms,
+            floor: HarmonicNoiseFloor::new(comb.harmonicity_floor_frames),
+            on_counter: 0,
+            off_counter: 0,
+            triggered: false,
+        }
+    }
+
+    fn triggered(&self) -> bool {
+        self.triggered
+    }
+
+    fn adaptive_on_score(&self) -> f64 {
+        let configured = self.comb.on_score.max(0.0);
+        let Some(floor_score) = self.floor.percentile(0.90) else {
+            return configured;
+        };
+        let multiplier = self.comb.harmonicity_floor_multiplier.max(1.0);
+        let margin = self.comb.harmonicity_floor_margin.max(0.0);
+        configured.max((floor_score * multiplier) + margin)
+    }
+
+    fn adaptive_off_score(&self) -> f64 {
+        let Some(floor_score) = self.floor.percentile(0.75) else {
+            return self.comb.off_score.max(0.0);
+        };
+        self.comb.off_score.max(floor_score)
+    }
+
+    fn is_calibrated_noise_frame(&self, frame_rms: f64) -> bool {
+        self.noise_rms.is_finite()
+            && self.noise_rms > 0.0
+            && frame_rms.is_finite()
+            && frame_rms <= self.noise_rms * self.comb.noise_rms_multiplier.max(1.0)
+    }
+
+    fn observe(&mut self, response: CombResponse, frame_rms: f64) -> HarmonicTriggerEvent {
+        if !self.triggered && self.is_calibrated_noise_frame(frame_rms) {
+            self.floor.push(response.score);
+        }
+
+        if !self.triggered {
+            if response.valid
+                && response.score > self.adaptive_on_score()
+                && response.spectral_flatness < self.comb.spectral_flatness_max
+            {
+                self.on_counter += 1;
+            } else {
+                self.on_counter = 0;
+            }
+
+            if self.on_counter >= self.comb.on_frames.max(1) {
+                self.triggered = true;
+                self.on_counter = 0;
+                self.off_counter = 0;
+                return HarmonicTriggerEvent::StartRecording;
+            }
+            return HarmonicTriggerEvent::Waiting;
+        }
+
+        if !response.valid
+            || response.score < self.adaptive_off_score()
+            || response.spectral_flatness >= self.comb.spectral_flatness_max
+        {
+            self.off_counter += 1;
+            if self.off_counter >= self.comb.off_frames.max(1) {
+                self.triggered = false;
+                return HarmonicTriggerEvent::StopRecording;
+            }
+        } else {
+            self.off_counter = 0;
+        }
+        HarmonicTriggerEvent::Recording
+    }
+}
+
+#[cfg(any(feature = "cpal-capture", test))]
+fn clean_harmonic_detection_frame(frame: &[f32]) -> Vec<f32> {
+    remove_clicks(frame, 4.0, 0.05)
+}
+
 #[cfg(feature = "cpal-capture")]
 fn acquire_audio_harmonic_comb(
     cfg: &AudioAcquisitionConfig,
     expected_f0: f64,
+    noise_rms: f64,
     timeout_seconds: Option<f64>,
 ) -> Result<Option<Vec<f32>>> {
     let comb = &cfg.comb;
@@ -222,18 +379,27 @@ fn acquire_audio_harmonic_comb(
         .collect::<Vec<_>>();
 
     let max_samples = (cfg.max_record_seconds.max(0.0) * cfg.sample_rate as f64) as usize;
-    let timeout = timeout_seconds.unwrap_or(cfg.max_record_seconds).max(0.0);
-    let deadline = Instant::now() + Duration::from_secs_f64(timeout);
+    if max_samples == 0 {
+        return Ok(None);
+    }
+    let start = Instant::now();
+    let wait_timeout = timeout_seconds.map(|seconds| Duration::from_secs_f64(seconds.max(0.0)));
 
     let mut collected = Vec::new();
     let mut frame_buffer = Vec::<f32>::new();
     let mut recent_chunks = VecDeque::<Vec<f32>>::new();
     let mut recent_samples = 0usize;
-    let mut on_counter = 0usize;
-    let mut off_counter = 0usize;
-    let mut triggered = false;
+    let mut trigger_state = HarmonicTriggerState::new(comb, noise_rms);
 
-    while collected.len() < max_samples && Instant::now() <= deadline {
+    while !trigger_state.triggered() || collected.len() < max_samples {
+        if !trigger_state.triggered() {
+            if let Some(timeout) = wait_timeout {
+                if start.elapsed() >= timeout {
+                    break;
+                }
+            }
+        }
+
         let chunk = source.read()?;
         if chunk.is_empty() {
             continue;
@@ -250,35 +416,25 @@ fn acquire_audio_harmonic_comb(
             }
         }
 
-        let was_triggered = triggered;
+        let was_triggered = trigger_state.triggered();
         let mut chunk_included = false;
         let mut stop_recording = false;
 
         while frame_buffer.len() >= frame_size {
+            let detection_frame = clean_harmonic_detection_frame(&frame_buffer[..frame_size]);
             let response = harmonic_comb_response(
-                &frame_buffer[..frame_size],
+                &detection_frame,
                 cfg.sample_rate,
                 &window,
                 &candidates,
                 &weights,
                 comb.min_harmonics,
             );
+            let frame_rms = rms(&detection_frame);
             frame_buffer.drain(..hop.min(frame_buffer.len()));
 
-            if !triggered {
-                if response.valid
-                    && response.score > comb.on_score
-                    && response.spectral_flatness < comb.spectral_flatness_max
-                {
-                    on_counter += 1;
-                } else {
-                    on_counter = 0;
-                }
-
-                if on_counter >= comb.on_frames.max(1) {
-                    triggered = true;
-                    on_counter = 0;
-                    off_counter = 0;
+            match trigger_state.observe(response, frame_rms) {
+                HarmonicTriggerEvent::StartRecording => {
                     chunk_included = true;
                     for recent in recent_chunks.drain(..) {
                         collected.extend_from_slice(&recent);
@@ -289,14 +445,11 @@ fn acquire_audio_harmonic_comb(
                         break;
                     }
                 }
-            } else if response.score < comb.off_score {
-                off_counter += 1;
-                if off_counter >= comb.off_frames.max(1) {
+                HarmonicTriggerEvent::StopRecording => {
                     stop_recording = true;
                     break;
                 }
-            } else {
-                off_counter = 0;
+                HarmonicTriggerEvent::Waiting | HarmonicTriggerEvent::Recording => {}
             }
         }
 
@@ -311,7 +464,7 @@ fn acquire_audio_harmonic_comb(
     if collected.is_empty() {
         Ok(None)
     } else {
-        collected.truncate(max_samples.max(1));
+        collected.truncate(max_samples);
         Ok(Some(collected))
     }
 }
@@ -390,9 +543,13 @@ impl CpalInputSource {
     }
 
     fn read(&mut self) -> Result<Vec<f32>> {
-        self.receiver
-            .recv_timeout(Duration::from_millis(100))
-            .map_err(|err| anyhow!("audio input stream timed out: {err}"))
+        match self.receiver.recv_timeout(Duration::from_millis(100)) {
+            Ok(chunk) => Ok(chunk),
+            Err(mpsc::RecvTimeoutError::Timeout) => Ok(Vec::new()),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(anyhow!("audio input stream disconnected"))
+            }
+        }
     }
 }
 
@@ -455,5 +612,64 @@ mod tests {
         assert!(!state.push_chunk(&[0.01, -0.01]));
 
         assert!(state.finish().is_none());
+    }
+
+    #[test]
+    fn harmonic_trigger_starts_only_above_calibrated_noise_floor() {
+        let cfg = HarmonicCombCaptureConfig {
+            on_score: 0.01,
+            on_frames: 1,
+            harmonicity_floor_frames: 4,
+            harmonicity_floor_multiplier: 2.0,
+            harmonicity_floor_margin: 0.01,
+            ..Default::default()
+        };
+        let mut state = HarmonicTriggerState::new(&cfg, 0.1);
+        assert!(!state.triggered());
+
+        for score in [0.04, 0.05, 0.06] {
+            let event = state.observe(
+                CombResponse {
+                    score,
+                    spectral_flatness: 0.2,
+                    valid: true,
+                },
+                0.05,
+            );
+            assert_eq!(event, HarmonicTriggerEvent::Waiting);
+        }
+
+        let below_floor = state.observe(
+            CombResponse {
+                score: 0.12,
+                spectral_flatness: 0.2,
+                valid: true,
+            },
+            0.3,
+        );
+        assert_eq!(below_floor, HarmonicTriggerEvent::Waiting);
+
+        let above_floor = state.observe(
+            CombResponse {
+                score: 0.14,
+                spectral_flatness: 0.2,
+                valid: true,
+            },
+            0.3,
+        );
+        assert_eq!(above_floor, HarmonicTriggerEvent::StartRecording);
+        assert!(state.triggered());
+    }
+
+    #[test]
+    fn harmonic_detection_frame_suppresses_isolated_clicks() {
+        let mut frame = (0..32)
+            .map(|index| if index % 2 == 0 { 0.1_f32 } else { -0.1_f32 })
+            .collect::<Vec<_>>();
+        frame[15] = 8.0;
+
+        let cleaned = clean_harmonic_detection_frame(&frame);
+
+        assert!(cleaned[15].abs() < 1.0);
     }
 }
