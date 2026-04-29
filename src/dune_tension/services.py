@@ -268,6 +268,7 @@ class RuntimeBundle:
     strum: Callable[[], None]
     repository_factory: Callable[[str], ResultRepository]
     wire_position_provider: Any | None = None
+    audio_store: Any | None = None
 
     def build_repository(self, data_path: str) -> ResultRepository:
         return self.repository_factory(data_path)
@@ -333,6 +334,15 @@ def _make_strum_callback(controller: Any | None) -> Callable[[], None]:
     return _strum
 
 
+def _build_audio_store() -> Any:
+    try:
+        from dune_tension.audio_store import AudioStore
+    except Exception as exc:
+        LOGGER.warning("AudioStore unavailable: %s", exc)
+        return None
+    return AudioStore.from_environ(audio_path("recordings"))
+
+
 def build_runtime_bundle(options: RuntimeOptions | None = None) -> RuntimeBundle:
     active_options = options or resolve_runtime_options()
     valve_controller = _create_valve_controller(active_options.spoof_valve)
@@ -344,4 +354,5 @@ def build_runtime_bundle(options: RuntimeOptions | None = None) -> RuntimeBundle
         strum=_make_strum_callback(valve_controller),
         repository_factory=lambda data_path: ResultRepository(data_path),
         wire_position_provider=_build_wire_position_provider(),
+        audio_store=_build_audio_store(),
     )

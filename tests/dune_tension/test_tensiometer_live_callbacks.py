@@ -10,6 +10,7 @@ import dune_tension.results as results_module
 import dune_tension.tensiometer as tensiometer_module
 from dune_tension.results import TensionResult
 from dune_tension.tensiometer import Tensiometer
+import spectrum_analysis.pitch_validation as pitch_validation_module
 
 
 def _stub_motion_service():
@@ -80,6 +81,9 @@ def test_collect_samples_invokes_audio_sample_callback(monkeypatch) -> None:
         tensiometer_module,
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: analysis,
+    )
+    monkeypatch.setattr(
+        pitch_validation_module, "nn_pitch_is_corroborated", lambda *_a, **_kw: True
     )
     _patch_result_physics(monkeypatch)
 

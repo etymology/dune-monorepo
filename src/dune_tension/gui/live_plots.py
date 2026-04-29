@@ -200,11 +200,12 @@ class LivePlotManager:
     ) -> Figure:
         figure = Figure(figsize=LIVE_WAVEFORM_FIGSIZE, constrained_layout=True)
         grid = figure.add_gridspec(
-            2, 2, height_ratios=[2.2, 1.6], hspace=0.16, wspace=0.12
+            2, 3, height_ratios=[2.2, 1.6], hspace=0.16, wspace=0.12
         )
         waveform_axis = figure.add_subplot(grid[0, :])
         fft_axis = figure.add_subplot(grid[1, 0])
-        activation_axis = figure.add_subplot(grid[1, 1])
+        autocorr_axis = figure.add_subplot(grid[1, 1])
+        activation_axis = figure.add_subplot(grid[1, 2])
 
         stride = max(1, waveform.size // 4000)
         shown = waveform[::stride]
@@ -221,12 +222,20 @@ class LivePlotManager:
         waveform_axis.set_ylabel("Amplitude")
         waveform_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
 
-        LivePlotManager._populate_fft_axis(fft_axis, waveform, samplerate)
+        LivePlotManager._populate_fft_axis(fft_axis, waveform, samplerate, analysis)
+        LivePlotManager._populate_autocorrelation_axis(
+            autocorr_axis, waveform, samplerate, analysis
+        )
         LivePlotManager._populate_pesto_axis(activation_axis, analysis)
         return figure
 
     @staticmethod
-    def _populate_fft_axis(axis: Any, waveform: np.ndarray, samplerate: int) -> None:
+    def _populate_fft_axis(
+        axis: Any,
+        waveform: np.ndarray,
+        samplerate: int,
+        analysis: Any | None,
+    ) -> None:
         cfg = PitchCompareConfig()
         if waveform.size == 0:
             axis.text(
@@ -253,6 +262,26 @@ class LivePlotManager:
         axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
         if freqs.size:
             axis.set_xlim(0.0, min(float(freqs[-1]), float(cfg.max_frequency)))
+
+        predicted_frequency = getattr(analysis, "frequency", None)
+        if predicted_frequency is not None:
+            try:
+                predicted_frequency = float(predicted_frequency)
+            except (TypeError, ValueError):
+                predicted_frequency = None
+        if predicted_frequency is not None and np.isfinite(predicted_frequency):
+            x_max = min(
+                float(freqs[-1]) if freqs.size else float(cfg.max_frequency),
+                float(cfg.max_frequency),
+            )
+            if 0.0 <= predicted_frequency <= x_max:
+                axis.axvline(
+                    predicted_frequency,
+                    color="cyan",
+                    linestyle="-",
+                    linewidth=0.9,
+                    alpha=0.85,
+                )
 
     @staticmethod
     def _populate_pesto_axis(axis: Any, analysis: Any | None) -> None:
@@ -335,6 +364,134 @@ class LivePlotManager:
                     )
         axis.set_ylim(cfg.min_frequency, visible_max_frequency)
         axis.grid(False)
+
+    @staticmethod
+    def _populate_autocorrelation_axis(
+        axis: Any,
+        waveform: np.ndarray,
+        samplerate: int,
+        analysis: Any | None,
+    ) -> None:
+        cfg = PitchCompareConfig()
+        axis.set_title("Autocorrelation")
+        axis.set_xlabel("Frequency (Hz)")
+        axis.set_ylabel("Normalized ACF")
+
+        audio = np.asarray(waveform, dtype=np.float64).reshape(-1)
+        if audio.size < 2 or samplerate <= 0:
+            axis.text(
+                0.5,
+                0.5,
+                "No autocorrelation data.",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+            )
+            return
+
+        centered = audio - float(np.mean(audio))
+        energy = float(np.dot(centered, centered))
+        if not np.isfinite(energy) or energy <= 0.0:
+            axis.text(
+                0.5,
+                0.5,
+                "No autocorrelation data.",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+            )
+            return
+
+        lag_min = max(1, int(samplerate / float(cfg.max_frequency)))
+        lag_max = min(int(samplerate / float(cfg.min_frequency)), audio.size - 1)
+        if lag_min >= lag_max:
+            axis.text(
+                0.5,
+                0.5,
+                "Waveform too short for ACF range.",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+            )
+            axis.set_xlim(float(cfg.min_frequency), float(cfg.max_frequency))
+            return
+
+        n_fft = 1
+        while n_fft < 2 * audio.size:
+            n_fft <<= 1
+        spectrum = np.fft.rfft(centered, n=n_fft)
+        acf = np.fft.irfft(spectrum * np.conj(spectrum))[: audio.size]
+        acf = acf / (energy + 1e-30)
+
+        lags = np.arange(lag_min, lag_max + 1, dtype=np.int32)
+        frequencies = float(samplerate) / lags.astype(np.float64)
+        acf_band = acf[lag_min : lag_max + 1]
+        order = np.argsort(frequencies)
+        plot_freqs = frequencies[order]
+        plot_acf = acf_band[order]
+
+        axis.plot(plot_freqs, plot_acf, color="#7570b3", linewidth=1.0)
+        axis.set_xlim(float(cfg.min_frequency), float(cfg.max_frequency))
+        axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+
+        peak_index = int(np.argmax(acf_band))
+        peak_frequency = float(frequencies[peak_index])
+        peak_value = float(acf_band[peak_index])
+        axis.axvline(
+            peak_frequency,
+            color="#7570b3",
+            linestyle="--",
+            linewidth=0.9,
+            alpha=0.85,
+        )
+
+        predicted_frequency = getattr(analysis, "frequency", None)
+        if predicted_frequency is not None:
+            try:
+                predicted_frequency = float(predicted_frequency)
+            except (TypeError, ValueError):
+                predicted_frequency = None
+        if predicted_frequency is not None and np.isfinite(predicted_frequency):
+            if float(cfg.min_frequency) <= predicted_frequency <= float(cfg.max_frequency):
+                axis.axvline(
+                    predicted_frequency,
+                    color="cyan",
+                    linestyle="-",
+                    linewidth=0.9,
+                    alpha=0.85,
+                )
+
+        expected_frequency = getattr(analysis, "expected_frequency", None)
+        if expected_frequency is not None:
+            try:
+                expected_frequency = float(expected_frequency)
+            except (TypeError, ValueError):
+                expected_frequency = None
+        if expected_frequency is not None and np.isfinite(expected_frequency):
+            if float(cfg.min_frequency) <= expected_frequency <= float(cfg.max_frequency):
+                axis.axvline(
+                    expected_frequency,
+                    color="#666666",
+                    linestyle=":",
+                    linewidth=0.9,
+                    alpha=0.9,
+                )
+
+        axis.text(
+            0.02,
+            0.98,
+            f"peak {peak_frequency:.1f} Hz\nacf {peak_value:.2f}",
+            ha="left",
+            va="top",
+            transform=axis.transAxes,
+            fontsize=8,
+            bbox={
+                "facecolor": "white",
+                "alpha": 0.75,
+                "edgecolor": "none",
+                "pad": 2.0,
+            },
+        )
 
     @staticmethod
     def _expected_frequency_max_frequency(

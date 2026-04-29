@@ -9,6 +9,7 @@ import time
 import numpy as np
 from random import gauss
 
+from dune_tension.audio_store import AudioRecordingMeta, AudioStore
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.geometry import zone_lookup, length_lookup, refine_position
 from dune_tension.results import TensionResult
@@ -239,6 +240,8 @@ def build_tensiometer(
     wire_preview_callback: Optional[Callable[[int, float, float], None]] = None,
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
+    audio_store: AudioStore | None = None,
+    play_audio: bool = False,
 ) -> "Tensiometer":
     config = make_config(
         apa_name=apa_name,
@@ -394,6 +397,8 @@ def build_tensiometer(
             or active_runtime.wire_position_provider
             or WirePositionProvider()
         ),
+        audio_store=audio_store or getattr(active_runtime, "audio_store", None),
+        play_audio=play_audio,
     )
 
 
@@ -443,6 +448,8 @@ class Tensiometer:
         time_provider: Callable[[], float] | None = None,
         datetime_provider: Callable[[], datetime] | None = None,
         gauss_func: Callable[[float, float], float] | None = None,
+        audio_store: AudioStore | None = None,
+        play_audio: bool = False,
     ) -> None:
         self.config = config or make_config(
             apa_name=apa_name,
@@ -518,6 +525,8 @@ class Tensiometer:
 
         self.a_taped = bool(a_taped)
         self.b_taped = bool(b_taped)
+        self._audio_store = audio_store
+        self.play_audio = bool(play_audio)
 
         # State tracking for winder wiggle thread
         self._wiggle_event: threading.Event | None = None
@@ -959,6 +968,22 @@ class Tensiometer:
         except Exception as exc:  # pragma: no cover - plotting is optional
             LOGGER.warning("Failed to plot audio sample: %s", exc)
 
+    def _play_audio_nonblocking(self, audio_sample: Any) -> None:
+        """Play back an audio sample in a daemon thread without blocking measurement."""
+
+        samplerate = self.samplerate
+
+        def _run() -> None:
+            try:
+                import sounddevice as sd
+
+                sd.play(audio_sample, samplerate)
+                sd.wait()
+            except Exception as exc:
+                LOGGER.debug("Audio playback failed: %s", exc)
+
+        threading.Thread(target=_run, daemon=True).start()
+
     def _start_sweeping_wiggle(
         self,
         *,
@@ -1071,7 +1096,17 @@ class Tensiometer:
         audio_sample: Any,
         expected_frequency: float | None,
     ) -> tuple[Any | None, float, float]:
-        """Estimate pitch using the existing PESTO-first fallback path."""
+        """Estimate pitch using PESTO, gated by ACF and FFT corroboration.
+
+        Acceptance is determined by whether the NN frequency is corroborated by
+        a notable autocorrelation peak (within ±15 %) and a notable FFT peak
+        (within ±10 %).  Neither peak has to be the global maximum.  When
+        corroborated, confidence is raised to at least the configured threshold
+        so the measurement loop accepts the sample immediately.  When not
+        corroborated, confidence is zeroed so the loop continues searching —
+        regardless of what PESTO reported.
+        """
+        from spectrum_analysis.pitch_validation import nn_pitch_is_corroborated
 
         analysis = None
         try:
@@ -1088,6 +1123,28 @@ class Tensiometer:
                 self.samplerate,
                 expected_frequency,
             )
+
+        if np.isfinite(frequency) and frequency > 0.0:
+            corroborated = nn_pitch_is_corroborated(
+                np.asarray(audio_sample, dtype=np.float64),
+                self.samplerate,
+                float(frequency),
+            )
+            if corroborated:
+                # ACF and FFT agree: accept regardless of NN confidence.
+                confidence = max(float(confidence), float(self.config.confidence_threshold))
+                LOGGER.debug(
+                    "NN pitch %.1f Hz corroborated by ACF/FFT; confidence=%.2f.",
+                    frequency,
+                    confidence,
+                )
+            else:
+                LOGGER.debug(
+                    "NN pitch %.1f Hz not corroborated by ACF/FFT; rejecting sample.",
+                    frequency,
+                )
+                confidence = 0.0
+
         return analysis, float(frequency), float(confidence)
 
     def measure_calibrate(self, wire_number: int) -> Optional[TensionResult]:
@@ -1546,6 +1603,22 @@ class Tensiometer:
 
                 if audio_sample is not None:
                     focus_position = self._get_focus_position()
+                    if self.play_audio:
+                        self._play_audio_nonblocking(audio_sample)
+                    if self._audio_store is not None:
+                        _rec_meta = AudioRecordingMeta(
+                            apa_name=self.config.apa_name,
+                            layer=self.config.layer,
+                            side=self.config.side,
+                            wire_number=wire_number,
+                            x_mm=float(x),
+                            y_mm=float(y),
+                            focus_position=focus_position,
+                            zone=measured_zone,
+                            wire_length_m=float(length),
+                            timestamp=self._now(),
+                        )
+                        self._audio_store.save(audio_sample, self.samplerate, _rec_meta)
                     if amplitude_mode:
                         analyze_started = self._profile_time()
                         confidence = self._amplitude_confidence(
@@ -1887,6 +1960,11 @@ class Tensiometer:
         """Stop any active audio streams used by the tensiometer."""
         try:
             self.repository.close()
+        except Exception:
+            pass
+        try:
+            if self._audio_store is not None:
+                self._audio_store.close()
         except Exception:
             pass
         try:
