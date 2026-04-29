@@ -742,15 +742,11 @@ class UvLayerLayout:
         pin_b = _wrap_inclusive(
             self._wire_segment_1_pin_b - (number - 1), 1, self.pin_max
         )
-        endpoints = (
-            self.format_pin_name("B", pin_a),
-            self.format_pin_name("B", pin_b),
-        )
-        if normalized_family == "B":
-            return endpoints
-        return tuple(
-            self.translate_pin(pin_name, target_family=normalized_family)
-            for pin_name in endpoints
+        # Segment endpoints use the same pin NUMBER on both A and B sides.
+        # Only the side prefix differs; no modular translation is applied.
+        return (
+            self.format_pin_name(normalized_family, pin_a),
+            self.format_pin_name(normalized_family, pin_b),
         )
 
     def wrap_orientation(self, pin_name: str) -> WrapOrientation:
