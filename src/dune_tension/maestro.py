@@ -1,13 +1,16 @@
 import serial
 import logging
 from sys import version_info
-import platform
 import time
 from threading import Event, Thread, RLock
 from typing import Callable
 from random import gauss
 
 from dune_tension.config import SERVO_CONFIG
+from dune_tension.hardware.serial_discovery import (
+    build_candidate_ports,
+    is_serial_permission_error,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -41,29 +44,14 @@ class Controller:
     # ports, or you are using a Windows OS, you can provide the tty port.  For
     # example, '/dev/ttyACM2' or for Windows, something like 'COM3'.
 
-    def __init__(self, ttyStr="/dev/ttyACM0", device=0x0C):
+    def __init__(self, ttyStr: str | None = None, device=0x0C):
         self.faulted = False
         self.usb = None
-
-        # Determine the appropriate port based on the operating system
-        if platform.system() == "Windows":
-            ttyStr = "COM3"
-
-        # # # Search for the Micro Maestro 6-Servo Controller
-        # ports = list_ports.comports()
-        # maestro_port = None
-
-        # for port in ports:
-        #     if "Micro Maestro 6-Servo Controller" in port.description:
-        #         maestro_port = port.device
-        #         break
-
-        # if maestro_port is not None:
-        #     ttyStr = maestro_port
 
         # Open the command port
         candidate_ports = self._candidate_ports(ttyStr)
         last_error = None
+        permission_error = None
         for candidate_port in candidate_ports:
             try:
                 self.usb = serial.Serial(candidate_port)
@@ -72,14 +60,24 @@ class Controller:
                 break
             except serial.SerialException as exc:
                 last_error = exc
+                if is_serial_permission_error(exc):
+                    permission_error = exc
                 LOGGER.debug("Micro Maestro unavailable on %s", candidate_port)
         else:
             self.faulted = True
-            LOGGER.warning(
-                "Couldn't find Micro Maestro on any of %s. Check the connection or port.",
-                ", ".join(candidate_ports),
-                exc_info=last_error,
-            )
+            if permission_error is not None:
+                LOGGER.warning(
+                    "Found a candidate Micro Maestro serial port, but access was denied. "
+                    "Check OS serial-port permissions. Tried: %s",
+                    ", ".join(candidate_ports),
+                    exc_info=permission_error,
+                )
+            else:
+                LOGGER.warning(
+                    "Couldn't find Micro Maestro on any of %s. Check the connection or port.",
+                    ", ".join(candidate_ports),
+                    exc_info=last_error,
+                )
 
         # Command lead-in and device number are sent for each Pololu serial command.
         self.PololuCmd = chr(0xAA) + chr(device)
@@ -91,20 +89,16 @@ class Controller:
         self.lock = RLock()
 
     @staticmethod
-    def _candidate_ports(tty_str):
-        if not tty_str.startswith("/dev/ttyACM"):
-            return [tty_str]
-
-        suffixes = ("0", "1", "2")
-        candidates = [tty_str]
-        prefix = "/dev/ttyACM"
-        candidates.extend(f"{prefix}{suffix}" for suffix in suffixes)
-
-        deduped_candidates = []
-        for candidate in candidates:
-            if candidate not in deduped_candidates:
-                deduped_candidates.append(candidate)
-        return deduped_candidates
+    def _candidate_ports(tty_str: str | None):
+        return build_candidate_ports(
+            preferred_port=tty_str,
+            name_substrings=(
+                "Micro Maestro 6-Servo Controller",
+                "Micro Maestro",
+                "Maestro",
+                "Pololu",
+            ),
+        )
 
     # Cleanup by closing USB serial port
     def close(self):

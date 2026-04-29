@@ -20,7 +20,11 @@ from typing import IO, Sequence
 
 import serial
 from serial import Serial
-from serial.tools import list_ports
+
+from dune_tension.hardware.serial_discovery import (
+    build_candidate_ports,
+    is_serial_permission_error,
+)
 
 _OPEN_COMMAND = bytes([0xA0, 0x01, 0x01, 0xA2])
 _CLOSE_COMMAND = bytes([0xA0, 0x01, 0x00, 0xA1])
@@ -30,32 +34,22 @@ class DeviceNotFoundError(RuntimeError):
     """Raised when the USB relay controlling the valve cannot be located."""
 
 
-def _find_valve_port(*, vendor: str, product: str) -> str:
-    """Return the system path for the configured valve relay.
-
-    Args:
-        vendor: USB vendor identifier expressed as a hexadecimal string.
-        product: USB product identifier expressed as a hexadecimal string.
-
-    Raises:
-        DeviceNotFoundError: If no matching serial port can be located.
-    """
-
-    hardware_id = f"{vendor}:{product}"
-    for port in list_ports.comports():
-        if hardware_id in port.hwid:
-            return port.device
-    raise DeviceNotFoundError(
-        "Unable to locate the USB relay controlling the air valve."
-    )
-
-
 @dataclass(slots=True)
 class ValveConfig:
     """Configuration for the valve relay connection."""
 
     vendor_id: str = "1A86"
     product_id: str = "7523"
+    device_name_substrings: tuple[str, ...] = (
+        "valve",
+        "relay",
+        "usb relay",
+        "serial relay",
+        "usb-serial ch340",
+        "usb2.0-serial",
+        "wchusbserial",
+        "wch.cn",
+    )
     baud_rate: int = 9600
     serial_timeout: float = 0
 
@@ -65,18 +59,40 @@ class ValveController:
 
     def __init__(self, *, port: str | None = None, config: ValveConfig | None = None):
         self._config = config or ValveConfig()
-        serial_port = port or _find_valve_port(
-            vendor=self._config.vendor_id, product=self._config.product_id
+        self._serial: Serial | None = None
+        candidate_ports = build_candidate_ports(
+            preferred_port=port,
+            name_substrings=self._config.device_name_substrings,
+            vendor_id=self._config.vendor_id,
+            product_id=self._config.product_id,
         )
-        try:
-            self._serial = Serial(
-                serial_port,
-                self._config.baud_rate,
-                timeout=self._config.serial_timeout,
-                write_timeout=self._config.serial_timeout,
-            )
-        except serial.SerialException as exc:  # pragma: no cover - passthrough error
-            raise RuntimeError("Unable to open the valve relay serial port.") from exc
+        last_error = None
+        permission_error = None
+        for candidate_port in candidate_ports:
+            try:
+                self._serial = Serial(
+                    candidate_port,
+                    self._config.baud_rate,
+                    timeout=self._config.serial_timeout,
+                    write_timeout=self._config.serial_timeout,
+                )
+                break
+            except serial.SerialException as exc:
+                last_error = exc
+                if is_serial_permission_error(exc):
+                    permission_error = exc
+
+        if self._serial is None:
+            if not candidate_ports:
+                raise DeviceNotFoundError(
+                    "Unable to locate the USB relay controlling the air valve."
+                )
+            if permission_error is not None:
+                raise RuntimeError(
+                    "Unable to open the valve relay serial port because access was denied. "
+                    "Check OS serial-port permissions."
+                ) from permission_error
+            raise RuntimeError("Unable to open the valve relay serial port.") from last_error
         self._lock = threading.Lock()
         self._strum_stop_event: threading.Event | None = None
         self._strum_thread: threading.Thread | None = None
@@ -92,8 +108,9 @@ class ValveController:
 
         n_pad = ceil(duration * self._config.baud_rate / 10)  # 8N1
         padding = b"\x00" * n_pad  # choose a byte the device ignores
-        self._serial.write(_OPEN_COMMAND + padding + _CLOSE_COMMAND)
-        self._serial.flush()
+        serial_port = self._require_serial()
+        serial_port.write(_OPEN_COMMAND + padding + _CLOSE_COMMAND)
+        serial_port.flush()
 
     def start_strum(self) -> None:
         """Begin emitting 10 ms air pulses every second on a background thread."""
@@ -133,7 +150,7 @@ class ValveController:
     def close(self) -> None:
         """Close the serial connection to the valve relay."""
         self.stop_strum()
-        self._serial.close()
+        self._require_serial().close()
 
     def __exit__(
         self,
@@ -144,8 +161,15 @@ class ValveController:
         self.close()
 
     def _write(self, payload: bytes) -> None:
-        self._serial.write(payload)
-        self._serial.flush()
+        serial_port = self._require_serial()
+        serial_port.write(payload)
+        serial_port.flush()
+
+    def _require_serial(self) -> Serial:
+        serial_port = self._serial
+        if serial_port is None:  # pragma: no cover - construction guarantees this
+            raise RuntimeError("Valve relay serial port is not connected.")
+        return serial_port
 
     def _strum_loop(self, stop_event: threading.Event) -> None:
         while not stop_event.is_set():
