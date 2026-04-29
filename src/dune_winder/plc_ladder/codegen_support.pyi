@@ -15,7 +15,6 @@ def ROUTINE(
     program: str | None = None,
     source_path: str | Path | None = None,
 ) -> Routine: ...
-
 def load_routine_from_source(
     source: str, *, symbol_name: str | None = None
 ) -> Routine: ...

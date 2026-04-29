@@ -584,6 +584,7 @@ class Tensiometer:
             profile.total_seconds,
             stage_summary,
         )
+
     def _start_wire_profile(self, workflow: str, wire_number: int) -> None:
 
         if self._active_batch_profile is None:

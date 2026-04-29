@@ -1588,6 +1588,7 @@ def _check_connections(ctx: GUIContext) -> dict[str, bool]:
     try:
         from dune_tension.plc_io import is_plc_available as check_plc
     except ImportError:
+
         def check_plc() -> bool:
             return False
 
@@ -1628,7 +1629,9 @@ def refresh_connections(ctx: GUIContext) -> None:
 
                 time.sleep(retry_interval_ms / 1000.0)
 
-        LOGGER.warning("Failed to establish all connections after %d retries", max_retries)
+        LOGGER.warning(
+            "Failed to establish all connections after %d retries", max_retries
+        )
 
     try:
         Thread(

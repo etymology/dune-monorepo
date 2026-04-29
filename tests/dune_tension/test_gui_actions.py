@@ -24,10 +24,18 @@ def _load_actions_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
     tk = types.ModuleType("tkinter")
-    tk.StringVar = lambda **kwargs: types.SimpleNamespace(get=lambda: "", set=lambda _: None)
-    tk.BooleanVar = lambda **kwargs: types.SimpleNamespace(get=lambda: False, set=lambda _: None)
-    tk.DoubleVar = lambda **kwargs: types.SimpleNamespace(get=lambda: 0.0, set=lambda _: None)
-    tk.IntVar = lambda **kwargs: types.SimpleNamespace(get=lambda: 0, set=lambda _: None)
+    tk.StringVar = lambda **kwargs: types.SimpleNamespace(
+        get=lambda: "", set=lambda _: None
+    )
+    tk.BooleanVar = lambda **kwargs: types.SimpleNamespace(
+        get=lambda: False, set=lambda _: None
+    )
+    tk.DoubleVar = lambda **kwargs: types.SimpleNamespace(
+        get=lambda: 0.0, set=lambda _: None
+    )
+    tk.IntVar = lambda **kwargs: types.SimpleNamespace(
+        get=lambda: 0, set=lambda _: None
+    )
     tk.Misc = object
     monkeypatch.setitem(sys.modules, "tkinter", tk)
 

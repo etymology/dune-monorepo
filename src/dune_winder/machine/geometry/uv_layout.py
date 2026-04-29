@@ -692,7 +692,10 @@ class UvLayerLayout:
         else:
             board = face_boards[normalized_board_number]
             resolved_board_number = len(face_boards) + normalized_board_number + 1
-        if normalized_pin_number > board.pin_count or normalized_pin_number < -board.pin_count:
+        if (
+            normalized_pin_number > board.pin_count
+            or normalized_pin_number < -board.pin_count
+        ):
             raise ValueError(
                 f"pin_number {normalized_pin_number} is outside board {normalized_board_number} "
                 f"on the {normalized_face} face for layer {self.layer}."
