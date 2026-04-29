@@ -231,10 +231,13 @@ def test_harmonic_comb_response_detects_harmonic_signal() -> None:
 def test_harmonic_comb_config_defaults_start_permissive() -> None:
     config = HarmonicCombConfig()
 
-    assert config.on_rmax <= 0.03
+    assert config.on_rmax == pytest.approx(1e-13)
+    assert config.off_rmax == pytest.approx(1e-15)
+    assert config.min_harmonics == 1
     assert config.on_frames == 1
-    assert config.sfm_max >= 0.8
-    assert config.harmonicity_floor_margin <= 0.005
+    assert config.sfm_max == pytest.approx(1.0)
+    assert config.harmonicity_floor_multiplier == pytest.approx(1.0)
+    assert config.harmonicity_floor_margin == pytest.approx(0.0)
 
 
 def test_harmonic_comb_trigger_learner_tightens_after_accepted_triplet() -> None:
