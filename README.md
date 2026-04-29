@@ -12,17 +12,27 @@ The only supported lock state is the root [`uv.lock`](uv.lock).
 
 - [uv](https://docs.astral.sh/uv/)
 - Python `>=3.12` (managed automatically by `uv`)
+- Rust toolchain `>=1.83` with `cargo`, `rustfmt`, and `clippy`
+- Node.js `>=18` and npm for Markdown tooling
 
 ## Quick Start
 
-Install dependencies for both workspace packages plus shared developer tools:
+Install Python dependencies for both workspace packages plus shared developer tools:
 
 ```bash
 uv sync
+npm install
 ```
 
-This creates the shared root `.venv` and installs both workspace members with
-the repo-wide dev tooling.
+This creates the shared root `.venv`, installs both Python workspace members
+with the repo-wide dev tooling, and installs the Node-based Markdown tools.
+
+Build the optional Rust-backed Python extension when you want the
+`dune_tension._rust_audio` hot path available in the shared `.venv`:
+
+```bash
+uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
+```
 
 Run the main applications from the monorepo root:
 
@@ -44,8 +54,12 @@ uv run pytest tests/dune_tension    # tension tests only
 uv run pytest tests/dune_winder     # winder tests only
 uv run ruff check src tests         # lint
 uv run ruff format src tests        # format
+uv run ty check                     # Python static type check
 uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
 cargo test --workspace --manifest-path rust/Cargo.toml
+cargo clippy --workspace --manifest-path rust/Cargo.toml --all-targets
+cargo fmt --manifest-path rust/Cargo.toml --all
+npm run markdown:lint -- README.md AGENTS.md dune_tension/README.md rust/README.md
 make test                           # shorthand via Makefile
 ```
 
@@ -59,7 +73,8 @@ the root workflow.
 
 All Python source lives under [`src/`](src/): `dune_winder`, `dune_tension`, `spectrum_analysis`.
 
-Rust source lives under [`rust/`](rust/). It currently provides the optional
+Rust source lives under [`rust/`](rust/). The root [`rust/Cargo.lock`](rust/Cargo.lock)
+is the canonical Rust lockfile. The workspace currently provides the optional
 `dune_tension._rust_audio` extension for the live audio hot path and PESTO ONNX
 inference, with the workspace laid out for a broader future rewrite.
 

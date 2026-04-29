@@ -1,8 +1,11 @@
 {
   "scripts": {
+    "markdown:lint": "markdownlint-cli2",
+    "markdown:fix": "markdownlint-cli2 --fix",
     "skills:install": "skills experimental_install"
   },
   "devDependencies": {
+    "markdownlint-cli2": "^0.17.2",
     "skills": "^1.5.1"
   }
 }
