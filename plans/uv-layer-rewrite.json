@@ -1,0 +1,163 @@
+{
+  "slug": "uv-layer-rewrite",
+  "title": "UV Layer Workflow Rewrite — Unified Coordinate System",
+  "type": "feature",
+  "created": "2026-04-28",
+  "status": "planned",
+  "context": "Rewrite the UV layer workflow to use a single coordinate system (winder command positions) for all calibration artifacts instead of camera coordinates + offsets. This improves consistency, reduces transformation complexity, and adds backlash correction. See docs/UVlayerRewritePlan.md for full specification.",
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Add pin naming utilities (tangent_sides, face ranges, endpoint pins)",
+      "description": "Implement the pin naming convention and derived calculations per the spec. Create a new module (or extend geometry.py) with utility functions for:\n- tangent_sides(layer, side, n) -> tuple[int, int]\n- Determine face from pin number (head, bottom, foot, top)\n- ENDPOINT_PINS list for both U and V\n- Pin name formatting (e.g., 'UA1' format)\n\nAdd comprehensive tests for all pin ranges and edge cases.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "tangent_sides() returns correct x,y orientation for all pin combinations",
+        "Face determination works correctly for all 4 faces in U and V layers",
+        "ENDPOINT_PINS includes all endpoint pins per spec",
+        "Pin name formatting supports both 'UA1' and numeric formats",
+        "All public functions have test coverage including boundary cases"
+      ],
+      "files": [
+        "src/dune_tension/geometry.py",
+        "src/dune_winder/machine/geometry/uv_layout.py",
+        "tests/dune_tension/test_geometry_pin_naming.py"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "2",
+      "title": "Update calibration file format to store raw camera positions",
+      "description": "Modify the calibration artifact format to store raw camera coordinates without pre-applying the camera-wire offset. The offset will be applied by the interpreter instead.\n\nUpdate:\n- Calibration JSON schema\n- Calibration recording in layer_calibration.py / manual_calibration.py\n- Documentation about the new format\n\nInclude backlash correction in recorded values (detect reversal window consumption and record actual space position).",
+      "status": "pending",
+      "acceptance_criteria": [
+        "New calibration files store raw camera positions (no offset applied)",
+        "Backlash correction is applied during recording",
+        "Old calibration format can still be read (migration path exists)",
+        "Calibration schema is documented",
+        "Tests verify recorded positions match expected raw camera coordinates"
+      ],
+      "files": [
+        "src/dune_tension/layer_calibration.py",
+        "src/dune_winder/core/manual_calibration.py",
+        "src/dune_winder/core/machine_geometry_calibration.py",
+        "tests/dune_tension/test_layer_calibration.py"
+      ],
+      "depends_on": ["1"]
+    },
+    {
+      "id": "3",
+      "title": "Implement coordinate system transformer (camera -> command)",
+      "description": "Create a coordinator that transforms raw camera coordinates to winder command positions using:\n- Camera-wire offset (from machine calibration)\n- Arm correction (head shift signs, tangent y side)\n- Machine parameters (roller y calibration)\n\nThis replaces the logic currently scattered in ~anchorToTarget macro and gcode interpreters. Should be a pure function with no side effects.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Transformer accepts raw camera position, layer, side, pin number, and machine params",
+        "Returns winder command position",
+        "Arm correction applied correctly per spec",
+        "Camera-wire offset applied correctly",
+        "Tests compare output against known good coordinate transformations"
+      ],
+      "files": [
+        "src/dune_winder/core/coordinate_transform.py",
+        "src/dune_winder/uv_head_target.py",
+        "tests/dune_winder/test_coordinate_transform.py"
+      ],
+      "depends_on": ["2"]
+    },
+    {
+      "id": "4",
+      "title": "Update wire solver (anchorToTarget equivalent) to use new coordinates",
+      "description": "Rewrite the wire solver that computes the wire path between two pins. The solver must:\n- Accept two raw camera positions (anchor and target pins)\n- Apply tangent orientation per tangent_sides()\n- Return winder command positions for both ends\n- Ensure wire is tangent to both pins at correct orientation\n\nThis replaces the ~anchorToTarget macro logic. Should integrate with the coordinate transformer from task 3.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Solver correctly computes wire endpoints for all pin pairs",
+        "Tangent orientation is correct for each face and side",
+        "Output winder command positions match expected values",
+        "Solver accepts machine params (camera offset, arm correction, rollers)",
+        "Tests cover multiple pin pairs on different faces"
+      ],
+      "files": [
+        "src/dune_winder/core/wire_solver.py",
+        "src/dune_winder/machine/geometry/uv_wrap_geometry.py",
+        "tests/dune_winder/test_wire_solver.py"
+      ],
+      "depends_on": ["3"]
+    },
+    {
+      "id": "5",
+      "title": "Update gcode interpreter to consume new calibration format",
+      "description": "Update the gcode handler/interpreter to:\n- Read new calibration files (raw camera positions)\n- Apply coordinate transformation using the transformer from task 3\n- Support ~anchorToTarget with raw pin names (e.g., 'UA1')\n- Support increment, goto, and legacy G... P... commands with new coordinates\n\nMust maintain backward compatibility with legacy G... P... commands if still needed.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Gcode interpreter reads new calibration file format",
+        "~anchorToTarget command works with new pin names",
+        "increment and goto commands work with new coordinates",
+        "Legacy G... P... commands still work (if needed)",
+        "All coordinate transformations use unified system",
+        "Tests verify gcode playback produces correct winder commands"
+      ],
+      "files": [
+        "src/dune_winder/gcode/handler.py",
+        "src/dune_winder/core/gcode_playback_service.py",
+        "tests/dune_winder/test_gcode_handler.py"
+      ],
+      "depends_on": ["4"]
+    },
+    {
+      "id": "6",
+      "title": "Update calibration UI (Calibrate.html / calibrate.py) for new flow",
+      "description": "Update the calibration UI to use the new workflow:\n- Record raw camera positions (no pre-applied offset)\n- Apply backlash correction during recording\n- Generate new calibration file format\n- Display new pin naming scheme (Layer/Side/Number)\n\nUpdate any supporting Python code (calibrate.py).",
+      "status": "pending",
+      "acceptance_criteria": [
+        "UI displays pin names in new format (e.g., 'UA1')",
+        "Calibration recording captures raw camera positions",
+        "Backlash correction is applied",
+        "Generated calibration files match new format",
+        "UI provides feedback on calibration quality"
+      ],
+      "files": [
+        "src/dune_tension/calibrate.py",
+        "dune_tension/web/src/Calibrate.html",
+        "tests/dune_tension/test_calibrate.py"
+      ],
+      "depends_on": ["2"]
+    },
+    {
+      "id": "7",
+      "title": "Migrate existing calibration data and add compatibility layer",
+      "description": "Create migration utilities to:\n- Convert old calibration files (with pre-applied offsets) to new format\n- Add a compatibility layer that reads old format and converts on-the-fly\n- Run migration on all existing calibration artifacts\n- Verify converted data matches expected raw camera positions\n\nThis allows gradual rollout — old calibrations still work while new ones use unified system.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Migration script converts old format to new format correctly",
+        "Compatibility layer reads old format transparently",
+        "Converted calibrations are verified against source data",
+        "All existing test calibrations successfully migrated",
+        "No data loss during migration"
+      ],
+      "files": [
+        "src/dune_winder/core/calibration_migration.py",
+        "tools/migrate_calibrations.py",
+        "tests/dune_winder/test_calibration_migration.py"
+      ],
+      "depends_on": ["2", "3"]
+    },
+    {
+      "id": "8",
+      "title": "Integration test: end-to-end calibration and winding flow",
+      "description": "Create integration tests that verify the complete flow:\n1. Record calibration (new format, with backlash correction)\n2. Load calibration and wire solver\n3. Plan wire paths between pins using solver\n4. Generate gcode with new pin names\n5. Execute gcode and verify winder commands\n6. Compare against legacy system (if available) to ensure accuracy\n\nShould test multiple wire patterns and pin combinations.",
+      "status": "pending",
+      "acceptance_criteria": [
+        "End-to-end flow completes without errors",
+        "Winder commands match expected values for test pins",
+        "Multiple wire patterns are tested",
+        "Results are consistent with legacy system (within tolerance)",
+        "Test data is committed for regression testing"
+      ],
+      "files": [
+        "tests/dune_winder/test_uv_layer_integration.py",
+        "tests/test_data/calibration_samples.json"
+      ],
+      "depends_on": ["5", "6"]
+    }
+  ]
+}

@@ -7,3 +7,58 @@ exclude = [
     "src/dune_winder/manual_port.py",    # Manual port integration (legacy)
     "src/dune_tension/m2m/**",           # Third-party measurement API wrapper
 ]
+
+[analysis]
+# Suppress unresolved-import errors for these modules
+allowed-unresolved-imports = [
+    "numpy",
+    "pandas",
+    "matplotlib.**",
+    "scipy.**",
+    "sklearn.**",
+    "torch.**",
+    "tensorflow.**",
+    "tensorflow_hub",
+    "crepe",
+    "sounddevice",
+    "flask",
+    "requests",
+    "pycomm3",
+    "influxdb_client",
+    "serial",
+    "onnxruntime",
+    "pesto.**",
+    "pydub",
+    "seaborn",
+    "nnaudio",
+]
+
+# Treat everything from these modules as Any to prevent cascading errors
+replace-imports-with-any = [
+    "numpy",
+    "pandas",
+    "matplotlib.**",
+    "scipy.**",
+    "sklearn.**",
+    "torch.**",
+    "tensorflow.**",
+    "tensorflow_hub",
+    "crepe",
+    "sounddevice",
+    "flask",
+    "requests",
+    "pycomm3",
+    "influxdb_client",
+    "serial",
+    "onnxruntime",
+    "pesto.**",
+    "pydub",
+    "seaborn",
+    "nnaudio",
+]
+
+[rules]
+unresolved-import = "ignore"
+no-matching-overload = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"

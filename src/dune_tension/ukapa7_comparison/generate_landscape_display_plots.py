@@ -71,22 +71,27 @@ def _plot_side_raw(
     ]
     for color, name, values in pairs:
         label = f"{name} ({_stats_text(values)})"
-        top_ax.scatter(wire_numbers, values, s=10, alpha=0.25, color=color)
+        top_ax.scatter(wire_numbers, values, s=10, alpha=0.4, color=color)
         top_ax.plot(
             wire_numbers,
-            _rolling_mean(values.reset_index(drop=True)),
-            linewidth=2,
+            _rolling_mean(values.reset_index(drop=True), window=3),
+            linewidth=1.2,
             color=color,
             label=label,
         )
         bottom_ax.hist(values, bins=30, alpha=0.35, color=color, label=label)
         bottom_ax.axvline(float(values.mean()), color=color, linewidth=1.5)
 
-    top_ax.set_title(f"UKAPA7 Layer {layer} Side {side} Raw Tensions")
+    top_ax.set_title(f"UKAPA7 Layer {layer} Side {side} Raw Tensions", pad=44)
     top_ax.set_xlabel("Wire Number")
     top_ax.set_ylabel("Tension (N)")
     top_ax.grid(True, linestyle=":", linewidth=0.5, color="gray")
-    top_ax.legend(fontsize=8, loc="upper right")
+    top_ax.legend(
+        fontsize=8,
+        loc="lower left",
+        bbox_to_anchor=(0.0, 1.01),
+        borderaxespad=0.0,
+    )
 
     bottom_ax.set_title("Distribution")
     bottom_ax.set_xlabel("Tension (N)")
@@ -188,6 +193,65 @@ def save_layer_landscape_plot(
     plt.close(fig)
 
 
+def _add_residual_to_axes(
+    top_ax: plt.Axes,
+    bottom_ax: plt.Axes,
+    subset: pd.DataFrame,
+    side: str,
+    color: str,
+) -> None:
+    residual = subset["residual"]
+    label = f"Side {side} ({_stats_text(residual)})"
+    top_ax.scatter(
+        subset["wire_number"],
+        residual,
+        s=10,
+        alpha=0.4,
+        color=color,
+    )
+    top_ax.plot(
+        subset["wire_number"],
+        _rolling_mean(residual.reset_index(drop=True), window=3),
+        linewidth=1.2,
+        color=color,
+        label=label,
+    )
+    bottom_ax.hist(
+        residual,
+        bins=30,
+        alpha=0.35,
+        color=color,
+        label=label,
+    )
+
+
+def _plot_side_residuals(
+    axes: np.ndarray,
+    subset: pd.DataFrame,
+    *,
+    side: str,
+    layer: str,
+) -> None:
+    top_ax = axes[0]
+    bottom_ax = axes[1]
+    color = "tab:blue" if side == "A" else "tab:green"
+
+    _add_residual_to_axes(top_ax, bottom_ax, subset, side, color)
+
+    top_ax.axhline(0.0, color="black", linestyle="--", linewidth=1)
+    top_ax.set_title(f"UKAPA7 Layer {layer} Side {side} Change in Tension")
+    top_ax.set_xlabel("Wire Number")
+    top_ax.set_ylabel("Change (N)")
+    top_ax.grid(True, linestyle=":", linewidth=0.5, color="gray")
+    top_ax.legend(fontsize=8, loc="upper right")
+
+    bottom_ax.set_title(f"Side {side} Distribution")
+    bottom_ax.set_xlabel("Change (N)")
+    bottom_ax.set_ylabel("Count")
+    bottom_ax.grid(True, linestyle=":", linewidth=0.5, color="gray")
+    bottom_ax.legend(fontsize=8, loc="upper left")
+
+
 def _plot_layer_residuals(
     axes: np.ndarray,
     comparison: pd.DataFrame,
@@ -210,30 +274,7 @@ def _plot_layer_residuals(
         if subset.empty:
             continue
         plotted = True
-        residual = subset["residual"]
-        label = f"Side {side} ({_stats_text(residual)})"
-        top_ax.scatter(
-            subset["wire_number"],
-            residual,
-            s=10,
-            alpha=0.25,
-            color=colors[side],
-        )
-        top_ax.plot(
-            subset["wire_number"],
-            _rolling_mean(residual.reset_index(drop=True)),
-            linewidth=2,
-            color=colors[side],
-            label=label,
-        )
-        bottom_ax.hist(
-            residual,
-            bins=30,
-            alpha=0.35,
-            color=colors[side],
-            label=label,
-        )
-        # Intentionally omit vertical reference lines for display clarity.
+        _add_residual_to_axes(top_ax, bottom_ax, subset, side, colors[side])
 
     if not plotted:
         top_ax.text(
@@ -270,7 +311,7 @@ def save_layer_change_in_tension_plot(
     layer: str,
     output_path: Path,
 ) -> None:
-    """Save a 2x1 change-in-tension plot for a single layer, using best B mapping."""
+    """Save a 2x2 change-in-tension plot for a single layer, A on left, B on right."""
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     comp = build_comparison_frame(action_json, summary_csv)
@@ -278,8 +319,49 @@ def save_layer_change_in_tension_plot(
         layer=layer, action_json=action_json, summary_csv=summary_csv
     )
 
-    fig, axes = plt.subplots(2, 1, figsize=(16, 9), constrained_layout=True)
-    _plot_layer_residuals(axes, comp, layer=layer, corrected_b=corrected_b)
+    fig, axes = plt.subplots(2, 2, figsize=(16, 9), constrained_layout=True)
+
+    # Side A
+    subset_a = comp[["wire_number", "diff_A"]].dropna().copy()
+    subset_a = subset_a.rename(columns={"diff_A": "residual"})
+    if not subset_a.empty:
+        _plot_side_residuals(axes[:, 0], subset_a, side="A", layer=layer)
+    else:
+        axes[0, 0].text(
+            0.5,
+            0.5,
+            "No overlapping data for side A",
+            ha="center",
+            va="center",
+            transform=axes[0, 0].transAxes,
+            fontsize=12,
+        )
+        axes[0, 0].set_axis_off()
+        axes[1, 0].set_axis_off()
+
+    # Side B
+    if corrected_b is not None:
+        subset_b = corrected_b[["wire_number", "residual_B"]].dropna().copy()
+        subset_b = subset_b.rename(columns={"residual_B": "residual"})
+    else:
+        subset_b = comp[["wire_number", "diff_B"]].dropna().copy()
+        subset_b = subset_b.rename(columns={"diff_B": "residual"})
+
+    if not subset_b.empty:
+        _plot_side_residuals(axes[:, 1], subset_b, side="B", layer=layer)
+    else:
+        axes[0, 1].text(
+            0.5,
+            0.5,
+            "No overlapping data for side B",
+            ha="center",
+            va="center",
+            transform=axes[0, 1].transAxes,
+            fontsize=12,
+        )
+        axes[0, 1].set_axis_off()
+        axes[1, 1].set_axis_off()
+
     fig.suptitle(f"UKAPA7 Layer {layer}: Change in Tension (Chicago - UK)")
     fig.savefig(output_path, dpi=300)
     plt.close(fig)

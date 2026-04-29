@@ -1,0 +1,315 @@
+-- allium: 3
+-- motion-safety.allium
+
+-- Scope: Queued-motion safety validation — machine envelope, keepout zones, arc
+--        discretisation, and the collision-state model that activates APA/frame-
+--        support keepouts when the Z axis is extended.
+-- Includes: MotionSafetyLimits value type, CollisionState, MotionSegment model,
+--           forbidden-region geometry, arc chord-step algorithm, validation rules
+-- Excludes: PLC communication protocol, motion queue handshake, G-code parsing,
+--           axis servo tuning, estop/safety-circuit wiring (see winder-states.allium)
+--
+-- Port-correctness note: the safety validation is pure geometry running in Python
+-- before segments are handed to the PLC queue.  A Rust reimplementation must
+-- reproduce the forbidden-box intersection tests, the arc chord-step count formula,
+-- and the headward-pivot keepout check exactly.  Any divergence risks commanding
+-- the winding head into a physical collision that the PLC cannot prevent.
+
+use "./core.allium" as core
+
+-- ==========================================================================
+-- Config — calibration-derived defaults
+-- ==========================================================================
+
+config {
+    -- Machine envelope (mm)
+    limit_left:   Decimal = 0.0
+    limit_right:  Decimal = 0.0
+    limit_bottom: Decimal = 0.0
+    limit_top:    Decimal = 0.0
+
+    -- Transfer region (mm)
+    transfer_left:        Decimal = 0.0
+    transfer_right:       Decimal = 0.0
+    transfer_left_margin: Decimal = 10.0
+    transfer_y_threshold: Decimal = 1000.0
+
+    -- Headward-pivot keepout box (mm, centre ± tolerance)
+    headward_pivot_x:           Decimal = 150.0
+    headward_pivot_y:           Decimal = 1400.0
+    headward_pivot_x_tolerance: Decimal = 150.0
+    headward_pivot_y_tolerance: Decimal = 300.0
+
+    -- Z-extended collision threshold (mm).  When z_actual > this value the
+    -- APA and frame-support forbidden boxes are activated.
+    z_collision_threshold: Decimal = 0.0
+
+    -- APA collision zone Y bounds (mm); active across most of X except inside
+    -- the head and foot transfer windows.
+    apa_collision_bottom_y: Decimal = 50.0
+    apa_collision_top_y:    Decimal = 2250.0
+
+    -- Head-end and foot-end transfer windows (X mm).  Movement through the
+    -- transfer window X range is allowed even when Z is extended.
+    transfer_zone_head_min_x: Decimal = 400.0
+    transfer_zone_head_max_x: Decimal = 500.0
+    transfer_zone_foot_min_x: Decimal = 7100.0
+    transfer_zone_foot_max_x: Decimal = 7200.0
+
+    -- Frame-support keepout Y bands (mm).  Each band is enabled independently
+    -- by a frame-lock sensor.
+    support_collision_bottom_min_y: Decimal = 80.0
+    support_collision_bottom_max_y: Decimal = 450.0
+    support_collision_middle_min_y: Decimal = 1050.0
+    support_collision_middle_max_y: Decimal = 1550.0
+    support_collision_top_min_y:    Decimal = 2200.0
+    support_collision_top_max_y:    Decimal = 2650.0
+
+    -- Arc discretisation parameters
+    arc_max_step_rad: Decimal = 0.05235987755982988   -- radians(3.0)
+    arc_max_chord:    Decimal = 5.0                   -- mm
+
+    geometry_epsilon: Decimal = 0.000000001
+}
+
+-- ==========================================================================
+-- Collision state
+-- ==========================================================================
+
+-- The collision state is sampled from live hardware immediately before each
+-- motion path is submitted for validation.  It is immutable for the duration
+-- of a single validation call.
+
+value CollisionState {
+    z_actual_position: Decimal
+
+    -- Frame-lock sensor states — true when a physical frame support brace
+    -- occupies the corresponding zone.
+    frame_lock_head_top: Boolean
+    frame_lock_head_mid: Boolean
+    frame_lock_head_btm: Boolean
+    frame_lock_foot_top: Boolean
+    frame_lock_foot_mid: Boolean
+    frame_lock_foot_btm: Boolean
+
+    -- Z is considered extended when z_actual_position exceeds the threshold.
+    z_extended: z_actual_position > config.z_collision_threshold
+}
+
+-- ==========================================================================
+-- Motion segment model
+-- ==========================================================================
+
+enum SegmentKind { line | circle }
+enum CircleSpec  { via | center | radius | center_incremental }
+enum ArcDirection { cw | ccw | cw_full | ccw_full }
+
+value MotionSegment {
+    seq:       Integer    -- monotonically increasing within a batch
+    x:         Decimal    -- target X in machine mm
+    y:         Decimal    -- target Y in machine mm
+    speed:     Decimal    -- mm/s
+    accel:     Decimal    -- mm/s²
+    decel:     Decimal    -- mm/s²
+    jerk_accel: Decimal
+    jerk_decel: Decimal
+    kind:      SegmentKind
+    -- Arc-only fields (ignored when kind = line)
+    circle_spec:   CircleSpec  = center
+    via_center_x:  Decimal     = 0.0
+    via_center_y:  Decimal     = 0.0
+    direction:     ArcDirection = ccw
+
+    @guidance
+        -- via_center_x / via_center_y are interpreted according to circle_spec:
+        --   center:             absolute (via_center_x, via_center_y) is the arc centre
+        --   center_incremental: arc centre = (prev.x + via_center_x, prev.y + via_center_y)
+        --   via:                a point on the arc (not yet used by production recipes)
+        --   radius:             not currently used by production recipes
+}
+
+-- ==========================================================================
+-- Forbidden regions
+-- ==========================================================================
+
+-- A MotionForbiddenBox is a rectangular region in XY space that the head must
+-- not enter or traverse.  The set of active boxes depends on collision state.
+
+value MotionForbiddenBox {
+    label:  String
+    x_min:  Decimal
+    x_max:  Decimal
+    y_min:  Decimal
+    y_max:  Decimal
+}
+
+-- ==========================================================================
+-- Validation interface
+-- ==========================================================================
+
+actor MotionController {
+    identified_by: controller_id
+}
+
+surface MotionSafetyGate {
+    facing controller: MotionController
+
+    provides:
+        SegmentValidationRequested(segment, state)
+
+    @guarantee ValidatesBeforeQueue
+        -- Every MotionSegment is validated against the current CollisionState
+        -- before it is submitted to the PLC motion queue.  The surface raises
+        -- a hard error on violation; it never silently accepts an invalid segment.
+}
+
+-- ==========================================================================
+-- Forbidden region derivation
+-- ==========================================================================
+
+entity ForbiddenRegionSet {
+    batch_id:   String
+    z_extended: Boolean
+    boxes:      List<MotionForbiddenBox>
+}
+
+rule DeriveActiveForbiddenBoxes {
+    when: SegmentValidationRequested(_, state)
+
+    ensures: ForbiddenRegionSet.created(
+        z_extended: state.z_extended,
+        boxes:      compute_forbidden_boxes(state)
+    )
+
+    @guidance
+        -- compute_forbidden_boxes returns an empty list when state.z_extended is false.
+        --
+        -- When state.z_extended is true the result contains:
+        --
+        -- APA collision zones (always when z_extended):
+        --   1. Left of head window:
+        --        X in [limit_left, transfer_zone_head_min_x)
+        --        Y in [apa_collision_bottom_y, apa_collision_top_y]
+        --   2. Between windows (the APA body):
+        --        X in (transfer_zone_head_max_x, transfer_zone_foot_min_x)
+        --        Y in [apa_collision_bottom_y, apa_collision_top_y]
+        --   3. Right of foot window (only when limit_right > transfer_zone_foot_max_x):
+        --        X in (transfer_zone_foot_max_x, limit_right]
+        --        Y in [apa_collision_bottom_y, apa_collision_top_y]
+        --
+        -- Frame-support keepout boxes (conditional on frame-lock sensor state):
+        --   head_btm => X in [head_min, head_max], Y in [bottom_min, bottom_max]
+        --   head_mid => X in [head_min, head_max], Y in [middle_min, middle_max]
+        --   head_top => X in [head_min, head_max], Y in [top_min, top_max]
+        --   foot_btm => X in [foot_min, foot_max], Y in [bottom_min, bottom_max]
+        --   foot_mid => X in [foot_min, foot_max], Y in [middle_min, middle_max]
+        --   foot_top => X in [foot_min, foot_max], Y in [top_min, top_max]
+}
+
+-- ==========================================================================
+-- Validation rule
+-- ==========================================================================
+
+entity MotionValidationResult {
+    segment:   MotionSegment
+    state:     CollisionState
+    passed:    Boolean
+    violation: String?
+}
+
+rule ValidateMotionSegment {
+    when: SegmentValidationRequested(segment, state)
+
+    ensures: MotionValidationResult.created(
+        segment:   segment,
+        state:     state,
+        passed:    segment_passes_all_checks(segment, state),
+        violation: first_violation(segment, state)
+    )
+
+    @guidance
+        -- segment_passes_all_checks applies the following checks in order,
+        -- short-circuiting on the first failure:
+        --
+        -- 1. Envelope check:
+        --    segment.x in [limit_left - ε, limit_right + ε]
+        --    segment.y in [limit_bottom - ε, limit_top + ε]
+        --
+        -- 2. Transfer region exclusion:
+        --    not (segment.x < transfer_left - transfer_left_margin
+        --         and segment.y > transfer_y_threshold)
+        --
+        -- 3. Headward-pivot keepout (endpoint and path):
+        --    Endpoint must not lie inside the pivot box.
+        --    For line segments: path must not cross the pivot box.
+        --    For arc segments: each chord-step point must not lie inside or
+        --    cross the pivot box.
+        --
+        -- 4. Active forbidden boxes (only when state.z_extended):
+        --    Endpoint must not lie inside any active forbidden box.
+        --    For line segments: path must not cross any active forbidden box edge.
+        --    For arc segments: each chord-step point and chord must pass the same
+        --    endpoint and line checks against every active forbidden box.
+        --
+        -- first_violation returns the label of the first violated constraint,
+        -- or null when passed = true.
+}
+
+-- ==========================================================================
+-- Arc discretisation
+-- ==========================================================================
+
+-- The number of chord steps for an arc is determined by whichever of the two
+-- criteria produces more steps — maximum angular step or maximum chord length.
+
+value ArcDiscretisation {
+    sweep_rad:   Decimal   -- signed total sweep in radians
+    radius_mm:   Decimal   -- arc radius in mm
+
+    arc_length_mm: radius_mm * sweep_rad   -- may need abs() at usage site
+
+    -- Steps driven by angular resolution
+    steps_by_angle: arc_length_mm / (config.arc_max_chord * radius_mm)
+
+    -- Steps driven by chord length
+    steps_by_chord: arc_length_mm / config.arc_max_chord
+
+    @guidance
+        -- The implementation uses:
+        --   steps = max(1,
+        --               ceil(abs(sweep_rad) / arc_max_step_rad),
+        --               ceil(arc_length / arc_max_chord))
+        --
+        -- Each chord connects two successive points on the arc parametrised as:
+        --   angle(t) = start_angle + sweep * (t / steps)
+        --   x(t) = cx + radius * cos(angle(t))
+        --   y(t) = cy + radius * sin(angle(t))
+        -- for t in 1..steps (inclusive).  The t=0 point is the arc start and
+        -- is not re-validated (it was already validated as a prior endpoint).
+        --
+        -- The arc centre is resolved from MotionSegment.circle_spec before
+        -- discretisation.  If resolution fails (via/radius types), the arc
+        -- falls back to a straight-line validation from start to end.
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant AllCommandedPositionsWithinEnvelope {
+    -- Every MotionSegment submitted to the PLC queue satisfies:
+    --   limit_left ≤ x ≤ limit_right
+    --   limit_bottom ≤ y ≤ limit_top
+    -- (within geometry_epsilon)
+}
+
+invariant ZExtendedMotionRespectsCollisionZones {
+    -- When CollisionState.z_extended is true, no point along any commanded
+    -- motion path (including arc chord midpoints) lies within any active
+    -- forbidden box.
+}
+
+invariant HeadwardPivotNeverTraversed {
+    -- No commanded motion path enters or crosses the headward-pivot keepout box,
+    -- regardless of CollisionState.
+}

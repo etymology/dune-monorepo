@@ -1,0 +1,532 @@
+{
+  "title": "Specification-First Rust Port: Shared Domain Model + Two Applications",
+  "description": "Extract and verify the shared domain model (geometry, math, PLC) that both dune_winder and dune_tension depend on. Skeptically audit Python math; treat Python UI behavior as authoritative specification. Build domain-model-first, then two separate applications on top. Zero duplication of specification.",
+  "created": "2026-04-28",
+  "phases": [
+    {
+      "id": 0,
+      "phase": "Cross-Reference Allium Specs with Python Implementation",
+      "priority": "highest",
+      "risk": "low",
+      "description": "The repo has four current Allium specs (winder-states-safety, uv-layer-geometry, head-transfer, tension-measurement; updated Apr 26-27) that are the authoritative domain model. This phase verifies whether Python implementation matches these specs, identifies divergences, and produces decision documents. Allium is the source of truth for the port; Python is an implementation that may lag or require correction.",
+      "tasks": [
+        {
+          "id": "0.1",
+          "title": "Verify geometry spec (dune_winder/uv-layer-geometry.allium) against Python implementation",
+          "description": "Cross-reference uv-layer-geometry.allium (current spec, Apr 26) entities and rules against src/dune_winder/geometry.py and layout APIs. This is the SHARED foundation for both dune_winder and dune_tension. Check: Are pin ranges correct? Do wire segment formulas match? Does wrap-side classification match Allium rules?",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/geometry-verification.md",
+            "Cross-check: UvLayerFrame pin counts, ranges (u_head, u_bottom, u_foot, u_top) per Allium config section",
+            "Cross-check: B-side endpoint formulas from Allium guidance against Python segment generation",
+            "Cross-check: Opposite-side translation (B↔A) and wrap-side classification logic match Allium rules",
+            "Document any deviations: are they bugs in Python, spec errors, or acceptable implementation differences?",
+            "Verify: dune_tension shares the same geometry spec (no duplication, both reference one source)"
+          ]
+        },
+        {
+          "id": "0.0",
+          "title": "Verify PLC & head-transfer specs (winder-states-safety.allium, head-transfer.allium) against Python",
+          "description": "Cross-reference winder-states-safety.allium (state machine, PLC interlocks) and head-transfer.allium (actuator protocol) against src/dune_winder/io/controllers/head.py and PLC communication code. This is SHARED infrastructure both apps depend on. Check: Does Python enforce the PLC state transitions and safety interlocks? Does head transfer implement G206 protocol correctly?",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/plic-and-head-verification.md",
+            "Cross-check: PLCController state transitions from Allium match Python PLC state dispatch",
+            "Cross-check: ActuatorState position transitions and sensor fusion from head-transfer.allium match Python head.py logic",
+            "Cross-check: G206 and G106 transfer protocols from head-transfer.allium match Python implementation",
+            "Document timing requirements from Allium (latch_timeout, extend_timeout, sensor settling delays) against Python",
+            "Identify any missing invariants or safety rules in Python (e.g., ActuatorEngagementRequiresExtension, MidEngagementIsSafeWithdrawal)"
+          ]
+        },
+        {
+          "id": "0.2",
+          "title": "Audit recipe module (dune_winder-specific)",
+          "description": "Review src/dune_winder/recipes.py: template variable substitution, validation constraints, error handling. Identify features you dislike or logic that could be simplified. Understand how recipes define winding operations.",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/recipes-review.md with: recipe schema, validation rules catalog, identified design issues",
+            "List all validation constraints and their rationale; note which are machine-safety-critical vs. convenience",
+            "Identify any ad-hoc string/list handling that should become typed enums in domain model",
+            "Note features or behaviors you want to change in dune_winder; distinguish from shared domain model concerns"
+          ]
+        },
+        {
+          "id": "0.3",
+          "title": "Audit motion planning (dune_winder-specific)",
+          "description": "Review src/dune_winder/motion_plan.py: waypoint generation, motion segment construction, timing equations. Validate against control theory and motion profiles. Understand what freedoms the winding application has in motion planning.",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/motion-review.md with: algorithm explanation, timing model (acceleration/velocity/ramps), edge cases",
+            "Verify math against control theory; identify assumptions (max speed, accel limits, interpolation type)",
+            "Check: are these timing equations derived from hardware limits or arbitrary? Can they be simplified?",
+            "Identify what's truly application-critical vs. optimization"
+          ]
+        },
+        {
+          "id": "0.4",
+          "title": "Audit winder state machine and control flow (dune_winder-specific)",
+          "description": "Review winder control logic: state transitions, command dispatch, error handling, pause/resume, homing. Identify what operator workflows must be preserved vs. what can be improved.",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/state-machine-review.md with: state diagram, all transitions, edge cases",
+            "List all state transitions and identify which are safety-critical vs. convenience",
+            "Note implicit assumptions about timing, thread safety, or external event ordering",
+            "Distinguish: what behavior must match Python UI (authoritative) vs. what can be corrected"
+          ]
+        },
+        {
+          "id": "0.5",
+          "title": "Audit audio/FFT/inference (dune_tension-specific)",
+          "description": "Review src/dune_tension/: audio capture, FFT parameters, inference preprocessing, result interpretation. Validate against signal processing best practices. Understand measurement workflow and constraints.",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/tension-review.md with: signal processing chain, FFT setup, inference preprocessing",
+            "Verify FFT parameters (window, overlap, normalization) against standard practices; document any non-standard choices",
+            "Check inference preprocessing matches model training; identify if model card/metadata exists",
+            "Identify: what's measurement domain knowledge vs. implementation detail; what can be optimized"
+          ]
+        },
+        {
+          "id": "0.6",
+          "title": "Synthesize domain model specification and architecture decisions",
+          "description": "Synthesize all audits into: (1) shared domain model specification (geometry, PLC, shared math), (2) dune_winder application specification, (3) dune_tension application specification. Clarify what's shared vs. application-specific and what can be simplified.",
+          "acceptance_criteria": [
+            "Document produced: docs/audit/DOMAIN_MODEL.md with: shared geometry, coordinate systems, PLC tags/structures, shared equations",
+            "Document produced: docs/audit/dune_winder_spec.md with: recipes, motion planning, state machine, preserved operator workflows",
+            "Document produced: docs/audit/dune_tension_spec.md with: audio/FFT/inference chain, measurement workflows, preserved operator behaviors",
+            "For each component: explicit decision on source of truth (Python math is hypothesis; Python UI/behavior is authoritative)",
+            "Identify zero-duplication rules: what must not be copied between applications"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "phase": "Workspace & Shared Artifacts",
+      "priority": "highest",
+      "risk": "low",
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Add root Cargo workspace",
+          "description": "Create Cargo.toml at root with workspace members pointing to crates/. Add .gitignore rules for Rust build artifacts.",
+          "acceptance_criteria": [
+            "Root Cargo.toml exists with [workspace] and members = [\"crates/*\"]",
+            "cargo check succeeds at root",
+            "No conflicts with existing pyproject.toml or Python tooling"
+          ]
+        },
+        {
+          "id": "1.2",
+          "title": "Create crates directory skeleton",
+          "description": "Create empty directory structure for Rust crates: crates/dune-domain, crates/dune-api-types. No code yet.",
+          "acceptance_criteria": [
+            "Directory structure exists: crates/dune-{domain,api-types}/",
+            "Each crate has minimal Cargo.toml with name and version",
+            "No compilation errors"
+          ]
+        },
+        {
+          "id": "1.3",
+          "title": "Create calibration/ and tests/golden/ directories",
+          "description": "Add directory structure for machine/sensor calibration and golden test fixtures. Populate README with ownership rules.",
+          "acceptance_criteria": [
+            "Directories exist: calibration/{machines,sensors,plc}/, tests/golden/",
+            "calibration/README.md explains: artifact ownership, format choices (TOML vs JSON), versioning",
+            "tests/golden/README.md explains: comparison test purpose, fixture organization"
+          ]
+        },
+        {
+          "id": "1.4",
+          "title": "Document Phase 1 completion",
+          "description": "Update docs/migration/rust-port-plan.md with rationale, repo structure diagram, and next steps.",
+          "acceptance_criteria": [
+            "File docs/migration/rust-port-plan.md exists",
+            "Includes: repository layout diagram, ownership rules, parallel-first strategy rationale",
+            "Explains why Python remains at root during port"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "phase": "Specify Domain Model: Shared + Application Types",
+      "priority": "highest",
+      "risk": "low",
+      "description": "Define the shared domain model (geometry, PLC structures, math constants) used by both dune_winder and dune_tension. Also define application-specific types (recipes, motion, state machine) and external API contracts. This is the single source of truth; no duplication between applications.",
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Define shared domain model types in Rust",
+          "description": "Create crates/dune-domain with: shared geometry definitions (coordinate systems, transforms, machine dimensions), PLC tag structures and queue payloads, mathematical equations and constants. Use serde derive for serialization.",
+          "acceptance_criteria": [
+            "crates/dune-domain/src/lib.rs exports shared types: Geometry, CoordinateSystem, PLC tags/structures, MathConstants, PhysicalLimits",
+            "All shared types derive Serialize, Deserialize, Debug, Clone, PartialEq",
+            "Geometry module matches docs/audit/DOMAIN_MODEL.md specification (no duplication across apps)",
+            "PLC structures and queue payloads match docs/audit/DOMAIN_MODEL.md (single source of truth for ControlLogix interface)",
+            "cargo check succeeds; no compiler warnings; ready for both dune_winder and dune_tension to import"
+          ]
+        },
+        {
+          "id": "2.2",
+          "title": "Define application-specific types (dune_winder and dune_tension)",
+          "description": "Create crates for application-specific types: dune_winder_types (recipes, motion commands, winder state), dune_tension_types (measurement results, audio events). Both depend on crates/dune-domain and avoid duplication. Preserve operator-facing contracts from Python.",
+          "acceptance_criteria": [
+            "crates/dune-winder-types exports: Recipe, WinderCommand, WinderState, MotionSegment, validated per docs/audit/dune_winder_spec.md",
+            "crates/dune-tension-types exports: TensionEvent, AudioFrame, SpectrumData, MeasurementResult, validated per docs/audit/dune_tension_spec.md",
+            "No duplication of types between dune_winder and dune_tension (geometry, PLC tags, etc. imported from dune-domain)",
+            "Operator-facing behavior preserved: same command semantics, same result schema, as Python"
+          ]
+        },
+        {
+          "id": "2.3",
+          "title": "Generate TypeScript bindings from Rust domain model",
+          "description": "Add ts-rs to Cargo.toml, configure to generate TypeScript from dune-domain, dune_winder_types, dune_tension_types. TypeScript bindings become single source of truth for frontend type contracts.",
+          "acceptance_criteria": [
+            "Cargo.toml includes ts-rs as dev-dependency",
+            "Generated TypeScript types cover: Geometry, PLC structures, Recipe, WinderCommand, WinderState, TensionEvent, MeasurementResult",
+            "Types check into repo: crates/dune-domain/ts/ or equiv; reviewed as part of domain model changes",
+            "Build script auto-generates types on cargo build; CI prevents manual edits to generated files",
+            "Frontend developers use generated types directly; no hand-written schema replication"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "phase": "Golden Parity Tests & Math Verification",
+      "priority": "highest",
+      "risk": "low",
+      "blocked_by": [0],
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "Set up Python↔Rust test harness with audit reference",
+          "description": "Create tests/golden/harness.py and tests/golden/harness.rs. Harness serializes Rust types to JSON, imports Python modules, compares outputs. Reference audit findings to identify port-as-is vs. redesigned behaviors.",
+          "acceptance_criteria": [
+            "Rust test: takes Rust struct, serializes to JSON, outputs to file",
+            "Python test: reads JSON, deserializes to Python dicts, compares fields",
+            "Tests run and pass with: cargo test --test harness, pytest tests/golden/harness.py",
+            "Documentation explains: input fixture format, output comparison rules, how to handle redesigned modules",
+            "Harness supports two comparison modes: byte-exact (port-as-is) and tolerance-based (redesigned math)"
+          ]
+        },
+        {
+          "id": "3.2",
+          "title": "Create golden fixtures from real data with math provenance",
+          "description": "Add test fixtures (JSON) for: recipe parsing, geometry calculation, motion plan generation. Validate fixture correctness against docs/audit/DESIGN_DECISIONS.md.",
+          "acceptance_criteria": [
+            "tests/golden/fixtures/ directory with .json files for: recipe_simple.json, geometry_basic.json, motion_plan_example.json",
+            "Each fixture includes: inputs, expected_outputs (from Python), math reference (paper, first-principles check, or domain expert validation)",
+            "Documented in tests/golden/README.md: fixture purpose, validation method (audit vs. manual verification)",
+            "For redesigned modules: include both old (Python) and new (verified) expected outputs"
+          ]
+        },
+        {
+          "id": "3.3",
+          "title": "Verify parity for one complete workflow with math validation",
+          "description": "Port one deterministic function to Rust (e.g., recipe validation). Run golden tests, confirm Python and Rust outputs match. For redesigned modules, validate new outputs mathematically.",
+          "acceptance_criteria": [
+            "Rust implementation exists in crates/dune-domain or new crates/dune-recipes",
+            "If port-as-is: Golden test passes—Python and Rust outputs byte-for-byte identical on fixtures",
+            "If redesigned: Rust outputs validated against audit findings; documented why they differ from Python",
+            "No regressions in existing Python tests; new Rust implementation ready for next phases"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "phase": "Offline Pure Calculations (Early)",
+      "priority": "high",
+      "risk": "medium",
+      "blocked_by": [0, 3],
+      "tasks": [
+        {
+          "id": "5.1a",
+          "title": "Design review: Geometry module simplifications",
+          "description": "Before porting, review docs/audit/geometry-review.md. Decide: port-as-is or apply identified simplifications (e.g., cleaner transforms, better angle handling, simpler boundaries).",
+          "acceptance_criteria": [
+            "Decision documented in crates/dune-geometry/DESIGN.md: port-as-is or list planned simplifications",
+            "For each simplification: explain the change, verify it against audit findings, plan how to validate in golden tests",
+            "Ready to implement with clear correctness criteria"
+          ]
+        },
+        {
+          "id": "5.1b",
+          "title": "Port geometry module to Rust with audit-informed design",
+          "description": "Implement geometry calculations in crates/dune-geometry: machine bounds, tool offsets, angle wrapping. Apply design decisions from 5.1a.",
+          "acceptance_criteria": [
+            "crates/dune-geometry includes: Geometry struct, machine dimensions, coordinate transforms",
+            "Golden tests pass: Rust geometry output matches Python (or validated new outputs if redesigned)",
+            "Rust implementation exhaustively checks bounds (no silent overflows or NaNs)",
+            "Code documents any deviations from Python with rationale from audit findings"
+          ]
+        },
+        {
+          "id": "5.2a",
+          "title": "Design review: Recipe validation simplifications",
+          "description": "Review docs/audit/recipes-review.md. Decide: port string-based validation as-is, or move to typed enums in Rust? Simplify template substitution logic?",
+          "acceptance_criteria": [
+            "Decision documented in crates/dune-recipes/DESIGN.md: current validation pattern vs. Rust improvements",
+            "For each proposed enum/type improvement: validate against existing recipes, plan golden test coverage",
+            "Note any breaking changes to recipe format and migration plan"
+          ]
+        },
+        {
+          "id": "5.2b",
+          "title": "Port recipe validation & expansion to Rust",
+          "description": "Move recipe parsing, template variable substitution, and validation from Python to Rust crate. Apply design improvements from 5.2a.",
+          "acceptance_criteria": [
+            "crates/dune-recipes created with Recipe, Step, Template types—using enums instead of strings where audit justified it",
+            "Golden tests pass: Rust recipe expansion matches Python dune_winder/recipes.py (or validated improvements)",
+            "Rust rejects invalid recipes at compile-time or with exhaustive Result types",
+            "All design changes documented with rationale"
+          ]
+        },
+        {
+          "id": "5.3a",
+          "title": "Design review: Motion planning algorithm improvements",
+          "description": "Review docs/audit/motion-review.md. Identify simplifications (e.g., cleaner interpolation, better timing, removed complexity). Plan validation strategy.",
+          "acceptance_criteria": [
+            "Decision documented in crates/dune-motion/DESIGN.md: algorithm to port vs. improvements",
+            "If changing timing model: explain new model, compare against old on fixtures, validate numerically",
+            "If optimizing waypoint generation: document complexity improvement and correctness verification"
+          ]
+        },
+        {
+          "id": "5.3b",
+          "title": "Port motion planning to Rust with improvements",
+          "description": "Implement waypoint generation, motion segment construction, timing calculation in Rust. Apply audit-informed improvements from 5.3a.",
+          "acceptance_criteria": [
+            "crates/dune-motion created with Waypoint, MotionSegment, PlanResult types",
+            "Golden tests pass: Rust motion plans match Python (or documented improvements with validation)",
+            "No unsafe math; all divisions checked for zero, all angles bounded",
+            "Timing calculations verified against control theory or reference implementations"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "phase": "Winder State Machine (Type-Safe Core)",
+      "priority": "medium",
+      "risk": "medium-high",
+      "blocked_by": [0, 3],
+      "tasks": [
+        {
+          "id": "7.0",
+          "title": "Design review: Eliminate edge cases from Python state model",
+          "description": "Review docs/audit/state-machine-review.md. Identify unsafe transitions, implicit race conditions, or undefined edge cases in Python. Plan Rust enum design to eliminate them.",
+          "acceptance_criteria": [
+            "Document in crates/dune-winder-core/DESIGN.md: identified edge cases from Python, how Rust types prevent them",
+            "For each edge case: explicit decision on how Rust will handle it (type system, exhaustive matching, or error variant)",
+            "State diagram showing all valid transitions (audit should identify which are missing or unsafe)",
+            "Plan how to test that new design prevents previous edge cases"
+          ]
+        },
+        {
+          "id": "7.1",
+          "title": "Model exhaustive state machine in Rust enums (audit-informed)",
+          "description": "Create crates/dune-winder-core with State enum and StateTransition rules. Encode impossible states as type errors, informed by audit edge cases.",
+          "acceptance_criteria": [
+            "Winder state modeled as exhaustive enum: Idle, Manual, Winding, Paused, Error, Homing, StopRequested",
+            "Transitions explicit: from_idle_to_winding(cmd) -> Result<State, TransitionError>",
+            "Compiler prevents invalid transitions (e.g., no Resume from Idle) and audit-identified unsafe patterns",
+            "All error cases have named variants; errors from audit findings included"
+          ]
+        },
+        {
+          "id": "7.2",
+          "title": "Implement state dispatch with exhaustive pattern matching",
+          "description": "Add state handler functions that match on state exhaustively. No default arms that hide unhandled cases. Cover audit-identified edge cases.",
+          "acceptance_criteria": [
+            "Command dispatch matches on State exhaustively (compiler error if incomplete)",
+            "Each state+command pair has defined behavior or explicit Rejected error",
+            "All edge cases from audit are handled: timeouts, cancellations, race conditions, error recovery",
+            "Tests explicitly cover audit-identified edge cases"
+          ]
+        },
+        {
+          "id": "7.3",
+          "title": "Verify against Python state model with edge case testing",
+          "description": "Create golden tests that compare Rust state transitions against Python dune_winder/state_machine.py. Emphasize edge cases identified in audit.",
+          "acceptance_criteria": [
+            "Golden tests exist for: normal winding loop, pause/resume, error recovery, audit-identified edge cases",
+            "For port-as-is behaviors: Python and Rust produce identical state sequences",
+            "For improved handling (from audit): document why Rust behaves differently and validate against audit rationale",
+            "No regressions in existing Python tests; safety improvements from Rust type system evident"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "phase": "Tension Audio & Inference Engine",
+      "priority": "medium-high",
+      "risk": "medium",
+      "blocked_by": [0, 2, 3],
+      "tasks": [
+        {
+          "id": "6.0",
+          "title": "Design review: Audio/FFT/inference signal processing",
+          "description": "Review docs/audit/tension-review.md. Validate FFT parameters, preprocessing, and inference setup against signal processing best practices. Identify optimizations.",
+          "acceptance_criteria": [
+            "Document in crates/dune-tension-core/DESIGN.md: current FFT setup, validation against best practices",
+            "Check: window function type, overlap %, normalization, sampling assumptions",
+            "Verify inference preprocessing matches model training (check ONNX model card or metadata)",
+            "Identify latency bottlenecks and planned optimizations (vectorization, buffer strategy, etc.)"
+          ]
+        },
+        {
+          "id": "6.1",
+          "title": "Create dune-tension-core Rust crate",
+          "description": "Set up crate for audio capture, FFT, ONNX inference. Depend on dune-api-types for events.",
+          "acceptance_criteria": [
+            "crates/dune-tension-core exists with dependencies: cpal, realfft, ort, rusqlite, tracing",
+            "Core types: AudioFrame, SpectrumData, InferenceResult, TensionEvent",
+            "cargo check succeeds; design decisions from 6.0 documented"
+          ]
+        },
+        {
+          "id": "6.2",
+          "title": "Implement audio capture and FFT pipeline (audit-verified)",
+          "description": "Add audio capture with cpal, FFT with realfft. Apply design decisions from 6.0. Expose TensionEvent that matches Python or improved output.",
+          "acceptance_criteria": [
+            "AudioCapture struct captures from system input with configurable sample rate/format",
+            "FFT pipeline uses window/overlap/normalization validated in 6.0",
+            "TensionEvent serializes to JSON; format matches Python (or documented improvements)",
+            "No latency > 100ms for capture-to-event round-trip; latency monitored and documented"
+          ]
+        },
+        {
+          "id": "6.3",
+          "title": "Verify parity with Python tension analysis",
+          "description": "Golden tests: compare Rust FFT/inference against Python dune_tension/ on recorded audio samples. Validate math and timing.",
+          "acceptance_criteria": [
+            "Golden test fixtures: recorded audio samples (.wav) with ground-truth annotations",
+            "Rust and Python produce identical spectra (within documented floating-point tolerance)",
+            "Rust and Python ONNX inference agree on same audio input",
+            "Latency comparison: Rust vs. Python on same hardware with measurements logged"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "phase": "PLC Communication (Gated)",
+      "priority": "gated",
+      "risk": "highest",
+      "blocked_by": [2, 7],
+      "tasks": [
+        {
+          "id": "8.1",
+          "title": "Hardware spike: Test rseip against real ControlLogix",
+          "description": "Standalone Rust program that connects to actual ControlLogix PLC. Test: tag reads/writes, UDTs, MotionSeg payloads, queue handshakes, reconnects.",
+          "acceptance_criteria": [
+            "Spike code in tools/plc_spike/ directory",
+            "Tested against: ordinary tags, UDT structures, MotionSeg-style queue payloads, failure/reconnect scenarios",
+            "Decision documented: rseip viable OR proceed with Python pycomm3 sidecar"
+          ]
+        },
+        {
+          "id": "8.2",
+          "title": "Choose PLC path based on spike results",
+          "description": "If rseip works: create crates/dune-plc-bridge. If not: define Python→Rust IPC boundary for pycomm3 sidecar.",
+          "acceptance_criteria": [
+            "Decision recorded in docs/migration/plc-decision.md with: spike results, chosen path, rationale",
+            "If Rust path: crates/dune-plc-bridge skeleton with types from step 8.1",
+            "If Python sidecar: IPC protocol documented (Unix socket, gRPC, or HTTP boundary)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "phase": "Operator UI Contract & One Screen (After Types Proven)",
+      "priority": "high",
+      "risk": "low-medium",
+      "blocked_by": [2, 3],
+      "tasks": [
+        {
+          "id": "4.1",
+          "title": "Create SvelteKit project structure",
+          "description": "Initialize SvelteKit app in apps/winder-ui with TypeScript, import generated types from crates.",
+          "acceptance_criteria": [
+            "apps/winder-ui/ initialized with SvelteKit, TypeScript",
+            "tsconfig points to generated types in src/dune_tension/types/",
+            "npm run dev succeeds, Vite dev server starts"
+          ]
+        },
+        {
+          "id": "4.2",
+          "title": "Build one non-safety-critical UI screen",
+          "description": "Implement status display or recipe preview using generated types, WebSocket connection to existing Python backend.",
+          "acceptance_criteria": [
+            "One SvelteKit page (e.g., /status or /recipe-preview)",
+            "Uses generated TypeScript types from dune-api-types",
+            "WebSocket or HTTP client connects to Python backend, displays live data",
+            "Types prevent common errors (e.g., invalid command variants)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "phase": "Full Desktop Consolidation (Polish, Last)",
+      "priority": "last",
+      "risk": "medium",
+      "blocked_by": [7, 8],
+      "tasks": [
+        {
+          "id": "9.1",
+          "title": "Replace Tkinter with Tauri/Svelte app",
+          "description": "After tension core and winder service are proven, consolidate dune_tension GUI into Tauri app.",
+          "acceptance_criteria": [
+            "Tauri app wraps dune-tension-core (Rust) + Svelte UI",
+            "Feature parity with current Tkinter: audio capture, spectrum display, inference results, calibration",
+            "Single-binary deployment on lab machines"
+          ]
+        },
+        {
+          "id": "9.2",
+          "title": "Consolidate winder web UI to SvelteKit",
+          "description": "Migrate static HTML winder interface to SvelteKit using proven components and generated types.",
+          "acceptance_criteria": [
+            "Full winder control workflow in SvelteKit",
+            "Shares type definitions with tension UI",
+            "Proves component reuse and shared design system"
+          ]
+        }
+      ]
+    }
+  ],
+  "decision_points": [
+    {
+      "phase": 0,
+      "decision": "Math & design audit before porting",
+      "chosen": "Comprehensive audit of geometry, recipes, motion planning, state machine, and audio/FFT/inference",
+      "rationale": "Verify correctness against first principles, identify design issues and simplification opportunities, and document planned changes before porting—ensures Rust port improves on Python foundation"
+    },
+    {
+      "phase": 0,
+      "decision": "Port-as-is vs. redesign strategy",
+      "chosen": "Per-module decisions informed by audit findings. Golden tests support both byte-exact parity (port-as-is) and tolerance-based (redesigned/improved)",
+      "rationale": "Some modules may be correct as-is and benefit from type safety alone; others have edge cases or inefficiencies worth fixing during port. Audit identifies which is which."
+    },
+    {
+      "phase": 1,
+      "decision": "Repository structure",
+      "chosen": "Parallel-first: crates/ alongside dune_tension/, dune_winder/",
+      "rationale": "Keeps working Python available, enables continuous parity testing against audit-verified baselines, avoids big-bang cutover risk"
+    },
+    {
+      "phase": 5,
+      "decision": "Priority ordering",
+      "chosen": "Type-safety-first with math verification: phases 0, 2, 3, then 5, 6, 7 before UI (phase 4)",
+      "rationale": "Core concern is correctness; audit validates existing math, identifies improvements, type systems enforce safety. Golden tests prevent regressions."
+    },
+    {
+      "phase": 8,
+      "decision": "PLC communication",
+      "chosen": "Gated on hardware spike",
+      "rationale": "Do not block entire port on unproven Rust PLC library; spike first, choose path after"
+    }
+  ],
+  "status": "review",
+  "notes": "This plan prioritizes mathematical correctness and design review before porting. Phase 0 audits existing Python code against first principles, identifies edge cases and simplifications, and documents design decisions. Golden parity tests ensure both correctness preservation (for port-as-is modules) and validation of improvements (for redesigned modules). This approach addresses the user's expectation to verify and improve the math during the port, not merely replicate Python in Rust."
+}

@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+import numpy as np
+import pandas as pd
+
 from dune_tension.config import GEOMETRY_CONFIG
 
 MEASURABLE_X_MIN: int = GEOMETRY_CONFIG.measurable_x_min
@@ -123,7 +126,12 @@ def length_lookup(
         raise ValueError("Zone must be between 1 and 5")
 
     try:
-        value: float = float(spreadsheet.at[wire_number, str(zone)])
+        raw_value = spreadsheet.at[wire_number, str(zone)]
+        if pd.isna(raw_value) or raw_value == "":
+            raise ValueError(
+                f"no value found for wire {wire_number} in zone {zone} for layer {layer}"
+            )
+        value = float(raw_value)
         if taped:
             return (value - GEOMETRY_CONFIG.taped_length_offset_mm) / 1000
         return value / 1000
@@ -131,3 +139,12 @@ def length_lookup(
         raise ValueError(
             f"no value found for wire {wire_number} in zone {zone} for layer {layer}"
         )
+
+
+def is_wire_in_zone(layer: str, wire_number: int, zone: int) -> bool:
+    """Return True if the given wire passes through the given zone."""
+    try:
+        length_lookup(layer, wire_number, zone)
+        return True
+    except (ValueError, KeyError, FileNotFoundError):
+        return False

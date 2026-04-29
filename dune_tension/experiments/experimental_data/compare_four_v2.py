@@ -41,6 +41,9 @@ for col in differences_df.columns:
         gmm.fit(values.values.reshape(-1, 1))
 
         # Extract GMM parameters
+        assert gmm.means_ is not None
+        assert gmm.covariances_ is not None
+        assert gmm.weights_ is not None
         means = gmm.means_.flatten()
         std_devs = np.sqrt(gmm.covariances_).flatten()
         weights = gmm.weights_

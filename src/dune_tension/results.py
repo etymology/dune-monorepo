@@ -66,6 +66,8 @@ class TensionResult:
     tension: float = 0.0
     tension_pass: bool = False
     ttf: float = 0.0
+    amplitude: float = 0.0
+    harmonicity: float = 0.0
 
     @classmethod
     def from_measurement(
@@ -85,6 +87,8 @@ class TensionResult:
         taped: bool = False,
         measurement_mode: str = "legacy",
         stream_session_id: str | None = None,
+        amplitude: float = 0.0,
+        harmonicity: float = 0.0,
     ) -> "TensionResult":
         derived = derive_tension_fields(
             layer=layer,
@@ -112,6 +116,8 @@ class TensionResult:
             wire_length=derived.wire_length,
             tension=derived.tension,
             tension_pass=derived.tension_pass,
+            amplitude=amplitude,
+            harmonicity=harmonicity,
         )
 
 

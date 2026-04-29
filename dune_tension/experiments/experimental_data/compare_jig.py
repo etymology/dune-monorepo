@@ -34,6 +34,10 @@ for idx, (key, diffs) in enumerate(pairwise_differences.items(), start=1):
     gmm = GaussianMixture(n_components=2, random_state=42)
     gmm.fit(diffs_reshaped)
 
+    assert gmm.means_ is not None
+    assert gmm.covariances_ is not None
+    assert gmm.weights_ is not None
+
     # Store GMM parameters
     for i in range(gmm.n_components):
         gmm_results.append(

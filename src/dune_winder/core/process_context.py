@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Optional, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from dune_winder.core.control_state_machine import ControlStateMachine
     from dune_winder.core.winder_workspace import WinderWorkspace
+    from dune_winder.core.x_backlash_compensation import XBacklashCompensation
     from dune_winder.io.maps.base_io import BaseIO
     from dune_winder.library.app_config import AppConfig
     from dune_winder.library.log import Log
@@ -34,6 +35,7 @@ class ProcessContext(Protocol):
     _systemTime: TimeSource
     _configuration: AppConfig
     _workspaceCalibrationDirectory: str
+    _xBacklash: XBacklashCompensation
 
     def getRecipeLayer(self) -> Optional[str]: ...
 

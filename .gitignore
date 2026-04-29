@@ -25,3 +25,4 @@ node_modules/
 dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
 dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
 .claude/settings.local.json
+dune_tension/data/experiment_audio/*

@@ -112,7 +112,9 @@ class UvPinSegmentSearchTests(unittest.TestCase):
 
     def test_find_v_pin_segment_supports_negative_board_numbers(self):
         workspace = self._workspace("V", render_v_template_lines())
-        head_boards = [board for board in LAYER_METADATA["V"]["boards"] if board["side"] == "head"]
+        head_boards = [
+            board for board in LAYER_METADATA["V"]["boards"] if board["side"] == "head"
+        ]
 
         result = workspace.findUvPinSegment("B", "head", -1, 1)
 

@@ -274,6 +274,111 @@ def test_wire_position_provider_ignores_non_legacy_rows_and_falls_back_to_neares
     assert pose.focus_position == 5000
 
 
+def test_wire_position_provider_uses_tension_layer_calibration_path(
+    monkeypatch,
+) -> None:
+    import dune_tension.layer_calibration as layer_calibration
+    import dune_tension.tensiometer_functions as tensiometer_functions
+
+    calibration_path = Path("/tmp/U_Calibration.json")
+    calls = []
+
+    monkeypatch.setattr(
+        layer_calibration,
+        "get_local_layer_calibration_path",
+        lambda layer: calibration_path,
+    )
+    monkeypatch.setattr(
+        layer_calibration,
+        "get_laser_offset",
+        lambda side: {"x": 0.0, "y": 0.0},
+    )
+
+    def _compute_geometry(**kwargs):
+        calls.append(kwargs)
+        return types.SimpleNamespace(
+            tangent_point_a=types.SimpleNamespace(x=2000.0, y=500.0),
+            tangent_point_b=types.SimpleNamespace(x=2100.0, y=700.0),
+        )
+
+    monkeypatch.setattr(
+        tensiometer_functions,
+        "compute_pin_pair_tangent_geometry",
+        _compute_geometry,
+    )
+
+    config = types.SimpleNamespace(layer="U", side="A")
+    provider = tensiometer_functions.WirePositionProvider(
+        dataframe_loader=lambda _path, **_kw: pd.DataFrame()
+    )
+
+    xy = provider._resolve_geometry_pose(config, 1095)
+
+    assert xy is not None
+    assert calls[0]["pin_a"] == "A1258"
+    assert calls[0]["pin_b"] == "A1145"
+    assert calls[0]["layer_calibration_path"] == str(calibration_path)
+
+
+def test_wire_position_provider_zone_pose_uses_historical_zone_planner_for_uv(
+    monkeypatch,
+) -> None:
+    import dune_tension.geometry as geometry
+    import dune_tension.plc_io as plc_io
+    import dune_tension.tensiometer_functions as tensiometer_functions
+    import dune_tension.uv_wire_planner as uv_wire_planner
+
+    uv_planner_calls = []
+
+    def _plan_uv_wire(layer, side, wire_number, *, taped=False):
+        uv_planner_calls.append((layer, side, wire_number, taped))
+        return types.SimpleNamespace(midpoint=(9999.0, 9999.0), zone=3)
+
+    monkeypatch.setattr(uv_wire_planner, "plan_uv_wire", _plan_uv_wire)
+    monkeypatch.setattr(geometry, "is_wire_in_zone", lambda *_args: True)
+    monkeypatch.setattr(
+        geometry, "comb_positions", [1000, 2000, 3000, 4000, 5000, 6000]
+    )
+    monkeypatch.setattr(plc_io, "is_in_measurable_area", lambda *_args: True)
+
+    config = tensiometer_functions.make_config(apa_name="APA", layer="U", side="A")
+    df = pd.DataFrame(
+        [
+            {
+                "apa_name": "APA",
+                "layer": "U",
+                "side": "A",
+                "wire_number": 1095,
+                "x": 3500.0,
+                "y": 1500.0,
+                "focus_position": 5100,
+                "confidence": 0.9,
+                "measurement_mode": "legacy",
+                "time": "2026-04-28T13:18:00",
+            },
+        ]
+    )
+    provider = tensiometer_functions.WirePositionProvider(
+        dataframe_loader=lambda _path, **_kw: df
+    )
+
+    pose = provider.get_pose_for_zone(
+        config,
+        1095,
+        3,
+        current_focus_position=4200,
+    )
+
+    assert pose == tensiometer_functions.PlannedWirePose(
+        wire_number=1095,
+        x=3500.0,
+        y=1500.0,
+        focus_position=5100,
+        zone=3,
+    )
+    assert uv_planner_calls == []
+
+
 def test_wire_position_provider_falls_back_to_current_focus_when_no_saved_focus_exists() -> (
     None
 ):

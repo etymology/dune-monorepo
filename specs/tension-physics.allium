@@ -1,0 +1,161 @@
+-- allium: 3
+-- tension-physics.allium
+
+-- Scope: Wire resonance physics, frequency-tension-length equation, KDE-based
+--        frequency estimation, and pass/fail thresholds.
+-- These constants and relationships are the lowest-level correctness contract for
+-- tension measurement. A Rust port that changes WIRE_DENSITY, misplaces a factor
+-- of 2, or alters the length-dependent threshold floor will silently change which
+-- wires pass QC without any other observable difference.
+-- Includes: wire equation, KDE frequency estimator, pass/plausible criteria
+-- Excludes: measurement hardware, audio processing, GUI, upload pipeline
+
+-- ==========================================================================
+-- Config
+-- ==========================================================================
+
+config {
+    -- DUNE APA sense-wire linear density (kg/m).
+    -- Value is the calibrated mean across production wire batches; individual
+    -- batch values span 0.149–0.159 g/m.  The constant is intentionally fixed
+    -- rather than batch-parameterised — batch variation is small enough to
+    -- be absorbed by the pass window.
+    wire_density_kg_per_m: Decimal = 0.0001540460069
+
+    nominal_tension_n:          Decimal = 6.5
+    min_physical_tension_n:     Decimal = 2.0
+    max_physical_tension_n:     Decimal = 10.0
+    max_passing_tension_n:      Decimal = 8.5
+
+    -- Length-dependent lower threshold.
+    -- min_passing = min(slope * length_m + intercept, fixed_floor)
+    -- For all typical DUNE APA wire lengths (0.3–0.65 m) the length-dependent
+    -- term exceeds the fixed floor, so the fixed floor of 4 N is the binding
+    -- constraint in normal operation.  The length-dependent form exists to
+    -- allow very short wires (< ~0.15 m) a proportionally lower minimum.
+    length_dependent_min_slope:     Decimal = 25.8
+    length_dependent_min_intercept: Decimal = 0.232
+    fixed_min_passing_tension_n:    Decimal = 4.0
+}
+
+-- ==========================================================================
+-- Wire Equation
+-- ==========================================================================
+
+value WireResonance {
+    length_m:      Decimal   -- physical half-free-length of the wire in metres
+    frequency_hz:  Decimal   -- fundamental resonant frequency in Hz
+
+    -- Standing-wave equation for a wire under tension:
+    --   T = (2 * L * f)^2 * μ
+    -- Equivalently expressed as (2Lf) * (2Lf) to avoid exponentiation syntax.
+    tension_n: (2.0 * length_m * frequency_hz) * (2.0 * length_m * frequency_hz) * config.wire_density_kg_per_m
+}
+
+-- Inverse forms of the wire equation (provided for consumer convenience).
+-- Each derives the third quantity from the other two.
+
+value WireFrequency {
+    length_m:   Decimal
+    tension_n:  Decimal
+
+    -- f = sqrt(T / (μ * (2L)^2))
+    -- Allium does not have a sqrt() builtin; implementations may use
+    -- standard floating-point square-root.
+    @guidance
+        -- frequency_hz = sqrt(tension_n / (wire_density * (2 * length_m)^2))
+        -- Numerically equivalent to the forward WireResonance.tension_n derivation.
+}
+
+value WireLength {
+    frequency_hz:  Decimal
+    tension_n:     Decimal
+
+    @guidance
+        -- length_m = sqrt(tension_n / (wire_density * (2 * frequency_hz)^2))
+        -- Used when deriving expected length from a known tension/frequency pair
+        -- for calibration purposes.
+}
+
+-- ==========================================================================
+-- Pass/Fail Thresholds
+-- ==========================================================================
+
+value TensionVerdict {
+    tension_n:  Decimal
+    length_m:   Decimal
+
+    -- The length-dependent lower bound.  For wires longer than ~0.15 m this
+    -- exceeds the fixed floor, so the fixed floor becomes the binding minimum.
+    length_dependent_min_n: config.length_dependent_min_slope * length_m + config.length_dependent_min_intercept
+
+    -- Whether this tension value is within the acceptable QC window.
+    -- Equivalent to: tension_n > min(length_dependent_min_n, fixed_floor)
+    --                and tension_n < max_passing_tension_n
+    @guidance
+        -- The effective minimum is:
+        --   effective_min = min(length_dependent_min_n, config.fixed_min_passing_tension_n)
+        -- passes = tension_n > effective_min and tension_n < config.max_passing_tension_n
+
+    -- Whether this tension value is within physically plausible bounds.
+    -- A tension outside this window indicates a measurement artefact or hardware
+    -- fault rather than a genuine wire property.
+    plausible: tension_n > config.min_physical_tension_n and tension_n < config.max_physical_tension_n
+}
+
+-- ==========================================================================
+-- Frequency Estimation
+-- ==========================================================================
+
+-- When a wire is excited multiple times in a single measurement session, the
+-- accepted frequency is derived from the collection of pitch observations.
+
+entity FrequencyEstimate {
+    samples:              List<Decimal>   -- one frequency_hz value per valid observation
+    accepted_frequency_hz: Decimal        -- mode of the sample distribution (see rule below)
+}
+
+rule EstimateFrequencyFromSamples {
+    when: batch: FrequencyEstimate.created
+    requires: batch.samples.count >= 1
+
+    ensures: batch.accepted_frequency_hz = kde_mode(batch.samples)
+
+    @guidance
+        -- kde_mode is implemented as:
+        --   1. Fit a Gaussian kernel density estimate to the sample vector
+        --      using Scott's rule for bandwidth selection.
+        --   2. Evaluate the KDE on a uniform grid of 1000 points spanning
+        --      [min(samples), max(samples)].
+        --   3. Return the grid point with the highest density value.
+        -- For a single sample, return that sample directly (KDE is undefined
+        -- for n=1; numpy's gaussian_kde raises LinAlgError for degenerate input,
+        -- which the implementation handles by falling back to samples[0]).
+        --
+        -- Rust port note: the grid size (1000) and the bandwidth rule must
+        -- match the Python implementation exactly to produce bit-identical
+        -- frequency estimates.  Divergence here changes accepted tensions and
+        -- therefore changes which wires pass QC.
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant WireEquationInvertibility {
+    -- For any WireResonance r, reconstructing a WireFrequency from
+    -- (r.length_m, r.tension_n) must recover r.frequency_hz within
+    -- floating-point rounding error.
+    -- Similarly, a WireLength from (r.frequency_hz, r.tension_n) must
+    -- recover r.length_m.
+    --
+    -- This invariant is a cross-check on the inverse value types;
+    -- it is not a runtime assertion.
+}
+
+invariant PhysicalPlausibilityImpliesCheckedRange {
+    -- Every accepted TensionResult whose tension_n is within the plausible
+    -- range [min_physical, max_physical] must have been evaluated by
+    -- TensionVerdict.passes before being marked passing.
+    -- A tension that is not plausible must not be marked passing.
+}

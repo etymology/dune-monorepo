@@ -1,0 +1,323 @@
+-- allium: 3
+-- gcode-opcodes.allium
+
+-- Scope: Winder-specific G-code opcode model — the instruction set through which
+--        recipe templates drive machine motion, head positioning, wire management,
+--        and wrap sequencing.
+-- Includes: opcode identifiers, parameter shapes, and the observable machine effect
+--           of each opcode
+-- Excludes: recipe template generation, parser tokenisation, PLC register encoding,
+--           G-code file format, motion queue handshake protocol
+--
+-- These opcodes are the domain language of the winder.  A Rust port of the G-code
+-- executor must produce exactly the same machine state transitions for the same
+-- opcode sequence; parameter interpretation errors are silent and will produce
+-- incorrectly wound APAs.
+
+use "./core.allium" as core
+
+-- ==========================================================================
+-- Opcode set
+-- ==========================================================================
+
+-- Numeric values match GCodeHandler and are checked against PLC firmware.
+enum Opcode {
+    latch              -- 100  engage or release the wire latch
+    wire_length        -- 101  record the active wire segment length
+    seek_transfer      -- 102  move to the transfer (head-change) XY position
+    pin_center         -- 103  move to the XY midpoint between two pins
+    clip               -- 104  issue a clip-wire actuator pulse
+    offset             -- 105  apply a positional offset to subsequent moves
+    head_location      -- 106  select head Z position (front or back)
+    delay              -- 107  pause execution for a fixed duration
+    arm_correct        -- 108  apply roller-arm Y correction to subsequent moves
+    anchor_point       -- 109  move to the anchor pin position and orient head
+    transfer_correct   -- 110  apply a transfer-point correction offset
+    break_point        -- 111  mark a resumable breakpoint in the recipe
+    tension_testing    -- 112  execute the tension-testing sub-sequence
+    queue_merge        -- 113  flush and merge queued motion segments
+    wrap_goto          -- 114  jump to a named wrap position in the recipe
+    wrap_increment     -- 115  advance the wrap counter
+    wrap_anchor        -- 116  define the anchor pin for the current wrap
+    wrap_b             -- 117  execute a B-side wire wrap around a pin
+    wrap_b_to_a        -- 118  execute a B-to-A side wire transfer at a pin
+    head_transfer      -- 206  execute a physical head Z-axis transfer
+}
+
+-- ==========================================================================
+-- Program structure
+-- ==========================================================================
+
+entity WrapProgram {
+    layer: core/Layer
+    lines: List<ProgramLine>
+    line_count: lines.count
+}
+
+value ProgramLine {
+    items: List<ProgramLineItem>
+}
+
+-- A ProgramLineItem is one of: a G/M-command word, a function call (Fn opcode),
+-- a comment, or a macro expansion reference.
+
+entity ProgramLineItem {
+    kind: command_word | function_call | comment | macro_call
+}
+
+variant CommandWord : ProgramLineItem {
+    letter: String    -- "G", "M", etc.
+    value:  Decimal
+    parameters: List<Decimal>
+}
+
+variant FunctionCall : ProgramLineItem {
+    opcode:     Opcode
+    parameters: List<Decimal>
+}
+
+variant ProgramComment : ProgramLineItem {
+    text: String
+}
+
+variant MacroCall : ProgramLineItem {
+    text: String
+}
+
+-- ==========================================================================
+-- Opcode effects
+-- ==========================================================================
+
+rule ExecuteLatch {
+    when: LatchOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [state]  where state=1 means engage, state=0 means release.
+        -- Effect: drives the wire-latch actuator to the requested state.
+        -- The latch physically grips the wire end before a head transfer and
+        -- releases it after the transfer is complete.
+}
+
+rule ExecuteWireLength {
+    when: WireLengthOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [length_mm]
+        -- Effect: sets the active wire segment length used for tension-to-frequency
+        -- conversion in subsequent TensionTesting sequences.
+        -- This value is the half-free-length in mm (used directly in the wire equation
+        -- as length_m = length_mm / 1000.0).
+}
+
+rule ExecuteSeekTransfer {
+    when: SeekTransferOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: none (transfer XY is derived from the current WrapTransitionPlan).
+        -- Effect: moves the winding head to the transfer XY position computed for
+        -- the current wrap.  This positions the head at the Z-change safe zone.
+        -- Corresponds to WrapTransitionPlan.transfer_xy.
+}
+
+rule ExecutePinCenter {
+    when: PinCenterOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [pin_a, pin_b, mode]
+        --   pin_a, pin_b: pin names (indices into calibrated pin table)
+        --   mode: "XY" moves to the midpoint of the two calibrated pin positions
+        -- Effect: moves the winding head X/Y to the midpoint between pin_a and
+        -- pin_b in wire space.  Used to position the head between the two pins of
+        -- a wire segment before executing the wrap.
+}
+
+rule ExecuteClip {
+    when: ClipOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: none
+        -- Effect: issues a brief pulse to the clip actuator, cutting the wire
+        -- or engaging a mechanical wire-clip at the current position.
+}
+
+rule ExecuteOffset {
+    when: OffsetOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [dx, dy]
+        -- Effect: applies an additive XY offset to all subsequent commanded
+        -- positions until the next Offset opcode resets it.  Used for per-board
+        -- fine-position corrections.
+}
+
+rule ExecuteHeadLocation {
+    when: HeadLocationOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [position]  where position=1 means front, position=2 means back.
+        -- Effect: moves the head Z axis to the specified position (z_front or z_back
+        -- from layer calibration).  Corresponds to G106 in the G-code dialect.
+        -- This is a non-transfer Z move — the head moves to the calibrated Z depth
+        -- for the specified face without engaging the transfer protocol.
+}
+
+rule ExecuteDelay {
+    when: DelayOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [duration_s]
+        -- Effect: pauses recipe execution for the specified duration in seconds.
+        -- Used after clip and latch operations to allow mechanical settling.
+}
+
+rule ExecuteArmCorrect {
+    when: ArmCorrectOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [correction_index]
+        -- Effect: applies the roller-arm Y offset for the given index (0–3
+        -- corresponding to the four measurement positions along the arm).
+        -- The Y correction is loaded from machine calibration (rollerArmCalibration)
+        -- and added to subsequent Y-axis motion commands.
+}
+
+rule ExecuteAnchorPoint {
+    when: AnchorPointOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [pin_name, orientation_token]
+        -- Effect: moves the head to the anchor position for the named pin with
+        -- the given orientation.  This is the starting position from which the
+        -- wrap motion to the target pin begins.
+        -- orientation_token selects the approach angle; its valid values come
+        -- from the RecipeSite table in the wrap-geometry model.
+        -- Corresponds to G109 in the G-code dialect.
+}
+
+rule ExecuteTransferCorrect {
+    when: TransferCorrectOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [dx, dy]
+        -- Effect: applies a one-shot correction to the transfer XY position for
+        -- the current wrap.  Unlike Offset, this correction is consumed once and
+        -- does not persist to subsequent operations.
+}
+
+rule ExecuteBreakPoint {
+    when: BreakPointOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [label?]
+        -- Effect: marks a named resumption point in the recipe.  When the operator
+        -- restarts execution from a breakpoint, the executor resumes from the
+        -- next line after the BreakPoint opcode.
+        -- No machine motion occurs.
+}
+
+rule ExecuteTensionTesting {
+    when: TensionTestingOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [wire_number?]
+        -- Effect: suspends recipe execution and initiates the tension measurement
+        -- sub-sequence for the current wire segment.  Execution resumes when the
+        -- measurement operator accepts or skips the wire.
+        -- If wire_number is present it overrides the active wrap counter.
+}
+
+rule ExecuteQueueMerge {
+    when: QueueMergeOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [mode_token?]
+        -- Effect: flushes pending queued-motion segments to the PLC motion queue
+        -- and waits for them to be accepted before continuing.  Ensures that the
+        -- PLC has processed all preceding motion before the next opcode is issued.
+}
+
+rule ExecuteWrapGoto {
+    when: WrapGotoOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [target_line]
+        -- Effect: unconditionally jumps to the specified line number in the program.
+        -- Used to implement wrap loops in recipe templates.
+}
+
+rule ExecuteWrapIncrement {
+    when: WrapIncrementOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: none
+        -- Effect: increments the internal wrap counter by 1.  The counter tracks
+        -- how many wire wraps have been applied to the current layer.
+}
+
+rule ExecuteWrapAnchor {
+    when: WrapAnchorOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [pin_name]
+        -- Effect: sets the anchor pin for the current wrap.  The anchor pin is
+        -- the pin at which the wire is currently stationed before the wrap motion.
+}
+
+rule ExecuteWrapB {
+    when: WrapBOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [pin_name, pair_pin_name?]
+        -- Effect: executes a complete B-side wrap around pin_name.
+        -- Sequence: move to tangent approach, wrap around pin, move to outbound
+        -- intercept.  This is the primary motion primitive for UV-layer winding
+        -- on the B-face of the APA.
+}
+
+rule ExecuteWrapBToA {
+    when: WrapBToAOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: [pin_name]
+        -- Effect: executes a B-to-A face transition at pin_name.
+        -- The wire has just completed a B-side wrap; this opcode moves the head
+        -- to the A-face position at the same physical pin location.
+        -- The WrapTransitionPlan for this step will have same_side=false and
+        -- transfer_required=true.
+}
+
+rule ExecuteHeadTransfer {
+    when: HeadTransferOpcode(program, line, parameters)
+
+    @guidance
+        -- Parameters: none (transfer parameters are taken from the current
+        --   WrapTransitionPlan)
+        -- Effect: executes the full head-transfer protocol:
+        --   1. Latch the wire.
+        --   2. Move to the transfer XY position.
+        --   3. Move the head Z axis to the opposite face.
+        --   4. Release the latch.
+        -- This is the opcode-level wrapper around the G206 head-transfer state
+        -- machine described in winder-states.allium.
+        -- Execution blocks until the PLC confirms the transfer is complete.
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant OpcodeSetIsStable {
+    -- The opcode numeric values (100–118, 206) must not be changed between
+    -- Python and Rust implementations.  They are encoded in PLC firmware and
+    -- in persisted G-code recipe files on disk.
+    -- Any new opcode must receive a new numeric value; existing values must
+    -- not be reassigned.
+}
+
+invariant WrapCounterMonotonicallyIncreases {
+    -- Between program start and program end, the wrap counter is non-decreasing.
+    -- WrapGoto may repeat opcode sequences but must not reset the counter.
+}
+
+open question "Should WireLength accept fractional millimetres, or should it be rounded to the nearest 0.1 mm to match the motion command resolution?"
+open question "Does TransferCorrect accumulate with Offset, or does it replace the transfer position entirely?"

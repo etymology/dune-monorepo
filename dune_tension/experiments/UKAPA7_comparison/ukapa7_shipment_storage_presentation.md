@@ -9,14 +9,12 @@ class: invert
 
 ---
 
-## What happened?
+## What happened to APA-UK007
 
-- The comparable Chicago tension measurements are lower than the UK measurements in every layer-side group.
-- The shift is not a single constant offset: G is lower by about `0.2-0.4 N`,
-  while the currently measured U subset is lower by about `0.5-0.9 N`.
-- All current Chicago G and U summary values are within the `4.0-8.5 N`
-  tension specification.
-- Some apparently large shifts in tension are probably due to measurement errors at Daresbury.
+- `~2.25` years of storage and transatlantic shipment
+- Chicago tensions on average lower by `-0.5N` with a spread in difference of `0.4N`
+- All current Chicago G and U summary values are within the `4.0-8.5 N` spec.
+- No obvious sign of shipping damage
 
 ---
 
@@ -24,42 +22,37 @@ class: invert
 
 - UK source data are the APA-UK007 action JSON records: U uploaded
   `2023-11-21`, G uploaded `2023-12-10`.
-  - The exact setup is not known, probably laser+ziptie+labview
+  - Probably laser+ziptie+labview
+  - The U layer was measured without the G layer above it
 - Chicago source data from March 11 2026
   - Chicago winder using laser+compressed air+python
-- Residuals are defined as `Chicago - UK`; negative values mean Chicago measured
-  lower tension.
-
----
-
-## Coverage and limits
-
-- **G layer:** full A-side comparison with `481` wires; corrected B-side
-  comparison with `480` wires after reversing and shifting the B index.
+- **G layer:** Full chicago coverage, with `481` wires on side A and `481` on side B.
 - **U layer:** partial Chicago coverage only, with `385` aligned wires on side A
   and `641` on side B.
-- U layer wires were accessed through a "slit" cut in the G wires near the
-  middle of the APA.
-- The G and U comparisons were therefore not made under identical access and
-  frame conditions.
 
 ---
 
-## G Layer
+## Laser tension vs DWA
+
+- U layer wires were accessed through a "slit" cut in the G wires.
+- The pose for the G layer is comparable but not the U.
+- The U layer pose is closer to that of the DWA measurement in ASF, but with winder support.
+- Measurements on a the finished apa could not use "capos"
+
+---
+
+## G Layer statistics
 
 - Side A: mean residual `-0.38 N`, mode `-0.45 N`, `84%` of wires lower in Chicago.
 - Side B: mean residual `-0.20 N`, mode `-0.43 N`, `71%` of wires lower in Chicago.
 - Residual widths are about `0.4 N` on both sides.
-- Some individual wires measured higher in Chicago.
 
 ---
 
-Tensions
 ![g both sides](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_landscape_G.png)
 
 ---
 
-Differences
 ![G change in tension](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_change_in_tension_G.png)
 
 ---
@@ -71,17 +64,13 @@ Differences
 - Side B subset: mean residual `-0.87 N`, mode `-0.52 N`, `99%` of aligned
   wires lower in Chicago.
 - Residual widths are about `0.5 N` on both sides.
-- The U-layer result is a partial-subset comparison, not a full-layer
-  comparison.
 
 ---
 
-Tensions
 ![U both sides](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_landscape_U.png)
 
 ---
 
-Differences
 ![U change in tension](/Users/ben/dune-monorepo/dune_tension/experiments/UKAPA7_comparison/ukapa7_change_in_tension_U.png)
 
 ---
@@ -89,9 +78,12 @@ Differences
 ## Interpretation
 
 - The robust observation is downward shift: Chicago values are lower on average, with a clear peak at `-0.5 N`
+- The spread of the changes is consistent with compounded measurement uncertainties
 - The current Chicago values remain in specification: G ranges from `4.44` to
   `7.00 N`; U ranges from `4.03` to `6.41 N`.
 - The data do not show an out-of-spec tension signature after storage and shipment.
+- This is consistent with relaxation under tension and slight changes in frame shape
+- I would expect `<0.5N` decrease in tension in the next four years
 
 ---
 
@@ -99,14 +91,20 @@ Differences
 
 - Tension measurements have long tails, which can erroneously appear as huge shifts in tension.
 - As a result, changes alone cannot be the acceptance criterion.
-- Establish an acceptance range of tensions after relaxation
+- Establish an acceptance range of tensions after relaxation.
 
 ---
 
-Aggregate of all G wires Chicago+Daresbury
-![all g wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_G_mode_allsamples_cov0p5_it3_bins40.png)
+## Discussion
 
 ---
 
-Aggregate of all U wires Chicago+Daresbury
-![all u wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_U_noscale_allsamples_cov0p5_it3_bins40.png)
+## Extra plots
+
+---
+
+![all g wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_G_dunedb_noscale_avgwire_cov0p5_bins40_win5_daresbury.png)
+
+---
+
+![all u wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_U_dunedb_noscale_avgwire_cov0p5_bins40_win5_daresbury.png)

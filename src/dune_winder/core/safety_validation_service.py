@@ -184,6 +184,8 @@ class SafetyValidationService:
             support_collision_middle_max_y=float(self._supportCollisionMiddleMaxY),
             support_collision_top_min_y=float(self._supportCollisionTopMinY),
             support_collision_top_max_y=float(self._supportCollisionTopMaxY),
+            zlimit_front=float(self._zlimitFront),
+            zlimit_rear=float(self._zlimitRear),
             geometry_epsilon=float(self._geometryEpsilon),
         )
 

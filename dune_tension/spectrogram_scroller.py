@@ -52,7 +52,7 @@ import queue
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -64,9 +64,9 @@ except Exception:
     sd = None
 
 # Optional PESTO imports are loaded lazily only if --pesto is set
-torch = None
-pesto = None
-crepe = None
+torch: Any = None
+pesto: Any = None
+crepe: Any = None
 
 EPS = 1e-12
 
@@ -91,11 +91,11 @@ try:
     from spectrum_analysis.pitch_compare_config import PitchCompareConfig
 except ImportError:
     SHARED_NOISE_TOOLS_AVAILABLE = False
-    SharedNoiseProfile = None  # type: ignore[assignment]
-    PitchCompareConfig = None  # type: ignore[assignment]
-    shared_compute_noise_profile = None  # type: ignore[assignment]
-    shared_save_noise_profile = None  # type: ignore[assignment]
-    shared_wiener_filter = None  # type: ignore[assignment]
+    SharedNoiseProfile = None
+    PitchCompareConfig = None
+    shared_compute_noise_profile = None
+    shared_save_noise_profile = None
+    shared_wiener_filter = None
 
 
 def dbfs(x: np.ndarray) -> np.ndarray:

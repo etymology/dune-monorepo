@@ -100,13 +100,12 @@ class AverageProfileCloudOptions:
     db_path: str | None = None
     layers: tuple[str, ...] = ("X", "V", "U", "G")
     min_coverage: float = 0.5
-    iterations: int = 3
     exclude_apa_regex: str = "(?i)TEST"
     csv_dir: str = str(data_path("tension_data"))
     output_dir: str = str(data_path("tension_plots"))
     bins: int = 40
     moving_average_window: int = 15
-    no_scaling: bool = False
+    no_scaling: bool = True
     average_per_wire: bool = False
     split_by_location: bool = False
     show_all_locations: bool = False
@@ -271,8 +270,7 @@ def _load_dunedb_layer_measurements(db_path: str, layer: str) -> pd.DataFrame:
 
     ``maxsize=1`` ensures that only the most recently requested layer's DataFrame
     is retained in the LRU cache — once the analysis moves to the next layer the
-    previous one becomes GC-eligible.  Using ``maxsize=None`` (the old value)
-    kept every layer's DataFrame alive for the entire process lifetime.
+    previous one becomes GC-eligible.
     """
     layer_key = layer.upper()
     expected_wires = expected_wire_range(layer_key)
@@ -280,27 +278,41 @@ def _load_dunedb_layer_measurements(db_path: str, layer: str) -> pd.DataFrame:
     max_wire = int(expected_wires.stop - 1)
 
     with sqlite3.connect(db_path) as conn:
-        # Tune SQLite for read-heavy workloads: larger page cache, WAL mode,
-        # and in-memory temp storage.  Avoid mmap_size on memory-constrained
-        # machines — mapping large files into virtual address space competes
-        # with Python's heap and can push total VM above physical RAM.
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA cache_size=-65536")  # 64 MB page cache
         conn.execute("PRAGMA temp_store=MEMORY")
 
-        # Single JOIN query replaces two round-trips (actions fetch + large IN
-        # clause).  action_id is omitted — it is unique per row and creates one
-        # Python string object per measurement, adding significant heap pressure
-        # for no downstream benefit.
-        df = pd.read_sql_query(
+        # Load unique actions for this layer first. This contains the large JSON strings.
+        # By loading them separately from measurements, we avoid repeating the JSON
+        # for every single measurement point (which can be hundreds per action).
+        actions_df = pd.read_sql_query(
+            "SELECT action_id, apa_name, action_version, action_json FROM tension_actions WHERE upper(layer) = ?",
+            conn,
+            params=(layer_key,),
+        )
+
+        if actions_df.empty:
+            return _empty_dunedb_measurements()
+
+        # Parse JSON once per action.
+        locations, action_times = _batch_parse_action_json(actions_df["action_json"])
+        actions_df["location"] = locations.values
+        actions_df["action_time"] = action_times.values
+        actions_df = actions_df.drop(columns=["action_json"])
+
+        # Use categorical dtypes for action metadata to save memory.
+        actions_df["apa_name"] = actions_df["apa_name"].astype("category")
+        actions_df["location"] = actions_df["location"].astype("category")
+
+        # Now load measurements.
+        # We only load measurements for the actions we just found.
+        measurements_df = pd.read_sql_query(
             """
-            SELECT a.apa_name, a.action_version, a.action_json,
-                   m.side, m.wire_index AS wire_number, m.tension
-            FROM tension_actions a
-            JOIN tension_measurements m ON a.action_id = m.action_id
-            WHERE upper(a.layer) = ?
-              AND m.wire_index BETWEEN ? AND ?
-              AND m.tension BETWEEN ? AND ?
+            SELECT action_id, side, wire_index AS wire_number, tension
+            FROM tension_measurements
+            WHERE action_id IN (SELECT action_id FROM tension_actions WHERE upper(layer) = ?)
+              AND wire_index BETWEEN ? AND ?
+              AND tension BETWEEN ? AND ?
             """,
             conn,
             params=(
@@ -312,24 +324,15 @@ def _load_dunedb_layer_measurements(db_path: str, layer: str) -> pd.DataFrame:
             ),
         )
 
-    if df.empty:
+    if measurements_df.empty:
         return _empty_dunedb_measurements()
 
-    # Single-pass JSON parse: extract location + action_time in one Python loop
-    # instead of two separate .map() calls.
-    locations, action_times = _batch_parse_action_json(df["action_json"])
-    df = df.drop(columns=["action_json"])
-    df["location"] = locations.values
-    df["action_time"] = action_times.values
+    # Join in Pandas.
+    df = pd.merge(measurements_df, actions_df, on="action_id", how="inner")
+    df = df.drop(columns=["action_id"])
 
-    # Use categorical dtypes for low-cardinality string columns.  With many
-    # hundreds of thousands of rows, object columns store one Python string
-    # object per row (50+ bytes each).  Categoricals store a small lookup table
-    # plus one integer code per row, cutting string-column memory by ~20–50×.
-    df["apa_name"] = df["apa_name"].astype("category")
-    df["location"] = df["location"].astype("category")
+    # Final dtype adjustments.
     df["side"] = df["side"].astype(str).str.upper().astype("category")
-
     df["wire_number"] = df["wire_number"].astype("int32")
     df["tension"] = df["tension"].astype("float32")
 
@@ -421,7 +424,6 @@ def normalize_options(
             db_path=None if options.db_path is None else str(options.db_path),
             layers=tuple(_parse_layers(str(options.layers))),
             min_coverage=float(options.min_coverage),
-            iterations=int(options.iterations),
             exclude_apa_regex=str(options.exclude_apa_regex),
             csv_dir=str(options.csv_dir),
             output_dir=str(options.output_dir),
@@ -440,13 +442,12 @@ def normalize_options(
             db_path=None if data.get("db_path") in (None, "") else str(data["db_path"]),
             layers=tuple(_parse_layers(str(data.get("layers", "X,V,U,G")))),
             min_coverage=float(cast(Any, data.get("min_coverage", 0.5))),
-            iterations=int(cast(Any, data.get("iterations", 3))),
             exclude_apa_regex=str(data.get("exclude_apa_regex", "(?i)TEST")),
             csv_dir=str(data.get("csv_dir", data_path("tension_data"))),
             output_dir=str(data.get("output_dir", data_path("tension_plots"))),
             bins=int(cast(Any, data.get("bins", 40))),
             moving_average_window=int(cast(Any, data.get("moving_average_window", 15))),
-            no_scaling=bool(data.get("no_scaling", False)),
+            no_scaling=bool(data.get("no_scaling", True)),
             average_per_wire=bool(data.get("average_per_wire", False)),
             split_by_location=bool(data.get("split_by_location", False)),
             show_all_locations=bool(data.get("show_all_locations", False)),
@@ -461,8 +462,6 @@ def normalize_options(
         raise ValueError("bins must be positive")
     if normalized.moving_average_window <= 0:
         raise ValueError("moving_average_window must be positive")
-    if normalized.iterations <= 0:
-        raise ValueError("iterations must be positive")
     if normalized.split_by_location and normalized.source != DUNEDB_SOURCE:
         raise ValueError("--split-by-location is only supported with --source dunedb")
     if normalized.show_all_locations and not normalized.split_by_location:
@@ -481,7 +480,6 @@ def _build_output_tag_from_options(options: AverageProfileCloudOptions) -> str:
     else:
         parts.append("allsamples")
     parts.append(f"cov{str(options.min_coverage).replace('.', 'p')}")
-    parts.append(f"it{options.iterations}")
     parts.append(f"bins{options.bins}")
     parts.append(f"win{options.moving_average_window}")
     return "_".join(parts)
@@ -926,6 +924,11 @@ def _make_cloud_dataframe(
     if not frames:
         return pd.DataFrame(columns=["wire_number", "tension", "side", "apa_name"])
     cloud = pd.concat(frames, ignore_index=True)
+
+    # Use categorical dtypes for strings to save memory.
+    cloud["side"] = cloud["side"].astype("category")
+    cloud["apa_name"] = cloud["apa_name"].astype("category")
+
     if average_per_wire:
         cloud = (
             cloud.groupby(["side", "wire_number"], as_index=False)
@@ -1029,8 +1032,8 @@ def _uv_recipe_maps(layer: str):
 def _enrich_cloud_with_uv_recipe_metadata(
     cloud: pd.DataFrame, *, layer: str
 ) -> pd.DataFrame:
-    enriched = cloud.copy()
-    if enriched.empty:
+    if cloud.empty:
+        enriched = cloud.copy()
         for column in UV_METADATA_COLUMNS:
             enriched[column] = pd.Series(
                 dtype="float64"
@@ -1039,107 +1042,136 @@ def _enrich_cloud_with_uv_recipe_metadata(
             )
         return enriched
 
-    if str(layer).strip().upper() not in {"U", "V"}:
-        enriched["wrap_number"] = np.nan
-        enriched["applied_length_mm"] = np.nan
-        enriched["start_side"] = None
-        enriched["end_side"] = None
-        enriched["endpoint_side_mapping"] = None
-        enriched["start_endpoint_kind"] = None
-        enriched["end_endpoint_kind"] = None
-        enriched["uv_path_family"] = None
-        enriched["uv_terminal_group"] = None
+    layer_key = str(layer).strip().upper()
+    if layer_key not in {"U", "V"}:
+        enriched = cloud.copy()
+        for column in UV_METADATA_COLUMNS:
+            enriched[column] = (
+                np.nan
+                if column in {"wrap_number", "applied_length_mm"}
+                else cast(Any, None)
+            )
         return enriched
 
-    recipe_maps = _uv_recipe_maps(layer)
-    wrap_numbers: list[float] = []
-    applied_lengths: list[float] = []
-    start_sides: list[str | None] = []
-    end_sides: list[str | None] = []
-    endpoint_mappings: list[tuple[str, ...] | None] = []
-    start_endpoint_kinds: list[str | None] = []
-    end_endpoint_kinds: list[str | None] = []
-    uv_path_families: list[str | None] = []
-    uv_terminal_groups: list[str | None] = []
-    measurement_sides = (
-        enriched["side"]
-        if "side" in enriched.columns
-        else pd.Series([None] * len(enriched), index=enriched.index, dtype="object")
-    )
-    for raw_wire_number, raw_measurement_side in zip(
-        pd.to_numeric(enriched["wire_number"], errors="coerce"),
-        measurement_sides,
-        strict=False,
-    ):
-        if not np.isfinite(raw_wire_number):
-            wrap_numbers.append(float("nan"))
-            applied_lengths.append(float("nan"))
-            start_sides.append(None)
-            end_sides.append(None)
-            endpoint_mappings.append(None)
-            start_endpoint_kinds.append(None)
-            end_endpoint_kinds.append(None)
-            uv_path_families.append(None)
-            uv_terminal_groups.append(None)
-            continue
-        wire_number = int(raw_wire_number)
-        wrap_ref = recipe_maps.wire_to_wrap.get(wire_number)
-        endpoint_sides = recipe_maps.wire_to_endpoint_sides.get(wire_number)
-        wrap_numbers.append(
-            float("nan") if wrap_ref is None else float(wrap_ref.wrap_number)
-        )
-        applied_lengths.append(
-            float(recipe_maps.wire_to_applied_length_mm.get(wire_number, float("nan")))
-        )
-        if endpoint_sides is None:
-            start_sides.append(None)
-            end_sides.append(None)
-            endpoint_mappings.append(None)
-            start_endpoint_kinds.append(None)
-            end_endpoint_kinds.append(None)
-            uv_path_families.append(None)
-            uv_terminal_groups.append(None)
-            continue
-        start_side, end_side = endpoint_sides
-        measurement_side = _normalize_measurement_side(raw_measurement_side)
-        if measurement_side == "A":
-            start_side, end_side = end_side, start_side
-        start_kind = _normalize_endpoint_kind(start_side)
-        end_kind = _normalize_endpoint_kind(end_side)
-        path_family, terminal_group = _classify_uv_endpoint_path(start_kind, end_kind)
-        start_sides.append(start_side)
-        end_sides.append(end_side)
-        endpoint_mappings.append(_canonical_endpoint_side_mapping(start_side, end_side))
-        start_endpoint_kinds.append(start_kind)
-        end_endpoint_kinds.append(end_kind)
-        uv_path_families.append(path_family)
-        uv_terminal_groups.append(terminal_group)
+    recipe_maps = _uv_recipe_maps(layer_key)
 
-    enriched["wrap_number"] = pd.Series(
-        wrap_numbers, index=enriched.index, dtype="float64"
+    # Pre-compute metadata for all valid wires in this layer.
+    wire_numbers = sorted(recipe_maps.wire_to_wrap.keys())
+    meta_rows = []
+    for w in wire_numbers:
+        wrap_ref = recipe_maps.wire_to_wrap[w]
+        start_side, end_side = recipe_maps.wire_to_endpoint_sides[w]
+        applied_length = recipe_maps.wire_to_applied_length_mm.get(w, np.nan)
+
+        meta_rows.append(
+            {
+                "wire_number": w,
+                "wrap_number": float(wrap_ref.wrap_number),
+                "applied_length_mm": float(applied_length),
+                "recipe_start_side": start_side,
+                "recipe_end_side": end_side,
+            }
+        )
+    meta_df = pd.DataFrame(meta_rows)
+
+    # Merge metadata with the cloud.
+    enriched = pd.merge(
+        cloud, meta_df, on="wire_number", how="left", copy=True, validate="many_to_one"
     )
-    enriched["applied_length_mm"] = pd.Series(
-        applied_lengths, index=enriched.index, dtype="float64"
+
+    # Vectorized side adjustment and classification.
+    # measurement_side 'A' means we swap recipe start/end.
+    is_side_a = enriched["side"].astype(str).str.upper() == "A"
+
+    enriched["start_side"] = np.where(
+        is_side_a, enriched["recipe_end_side"], enriched["recipe_start_side"]
     )
-    enriched["start_side"] = pd.Series(
-        start_sides, index=enriched.index, dtype="object"
+    enriched["end_side"] = np.where(
+        is_side_a, enriched["recipe_start_side"], enriched["recipe_end_side"]
     )
-    enriched["end_side"] = pd.Series(end_sides, index=enriched.index, dtype="object")
-    enriched["endpoint_side_mapping"] = pd.Series(
-        endpoint_mappings, index=enriched.index, dtype="object"
+
+    # Normalize sides.
+    enriched["start_endpoint_kind"] = (
+        enriched["start_side"].astype(str).str.strip().str.lower().replace("none", None)
     )
-    enriched["start_endpoint_kind"] = pd.Series(
-        start_endpoint_kinds, index=enriched.index, dtype="object"
+    enriched["end_endpoint_kind"] = (
+        enriched["end_side"].astype(str).str.strip().str.lower().replace("none", None)
     )
-    enriched["end_endpoint_kind"] = pd.Series(
-        end_endpoint_kinds, index=enriched.index, dtype="object"
+
+    # Classify UV endpoint path (vectorized).
+    # Logic from _classify_uv_endpoint_path
+    sk = enriched["start_endpoint_kind"]
+    ek = enriched["end_endpoint_kind"]
+
+    is_top_bottom = ((sk == "top") & (ek == "bottom")) | (
+        (sk == "bottom") & (ek == "top")
     )
-    enriched["uv_path_family"] = pd.Series(
-        uv_path_families, index=enriched.index, dtype="object"
+    is_head_foot = (
+        sk.isin(["head", "foot"]) | ek.isin(["head", "foot"])
+    ) & ~is_top_bottom
+
+    enriched["uv_path_family"] = cast(Any, None)
+    enriched.loc[is_top_bottom, "uv_path_family"] = "top_bottom"
+    enriched.loc[is_head_foot, "uv_path_family"] = "head_foot"
+
+    enriched["uv_terminal_group"] = cast(Any, None)
+    # top_bottom terminal groups
+    enriched.loc[is_top_bottom & (ek == "top"), "uv_terminal_group"] = "ends_at_top"
+    enriched.loc[is_top_bottom & (ek == "bottom"), "uv_terminal_group"] = (
+        "ends_at_bottom"
     )
-    enriched["uv_terminal_group"] = pd.Series(
-        uv_terminal_groups, index=enriched.index, dtype="object"
+    # head_foot terminal groups
+    # Logic: starts_on_head_or_foot takes precedence if start is head/foot.
+    enriched.loc[is_head_foot & sk.isin(["head", "foot"]), "uv_terminal_group"] = (
+        "starts_on_head_or_foot"
     )
+    enriched.loc[
+        is_head_foot & ~sk.isin(["head", "foot"]) & ek.isin(["head", "foot"]),
+        "uv_terminal_group",
+    ] = "ends_on_head_or_foot"
+
+    # Canonical endpoint side mapping.
+    # Logic from _canonical_endpoint_side_mapping
+    # Since we only have two sides, and they are usually different,
+    # we can just use a tuple of sorted unique sides or similar.
+    # Actually, the original implementation preserved order but removed duplicates.
+    def _make_mapping(row):
+        s, e = row["start_side"], row["end_side"]
+        if s is None or e is None:
+            return None
+        ordered = []
+        for side in (s, e):
+            ns = str(side).strip().lower()
+            if ns and ns not in ordered:
+                ordered.append(ns)
+        return tuple(ordered) or None
+
+    # This one is harder to vectorize perfectly because it returns tuples,
+    # but since it's a small number of unique combinations, we can use a map.
+    # Or just use apply on unique pairs.
+    unique_pairs = enriched[["start_side", "end_side"]].drop_duplicates()
+    pair_map = {
+        (row["start_side"], row["end_side"]): _make_mapping(row)
+        for _, row in unique_pairs.iterrows()
+    }
+    enriched["endpoint_side_mapping"] = enriched.set_index(["start_side", "end_side"])[
+        []
+    ].index.map(pair_map)
+
+    # Clean up temporary columns.
+    enriched = enriched.drop(columns=["recipe_start_side", "recipe_end_side"])
+
+    # Use categorical dtypes for new string columns.
+    for col in (
+        "start_side",
+        "end_side",
+        "start_endpoint_kind",
+        "end_endpoint_kind",
+        "uv_path_family",
+        "uv_terminal_group",
+    ):
+        enriched[col] = enriched[col].astype("category")
+
     return enriched
 
 
@@ -1313,7 +1345,7 @@ def _render_endpoint_categories_view(
 
         axis.set_title(f"{title_prefix}: {title}")
         axis.set_xlabel(xlabel)
-        axis.set_ylabel("Scaled Tension (N)")
+        axis.set_ylabel("Tension (N)")
         axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
         if plotted_groups:
             axis.legend(loc="upper right", fontsize=8, frameon=True)
@@ -1480,7 +1512,7 @@ def _render_endpoint_mapping_view(
     axis.set_xticks([category_positions[label] for label in categories])
     axis.set_xticklabels(categories, rotation=20, ha="right")
     axis.set_xlabel(PLOT_MODE_LABELS[PLOT_MODE_ENDPOINT_MAPPING])
-    axis.set_ylabel("Scaled Tension (N)")
+    axis.set_ylabel("Tension (N)")
     axis.set_title(
         f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} Endpoint Mapping"
     )
@@ -1598,7 +1630,7 @@ def build_layer_figure(
     if plotted_sides:
         if plot_mode != PLOT_MODE_ENDPOINT_MAPPING:
             profile_axis.set_xlabel(PLOT_MODE_LABELS.get(plot_mode, "Wire Number"))
-            profile_axis.set_ylabel("Scaled Tension (N)")
+            profile_axis.set_ylabel("Tension (N)")
             profile_axis.set_title(
                 f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} "
                 f"{PLOT_MODE_LABELS.get(plot_mode, 'Wire Number')} Correlation (location overlay)"
@@ -1611,7 +1643,7 @@ def build_layer_figure(
             (
                 f"{title_prefix}: {'Wire-Average' if average_per_wire else 'Sample'} {PLOT_MODE_LABELS.get(plot_mode, 'Wire Number')} View"
                 + (
-                    f"\nGlobal raw mode={result.global_mode_value:.3f}"
+                    f"\nGlobal mode={result.global_mode_value:.3f}"
                     if np.isfinite(result.global_mode_value)
                     else ""
                 )
@@ -1687,8 +1719,8 @@ def build_layer_figure(
                 )
             )
 
-    hist_axis.set_title(f"{title_prefix}: Scaled Tension Distribution")
-    hist_axis.set_xlabel("Scaled Tension (N)")
+    hist_axis.set_title(f"{title_prefix}: Tension Distribution")
+    hist_axis.set_xlabel("Tension (N)")
     hist_axis.set_ylabel("Count")
     hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
     if stats_lines:
@@ -1935,46 +1967,11 @@ def compute_layer_analysis(
             ),
         )
 
-    scale_factors: dict[str, float] = {}
-    raw_mode_by_apa: dict[str, float] = {}
-    if options.no_scaling:
-        global_mode_value = float("nan")
-        for apa_name in series_by_apa:
-            scale_factors[apa_name] = 1.0
-            raw_mode_by_apa[apa_name] = float("nan")
-    else:
-        raw_layer_parts = [
-            result.series.to_numpy(dtype="float64")
-            for apa_name in series_by_apa
-            for result in load_stats[apa_name].values()
-            if not result.series.empty
-        ]
-        if not raw_layer_parts:
-            global_mode_value = float("nan")
-            for apa_name in series_by_apa:
-                scale_factors[apa_name] = 1.0
-                raw_mode_by_apa[apa_name] = float("nan")
-        else:
-            raw_layer_values = np.concatenate(raw_layer_parts)
-            global_mode_value = kde_mode(raw_layer_values)
-
-            for apa_name in series_by_apa:
-                apa_parts = [
-                    result.series.to_numpy(dtype="float64")
-                    for result in load_stats[apa_name].values()
-                    if not result.series.empty
-                ]
-                if not apa_parts:
-                    raw_mode_by_apa[apa_name] = float("nan")
-                    scale_factors[apa_name] = 1.0
-                    continue
-                apa_values = np.concatenate(apa_parts)
-                raw_mode_by_apa[apa_name] = kde_mode(apa_values)
-                k = mode_scale_factor(
-                    apa_values=apa_values,
-                    global_mode_value=global_mode_value,
-                )
-                scale_factors[apa_name] = float("nan") if k is None else k
+    scale_factors: dict[str, float] = {apa_name: 1.0 for apa_name in series_by_apa}
+    raw_mode_by_apa: dict[str, float] = {
+        apa_name: float("nan") for apa_name in series_by_apa
+    }
+    global_mode_value = float("nan")
 
     mu_by_side, n_by_side = _compute_target_profiles(series_by_apa, scale_factors)
 
@@ -2146,7 +2143,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--iterations",
         type=int,
         default=3,
-        help="Number of target/scale refinement iterations (default: 3).",
+        help="Number of target/scale refinement iterations (ignored, scaling is disabled).",
     )
     parser.add_argument(
         "--exclude-apa-regex",
@@ -2181,7 +2178,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--no-scaling",
         action="store_true",
-        help="Skip average/mode normalization and plot the raw trimmed tensions.",
+        help="Skip average/mode normalization (always True now).",
     )
     parser.add_argument(
         "--average-per-wire",

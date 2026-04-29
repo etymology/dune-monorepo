@@ -1,0 +1,255 @@
+-- allium: 3
+-- uv-wrap-geometry.allium
+
+-- Scope: Geometric planning for UV-layer winding-head pin wraps — tangent point
+--        computation, same-side vs cross-side transition logic, transfer-required
+--        decisions, and the resolved WrapTransitionPlan output.
+-- Includes: WrapTransitionPlan, PinTangentPoint, transfer requirements,
+--           head-position selection, outbound intercept geometry
+-- Excludes: G-code rendering, PLC communication, machine calibration acquisition,
+--           X/G layer geometry (handled separately), roller-arm calibration
+--
+-- This spec covers the geometry that positions the winding head at each pin
+-- during UV-layer application.  layer-geometry.allium specifies where pins are;
+-- this spec specifies how the head reaches them.
+
+use "./core.allium" as core
+use "./layer-geometry.allium" as layout
+
+-- ==========================================================================
+-- Value Types
+-- ==========================================================================
+
+value Point2D {
+    x: Decimal
+    y: Decimal
+}
+
+value Point3D {
+    x: Decimal
+    y: Decimal
+    z: Decimal
+}
+
+value LineEquation {
+    slope:       Decimal
+    intercept:   Decimal
+    is_vertical: Boolean
+}
+
+-- The resolved X/Y tangent coordinates at which the winding wire contacts a pin.
+-- For a pin of known radius at known position, the tangent point is the pin centre
+-- displaced by radius in the wrap-side normal direction.
+
+value PinTangentPoint {
+    layer:       String   -- "U" or "V"
+    pin_name:    String   -- canonical pin name e.g. "B450"
+    tangent_xy:  Point2D
+    wrap_side:   core/WrapSide   -- (x_sign, y_sign) unit normal from pin centre
+
+    @guidance
+        -- tangent_xy = pin_nominal_xy + pin_radius * wrap_side
+        -- pin_nominal_xy and pin_radius come from the layer calibration.
+        -- wrap_side is derived from layout/PinWrapClassification for this pin.
+}
+
+-- The planned head position (front / back) for a wrap operation.
+-- Numeric values match the G106 P-parameter: 1 = front, 2 = back.
+
+enum HeadPosition { front | back }
+
+-- A fully resolved plan for transitioning the winding head from one pin to the next.
+-- This is the output of the wrap geometry computation and the input to G-code rendering.
+
+value WrapTransitionPlan {
+    layer:        String       -- "U" or "V"
+    anchor_pin:   String       -- the pin being departed from
+    target_pin:   String       -- the pin being arrived at
+
+    -- True when anchor and target are on the same APA face (A-side or B-side),
+    -- meaning no side-change (head-transfer) is required for geometric reasons.
+    same_side:    Boolean
+
+    head_position: HeadPosition   -- resolved head Z position for this wrap
+
+    -- The XY position where the head will be immediately after wrapping target_pin.
+    final_xy:     Point2D
+
+    -- The XY position of the transfer point, if a head transfer is required.
+    -- Null when transfer_required is false.
+    transfer_xy:  Point2D?
+
+    -- Whether a physical head transfer (Z-axis move) is required between
+    -- anchor_pin and target_pin.
+    transfer_required: Boolean
+
+    -- The APA plane label ("front" or "back") and frame face label.
+    plane: String?
+    face:  String?
+
+    -- Tangent contact points on each pin.
+    anchor_tangent_point: Point2D
+    target_tangent_point: Point2D
+
+    -- The clipped start and end points of the straight wire span between pins.
+    -- These are the endpoints after the wire path has been clipped to board edges.
+    clipped_start: Point2D
+    clipped_end:   Point2D
+
+    -- The outbound intercept: where the departure line from anchor_pin
+    -- intersects the board edge, used for subsequent motion planning.
+    outbound_intercept: Point2D
+
+    -- Projections onto the front and back APA planes (populated when the
+    -- wire path crosses the frame edge during a side-change transition).
+    front_projection: Point2D?
+    back_projection:  Point2D?
+}
+
+-- ==========================================================================
+-- Recipe site
+-- ==========================================================================
+
+-- A RecipeSite groups the context needed to orient the head at a particular
+-- anchor pin.  The orientation token is passed to G109 (AnchorPoint opcode).
+
+value RecipeSite {
+    anchor_pin:          String   -- the pin at which the head is stationed
+    orientation_token:   String   -- opcode parameter e.g. "U_HEAD_1"
+    recipe_pair_pin_a:   String   -- first pin of the wire pair at this site
+    recipe_pair_pin_b:   String   -- second pin of the wire pair at this site
+    site_label:          String   -- human-readable site identifier
+    side:                String   -- "head" or "foot"
+    position:            String   -- positional label within the frame face
+}
+
+-- ==========================================================================
+-- Interface
+-- ==========================================================================
+
+actor WindingHead {
+    identified_by: head_id
+}
+
+surface WrapGeometryPlanner {
+    facing head: WindingHead
+
+    provides:
+        WrapPlanRequested(layer, anchor_pin, target_pin, head_z_mode)
+}
+
+-- ==========================================================================
+-- Rules
+-- ==========================================================================
+
+rule ComputeWrapTransitionPlan {
+    when: WrapPlanRequested(layer, anchor_pin, target_pin, head_z_mode)
+
+    requires: layer in { "U", "V" }
+    requires: anchor_pin != ""
+    requires: target_pin != ""
+
+    ensures: WrapTransitionPlan.created(
+        layer:             layer,
+        anchor_pin:        anchor_pin,
+        target_pin:        target_pin,
+        same_side:         pins_share_apa_face(anchor_pin, target_pin),
+        head_position:     resolve_head_position(head_z_mode),
+        final_xy:          compute_final_xy(layer, target_pin, head_z_mode),
+        transfer_required: transfer_required(anchor_pin, target_pin),
+        transfer_xy:       compute_transfer_xy(layer, anchor_pin, target_pin),
+        anchor_tangent_point: compute_tangent_point(layer, anchor_pin),
+        target_tangent_point: compute_tangent_point(layer, target_pin),
+        clipped_start:     clip_to_board_edge(layer, anchor_pin, target_pin, "start"),
+        clipped_end:       clip_to_board_edge(layer, anchor_pin, target_pin, "end"),
+        outbound_intercept: compute_outbound_intercept(layer, anchor_pin, target_pin),
+        plane:             resolve_plane(head_z_mode),
+        face:              face_for_pin(layer, target_pin),
+        front_projection:  compute_front_projection(layer, anchor_pin, target_pin),
+        back_projection:   compute_back_projection(layer, anchor_pin, target_pin)
+    )
+
+    @guidance
+        -- Implementation sequence (mirrors uv_head_target_parts/head_target.py):
+        --
+        -- 1. Resolve head_position from head_z_mode ("front" → 1, "back" → 2).
+        -- 2. Look up the RecipeSite for (layer, anchor_pin, target_pin) via the
+        --    recipe_sites table.
+        -- 3. Determine same_side by comparing the A/B family of anchor and target.
+        -- 4. Determine transfer_required: a transfer is needed whenever the wire
+        --    path must cross from one APA face to the other, which occurs when
+        --    consecutive pins are on opposite sides and the wrap geometry requires
+        --    a Z change.
+        --
+        -- 5. Compute tangent points:
+        --    anchor_tangent = pin_xy + pin_radius * wrap_side_vector(anchor_pin)
+        --    target_tangent = pin_xy + pin_radius * wrap_side_vector(target_pin)
+        --
+        -- 6. Compute the line equation through the two tangent points.  If the
+        --    pins share an X coordinate the line is vertical.
+        --
+        -- 7. Clip the tangent line to the board edge to get clipped_start/end.
+        --
+        -- 8. Compute outbound_intercept as the intersection of the outbound
+        --    tangent line with the relevant board edge.
+        --
+        -- 9. Compute transfer_xy as the midpoint-derived transfer position used
+        --    by the G102 (SeekTransfer) opcode.  Null when transfer_required=false.
+        --
+        -- 10. front_projection / back_projection are only populated for
+        --     cross-side transitions (same_side = false).
+}
+
+rule TransferRequiredForCrossSideWrap {
+    when: WrapPlanRequested(layer, anchor_pin, target_pin, head_z_mode)
+    requires: not pins_share_apa_face(anchor_pin, target_pin)
+
+    ensures: WrapTransitionPlan.created(
+        layer:             layer,
+        anchor_pin:        anchor_pin,
+        target_pin:        target_pin,
+        same_side:         false,
+        transfer_required: true,
+        head_position:     resolve_head_position(head_z_mode),
+        final_xy:          compute_final_xy(layer, target_pin, head_z_mode),
+        transfer_xy:       compute_transfer_xy(layer, anchor_pin, target_pin),
+        anchor_tangent_point: compute_tangent_point(layer, anchor_pin),
+        target_tangent_point: compute_tangent_point(layer, target_pin),
+        clipped_start:     clip_to_board_edge(layer, anchor_pin, target_pin, "start"),
+        clipped_end:       clip_to_board_edge(layer, anchor_pin, target_pin, "end"),
+        outbound_intercept: compute_outbound_intercept(layer, anchor_pin, target_pin),
+        plane:             resolve_plane(head_z_mode),
+        face:              face_for_pin(layer, target_pin),
+        front_projection:  compute_front_projection(layer, anchor_pin, target_pin),
+        back_projection:   compute_back_projection(layer, anchor_pin, target_pin)
+    )
+
+    @guidance
+        -- A head transfer is required whenever anchor and target are on
+        -- opposite APA faces (one is an A-side pin, the other is a B-side pin).
+        -- The transfer moves the winding head Z from front to back or vice versa.
+        -- The G206 (HeadTransfer) opcode handles the physical motion.
+        -- transfer_xy is non-null here (guaranteed by TransferXyNullIfAndOnlyIfNoTransfer).
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant TangentPointOnPinCircumference {
+    -- For every WrapTransitionPlan, the distance from the anchor/target pin centre
+    -- to the corresponding tangent point equals the pin radius, within epsilon.
+}
+
+invariant TransferXyNullIfAndOnlyIfNoTransfer {
+    -- WrapTransitionPlan.transfer_xy is non-null if and only if
+    -- WrapTransitionPlan.transfer_required is true.
+}
+
+invariant SameSideImpliesNoTransfer {
+    -- When WrapTransitionPlan.same_side is true,
+    -- WrapTransitionPlan.transfer_required is false.
+}
+
+open question "Should WrapTransitionPlan model the hover Y position separately from the final_xy for alternating-side wraps?"
+open question "How should the outbound_intercept be defined for foot-side wraps where the board edge orientation differs from head-side wraps?"

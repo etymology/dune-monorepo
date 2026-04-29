@@ -2341,6 +2341,7 @@ class ManualCalibration:
         self._process.workspace._calibrationFile = fileName
         self._process.workspace._loadCalibrationFromDisk("manual calibration save")
         calibration = self._process.workspace._calibration
+        assert calibration is not None
 
         session.baselineCalibration = normalize_calibration(calibration, layer)
         session.baselineSource = "live"

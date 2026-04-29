@@ -406,6 +406,7 @@ def test_compute_uv_tangent_view_uses_machine_calibration_pin_radius():
         UvTangentViewRequest(layer="U", pin_a="B1201", pin_b="B2001")
     )
     machine_calibration = _load_machine_calibration()
+    assert machine_calibration.pinDiameter is not None
 
     assert math.isclose(
         result.pin_radius,
@@ -488,6 +489,8 @@ def test_compute_uv_tangent_view_builds_alternating_projection_for_yz_face():
     assert result.alternating_g109_projection is not None
     assert result.alternating_g103_projection is not None
     assert result.alternating_g108_projection is None
+    assert result.alternating_wrap_line_start is not None
+    assert result.alternating_wrap_line_end is not None
     assert math.isclose(
         result.alternating_wrap_line_start.x, result.z_retracted, abs_tol=1e-6
     )
@@ -512,6 +515,8 @@ def test_compute_uv_tangent_view_builds_alternating_projection_for_xz_face():
     assert result.alternating_plane == "xz"
     assert result.alternating_face == "top"
     assert result.alternating_g108_projection is None
+    assert result.alternating_wrap_line_start is not None
+    assert result.alternating_wrap_line_end is not None
     assert math.isclose(
         result.alternating_wrap_line_start.y, result.z_retracted, abs_tol=1e-6
     )
@@ -547,6 +552,10 @@ def test_compute_uv_tangent_view_returns_arm_geometry_from_machine_config():
     assert result.arm_left_endpoint is not None
     assert result.arm_right_endpoint is not None
     assert len(result.roller_centers) == 4
+    assert machine_calibration.headArmLength is not None
+    assert machine_calibration.headRollerRadius is not None
+    assert machine_calibration.headRollerGap is not None
+
     assert math.isclose(
         result.head_arm_length, float(machine_calibration.headArmLength), abs_tol=1e-9
     )
