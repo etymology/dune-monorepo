@@ -198,3 +198,224 @@ Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, nu
 [2026-04-29T13:31:39] starting fault capture pid=20695 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
 
 [2026-04-29T13:35:36] starting fault capture pid=22174 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T13:39:46] starting fault capture pid=24363 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T13:42:12] starting fault capture pid=25843 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T13:43:01] starting fault capture pid=26785 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T13:49:45] starting fault capture pid=29520 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:08:19] starting fault capture pid=43102 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:21:22] starting fault capture pid=60697 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:31:02] starting fault capture pid=68359 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:42:35] starting fault capture pid=81747 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:44:29] starting fault capture pid=83885 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:46:05] starting fault capture pid=86820 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T14:51:34] starting fault capture pid=92301 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:04:28] starting fault capture pid=107313 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:08:41] starting fault capture pid=110663 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:14:28] starting fault capture pid=122260 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:24:32] starting fault capture pid=139576 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:30:08] starting fault capture pid=143535 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:32:25] starting fault capture pid=146676 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:34:54] starting fault capture pid=148829 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:35:34] starting fault capture pid=149649 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:35:38] starting fault capture pid=149828 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:36:24] starting fault capture pid=150354 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:36:56] starting fault capture pid=150784 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:37:23] starting fault capture pid=151283 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:37:40] starting fault capture pid=151712 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:40:45] starting fault capture pid=152974 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:42:16] starting fault capture pid=154924 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:43:09] starting fault capture pid=156072 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:46:07] starting fault capture pid=158208 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:46:49] starting fault capture pid=159035 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:53:20] starting fault capture pid=161899 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:54:29] starting fault capture pid=162466 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T15:58:43] starting fault capture pid=164253 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:04:54] starting fault capture pid=167680 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:11:46] starting fault capture pid=169474 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:18:07] starting fault capture pid=173930 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:21:13] starting fault capture pid=175143 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:30:34] starting fault capture pid=180739 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:32:41] starting fault capture pid=181594 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:33:10] starting fault capture pid=181928 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:38:13] starting fault capture pid=183972 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:41:48] starting fault capture pid=185238 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:44:09] starting fault capture pid=186624 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:46:30] starting fault capture pid=187938 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:48:48] starting fault capture pid=189074 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:51:29] starting fault capture pid=191423 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:51:41] starting fault capture pid=191667 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:53:37] starting fault capture pid=192687 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:55:24] starting fault capture pid=193308 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T16:56:22] starting fault capture pid=193969 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+Fatal Python error: Aborted
+
+Thread 0x0000797631bff6c0 (most recent call first):
+  <no Python frame>
+
+Thread 0x00007975693fe6c0 (most recent call first):
+  File "/home/ben/dune-monorepo/src/dune_tension/plc_desktop.py", line 177 in desktop_seek_xy
+  File "/home/ben/dune-monorepo/src/dune_tension/plc_io.py", line 476 in goto_xy
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 768 in _goto_xy_with_reset_recovery
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 1047 in _run
+  File "/usr/lib/python3.12/threading.py", line 1010 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydev_bundle/pydev_monkey.py", line 1134 in __call__
+
+Thread 0x00007976353de6c0 (most recent call first):
+  File "/home/ben/dune-monorepo/.venv/lib/python3.12/site-packages/sounddevice.py", line 1167 in close
+  File "/home/ben/dune-monorepo/src/spectrum_analysis/audio_sources.py", line 85 in stop
+  File "/home/ben/dune-monorepo/src/spectrum_analysis/audio_processing.py", line 469 in _acquire_audio_snr
+  File "/home/ben/dune-monorepo/src/spectrum_analysis/audio_processing.py", line 563 in acquire_audio
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 197 in acquire_audio
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 1704 in _collect_samples
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 1972 in goto_collect_wire_data
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 1446 in measure_list
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/actions.py", line 1096 in measure_zone_button
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/actions.py", line 824 in run
+  File "/usr/lib/python3.12/threading.py", line 1010 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydev_bundle/pydev_monkey.py", line 1134 in __call__
+
+Current thread 0x0000797643fff6c0 (most recent call first):
+  File "/home/ben/dune-monorepo/.venv/lib/python3.12/site-packages/sounddevice.py", line 1167 in close
+  File "/home/ben/dune-monorepo/.venv/lib/python3.12/site-packages/sounddevice.py", line 2685 in wait
+  File "/home/ben/dune-monorepo/.venv/lib/python3.12/site-packages/sounddevice.py", line 403 in wait
+  File "/home/ben/dune-monorepo/src/spectrum_analysis/audio_processing.py", line 409 in record_noise_sample
+  File "/home/ben/dune-monorepo/src/dune_tension/audio_runtime.py", line 98 in calibrate_background_noise
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/actions.py", line 1117 in calibrate_background_noise
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/actions.py", line 824 in run
+  File "/usr/lib/python3.12/threading.py", line 1010 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydev_bundle/pydev_monkey.py", line 1134 in __call__
+
+Thread 0x00007976b91ff6c0 (most recent call first):
+  File "/usr/lib/python3.12/threading.py", line 359 in wait
+  File "/usr/lib/python3.12/threading.py", line 655 in wait
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd.py", line 326 in _on_run
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_daemon_thread.py", line 53 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+
+Thread 0x00007976b9a006c0 (most recent call first):
+  File "/usr/lib/python3.12/threading.py", line 359 in wait
+  File "/usr/lib/python3.12/threading.py", line 655 in wait
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd.py", line 280 in _on_run
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_daemon_thread.py", line 53 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+
+Thread 0x00007976ba2016c0 (most recent call first):
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_comm.py", line 227 in _read_line
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_comm.py", line 245 in _on_run
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_daemon_thread.py", line 53 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+
+Thread 0x00007976baa026c0 (most recent call first):
+  File "/usr/lib/python3.12/threading.py", line 359 in wait
+  File "/usr/lib/python3.12/queue.py", line 180 in get
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_comm.py", line 390 in _on_run
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_daemon_thread.py", line 53 in run
+  File "/usr/lib/python3.12/threading.py", line 1073 in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1030 in _bootstrap
+
+Thread 0x00007976bc318080 (most recent call first):
+  File "/usr/lib/python3.12/tkinter/__init__.py", line 1504 in mainloop
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/app.py", line 158 in run_app
+  File "/home/ben/dune-monorepo/src/dune_tension/main.py", line 9 in main
+  File "/home/ben/dune-monorepo/src/dune_tension/main.py", line 13 in <module>
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 118 in _run_code
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 228 in _run_module_as_main
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/adapter/../../debugpy/launcher/../../debugpy/../debugpy/server/cli.py", line 394 in run_module
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/adapter/../../debugpy/launcher/../../debugpy/../debugpy/server/cli.py", line 542 in main
+  File "/home/ben/.vscode/extensions/ms-python.debugpy-2026.4.0-linux-x64/bundled/libs/debugpy/adapter/../../debugpy/launcher/../../debugpy/__main__.py", line 71 in <module>
+  File "/usr/lib/python3.12/runpy.py", line 88 in _run_code
+  File "/usr/lib/python3.12/runpy.py", line 198 in _run_module_as_main
+
+Extension modules: _pydevd_bundle.pydevd_cython, _pydevd_sys_monitoring_cython, _pydevd_sys_monitoring._pydevd_sys_monitoring_cython, numpy._core._multiarray_umath, numpy.linalg._umath_linalg, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, _cyutility, pandas._libs._cyutility, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.properties, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pandas._libs.ops, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.indexing, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs.groupby, pandas._libs.json, pandas._libs.parsers, pandas._libs.testing, scipy._cyutility, scipy._lib._ccallback_c, charset_normalizer.md, charset_normalizer.cd, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.spatial._ckdtree, scipy._lib.messagestream, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg.cython_lapack, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._batched_linalg, scipy.linalg._decomp_lu_cython, scipy.linalg._matfuncs_schur_sqrtm, scipy.linalg._matfuncs_expm, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg._decomp_update, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.special._ufuncs_cxx, scipy.special._ellip_harm_2, scipy.special._special_ufuncs, scipy.special._gufuncs, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.spatial._hausdorff, scipy.spatial._distance_wrap, scipy.spatial.transform._rotation_cy, scipy.spatial.transform._rigid_transform_cy, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpacklib, scipy.sparse.linalg._propack, scipy.optimize._group_columns, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._slsqplib, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy._lib._uarray._uarray, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.optimize._direct, scipy.integrate._odepack, scipy.integrate._quadpack, scipy.integrate._vode, scipy.integrate._dop, scipy.interpolate._fitpack, scipy.interpolate._dfitpack, scipy.interpolate._dierckx, scipy.interpolate._ppoly, scipy.interpolate._interpnd, scipy.interpolate._rbfinterp_pythran, scipy.interpolate._rgi_cython, scipy.special.cython_special, scipy.stats._stats, scipy.stats._biasedurn, scipy.stats._stats_pythran, scipy.stats._levy_stable.levyst, scipy.stats._ansari_swilk_statistics, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, scipy.stats._sobol, scipy.stats._qmc_cy, scipy.stats._rcont.rcont, scipy.stats._qmvnt_cy, scipy.ndimage._nd_image, scipy.ndimage._rank_filter_1d, _ni_label, scipy.ndimage._ni_label, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normalizer.cd, requests.packages.chardet.cd, PIL._imaging, kiwisolver._cext, scipy.cluster._vq, scipy.cluster._hierarchy, scipy.cluster._optimal_leaf_ordering, _cffi_backend, scipy.signal._sigtools, scipy.signal._max_len_seq_inner, scipy.signal._upfirdn_apply, scipy.signal._spline, scipy.signal._sosfilt, scipy.signal._peak_finding_utils, scipy.io.matlab._mio_utils, scipy.io.matlab._streams, scipy.io.matlab._mio5_utils, PIL._imagingmath, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, yaml._yaml (total: 171)
+
+[2026-04-29T16:57:20] starting fault capture pid=195890 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T17:01:10] starting fault capture pid=197232 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T17:06:24] starting fault capture pid=199357 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-29T17:15:01] starting fault capture pid=201922 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T10:58:29] starting fault capture pid=265622 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T10:59:24] starting fault capture pid=266558 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:00:32] starting fault capture pid=272030 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:06:39] starting fault capture pid=277423 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:22:59] starting fault capture pid=292446 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:33:12] starting fault capture pid=299689 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:37:12] starting fault capture pid=303947 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+Fatal Python error: Aborted
+
+Thread 0x00007510d4312080 (most recent call first):
+  <no Python frame>
+
+Extension modules: _pydevd_bundle.pydevd_cython, _pydevd_sys_monitoring_cython, _pydevd_sys_monitoring._pydevd_sys_monitoring_cython, numpy._core._multiarray_umath, numpy.linalg._umath_linalg, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, _cyutility, pandas._libs._cyutility, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.properties, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pandas._libs.ops, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.indexing, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs.groupby, pandas._libs.json, pandas._libs.parsers, pandas._libs.testing, scipy._cyutility, scipy._lib._ccallback_c, charset_normalizer.md, charset_normalizer.cd, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.spatial._ckdtree, scipy._lib.messagestream, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg.cython_lapack, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._batched_linalg, scipy.linalg._decomp_lu_cython, scipy.linalg._matfuncs_schur_sqrtm, scipy.linalg._matfuncs_expm, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg._decomp_update, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.special._ufuncs_cxx, scipy.special._ellip_harm_2, scipy.special._special_ufuncs, scipy.special._gufuncs, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.spatial._hausdorff, scipy.spatial._distance_wrap, scipy.spatial.transform._rotation_cy, scipy.spatial.transform._rigid_transform_cy, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpacklib, scipy.sparse.linalg._propack, scipy.optimize._group_columns, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._slsqplib, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy._lib._uarray._uarray, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.optimize._direct, scipy.integrate._odepack, scipy.integrate._quadpack, scipy.integrate._vode, scipy.integrate._dop, scipy.interpolate._fitpack, scipy.interpolate._dfitpack, scipy.interpolate._dierckx, scipy.interpolate._ppoly, scipy.interpolate._interpnd, scipy.interpolate._rbfinterp_pythran, scipy.interpolate._rgi_cython, scipy.special.cython_special, scipy.stats._stats, scipy.stats._biasedurn, scipy.stats._stats_pythran, scipy.stats._levy_stable.levyst, scipy.stats._ansari_swilk_statistics, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, scipy.stats._sobol, scipy.stats._qmc_cy, scipy.stats._rcont.rcont, scipy.stats._qmvnt_cy, scipy.ndimage._nd_image, scipy.ndimage._rank_filter_1d, _ni_label, scipy.ndimage._ni_label, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normalizer.cd, requests.packages.chardet.cd, PIL._imaging, kiwisolver._cext, scipy.cluster._vq, scipy.cluster._hierarchy, scipy.cluster._optimal_leaf_ordering, _cffi_backend, scipy.signal._sigtools, scipy.signal._max_len_seq_inner, scipy.signal._upfirdn_apply, scipy.signal._spline, scipy.signal._sosfilt, scipy.signal._peak_finding_utils, scipy.io.matlab._mio_utils, scipy.io.matlab._streams, scipy.io.matlab._mio5_utils, PIL._imagingmath, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, yaml._yaml (total: 171)
+
+[2026-04-30T11:54:02] starting fault capture pid=309656 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:55:01] starting fault capture pid=310306 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-04-30T11:56:23] starting fault capture pid=311134 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
