@@ -942,6 +942,16 @@ class ProcessManualGCodeTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(process.gCodeHandler.lines, ["F120"])
 
+    def test_execute_manual_gcode_accepts_xy_move_with_feed(self):
+        process = self._build_process_for_manual_gcode(
+            x_position=11.0, y_position=22.0
+        )
+
+        error = process.executeG_CodeLine("X7174 Y0 F300")
+
+        self.assertIsNone(error)
+        self.assertEqual(process.gCodeHandler.lines, ["X7174 Y0 F300"])
+
     def test_execute_manual_gcode_accepts_z_move_with_feed(self):
         process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
 
