@@ -315,8 +315,8 @@ def test_wire_position_provider_uses_tension_layer_calibration_path(
     xy = provider._resolve_geometry_pose(config, 1095)
 
     assert xy is not None
-    assert calls[0]["pin_a"] == "A1258"
-    assert calls[0]["pin_b"] == "A1145"
+    assert calls[0]["pin_a"] == "A1544"
+    assert calls[0]["pin_b"] == "A1657"
     assert calls[0]["layer_calibration_path"] == str(calibration_path)
 
 

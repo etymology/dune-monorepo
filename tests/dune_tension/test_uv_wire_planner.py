@@ -16,17 +16,25 @@ def _clear_uv_wire_plan_cache():
 
 def test_wire_pin_pair_matches_examples_and_wraparound() -> None:
     assert uv_wire_planner._wire_pin_pair("V", "B", 1151) == ("B1199", "B1200")
-    assert uv_wire_planner._wire_pin_pair("V", "A", 1151) == ("A1600", "A1599")
+    assert uv_wire_planner._wire_pin_pair("V", "A", 1151) == ("A1199", "A1200")
     assert uv_wire_planner._wire_pin_pair("V", "B", 1150) == ("B1198", "B1201")
-    assert uv_wire_planner._wire_pin_pair("V", "A", 1150) == ("A1601", "A1598")
+    assert uv_wire_planner._wire_pin_pair("V", "A", 1150) == ("A1198", "A1201")
     assert uv_wire_planner._wire_pin_pair("U", "B", 1151) == ("B1600", "B1601")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1151) == ("A1202", "A1201")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1151) == ("A1600", "A1601")
     assert uv_wire_planner._wire_pin_pair("U", "B", 1150) == ("B1599", "B1602")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1150) == ("A1203", "A1200")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1150) == ("A1599", "A1602")
     assert uv_wire_planner._wire_pin_pair("V", "B", 8) == ("B56", "B2343")
-    assert uv_wire_planner._wire_pin_pair("V", "A", 8) == ("A344", "A456")
+    assert uv_wire_planner._wire_pin_pair("V", "A", 8) == ("A56", "A2343")
     assert uv_wire_planner._wire_pin_pair("U", "B", 8) == ("B457", "B343")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A2345", "A58")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A457", "A343")
+
+
+def test_u_b_wire_pin_pair_does_not_apply_front_side_offset() -> None:
+    assert uv_wire_planner._wire_pin_pair("U", "B", 1146) == ("B1595", "B1606")
+    assert uv_wire_planner._wire_pin_pair("U", "B", 1146) != (
+        "B1896",
+        "B1305",
+    )
 
 
 def test_legacy_uv_provider_uses_planner_for_uv_and_fallback_elsewhere(
@@ -261,7 +269,7 @@ def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(
     assert planned.midpoint == (1147.5, 500.0)
 
 
-def test_plan_uv_wire_uses_front_pin_family_for_a_side(monkeypatch) -> None:
+def test_plan_uv_wire_uses_same_pin_numbers_for_a_side(monkeypatch) -> None:
     centers = []
 
     monkeypatch.setattr(
@@ -270,8 +278,8 @@ def test_plan_uv_wire_uses_front_pin_family_for_a_side(monkeypatch) -> None:
         lambda _layer: {
             "pinDiameterMm": 0.0,
             "locations": {
-                "A1599": {"x": 30.0, "y": 40.0},
-                "A1600": {"x": 10.0, "y": 20.0},
+                "A1199": {"x": 10.0, "y": 20.0},
+                "A1200": {"x": 30.0, "y": 40.0},
                 "B1199": {"x": 100.0, "y": 200.0},
                 "B1200": {"x": 300.0, "y": 400.0},
             },
@@ -307,7 +315,7 @@ def test_plan_uv_wire_uses_front_pin_family_for_a_side(monkeypatch) -> None:
 
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1151)
 
-    assert (planned.pin_a, planned.pin_b) == ("A1600", "A1599")
+    assert (planned.pin_a, planned.pin_b) == ("A1199", "A1200")
     assert centers == [((10.0, 20.0), (30.0, 40.0))]
 
 

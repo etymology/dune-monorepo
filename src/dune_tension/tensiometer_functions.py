@@ -293,13 +293,12 @@ class WirePositionProvider:
         if config.layer not in ["U", "V"]:
             return None
 
-        layout = get_uv_layout(config.layer)
         try:
             from dune_tension.layer_calibration import get_local_layer_calibration_path
 
-            pin_a, pin_b = layout.wire_segment_endpoints(
-                wire_number, family=config.side
-            )
+            from dune_tension.uv_wire_planner import _wire_pin_pair
+
+            pin_a, pin_b = _wire_pin_pair(config.layer, config.side, wire_number)
             geom = compute_pin_pair_tangent_geometry(
                 layer=config.layer,
                 pin_a=pin_a,
