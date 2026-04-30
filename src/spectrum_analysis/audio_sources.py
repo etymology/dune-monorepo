@@ -13,6 +13,8 @@ try:  # Optional dependency
 except Exception:  # pragma: no cover - optional dependency may be absent in CI
     sd = None  # type: ignore[assignment]
 
+_audio_lock = threading.RLock()
+
 
 class AudioSource:
     """Abstract audio stream interface."""
@@ -59,15 +61,16 @@ class MicSource(AudioSource):
         if sd is None:  # pragma: no cover - defensive
             raise RuntimeError("sounddevice is not available.")
         self._stopped.clear()
-        self.stream = sd.InputStream(
-            channels=1,
-            samplerate=self.samplerate,
-            blocksize=self.hop,
-            device=self.device,
-            callback=self._callback,
-            dtype="float32",
-        )
-        self.stream.start()
+        with _audio_lock:
+            self.stream = sd.InputStream(
+                channels=1,
+                samplerate=self.samplerate,
+                blocksize=self.hop,
+                device=self.device,
+                callback=self._callback,
+                dtype="float32",
+            )
+            self.stream.start()
 
     def read(self) -> np.ndarray:
         while not self._stopped.is_set():
@@ -81,8 +84,9 @@ class MicSource(AudioSource):
         self._stopped.set()
         if self.stream is not None:
             try:  # pragma: no cover - depends on audio backend
-                self.stream.stop()
-                self.stream.close()
+                with _audio_lock:
+                    self.stream.stop()
+                    self.stream.close()
             except Exception:
                 pass
 
@@ -115,4 +119,4 @@ class DemoSource(AudioSource):
         pass
 
 
-__all__ = ["AudioSource", "MicSource", "DemoSource", "sd"]
+__all__ = ["AudioSource", "MicSource", "DemoSource", "sd", "_audio_lock"]

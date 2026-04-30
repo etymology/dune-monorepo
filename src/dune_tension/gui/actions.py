@@ -1105,7 +1105,7 @@ def measure_zone_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
         _cleanup_after_measurement(ctx, tensiometer)
 
 
-@_run_in_thread
+@_run_in_thread(measurement=True)
 def calibrate_background_noise(ctx: GUIContext, _inputs: WorkerInputs) -> None:
     """Record background noise for filtering future recordings."""
 

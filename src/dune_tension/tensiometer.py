@@ -120,6 +120,7 @@ class AudioAcquisitionConfig:
     input_mode: str = "mic"
     input_audio_path: str | None = None
     comb_trigger: Any = field(default_factory=_default_harmonic_comb_config)
+    recording_started_callback: Callable[[], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -1499,6 +1500,11 @@ class Tensiometer:
         measuring_timeout = self.config.measuring_duration
         candidate_wires: list[TensionResult] = []
         measured_zone = int(zone) if zone is not None else None
+        def on_recording_started() -> None:
+            self._record_wire_stage(
+                "wait_for_audio_trigger", self._profile_time() - strum_started
+            )
+
         audio_acquisition_config = AudioAcquisitionConfig(
             sample_rate=self.samplerate,
             max_record_seconds=self.config.record_duration,
@@ -1506,6 +1512,7 @@ class Tensiometer:
             snr_threshold_db=self.snr,
             trigger_mode=("harmonic_comb" if self.use_harmonic_comb_trigger else "snr"),
             comb_trigger=self._harmonic_comb_config,
+            recording_started_callback=on_recording_started,
         )
 
         x_step_mm = max(

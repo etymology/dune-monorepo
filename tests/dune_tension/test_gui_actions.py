@@ -397,7 +397,12 @@ def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
         ),
     )
 
-    ctx = types.SimpleNamespace(stop_event=threading.Event())
+    ctx = types.SimpleNamespace(
+        stop_event=threading.Event(),
+        measurement_lock=threading.Lock(),
+        measurement_active=False,
+        active_measurement_name="",
+    )
 
     actions.calibrate_background_noise(ctx)
 

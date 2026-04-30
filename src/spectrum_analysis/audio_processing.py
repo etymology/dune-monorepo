@@ -23,7 +23,7 @@ try:  # Optional dependency - full audio analysis toolkit
 except Exception:  # pragma: no cover - dependency may be absent
     librosa = None  # type: ignore
 
-from spectrum_analysis.audio_sources import MicSource, sd
+from spectrum_analysis.audio_sources import MicSource, sd, _audio_lock
 
 from spectrum_analysis.comb_trigger import record_with_harmonic_comb
 
@@ -403,10 +403,11 @@ def record_noise_sample(cfg: "PitchCompareConfig") -> np.ndarray:
         )
 
     LOGGER.info("Recording %.1fs of background noise...", cfg.noise_duration)
-    noise = sd.rec(
-        duration_samples, samplerate=cfg.sample_rate, channels=1, dtype="float32"
-    )
-    sd.wait()
+    with _audio_lock:
+        noise = sd.rec(
+            duration_samples, samplerate=cfg.sample_rate, channels=1, dtype="float32"
+        )
+        sd.wait()
     return np.squeeze(noise).astype(np.float32)
 
 

@@ -28,14 +28,15 @@ def test_build_audio_diagnostics_figure_includes_fft_and_pesto_axes() -> None:
         analysis,
     )
 
-    assert len(figure.axes) == 3
+    assert len(figure.axes) == 4
     assert [axis.get_title() for axis in figure.axes] == [
         "Latest Captured Waveform",
         "FFT",
+        "Autocorrelation",
         "PESTO Activations",
     ]
     assert figure.axes[1].get_xlim()[1] <= 2000.0
-    assert figure.axes[2].get_ylim() == (30.0, 400.0)
+    assert figure.axes[3].get_ylim() == (30.0, 400.0)
 
 
 def test_pesto_axis_uses_twice_expected_frequency() -> None:
