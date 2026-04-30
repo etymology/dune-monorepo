@@ -1,5 +1,5 @@
 APAUK007 - Layer U, Side A:
-  Missing wire_numbers: 1132, 1138
+  All wires measured
 APAUK007 - Layer U, Side B:
   All wires measured
 
