@@ -841,15 +841,16 @@ def test_measure_auto_reports_estimated_time(monkeypatch):
             "wire_y": 0.0,
             "focus_position": 4300,
             "zone": None,
-        },
-        {
+            "return_to_center": False,
+            },
+            {
             "wire_number": 2,
             "wire_x": 2.0,
             "wire_y": 0.0,
             "focus_position": 4200,
             "zone": None,
-        },
-    ]
+            "return_to_center": False,
+            },    ]
 
 
 def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
@@ -910,6 +911,7 @@ def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
             "wire_y": 200.0,
             "focus_position": 4300,
             "zone": None,
+            "return_to_center": False,
         },
         {
             "wire_number": 12,
@@ -917,9 +919,9 @@ def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
             "wire_y": 1509.5833333333333,
             "focus_position": 4350,
             "zone": None,
+            "return_to_center": False,
         },
     ]
-
 
 def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
     provider = _StubWirePositionProvider(
@@ -970,6 +972,7 @@ def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
             "wire_y": 200.0,
             "focus_position": 4300,
             "zone": None,
+            "return_to_center": False,
         },
         {
             "wire_number": 12,
@@ -977,9 +980,9 @@ def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
             "wire_y": 1509.5833333333333,
             "focus_position": 4350,
             "zone": None,
+            "return_to_center": False,
         },
     ]
-
 
 def test_measure_list_logs_timing_profile_summary(caplog):
     provider = _StubWirePositionProvider(
@@ -1078,6 +1081,7 @@ def test_measure_auto_uv_uses_provider_pose_for_every_wire(monkeypatch):
             "wire_y": 200.0,
             "focus_position": 4300,
             "zone": None,
+            "return_to_center": False,
         },
         {
             "wire_number": 12,
@@ -1085,9 +1089,9 @@ def test_measure_auto_uv_uses_provider_pose_for_every_wire(monkeypatch):
             "wire_y": 999.0,
             "focus_position": 5200,
             "zone": None,
+            "return_to_center": False,
         },
     ]
-
 
 def test_measure_list_uv_uses_provider_pose_for_every_wire():
     provider = _StubWirePositionProvider(
@@ -1138,6 +1142,7 @@ def test_measure_list_uv_uses_provider_pose_for_every_wire():
             "wire_y": 200.0,
             "focus_position": 4300,
             "zone": None,
+            "return_to_center": False,
         },
         {
             "wire_number": 12,
@@ -1145,9 +1150,9 @@ def test_measure_list_uv_uses_provider_pose_for_every_wire():
             "wire_y": 999.0,
             "focus_position": 5200,
             "zone": None,
+            "return_to_center": False,
         },
     ]
-
 
 def test_load_tension_summary_uses_sqlite_backed_summary_series(tmp_path, monkeypatch):
     db_path = tmp_path / "tension_data.db"

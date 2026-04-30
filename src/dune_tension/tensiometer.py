@@ -1352,6 +1352,7 @@ class Tensiometer:
                         wire_y=target.y,
                         focus_position=target.focus_position,
                         zone=target.zone,
+                        return_to_center=False,
                     )
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
@@ -1430,6 +1431,7 @@ class Tensiometer:
                         wire_y=target.y,
                         focus_position=target.focus_position,
                         zone=target.zone,
+                        return_to_center=False,
                     )
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
@@ -1446,6 +1448,7 @@ class Tensiometer:
         wire_y: float,
         wire_x: float,
         zone: int | None = None,
+        return_to_center: bool = True,
     ) -> list[TensionResult] | None:
         expected_frequency = wire_equation(length=length)["frequency"]
         amplitude_mode = self.config.confidence_source == "signal_amplitude"
@@ -1844,9 +1847,8 @@ class Tensiometer:
                 )
         finally:
             self._stop_sweeping_wiggle(
-                return_to_center=bool(
-                    self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0
-                ),
+                return_to_center=return_to_center
+                and bool(self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0),
                 center_x=float(wire_x),
                 center_y=float(wire_y),
                 focus_target=best_focus,
@@ -1884,6 +1886,7 @@ class Tensiometer:
         wire_y: float,
         focus_position: int | None = None,
         zone: int | None = None,
+        return_to_center: bool = True,
     ) -> Optional[TensionResult]:
         total_started = self._profile_time()
         self.motion.reset_plc()
@@ -1953,6 +1956,7 @@ class Tensiometer:
                 wire_y=wire_y,
                 wire_x=wire_x,
                 zone=measured_zone,
+                return_to_center=return_to_center,
             )
 
         finally:
