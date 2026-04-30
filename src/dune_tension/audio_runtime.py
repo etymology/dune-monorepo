@@ -150,18 +150,19 @@ def analyze_sample(audio_sample, sample_rate, wire_length):
 
 def get_samplerate():
     try:
-        from spectrum_analysis.audio_sources import sd
+        from spectrum_analysis.audio_sources import sd, _audio_lock
     except Exception:
         return None
 
     if sd is None:
         return None
 
-    try:
-        device_info = sd.query_devices()
-    except Exception as exc:
-        LOGGER.warning("Failed to query audio devices: %s", exc)
-        return None
+    with _audio_lock:
+        try:
+            device_info = sd.query_devices()
+        except Exception as exc:
+            LOGGER.warning("Failed to query audio devices: %s", exc)
+            return None
 
     sound_device_index = next(
         (

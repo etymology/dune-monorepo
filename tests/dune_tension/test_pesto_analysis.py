@@ -3,10 +3,11 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from spectrum_analysis import pesto_analysis
+from spectrum_analysis import pesto_analysis, pesto_onnx
 
 
 class _FakeTensor:
@@ -43,6 +44,7 @@ class _FakeTorch:
 
 
 def test_estimate_pitch_from_audio_uses_expected_frequency_mask(monkeypatch):
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
     captured = {}
 
     def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
@@ -91,6 +93,7 @@ def test_estimate_pitch_from_audio_uses_expected_frequency_mask(monkeypatch):
 
 
 def test_estimate_pitch_from_audio_returns_nan_without_pesto(monkeypatch):
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
     monkeypatch.setattr(pesto_analysis, "torch", None)
     monkeypatch.setattr(pesto_analysis, "load_model", None)
     monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
@@ -105,6 +108,8 @@ def test_estimate_pitch_from_audio_returns_nan_without_pesto(monkeypatch):
 
 
 def test_analyze_audio_with_pesto_returns_activation_map(monkeypatch):
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
+
     def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
         class _FakeModel:
             bins_per_semitone = 2
@@ -146,7 +151,119 @@ def test_analyze_audio_with_pesto_returns_activation_map(monkeypatch):
     assert np.all(np.diff(result.activation_freq_axis) > 0)
 
 
+def test_analyze_audio_with_pesto_uses_majority_pitch_area(monkeypatch):
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
+
+    def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
+        class _FakeModel:
+            bins_per_semitone = 2
+            preprocessor = type("Preprocessor", (), {"hcqt_kwargs": {"fmin": 55.0}})()
+
+            def __call__(self, audio_tensor, sr, convert_to_freq, return_activations):
+                assert audio_tensor.value.shape == (1, 16)
+                assert sr == 16000
+                assert convert_to_freq is True
+                assert return_activations is False
+                return (
+                    _FakeTensor([[170.0, 171.0, 100.0, 101.0, 170.0, 169.0]]),
+                    _FakeTensor([[0.5, 0.5, 0.99, 0.99, 0.5, 0.5]]),
+                    _FakeTensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
+                )
+
+        return _FakeModel()
+
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", fake_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+    monkeypatch.setattr(pesto_analysis, "_resolve_step_size_ms", lambda *_args: 5.0)
+
+    result = pesto_analysis.analyze_audio_with_pesto(
+        np.ones(16, dtype=np.float32),
+        sample_rate=16000,
+        include_activations=False,
+    )
+
+    assert np.isclose(result.frequency, 170.0)
+    assert np.isclose(result.confidence, 0.5)
+    assert np.allclose(
+        result.predicted_frequencies,
+        np.array([170.0, 171.0, 100.0, 101.0, 170.0, 169.0], dtype=np.float32),
+    )
+
+
+def test_auto_backend_uses_pytorch_inference(monkeypatch):
+    monkeypatch.delenv("PESTO_BACKEND", raising=False)
+
+    def fake_load_model(_name, **_kwargs):
+        def fake_model(_audio_tensor, **_model_kwargs):
+            return (
+                _FakeTensor([[220.0, 221.0]]),
+                _FakeTensor([[0.8, 0.9]]),
+                _FakeTensor([[0.0, 0.0]]),
+            )
+
+        return fake_model
+
+    from dune_tension import rust_audio
+
+    monkeypatch.setattr(
+        rust_audio,
+        "analyze_pesto_onnx",
+        lambda *_args, **_kwargs: pytest.fail("auto should not use Rust ONNX"),
+    )
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", fake_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+    monkeypatch.setattr(pesto_analysis, "_resolve_step_size_ms", lambda *_args: 5.0)
+
+    result = pesto_analysis.analyze_audio_with_pesto(
+        np.ones(16, dtype=np.float32),
+        sample_rate=16000,
+        include_activations=False,
+    )
+
+    assert np.isclose(result.frequency, 220.5294118)
+    assert np.isclose(result.confidence, 0.85)
+
+
+def test_analyze_audio_with_onnx_uses_majority_pitch_area(monkeypatch):
+    class _FakeOnnxModel:
+        bins_per_semitone = 2
+        fmin = 55.0
+
+        def forward(self, audio, sample_rate, convert_to_freq, return_activations):
+            assert audio.shape == (16,)
+            assert sample_rate == 16000
+            assert convert_to_freq is True
+            assert return_activations is False
+            return (
+                np.array([170.0, 171.0, 100.0, 101.0, 170.0, 169.0], dtype=np.float32),
+                np.array([0.5, 0.5, 0.99, 0.99, 0.5, 0.5], dtype=np.float32),
+                np.zeros(6, dtype=np.float32),
+                None,
+            )
+
+    monkeypatch.setattr(
+        pesto_onnx,
+        "load_onnx_model",
+        lambda *_args, **_kwargs: _FakeOnnxModel(),
+    )
+
+    result = pesto_onnx.analyze_audio_with_onnx(
+        np.ones(16, dtype=np.float32),
+        sample_rate=16000,
+        include_activations=False,
+    )
+
+    assert np.isclose(result.frequency, 170.0)
+    assert np.isclose(result.confidence, 0.5)
+    assert result.activation_map is None
+
+
 def test_analyze_audio_with_pesto_reverses_sr_augmentation(monkeypatch):
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
     activation = np.arange(60, dtype=np.float32).reshape(2, 30)
 
     def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
@@ -202,6 +319,7 @@ def test_analyze_audio_with_pesto_reverses_sr_augmentation(monkeypatch):
 
 
 def test_analyze_audio_with_pesto_pads_short_audio_and_trims_outputs(monkeypatch):
+    monkeypatch.setenv("PESTO_BACKEND", "pytorch")
     captured = {}
 
     def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
@@ -342,6 +460,10 @@ def test_onnx_backend_selected_via_env(monkeypatch):
 def test_backend_selection_without_env(monkeypatch):
     """Test backend selection when PESTO_BACKEND is not set."""
     monkeypatch.delenv("PESTO_BACKEND", raising=False)
+    from dune_tension import rust_audio
+
+    monkeypatch.setattr(rust_audio, "is_available", lambda: False)
+    monkeypatch.setattr(rust_audio, "find_pesto_onnx_paths", lambda *_args: None)
 
     def fake_check_available():
         return False
@@ -353,7 +475,7 @@ def test_backend_selection_without_env(monkeypatch):
     assert pesto_analysis.use_pytorch_backend() is True
 
 
-def test_backend_selection_with_onnx_available(monkeypatch):
+def test_auto_backend_keeps_pytorch_even_when_onnx_available(monkeypatch):
     """Test backend selection when ONNX is available."""
     monkeypatch.delenv("PESTO_BACKEND", raising=False)
 
@@ -364,4 +486,4 @@ def test_backend_selection_with_onnx_available(monkeypatch):
         pesto_analysis, "_check_onnx_backend_available", fake_check_available
     )
 
-    assert pesto_analysis.use_pytorch_backend() is False
+    assert pesto_analysis.use_pytorch_backend() is True

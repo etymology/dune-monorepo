@@ -9,7 +9,7 @@
 --           tangent side of a pin.
 -- Placeholder: X and G layer geometry (full specification deferred).
 -- Excludes:
---   - G-code rendering, G-code parsing, and template syntax
+--   - macro rendering, macro parsing, and template syntax
 --   - Roller-arm, head-transfer, pull-in, hover, pause, and offset mechanics
 --   - Placement motion order beyond the intrinsic pin succession
 --   - Tension measurement scan planning, measurable clipping, comb splitting, and laser offsets
@@ -134,11 +134,11 @@ config {
   g_foot: PinRange = { first: 362, last: 481 }
   g_top: PinRange = { first: 482, last: 481 }
 
-  -- U/V segment endpoint formulas
-  u_segment_1_start_b: Integer = 450
-  u_segment_1_end_b: Integer = 350
-  v_segment_1_start_b: Integer = 49
-  v_segment_1_end_b: Integer = 2350
+  -- U/V segment endpoint formulas (same pin number on A and B sides)
+  u_segment_1_start: Integer = 450
+  u_segment_1_end: Integer = 350
+  v_segment_1_start: Integer = 49
+  v_segment_1_end: Integer = 2350
 
   -- Wrap geometry (U/V specific)
   wrap_count: Integer = 400
@@ -250,10 +250,10 @@ rule DefineXgLayerFrames {
     -- wrap paths, and segment details will be added later.
 }
 
-invariant WireSegmentEndpointsAreOppositeSideEquivalent {
+invariant WireSegmentEndpointsSamePinNumber {
   for segment in WireSegment:
-    segment.endpoints_a.start = translate_side(segment.endpoints_b.start, a)
-      and segment.endpoints_a.end = translate_side(segment.endpoints_b.end, a)
+    segment.endpoints_a.start.number = segment.endpoints_b.start.number
+      and segment.endpoints_a.end.number = segment.endpoints_b.end.number
 }
 
 rule DefineUvWireSegment {
@@ -276,36 +276,26 @@ rule DefineUvWireSegment {
     -- Pin wrapping is inclusive modulo the layer pin count:
     --   wrap(layer, n) = 1 + ((n - 1) mod pin_count(layer))
     --
-    -- Opposite-side translation preserves the physical pin position on the
-    -- other APA side. B-side pins are the canonical physical numbering used
-    -- for segment formulas. For a B-side pin b:
-    --   opposite B->A number = 1 + ((head.last - b) mod pin_count(layer))
+    -- Segment endpoints use the same pin NUMBER on both the A and B sides.
+    -- The segment formula computes a physical pin number; "A" or "B" is simply
+    -- the side prefix applied to that same number for calibration lookup.
     --
-    -- The same operation translates A-side pins back to B-side pins.
-    --
-    -- Canonical B-side endpoints:
+    -- Endpoint formulas:
     --   U segment s:
-    --     start = B wrap(U, 450 + s - 1)
-    --     end   = B wrap(U, 350 - (s - 1))
+    --     start = wrap(U, 450 + s - 1)   (same number on A and B)
+    --     end   = wrap(U, 350 - (s - 1)) (same number on A and B)
     --
     --   V segment s:
-    --     start = B wrap(V, 49 + s - 1)
-    --     end   = B wrap(V, 2350 - (s - 1))
+    --     start = wrap(V, 49 + s - 1)    (same number on A and B)
+    --     end   = wrap(V, 2350 - (s - 1))(same number on A and B)
     --
-    -- Representative examples from the implementation:
-    --   U segment 1    -> B450, B350
-    --   U segment 8    -> B457, B343
-    --   U segment 1151 -> B1600, B1601
-    --   V segment 8    -> B56, B2343
-    --   V segment 401  -> B449, B1950
-    --   V segment 1151 -> B1199, B1200
-    --
-    -- A-side endpoints are the opposite-side translations of the canonical
-    -- B-side endpoints:
-    --   U segment 8    -> A2345, A58
-    --   U segment 1151 -> A1202, A1201
-    --   V segment 8    -> A344, A456
-    --   V segment 1151 -> A1600, A1599
+    -- Representative examples (number is identical for both sides):
+    --   U segment 1    -> pin 450, pin 350
+    --   U segment 8    -> pin 457, pin 343
+    --   U segment 1151 -> pin 1600, pin 1601
+    --   V segment 8    -> pin 56, pin 2343
+    --   V segment 401  -> pin 449, pin 1950
+    --   V segment 1151 -> pin 1199, pin 1200
 }
 
 rule DefineXgWireSegment {

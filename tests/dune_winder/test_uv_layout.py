@@ -61,9 +61,9 @@ def test_uv_layout_wire_segment_endpoints_and_wrap_orientation_match_shared_exam
     v_layout = get_uv_layout("V")
 
     assert u_layout.wire_segment_endpoints(1151, family="B") == ("B1600", "B1601")
-    assert u_layout.wire_segment_endpoints(1151, family="A") == ("A1202", "A1201")
+    assert u_layout.wire_segment_endpoints(1151, family="A") == ("A1600", "A1601")
     assert v_layout.wire_segment_endpoints(8, family="B") == ("B56", "B2343")
-    assert v_layout.wire_segment_endpoints(8, family="A") == ("A344", "A456")
+    assert v_layout.wire_segment_endpoints(8, family="A") == ("A56", "A2343")
     assert u_layout.wrap_orientation("A401").as_tuple == ("plus", "minus")
     assert v_layout.wrap_orientation("B1600").as_tuple == ("plus", "minus")
 

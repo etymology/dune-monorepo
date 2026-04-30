@@ -6,7 +6,7 @@
 --        decisions, and the resolved WrapTransitionPlan output.
 -- Includes: WrapTransitionPlan, PinTangentPoint, transfer requirements,
 --           head-position selection, outbound intercept geometry
--- Excludes: G-code rendering, PLC communication, machine calibration acquisition,
+-- Excludes: macro rendering, PLC communication, machine calibration acquisition,
 --           X/G layer geometry (handled separately), roller-arm calibration
 --
 -- This spec covers the geometry that positions the winding head at each pin
@@ -54,12 +54,11 @@ value PinTangentPoint {
 }
 
 -- The planned head position (front / back) for a wrap operation.
--- Numeric values match the G106 P-parameter: 1 = front, 2 = back.
 
 enum HeadPosition { front | back }
 
 -- A fully resolved plan for transitioning the winding head from one pin to the next.
--- This is the output of the wrap geometry computation and the input to G-code rendering.
+-- This is the output of the wrap geometry computation and the input to macro rendering.
 
 value WrapTransitionPlan {
     layer:        String       -- "U" or "V"
@@ -111,11 +110,11 @@ value WrapTransitionPlan {
 -- ==========================================================================
 
 -- A RecipeSite groups the context needed to orient the head at a particular
--- anchor pin.  The orientation token is passed to G109 (AnchorPoint opcode).
+-- anchor pin.
 
 value RecipeSite {
     anchor_pin:          String   -- the pin at which the head is stationed
-    orientation_token:   String   -- opcode parameter e.g. "U_HEAD_1"
+    orientation_token:   String   -- site orientation e.g. "U_HEAD_1"
     recipe_pair_pin_a:   String   -- first pin of the wire pair at this site
     recipe_pair_pin_b:   String   -- second pin of the wire pair at this site
     site_label:          String   -- human-readable site identifier
@@ -193,8 +192,8 @@ rule ComputeWrapTransitionPlan {
         -- 8. Compute outbound_intercept as the intersection of the outbound
         --    tangent line with the relevant board edge.
         --
-        -- 9. Compute transfer_xy as the midpoint-derived transfer position used
-        --    by the G102 (SeekTransfer) opcode.  Null when transfer_required=false.
+        -- 9. Compute transfer_xy as the midpoint-derived transfer position.
+        --    Null when transfer_required=false.
         --
         -- 10. front_projection / back_projection are only populated for
         --     cross-side transitions (same_side = false).
@@ -228,7 +227,7 @@ rule TransferRequiredForCrossSideWrap {
         -- A head transfer is required whenever anchor and target are on
         -- opposite APA faces (one is an A-side pin, the other is a B-side pin).
         -- The transfer moves the winding head Z from front to back or vice versa.
-        -- The G206 (HeadTransfer) opcode handles the physical motion.
+        -- The HeadTransfer protocol in winder-states handles the physical motion.
         -- transfer_xy is non-null here (guaranteed by TransferXyNullIfAndOnlyIfNoTransfer).
 }
 

@@ -23,7 +23,7 @@ try:  # Optional dependency - full audio analysis toolkit
 except Exception:  # pragma: no cover - dependency may be absent
     librosa = None  # type: ignore
 
-from spectrum_analysis.audio_sources import MicSource, sd
+from spectrum_analysis.audio_sources import MicSource, sd, _audio_lock
 
 from spectrum_analysis.comb_trigger import record_with_harmonic_comb
 
@@ -91,6 +91,20 @@ def discard_leading_audio(
     shaped = np.asarray(audio, dtype=np.float32)
     if shaped.size == 0:
         return shaped
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.discard_leading_audio(
+                shaped,
+                sample_rate,
+                discard_seconds,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
 
     discard_samples = max(int(round(float(discard_seconds) * int(sample_rate))), 0)
     if discard_samples <= 0:
@@ -389,10 +403,11 @@ def record_noise_sample(cfg: "PitchCompareConfig") -> np.ndarray:
         )
 
     LOGGER.info("Recording %.1fs of background noise...", cfg.noise_duration)
-    noise = sd.rec(
-        duration_samples, samplerate=cfg.sample_rate, channels=1, dtype="float32"
-    )
-    sd.wait()
+    with _audio_lock:
+        noise = sd.rec(
+            duration_samples, samplerate=cfg.sample_rate, channels=1, dtype="float32"
+        )
+        sd.wait()
     return np.squeeze(noise).astype(np.float32)
 
 
@@ -435,6 +450,9 @@ def _acquire_audio_snr(
                 if not recording_started:
                     LOGGER.info("Recording started.")
                     recording_started = True
+                    callback = getattr(cfg, "recording_started_callback", None)
+                    if callback is not None:
+                        callback()
                 above = True
                 idle_samples = 0
                 collected.append(chunk)
@@ -458,6 +476,59 @@ def _acquire_audio_snr(
     return np.concatenate(collected).astype(np.float32)
 
 
+def remove_clicks(
+    audio: np.ndarray,
+    threshold_sigma: float = 4.0,
+    max_click_fraction: float = 0.1,
+) -> np.ndarray:
+    """Remove impulsive click artefacts from an audio buffer.
+
+    Samples whose absolute deviation from the median exceeds
+    ``threshold_sigma`` multiples of the MAD-derived sigma estimate are
+    treated as clicks and replaced by linear interpolation between their
+    nearest non-click neighbours.  If more than ``max_click_fraction`` of
+    samples would be removed the original buffer is returned unchanged to
+    avoid corrupting genuinely loud or saturated signals.
+    """
+    audio = np.asarray(audio, dtype=np.float32)
+    try:
+        from dune_tension import rust_audio
+
+        if rust_audio.should_use_audio_backend():
+            return rust_audio.remove_clicks(
+                audio,
+                threshold_sigma=threshold_sigma,
+                max_click_fraction=max_click_fraction,
+            )
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
+
+    if audio.size < 4:
+        return audio
+
+    median = float(np.median(audio))
+    mad = float(np.median(np.abs(audio - median)))
+    if mad < 1e-12:
+        return audio
+
+    # MAD → equivalent Gaussian sigma via the 0.6745 scaling factor.
+    sigma_hat = mad / 0.6745
+    click_mask = np.abs(audio - median) > threshold_sigma * sigma_hat
+
+    if click_mask.sum() > max_click_fraction * audio.size:
+        return audio
+
+    if not click_mask.any():
+        return audio
+
+    indices = np.arange(audio.size, dtype=np.float32)
+    audio_clean = np.interp(indices, indices[~click_mask], audio[~click_mask])
+    return audio_clean.astype(np.float32)
+
+
 def acquire_audio(
     cfg: "PitchCompareConfig",
     noise_rms: float,
@@ -471,7 +542,21 @@ def acquire_audio(
                 "input_audio_path must be provided when input_mode is 'file'"
             )
         audio, _ = load_audio(Path(cfg.input_audio_path), cfg.sample_rate)
-        return audio
+        return remove_clicks(audio)
+
+    try:
+        from dune_tension import rust_audio
+
+        if (
+            rust_audio.should_use_capture_backend()
+            and getattr(cfg, "recording_started_callback", None) is None
+        ):
+            return rust_audio.acquire_audio(cfg, noise_rms, timeout)
+    except Exception:
+        import os
+
+        if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+            raise
 
     trigger_mode = getattr(cfg, "trigger_mode", "snr")
 
@@ -479,7 +564,7 @@ def acquire_audio(
         audio = _acquire_audio_snr(cfg, noise_rms, timeout)
         if audio is None:
             return None
-        return discard_leading_audio(audio, cfg.sample_rate)
+        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
 
     expected_f0 = cfg.expected_f0
     if expected_f0 is None or not np.isfinite(expected_f0) or expected_f0 <= 0.0:
@@ -487,7 +572,7 @@ def acquire_audio(
         audio = _acquire_audio_snr(cfg, noise_rms, timeout)
         if audio is None:
             return None
-        return discard_leading_audio(audio, cfg.sample_rate)
+        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
 
     try:
         audio = record_with_harmonic_comb(
@@ -496,11 +581,18 @@ def acquire_audio(
             max_record_seconds=cfg.max_record_seconds,
             timeout_seconds=timeout if timeout is not None else cfg.max_record_seconds,
             comb_cfg=cfg.comb_trigger,
+            recording_started_callback=getattr(
+                cfg,
+                "recording_started_callback",
+                None,
+            ),
         )
-        return discard_leading_audio(audio, cfg.sample_rate)
+        if audio is None:
+            return None
+        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
     except ValueError:
         LOGGER.warning("Invalid frequency band; falling back to RMS trigger.")
         audio = _acquire_audio_snr(cfg, noise_rms, timeout)
         if audio is None:
             return None
-        return discard_leading_audio(audio, cfg.sample_rate)
+        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))

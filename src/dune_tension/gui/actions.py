@@ -185,6 +185,7 @@ class WorkerInputs:
     b_taped: bool
     confidence: float
     confidence_source: str
+    use_harmonic_comb_trigger: bool
     record_duration: float
     measuring_duration: float
     wiggle_y_sigma_mm: float
@@ -263,6 +264,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         b_taped=bool(w.b_taped_var.get()),
         confidence=confidence,
         confidence_source=str(w.confidence_source_var.get()),
+        use_harmonic_comb_trigger=bool(w.use_harmonic_comb_trigger_var.get()),
         record_duration=record_duration,
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
@@ -340,6 +342,9 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         plot_audio=inputs.plot_audio,
+        use_harmonic_comb_trigger=bool(
+            getattr(inputs, "use_harmonic_comb_trigger", False)
+        ),
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,
         focus_position_getter=lambda: int(ctx.servo_controller.focus_position),
@@ -1020,7 +1025,7 @@ def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     try:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring wires: %s", wire_list)
-        tensiometer.measure_list(wire_list, preserve_order=True)
+        tensiometer.measure_list(wire_list, preserve_order=False)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:
@@ -1093,14 +1098,14 @@ def measure_zone_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     try:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring %d wires in zone(s) %s", len(wire_list), sorted(zones))
-        tensiometer.measure_list(wire_list, preserve_order=True)
+        tensiometer.measure_list(wire_list, preserve_order=False)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:
         _cleanup_after_measurement(ctx, tensiometer)
 
 
-@_run_in_thread
+@_run_in_thread(measurement=True)
 def calibrate_background_noise(ctx: GUIContext, _inputs: WorkerInputs) -> None:
     """Record background noise for filtering future recordings."""
 
@@ -1451,6 +1456,74 @@ def erase_outliers(ctx: GUIContext) -> None:
 
 def erase_distribution_outliers(ctx: GUIContext) -> None:
     _erase_detected_outliers(ctx, find_distribution_outliers, "bulk-distribution")
+
+
+@_run_in_thread(measurement=True)
+def measure_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    _measure_detected_outliers(ctx, inputs, find_outliers, "residual")
+
+
+@_run_in_thread(measurement=True)
+def measure_distribution_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    _measure_detected_outliers(ctx, inputs, find_distribution_outliers, "bulk-distribution")
+
+
+def _measure_detected_outliers(
+    ctx: GUIContext,
+    inputs: WorkerInputs,
+    detector,
+    detector_name: str,
+) -> None:
+    config = _make_config_from_inputs(inputs)
+    raw_expr = inputs.times_sigma.strip()
+    times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
+
+    outliers = sorted(
+        detector(
+            config.data_path,
+            config.apa_name,
+            config.layer,
+            config.side,
+            times_sigma=times_sigma,
+            confidence_threshold=inputs.confidence,
+        )
+    )
+
+    if wire_predicates:
+        filtered_outliers: list[int] = []
+        for wire in outliers:
+            try:
+                wire_number = int(wire)
+                if all(
+                    _compile_tension_condition(pred)(wire_number, 0.0, 0)
+                    for pred in wire_predicates
+                ):
+                    filtered_outliers.append(wire_number)
+            except Exception as exc:
+                LOGGER.warning(
+                    "Error evaluating outlier filter for wire %s: %s", wire, exc
+                )
+                return
+        outliers = filtered_outliers
+
+    if not outliers:
+        LOGGER.info("No %s outlier wires found", detector_name)
+        return
+
+    if _measurement_mode(inputs) != "legacy":
+        LOGGER.info("Streaming measurement %s outliers: %s", detector_name, outliers)
+        _run_streaming_for_wires(ctx, inputs, outliers)
+        return
+
+    tensiometer: Tensiometer | None = None
+    try:
+        tensiometer = create_tensiometer(ctx, inputs)
+        LOGGER.info("Measuring %s outliers: %s", detector_name, outliers)
+        tensiometer.measure_list(outliers, preserve_order=False)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+    finally:
+        _cleanup_after_measurement(ctx, tensiometer)
 
 
 def _parse_outlier_erase_expression(expr: str) -> tuple[float, list[str]]:

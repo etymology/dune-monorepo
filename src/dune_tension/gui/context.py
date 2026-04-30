@@ -27,6 +27,7 @@ class GUIWidgets:
     entry_wire_list: tk.Entry
     entry_confidence: tk.Entry
     confidence_source_var: tk.StringVar
+    use_harmonic_comb_trigger_var: tk.BooleanVar
     entry_record_duration: tk.Entry
     entry_measuring_duration: tk.Entry
     entry_wiggle_y_sigma: tk.Entry

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import threading
 import time
 from typing import Any
 
@@ -18,6 +19,7 @@ READY_STATE = "StopMode"
 _UNSUPPORTED_MOTION_TAGS = frozenset(
     {
         "STATE",
+        "STATE_REQUEST",
         "MOVE_TYPE",
         "X_POSITION",
         "Y_POSITION",
@@ -26,6 +28,7 @@ _UNSUPPORTED_MOTION_TAGS = frozenset(
 )
 
 _SESSION: Any = None
+_SESSION_LOCK = threading.Lock()
 
 
 def get_desktop_server_url() -> str:
@@ -44,24 +47,25 @@ def _post_command(name: str, args: dict[str, Any]) -> dict[str, Any]:
     """POST a command to the desktop PC's dune_winder API."""
     url = f"{get_desktop_server_url()}/api/v2/command"
     payload = {"name": name, "args": args}
-    session = _get_session()
-    try:
-        if session is not None:
-            resp = session.post(
-                url, json=payload, timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
-            )
-        else:
-            resp = requests.post(
-                url, json=payload, timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
-            )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as exc:
-        return {
-            "ok": False,
-            "data": None,
-            "error": {"code": "REQUEST_FAILED", "message": str(exc)},
-        }
+    with _SESSION_LOCK:
+        session = _get_session()
+        try:
+            if session is not None:
+                resp = session.post(
+                    url, json=payload, timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
+                )
+            else:
+                resp = requests.post(
+                    url, json=payload, timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
+                )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:
+            return {
+                "ok": False,
+                "data": None,
+                "error": {"code": "REQUEST_FAILED", "message": str(exc)},
+            }
 
 
 def desktop_get_xy() -> tuple[float, float] | None:

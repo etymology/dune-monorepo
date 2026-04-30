@@ -48,10 +48,14 @@ TENSION_SERVER_URL = DEFAULT_TENSION_SERVER_URL
 DEFAULT_PLC_IO_MODE = "desktop"
 VALID_PLC_IO_MODES = {"server", "direct", "desktop"}
 _WARNED_PLC_IO_MODE_VALUES: set[str | None] = set()
+# MOVE_TYPE is retained for older fallback servers only. dune_winder's active
+# XY move contract is X/Y/speed tags plus STATE_REQUEST=XY_SEEK.
 IDLE_MOVE_TYPE = 0
 IDLE_STATE = 1
 XY_MOVE_TYPE = 2
 XY_STATE = 3
+IDLE_STATE_REQUEST = 0
+XY_STATE_REQUEST = XY_STATE
 
 HTTP_CONNECT_TIMEOUT = 3
 HTTP_READ_TIMEOUT = 3
@@ -365,8 +369,13 @@ def get_state() -> int:
 
 
 def get_movetype() -> int:
-    """Get the current move type of the tensioning system."""
+    """Get the legacy move type of the tensioning system."""
     return int(_read_numeric_tag("MOVE_TYPE"))
+
+
+def get_state_request() -> int:
+    """Get the current PLC state request tag value."""
+    return int(_read_numeric_tag("STATE_REQUEST"))
 
 
 def write_tag(tag_name: str, value: Any) -> dict[str, Any]:
@@ -394,11 +403,11 @@ def _reset_stuck_xy_seek_if_stationary(start_x: float, start_y: float) -> bool:
         return False
 
     LOGGER.warning(
-        "PLC is stuck in XY seek with no motion detected at %s,%s. Clearing MOVE_TYPE.",
+        "PLC is stuck in XY seek with no motion detected at %s,%s. Clearing STATE_REQUEST.",
         current_x,
         current_y,
     )
-    return _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)
+    return _write_required("STATE_REQUEST", IDLE_STATE_REQUEST)
 
 
 def goto_xy(
@@ -488,14 +497,17 @@ def goto_xy(
             while True:
                 try:
                     current_state = get_state()
+                    state_request = get_state_request()
                 except RuntimeError as exc:
-                    LOGGER.warning("Unable to read STATE before move: %s", exc)
+                    LOGGER.warning(
+                        "Unable to read STATE/STATE_REQUEST before move: %s", exc
+                    )
                     return False
-                if current_state == IDLE_STATE:
+                if current_state == IDLE_STATE and state_request == IDLE_STATE_REQUEST:
                     break
                 if time.monotonic() >= idle_deadline:
                     LOGGER.warning(
-                        "Timed out waiting for idle state before move to %s,%s.",
+                        "Timed out waiting for idle state request before move to %s,%s.",
                         x_target,
                         y_target,
                     )
@@ -506,11 +518,9 @@ def goto_xy(
                 return False
 
             writes = (
-                ("MOVE_TYPE", IDLE_MOVE_TYPE),
-                ("STATE", IDLE_STATE),
                 ("X_POSITION", x_target),
                 ("Y_POSITION", y_target),
-                ("MOVE_TYPE", XY_MOVE_TYPE),
+                ("STATE_REQUEST", XY_STATE_REQUEST),
             )
             for tag_name, value in writes:
                 if not _write_required(tag_name, value):
@@ -520,13 +530,18 @@ def goto_xy(
                 move_deadline = time.monotonic() + move_timeout
                 while True:
                     try:
-                        move_type = get_movetype()
+                        current_state = get_state()
+                        state_request = get_state_request()
                     except RuntimeError as exc:
                         LOGGER.warning(
-                            "Unable to read MOVE_TYPE while waiting for move: %s", exc
+                            "Unable to read STATE/STATE_REQUEST while waiting for move: %s",
+                            exc,
                         )
                         return False
-                    if move_type != XY_MOVE_TYPE:
+                    if (
+                        current_state == IDLE_STATE
+                        and state_request == IDLE_STATE_REQUEST
+                    ):
                         break
                     if time.monotonic() >= move_deadline:
                         _reset_stuck_xy_seek_if_stationary(start_live_x, start_live_y)
@@ -546,7 +561,9 @@ def reset_plc() -> bool:
 
         return desktop_acknowledge_error()
     with _MOTION_LOCK:
-        return _write_required("MOVE_TYPE", IDLE_MOVE_TYPE)
+        error_cleared = _write_required("ERROR_CODE", 0)
+        request_cleared = _write_required("STATE_REQUEST", IDLE_STATE_REQUEST)
+        return error_cleared and request_cleared
 
 
 def increment(increment_x: float, increment_y: float) -> bool:

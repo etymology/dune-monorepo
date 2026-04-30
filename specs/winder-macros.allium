@@ -1,0 +1,143 @@
+-- allium: 3
+-- winder-macros.allium
+
+-- Scope: High-level winder macros — the behavioral primitives through which
+--        recipes drive machine motion, head positioning, and wrap sequencing.
+-- Includes: macro identifiers, parameter shapes, and the composite state
+--           transitions they represent.
+-- Excludes: recipe template generation, parser tokenisation, PLC register encoding,
+--           recipe file format, motion queue handshake protocol
+--
+-- These macros are the domain language of the winder. They coordinate multiple
+-- machine states to perform meaningful winding operations.
+
+use "./core.allium" as core
+use "./winder-states.allium" as states
+use "./uv-wrap-geometry.allium" as geometry
+
+-- ==========================================================================
+-- Macros
+-- ==========================================================================
+
+entity WrapProgram {
+    layer: core/Layer
+    steps: List<MacroStep>
+}
+
+value MacroStep {
+    items: List<ProgramItem>
+}
+
+-- A ProgramItem is one of: a macro call, a comment, or a control marker.
+
+entity ProgramItem {
+    kind: macro_call | comment
+}
+
+variant MacroCall : ProgramItem {
+    macro: Macro
+}
+
+variant ProgramComment : ProgramItem {
+    text: String
+}
+
+entity Macro {
+    kind: anchor_to_target | offset | break_point | transfer_to_fixed | transfer_to_stage
+}
+
+variant AnchorToTarget : Macro {
+    anchor: String
+    target: String
+}
+
+variant Offset : Macro {
+    dx: Decimal
+    dy: Decimal
+}
+
+variant BreakPoint : Macro {
+    label: String?
+}
+
+variant TransferToFixed : Macro {
+    -- No parameters: always targets fixed mount and retracts Z.
+}
+
+variant TransferToStage : Macro {
+    final_z: Decimal?  -- Optional: defaults to retracted (0.0) if null.
+}
+
+-- ==========================================================================
+-- Macro behavior
+-- ==========================================================================
+
+rule ExecuteAnchorToTarget {
+    when: MacroCall(AnchorToTarget(anchor, target))
+
+    @guidance
+        -- Coordinates the transition from an anchor pin to a target pin.
+        -- Sequence:
+        -- 1. Resolve pins and WrapTransitionPlan from geometry/ComputeWrapTransitionPlan.
+        -- 2. Move head to anchor position (states/XYMoveRequested).
+        -- 3. If plan.transfer_required: execute modern transfer protocol (states/ModernTransfer).
+        -- 4. Move head to target tangent position (states/XYMoveRequested).
+        -- 5. Execute wrap motion around the target pin.
+}
+
+rule ExecuteTransferToFixed {
+    when: MacroCall(TransferToFixed())
+
+    @guidance
+        -- Coordinates the physical head transfer from the Z stage to the fixed mount.
+        -- Protocol steps:
+        -- 1. Pre-transfer check: Verify head is stage-latched and actuator is at position 1 (stage_latched).
+        -- 2. Extension: Move Z axis to extended_z_position.
+        -- 3. Alignment: Verify enable_actuator (Z extended, stage present, fixed present).
+        -- 4. Latching: Issue PLC latch request.
+        -- 5. Verification: Confirm head is fixed-latched, NOT stage-latched, and actuator reached position 2 (mid_engagement).
+        -- 6. Completion: Retract the Z arm to zero (retracted_z_position).
+}
+
+rule ExecuteTransferToStage {
+    when: MacroCall(TransferToStage(final_z))
+
+    @guidance
+        -- Coordinates the physical head transfer from the fixed mount to the Z stage.
+        -- Protocol steps:
+        -- 1. Pre-transfer check: Verify head is fixed-latched and actuator is at position 2 (mid_engagement).
+        -- 2. Extension: Move Z axis to extended_z_position.
+        -- 3. Alignment: Verify enable_actuator (Z extended, stage present, fixed present).
+        -- 4. Latching: Issue PLC latch request.
+        -- 5. Verification: Confirm head is stage-latched and actuator reached position 1 (stage_latched).
+        -- 6. Completion: Move the Z arm to the specified final_z position (defaulting to retracted_z_position).
+}
+
+rule ExecuteOffset {
+    when: MacroCall(Offset(dx, dy))
+
+    @guidance
+        -- Applies an additive XY offset to all subsequent commanded
+        -- positions until the next Offset macro resets it.  Used for per-board
+        -- fine-position corrections.
+}
+
+rule ExecuteBreakPoint {
+    when: MacroCall(BreakPoint(label))
+
+    @guidance
+        -- Marks a named resumption point in the recipe.  When the operator
+        -- restarts execution from a breakpoint, the executor resumes from the
+        -- next step after the BreakPoint macro.
+        -- No machine motion occurs.
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant MacroExecutionIsAtomic {
+    -- A macro execution should either complete all its constituent winder state
+    -- transitions or stop the machine and report failure. Partial completion
+    -- without entering an error state is forbidden.
+}

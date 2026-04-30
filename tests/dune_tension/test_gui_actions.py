@@ -222,6 +222,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
         sweeping_wiggle_span_mm=0.0,
         focus_wiggle_sigma_quarter_us=50.0,
         use_manual_focus=True,
+        use_harmonic_comb_trigger=True,
         plot_audio=True,
         suppress_wire_preview=False,
         legacy_tension_condition="t<7",
@@ -233,6 +234,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
     assert build_calls[0]["confidence_source"] == "signal_amplitude"
     assert build_calls[0]["runtime_bundle"] is runtime
     assert build_calls[0]["use_manual_focus"] is True
+    assert build_calls[0]["use_harmonic_comb_trigger"] is True
     assert build_calls[0]["manual_focus_target"] is None
     assert build_calls[0]["legacy_tension_condition"] == "t<7"
     assert callable(build_calls[0]["wire_preview_callback"])
@@ -380,6 +382,112 @@ def test_erase_distribution_outliers_uses_bulk_detector(monkeypatch):
     assert clear_calls == [("db.sqlite", "APA", "G", "A", [7, 9])]
 
 
+def test_measure_outliers_triggers_measurement(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    detector_calls = []
+    measured_wires = []
+
+    def fake_find(*args, **kwargs):
+        detector_calls.append((args, kwargs))
+        return [10, 20]
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "find_outliers", fake_find)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="3.0",
+        confidence=0.75,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_outliers.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert detector_calls == [
+        (
+            ("db.sqlite", "APA", "G", "A"),
+            {"times_sigma": 3.0, "confidence_threshold": 0.75},
+        )
+    ]
+    assert measured_wires == [([10, 20], False)]
+
+
+def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    detector_calls = []
+    measured_wires = []
+
+    def fake_find(*args, **kwargs):
+        detector_calls.append((args, kwargs))
+        return [30, 40]
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "find_distribution_outliers", fake_find)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="2.0",
+        confidence=0.9,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_distribution_outliers.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert detector_calls == [
+        (
+            ("db.sqlite", "APA", "G", "A"),
+            {"times_sigma": 2.0, "confidence_threshold": 0.9},
+        )
+    ]
+    assert measured_wires == [([30, 40], False)]
+
+
 def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     calls = []
@@ -395,7 +503,12 @@ def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
         ),
     )
 
-    ctx = types.SimpleNamespace(stop_event=threading.Event())
+    ctx = types.SimpleNamespace(
+        stop_event=threading.Event(),
+        measurement_lock=threading.Lock(),
+        measurement_active=False,
+        active_measurement_name="",
+    )
 
     actions.calibrate_background_noise(ctx)
 
@@ -472,7 +585,7 @@ def test_measure_list_button_skips_already_measured_wires_when_enabled(monkeypat
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([5, 7], True)]
+    assert measured_wires == [([5, 7], False)]
 
 
 def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatch):
@@ -498,7 +611,7 @@ def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatc
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([3, 5, 6, 7], True)]
+    assert measured_wires == [([3, 5, 6, 7], False)]
 
 
 def test_measure_list_button_skips_requested_wires_when_all_are_measured(
@@ -656,7 +769,7 @@ def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
     assert moves == [(97.5, 201.0)]
 
 
-def test_measure_list_button_preserves_descending_range_order(monkeypatch):
+def test_measure_list_button_enables_route_optimization_for_descending_ranges(monkeypatch):
     actions = _load_actions_module(monkeypatch)
 
     measured_wires = []
@@ -679,7 +792,7 @@ def test_measure_list_button_preserves_descending_range_order(monkeypatch):
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([480, 479, 478, 300], True)]
+    assert measured_wires == [([480, 479, 478, 300], False)]
 
 
 def test_adjust_focus_with_x_compensation_side_a(monkeypatch):

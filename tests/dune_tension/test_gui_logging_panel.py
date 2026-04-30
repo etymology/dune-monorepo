@@ -92,6 +92,28 @@ def test_configure_gui_logging_routes_messages_and_restores_logger_state():
     assert root.cancelled
 
 
+def test_configure_gui_logging_ignores_outside_measurable_area_messages():
+    root = FakeRoot()
+    text = FakeText()
+
+    binding = logging_panel.configure_gui_logging(root, text)
+    try:
+        assert binding is not None
+        logger = logging.getLogger("dune_tension.plc_io")
+        logger.warning(
+            "Target 7005.8,320.99639892578125 is outside the measurable area. "
+            "Please enter a valid position."
+        )
+        logger.warning("different warning")
+        root.flush_next()
+    finally:
+        if binding is not None:
+            binding.close()
+
+    assert "outside the measurable area" not in text.contents
+    assert "different warning" in text.contents
+
+
 def test_tk_text_log_handler_trims_old_lines():
     root = FakeRoot()
     text = FakeText()

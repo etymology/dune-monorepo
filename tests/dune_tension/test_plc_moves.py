@@ -24,19 +24,17 @@ def _setup(
             cur["x"] = value
         elif name == "Y_POSITION":
             cur["y"] = value
-        elif name == "MOVE_TYPE" and value == plc.XY_MOVE_TYPE:
+        elif name == "STATE_REQUEST" and value == plc.XY_STATE_REQUEST:
             moves.append((cur["x"], cur["y"]))
         return {}
 
     monkeypatch.setattr(plc, "write_tag", dummy_write_tag)
     monkeypatch.setattr(plc, "get_state", lambda: plc.IDLE_STATE)
-    monkeypatch.setattr(plc, "get_movetype", lambda: plc.IDLE_MOVE_TYPE)
+    monkeypatch.setattr(plc, "get_state_request", lambda: plc.IDLE_STATE_REQUEST)
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
     monkeypatch.setattr(plc.time, "sleep", lambda s: None)
     plc._TRUE_XY = [start_x, start_y]
-    plc._LAST_X_DIR = 0
-    plc._X_DEADZONE_LEFT = 0.0
     return moves
 
 
@@ -54,6 +52,30 @@ def test_no_crossing_single_move(monkeypatch):
     moves = _setup(monkeypatch)
     plc.goto_xy(2100.0, float(GEOMETRY_CONFIG.measurable_y_max))
     assert moves == [(2100.0, float(GEOMETRY_CONFIG.measurable_y_max))]
+
+
+def test_goto_xy_uses_winder_state_request_contract_in_server_mode(monkeypatch):
+    writes = []
+
+    monkeypatch.setattr(
+        plc, "write_tag", lambda name, value: writes.append((name, value)) or {}
+    )
+    monkeypatch.setattr(plc, "get_state", lambda: plc.IDLE_STATE)
+    monkeypatch.setattr(plc, "get_state_request", lambda: plc.IDLE_STATE_REQUEST)
+    monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
+    monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
+    plc._TRUE_XY = [2000.0, 100.0]
+    target_y = float(GEOMETRY_CONFIG.measurable_y_min)
+
+    moved = plc.goto_xy(2100.0, target_y, speed=123.0, wait_for_completion=False)
+
+    assert moved is True
+    assert writes == [
+        ("XY_SPEED", 123.0),
+        ("X_POSITION", 2100.0),
+        ("Y_POSITION", target_y),
+        ("STATE_REQUEST", plc.XY_STATE_REQUEST),
+    ]
 
 
 def test_goto_xy_recovers_from_tracked_x_outside_measurable_area(monkeypatch):
@@ -100,8 +122,6 @@ def test_goto_xy_uses_manual_seek_path_in_desktop_mode(monkeypatch):
         ),
     )
     plc._TRUE_XY = [2000.0, 100.0]
-    plc._LAST_X_DIR = 0
-    plc._X_DEADZONE_LEFT = 0.0
 
     moved = plc.goto_xy(2100.0, 250.0, speed=123.0, move_timeout=9.0, idle_timeout=4.0)
 
@@ -111,13 +131,13 @@ def test_goto_xy_uses_manual_seek_path_in_desktop_mode(monkeypatch):
 
 def test_goto_xy_can_skip_waiting_for_move_completion(monkeypatch):
     moves = _setup(monkeypatch)
-    movetype_reads = {"count": 0}
+    state_request_reads = {"count": 0}
     monkeypatch.setattr(
         plc,
-        "get_movetype",
+        "get_state_request",
         lambda: (
-            movetype_reads.__setitem__("count", movetype_reads["count"] + 1)
-            or plc.XY_MOVE_TYPE
+            state_request_reads.__setitem__("count", state_request_reads["count"] + 1)
+            or plc.IDLE_STATE_REQUEST
         ),
     )
 
@@ -130,12 +150,15 @@ def test_goto_xy_can_skip_waiting_for_move_completion(monkeypatch):
 
     assert moved is True
     assert moves == [(2100.0, float(GEOMETRY_CONFIG.measurable_y_max))]
-    assert movetype_reads["count"] == 0
+    assert state_request_reads["count"] == 1
 
 
-def test_goto_xy_clears_move_type_when_xy_seek_times_out_without_motion(monkeypatch):
+def test_goto_xy_clears_state_request_when_xy_seek_times_out_without_motion(
+    monkeypatch,
+):
     writes = []
     monotonic_values = iter([0.0, 0.0, 1.0, 1.0, 2.0])
+    state_request_reads = iter([plc.IDLE_STATE_REQUEST, plc.XY_STATE_REQUEST])
 
     def dummy_write_tag(name, value):
         writes.append((name, value))
@@ -143,7 +166,7 @@ def test_goto_xy_clears_move_type_when_xy_seek_times_out_without_motion(monkeypa
 
     monkeypatch.setattr(plc, "write_tag", dummy_write_tag)
     monkeypatch.setattr(plc, "get_state", lambda: plc.IDLE_STATE)
-    monkeypatch.setattr(plc, "get_movetype", lambda: plc.XY_MOVE_TYPE)
+    monkeypatch.setattr(plc, "get_state_request", lambda: next(state_request_reads))
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
     monkeypatch.setattr(
@@ -152,8 +175,6 @@ def test_goto_xy_clears_move_type_when_xy_seek_times_out_without_motion(monkeypa
     monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
     monkeypatch.setattr(plc.time, "monotonic", lambda: next(monotonic_values))
     plc._TRUE_XY = [2000.0, float(GEOMETRY_CONFIG.measurable_y_min)]
-    plc._LAST_X_DIR = 0
-    plc._X_DEADZONE_LEFT = 0.0
 
     moved = plc.goto_xy(
         2100.0,
@@ -162,14 +183,15 @@ def test_goto_xy_clears_move_type_when_xy_seek_times_out_without_motion(monkeypa
     )
 
     assert moved is False
-    assert writes[-1] == ("MOVE_TYPE", plc.IDLE_MOVE_TYPE)
+    assert writes[-1] == ("STATE_REQUEST", plc.IDLE_STATE_REQUEST)
 
 
-def test_goto_xy_does_not_clear_move_type_when_xy_seek_times_out_after_motion(
+def test_goto_xy_does_not_clear_state_request_when_xy_seek_times_out_after_motion(
     monkeypatch,
 ):
     writes = []
     monotonic_values = iter([0.0, 0.0, 1.0, 1.0, 2.0])
+    state_request_reads = iter([plc.IDLE_STATE_REQUEST, plc.XY_STATE_REQUEST])
 
     def dummy_write_tag(name, value):
         writes.append((name, value))
@@ -177,7 +199,7 @@ def test_goto_xy_does_not_clear_move_type_when_xy_seek_times_out_after_motion(
 
     monkeypatch.setattr(plc, "write_tag", dummy_write_tag)
     monkeypatch.setattr(plc, "get_state", lambda: plc.IDLE_STATE)
-    monkeypatch.setattr(plc, "get_movetype", lambda: plc.XY_MOVE_TYPE)
+    monkeypatch.setattr(plc, "get_state_request", lambda: next(state_request_reads))
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
     monkeypatch.setattr(
@@ -186,8 +208,6 @@ def test_goto_xy_does_not_clear_move_type_when_xy_seek_times_out_after_motion(
     monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
     monkeypatch.setattr(plc.time, "monotonic", lambda: next(monotonic_values))
     plc._TRUE_XY = [2000.0, float(GEOMETRY_CONFIG.measurable_y_min)]
-    plc._LAST_X_DIR = 0
-    plc._X_DEADZONE_LEFT = 0.0
 
     moved = plc.goto_xy(
         2100.0,
@@ -196,4 +216,4 @@ def test_goto_xy_does_not_clear_move_type_when_xy_seek_times_out_after_motion(
     )
 
     assert moved is False
-    assert writes.count(("MOVE_TYPE", plc.IDLE_MOVE_TYPE)) == 1
+    assert writes.count(("STATE_REQUEST", plc.IDLE_STATE_REQUEST)) == 0

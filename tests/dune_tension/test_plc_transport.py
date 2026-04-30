@@ -84,10 +84,18 @@ def test_desktop_mode_rejects_low_level_motion_tag_writes(monkeypatch):
         ),
     )
 
-    response = plc.write_tag("STATE", 7)
+    for tag_name in (
+        "STATE",
+        "STATE_REQUEST",
+        "MOVE_TYPE",
+        "X_POSITION",
+        "Y_POSITION",
+        "XY_SPEED",
+    ):
+        response = plc.write_tag(tag_name, 7)
 
-    assert "error" in response
-    assert "manual_seek_xy" in response["error"]
+        assert "error" in response
+        assert "manual_seek_xy" in response["error"]
 
 
 def test_reset_plc_in_desktop_mode_calls_acknowledge_error(monkeypatch):
@@ -103,7 +111,7 @@ def test_reset_plc_in_desktop_mode_calls_acknowledge_error(monkeypatch):
     assert calls == [("process.acknowledge_error", {})]
 
 
-def test_reset_plc_in_server_mode_only_requests_reset_move_type(monkeypatch):
+def test_reset_plc_in_server_mode_uses_winder_reset_contract(monkeypatch):
     monkeypatch.setenv("PLC_IO_MODE", "server")
     calls = []
     monkeypatch.setattr(
@@ -118,7 +126,10 @@ def test_reset_plc_in_server_mode_only_requests_reset_move_type(monkeypatch):
     )
 
     assert plc.reset_plc() is True
-    assert calls == [("MOVE_TYPE", plc.IDLE_MOVE_TYPE)]
+    assert calls == [
+        ("ERROR_CODE", 0),
+        ("STATE_REQUEST", plc.IDLE_STATE_REQUEST),
+    ]
 
 
 def test_desktop_seek_xy_acknowledges_error_after_move_timeout(monkeypatch):

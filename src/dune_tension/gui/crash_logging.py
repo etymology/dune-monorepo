@@ -17,6 +17,7 @@ import traceback
 from types import FrameType
 from typing import Any
 
+from dune_tension.gui.log_filters import IgnoredMessageFilter
 from dune_tension.paths import data_path
 
 LOGGER = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ def install_gui_crash_logging() -> GuiCrashLoggingBinding:
             "%(asctime)s %(levelname)s [pid=%(process)d %(threadName)s %(name)s] %(message)s"
         )
     )
+    file_handler.addFilter(IgnoredMessageFilter())
     root_logger.addHandler(file_handler)
 
     fault_stream = fault_log_path.open("a", encoding="utf-8", buffering=1)

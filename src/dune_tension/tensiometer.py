@@ -9,6 +9,7 @@ import time
 import numpy as np
 from random import gauss
 
+from dune_tension.audio_store import AudioRecordingMeta, AudioStore
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.geometry import zone_lookup, length_lookup, refine_position
 from dune_tension.results import TensionResult
@@ -96,6 +97,12 @@ def _compile_legacy_tension_condition(expr: str) -> Callable[[float], bool]:
     return predicate
 
 
+def _default_harmonic_comb_config() -> Any:
+    from spectrum_analysis.comb_trigger import HarmonicCombConfig
+
+    return HarmonicCombConfig()
+
+
 @dataclass(frozen=True)
 class AudioAcquisitionConfig:
     """Minimal runtime config passed into ``acquire_audio``."""
@@ -112,6 +119,8 @@ class AudioAcquisitionConfig:
     idle_timeout: float = 0.2
     input_mode: str = "mic"
     input_audio_path: str | None = None
+    comb_trigger: Any = field(default_factory=_default_harmonic_comb_config)
+    recording_started_callback: Callable[[], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +132,15 @@ class DeferredPitchSample:
     y: float
     focus_position: int | None
     confidence: float
+
+
+@dataclass(frozen=True)
+class HarmonicSampleFeatures:
+    """Comb features measured on a captured sample."""
+
+    harmonicity: float = 0.0
+    spectral_flatness: float = 1.0
+    valid: bool = False
 
 
 @dataclass
@@ -239,6 +257,8 @@ def build_tensiometer(
     wire_preview_callback: Optional[Callable[[int, float, float], None]] = None,
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
+    audio_store: AudioStore | None = None,
+    use_harmonic_comb_trigger: bool = False,
 ) -> "Tensiometer":
     config = make_config(
         apa_name=apa_name,
@@ -394,6 +414,8 @@ def build_tensiometer(
             or active_runtime.wire_position_provider
             or WirePositionProvider()
         ),
+        audio_store=audio_store or getattr(active_runtime, "audio_store", None),
+        use_harmonic_comb_trigger=use_harmonic_comb_trigger,
     )
 
 
@@ -443,6 +465,8 @@ class Tensiometer:
         time_provider: Callable[[], float] | None = None,
         datetime_provider: Callable[[], datetime] | None = None,
         gauss_func: Callable[[float, float], float] | None = None,
+        audio_store: AudioStore | None = None,
+        use_harmonic_comb_trigger: bool = False,
     ) -> None:
         self.config = config or make_config(
             apa_name=apa_name,
@@ -484,6 +508,16 @@ class Tensiometer:
         self.noise_threshold = self.audio.noise_threshold
         self.samplerate = self.audio.samplerate
         self.record_audio_func = self.audio.record_audio
+        self._harmonic_comb_config = _default_harmonic_comb_config()
+        try:
+            from spectrum_analysis.comb_trigger import HarmonicCombTriggerLearner
+
+            self._harmonic_trigger_learner = HarmonicCombTriggerLearner(
+                self._harmonic_comb_config
+            )
+        except Exception:
+            self._harmonic_trigger_learner = None
+        self._last_pitch_triplet_accepted: bool | None = None
 
         self.get_current_xy_position = getattr(
             self.motion, "get_live_xy", self.motion.get_xy
@@ -518,6 +552,8 @@ class Tensiometer:
 
         self.a_taped = bool(a_taped)
         self.b_taped = bool(b_taped)
+        self._audio_store = audio_store
+        self.use_harmonic_comb_trigger = bool(use_harmonic_comb_trigger)
 
         # State tracking for winder wiggle thread
         self._wiggle_event: threading.Event | None = None
@@ -978,7 +1014,7 @@ class Tensiometer:
         high_y = float(center_y + self.sweeping_wiggle_span_mm)
         record_duration = max(float(self.config.record_duration), 1e-6)
         sweep_speed_mm_s = max(
-            (float(self.sweeping_wiggle_span_mm)) / record_duration,
+            (float(self.sweeping_wiggle_span_mm)),
             1e-3,
         )
 
@@ -1027,6 +1063,16 @@ class Tensiometer:
         audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
         if audio_array.size == 0:
             return 0.0
+        try:
+            from dune_tension import rust_audio
+
+            if rust_audio.should_use_audio_backend():
+                return rust_audio.rms(audio_array)
+        except Exception:
+            import os
+
+            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+                raise
         audio_float = audio_array.astype(np.float64, copy=False)
         return float(np.sqrt(np.mean(np.square(audio_float))))
 
@@ -1046,6 +1092,20 @@ class Tensiometer:
             return float("nan")
         if not np.isfinite(frequency) or frequency <= 0.0:
             return float("nan")
+        try:
+            from dune_tension import rust_audio
+
+            if rust_audio.should_use_audio_backend():
+                return rust_audio.triangle_reference_rms(
+                    sample_rate,
+                    duration,
+                    frequency,
+                )
+        except Exception:
+            import os
+
+            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
+                raise
 
         sample_count = max(int(round(duration * sample_rate)), 1)
         times = np.arange(sample_count, dtype=np.float64) / float(sample_rate)
@@ -1066,14 +1126,70 @@ class Tensiometer:
             return measured_rms
         return measured_rms / reference_rms
 
+    def _is_audio_worth_analyzing(
+        self,
+        audio_sample: Any,
+        expected_frequency: float | None,
+    ) -> bool:
+        """Return True if the sample has enough signal/harmonicity to justify NN analysis.
+
+        This provides a cheap 'gate' before expensive PESTO analysis.
+        """
+
+        # 1. Amplitude gate: is there any signal at all?
+        measured_rms = self._sample_rms(audio_sample)
+        # We use a threshold slightly above the noise floor.
+        if self.noise_threshold > 0.0 and measured_rms < self.noise_threshold * 1.5:
+            return False
+
+        # 2. Harmonic gate: if we know what frequency to expect, is there a peak there?
+        if expected_frequency is not None:
+            # We skip the harmonic gate for very short samples (e.g. in tests)
+            # because harmonic_comb_response needs a minimum frame size.
+            audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
+            if audio_array.size < 1024:
+                return True
+
+            # Re-use the existing harmonic feature extractor.
+            # We use 0.0 for the first frequency to force it to use expected_frequency.
+            features = self._sample_harmonic_features(
+                audio_sample, 0.0, expected_frequency
+            )
+            if not features.valid:
+                return False
+
+            # We use a fraction of the trigger threshold as a safety margin.
+            # If harmonicity is extremely low, PESTO is unlikely to find a good pitch.
+            threshold = self._harmonic_comb_config.harmonicity_threshold()
+            if features.harmonicity < threshold * 0.5:
+                return False
+
+        return True
+
     def _estimate_sample_pitch(
         self,
         audio_sample: Any,
         expected_frequency: float | None,
     ) -> tuple[Any | None, float, float]:
-        """Estimate pitch using the existing PESTO-first fallback path."""
+        """Estimate pitch using PESTO, gated by ACF and FFT corroboration.
 
+        Acceptance is determined by whether the NN frequency is corroborated by
+        a notable autocorrelation peak (within ±15 %) and a notable FFT peak
+        (within ±10 %).  Neither peak has to be the global maximum.  When
+        corroborated, confidence is raised to at least the configured threshold
+        so the measurement loop accepts the sample immediately.  When not
+        corroborated, confidence is zeroed so the loop continues searching —
+        regardless of what PESTO reported.
+        """
+        from spectrum_analysis.pitch_validation import nn_pitch_is_corroborated
+
+        self._last_pitch_triplet_accepted = None
         analysis = None
+
+        if not self._is_audio_worth_analyzing(audio_sample, expected_frequency):
+            return None, 0.0, 0.0
+
+        require_corroboration = False
         try:
             analysis = analyze_audio_with_pesto(
                 audio_sample,
@@ -1082,13 +1198,111 @@ class Tensiometer:
                 include_activations=True,
             )
             frequency, confidence = analysis.frequency, analysis.confidence
+            require_corroboration = True
         except Exception:
             frequency, confidence = estimate_pitch_from_audio(
                 audio_sample,
                 self.samplerate,
                 expected_frequency,
             )
+
+        if require_corroboration and np.isfinite(frequency) and frequency > 0.0:
+            corroborated = nn_pitch_is_corroborated(
+                np.asarray(audio_sample, dtype=np.float64),
+                self.samplerate,
+                float(frequency),
+            )
+            if corroborated:
+                self._last_pitch_triplet_accepted = True
+                # ACF and FFT agree: accept regardless of NN confidence.
+                confidence = max(
+                    float(confidence), float(self.config.confidence_threshold)
+                )
+                LOGGER.debug(
+                    "NN pitch %.1f Hz corroborated by ACF/FFT; confidence=%.2f.",
+                    frequency,
+                    confidence,
+                )
+            else:
+                LOGGER.debug(
+                    "NN pitch %.1f Hz not corroborated by ACF/FFT; rejecting sample.",
+                    frequency,
+                )
+                self._last_pitch_triplet_accepted = False
+                confidence = 0.0
+
         return analysis, float(frequency), float(confidence)
+
+    def _sample_harmonic_features(
+        self,
+        audio_sample: Any,
+        frequency: float,
+        expected_frequency: float | None,
+    ) -> HarmonicSampleFeatures:
+        """Measure comb features on a captured sample for trigger learning."""
+
+        comb_cfg = self._harmonic_comb_config
+        frame_size = max(1, int(getattr(comb_cfg, "frame_size", 2048)))
+        harmonicity_audio = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
+        if harmonicity_audio.size < frame_size:
+            return HarmonicSampleFeatures()
+
+        frame = harmonicity_audio[:frame_size]
+        f0 = None
+        if expected_frequency is not None:
+            expected = float(expected_frequency)
+            if np.isfinite(expected) and expected > 0.0:
+                f0 = expected
+        if f0 is None and np.isfinite(frequency) and frequency > 0.0:
+            f0 = float(frequency)
+        if f0 is None:
+            return HarmonicSampleFeatures()
+
+        from spectrum_analysis.comb_trigger import harmonic_comb_response
+
+        window = np.hanning(frame_size).astype(np.float32)
+        freq_bins = np.fft.rfftfreq(frame_size, d=1.0 / self.samplerate)
+        candidates = np.array([float(f0)], dtype=np.float64)
+        weights = comb_cfg.harmonic_weights()
+        harmonicity, spectral_flatness, valid = harmonic_comb_response(
+            frame,
+            self.samplerate,
+            window,
+            freq_bins,
+            candidates,
+            weights,
+            int(comb_cfg.min_harmonics),
+        )
+        return HarmonicSampleFeatures(
+            harmonicity=float(harmonicity),
+            spectral_flatness=float(spectral_flatness),
+            valid=bool(valid),
+        )
+
+    def _learn_harmonic_trigger(
+        self,
+        features: HarmonicSampleFeatures,
+        accepted_by_triplet: bool | None,
+    ) -> None:
+        """Adapt comb trigger parameters from downstream pitch acceptance."""
+
+        if accepted_by_triplet is None or not features.valid:
+            return
+        learner = self._harmonic_trigger_learner
+        if learner is None:
+            return
+        try:
+            from spectrum_analysis.comb_trigger import HarmonicCombTriggerObservation
+
+            learner.observe(
+                HarmonicCombTriggerObservation(
+                    harmonicity=features.harmonicity,
+                    spectral_flatness=features.spectral_flatness,
+                    accepted_by_triplet=bool(accepted_by_triplet),
+                )
+            )
+        except Exception as exc:
+            LOGGER.debug("Harmonic trigger learning skipped: %s", exc)
 
     def measure_calibrate(self, wire_number: int) -> Optional[TensionResult]:
         if self.config.layer in ["U", "V"]:
@@ -1183,6 +1397,7 @@ class Tensiometer:
                         wire_y=target.y,
                         focus_position=target.focus_position,
                         zone=target.zone,
+                        return_to_center=False,
                     )
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
@@ -1261,6 +1476,7 @@ class Tensiometer:
                         wire_y=target.y,
                         focus_position=target.focus_position,
                         zone=target.zone,
+                        return_to_center=False,
                     )
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
@@ -1277,18 +1493,26 @@ class Tensiometer:
         wire_y: float,
         wire_x: float,
         zone: int | None = None,
+        return_to_center: bool = True,
     ) -> list[TensionResult] | None:
         expected_frequency = wire_equation(length=length)["frequency"]
         amplitude_mode = self.config.confidence_source == "signal_amplitude"
         measuring_timeout = self.config.measuring_duration
         candidate_wires: list[TensionResult] = []
         measured_zone = int(zone) if zone is not None else None
+        def on_recording_started() -> None:
+            self._record_wire_stage(
+                "wait_for_audio_trigger", self._profile_time() - strum_started
+            )
+
         audio_acquisition_config = AudioAcquisitionConfig(
             sample_rate=self.samplerate,
             max_record_seconds=self.config.record_duration,
             expected_f0=expected_frequency,
             snr_threshold_db=self.snr,
-            trigger_mode="snr",
+            trigger_mode=("harmonic_comb" if self.use_harmonic_comb_trigger else "snr"),
+            comb_trigger=self._harmonic_comb_config,
+            recording_started_callback=on_recording_started,
         )
 
         x_step_mm = max(
@@ -1384,37 +1608,15 @@ class Tensiometer:
             )
             _publish_audio_sample(sample.audio_sample, analysis)
 
-            # Calculate harmonicity for the result
-            harmonicity = 0.0
-            from spectrum_analysis.comb_trigger import (
-                harmonic_comb_response,
-                HarmonicCombConfig,
+            features = self._sample_harmonic_features(
+                sample.audio_sample,
+                frequency,
+                expected_frequency,
             )
-
-            comb_cfg = HarmonicCombConfig()
-            frame_size = comb_cfg.frame_size
-            if sample.audio_sample.size >= frame_size:
-                frame = sample.audio_sample[:frame_size]
-                window = np.hanning(frame_size).astype(np.float32)
-                freq_bins = np.fft.rfftfreq(frame_size, d=1.0 / self.samplerate)
-                # Use analysis.frequency if available, else expected_frequency
-                f0 = (
-                    frequency
-                    if np.isfinite(frequency)
-                    else (expected_frequency or 100.0)
-                )
-                candidates = np.array([f0])
-                weights = comb_cfg.harmonic_weights()
-                r_value, _sfm, _valid = harmonic_comb_response(
-                    frame,
-                    self.samplerate,
-                    window,
-                    freq_bins,
-                    candidates,
-                    weights,
-                    comb_cfg.min_harmonics,
-                )
-                harmonicity = float(r_value)
+            self._learn_harmonic_trigger(
+                features,
+                self._last_pitch_triplet_accepted,
+            )
 
             wire_result = _build_wire_result(
                 confidence=sample.confidence,
@@ -1424,7 +1626,7 @@ class Tensiometer:
                 focus_position=sample.focus_position,
                 zone=measured_zone,
                 amplitude=self._sample_rms(sample.audio_sample),
-                harmonicity=harmonicity,
+                harmonicity=features.harmonicity,
             )
             self.repository.append_sample(wire_result)
             return wire_result
@@ -1531,13 +1733,11 @@ class Tensiometer:
                 strum_started = self._profile_time()
                 self.strum_func()
                 self._record_wire_stage("strum", self._profile_time() - strum_started)
-                # record audio with harmonic comb
-
                 acquire_started = self._profile_time()
                 audio_sample = acquire_audio(
                     cfg=audio_acquisition_config,
                     noise_rms=self.noise_threshold / 3,
-                    timeout=0.1,
+                    timeout=max(float(self.config.record_duration), 0.0),
                 )
                 self._record_wire_stage(
                     "acquire_audio",
@@ -1546,6 +1746,20 @@ class Tensiometer:
 
                 if audio_sample is not None:
                     focus_position = self._get_focus_position()
+                    if self._audio_store is not None:
+                        _rec_meta = AudioRecordingMeta(
+                            apa_name=self.config.apa_name,
+                            layer=self.config.layer,
+                            side=self.config.side,
+                            wire_number=wire_number,
+                            x_mm=float(x),
+                            y_mm=float(y),
+                            focus_position=focus_position,
+                            zone=measured_zone,
+                            wire_length_m=float(length),
+                            timestamp=self._now(),
+                        )
+                        self._audio_store.save(audio_sample, self.samplerate, _rec_meta)
                     if amplitude_mode:
                         analyze_started = self._profile_time()
                         confidence = self._amplitude_confidence(
@@ -1608,6 +1822,15 @@ class Tensiometer:
                             self._profile_time() - analyze_started,
                         )
                         _publish_audio_sample(audio_sample, analysis)
+                        features = self._sample_harmonic_features(
+                            audio_sample,
+                            frequency,
+                            expected_frequency,
+                        )
+                        self._learn_harmonic_trigger(
+                            features,
+                            self._last_pitch_triplet_accepted,
+                        )
                         wire_result = _build_wire_result(
                             confidence=confidence,
                             frequency=frequency,
@@ -1615,6 +1838,7 @@ class Tensiometer:
                             y=y,
                             focus_position=focus_position,
                             zone=measured_zone,
+                            harmonicity=features.harmonicity,
                         )
                         self.repository.append_sample(wire_result)
 
@@ -1674,9 +1898,8 @@ class Tensiometer:
                 )
         finally:
             self._stop_sweeping_wiggle(
-                return_to_center=bool(
-                    self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0
-                ),
+                return_to_center=return_to_center
+                and bool(self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0),
                 center_x=float(wire_x),
                 center_y=float(wire_y),
                 focus_target=best_focus,
@@ -1714,6 +1937,7 @@ class Tensiometer:
         wire_y: float,
         focus_position: int | None = None,
         zone: int | None = None,
+        return_to_center: bool = True,
     ) -> Optional[TensionResult]:
         total_started = self._profile_time()
         self.motion.reset_plc()
@@ -1783,6 +2007,7 @@ class Tensiometer:
                 wire_y=wire_y,
                 wire_x=wire_x,
                 zone=measured_zone,
+                return_to_center=return_to_center,
             )
 
         finally:
@@ -1887,6 +2112,11 @@ class Tensiometer:
         """Stop any active audio streams used by the tensiometer."""
         try:
             self.repository.close()
+        except Exception:
+            pass
+        try:
+            if self._audio_store is not None:
+                self._audio_store.close()
         except Exception:
             pass
         try:

@@ -10,6 +10,7 @@ import dune_tension.results as results_module
 import dune_tension.tensiometer as tensiometer_module
 from dune_tension.results import TensionResult
 from dune_tension.tensiometer import Tensiometer
+import spectrum_analysis.pitch_validation as pitch_validation_module
 
 
 def _stub_motion_service():
@@ -81,6 +82,9 @@ def test_collect_samples_invokes_audio_sample_callback(monkeypatch) -> None:
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: analysis,
     )
+    monkeypatch.setattr(
+        pitch_validation_module, "nn_pitch_is_corroborated", lambda *_a, **_kw: True
+    )
     _patch_result_physics(monkeypatch)
 
     tensiometer = Tensiometer(
@@ -108,6 +112,79 @@ def test_collect_samples_invokes_audio_sample_callback(monkeypatch) -> None:
     assert samples is not None
     assert len(samples) == 1
     assert published == [([0.1, -0.2, 0.3], 8000, analysis)]
+
+
+def test_collect_samples_strums_until_audio_recording_starts(monkeypatch) -> None:
+    audio_sample = np.array([0.1, -0.2, 0.3], dtype=float)
+    analysis = types.SimpleNamespace(
+        frequency=80.0,
+        confidence=0.95,
+        activation_map=np.ones((4, 3), dtype=np.float32),
+        activation_freq_axis=np.array([50.0, 60.0, 70.0, 80.0], dtype=np.float32),
+        frame_times=np.array([0.0, 0.005, 0.01], dtype=np.float32),
+        predicted_frequencies=np.array([78.0, 80.0, 79.0], dtype=np.float32),
+    )
+    strums: list[float] = []
+    strums_when_recording_started: list[int] = []
+
+    monkeypatch.setattr(
+        tensiometer_module.MotionService,
+        "build",
+        lambda spoof_movement=False: _stub_motion_service(),
+    )
+    monkeypatch.setattr(
+        tensiometer_module.AudioCaptureService,
+        "build",
+        lambda spoof=False: _stub_audio_service(),
+    )
+
+    def fake_acquire_audio(*, cfg, **_kwargs):
+        time.sleep(0.08)
+        cfg.recording_started_callback()
+        strums_when_recording_started.append(len(strums))
+        time.sleep(0.035)
+        return audio_sample
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", fake_acquire_audio)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {"frequency": 80.0, "tension": 6.0},
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "analyze_audio_with_pesto",
+        lambda *_args, **_kwargs: analysis,
+    )
+    monkeypatch.setattr(
+        pitch_validation_module, "nn_pitch_is_corroborated", lambda *_a, **_kw: True
+    )
+    _patch_result_physics(monkeypatch)
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        confidence_threshold=0.9,
+        measuring_duration=0.2,
+    )
+    tensiometer.repository.append_sample = lambda _result: None
+    tensiometer.strum_func = lambda: strums.append(time.monotonic())
+    tensiometer.focus_wiggle_func = lambda _delta: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert samples is not None
+    assert len(samples) == 1
+    assert len(strums) > 1
+    assert strums_when_recording_started == [len(strums)]
 
 
 def test_goto_collect_wire_data_invokes_summary_refresh_callback(monkeypatch) -> None:

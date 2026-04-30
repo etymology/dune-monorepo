@@ -23,7 +23,9 @@ from dune_tension.gui.actions import (
     measure_auto,
     measure_calibrate,
     measure_condition,
+    measure_distribution_outliers,
     measure_list_button,
+    measure_outliers,
     measure_zone_button,
     monitor_tension_logs,
     move_laser_to_pin_button,
@@ -79,6 +81,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
         if hasattr(root, "columnconfigure"):
             root.columnconfigure(0, weight=0)
             root.columnconfigure(1, weight=1)
+            root.columnconfigure(2, weight=1)
         if hasattr(root, "rowconfigure"):
             root.rowconfigure(0, weight=1)
         LOGGER.info("Tk root ready. %s", format_process_stats())
@@ -238,28 +241,34 @@ def _create_widgets(
     if hasattr(main_frame, "rowconfigure"):
         main_frame.rowconfigure(0, weight=1)
 
-    side_frame = tk.Frame(root)
-    side_frame.grid(row=0, column=1, padx=(3, 6), pady=6, sticky="nsew")
-    if hasattr(side_frame, "columnconfigure"):
-        side_frame.columnconfigure(0, weight=1)
-    if hasattr(side_frame, "rowconfigure"):
-        side_frame.rowconfigure(0, weight=1)
-        side_frame.rowconfigure(1, weight=1)
+    plots_frame = tk.Frame(root)
+    plots_frame.grid(row=0, column=1, padx=3, pady=6, sticky="nsew")
+    if hasattr(plots_frame, "columnconfigure"):
+        plots_frame.columnconfigure(0, weight=1)
+    if hasattr(plots_frame, "rowconfigure"):
+        plots_frame.rowconfigure(0, weight=1)
 
-    log_frame = tk.LabelFrame(side_frame, text="Log")
-    log_frame.grid(row=0, column=0, sticky="nsew")
-    if hasattr(log_frame, "columnconfigure"):
-        log_frame.columnconfigure(0, weight=1)
-    if hasattr(log_frame, "rowconfigure"):
-        log_frame.rowconfigure(0, weight=1)
+    log_container_frame = tk.Frame(root)
+    log_container_frame.grid(row=0, column=2, padx=(3, 6), pady=6, sticky="nsew")
+    if hasattr(log_container_frame, "columnconfigure"):
+        log_container_frame.columnconfigure(0, weight=1)
+    if hasattr(log_container_frame, "rowconfigure"):
+        log_container_frame.rowconfigure(0, weight=1)
 
-    live_plots_frame = tk.LabelFrame(side_frame, text="Live Plots")
-    live_plots_frame.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
+    live_plots_frame = tk.LabelFrame(plots_frame, text="Live Plots")
+    live_plots_frame.grid(row=0, column=0, sticky="nsew")
     if hasattr(live_plots_frame, "columnconfigure"):
         live_plots_frame.columnconfigure(0, weight=1)
     if hasattr(live_plots_frame, "rowconfigure"):
         live_plots_frame.rowconfigure(0, weight=3)
         live_plots_frame.rowconfigure(1, weight=2)
+
+    log_frame = tk.LabelFrame(log_container_frame, text="Log")
+    log_frame.grid(row=0, column=0, sticky="nsew")
+    if hasattr(log_frame, "columnconfigure"):
+        log_frame.columnconfigure(0, weight=1)
+    if hasattr(log_frame, "rowconfigure"):
+        log_frame.rowconfigure(0, weight=1)
 
     summary_plot_frame = tk.Frame(live_plots_frame)
     summary_plot_frame.grid(row=0, column=0, sticky="nsew")
@@ -286,8 +295,40 @@ def _create_widgets(
             scrollbar.grid(row=0, column=1, sticky="ns")
             log_text.configure(yscrollcommand=scrollbar.set)
 
-    bottom_frame = tk.Frame(main_frame)
-    bottom_frame.grid(row=0, column=0, sticky="nsew")
+    canvas = tk.Canvas(main_frame, borderwidth=0, highlightthickness=0)
+    scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+    bottom_frame = tk.Frame(canvas)
+
+    canvas.configure(yscrollcommand=scrollbar.set)
+    if hasattr(main_frame, "columnconfigure"):
+        main_frame.columnconfigure(0, weight=1)
+
+    scrollbar.grid(row=0, column=1, sticky="ns")
+    canvas.grid(row=0, column=0, sticky="nsew")
+    canvas_window = canvas.create_window((0, 0), window=bottom_frame, anchor="nw")
+
+    def _on_frame_configure(_event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def _on_canvas_configure(event):
+        canvas.itemconfig(canvas_window, width=event.width)
+
+    bottom_frame.bind("<Configure>", _on_frame_configure)
+    canvas.bind("<Configure>", _on_canvas_configure)
+
+    # Mouse wheel scrolling
+    def _on_mousewheel(event):
+        if event.num == 4:
+            canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            canvas.yview_scroll(1, "units")
+        else:
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    canvas.bind_all("<Button-4>", _on_mousewheel)
+    canvas.bind_all("<Button-5>", _on_mousewheel)
+
     if hasattr(bottom_frame, "columnconfigure"):
         bottom_frame.columnconfigure(0, weight=1)
 
@@ -298,7 +339,6 @@ def _create_widgets(
     measure_frame.grid(row=1, column=0, sticky="ew", pady=3)
     if hasattr(measure_frame, "columnconfigure"):
         measure_frame.columnconfigure(1, weight=1)
-        measure_frame.columnconfigure(4, weight=1)
 
     servo_frame = tk.LabelFrame(bottom_frame, text="Servo")
     servo_frame.grid(row=2, column=0, sticky="ew", pady=3)
@@ -350,211 +390,240 @@ def _create_widgets(
         row=5, column=1, sticky="w"
     )
 
+    # Confidence Threshold and Source
     tk.Label(measure_frame, text="Confidence Threshold:").grid(
         row=0, column=0, sticky="e"
     )
     entry_confidence = tk.Entry(measure_frame)
-    entry_confidence.grid(row=0, column=1)
+    entry_confidence.grid(row=0, column=1, sticky="ew")
     entry_confidence.insert(0, "0.5")
-    tk.Label(measure_frame, text="Confidence Source:").grid(row=0, column=2, sticky="e")
+
+    tk.Label(measure_frame, text="Confidence Source:").grid(row=1, column=0, sticky="e")
     confidence_source_var = tk.StringVar(measure_frame, value="Neural Net")
     tk.OptionMenu(
         measure_frame,
         confidence_source_var,
         "Neural Net",
         "Signal Amplitude",
-    ).grid(row=0, column=3, sticky="w")
-
-    tk.Label(measure_frame, text="Record Duration (s):").grid(
-        row=9, column=0, sticky="e"
-    )
-    entry_record_duration = tk.Entry(measure_frame)
-    entry_record_duration.grid(row=9, column=1)
-    entry_record_duration.insert(0, "1")
-
-    tk.Label(measure_frame, text="Measuring Duration (s):").grid(
-        row=10, column=0, sticky="e"
-    )
-    entry_measuring_duration = tk.Entry(measure_frame)
-    entry_measuring_duration.grid(row=10, column=1)
-    entry_measuring_duration.insert(0, "10")
-
-    tk.Label(measure_frame, text="Y Wiggle σ (mm):").grid(row=11, column=0, sticky="e")
-    entry_wiggle_y_sigma = tk.Entry(measure_frame)
-    entry_wiggle_y_sigma.grid(row=11, column=1)
-    entry_wiggle_y_sigma.insert(0, str(MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm))
-    sweeping_wiggle_var = tk.BooleanVar(value=False)
+    ).grid(row=1, column=1, sticky="w")
+    use_harmonic_comb_trigger_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
         measure_frame,
-        text="Sweeping Wiggle",
-        variable=sweeping_wiggle_var,
-    ).grid(row=11, column=2, sticky="w")
-    tk.Label(measure_frame, text="Sweep +/- (mm):").grid(row=11, column=3, sticky="e")
-    entry_sweeping_wiggle_span_mm = tk.Entry(measure_frame, width=8)
-    entry_sweeping_wiggle_span_mm.grid(row=11, column=4, sticky="w")
-    entry_sweeping_wiggle_span_mm.insert(0, "1.0")
+        text="Harmonic Comb Trigger",
+        variable=use_harmonic_comb_trigger_var,
+    ).grid(row=1, column=2, sticky="w")
 
-    tk.Label(measure_frame, text="Focus Wiggle σ:").grid(row=12, column=0, sticky="e")
-    entry_focus_wiggle_sigma = tk.Entry(measure_frame)
-    entry_focus_wiggle_sigma.grid(row=12, column=1)
-    entry_focus_wiggle_sigma.insert(
-        0, str(MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us)
-    )
-    use_manual_focus_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(
-        measure_frame,
-        text="Manual Focus",
-        variable=use_manual_focus_var,
-    ).grid(row=12, column=2, columnspan=2, sticky="w")
-
-    tk.Label(measure_frame, text="Wire Number:").grid(row=1, column=0, sticky="e")
+    # Wire Selection
+    tk.Label(measure_frame, text="Wire Number:").grid(row=2, column=0, sticky="e")
     entry_wire = tk.Entry(measure_frame)
-    entry_wire.grid(row=1, column=1)
+    entry_wire.grid(row=2, column=1, sticky="ew")
     btn_calibrate = tk.Button(measure_frame, text="Calibrate")
-    btn_calibrate.grid(row=1, column=2)
+    btn_calibrate.grid(row=2, column=2, padx=(3, 0))
 
-    tk.Label(measure_frame, text="Wire List:").grid(row=2, column=0, sticky="e")
+    tk.Label(measure_frame, text="Wire List:").grid(row=3, column=0, sticky="e")
     entry_wire_list = tk.Entry(measure_frame)
-    entry_wire_list.grid(row=2, column=1)
+    entry_wire_list.grid(row=3, column=1, sticky="ew")
     btn_measure_list = tk.Button(measure_frame, text="Seek Wire(s)")
-    btn_measure_list.grid(row=2, column=2)
+    btn_measure_list.grid(row=3, column=2, padx=(3, 0))
+
     skip_measured_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
         measure_frame,
         text="Skip Measured",
         variable=skip_measured_var,
-    ).grid(row=2, column=3, sticky="w")
+    ).grid(row=4, column=1, sticky="w")
 
-    tk.Label(measure_frame, text="Zone:").grid(row=3, column=0, sticky="e")
+    tk.Label(measure_frame, text="Zone:").grid(row=5, column=0, sticky="e")
     entry_wire_zone = tk.Entry(measure_frame)
-    entry_wire_zone.grid(row=3, column=1)
+    entry_wire_zone.grid(row=5, column=1, sticky="ew")
     btn_measure_zone = tk.Button(measure_frame, text="Seek Zone(s)")
-    btn_measure_zone.grid(row=3, column=2)
+    btn_measure_zone.grid(row=5, column=2, padx=(3, 0))
+
     skip_measured_zone_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
         measure_frame,
         text="Skip Measured",
         variable=skip_measured_zone_var,
-    ).grid(row=3, column=3, sticky="w")
+    ).grid(row=6, column=1, sticky="w")
+
+    # Main Measure Controls
+    btn_measure_auto = tk.Button(measure_frame, text="Measure Auto")
+    btn_measure_auto.grid(row=7, column=0, sticky="ew")
+    btn_interrupt = tk.Button(measure_frame, text="Interrupt")
+    btn_interrupt.grid(row=7, column=1, sticky="ew")
 
     plot_audio_var = tk.BooleanVar(value=False)
     tk.Checkbutton(measure_frame, text="Plot Audio", variable=plot_audio_var).grid(
-        row=4, column=2, sticky="w"
+        row=8, column=1, sticky="w"
     )
     suppress_wire_preview_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
         measure_frame,
         text="Suppress Wire Preview",
         variable=suppress_wire_preview_var,
-    ).grid(row=4, column=3, columnspan=2, sticky="w")
+    ).grid(row=9, column=1, sticky="w")
 
-    btn_measure_auto = tk.Button(measure_frame, text="Measure Auto")
-    btn_measure_auto.grid(row=4, column=0)
-    btn_interrupt = tk.Button(measure_frame, text="Interrupt")
-    btn_interrupt.grid(row=4, column=1)
-    tk.Label(measure_frame, text="ETA:").grid(row=13, column=0, sticky="e")
-    tk.Label(measure_frame, textvariable=estimated_time_var).grid(
-        row=13, column=1, sticky="w"
+    # Range and Conditions
+    tk.Label(measure_frame, text="Clear Range:").grid(row=10, column=0, sticky="e")
+    entry_clear_range = tk.Entry(measure_frame)
+    entry_clear_range.grid(row=10, column=1, sticky="ew")
+    btn_clear_range = tk.Button(measure_frame, text="Clear")
+    btn_clear_range.grid(row=10, column=2, padx=(3, 0))
+
+    tk.Label(measure_frame, text="Condition (AND/OR):").grid(
+        row=11, column=0, sticky="e"
     )
+    entry_condition = tk.Entry(measure_frame)
+    entry_condition.grid(row=11, column=1, sticky="ew")
+    btn_measure_condition = tk.Button(measure_frame, text="Measure Condition")
+    btn_measure_condition.grid(row=11, column=2, padx=(3, 0))
+
+    tk.Label(measure_frame, text="Legacy Tension:").grid(row=12, column=0, sticky="e")
+    entry_legacy_tension_condition = tk.Entry(measure_frame)
+    entry_legacy_tension_condition.grid(row=12, column=1, columnspan=2, sticky="ew")
+
+    # Outliers
+    tk.Label(measure_frame, text="Outlier σ Multiplier:").grid(
+        row=13, column=0, sticky="e"
+    )
+    entry_times_sigma = tk.Entry(measure_frame)
+    entry_times_sigma.grid(row=13, column=1, sticky="ew")
+    entry_times_sigma.insert(0, "2.0")
+
+    btn_erase_outliers = tk.Button(measure_frame, text="Erase Residual Outliers")
+    btn_erase_outliers.grid(row=14, column=1, sticky="ew")
+    btn_measure_outliers = tk.Button(measure_frame, text="Measure Residual Outliers")
+    btn_measure_outliers.grid(row=14, column=2, padx=(3, 0), sticky="ew")
+
+    btn_erase_distribution_outliers = tk.Button(
+        measure_frame, text="Erase Bulk Outliers"
+    )
+    btn_erase_distribution_outliers.grid(row=15, column=1, sticky="ew")
+    btn_measure_distribution_outliers = tk.Button(
+        measure_frame, text="Measure Bulk Outliers"
+    )
+    btn_measure_distribution_outliers.grid(row=15, column=2, padx=(3, 0), sticky="ew")
+
+    # Set Tensions
+    tk.Label(measure_frame, text="Set Tensions:").grid(row=16, column=0, sticky="e")
+    entry_set_tension = tk.Entry(measure_frame)
+    entry_set_tension.grid(row=16, column=1, sticky="ew")
+    btn_set_tension = tk.Button(measure_frame, text="Apply Tensions")
+    btn_set_tension.grid(row=16, column=2, padx=(3, 0))
+
+    # Durations
+    tk.Label(measure_frame, text="Record Duration (s):").grid(
+        row=17, column=0, sticky="e"
+    )
+    entry_record_duration = tk.Entry(measure_frame)
+    entry_record_duration.grid(row=17, column=1, sticky="ew")
+    entry_record_duration.insert(0, "1")
+
+    tk.Label(measure_frame, text="Wire Timeout (s):").grid(row=18, column=0, sticky="e")
+    entry_measuring_duration = tk.Entry(measure_frame)
+    entry_measuring_duration.grid(row=18, column=1, sticky="ew")
+    entry_measuring_duration.insert(0, "10")
+
+    # Wiggle
+    tk.Label(measure_frame, text="Y Wiggle σ (mm):").grid(row=19, column=0, sticky="e")
+    entry_wiggle_y_sigma = tk.Entry(measure_frame)
+    entry_wiggle_y_sigma.grid(row=19, column=1, sticky="ew")
+    entry_wiggle_y_sigma.insert(0, str(MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm))
+
+    sweeping_wiggle_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        measure_frame,
+        text="Sweeping Wiggle",
+        variable=sweeping_wiggle_var,
+    ).grid(row=20, column=1, sticky="w")
+
+    tk.Label(measure_frame, text="Sweep +/- (mm):").grid(row=21, column=0, sticky="e")
+    entry_sweeping_wiggle_span_mm = tk.Entry(measure_frame)
+    entry_sweeping_wiggle_span_mm.grid(row=21, column=1, sticky="ew")
+    entry_sweeping_wiggle_span_mm.insert(0, "1.0")
+
+    tk.Label(measure_frame, text="Focus Wiggle σ:").grid(row=22, column=0, sticky="e")
+    entry_focus_wiggle_sigma = tk.Entry(measure_frame)
+    entry_focus_wiggle_sigma.grid(row=22, column=1, sticky="ew")
+    entry_focus_wiggle_sigma.insert(
+        0, str(MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us)
+    )
+
+    use_manual_focus_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        measure_frame,
+        text="Manual Focus",
+        variable=use_manual_focus_var,
+    ).grid(row=23, column=1, sticky="w")
+
+    # ETA & Noise
+    tk.Label(measure_frame, text="ETA:").grid(row=24, column=0, sticky="e")
+    tk.Label(measure_frame, textvariable=estimated_time_var).grid(
+        row=24, column=1, sticky="w"
+    )
+    btn_calibrate_noise = tk.Button(measure_frame, text="Calibrate Noise")
+    btn_calibrate_noise.grid(row=25, column=1, sticky="ew")
+
+    # Streaming Stats
     stream_segment_var = tk.StringVar(measure_frame, value="Idle")
     stream_comb_var = tk.StringVar(measure_frame, value="0.00")
     stream_focus_var = tk.StringVar(measure_frame, value="--")
     stream_pitch_backlog_var = tk.StringVar(measure_frame, value="0")
     stream_rescue_queue_var = tk.StringVar(measure_frame, value="0")
-    tk.Label(measure_frame, text="Stream Segment:").grid(row=14, column=0, sticky="e")
+
+    tk.Label(measure_frame, text="Stream Segment:").grid(row=26, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=stream_segment_var).grid(
-        row=14, column=1, sticky="w"
+        row=26, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Comb Score:").grid(row=15, column=0, sticky="e")
+    tk.Label(measure_frame, text="Comb Score:").grid(row=27, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=stream_comb_var).grid(
-        row=15, column=1, sticky="w"
+        row=27, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Focus Pred:").grid(row=16, column=0, sticky="e")
+    tk.Label(measure_frame, text="Focus Pred:").grid(row=28, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=stream_focus_var).grid(
-        row=16, column=1, sticky="w"
+        row=28, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Pitch Backlog:").grid(row=17, column=0, sticky="e")
+    tk.Label(measure_frame, text="Pitch Backlog:").grid(row=29, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=stream_pitch_backlog_var).grid(
-        row=17, column=1, sticky="w"
+        row=29, column=1, sticky="w"
     )
-    tk.Label(measure_frame, text="Rescue Queue:").grid(row=18, column=0, sticky="e")
+    tk.Label(measure_frame, text="Rescue Queue:").grid(row=30, column=0, sticky="e")
     tk.Label(measure_frame, textvariable=stream_rescue_queue_var).grid(
-        row=18, column=1, sticky="w"
+        row=30, column=1, sticky="w"
     )
 
+    # Laser Offset
     laser_offset_frame = tk.LabelFrame(measure_frame, text="Laser Offset")
-    laser_offset_frame.grid(row=19, column=0, columnspan=5, sticky="ew", pady=(6, 0))
+    laser_offset_frame.grid(row=31, column=0, columnspan=3, sticky="ew", pady=(6, 0))
     if hasattr(laser_offset_frame, "columnconfigure"):
         laser_offset_frame.columnconfigure(1, weight=1)
+
     tk.Label(laser_offset_frame, text="Bottom Pin:").grid(row=0, column=0, sticky="e")
     laser_offset_pin_var = tk.StringVar(laser_offset_frame, value="")
     laser_offset_pin_menu = tk.OptionMenu(laser_offset_frame, laser_offset_pin_var, "")
     laser_offset_pin_menu.grid(row=0, column=1, sticky="ew")
+
     btn_seek_pin = tk.Button(laser_offset_frame, text="Seek Camera To Pin")
-    btn_seek_pin.grid(row=0, column=2, padx=(6, 0))
+    btn_seek_pin.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(3, 0))
     btn_move_laser_to_pin = tk.Button(laser_offset_frame, text="Move Laser To Pin")
-    btn_move_laser_to_pin.grid(row=0, column=3, padx=(6, 0))
+    btn_move_laser_to_pin.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(3, 0))
     btn_capture_laser_offset = tk.Button(
         laser_offset_frame, text="Capture Laser Offset"
     )
-    btn_capture_laser_offset.grid(row=0, column=4, padx=(6, 0))
+    btn_capture_laser_offset.grid(
+        row=3, column=0, columnspan=2, sticky="ew", pady=(3, 0)
+    )
+
     laser_offset_readout_var = tk.StringVar(laser_offset_frame, value="Side A: not set")
     tk.Label(laser_offset_frame, textvariable=laser_offset_readout_var).grid(
-        row=1, column=0, columnspan=5, sticky="w"
+        row=4, column=0, columnspan=2, sticky="w"
     )
     laser_offset_frame.grid_remove()
-
-    tk.Label(measure_frame, text="Clear Range:").grid(row=5, column=0, sticky="e")
-    entry_clear_range = tk.Entry(measure_frame)
-    entry_clear_range.grid(row=5, column=1)
-    btn_clear_range = tk.Button(measure_frame, text="Clear")
-    btn_clear_range.grid(row=5, column=2)
-
-    tk.Label(measure_frame, text="Condition (AND/OR):").grid(
-        row=6, column=0, sticky="e"
-    )
-    entry_condition = tk.Entry(measure_frame)
-    entry_condition.grid(row=6, column=1)
-    btn_measure_condition = tk.Button(measure_frame, text="Measure Condition")
-    btn_measure_condition.grid(row=6, column=2)
-    # Legacy mode can keep sampling until the measured tension satisfies a simple
-    # expression such as `t<7`, `4<t`, or `4<t<7`.
-    tk.Label(measure_frame, text="Legacy Tension:").grid(row=6, column=3, sticky="e")
-    entry_legacy_tension_condition = tk.Entry(measure_frame)
-    entry_legacy_tension_condition.grid(row=6, column=4, sticky="ew")
-
-    tk.Label(measure_frame, text="Outlier σ Multiplier:").grid(
-        row=7, column=0, sticky="e"
-    )
-    entry_times_sigma = tk.Entry(measure_frame)
-    entry_times_sigma.grid(row=7, column=1)
-    entry_times_sigma.insert(0, "2.0")
-    btn_erase_outliers = tk.Button(measure_frame, text="Erase Residual Outliers")
-    btn_erase_outliers.grid(row=7, column=2)
-    btn_erase_distribution_outliers = tk.Button(
-        measure_frame, text="Erase Bulk Outliers"
-    )
-    btn_erase_distribution_outliers.grid(row=7, column=3)
-
-    tk.Label(measure_frame, text="Set Tensions:").grid(row=8, column=0, sticky="e")
-    entry_set_tension = tk.Entry(measure_frame)
-    entry_set_tension.grid(row=8, column=1)
-    btn_set_tension = tk.Button(measure_frame, text="Apply Tensions")
-    btn_set_tension.grid(row=8, column=2)
-
-    btn_calibrate_noise = tk.Button(measure_frame, text="Calibrate Noise")
-    btn_calibrate_noise.grid(row=13, column=2)
 
     tk.Label(servo_frame, text="Focus:").grid(row=0, column=0, sticky="e")
     focus_slider = tk.Scale(servo_frame, from_=4000, to=8000, orient=tk.HORIZONTAL)
     focus_slider.set(4000)
     focus_slider.grid(row=0, column=1, sticky="ew")
-    disable_x_compensation_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(
-        servo_frame,
-        text="Disable X Compensation",
-        variable=disable_x_compensation_var,
-    ).grid(row=0, column=2, sticky="w", padx=(6, 0))
 
     tk.Label(servo_frame, textvariable=focus_command_var).grid(
         row=1, column=0, sticky="e"
@@ -568,6 +637,13 @@ def _create_widgets(
         focus_command_dot = focus_command_canvas.create_oval(
             0, 0, 0, 0, fill="blue", outline=""
         )
+
+    disable_x_compensation_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        servo_frame,
+        text="Disable X Compensation",
+        variable=disable_x_compensation_var,
+    ).grid(row=2, column=1, sticky="w")
 
     tk.Label(manual_move_frame, text="X,Y:").grid(row=0, column=0, sticky="e")
     entry_xy = tk.Entry(manual_move_frame)
@@ -606,6 +682,7 @@ def _create_widgets(
         entry_wire_list=entry_wire_list,
         entry_confidence=entry_confidence,
         confidence_source_var=confidence_source_var,
+        use_harmonic_comb_trigger_var=use_harmonic_comb_trigger_var,
         entry_record_duration=entry_record_duration,
         entry_measuring_duration=entry_measuring_duration,
         entry_wiggle_y_sigma=entry_wiggle_y_sigma,
@@ -649,7 +726,9 @@ def _create_widgets(
         "clear_range": btn_clear_range,
         "measure_condition": btn_measure_condition,
         "erase_outliers": btn_erase_outliers,
+        "measure_outliers": btn_measure_outliers,
         "erase_distribution_outliers": btn_erase_distribution_outliers,
+        "measure_distribution_outliers": btn_measure_distribution_outliers,
         "set_tension": btn_set_tension,
         "calibrate_noise": btn_calibrate_noise,
         "manual_go": btn_manual_go,
@@ -660,7 +739,7 @@ def _create_widgets(
         "capture_laser_offset": btn_capture_laser_offset,
     }
 
-    _configure_root_minimum_size(root, main_frame, side_frame)
+    _configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
 
     return (
         widgets,
@@ -677,9 +756,10 @@ def _create_widgets(
 def _configure_root_minimum_size(
     root: tk.Misc,
     main_frame: tk.Misc,
-    side_frame: tk.Misc,
+    plots_frame: tk.Misc,
+    log_frame: tk.Misc,
 ) -> None:
-    """Keep the two-column layout wide enough for controls and embedded plots."""
+    """Keep the three-column layout wide enough for controls, plots, and logs."""
 
     if not hasattr(root, "update_idletasks"):
         return
@@ -691,40 +771,44 @@ def _configure_root_minimum_size(
 
     try:
         main_width = int(main_frame.winfo_reqwidth())
-        side_width = int(side_frame.winfo_reqwidth())
+        plots_width = int(plots_frame.winfo_reqwidth())
+        log_width = int(log_frame.winfo_reqwidth())
         main_height = int(main_frame.winfo_reqheight())
-        side_height = int(side_frame.winfo_reqheight())
+        plots_height = int(plots_frame.winfo_reqheight())
+        log_height = int(log_frame.winfo_reqheight())
     except Exception:
         return
 
     estimated_plot_width = int(
         max(LIVE_SUMMARY_FIGSIZE[0], LIVE_WAVEFORM_FIGSIZE[0]) * 100
     )
-    side_width = max(side_width, estimated_plot_width)
+    plots_width = max(plots_width, estimated_plot_width)
 
     screen_width = _safe_screen_dimension(root, "winfo_screenwidth")
     screen_height = _safe_screen_dimension(root, "winfo_screenheight")
 
     available_width = max(screen_width - 30, 1) if screen_width is not None else None
     if available_width is not None:
-        main_width, side_width = _fit_column_widths_to_available_space(
+        main_width, plots_width, log_width = _fit_column_widths_to_available_space(
             main_width,
-            side_width,
+            plots_width,
+            log_width,
             available_width,
         )
 
     if hasattr(root, "columnconfigure"):
         try:
             root.columnconfigure(0, weight=0, minsize=max(main_width, 1))
-            root.columnconfigure(1, weight=1, minsize=max(side_width, 1))
+            root.columnconfigure(1, weight=1, minsize=max(plots_width, 1))
+            root.columnconfigure(2, weight=1, minsize=max(log_width, 1))
         except Exception:
             pass
 
     if not hasattr(root, "minsize"):
         return
 
-    total_width = main_width + side_width + 30
-    total_height = max(main_height, side_height) + 20
+    total_width = main_width + plots_width + log_width + 40
+    total_height = max(main_height, plots_height, log_height) + 20
     if screen_width is not None:
         total_width = min(total_width, screen_width)
     if screen_height is not None:
@@ -753,25 +837,33 @@ def _safe_screen_dimension(root: tk.Misc, method_name: str) -> int | None:
 
 def _fit_column_widths_to_available_space(
     main_width: int,
-    side_width: int,
+    plots_width: int,
+    log_width: int,
     available_width: int,
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     """Shrink column minimums so the root can fit on screen when maximized."""
 
-    desired_width = main_width + side_width
+    desired_width = main_width + plots_width + log_width
     if desired_width <= available_width:
-        return main_width, side_width
+        return main_width, plots_width, log_width
 
     overflow = desired_width - available_width
 
-    side_reduction = min(overflow, max(side_width - 1, 0))
-    side_width -= side_reduction
-    overflow -= side_reduction
+    # Shrink logs first, but keep a reasonable minimum
+    log_reduction = min(overflow, max(log_width - 100, 0))
+    log_width -= log_reduction
+    overflow -= log_reduction
+
+    if overflow > 0:
+        # Then shrink plots
+        plots_reduction = min(overflow, max(plots_width - 200, 0))
+        plots_width -= plots_reduction
+        overflow -= plots_reduction
 
     if overflow > 0:
         main_width = max(main_width - overflow, 1)
 
-    return main_width, side_width
+    return main_width, plots_width, log_width
 
 
 def _configure_commands(
@@ -789,8 +881,12 @@ def _configure_commands(
     buttons["clear_range"].configure(command=lambda: clear_range(ctx))
     buttons["measure_condition"].configure(command=lambda: measure_condition(ctx))
     buttons["erase_outliers"].configure(command=lambda: erase_outliers(ctx))
+    buttons["measure_outliers"].configure(command=lambda: measure_outliers(ctx))
     buttons["erase_distribution_outliers"].configure(
         command=lambda: erase_distribution_outliers(ctx)
+    )
+    buttons["measure_distribution_outliers"].configure(
+        command=lambda: measure_distribution_outliers(ctx)
     )
     buttons["set_tension"].configure(command=lambda: set_manual_tension(ctx))
     buttons["calibrate_noise"].configure(

@@ -29,10 +29,32 @@ uv run dune-tension-gui          # Wire tension GUI
 Or use the make shorthands:
 
 ```bash
-make test      # uv run pytest
-make lint      # uv run ruff check src tests
-make format    # uv run ruff format src tests
+make test           # uv run pytest + cargo test
+make test-python    # uv run pytest
+make lint           # uv run ruff check src tests + cargo clippy
+make format         # uv run ruff format src tests + cargo fmt
+make typecheck      # uv run ty check
 ```
+
+---
+
+## Rust tooling — use the root Cargo workspace
+
+Rust code lives under `rust/` and uses `rust/Cargo.toml` as the workspace
+manifest. The canonical Rust lockfile is `rust/Cargo.lock`; commit it whenever
+Rust dependencies change.
+
+Use the root workspace manifest explicitly from the monorepo root:
+
+```bash
+cargo test --workspace --manifest-path rust/Cargo.toml
+cargo clippy --workspace --manifest-path rust/Cargo.toml --all-targets
+cargo fmt --manifest-path rust/Cargo.toml --all
+uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
+```
+
+The PyO3 extension is installed as `dune_tension._rust_audio` and should be
+built through `uv run maturin ...` so it lands in the repository `.venv`.
 
 ---
 
@@ -49,7 +71,7 @@ your notes or review comments so the complaint is annotated where it occurs.
 
 ---
 
-## Pre-commit hook (ruff + ty + markdownlint-cli2)
+## Pre-commit hook (ruff + ty + Rust + markdownlint-cli2)
 
 A pre-commit script lives at `scripts/pre-commit`. It runs automatically on
 staged files before every commit. **Install it once in a fresh clone:**
@@ -64,18 +86,21 @@ What it does:
 - **Python (`.py`)** — `uv run ruff format` then
   `uv run ruff check --fix`, re-stages modified files, then
   `uv run ty check`.
-- **Markdown (`.md`)** — `markdownlint-cli2 --fix`, re-stages modified files.
+- **Rust (`.rs`, `Cargo.toml`, `Cargo.lock`)** — `cargo fmt`, re-stages
+  modified Rust files, then `cargo clippy --all-targets`.
+- **Markdown (`.md`)** — `npx --no-install markdownlint-cli2 --fix`,
+  re-stages modified files.
 
 The hook is idempotent — each section skips silently if no matching files are staged.
 
 ## Markdown files
 
-Always format `.md` files with `markdownlint-cli2` (installed globally via
-`npm install markdownlint-cli2 --global`):
+Always format `.md` files with the project-local `markdownlint-cli2`:
 
 ```bash
-markdownlint-cli2 "**/*.md"          # lint entire repo
-markdownlint-cli2 --fix "**/*.md"    # auto-fix where possible
+npm install                          # install Node dev tooling
+npm run markdown:lint -- "**/*.md"   # lint entire repo
+npm run markdown:fix -- "**/*.md"    # auto-fix where possible
 ```
 
 The pre-commit hook runs this automatically on staged `.md` files, so manual
@@ -90,13 +115,16 @@ runs are only needed for bulk reformatting.
 - Tests: `tests/dune_tension/`, `tests/dune_winder/`
 - Data artifacts (not Python packages): `dune_winder/plc/`, `dune_tension/data/`
 - Lock file: `uv.lock` (canonical — always commit this)
+- Rust workspace: `rust/` with lock file `rust/Cargo.lock`
 - Python ≥ 3.12 (managed by uv); works on Windows and Unix/macOS
+- Rust ≥ 1.83 for the optional `dune_tension._rust_audio` extension
 
 ### Test by package
 
 ```bash
 uv run pytest tests/dune_tension    # tension package only
 uv run pytest tests/dune_winder     # winder package only
+cargo test --workspace --manifest-path rust/Cargo.toml
 ```
 
 ---

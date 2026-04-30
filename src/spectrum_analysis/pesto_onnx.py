@@ -13,17 +13,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+import json
 from typing import Any, Optional, Tuple
 
 import numpy as np
 
+from spectrum_analysis.pitch_consensus import estimate_pitch_consensus
+
 
 _LOGGER = logging.getLogger(__name__)
 
-onnxruntime = None  # type: ignore
-onnx = None  # type: ignore
-pesto = None  # type: ignore
-torch = None  # type: ignore
+onnxruntime: Any | None = None
+onnx: Any | None = None
+pesto: Any | None = None
+torch: Any | None = None
 _RUNTIME_DEPS_LOADED = False
 
 _ONNX_MODEL_CACHE: dict[str, ONNXPestoModel] = {}
@@ -56,24 +59,24 @@ def _ensure_runtime_dependencies() -> bool:
         return onnxruntime is not None and pesto is not None and torch is not None
 
     try:
-        import onnx as onnx_module  # type: ignore
-        import onnxruntime as ort_module  # type: ignore
-        import torch as torch_module  # type: ignore
-        from pesto import load_model as pesto_load_model  # type: ignore
+        import onnx as onnx_module
+        import onnxruntime as ort_module
+        import torch as torch_module
+        from pesto import load_model as pesto_load_model
     except Exception as e:
         _LOGGER.debug("Failed to import ONNX Runtime, PyTorch, or pesto: %s", e)
-        onnxruntime = None  # type: ignore
-        onnx = None  # type: ignore
-        pesto = None  # type: ignore
-        torch = None  # type: ignore
+        onnxruntime = None
+        onnx = None
+        pesto = None
+        torch = None
         _RUNTIME_DEPS_LOADED = True
         return False
 
-    onnxruntime = ort_module  # type: ignore
-    onnx = onnx_module  # type: ignore
-    torch = torch_module  # type: ignore
+    onnxruntime = ort_module
+    onnx = onnx_module
+    torch = torch_module
     pesto_load_model  # noqa: B018
-    pesto = onnxruntime  # type: ignore
+    pesto = onnxruntime
     _RUNTIME_DEPS_LOADED = True
     return True
 
@@ -110,6 +113,33 @@ def _find_onnx_model_path(model_name: str, model_type: str) -> Optional[Path]:
 
     _LOGGER.debug("Could not find %s model: %s", model_type, filename)
     return None
+
+
+def _find_onnx_manifest_path(model_name: str) -> Optional[Path]:
+    filename = f"{model_name}_manifest.json"
+    candidate_paths = [
+        Path(__file__).resolve().parent.parent.parent
+        / "dune_tension"
+        / "data"
+        / "pesto_onnx"
+        / filename,
+        Path(__file__).resolve().parent / "pesto_onnx" / filename,
+        Path("dune_tension") / "data" / "pesto_onnx" / filename,
+    ]
+    for path in candidate_paths:
+        if path.exists():
+            return path
+    return None
+
+
+def _load_onnx_manifest(model_name: str) -> dict[str, Any]:
+    path = _find_onnx_manifest_path(model_name)
+    if path is None:
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
 
 
 def _reduce_activations_alwa(
@@ -188,7 +218,10 @@ class ONNXPestoModel:
         model_name: str,
         bins_per_semitone: int = 2,
         fmin: float = 32.7,
-        num_octaves: int = 6,
+        n_bins: int = 251,
+        crop_min_steps: int = -16,
+        crop_max_steps: int = 16,
+        shift: float = 0.0,
         hop_size_ms: float = 5.0,
     ):
         """Initialize ONNX PESTO model.
@@ -204,26 +237,32 @@ class ONNXPestoModel:
         """
         if not _ensure_runtime_dependencies():
             raise RuntimeError("ONNX Runtime dependencies are not available")
+        runtime = onnxruntime
+        if runtime is None:
+            raise RuntimeError("ONNX Runtime is not available")
 
         self.model_name = model_name
         self.bins_per_semitone = bins_per_semitone
         self.fmin = fmin
-        self.num_octaves = num_octaves
+        self.n_bins = n_bins
+        self.crop_min_steps = crop_min_steps
+        self.crop_max_steps = crop_max_steps
+        self.shift = shift
         self.hop_size_ms = hop_size_ms
 
         _LOGGER.info("Loading ONNX encoder from %s", encoder_path)
-        self.encoder_session = onnxruntime.InferenceSession(
+        self.encoder_session = runtime.InferenceSession(
             str(encoder_path),
             providers=["CPUExecutionProvider"],
         )
 
         _LOGGER.info("Loading ONNX confidence classifier from %s", confidence_path)
-        self.confidence_session = onnxruntime.InferenceSession(
+        self.confidence_session = runtime.InferenceSession(
             str(confidence_path),
             providers=["CPUExecutionProvider"],
         )
 
-        self.num_freq_bins = 12 * bins_per_semitone * num_octaves
+        self.num_freq_bins = n_bins
         self.output_dim = 128 * bins_per_semitone
 
         _LOGGER.info(
@@ -243,15 +282,20 @@ class ONNXPestoModel:
             raise RuntimeError("PESTO library is not available")
 
         if not hasattr(self, "_preprocessor"):
-            from pesto import Preprocessor
+            from pesto.data import Preprocessor
 
             self._preprocessor = Preprocessor(
                 hop_size=self.hop_size_ms,
                 sampling_rate=None,
                 fmin=self.fmin,
-                harmonics=6,
+                harmonics=[1],
                 bins_per_semitone=self.bins_per_semitone,
-                n_octaves=self.num_octaves,
+                n_bins=self.n_bins,
+                center_bins=True,
+                gamma=7,
+                center=True,
+                streaming=False,
+                max_batch_size=1,
             )
 
         return self._preprocessor
@@ -262,7 +306,7 @@ class ONNXPestoModel:
         sample_rate: int,
         convert_to_freq: bool = False,
         return_activations: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
         """Run forward pass through the PESTO model.
 
         Args:
@@ -294,7 +338,10 @@ class ONNXPestoModel:
                 )[0]
                 confidence = confidence_output.squeeze(-1).astype(np.float32)
 
-                encoder_input = cqt_output.cpu().numpy().astype(np.float32)
+                encoder_tensor = cqt_output[
+                    ..., self.crop_max_steps : self.crop_min_steps
+                ]
+                encoder_input = encoder_tensor.cpu().numpy().astype(np.float32)
 
             activations_output = self.encoder_session.run(
                 ["activations"], {"hcqt_features": encoder_input}
@@ -304,13 +351,17 @@ class ONNXPestoModel:
         else:
             raise RuntimeError("PyTorch is required for HCQT preprocessing")
 
+        bin_shift = int(round(float(self.shift) * int(self.bins_per_semitone)))
+        if bin_shift:
+            activations = np.roll(activations, -bin_shift, axis=-1)
+
         predictions = _reduce_activations_alwa(activations, self.bins_per_semitone)
 
         if convert_to_freq:
             predictions = 440.0 * np.power(2.0, (predictions - 69.0) / 12.0)
 
         if not return_activations:
-            return predictions, confidence, vol.cpu().numpy().astype(np.float32)
+            return predictions, confidence, vol.cpu().numpy().astype(np.float32), None
 
         return (
             predictions,
@@ -346,13 +397,18 @@ def load_onnx_model(
         _LOGGER.warning("ONNX models not found for %s", model_name)
         return None
 
+    manifest = _load_onnx_manifest(model_name)
+    hparams = manifest.get("hparams", {})
     model = ONNXPestoModel(
         encoder_path=encoder_path,
         confidence_path=confidence_path,
         model_name=model_name,
-        bins_per_semitone=2,
-        fmin=32.7,
-        num_octaves=6,
+        bins_per_semitone=int(hparams.get("bins_per_semitone", 3)),
+        fmin=float(hparams.get("fmin", 27.5)),
+        n_bins=int(hparams.get("n_bins", 251)),
+        crop_min_steps=int(hparams.get("crop_min_steps", -16)),
+        crop_max_steps=int(hparams.get("crop_max_steps", 16)),
+        shift=float(hparams.get("shift", 6.677955627441406)),
         hop_size_ms=step_size_ms,
     )
 
@@ -450,18 +506,20 @@ def analyze_audio_with_onnx(
             if np.any(expected_mask):
                 valid = expected_mask
 
-    if np.any(valid):
-        weighted_frequencies = predicted_frequencies[valid]
-        weights = confidence_values[valid]
-        weight_sum = float(np.sum(weights))
-        if weight_sum <= 0.0:
-            frequency = float(np.mean(weighted_frequencies))
-        else:
-            frequency = float(np.average(weighted_frequencies, weights=weights))
-        confidence_avg = float(np.mean(weights))
-    else:
-        frequency = float("nan")
-        confidence_avg = float("nan")
+    consensus = estimate_pitch_consensus(
+        predicted_frequencies,
+        confidence_values,
+        valid,
+    )
+    frequency = consensus.frequency
+    confidence_avg = consensus.confidence
+    if consensus.area_count > 1:
+        _LOGGER.debug(
+            "ONNX PESTO pitch consensus selected %s/%s frames from %s pitch areas.",
+            consensus.selected_frame_count,
+            consensus.total_frame_count,
+            consensus.area_count,
+        )
 
     activation_map: np.ndarray | None = None
     activation_freq_axis: np.ndarray | None = None

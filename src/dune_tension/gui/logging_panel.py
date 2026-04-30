@@ -7,6 +7,8 @@ import logging
 from queue import Empty, SimpleQueue
 from typing import Any
 
+from dune_tension.gui.log_filters import IgnoredMessageFilter
+
 LOGGER_NAMES = ("dune_tension", "spectrum_analysis")
 
 
@@ -160,6 +162,7 @@ def configure_gui_logging(root: Any, text_widget: Any) -> GuiLogBinding | None:
         )
     )
     handler.addFilter(NamespaceLogFilter(LOGGER_NAMES))
+    handler.addFilter(IgnoredMessageFilter())
 
     root_logger = logging.getLogger()
     if root_logger.level in (logging.NOTSET, 0) or root_logger.level > logging.INFO:

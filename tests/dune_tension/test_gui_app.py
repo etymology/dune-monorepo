@@ -51,9 +51,12 @@ def _load_app_module(monkeypatch):
         "measure_auto",
         "measure_calibrate",
         "measure_condition",
+        "measure_distribution_outliers",
         "measure_list_button",
+        "measure_outliers",
         "measure_zone_button",
         "monitor_tension_logs",
+        "refresh_connections",
         "refresh_uv_laser_offset_controls",
         "refresh_tension_logs",
         "move_laser_to_pin_button",
@@ -154,32 +157,43 @@ class _FakeFrame:
         return self.height
 
 
-def test_configure_root_minimum_size_reserves_space_for_both_columns(monkeypatch):
+def test_configure_root_minimum_size_reserves_space_for_all_columns(monkeypatch):
     app = _load_app_module(monkeypatch)
     root = _FakeRoot()
     main_frame = _FakeFrame(420, 700)
-    side_frame = _FakeFrame(760, 680)
+    plots_frame = _FakeFrame(760, 680)
+    log_frame = _FakeFrame(400, 600)
 
-    app._configure_root_minimum_size(root, main_frame, side_frame)
+    app._configure_root_minimum_size(root, main_frame, plots_frame, log_frame)
 
     assert root.update_calls == 1
     assert root.columnconfigure_calls == [
         (0, {"weight": 0, "minsize": 420}),
         (1, {"weight": 1, "minsize": 780}),
+        (2, {"weight": 1, "minsize": 400}),
     ]
-    assert root.minsize_args == (1230, 720)
+    # 420 (main) + 780 (plots) + 400 (log) + 40 (padding) = 1640
+    # max(700, 680, 600) + 20 = 720
+    assert root.minsize_args == (1640, 720)
 
 
 def test_configure_root_minimum_size_clamps_to_screen(monkeypatch):
     app = _load_app_module(monkeypatch)
     root = _FakeRoot(screen_width=1100, screen_height=680)
     main_frame = _FakeFrame(420, 700)
-    side_frame = _FakeFrame(760, 680)
+    plots_frame = _FakeFrame(760, 680)
+    log_frame = _FakeFrame(400, 600)
 
-    app._configure_root_minimum_size(root, main_frame, side_frame)
+    app._configure_root_minimum_size(root, main_frame, plots_frame, log_frame)
 
+    # 420 + 780 + 400 = 1600. screen=1100.
+    # overflow = 1600 - (1100 - 30) = 1600 - 1070 = 530
+    # log_reduction = min(530, 400 - 100) = 300. log_width = 100. overflow = 230
+    # plots_reduction = min(230, 780 - 200) = 230. plots_width = 550. overflow = 0
+    # main_width = 420.
     assert root.columnconfigure_calls == [
         (0, {"weight": 0, "minsize": 420}),
-        (1, {"weight": 1, "minsize": 650}),
+        (1, {"weight": 1, "minsize": 550}),
+        (2, {"weight": 1, "minsize": 100}),
     ]
     assert root.minsize_args == (1100, 680)
