@@ -191,3 +191,51 @@ def test_valve_controller_reports_permission_denied(monkeypatch):
 
     with pytest.raises(RuntimeError, match="access was denied"):
         valve_trigger.ValveController()
+
+
+def test_valve_pulse_blocks_between_open_and_close(monkeypatch):
+    serial_stub = types.ModuleType("serial")
+    serial_tools_stub = types.ModuleType("serial.tools")
+    list_ports_stub = types.ModuleType("serial.tools.list_ports")
+    payloads = []
+    sleeps = []
+
+    class SerialException(Exception):
+        pass
+
+    class FakeSerial:
+        def __init__(self, port, *_, **__):
+            self.port = port
+
+        def close(self):
+            pass
+
+        def write(self, payload):
+            payloads.append(payload)
+
+        def flush(self):
+            pass
+
+    setattr(serial_stub, "Serial", FakeSerial)
+    setattr(serial_stub, "SerialException", SerialException)
+    setattr(list_ports_stub, "comports", lambda: [])
+    setattr(serial_tools_stub, "list_ports", list_ports_stub)
+    monkeypatch.setitem(sys.modules, "serial", serial_stub)
+    monkeypatch.setitem(sys.modules, "serial.tools", serial_tools_stub)
+    monkeypatch.setitem(sys.modules, "serial.tools.list_ports", list_ports_stub)
+    sys.modules.pop("dune_tension.hardware.serial_discovery", None)
+    sys.modules.pop("dune_tension.hardware.valve_trigger", None)
+
+    valve_trigger = importlib.import_module("dune_tension.hardware.valve_trigger")
+    valve_trigger = importlib.reload(valve_trigger)
+    monkeypatch.setattr(valve_trigger.time, "sleep", lambda duration: sleeps.append(duration))
+
+    controller = valve_trigger.ValveController(port="/dev/ttyUSB0")
+    controller.pulse(0.01)
+
+    assert payloads == [
+        bytes([0xA0, 0x01, 0x01, 0xA2]),
+        bytes([0xA0, 0x01, 0x00, 0xA1]),
+    ]
+    assert sleeps == [0.01]
+    controller.close()
