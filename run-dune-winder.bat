@@ -12,7 +12,6 @@ pushd "%WORKSPACE%" >nul || (
 
 start "" "%WORKSPACE%\.venv\Scripts\python.exe" -m dune_winder %*
 timeout /t 2 /nobreak >nul
-start "" "http://localhost:8080"
 set "EXIT_CODE=%ERRORLEVEL%"
 
 popd >nul
