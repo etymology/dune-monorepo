@@ -804,9 +804,6 @@ def _configure_root_minimum_size(
         except Exception:
             pass
 
-    if not hasattr(root, "minsize"):
-        return
-
     total_width = main_width + plots_width + log_width + 40
     total_height = max(main_height, plots_height, log_height) + 20
     if screen_width is not None:
@@ -816,10 +813,12 @@ def _configure_root_minimum_size(
     if total_width <= 0 or total_height <= 0:
         return
 
-    try:
-        root.minsize(total_width, total_height)
-    except Exception:
-        return
+    minsize = getattr(root, "minsize", None)
+    if callable(minsize):
+        try:
+            minsize(total_width, total_height)
+        except Exception:
+            return
 
 
 def _safe_screen_dimension(root: tk.Misc, method_name: str) -> int | None:

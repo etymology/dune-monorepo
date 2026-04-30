@@ -1864,7 +1864,7 @@ def handle_close(ctx: GUIContext) -> None:
         except Exception:
             LOGGER.exception("Failed to close valve controller during shutdown.")
     try:
-        import sounddevice as sd  # type: ignore
+        import sounddevice as sd
 
         sd.stop()
     except Exception:

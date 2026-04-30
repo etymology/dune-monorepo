@@ -1346,8 +1346,8 @@ def load_imperative_routine_from_source(
             ctx.current_routine = previous_routine
 
     execute.__name__ = getattr(routine_fn, "__name__", "execute")
-    execute.ladder_routine = routine_metadata
-    execute.ladder_source = source
+    setattr(execute, "ladder_routine", routine_metadata)
+    setattr(execute, "ladder_source", source)
     return execute
 
 

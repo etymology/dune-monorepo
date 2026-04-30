@@ -20,10 +20,14 @@ class TerminalMode:
 
     def __init__(self, fd: int):
         self._fd = fd
-        self._original = termios.tcgetattr(fd)
+        self._tcgetattr = getattr(termios, "tcgetattr")
+        self._tcsetattr = getattr(termios, "tcsetattr")
+        self._tcsadrain = getattr(termios, "TCSADRAIN")
+        self._setcbreak = getattr(tty, "setcbreak")
+        self._original = self._tcgetattr(fd)
 
     def __enter__(self) -> None:
-        tty.setcbreak(self._fd)
+        self._setcbreak(self._fd)
         return None
 
     def __exit__(
@@ -32,7 +36,7 @@ class TerminalMode:
         exc: BaseException | None,
         traceback: BaseException | None,
     ) -> None:
-        termios.tcsetattr(self._fd, termios.TCSADRAIN, self._original)
+        self._tcsetattr(self._fd, self._tcsadrain, self._original)
 
 
 def _ensure_tty() -> None:

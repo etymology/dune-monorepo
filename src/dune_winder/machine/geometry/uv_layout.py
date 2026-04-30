@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import re
+from typing import Any, cast
 
 from dune_winder.machine.calibration.defaults import get_layer_z_defaults
 from dune_winder.machine.geometry.factory import create_layer_geometry
@@ -435,8 +436,9 @@ class UvLayerLayout:
         self.geometry = create_layer_geometry(self.layer)
         self.pin_max = int(self.geometry.pins)
         spec = _LAYOUT_SPECS[self.layer]
-        self.pitch_dx = float(self.geometry.deltaX)
-        self.pitch_dy = float(self.geometry.deltaY)
+        geometry = cast(Any, self.geometry)
+        self.pitch_dx = float(geometry.pitchX)
+        self.pitch_dy = float(geometry.pitchY)
         self.wire_segment_min = int(spec["wire_segment_min"])
         self.wire_segment_max = int(spec["wire_segment_max"])
         self.wire_segment_formula_min = int(spec["wire_segment_formula_min"])
@@ -449,9 +451,11 @@ class UvLayerLayout:
         self._wire_segment_1_pin_a = int(spec["wire_segment_1_pin_a"])
         self._wire_segment_1_pin_b = int(spec["wire_segment_1_pin_b"])
         self._b1_target_xy = tuple(spec["b1_target_xy"])
+        measurement_dy_sign = cast(dict[str, int], spec["measurement_dy_sign"])
         self._measurement_dy_sign = {
-            family: int(sign) for family, sign in spec["measurement_dy_sign"].items()
+            family: int(sign) for family, sign in measurement_dy_sign.items()
         }
+        tangent_ranges = cast(list[tuple[int, int, bool, bool]], spec["tangent_ranges"])
         self._tangent_ranges = tuple(
             (
                 int(start_pin),
@@ -459,7 +463,7 @@ class UvLayerLayout:
                 bool(x_plus),
                 bool(y_a_plus),
             )
-            for start_pin, end_pin, x_plus, y_a_plus in spec["tangent_ranges"]
+            for start_pin, end_pin, x_plus, y_a_plus in tangent_ranges
         )
         self._boards = self._build_boards()
         self._boards_by_face = {

@@ -292,7 +292,7 @@ def _is_standalone_jsr(rung: Rung, target: str | None = None) -> bool:
         return False
     if target is None:
         return True
-    return node.operands and node.operands[0] == target
+    return bool(node.operands) and node.operands[0] == target
 
 
 def _inline_standalone_jsrs(
@@ -301,7 +301,11 @@ def _inline_standalone_jsrs(
     flattened: list[Rung] = []
     for rung in rungs:
         if _is_standalone_jsr(rung):
-            target = rung.nodes[0].operands[0]
+            node = rung.nodes[0]
+            if not isinstance(node, InstructionCall):
+                flattened.append(rung)
+                continue
+            target = node.operands[0]
             if target not in inline_map:
                 flattened.append(rung)
                 continue

@@ -222,9 +222,14 @@ def _cli(duration: float, port: str | None = None) -> int:
     )
 
     fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+    tcgetattr = getattr(termios, "tcgetattr")
+    tcsetattr = getattr(termios, "tcsetattr")
+    tcsadrain = getattr(termios, "TCSADRAIN")
+    setcbreak = getattr(tty, "setcbreak")
+
+    old_settings = tcgetattr(fd)
     try:
-        tty.setcbreak(fd)
+        setcbreak(fd)
         while True:
             char = sys.stdin.read(1)
             if char == " ":
@@ -240,7 +245,7 @@ def _cli(duration: float, port: str | None = None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        tcsetattr(fd, tcsadrain, old_settings)
         controller.close()
 
     print("Exiting.")

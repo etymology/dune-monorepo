@@ -67,7 +67,9 @@ class MotionQueueClient:
     def __exit__(self, exc_type, exc, tb) -> None:
         if getattr(self._plc, "_plcDriver", None) is not None:
             try:
-                self._plc._plcDriver.close()
+                plc_driver = getattr(self._plc, "_plcDriver", None)
+                if plc_driver is not None:
+                    plc_driver.close()
             except Exception:
                 pass
         self._plc = None

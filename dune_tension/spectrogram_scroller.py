@@ -52,7 +52,7 @@ import queue
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -151,7 +151,8 @@ class MicSource(AudioSource):
 
     def start(self):
         self._stopped.clear()
-        self.stream = sd.InputStream(
+        sounddevice = cast(Any, sd)
+        self.stream = sounddevice.InputStream(
             channels=1,
             samplerate=self.samplerate,
             blocksize=self.hop,
@@ -308,8 +309,13 @@ class PestoPitchTracker:
 
             globals()["pesto"] = _pesto
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = pesto.load_model(
+        torch_mod = cast(Any, torch)
+        pesto_mod = cast(Any, pesto)
+
+        self.device = torch_mod.device(
+            "cuda:0" if torch_mod.cuda.is_available() else "cpu"
+        )
+        self.model = pesto_mod.load_model(
             cfg.model_name,
             step_size=cfg.step_ms,
             sampling_rate=cfg.sampling_rate,
@@ -326,6 +332,7 @@ class PestoPitchTracker:
     def push_audio(self, samples: np.ndarray):
         if samples.size == 0:
             return None
+        torch_mod = cast(Any, torch)
         self.buf = np.concatenate([self.buf, samples])
         out = []
         # Feed model in fixed step_len chunks
@@ -333,8 +340,8 @@ class PestoPitchTracker:
             chunk = self.buf[: self.step_len]
             self.buf = self.buf[self.step_len :]
             # Shape (batch=1, n)
-            tensor = torch.from_numpy(chunk[None, :]).to(self.device)
-            with torch.no_grad():
+            tensor = torch_mod.from_numpy(chunk[None, :]).to(self.device)
+            with torch_mod.no_grad():
                 # Ask for frequency directly
                 f0, conf, amp = self.model(
                     tensor, convert_to_freq=True, return_activations=False
@@ -399,7 +406,8 @@ class CrepePitchTracker:
         if audio_16k.size < 160:  # ~10ms at 16k
             return None
         # step_size is in ms
-        time_s, freq_hz, conf, _ = crepe.predict(
+        crepe_mod = cast(Any, crepe)
+        time_s, freq_hz, conf, _ = crepe_mod.predict(
             audio_16k, self.target_sr, viterbi=False, step_size=self.step_ms, verbose=0
         )
         # Emit only the last estimate
@@ -616,6 +624,11 @@ class App:
                 step_ms=pesto_step_ms, model_name=pesto_model, sampling_rate=samplerate
             )
             self.pesto = PestoPitchTracker(cfg)
+            self.crepe: CrepePitchTracker | None = (
+                CrepePitchTracker(sampling_rate=samplerate, step_ms=crepe_step_ms)
+                if crepe_enabled
+                else None
+            )
             self.view = PestoPitchView(
                 window_sec,
                 pesto_pitch_ylim,
@@ -654,7 +667,8 @@ class App:
         self.last_noise_profile_path: Optional[Path] = None
 
         if self.mode == "spec":
-            self.view.set_noise_filter(self._apply_wiener_filter)
+            view = cast(SpectrogramView, self.view)
+            view.set_noise_filter(self._apply_wiener_filter)
 
     def _profile_noise(self, notify: bool = False) -> bool:
         if notify:
@@ -817,19 +831,21 @@ class App:
             if chunk.size == 0:
                 return
             self.sample_buf = np.concatenate([self.sample_buf, chunk])
+            view = cast(SpectrogramView, self.view)
             while self.sample_buf.size >= self.fft_size:
                 frame = self.sample_buf[: self.fft_size]
                 self.sample_buf = self.sample_buf[self.hop :]
-                self.view.process_frame(frame)
+                view.process_frame(frame)
         else:
             # PESTO: push to tracker
+            view = cast(PestoPitchView, self.view)
             results = self.pesto.push_audio(chunk)
             if results:
-                self.view.add_points(results)
-            if getattr(self, "crepe", None) is not None:
+                view.add_points(results)
+            if self.crepe is not None:
                 c_results = self.crepe.push_audio(chunk)
                 if c_results:
-                    self.view.add_crepe_points(c_results)
+                    view.add_crepe_points(c_results)
             # Autocorr: accumulate time domain, compute from last window
             if chunk.size > 0:
                 self.ac_buf = np.concatenate([self.ac_buf, chunk])
@@ -841,7 +857,7 @@ class App:
                 spec_clean = np.fft.rfft(frame * self.win, n=self.fft_size)
                 td = np.fft.irfft(spec_clean, n=self.fft_size)
                 f0_ac = self._autocorr_pitch(td)
-                self.view.add_ac_point(0.0, f0_ac)
+                view.add_ac_point(0.0, f0_ac)
 
     def update_plot(self):
         self.view.update_plot()

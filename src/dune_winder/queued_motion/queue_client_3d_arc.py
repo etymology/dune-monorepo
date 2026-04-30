@@ -214,7 +214,9 @@ class MotionArc3DQueueClient:
     def __exit__(self, exc_type, exc, tb) -> None:
         if getattr(self.plc, "_plcDriver", None) is not None:
             try:
-                self.plc._plcDriver.close()
+                plc_driver = getattr(self.plc, "_plcDriver", None)
+                if plc_driver is not None:
+                    plc_driver.close()
             except Exception:
                 pass
         self.plc = None

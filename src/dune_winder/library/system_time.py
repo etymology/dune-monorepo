@@ -31,7 +31,7 @@ class SystemTime(TimeSource):
           Returns current time.
         """
 
-        return datetime.datetime.utcnow()
+        return datetime.datetime.now(datetime.timezone.utc)
 
     # -------------------------------------------------------------------
     def getDelta(self, then, now=None):

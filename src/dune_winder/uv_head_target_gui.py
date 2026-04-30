@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 import math
 import tkinter as tk
+from typing import Any, cast
 
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 from dune_winder.machine.geometry.uv_tangency import (
@@ -429,11 +430,11 @@ def _collect_draw_points(result: UvTangentViewResult) -> list[Point2D]:
     points = [
         Point2D(result.pin_a_point.x, result.pin_a_point.y),
         Point2D(result.pin_b_point.x, result.pin_b_point.y),
-        result.tangent_point_a,
-        result.tangent_point_b,
-        result.clipped_segment_start,
-        result.clipped_segment_end,
-        result.outbound_intercept,
+        Point2D(result.tangent_point_a.x, result.tangent_point_a.y),
+        Point2D(result.tangent_point_b.x, result.tangent_point_b.y),
+        Point2D(result.clipped_segment_start.x, result.clipped_segment_start.y),
+        Point2D(result.clipped_segment_end.x, result.clipped_segment_end.y),
+        Point2D(result.outbound_intercept.x, result.outbound_intercept.y),
         Point2D(bounds.left, bounds.top),
         Point2D(bounds.left, bounds.bottom),
         Point2D(bounds.right, bounds.top),
@@ -457,7 +458,7 @@ def _collect_draw_points(result: UvTangentViewResult) -> list[Point2D]:
     ) + tuple(result.roller_centers)
     for point in optional_points:
         if point is not None:
-            points.append(point)
+            points.append(Point2D(point.x, point.y))
     return points
 
 
@@ -610,7 +611,7 @@ def _neighbor_points(
     result: UvTangentViewResult,
     pin_name: str,
 ) -> tuple[tuple[str, Point2D], tuple[str, Point2D] | None, tuple[str, Point2D] | None]:
-    points_by_name = dict(result.apa_pin_points_by_name)
+    points_by_name = cast(dict[str, Point2D], dict(result.apa_pin_points_by_name))
     pin_family = pin_name[:1]
     same_family = sorted(
         (
@@ -627,7 +628,11 @@ def _neighbor_points(
     next_item = (
         same_family[target_index + 1] if target_index < len(same_family) - 1 else None
     )
-    return ((pin_name, points_by_name[pin_name]), previous_item, next_item)
+    return (
+        (pin_name, Point2D(points_by_name[pin_name].x, points_by_name[pin_name].y)),
+        cast(tuple[str, Point2D] | None, previous_item),
+        cast(tuple[str, Point2D] | None, next_item),
+    )
 
 
 def _clip_line_to_bounds(
@@ -1894,10 +1899,10 @@ def _build_form(root: tk.Misc) -> _FormState:
 
 
 def run_app(root: tk.Misc | None = None) -> None:
-    root = root or tk.Tk()
-    root.title("UV Tangent Viewer")
-    _build_form(root)
-    root.mainloop()
+    root_widget = cast(tk.Tk, root or tk.Tk())
+    root_widget.title("UV Tangent Viewer")
+    _build_form(root_widget)
+    root_widget.mainloop()
 
 
 if __name__ == "__main__":

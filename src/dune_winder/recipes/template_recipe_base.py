@@ -191,7 +191,10 @@ class TemplateRecipeBase:
 
         try:
             with open(filePath, encoding="utf-8") as inputFile:
-                match = self.HEADER_HASH_RE.search(inputFile.readline().strip())
+                header_hash_re = self.HEADER_HASH_RE
+                if header_hash_re is None:
+                    return None
+                match = header_hash_re.search(inputFile.readline().strip())
                 if match:
                     return match.group(1)
         except OSError:

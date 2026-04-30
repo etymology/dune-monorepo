@@ -154,6 +154,13 @@ class PrimaryThread(threading.Thread):
         pass
 
     # ---------------------------------------------------------------------
+    def body(self):
+        """
+        Thread body implemented by subclasses.
+        """
+        raise NotImplementedError
+
+    # ---------------------------------------------------------------------
     def run(self):
         self._log.add(
             self.__class__.__name__,

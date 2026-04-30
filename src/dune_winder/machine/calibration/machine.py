@@ -312,6 +312,7 @@ class MachineCalibration:
     def _load_from_xml(self, xml_path: pathlib.Path) -> None:
         """Parse the legacy Serializable XML format into this instance."""
         import xml.dom.minidom
+        from xml.dom.minidom import Element
 
         doc = xml.dom.minidom.parse(str(xml_path))
         nodes = doc.getElementsByTagName("MachineCalibration")
@@ -319,7 +320,7 @@ class MachineCalibration:
             raise KeyError("MachineCalibration not found in XML file")
 
         for node in nodes[0].childNodes:
-            if node.nodeType != node.ELEMENT_NODE:
+            if not isinstance(node, Element):
                 continue
             name = node.getAttribute("name")
             if not node.firstChild:

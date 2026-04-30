@@ -63,7 +63,7 @@ class DigitalOutput(DigitalIO, metaclass=ABCMeta):
 
     # ---------------------------------------------------------------------
     @abstractmethod
-    def _doSet(self):
+    def _doSet(self, state):
         """
         Abstract function that must be define in child to preform output operations.
 

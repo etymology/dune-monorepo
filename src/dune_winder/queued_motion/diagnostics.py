@@ -55,7 +55,7 @@ def serialize_segment_diagnostics(
     *,
     start_xy: tuple[float, float],
     segments: list[MotionSegment],
-) -> tuple[list[dict[str, object]], dict[str, object]]:
+) -> tuple[list[dict[str, object]], dict[str, int | float]]:
     diagnostics: list[dict[str, object]] = []
     total_path_length = 0.0
     line_count = 0
@@ -94,7 +94,7 @@ def serialize_segment_diagnostics(
         )
         cursor = (float(seg.x), float(seg.y))
 
-    summary = {
+    summary: dict[str, int | float] = {
         "segmentCount": int(len(segments)),
         "lineCount": int(line_count),
         "circleCount": int(circle_count),

@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import tempfile
+from typing import cast
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.library.hash import Hash
@@ -76,6 +77,7 @@ class WinderWorkspace:
     @classmethod
     def _readXmlState(cls, xmlPath: pathlib.Path):
         import xml.dom.minidom
+        from xml.dom.minidom import Element
 
         state = cls._defaultState()
         doc = xml.dom.minidom.parse(str(xmlPath))
@@ -87,7 +89,7 @@ class WinderWorkspace:
             return state
 
         for node in root.childNodes:
-            if node.nodeType != node.ELEMENT_NODE:
+            if not isinstance(node, Element):
                 continue
             name = node.getAttribute("name")
             if name not in cls.SERIALIZED_VARIABLES:
@@ -104,7 +106,7 @@ class WinderWorkspace:
             elif tag == "dict":
                 value = {}
                 for child in node.childNodes:
-                    if child.nodeType != child.ELEMENT_NODE:
+                    if not isinstance(child, Element):
                         continue
                     key = child.getAttribute("name")
                     if child.firstChild:
@@ -158,6 +160,9 @@ class WinderWorkspace:
         self._recipePeriod = None
         self._calibration = None
         self._z = None
+        self._lineHistory = {}
+        self._loadedTime = 0
+        self._windTime = 0
 
         for var, value in self._defaultState().items():
             setattr(self, var, value)
@@ -316,6 +321,7 @@ class WinderWorkspace:
 
     def loadRecipe(self, layer=None, recipeFile=None, startingLine=-1):
         isError = False
+        recipe_path = None
 
         if (
             startingLine == -1
@@ -347,8 +353,9 @@ class WinderWorkspace:
 
         if not isError and self._recipeFile is not None:
             self._generateDefaultRecipeIfMissing(self._recipeFile)
+            recipe_path = os.path.join(self._recipeDirectory, self._recipeFile)
             self._recipe = Recipe(
-                self._recipeDirectory + "/" + self._recipeFile,
+                recipe_path,
                 self._recipeArchiveDirectory,
             )
             self._recipePeriod = self._recipe.getDetectedPeriod()
@@ -365,7 +372,10 @@ class WinderWorkspace:
 
         if not isError:
             self._gCodeHandler.setLineChangeCallback(self.save)
-            recipeFullPath = self._recipeDirectory + "/" + self._recipeFile
+            recipe = self._recipe
+            recipeFullPath = recipe_path or os.path.join(
+                self._recipeDirectory, self._recipeFile or ""
+            )
             activeLayer = self._layer if self._layer is not None else "<unset>"
             self._log.add(
                 self.__class__.__name__,
@@ -380,23 +390,24 @@ class WinderWorkspace:
                     recipeFullPath,
                     self._layer,
                     self._lineNumber,
-                    self._recipe.getDescription(),
-                    self._recipe.getID(),
+                    recipe.getDescription() if recipe is not None else None,
+                    recipe.getID() if recipe is not None else None,
                 ],
             )
         else:
+            recipeFullPath = recipe_path or os.path.join(
+                self._recipeDirectory, self._recipeFile or ""
+            )
             self._log.add(
                 self.__class__.__name__,
                 "GCODE",
                 "Failed to loaded G-Code file "
-                + self._recipeDirectory
-                + "/"
-                + self._recipeFile
+                + recipeFullPath
                 + ", starting at line "
                 + str(self._lineNumber),
                 [
                     error,
-                    self._recipeDirectory + "/" + self._recipeFile,
+                    recipeFullPath,
                     self._lineNumber,
                 ],
             )
@@ -612,10 +623,11 @@ class WinderWorkspace:
 
             current["segmentEndLine"] = index
             current["segmentEndLineNumber"] = index + 1
-            current["segmentLines"] += 1
+            current["segmentLines"] = cast(int, current["segmentLines"]) + 1
             current["lastPin"] = info["secondPin"]
             current["lastPinName"] = info["secondPinName"]
-            current["lineMatches"].append(
+            line_matches = cast(list[dict[str, object]], current["lineMatches"])
+            line_matches.append(
                 {
                     "line": index,
                     "lineNumber": index + 1,
@@ -1108,7 +1120,8 @@ class WinderWorkspace:
         self._gCodeHandler.closeG_CodeLog()
         self.save()
 
-        elapsedTime = self._systemTime.getDelta(self._startTime)
+        now = self._systemTime.get()
+        elapsedTime = self._systemTime.getDelta(self._startTime, now)
         deltaString = self._systemTime.getElapsedString(elapsedTime)
 
         recipeFullPath = (

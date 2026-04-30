@@ -22,7 +22,7 @@ def _configure_tensorflow_logging() -> None:
     """Suppress verbose TensorFlow logging used by CREPE."""
 
     try:
-        import tensorflow as tf  # type: ignore
+        import tensorflow as tf
     except Exception:  # pragma: no cover - tensorflow may be absent
         return
 
@@ -37,7 +37,7 @@ def _configure_tensorflow_logging() -> None:
         pass
 
     try:
-        import absl.logging as absl_logging  # type: ignore
+        import absl.logging as absl_logging
     except Exception:  # pragma: no cover - absl may be absent
         return
 
@@ -49,9 +49,9 @@ def _configure_tensorflow_logging() -> None:
 
 
 try:  # Optional dependency - heavy ML models
-    import crepe  # type: ignore
+    import crepe
 except Exception:  # pragma: no cover - dependency may be absent
-    crepe = None  # type: ignore
+    crepe = None
 else:
     _configure_tensorflow_logging()
 
@@ -446,7 +446,7 @@ def _get_activation_with_frame_gain(
     audio = audio.astype(np.float32)
 
     if sr != model_srate:
-        from resampy import resample  # type: ignore
+        from resampy import resample
 
         audio = resample(audio, sr, model_srate)
         sr = model_srate

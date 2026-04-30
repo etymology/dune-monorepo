@@ -74,7 +74,16 @@ def fit_roller_arm(
     for measurement in measurements:
         fitted_y_cals[measurement.roller_index] = measurement.y_cal
 
-    return tuple(fitted_y_cals), 0.0, 0.0
+    return (
+        (
+            fitted_y_cals[0],
+            fitted_y_cals[1],
+            fitted_y_cals[2],
+            fitted_y_cals[3],
+        ),
+        0.0,
+        0.0,
+    )
 
 
 def roller_arm_calibration_to_dict(cal: RollerArmCalibration) -> dict:

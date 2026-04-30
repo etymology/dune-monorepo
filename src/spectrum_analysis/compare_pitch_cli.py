@@ -15,14 +15,14 @@ from matplotlib.gridspec import GridSpec
 import numpy as np
 
 try:  # Optional dependency: heavy torch/pesto models may be unavailable
-    import torch  # type: ignore
+    import torch
 except Exception:  # pragma: no cover - dependency may be absent
-    torch = None  # type: ignore
+    torch = None
 
 try:  # Optional dependency - imported lazily when available
-    import pesto  # type: ignore
+    import pesto
 except Exception:  # pragma: no cover - dependency may be absent
-    pesto = None  # type: ignore
+    pesto = None
 
 from spectrum_analysis.audio_processing import (
     acquire_audio,

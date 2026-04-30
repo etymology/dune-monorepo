@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+from typing import TypedDict, cast
 
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.gcode.model import (
@@ -97,6 +98,13 @@ def _ensure_motion_trace_file_handler():
     _MOTION_TRACE_FILE_PATH = file_path
 
 
+class _InstructionTrace(TypedDict, total=False):
+    enabled: bool
+    pins: list[dict[str, object]]
+    pinCenter: dict[str, object]
+    anchorOrientation: str
+
+
 class GCodeHandlerBase:
     DEBUG_UNIT = False
 
@@ -136,7 +144,8 @@ class GCodeHandlerBase:
     def _record_instruction_trace_pin(self, *, role, pin_name, location, extra=None):
         if self._instruction_trace is None:
             return
-        self._instruction_trace["pins"].append(
+        pins = cast(list[dict[str, object]], self._instruction_trace["pins"])
+        pins.append(
             self._build_pin_trace(
                 role=role,
                 pin_name=pin_name,
@@ -350,7 +359,10 @@ class GCodeHandlerBase:
                 "~ pin macro requires exactly one argument.", [expression]
             )
         pin_number = int(round(self._eval_numeric_macro_expr(arguments[0])))
-        layer = self._layerCalibration.getLayerNames()
+        layer_calibration = self._layerCalibration
+        if layer_calibration is None:
+            raise GCodeExecutionError("No layer calibration is loaded.", [expression])
+        layer = layer_calibration.getLayerNames()
         if name == "B":
             return self._normalize_wrap_pin("B" + str(pin_number), label="~ macro pin")
         if name == "BtoA":
@@ -499,8 +511,12 @@ class GCodeHandlerBase:
             current_xy = Point2D(float(self._x), float(self._y))
 
         try:
+            layer_calibration = self._layerCalibration
+            if layer_calibration is None:
+                raise GCodeExecutionError("No layer calibration is loaded.", [target_pin])
+
             plan = plan_wrap_transition(
-                layer=self._layerCalibration.getLayerNames(),
+                layer=layer_calibration.getLayerNames(),
                 anchor_pin=anchor_pin,
                 target_pin=target_pin,
                 anchor_pin_point=Point3D(
@@ -1014,12 +1030,21 @@ class GCodeHandlerBase:
         """
 
         # $$$DEBUG - Get rid of constants.
+        layer_calibration = self._layerCalibration
         if 0 == headPosition:
             z = self._machineCalibration.zFront
         elif 1 == headPosition:
-            z = self._layerCalibration.zFront
+            if layer_calibration is None:
+                raise GCodeExecutionError(
+                    "No layer calibration is loaded.", [str(headPosition)]
+                )
+            z = layer_calibration.zFront
         elif 2 == headPosition:
-            z = self._layerCalibration.zBack
+            if layer_calibration is None:
+                raise GCodeExecutionError(
+                    "No layer calibration is loaded.", [str(headPosition)]
+                )
+            z = layer_calibration.zBack
         elif 3 == headPosition:
             z = self._machineCalibration.zBack
         else:
@@ -1051,8 +1076,12 @@ class GCodeHandlerBase:
         if normalized_pin.startswith("F"):
             normalized_pin = "A" + normalized_pin[1:]
 
+        layer_calibration = self._layerCalibration
+        if layer_calibration is None:
+            raise GCodeExecutionError("No layer calibration is loaded.", [str(pinName)])
+
         try:
-            result = self._layerCalibration.getPinLocation(normalized_pin)
+            result = layer_calibration.getPinLocation(normalized_pin)
         except KeyError:
             data = [str(pinName)]
 
@@ -1265,7 +1294,7 @@ class GCodeHandlerBase:
             print("  HEAD_TRANSFER", self._headPosition)
 
     # ---------------------------------------------------------------------
-    def _delay(self, function):
+    def _delayCommand(self, function):
         """
         Delay.
         """
@@ -1310,7 +1339,10 @@ class GCodeHandlerBase:
             location=pin,
             extra={"orientation": str(orientation)},
         )
-        pin = pin.add(self._layerCalibration.offset)
+        layer_calibration = self._layerCalibration
+        if layer_calibration is None:
+            raise GCodeExecutionError("No layer calibration is loaded.", [pinNumber])
+        pin = pin.add(layer_calibration.offset)
 
         if "0" == orientation:
             orientation = None
@@ -1551,7 +1583,7 @@ class GCodeHandlerBase:
         Opcode.OFFSET: _offset,
         Opcode.HEAD_LOCATION: _headLocation,
         Opcode.HEAD_TRANSFER: _headTransfer,
-        Opcode.DELAY: _delay,
+        Opcode.DELAY: _delayCommand,
         Opcode.ANCHOR_POINT: _anchorPoint,
         Opcode.ARM_CORRECT: _armCorrect,
         Opcode.TRANSFER_CORRECT: _transferCorrect,
