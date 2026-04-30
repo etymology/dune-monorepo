@@ -309,6 +309,14 @@ impl HarmonicTriggerState {
             && frame_rms <= self.noise_rms * self.comb.noise_rms_multiplier.max(1.0)
     }
 
+    fn passes_amplitude_gate(&self, frame_rms: f64) -> bool {
+        if !self.noise_rms.is_finite() || self.noise_rms <= 0.0 {
+            return true;
+        }
+        frame_rms.is_finite()
+            && frame_rms >= self.noise_rms * self.comb.noise_rms_multiplier.max(1.0)
+    }
+
     fn observe(&mut self, response: CombResponse, frame_rms: f64) -> HarmonicTriggerEvent {
         if !self.triggered && self.is_calibrated_noise_frame(frame_rms) {
             self.floor.push(response.score);
@@ -316,6 +324,7 @@ impl HarmonicTriggerState {
 
         if !self.triggered {
             if response.valid
+                && self.passes_amplitude_gate(frame_rms)
                 && response.score > self.adaptive_on_score()
                 && response.spectral_flatness < self.comb.spectral_flatness_max
             {
@@ -671,6 +680,39 @@ mod tests {
             0.3,
         );
         assert_eq!(above_floor, HarmonicTriggerEvent::StartRecording);
+        assert!(state.triggered());
+    }
+
+    #[test]
+    fn harmonic_trigger_requires_twice_calibrated_noise_amplitude() {
+        let cfg = HarmonicCombCaptureConfig {
+            on_score: 0.01,
+            on_frames: 1,
+            noise_rms_multiplier: 2.0,
+            ..Default::default()
+        };
+        let mut state = HarmonicTriggerState::new(&cfg, 0.1);
+
+        let quiet_harmonic = state.observe(
+            CombResponse {
+                score: 0.5,
+                spectral_flatness: 0.2,
+                valid: true,
+            },
+            0.19,
+        );
+        assert_eq!(quiet_harmonic, HarmonicTriggerEvent::Waiting);
+        assert!(!state.triggered());
+
+        let loud_harmonic = state.observe(
+            CombResponse {
+                score: 0.6,
+                spectral_flatness: 0.2,
+                valid: true,
+            },
+            0.21,
+        );
+        assert_eq!(loud_harmonic, HarmonicTriggerEvent::StartRecording);
         assert!(state.triggered());
     }
 
