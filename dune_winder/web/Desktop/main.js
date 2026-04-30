@@ -150,7 +150,8 @@ var PAGE_NAME_MAP =
   zplanecalibrate: "MachineGeometryCalibrate",
   gcodegeneration: "GCodeGeneration",
   configuration: "Configuration",
-  manualmovepopup: "ManualMovePopup"
+  manualmovepopup: "ManualMovePopup",
+  machinelayout: "MachineLayout"
 }
 
 function isPopupMode()
