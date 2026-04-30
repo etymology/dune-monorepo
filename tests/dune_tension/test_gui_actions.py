@@ -432,7 +432,7 @@ def test_measure_outliers_triggers_measurement(monkeypatch):
             {"times_sigma": 3.0, "confidence_threshold": 0.75},
         )
     ]
-    assert measured_wires == [([10, 20], True)]
+    assert measured_wires == [([10, 20], False)]
 
 
 def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
@@ -485,7 +485,7 @@ def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
             {"times_sigma": 2.0, "confidence_threshold": 0.9},
         )
     ]
-    assert measured_wires == [([30, 40], True)]
+    assert measured_wires == [([30, 40], False)]
 
 
 def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
@@ -585,7 +585,7 @@ def test_measure_list_button_skips_already_measured_wires_when_enabled(monkeypat
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([5, 7], True)]
+    assert measured_wires == [([5, 7], False)]
 
 
 def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatch):
@@ -611,7 +611,7 @@ def test_measure_list_button_keeps_requested_wires_when_skip_disabled(monkeypatc
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([3, 5, 6, 7], True)]
+    assert measured_wires == [([3, 5, 6, 7], False)]
 
 
 def test_measure_list_button_skips_requested_wires_when_all_are_measured(
@@ -769,7 +769,7 @@ def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
     assert moves == [(97.5, 201.0)]
 
 
-def test_measure_list_button_preserves_descending_range_order(monkeypatch):
+def test_measure_list_button_enables_route_optimization_for_descending_ranges(monkeypatch):
     actions = _load_actions_module(monkeypatch)
 
     measured_wires = []
@@ -792,7 +792,7 @@ def test_measure_list_button_preserves_descending_range_order(monkeypatch):
 
     actions.measure_list_button.__wrapped__(types.SimpleNamespace(), inputs)
 
-    assert measured_wires == [([480, 479, 478, 300], True)]
+    assert measured_wires == [([480, 479, 478, 300], False)]
 
 
 def test_adjust_focus_with_x_compensation_side_a(monkeypatch):

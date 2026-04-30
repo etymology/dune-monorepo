@@ -1025,7 +1025,7 @@ def measure_list_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     try:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring wires: %s", wire_list)
-        tensiometer.measure_list(wire_list, preserve_order=True)
+        tensiometer.measure_list(wire_list, preserve_order=False)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:
@@ -1098,7 +1098,7 @@ def measure_zone_button(ctx: GUIContext, inputs: WorkerInputs) -> None:
     try:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring %d wires in zone(s) %s", len(wire_list), sorted(zones))
-        tensiometer.measure_list(wire_list, preserve_order=True)
+        tensiometer.measure_list(wire_list, preserve_order=False)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:
@@ -1519,7 +1519,7 @@ def _measure_detected_outliers(
     try:
         tensiometer = create_tensiometer(ctx, inputs)
         LOGGER.info("Measuring %s outliers: %s", detector_name, outliers)
-        tensiometer.measure_list(outliers, preserve_order=True)
+        tensiometer.measure_list(outliers, preserve_order=False)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:
