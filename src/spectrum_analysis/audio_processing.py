@@ -449,6 +449,9 @@ def _acquire_audio_snr(
                 if not recording_started:
                     LOGGER.info("Recording started.")
                     recording_started = True
+                    callback = getattr(cfg, "recording_started_callback", None)
+                    if callback is not None:
+                        callback()
                 above = True
                 idle_samples = 0
                 collected.append(chunk)
@@ -543,7 +546,10 @@ def acquire_audio(
     try:
         from dune_tension import rust_audio
 
-        if rust_audio.should_use_capture_backend():
+        if (
+            rust_audio.should_use_capture_backend()
+            and getattr(cfg, "recording_started_callback", None) is None
+        ):
             return rust_audio.acquire_audio(cfg, noise_rms, timeout)
     except Exception:
         import os
@@ -574,6 +580,11 @@ def acquire_audio(
             max_record_seconds=cfg.max_record_seconds,
             timeout_seconds=timeout if timeout is not None else cfg.max_record_seconds,
             comb_cfg=cfg.comb_trigger,
+            recording_started_callback=getattr(
+                cfg,
+                "recording_started_callback",
+                None,
+            ),
         )
         if audio is None:
             return None
