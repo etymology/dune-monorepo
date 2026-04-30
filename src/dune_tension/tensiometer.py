@@ -1125,6 +1125,46 @@ class Tensiometer:
             return measured_rms
         return measured_rms / reference_rms
 
+    def _is_audio_worth_analyzing(
+        self,
+        audio_sample: Any,
+        expected_frequency: float | None,
+    ) -> bool:
+        """Return True if the sample has enough signal/harmonicity to justify NN analysis.
+
+        This provides a cheap 'gate' before expensive PESTO analysis.
+        """
+
+        # 1. Amplitude gate: is there any signal at all?
+        measured_rms = self._sample_rms(audio_sample)
+        # We use a threshold slightly above the noise floor.
+        if self.noise_threshold > 0.0 and measured_rms < self.noise_threshold * 1.5:
+            return False
+
+        # 2. Harmonic gate: if we know what frequency to expect, is there a peak there?
+        if expected_frequency is not None:
+            # We skip the harmonic gate for very short samples (e.g. in tests)
+            # because harmonic_comb_response needs a minimum frame size.
+            audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
+            if audio_array.size < 1024:
+                return True
+
+            # Re-use the existing harmonic feature extractor.
+            # We use 0.0 for the first frequency to force it to use expected_frequency.
+            features = self._sample_harmonic_features(
+                audio_sample, 0.0, expected_frequency
+            )
+            if not features.valid:
+                return False
+
+            # We use a fraction of the trigger threshold as a safety margin.
+            # If harmonicity is extremely low, PESTO is unlikely to find a good pitch.
+            threshold = self._harmonic_comb_config.harmonicity_threshold()
+            if features.harmonicity < threshold * 0.5:
+                return False
+
+        return True
+
     def _estimate_sample_pitch(
         self,
         audio_sample: Any,
@@ -1144,6 +1184,10 @@ class Tensiometer:
 
         self._last_pitch_triplet_accepted = None
         analysis = None
+
+        if not self._is_audio_worth_analyzing(audio_sample, expected_frequency):
+            return None, 0.0, 0.0
+
         require_corroboration = False
         try:
             analysis = analyze_audio_with_pesto(
