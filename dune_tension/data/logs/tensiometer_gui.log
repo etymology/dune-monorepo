@@ -7126,3 +7126,9 @@
 2026-04-30 13:02:42,916 INFO [pid=375319 gui-measure_list_button dune_tension.gui.actions] Worker thread finished: measure list button
 2026-04-30 13:02:52,473 INFO [pid=375319 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=7141480 kB vmhwm=1666072 kB vmrss=1476320 kB
 2026-04-30 13:03:07,475 INFO [pid=375319 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=7141480 kB vmhwm=1666072 kB vmrss=1476320 kB
+2026-04-30 13:03:22,477 INFO [pid=375319 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=7141480 kB vmhwm=1666072 kB vmrss=1476320 kB
+2026-04-30 13:03:37,478 INFO [pid=375319 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=7141480 kB vmhwm=1666072 kB vmrss=1476320 kB
+2026-04-30 13:03:52,479 INFO [pid=375319 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=7141480 kB vmhwm=1666072 kB vmrss=1476320 kB
+2026-04-30 13:03:55,213 INFO [pid=375319 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-04-30 13:03:56,031 INFO [pid=375319 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-04-30 13:03:56,597 INFO [pid=375319 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=7108632 kB vmhwm=1666072 kB vmrss=1476204 kB
