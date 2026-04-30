@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import types
+from typing import Any, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
@@ -33,10 +34,10 @@ EXPECTED_COLUMNS = [
 
 def _load_services(monkeypatch):
     sys.modules.pop("dune_tension.services", None)
-    results_stub = types.ModuleType("dune_tension.results")
+    results_stub = cast(Any, types.ModuleType("dune_tension.results"))
     results_stub.EXPECTED_COLUMNS = EXPECTED_COLUMNS
     results_stub.TensionResult = object
-    data_cache_stub = types.ModuleType("dune_tension.data_cache")
+    data_cache_stub = cast(Any, types.ModuleType("dune_tension.data_cache"))
     data_cache_stub.append_dataframe_row = lambda *_args, **_kwargs: None
     data_cache_stub.append_results_row = lambda *_args, **_kwargs: None
     data_cache_stub.append_dataframe_rows = lambda *_args, **_kwargs: None

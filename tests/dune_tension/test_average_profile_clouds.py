@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -581,9 +582,10 @@ def test_save_layer_plot_uses_tight_bounding_box(monkeypatch, tmp_path) -> None:
     )
 
     assert captured["destination"] == result.output_path
-    assert captured["kwargs"]["dpi"] == 300
-    assert captured["kwargs"]["bbox_inches"] == "tight"
-    assert captured["kwargs"]["pad_inches"] == 0.2
+    kwargs = cast(dict[str, object], captured["kwargs"])
+    assert kwargs["dpi"] == 300
+    assert kwargs["bbox_inches"] == "tight"
+    assert kwargs["pad_inches"] == 0.2
 
 
 def test_build_layer_figure_overlays_side_line_plots(monkeypatch) -> None:

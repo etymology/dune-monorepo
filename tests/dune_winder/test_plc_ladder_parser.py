@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from typing import cast
 
 from dune_winder.plc_ladder import PythonCodeGenerator
 from dune_winder.plc_ladder import RllEmitter
@@ -41,8 +42,9 @@ class PlcLadderParserTests(unittest.TestCase):
         )
 
         rung = routine.rungs[0]
-        self.assertEqual(rung.nodes[0].opcode, "CMP")
-        self.assertEqual(rung.nodes[0].operands, ("Z_axis.ActualPosition>415",))
+        node = cast(InstructionCall, rung.nodes[0])
+        self.assertEqual(node.opcode, "CMP")
+        self.assertEqual(node.operands, ("Z_axis.ActualPosition>415",))
         self.assertEqual(
             self.emitter.emit_routine(routine),
             'CMP "Z_axis.ActualPosition>415" OTE MACHINE_SW_STAT[5] \n',

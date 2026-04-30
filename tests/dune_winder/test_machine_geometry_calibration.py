@@ -618,6 +618,7 @@ def test_machine_xy_solve_records_progress_and_success(monkeypatch, tmp_path):
     )
 
     def evaluate(measurements, *, progress_callback=None, **kwargs):
+        assert progress_callback is not None
         progress_callback("test_step", "Test progress update.")
         return {
             "cameraOffsetX": 11.0,

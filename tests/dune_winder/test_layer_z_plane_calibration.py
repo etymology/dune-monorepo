@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import shutil
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -514,7 +515,7 @@ def test_process_commands_add_get_and_clear_layer_z_plane_calibration(tmp_path):
     assert len(get_response["data"]["measurements"]) == 3
     assert get_response["data"]["coefficients"] is not None
     assert get_response["data"]["fit_error"] is None
-    assert process.gCodeHandler.sync_calls
+    assert cast(Any, process.gCodeHandler).sync_calls
 
     reloaded = LayerCalibration("U")
     reloaded.load(str(tmp_path), "U_Calibration.json", exceptionForMismatch=False)

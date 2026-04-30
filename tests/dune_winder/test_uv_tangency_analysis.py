@@ -3,6 +3,7 @@ import json
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from typing import Any, cast
 
 from dune_winder.analysis.uv_tangency_analysis import (
     AVAILABLE_SENSITIVITY_IDS,
@@ -37,7 +38,7 @@ class UVTangencyAnalysisTests(unittest.TestCase):
         self.assertEqual(report["layerCalibrationPath"], str(_U_LAYER_CALIBRATION_PATH))
         self.assertEqual(len(report["sites"]), 1)
 
-        site = report["sites"][0]
+        site = cast(dict[str, Any], report["sites"][0])
         self.assertEqual(site["siteId"], "bottom_a_foot_end")
         self.assertEqual(site["offsetAxis"], "x")
         self.assertIsNotNone(site["orientation"])
@@ -68,10 +69,12 @@ class UVTangencyAnalysisTests(unittest.TestCase):
             compare_layer_calibration_path=_V_LAYER_CALIBRATION_PATH,
         )
 
-        self.assertEqual(report["primary"]["layer"], "U")
-        self.assertEqual(report["comparison"]["layer"], "V")
-        self.assertEqual(report["primary"]["sites"][0]["siteId"], "top_b_foot_end")
-        self.assertEqual(report["comparison"]["sites"][0]["siteId"], "top_b_foot_end")
+        primary = cast(dict[str, Any], report["primary"])
+        comparison = cast(dict[str, Any], report["comparison"])
+        self.assertEqual(primary["layer"], "U")
+        self.assertEqual(comparison["layer"], "V")
+        self.assertEqual(primary["sites"][0]["siteId"], "top_b_foot_end")
+        self.assertEqual(comparison["sites"][0]["siteId"], "top_b_foot_end")
 
     def test_cli_main_emits_json_report(self):
         output = io.StringIO()

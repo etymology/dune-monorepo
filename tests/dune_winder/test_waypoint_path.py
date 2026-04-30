@@ -1,5 +1,6 @@
 import math
 import unittest
+from typing import cast
 
 from dune_winder.queued_motion.segment_patterns import (
     DEFAULT_WAYPOINT_ORDER_MODE,
@@ -40,6 +41,7 @@ class WaypointPathTests(unittest.TestCase):
         first_arc = segments[1]
         center = circle_center_for_segment(first_arc_start, first_arc)
         self.assertIsNotNone(center)
+        center = cast(tuple[float, float], center)
         start_angle = math.atan2(
             first_arc_start.y - center[1], first_arc_start.x - center[0]
         )
