@@ -222,6 +222,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
         sweeping_wiggle_span_mm=0.0,
         focus_wiggle_sigma_quarter_us=50.0,
         use_manual_focus=True,
+        use_harmonic_comb_trigger=True,
         plot_audio=True,
         suppress_wire_preview=False,
         legacy_tension_condition="t<7",
@@ -233,6 +234,7 @@ def test_create_tensiometer_uses_context_runtime_bundle(monkeypatch):
     assert build_calls[0]["confidence_source"] == "signal_amplitude"
     assert build_calls[0]["runtime_bundle"] is runtime
     assert build_calls[0]["use_manual_focus"] is True
+    assert build_calls[0]["use_harmonic_comb_trigger"] is True
     assert build_calls[0]["manual_focus_target"] is None
     assert build_calls[0]["legacy_tension_condition"] == "t<7"
     assert callable(build_calls[0]["wire_preview_callback"])

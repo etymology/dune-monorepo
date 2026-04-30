@@ -185,6 +185,7 @@ class WorkerInputs:
     b_taped: bool
     confidence: float
     confidence_source: str
+    use_harmonic_comb_trigger: bool
     record_duration: float
     measuring_duration: float
     wiggle_y_sigma_mm: float
@@ -263,6 +264,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         b_taped=bool(w.b_taped_var.get()),
         confidence=confidence,
         confidence_source=str(w.confidence_source_var.get()),
+        use_harmonic_comb_trigger=bool(w.use_harmonic_comb_trigger_var.get()),
         record_duration=record_duration,
         measuring_duration=measuring_duration,
         wiggle_y_sigma_mm=wiggle_y_sigma_mm,
@@ -340,6 +342,9 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         plot_audio=inputs.plot_audio,
+        use_harmonic_comb_trigger=bool(
+            getattr(inputs, "use_harmonic_comb_trigger", False)
+        ),
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,
         focus_position_getter=lambda: int(ctx.servo_controller.focus_position),

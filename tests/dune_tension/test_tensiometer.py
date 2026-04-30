@@ -504,7 +504,54 @@ def test_amplitude_confidence_falls_back_to_raw_rms_when_reference_invalid() -> 
     assert confidence == pytest.approx(1.0)
 
 
-def test_collect_samples_uses_harmonic_comb_capture(monkeypatch):
+def test_collect_samples_uses_amplitude_capture(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    captured_configs = []
+    captured_timeouts = []
+
+    def _acquire_audio(**kwargs):
+        captured_configs.append(kwargs["cfg"])
+        captured_timeouts.append(kwargs["timeout"])
+        return None
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", _acquire_audio)
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+
+    times = iter([0.0, 0.21])
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(start_x=1.0, start_y=2.0),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        record_duration=1.0,
+        measuring_duration=0.01,
+        time_provider=lambda: next(times),
+    )
+    tensiometer.strum_func = lambda: None
+
+    tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=0.0,
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert captured_configs
+    assert captured_configs[0].trigger_mode == "snr"
+    assert captured_timeouts == [pytest.approx(1.0)]
+
+
+def test_collect_samples_can_use_harmonic_comb_capture(monkeypatch):
     _patch_result_physics(monkeypatch)
     captured_configs = []
 
@@ -522,7 +569,7 @@ def test_collect_samples_uses_harmonic_comb_capture(monkeypatch):
         },
     )
 
-    times = iter([0.0, 0.02])
+    times = iter([0.0, 0.21])
     tensiometer = Tensiometer(
         apa_name="APA",
         layer="X",
@@ -533,6 +580,7 @@ def test_collect_samples_uses_harmonic_comb_capture(monkeypatch):
         record_duration=1.0,
         measuring_duration=0.01,
         time_provider=lambda: next(times),
+        use_harmonic_comb_trigger=True,
     )
     tensiometer.strum_func = lambda: None
 

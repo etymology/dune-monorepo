@@ -29,6 +29,7 @@ class _PersistedState:
     skip_measured_zone: bool
     confidence_threshold: float
     confidence_source: str
+    use_harmonic_comb_trigger: bool
     plot_audio: bool
     suppress_wire_preview: bool
     skip_measured: bool
@@ -76,6 +77,7 @@ def save_state(ctx: GUIContext) -> None:
         skip_measured_zone=bool(w.skip_measured_zone_var.get()),
         confidence_threshold=conf,
         confidence_source=str(w.confidence_source_var.get()),
+        use_harmonic_comb_trigger=bool(w.use_harmonic_comb_trigger_var.get()),
         plot_audio=bool(w.plot_audio_var.get()),
         suppress_wire_preview=bool(w.suppress_wire_preview_var.get()),
         skip_measured=bool(w.skip_measured_var.get()),
@@ -154,6 +156,9 @@ def load_state(ctx: GUIContext) -> None:
     _set_entry(w.entry_confidence, data.get("confidence_threshold", 0.5))
     w.confidence_source_var.set(
         _confidence_source_label(data.get("confidence_source", "Neural Net"))
+    )
+    w.use_harmonic_comb_trigger_var.set(
+        bool(data.get("use_harmonic_comb_trigger", False))
     )
     w.plot_audio_var.set(bool(data.get("plot_audio", False)))
     w.suppress_wire_preview_var.set(bool(data.get("suppress_wire_preview", False)))

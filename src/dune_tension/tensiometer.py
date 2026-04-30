@@ -257,7 +257,7 @@ def build_tensiometer(
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
     audio_store: AudioStore | None = None,
-    play_audio: bool = False,
+    use_harmonic_comb_trigger: bool = False,
 ) -> "Tensiometer":
     config = make_config(
         apa_name=apa_name,
@@ -414,7 +414,7 @@ def build_tensiometer(
             or WirePositionProvider()
         ),
         audio_store=audio_store or getattr(active_runtime, "audio_store", None),
-        play_audio=play_audio,
+        use_harmonic_comb_trigger=use_harmonic_comb_trigger,
     )
 
 
@@ -465,7 +465,7 @@ class Tensiometer:
         datetime_provider: Callable[[], datetime] | None = None,
         gauss_func: Callable[[float, float], float] | None = None,
         audio_store: AudioStore | None = None,
-        play_audio: bool = False,
+        use_harmonic_comb_trigger: bool = False,
     ) -> None:
         self.config = config or make_config(
             apa_name=apa_name,
@@ -552,7 +552,7 @@ class Tensiometer:
         self.a_taped = bool(a_taped)
         self.b_taped = bool(b_taped)
         self._audio_store = audio_store
-        self.play_audio = bool(play_audio)
+        self.use_harmonic_comb_trigger = bool(use_harmonic_comb_trigger)
 
         # State tracking for winder wiggle thread
         self._wiggle_event: threading.Event | None = None
@@ -994,22 +994,6 @@ class Tensiometer:
         except Exception as exc:  # pragma: no cover - plotting is optional
             LOGGER.warning("Failed to plot audio sample: %s", exc)
 
-    def _play_audio_nonblocking(self, audio_sample: Any) -> None:
-        """Play back an audio sample in a daemon thread without blocking measurement."""
-
-        samplerate = self.samplerate
-
-        def _run() -> None:
-            try:
-                import sounddevice as sd
-
-                sd.play(audio_sample, samplerate)
-                sd.wait()
-            except Exception as exc:
-                LOGGER.debug("Audio playback failed: %s", exc)
-
-        threading.Thread(target=_run, daemon=True).start()
-
     def _start_sweeping_wiggle(
         self,
         *,
@@ -1029,7 +1013,7 @@ class Tensiometer:
         high_y = float(center_y + self.sweeping_wiggle_span_mm)
         record_duration = max(float(self.config.record_duration), 1e-6)
         sweep_speed_mm_s = max(
-            (float(self.sweeping_wiggle_span_mm)) / record_duration,
+            (float(self.sweeping_wiggle_span_mm)),
             1e-3,
         )
 
@@ -1473,7 +1457,7 @@ class Tensiometer:
             max_record_seconds=self.config.record_duration,
             expected_f0=expected_frequency,
             snr_threshold_db=self.snr,
-            trigger_mode="harmonic_comb",
+            trigger_mode=("harmonic_comb" if self.use_harmonic_comb_trigger else "snr"),
             comb_trigger=self._harmonic_comb_config,
         )
 
@@ -1695,16 +1679,11 @@ class Tensiometer:
                 strum_started = self._profile_time()
                 self.strum_func()
                 self._record_wire_stage("strum", self._profile_time() - strum_started)
-                # record audio with harmonic comb
-
                 acquire_started = self._profile_time()
                 audio_sample = acquire_audio(
                     cfg=audio_acquisition_config,
                     noise_rms=self.noise_threshold / 3,
-                    timeout=max(
-                        float(self.config.measuring_duration),
-                        float(self.config.record_duration),
-                    ),
+                    timeout=max(float(self.config.record_duration), 0.0),
                 )
                 self._record_wire_stage(
                     "acquire_audio",
@@ -1713,8 +1692,6 @@ class Tensiometer:
 
                 if audio_sample is not None:
                     focus_position = self._get_focus_position()
-                    if self.play_audio:
-                        self._play_audio_nonblocking(audio_sample)
                     if self._audio_store is not None:
                         _rec_meta = AudioRecordingMeta(
                             apa_name=self.config.apa_name,
