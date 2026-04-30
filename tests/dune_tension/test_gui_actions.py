@@ -382,6 +382,112 @@ def test_erase_distribution_outliers_uses_bulk_detector(monkeypatch):
     assert clear_calls == [("db.sqlite", "APA", "G", "A", [7, 9])]
 
 
+def test_measure_outliers_triggers_measurement(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    detector_calls = []
+    measured_wires = []
+
+    def fake_find(*args, **kwargs):
+        detector_calls.append((args, kwargs))
+        return [10, 20]
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "find_outliers", fake_find)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="3.0",
+        confidence=0.75,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_outliers.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert detector_calls == [
+        (
+            ("db.sqlite", "APA", "G", "A"),
+            {"times_sigma": 3.0, "confidence_threshold": 0.75},
+        )
+    ]
+    assert measured_wires == [([10, 20], True)]
+
+
+def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    detector_calls = []
+    measured_wires = []
+
+    def fake_find(*args, **kwargs):
+        detector_calls.append((args, kwargs))
+        return [30, 40]
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "find_distribution_outliers", fake_find)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="2.0",
+        confidence=0.9,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_distribution_outliers.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert detector_calls == [
+        (
+            ("db.sqlite", "APA", "G", "A"),
+            {"times_sigma": 2.0, "confidence_threshold": 0.9},
+        )
+    ]
+    assert measured_wires == [([30, 40], True)]
+
+
 def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     calls = []

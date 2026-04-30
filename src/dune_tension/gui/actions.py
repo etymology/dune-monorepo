@@ -1458,6 +1458,74 @@ def erase_distribution_outliers(ctx: GUIContext) -> None:
     _erase_detected_outliers(ctx, find_distribution_outliers, "bulk-distribution")
 
 
+@_run_in_thread(measurement=True)
+def measure_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    _measure_detected_outliers(ctx, inputs, find_outliers, "residual")
+
+
+@_run_in_thread(measurement=True)
+def measure_distribution_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    _measure_detected_outliers(ctx, inputs, find_distribution_outliers, "bulk-distribution")
+
+
+def _measure_detected_outliers(
+    ctx: GUIContext,
+    inputs: WorkerInputs,
+    detector,
+    detector_name: str,
+) -> None:
+    config = _make_config_from_inputs(inputs)
+    raw_expr = inputs.times_sigma.strip()
+    times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
+
+    outliers = sorted(
+        detector(
+            config.data_path,
+            config.apa_name,
+            config.layer,
+            config.side,
+            times_sigma=times_sigma,
+            confidence_threshold=inputs.confidence,
+        )
+    )
+
+    if wire_predicates:
+        filtered_outliers: list[int] = []
+        for wire in outliers:
+            try:
+                wire_number = int(wire)
+                if all(
+                    _compile_tension_condition(pred)(wire_number, 0.0, 0)
+                    for pred in wire_predicates
+                ):
+                    filtered_outliers.append(wire_number)
+            except Exception as exc:
+                LOGGER.warning(
+                    "Error evaluating outlier filter for wire %s: %s", wire, exc
+                )
+                return
+        outliers = filtered_outliers
+
+    if not outliers:
+        LOGGER.info("No %s outlier wires found", detector_name)
+        return
+
+    if _measurement_mode(inputs) != "legacy":
+        LOGGER.info("Streaming measurement %s outliers: %s", detector_name, outliers)
+        _run_streaming_for_wires(ctx, inputs, outliers)
+        return
+
+    tensiometer: Tensiometer | None = None
+    try:
+        tensiometer = create_tensiometer(ctx, inputs)
+        LOGGER.info("Measuring %s outliers: %s", detector_name, outliers)
+        tensiometer.measure_list(outliers, preserve_order=True)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+    finally:
+        _cleanup_after_measurement(ctx, tensiometer)
+
+
 def _parse_outlier_erase_expression(expr: str) -> tuple[float, list[str]]:
     """Parse sigma and optional wire-number predicates from a GUI text field.
 
