@@ -55,6 +55,7 @@ class LivePlotManager:
         )
         self.waveform_placeholder.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
         self._summary_after_id: Any | None = None
+        self._summary_generation = 0
 
     def publish_waveform(
         self,
@@ -100,15 +101,46 @@ class LivePlotManager:
             )
             return
 
+        self._summary_generation += 1
+        generation = self._summary_generation
+        worker = threading.Thread(
+            target=self._build_summary_figure_in_background,
+            args=(config, generation),
+            daemon=True,
+        )
+        worker.start()
+
+    def _build_summary_figure_in_background(self, config: Any, generation: int) -> None:
         try:
             figure = build_summary_plot_figure_for_config(
                 config,
                 figsize=LIVE_SUMMARY_FIGSIZE,
             )
         except Exception as exc:
+            self._on_tk_thread(
+                lambda: self._finish_summary_refresh(generation, None, exc)
+            )
+            return
+
+        self._on_tk_thread(lambda: self._finish_summary_refresh(generation, figure, None))
+
+    def _finish_summary_refresh(
+        self,
+        generation: int,
+        figure: Figure | None,
+        error: Exception | None,
+    ) -> None:
+        if generation != self._summary_generation:
+            if figure is not None:
+                figure.clear()
+            return
+
+        if error is not None:
+            if self.summary_canvas is not None:
+                return
             self._set_placeholder(
                 self.summary_placeholder,
-                f"Failed to render summary plot:\n{exc}",
+                f"Failed to render summary plot:\n{error}",
             )
             return
 
@@ -237,6 +269,7 @@ class LivePlotManager:
         analysis: Any | None,
     ) -> None:
         cfg = PitchCompareConfig()
+        expected_frequency = getattr(analysis, "expected_frequency", None)
         if waveform.size == 0:
             axis.text(
                 0.5,
@@ -260,8 +293,16 @@ class LivePlotManager:
         axis.set_xlabel("Frequency (Hz)")
         axis.set_ylabel("Magnitude (dB)")
         axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+        visible_max_frequency = LivePlotManager._expected_frequency_plot_max_frequency(
+            expected_frequency,
+            fallback_max=min(
+                float(freqs[-1]) if freqs.size else float(cfg.max_frequency),
+                float(cfg.max_frequency),
+            ),
+            multiplier=5.0,
+        )
         if freqs.size:
-            axis.set_xlim(0.0, min(float(freqs[-1]), float(cfg.max_frequency)))
+            axis.set_xlim(0.0, visible_max_frequency)
 
         predicted_frequency = getattr(analysis, "frequency", None)
         if predicted_frequency is not None:
@@ -270,11 +311,7 @@ class LivePlotManager:
             except (TypeError, ValueError):
                 predicted_frequency = None
         if predicted_frequency is not None and np.isfinite(predicted_frequency):
-            x_max = min(
-                float(freqs[-1]) if freqs.size else float(cfg.max_frequency),
-                float(cfg.max_frequency),
-            )
-            if 0.0 <= predicted_frequency <= x_max:
+            if 0.0 <= predicted_frequency <= visible_max_frequency:
                 axis.axvline(
                     predicted_frequency,
                     color="cyan",
@@ -402,7 +439,14 @@ class LivePlotManager:
             )
             return
 
-        lag_min = max(1, int(samplerate / float(cfg.max_frequency)))
+        expected_frequency = getattr(analysis, "expected_frequency", None)
+        visible_max_frequency = LivePlotManager._expected_frequency_plot_max_frequency(
+            expected_frequency,
+            fallback_max=float(cfg.max_frequency),
+            multiplier=5.0,
+        )
+
+        lag_min = max(1, int(samplerate / visible_max_frequency))
         lag_max = min(int(samplerate / float(cfg.min_frequency)), audio.size - 1)
         if lag_min >= lag_max:
             axis.text(
@@ -413,7 +457,7 @@ class LivePlotManager:
                 va="center",
                 transform=axis.transAxes,
             )
-            axis.set_xlim(float(cfg.min_frequency), float(cfg.max_frequency))
+            axis.set_xlim(float(cfg.min_frequency), visible_max_frequency)
             return
 
         n_fft = 1
@@ -431,7 +475,7 @@ class LivePlotManager:
         plot_acf = acf_band[order]
 
         axis.plot(plot_freqs, plot_acf, color="#7570b3", linewidth=1.0)
-        axis.set_xlim(float(cfg.min_frequency), float(cfg.max_frequency))
+        axis.set_xlim(float(cfg.min_frequency), visible_max_frequency)
         axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
 
         peak_index = int(np.argmax(acf_band))
@@ -461,7 +505,6 @@ class LivePlotManager:
                     alpha=0.85,
                 )
 
-        expected_frequency = getattr(analysis, "expected_frequency", None)
         if expected_frequency is not None:
             try:
                 expected_frequency = float(expected_frequency)
@@ -499,10 +542,23 @@ class LivePlotManager:
         *,
         fallback_max: float,
     ) -> float:
+        return LivePlotManager._expected_frequency_plot_max_frequency(
+            expected_frequency,
+            fallback_max=fallback_max,
+            multiplier=2.0,
+        )
+
+    @staticmethod
+    def _expected_frequency_plot_max_frequency(
+        expected_frequency: float | None,
+        *,
+        fallback_max: float,
+        multiplier: float,
+    ) -> float:
         if expected_frequency is None:
             return float(fallback_max)
         try:
-            limit = float(expected_frequency) * 2.0
+            limit = float(expected_frequency) * float(multiplier)
         except (TypeError, ValueError):
             return float(fallback_max)
         if not np.isfinite(limit) or limit <= 0.0:
