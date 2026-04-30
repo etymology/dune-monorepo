@@ -13,8 +13,9 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 #[cfg(feature = "cpal-capture")]
 use cpal::{SampleFormat, SampleRate, StreamConfig};
 
+use crate::dsp::HarmonicCombCaptureConfig;
 #[cfg(feature = "cpal-capture")]
-use crate::dsp::discard_leading_audio;
+use crate::dsp::{discard_leading_audio, remove_non_harmonic_cycles};
 #[cfg(feature = "cpal-capture")]
 use crate::dsp::{hanning, harmonic_comb_response, rms};
 #[cfg(any(feature = "cpal-capture", test))]
@@ -24,45 +25,6 @@ use crate::dsp::{remove_clicks, CombResponse};
 pub enum TriggerMode {
     Snr,
     HarmonicComb,
-}
-
-#[derive(Debug, Clone)]
-pub struct HarmonicCombCaptureConfig {
-    pub frame_size: usize,
-    pub hop_size: usize,
-    pub candidate_count: usize,
-    pub harmonic_weight_count: usize,
-    pub min_harmonics: usize,
-    pub on_score: f64,
-    pub off_score: f64,
-    pub spectral_flatness_max: f64,
-    pub on_frames: usize,
-    pub off_frames: usize,
-    pub harmonicity_floor_frames: usize,
-    pub harmonicity_floor_multiplier: f64,
-    pub harmonicity_floor_margin: f64,
-    pub noise_rms_multiplier: f64,
-}
-
-impl Default for HarmonicCombCaptureConfig {
-    fn default() -> Self {
-        Self {
-            frame_size: 2048,
-            hop_size: 1024,
-            candidate_count: 36,
-            harmonic_weight_count: 10,
-            min_harmonics: 1,
-            on_score: 1e-13,
-            off_score: 1e-15,
-            spectral_flatness_max: 1.0,
-            on_frames: 1,
-            off_frames: 5,
-            harmonicity_floor_frames: 16,
-            harmonicity_floor_multiplier: 1.0,
-            harmonicity_floor_margin: 0.0,
-            noise_rms_multiplier: 2.0,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -106,7 +68,21 @@ pub fn acquire_audio(
             return Ok(None);
         };
         let trimmed = discard_leading_audio(&audio, cfg.sample_rate, cfg.discard_seconds);
-        Ok(Some(remove_clicks(&trimmed, 4.0, 0.1)))
+        let clicked = remove_clicks(&trimmed, 4.0, 0.1);
+
+        let Some(expected_f0) = cfg
+            .expected_f0
+            .filter(|value| value.is_finite() && *value > 0.0)
+        else {
+            return Ok(Some(clicked));
+        };
+
+        Ok(Some(remove_non_harmonic_cycles(
+            &clicked,
+            cfg.sample_rate,
+            expected_f0,
+            &cfg.comb,
+        )))
     }
 }
 

@@ -1,5 +1,44 @@
 use realfft::RealFftPlanner;
 
+#[derive(Debug, Clone)]
+pub struct HarmonicCombCaptureConfig {
+    pub frame_size: usize,
+    pub hop_size: usize,
+    pub candidate_count: usize,
+    pub harmonic_weight_count: usize,
+    pub min_harmonics: usize,
+    pub on_score: f64,
+    pub off_score: f64,
+    pub spectral_flatness_max: f64,
+    pub on_frames: usize,
+    pub off_frames: usize,
+    pub harmonicity_floor_frames: usize,
+    pub harmonicity_floor_multiplier: f64,
+    pub harmonicity_floor_margin: f64,
+    pub noise_rms_multiplier: f64,
+}
+
+impl Default for HarmonicCombCaptureConfig {
+    fn default() -> Self {
+        Self {
+            frame_size: 2048,
+            hop_size: 1024,
+            candidate_count: 36,
+            harmonic_weight_count: 10,
+            min_harmonics: 1,
+            on_score: 1e-13,
+            off_score: 1e-15,
+            spectral_flatness_max: 1.0,
+            on_frames: 1,
+            off_frames: 5,
+            harmonicity_floor_frames: 16,
+            harmonicity_floor_multiplier: 1.0,
+            harmonicity_floor_margin: 0.0,
+            noise_rms_multiplier: 2.0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CombResponse {
     pub score: f64,
@@ -221,6 +260,68 @@ pub fn harmonic_comb_response(
         spectral_flatness,
         valid: found,
     }
+}
+
+pub fn remove_non_harmonic_cycles(
+    samples: &[f32],
+    sample_rate: usize,
+    expected_f0: f64,
+    comb: &HarmonicCombCaptureConfig,
+) -> Vec<f32> {
+    if samples.is_empty()
+        || sample_rate == 0
+        || !expected_f0.is_finite()
+        || expected_f0 <= 0.0
+        || samples.len() < 4
+    {
+        return samples.to_vec();
+    }
+
+    let cycle_samples = ((sample_rate as f64 / expected_f0).round() as usize).max(1);
+    let slice_len = cycle_samples * 8;
+
+    if samples.len() < slice_len {
+        return samples.to_vec();
+    }
+
+    let window = hanning(slice_len);
+    let candidates = vec![expected_f0];
+    let weights = (1..=comb.harmonic_weight_count.max(1))
+        .map(|index| 1.0 / index as f64)
+        .collect::<Vec<_>>();
+
+    let mut kept = Vec::new();
+    let mut last_chunk_kept = false;
+
+    for chunk in samples.chunks_exact(slice_len) {
+        let response = harmonic_comb_response(
+            chunk,
+            sample_rate,
+            &window,
+            &candidates,
+            &weights,
+            comb.min_harmonics,
+        );
+
+        if response.valid
+            && response.score > comb.on_score
+            && response.spectral_flatness < comb.spectral_flatness_max
+        {
+            kept.extend_from_slice(chunk);
+            last_chunk_kept = true;
+        } else {
+            last_chunk_kept = false;
+        }
+    }
+
+    if last_chunk_kept {
+        let remainder = samples.len() % slice_len;
+        if remainder > 0 {
+            kept.extend_from_slice(&samples[samples.len() - remainder..]);
+        }
+    }
+
+    kept
 }
 
 pub fn autocorrelation_pitch(audio: &[f32], sample_rate: usize, f_min: f64, f_max: f64) -> f64 {
@@ -542,6 +643,72 @@ mod tests {
             0.20,
             0.20
         ));
+    }
+
+    #[test]
+    fn remove_non_harmonic_cycles_filters_noise_between_signals() {
+        let sample_rate = 8000;
+        let f0 = 200.0;
+        let cycle_samples = (sample_rate as f64 / f0).round() as usize;
+        let slice_len = cycle_samples * 8;
+
+        let mut audio = Vec::new();
+        // Signal 1
+        for i in 0..slice_len {
+            audio.push(
+                (2.0 * std::f64::consts::PI * f0 * i as f64 / sample_rate as f64).sin() as f32,
+            );
+        }
+        // Noise (represented by a frequency far from f0)
+        for i in 0..slice_len {
+            audio.push(
+                (2.0 * std::f64::consts::PI * (f0 * 1.7) * i as f64 / sample_rate as f64).sin()
+                    as f32,
+            );
+        }
+        // Signal 2
+        for i in 0..slice_len {
+            audio.push(
+                (2.0 * std::f64::consts::PI * f0 * i as f64 / sample_rate as f64).sin() as f32,
+            );
+        }
+        // Partial Signal (remainder)
+        for i in 0..(slice_len / 2) {
+            audio.push(
+                (2.0 * std::f64::consts::PI * f0 * i as f64 / sample_rate as f64).sin() as f32,
+            );
+        }
+
+        let mut comb = HarmonicCombCaptureConfig::default();
+        comb.on_score = 0.1;
+        comb.spectral_flatness_max = 0.5;
+
+        let filtered = remove_non_harmonic_cycles(&audio, sample_rate, f0, &comb);
+
+        // Expected: Signal 1 + Signal 2 + Partial Signal (since Signal 2 was kept)
+        // Length should be slice_len * 2 + slice_len / 2 = 2.5 * slice_len
+        assert_eq!(filtered.len(), (2.5 * slice_len as f64) as usize);
+    }
+
+    #[test]
+    fn remove_non_harmonic_cycles_returns_empty_on_pure_noise() {
+        let sample_rate = 8000;
+        let f0 = 200.0;
+        let cycle_samples = (sample_rate as f64 / f0).round() as usize;
+        let slice_len = cycle_samples * 8;
+
+        let audio = (0..(slice_len * 2))
+            .map(|i| {
+                (2.0 * std::f64::consts::PI * (f0 * 1.7) * i as f64 / sample_rate as f64).sin()
+                    as f32
+            })
+            .collect::<Vec<_>>();
+
+        let mut comb = HarmonicCombCaptureConfig::default();
+        comb.on_score = 0.1;
+
+        let filtered = remove_non_harmonic_cycles(&audio, sample_rate, f0, &comb);
+        assert!(filtered.is_empty());
     }
 
     fn geomspace(start: f64, stop: f64, count: usize) -> Vec<f64> {
