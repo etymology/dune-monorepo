@@ -18,6 +18,7 @@ READY_STATE = "StopMode"
 _UNSUPPORTED_MOTION_TAGS = frozenset(
     {
         "STATE",
+        "STATE_REQUEST",
         "MOVE_TYPE",
         "X_POSITION",
         "Y_POSITION",
