@@ -1,4 +1,5 @@
 use realfft::RealFftPlanner;
+use rustfft::num_complex::Complex;
 
 #[derive(Debug, Clone)]
 pub struct HarmonicCombCaptureConfig {
@@ -472,18 +473,19 @@ fn normalized_autocorrelation(
     f_min: f64,
     f_max: f64,
 ) -> Option<(Vec<f64>, usize, usize)> {
-    if audio.len() < 2 || sample_rate == 0 {
+    let n = audio.len();
+    if n < 2 || sample_rate == 0 {
         return None;
     }
     let f_min = f_min.max(1.0);
     let f_max = f_max.max(f_min + 1.0);
     let lag_min = (sample_rate as f64 / f_max).floor().max(1.0) as usize;
-    let lag_max = ((sample_rate as f64 / f_min).floor() as usize).min(audio.len() - 1);
+    let lag_max = ((sample_rate as f64 / f_min).floor() as usize).min(n - 1);
     if lag_min >= lag_max {
         return None;
     }
 
-    let mean = audio.iter().map(|value| f64::from(*value)).sum::<f64>() / audio.len() as f64;
+    let mean = audio.iter().map(|value| f64::from(*value)).sum::<f64>() / n as f64;
     let centered = audio
         .iter()
         .map(|value| f64::from(*value) - mean)
@@ -493,14 +495,33 @@ fn normalized_autocorrelation(
         return None;
     }
 
-    let mut acf = vec![0.0; audio.len()];
-    for lag in lag_min..=lag_max {
-        let mut value = 0.0;
-        for index in 0..(audio.len() - lag) {
-            value += centered[index] * centered[index + lag];
-        }
-        acf[lag] = value / (norm0 + 1e-30);
+    let mut n_fft = 1;
+    while n_fft < 2 * n {
+        n_fft <<= 1;
     }
+
+    let mut planner = RealFftPlanner::<f64>::new();
+    let fft_forward = planner.plan_fft_forward(n_fft);
+    let fft_inverse = planner.plan_fft_inverse(n_fft);
+
+    let mut input = vec![0.0; n_fft];
+    for (i, &val) in centered.iter().enumerate() {
+        input[i] = val;
+    }
+
+    let mut spectrum = fft_forward.make_output_vec();
+    fft_forward.process(&mut input, &mut spectrum).ok()?;
+
+    for val in spectrum.iter_mut() {
+        *val = Complex::new(val.norm_sqr(), 0.0);
+    }
+
+    let mut acf_raw = fft_inverse.make_output_vec();
+    fft_inverse.process(&mut spectrum, &mut acf_raw).ok()?;
+
+    let scale = 1.0 / (n_fft as f64 * (norm0 + 1e-30));
+    let acf = acf_raw[..n].iter().map(|&val| val * scale).collect();
+
     Some((acf, lag_min, lag_max))
 }
 
