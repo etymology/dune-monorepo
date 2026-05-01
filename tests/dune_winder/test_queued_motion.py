@@ -9,7 +9,7 @@ from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.gcode.runtime import GCodeProgramExecutor
 from dune_winder.io.devices.plc import PLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.head_compensation import WirePathModel

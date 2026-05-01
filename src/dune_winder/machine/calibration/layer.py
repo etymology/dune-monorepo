@@ -15,8 +15,8 @@ import shutil
 import tempfile
 
 from dune_winder.library.hash import Hash
-from dune_winder.library.serializable_location import SerializableLocation
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.serializable_location import SerializableLocation
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.z_plane import (
     layer_z_plane_calibration_from_dict,
     layer_z_plane_calibration_to_dict,

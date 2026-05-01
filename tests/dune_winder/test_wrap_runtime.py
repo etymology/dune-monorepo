@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.geometry.uv_wrap_geometry import (

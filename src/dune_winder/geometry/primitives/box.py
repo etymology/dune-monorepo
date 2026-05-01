@@ -6,8 +6,8 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.library.Geometry.location import Location
-from dune_winder.library.Geometry.line import Line
+from dune_winder.geometry.primitives.location import Location
+from dune_winder.geometry.primitives.line import Line
 
 
 class Box:

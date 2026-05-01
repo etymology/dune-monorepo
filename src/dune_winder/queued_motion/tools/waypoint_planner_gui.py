@@ -10,8 +10,8 @@ from tkinter import scrolledtext
 from tkinter import messagebox, ttk
 from typing import Optional
 
-from dune_winder.io.Devices.plc_backend import create_plc_backend_for_path
-from dune_winder.io.Devices.plc_backend import resolve_plc_sim_engine
+from dune_winder.io.devices.plc_backend import create_plc_backend_for_path
+from dune_winder.io.devices.plc_backend import resolve_plc_sim_engine
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.settings import Settings
 
@@ -1156,7 +1156,7 @@ class WaypointPlannerApp(tk.Tk):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "GUI waypoint planner/executor for motionQueueTest waypoint_path flow."
+            "GUI waypoint planner/executor for queue_demo waypoint_path flow."
         )
     )
     parser.add_argument(

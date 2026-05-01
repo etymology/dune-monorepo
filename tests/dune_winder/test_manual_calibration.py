@@ -12,7 +12,7 @@ from dune_winder.core.manual_calibration import (
 )
 from dune_winder.core.anode_plane_array import AnodePlaneArray
 from dune_winder.library.app_config import AppConfig
-from dune_winder.library.serializable_location import SerializableLocation
+from dune_winder.geometry.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import WIRE_SPACING as GX_WIRE_SPACING
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.core.x_backlash_compensation import XBacklashCompensation

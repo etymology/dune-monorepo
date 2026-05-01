@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.z_plane import (
     LayerZPlaneCalibration,

@@ -7,7 +7,7 @@
 ###############################################################################
 
 import math
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 
 
 class Circle:

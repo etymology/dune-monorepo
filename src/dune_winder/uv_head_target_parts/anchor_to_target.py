@@ -4,7 +4,7 @@ from functools import lru_cache
 import math
 from pathlib import Path
 
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 
 from .calibration import (
     _load_layer_calibration,
