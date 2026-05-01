@@ -230,7 +230,9 @@ dependencies = [
 name = "dune_tension_core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "dune-audio",
+ "numpy",
  "pyo3",
  "rand",
  "rand_distr",
