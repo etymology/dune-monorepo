@@ -68,9 +68,7 @@ enum StopMode {
 enum PLCMode {
   init              -- 0
   ready             -- 1
-  xy_jog            -- 2
   xy_seek           -- 3
-  z_jog             -- 4
   z_seek            -- 5
   latching          -- 6
   latch_homing      -- 7
@@ -105,7 +103,6 @@ enum HeadSide { stage | fixed }
 
 enum SafetyDiagnosticCode {
   none
-  xy_jog_z_extended
   xy_seek_z_extended
   xy_axis_fault
   sto_active
@@ -185,9 +182,7 @@ entity PLCController {
 
   transitions mode {
     init -> ready
-    ready -> xy_jog
     ready -> xy_seek
-    ready -> z_jog
     ready -> z_seek
     ready -> latching
     ready -> latch_homing
@@ -196,11 +191,9 @@ entity PLCController {
     ready -> xz_seek
     ready -> yz_seek
     ready -> hmi_stop
-    xy_jog -> ready
     xy_seek -> ready
     xy_seek -> error
     xy_seek -> eot_trip
-    z_jog -> ready
     z_seek -> ready
     z_seek -> error
     z_seek -> eot_trip
@@ -1488,7 +1481,7 @@ rule XYWaitsForStableTension {
 
 rule XYEOTTrip {
   when: switches: MachineSwitches.all_eot_good becomes false
-  requires: plc_controller.mode in { xy_seek, xy_jog }
+  requires: plc_controller.mode = xy_seek
 
   ensures: CoordinatedMotionStopIssued()
   ensures: plc_controller.mode = eot_trip
@@ -1821,7 +1814,6 @@ surface MachineFeedbackInputs {
 -- Error code reference
 -- ==========================================================================
 
--- 2001: xy_jog_z_extended, "XY Jog, Z is extended"
 -- 3001: xy_seek_z_extended, "XY Seek, Z is extended"
 -- 3002: xy_axis_fault, "Physical X or Y axis fault"
 -- 3003: xy_position_acceptance_failed, "Motion complete, but position is incorrect"

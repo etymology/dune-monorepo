@@ -6,9 +6,8 @@
 --        keepouts, arc discretisation, and pin/comb tables all draw from
 --        this contract.
 --
--- Excludes: how the calibration is acquired (factory procedure, fitting
---           algorithms, machine-space alignment workflow); see the
---           calibration workflow spec when it is written.
+-- Excludes: low-level fitting algorithms and file schemas. Operator-facing
+--           capture requirements live in operator-workflows.allium.
 --
 -- Port-correctness note: every value declared here is consumed by either
 -- layer-geometry.allium, motion-safety.allium, or winder-states.allium. A
@@ -31,10 +30,12 @@ value WinderCalibrationRecord {
     apa_board_thickness_x: Decimal
     apa_board_thickness_y: Decimal
 
-    -- Pin and tooth nominal geometry
-    pin_radius:                Decimal
-    xg_tooth_count_per_column: Integer
-    xg_tooth_pitch:            Decimal
+    -- Pin and X/G board-slot nominal geometry
+    pin_radius:             Decimal
+    x_slot_count_per_side:  Integer
+    g_slot_count_per_side:  Integer
+    x_slot_pitch:           Decimal
+    g_slot_pitch:           Decimal
 
     -- Comb positions: four mid-APA combs along X (mm)
     comb_x_positions: List<Decimal>
@@ -106,16 +107,16 @@ value WinderCalibrationRecord {
 -- ==========================================================================
 --
 -- A reimplementer must provide a WinderCalibration that returns the scalar
--- record above and the per-pin / per-tooth lookup tables. The lookup
+-- record above and the per-pin / per-slot lookup tables. The lookup
 -- tables are opaque at the spec level; their structure is fixed by
--- layer-geometry.allium (per-pin position by PinName, per-tooth position
--- by edge/column/number).
+-- layer-geometry.allium (per-pin position by PinName, per-slot position
+-- by edge/side/number).
 
 contract WinderCalibration {
     record: (context: Any) -> WinderCalibrationRecord
 
-    pin_position:      (pin: Any) -> Any
-    xg_tooth_position: (tooth: Any) -> Any
+    pin_position:     (pin: Any) -> Any
+    xg_slot_position: (slot: Any) -> Any
 
     @invariant CompletelySpecified
         -- Every field on WinderCalibrationRecord must be supplied. Missing
@@ -130,7 +131,7 @@ contract WinderCalibration {
 
     @invariant LookupCoverage
         -- pin_position is defined for every PinName valid under
-        -- layer-geometry.allium. xg_tooth_position is defined for every
-        -- (edge, column, number) with edge in {head, foot},
-        -- column in {a, b}, number in 1..xg_tooth_count_per_column.
+        -- layer-geometry.allium. xg_slot_position is defined for every
+        -- (edge, side, number) with edge in {head, foot}, side in {a, b},
+        -- number in 1..480 for X slots and 1..481 for G slots.
 }

@@ -96,9 +96,9 @@ value Pin {
 -- ==========================================================================
 --
 -- The X and G layers wrap around comb slots carried by the head and foot
--- boards (X/G boards). Each board has two columns of slots, A and B,
--- running along the board's long (Y) axis. Slots are numbered
--- bottom-to-top. Slot count per column is per-layer:
+-- boards (X/G boards). Each board has two sides of slots, A and B, running
+-- along the board's long (Y) axis. Slots are numbered bottom-to-top on each
+-- (head/foot, A/B) combination. Slot count per side is per-layer:
 --   X layer: 480 slots
 --   G layer: 481 slots
 --
@@ -107,12 +107,13 @@ value Pin {
 -- of the APA (not on the head or foot edges). They constrain wires
 -- mid-span.
 
-enum SlotColumn { a | b }
+enum SlotSide { a | b }
+enum SlotEdge { head | foot }
 
 value XGCombSlotGrid {
   layer:            Layer       -- x | g
-  count_per_column: Integer     -- 480 for X, 481 for G
-  pitch:            Decimal     -- mm, = apa_height / count_per_column
+  count_per_side:   Integer     -- 480 for X, 481 for G
+  pitch:            Decimal     -- mm, = apa_height / count_per_side
 }
 
 value CombPositions {
@@ -129,11 +130,11 @@ entity APAGeometry {
 }
 
 -- Ordered visit sequence for X/G layer wrap, expressed as a slot address.
--- Slots are numbered bottom-to-top (1..count_per_column).
+-- Slots are numbered bottom-to-top (1..count_per_side).
 value XGSlotAddress {
-  edge: FrameEdge       -- head | foot
-  column: SlotColumn    -- a | b
-  number: Integer       -- 1..count_per_column
+  edge: SlotEdge       -- head | foot
+  side: SlotSide       -- a | b
+  number: Integer      -- 1..480 for X, 1..481 for G
 }
 
 entity XGWrapOrder {
@@ -254,9 +255,11 @@ config {
   -- the WinderCalibration contract).
   pin_radius_mm: Decimal = 0.0
 
-  -- X/G tooth grid (head and foot boards)
-  xg_tooth_count_per_column: Integer = 480
-  xg_tooth_pitch_mm:         Decimal = 4.791666666666667   -- apa_height_mm / 480
+  -- X/G slot grid (head and foot boards)
+  x_slot_count_per_side: Integer = 480
+  g_slot_count_per_side: Integer = 481
+  x_slot_pitch_mm:       Decimal = 4.791666666666667   -- apa_height_mm / 480
+  g_slot_pitch_mm:       Decimal = 4.781704781704782   -- apa_height_mm / 481
 
   -- Combs: four mid-APA combs along X. Calibration supplies positions.
   comb_count: Integer = 4
@@ -585,10 +588,7 @@ rule DefineAPAGeometry {
       board_thickness_y: config.apa_board_thickness_y_mm
     },
     pin: { radius: config.pin_radius_mm },
-    xg_teeth: {
-      pitch: config.xg_tooth_pitch_mm,
-      count_per_column: config.xg_tooth_count_per_column
-    },
+    xg_comb_slots: xg_comb_slot_grids(),
     combs: {
       count: config.comb_count,
       x_positions: comb_x_positions()
@@ -601,13 +601,14 @@ rule DefineAPAGeometry {
     -- contract (see winder-calibration.allium). The values declared in
     -- config are nominal placeholders.
     --
-    -- The XGToothGrid models the head and foot boards' teeth. Each board
-    -- carries two columns A and B of `count_per_column` teeth, numbered
-    -- bottom-to-top, at uniform pitch `apa_height / count_per_column`.
+    -- The X/G comb-slot grid models the head and foot boards' slots. Each
+    -- board carries side A and side B slots, numbered bottom-to-top. X slots
+    -- are numbered 1..480 and G slots are numbered 1..481 on each side of
+    -- each head/foot board.
     --
     -- The combs are four physical structures positioned vertically in the
     -- middle of the APA at four mid-APA X positions. They are NOT on the
-    -- head or foot edges and are distinct from the X/G board teeth.
+    -- head or foot edges and are distinct from the X/G board slots.
 }
 
 rule DefineXGWrapOrder {
@@ -621,16 +622,16 @@ rule DefineXGWrapOrder {
   )
 
   @guidance
-    -- The X/G layer is wound by visiting teeth in a fixed interleaved
-    -- order. With teeth numbered bottom-to-top from 1 to
-    -- xg_tooth_count_per_column, the visit order is:
+    -- The X/G layer is wound by visiting slots in a fixed interleaved order.
+    -- With slots numbered bottom-to-top from 1 to the layer's count per side,
+    -- the visit order is:
     --
     --   head A_1, foot A_1, foot B_1, head B_1,
     --   head A_2, foot A_2, foot B_2, head B_2,
     --   ...
     --   head A_n, foot A_n, foot B_n, head B_n
     --
-    -- That is, for each n in 1..count_per_column the wrap visits four
-    -- teeth in the order (head, A) -> (foot, A) -> (foot, B) -> (head, B)
+    -- That is, for each n in the layer-specific slot range the wrap visits
+    -- four slots in the order (head, A) -> (foot, A) -> (foot, B) -> (head, B)
     -- before incrementing n.
 }

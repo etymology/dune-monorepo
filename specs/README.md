@@ -16,6 +16,13 @@ specs.
 - **Common value types**: PinSide, FrameEdge, PinRange, PinName, PinPair,
   WrapSide
 
+### `operator-workflows.allium`
+
+Operator-facing workflows across the winder and tension tools. Covers manual
+motion, winding, calibration capture, tension measurement, and tension
+observation review as user-visible interactions, while deferring low-level
+geometry, safety, PLC, and analysis details to the domain specs below.
+
 ### `tension-physics.allium`
 
 Wire resonance physics, frequency-tension-length equations, KDE-based frequency
@@ -32,8 +39,8 @@ and upload/review boundaries.
 
 APA wire geometry for U, V, X, and G layers, plus the APA physical
 envelope: frame dimensions, board cross-section, pin radius, the X/G
-board tooth grid (head/foot edges, A/B columns, pitch =
-`apa_height / xg_tooth_count_per_column`), the four mid-APA combs, and
+board slot grid (head/foot edges, A/B sides, X slots numbered 1-480,
+G slots numbered 1-481), the four mid-APA combs, and
 the X/G wrap visit order. U/V wire geometry is fully specified; X/G
 wire-segment formulas remain placeholders pending detailed mechanical
 design. Winding angles are derived from pin locations on the fly and
@@ -101,6 +108,8 @@ Common exclusions:
 
 - Start with `tension-measurement.allium` for measurement contracts.
 - Use `tension-physics.allium` for resonance equations and thresholds.
+- Use `operator-workflows.allium` for user-facing workflow obligations and
+  operator-visible progress/outcome states.
 - Reference `winder-states.allium` for safety interlocks and state transitions.
 - Use `layer-geometry.allium` and `uv-wrap-geometry.allium` for wire geometry and the APA physical envelope.
 - Use `motion-safety.allium` for queued-motion safety validation and pose invariants.
