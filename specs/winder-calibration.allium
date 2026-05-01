@@ -1,0 +1,136 @@
+-- allium: 3
+-- winder-calibration.allium
+
+-- Scope: The single source of calibration values a reimplementer must
+--        supply for the winder to operate. Geometry, workspace bounds,
+--        keepouts, arc discretisation, and pin/comb tables all draw from
+--        this contract.
+--
+-- Excludes: how the calibration is acquired (factory procedure, fitting
+--           algorithms, machine-space alignment workflow); see the
+--           calibration workflow spec when it is written.
+--
+-- Port-correctness note: every value declared here is consumed by either
+-- layer-geometry.allium, motion-safety.allium, or winder-states.allium. A
+-- Rust port must accept the same values (units, defaults, semantics) so
+-- that the geometry and pose invariants in those specs evaluate
+-- identically.
+
+-- ==========================================================================
+-- Calibration record
+-- ==========================================================================
+
+value WinderCalibrationRecord {
+    -- APA physical envelope (mm)
+    apa_length:    Decimal
+    apa_height:    Decimal
+    apa_thickness: Decimal
+
+    -- APA board cross-section (mm)
+    apa_board_width_z:     Decimal
+    apa_board_thickness_x: Decimal
+    apa_board_thickness_y: Decimal
+
+    -- Pin and tooth nominal geometry
+    pin_radius:                Decimal
+    xg_tooth_count_per_column: Integer
+    xg_tooth_pitch:            Decimal
+
+    -- Comb positions: four mid-APA combs along X (mm)
+    comb_x_positions: List<Decimal>
+
+    -- XY workspace envelope (mm)
+    limit_left:   Decimal
+    limit_right:  Decimal
+    limit_bottom: Decimal
+    limit_top:    Decimal
+
+    -- Z workspace envelope (mm)
+    z_limit_front: Decimal
+    z_limit_rear:  Decimal
+
+    -- Y transfer positions: discrete Y values where Y must be parked
+    -- before the PLC accepts an XZ-mode move (Y_Transfer_OK).
+    y_transfer_positions: List<Decimal>
+
+    -- XY transfer region exclusion (mm)
+    transfer_left:        Decimal
+    transfer_right:       Decimal
+    transfer_left_margin: Decimal
+    transfer_y_threshold: Decimal
+
+    -- Headward-pivot keepout (mm)
+    headward_pivot_x:           Decimal
+    headward_pivot_y:           Decimal
+    headward_pivot_x_tolerance: Decimal
+    headward_pivot_y_tolerance: Decimal
+
+    -- Z-extended collision threshold (mm)
+    z_collision_threshold: Decimal
+
+    -- APA collision Y bounds (mm)
+    apa_collision_bottom_y: Decimal
+    apa_collision_top_y:    Decimal
+
+    -- Head/foot transfer-window X bounds (mm). Movement through these X
+    -- ranges is allowed even when Z is extended; the rest of the X range
+    -- is forbidden when Z is extended.
+    transfer_zone_head_min_x: Decimal
+    transfer_zone_head_max_x: Decimal
+    transfer_zone_foot_min_x: Decimal
+    transfer_zone_foot_max_x: Decimal
+
+    -- Frame-support keepout Y bands (mm). Each band is activated by one
+    -- frame-lock sensor (see motion-safety.allium for the
+    -- frame_lock_<edge>_<row> -> MACHINE_SW_STAT[26..31] mapping).
+    support_collision_bottom_min_y: Decimal
+    support_collision_bottom_max_y: Decimal
+    support_collision_middle_min_y: Decimal
+    support_collision_middle_max_y: Decimal
+    support_collision_top_min_y:    Decimal
+    support_collision_top_max_y:    Decimal
+
+    -- Arc discretisation (radians, mm)
+    arc_max_step_rad: Decimal
+    arc_max_chord:    Decimal
+
+    -- Numerical tolerance shared by geometric checks (mm)
+    geometry_epsilon: Decimal
+
+    -- Maximum commanded velocity (mm/s)
+    max_velocity: Decimal
+}
+
+-- ==========================================================================
+-- Calibration access contract
+-- ==========================================================================
+--
+-- A reimplementer must provide a WinderCalibration that returns the scalar
+-- record above and the per-pin / per-tooth lookup tables. The lookup
+-- tables are opaque at the spec level; their structure is fixed by
+-- layer-geometry.allium (per-pin position by PinName, per-tooth position
+-- by edge/column/number).
+
+contract WinderCalibration {
+    record: (context: Any) -> WinderCalibrationRecord
+
+    pin_position:      (pin: Any) -> Any
+    xg_tooth_position: (tooth: Any) -> Any
+
+    @invariant CompletelySpecified
+        -- Every field on WinderCalibrationRecord must be supplied. Missing
+        -- or unparseable values prevent the safety validation surface
+        -- from accepting any motion segment.
+
+    @invariant UnitsAndConventions
+        -- Lengths are millimetres in the machine frame; angles are
+        -- radians; durations are SI seconds. The X axis runs along the
+        -- APA length, Y along the APA height, Z perpendicular to the APA
+        -- plane (positive Z extends toward the APA).
+
+    @invariant LookupCoverage
+        -- pin_position is defined for every PinName valid under
+        -- layer-geometry.allium. xg_tooth_position is defined for every
+        -- (edge, column, number) with edge in {head, foot},
+        -- column in {a, b}, number in 1..xg_tooth_count_per_column.
+}

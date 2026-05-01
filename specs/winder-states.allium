@@ -445,6 +445,11 @@ config {
   delay_mid_position: Duration = 50.milliseconds
   delay_fixed_latched: Duration = 100.milliseconds
 
+  -- Maximum mechanical settling time from rocker_at_fixed (3) to
+  -- mid_engagement (2). The settle is mechanical, not PLC-timed; this
+  -- bound is observed in normal operation.
+  rocker_settle_timeout: Duration = 2.seconds
+
   max_velocity: Decimal
 }
 
@@ -855,8 +860,23 @@ rule RockerSettleToMid {
     -- After reaching rocker_at_fixed (3), the rocker settles back
     -- to mid_engagement (2). This completes the unlatch-from-stage
     -- sequence. State 2 is the safe withdrawal point.
-    -- The settle happens mechanically; timing depends on the
-    -- physical system but is typically under 2 seconds.
+    -- The settle happens mechanically; the bound is given by
+    -- config.rocker_settle_timeout. See RockerSettleTimeoutTrips.
+}
+
+rule RockerSettleTimeoutTrips {
+  when: actuator: ActuatorState.rocker_settle_overdue
+
+  ensures: HeadTransferFailed("Rocker failed to settle from rocker_at_fixed (3) to mid_engagement (2) within rocker_settle_timeout.")
+
+  @guidance
+    -- The derived condition rocker_settle_overdue becomes true when the
+    -- actuator has remained at rocker_at_fixed for longer than
+    -- config.rocker_settle_timeout. If the mechanical settle does not
+    -- complete within the timeout the transfer is treated as a failure
+    -- and surfaced as an operator-visible diagnostic. The PLC remains
+    -- authoritative for the mechanical state; this rule defines the
+    -- spec-level deadline the implementation must enforce.
 }
 
 rule ZMoveBlockedDuringFloating {
@@ -1674,10 +1694,11 @@ invariant ActuatorPositionSafety {
 }
 
 invariant XYCollisionEnvelope {
-  -- Every manual, interpreted macro, and queued XY path must remain inside
-  -- machine travel bounds, avoid the forbidden transfer region, avoid the
-  -- winding-head pivot keepout, and avoid active Z-collision keepouts.
-  -- Arc paths are checked by sampling/interpolation before acceptance.
+  -- Authoritative envelope rules live in motion-safety.allium:
+  -- AllCommandedPositionsWithinEnvelope, HeadwardPivotNeverTraversed,
+  -- HorizontalMoveModeRules, ActiveFrameLockKeepoutsRespected. They apply
+  -- to every manual, interpreted-macro, and queued XY path; arc paths are
+  -- checked by chord sampling before acceptance.
 }
 
 invariant QueuedMotionFailuresAreTerminalForCurrentBlock {
@@ -1690,10 +1711,10 @@ invariant QueuedMotionFailuresAreTerminalForCurrentBlock {
 }
 
 invariant ZExtendedCollisionEnvelope {
-  -- When Z is above the configured collision threshold, XY paths must avoid:
-  --   - APA collision zones outside the head/foot transfer slots
-  --   - Head support keepouts when the matching head frame lock is active
-  --   - Foot support keepouts when the matching foot frame lock is active
+  -- See motion-safety.allium#ZExtendedMotionRespectsCollisionZones and
+  -- motion-safety.allium#ActiveFrameLockKeepoutsRespected for the
+  -- authoritative statement. The PLC enforces the same rules in reverse
+  -- via MASTER_Z_GO (motion-safety.allium#ZMotionRequiresMasterZGo).
 }
 
 invariant RuntimeAndPLCBothEnforceSafety {
@@ -1707,6 +1728,13 @@ invariant ErrorStateRequiresOperatorRecovery {
   -- returns the PLC to ready. EOT recovery is a separate state that moves only
   -- away from the tripped travel limits.
 }
+
+-- AllowedHorizontalMoveModes and ZAxisHeldDuringXY are stated authoritatively
+-- in motion-safety.allium as HorizontalMoveModeRules and
+-- ZHeldDuringHorizontalMotion. The PLC's three move modes (xy_seek, xz_seek,
+-- yz_seek) are the only mechanism by which X or Y motion is commanded, and
+-- each engages Z under power; that mechanical fact and the conditions on
+-- each mode live with the safety validation rules in motion-safety.allium.
 
 -- ==========================================================================
 -- Surfaces
@@ -1815,7 +1843,10 @@ surface MachineFeedbackInputs {
 
 open question "State 0 (transition_engaged) occurs in two distinct scenarios: head absent cycling (0→3→2) and head present transient. Should these be modeled as separate states, or is the current unified model sufficient?"
 
-open question "The rocker settling time from state 3 to state 2 is mechanically determined and not directly timed in the PLC. Should the spec define a maximum settling duration with error handling if exceeded?"
+-- Resolved: see config.rocker_settle_timeout and rule RockerSettleTimeoutTrips.
+-- The mechanical settle from rocker_at_fixed (3) to mid_engagement (2) must
+-- complete within config.rocker_settle_timeout (default 2 seconds); exceeding
+-- it raises a HeadTransferFailed diagnostic.
 
 open question "Legacy protocol: should it be formally deprecated in the spec, or maintained as a supported alternative? Current Python code supports both."
 
