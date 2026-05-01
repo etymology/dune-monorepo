@@ -21,13 +21,16 @@ _V_LAYER_CALIBRATION_PATH = _REPO_ROOT / "config/frame_geometry/V_Calibration.js
 
 class UVTangencyAnalysisTests(unittest.TestCase):
     def test_build_uv_tangency_report_returns_site_geometry_and_sensitivities(self):
-        report = build_uv_tangency_report(
-            "U",
-            1,
-            site_ids=["bottom_a_foot_end"],
-            sensitivity_names=["global_x_shift", "x_from_y_skew"],
-            machine_calibration_path=_MACHINE_CALIBRATION_PATH,
-            layer_calibration_path=_U_LAYER_CALIBRATION_PATH,
+        report = cast(
+            dict[str, Any],
+            build_uv_tangency_report(
+                "U",
+                1,
+                site_ids=["bottom_a_foot_end"],
+                sensitivity_names=["global_x_shift", "x_from_y_skew"],
+                machine_calibration_path=_MACHINE_CALIBRATION_PATH,
+                layer_calibration_path=_U_LAYER_CALIBRATION_PATH,
+            ),
         )
 
         self.assertEqual(report["layer"], "U")

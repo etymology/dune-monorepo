@@ -70,15 +70,28 @@ class Motor(IO_Point, metaclass=ABCMeta):
 
         pass
 
-    # #---------------------------------------------------------------------
-    # @abstractmethod
-    # def seekWait( self ) :
-    #   """
-    #   Block until seek is obtained.
-    #
-    #   """
-    #
-    #   pass
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def setEnable(self, isEnabled):
+        """
+        Enable/disable motor.
+
+        Args:
+          isEnabled: True if enabled, False if not.
+
+        """
+
+        pass
+
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def seekWait(self):
+        """
+        Block until seek is obtained.
+
+        """
+
+        pass
 
     # ---------------------------------------------------------------------
     @abstractmethod

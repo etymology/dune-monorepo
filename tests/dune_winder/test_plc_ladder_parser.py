@@ -8,6 +8,7 @@ from dune_winder.plc_ladder import RllEmitter
 from dune_winder.plc_ladder import RllParser
 from dune_winder.plc_ladder import StructuredPythonCodeGenerator
 from dune_winder.plc_ladder import load_generated_routine
+from dune_winder.plc_ladder.ast import InstructionCall
 
 
 PLC_ROOT = Path(__file__).resolve().parents[2] / "dune_winder" / "plc"

@@ -1,7 +1,13 @@
 import unittest
 from typing import cast
 
-from dune_winder.gcode.model import MacroCall, OPCODE_CATALOG, FunctionCall, Opcode
+from dune_winder.gcode.model import (
+    MacroCall,
+    OPCODE_CATALOG,
+    FunctionCall,
+    Opcode,
+    CommandWord,
+)
 from dune_winder.gcode.parser import GCodeParseError, parse_line_text
 from dune_winder.gcode.renderer import render_line
 from dune_winder.gcode.runtime import (

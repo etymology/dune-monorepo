@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import time
 from dune_winder.io.primitives.motor import Motor
 from dune_winder.io.devices.plc import PLC
 from typing import List
@@ -123,6 +124,26 @@ class PLC_Motor(Motor):
         result = bool(self._movement.get())
 
         return result
+
+    # ---------------------------------------------------------------------
+    def setEnable(self, isEnabled):
+        """
+        Enable/disable motor.
+
+        Args:
+          isEnabled: True if enabled, False if not.
+
+        """
+        pass
+
+    # ---------------------------------------------------------------------
+    def seekWait(self):
+        """
+        Block until seek is obtained.
+
+        """
+        while self.isSeeking():
+            time.sleep(0.01)
 
     # ---------------------------------------------------------------------
     def getPosition(self):

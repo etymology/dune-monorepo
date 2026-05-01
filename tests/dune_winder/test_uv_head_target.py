@@ -523,6 +523,8 @@ def test_compute_uv_tangent_view_builds_alternating_projection_for_xz_face():
     assert math.isclose(
         result.alternating_wrap_line_end.y, result.z_extended, abs_tol=1e-6
     )
+    assert result.alternating_anchor_segment_end is not None
+    assert result.alternating_anchor_segment_start is not None
     assert math.isclose(
         abs(
             result.alternating_anchor_segment_end.x
