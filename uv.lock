@@ -2,18 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
-    "python_full_version >= '3.15' and platform_machine != 's390x' and sys_platform == 'win32'",
-    "python_full_version >= '3.15' and platform_machine == 's390x' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and platform_machine != 's390x' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and platform_machine == 's390x' and sys_platform == 'win32'",
-    "python_full_version >= '3.15' and platform_machine != 's390x' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.15' and platform_machine == 's390x' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and platform_machine != 's390x' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and platform_machine == 's390x' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.15' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.15' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.14.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.14.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32'",
     "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32'",
@@ -412,6 +406,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "dune-rust-audio" },
+    { name = "dune-tension-core" },
     { name = "flask" },
     { name = "influxdb-client" },
     { name = "matplotlib" },
@@ -442,6 +438,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.97.0" },
+    { name = "dune-rust-audio", directory = "rust/crates/dune-python" },
+    { name = "dune-tension-core", directory = "rust/crates/dune_tension_core" },
     { name = "flask", specifier = ">=3.1.0" },
     { name = "influxdb-client", specifier = ">=1.40.0" },
     { name = "matplotlib", specifier = ">=3.10.3" },
@@ -468,6 +466,16 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "ruff", specifier = ">=0.9.9" },
 ]
+
+[[package]]
+name = "dune-rust-audio"
+version = "0.1.0"
+source = { directory = "rust/crates/dune-python" }
+
+[[package]]
+name = "dune-tension-core"
+version = "0.1.0"
+source = { directory = "rust/crates/dune_tension_core" }
 
 [[package]]
 name = "filelock"
