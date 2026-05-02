@@ -1,0 +1,418 @@
+-- allium: 3
+-- uv-machine-calibration.allium
+
+-- Scope: Calibration capture, persistence, and solver behaviour for the UV
+--        diagonal-layer workflow. Covers:
+--          - PinCalibrationSnapshot / PinCalibrationFile: how raw camera-space
+--            pin coordinates are recorded by Calibrate.html and persisted.
+--          - MachineCalibrationCapturePoint / MachineCalibrationFile: the
+--            APA.html "Use current position" capture workflow that records
+--            pose-vs-target deltas during a paused recipe run.
+--          - Label propagation: a single capture rewrites every gcode line
+--            sharing the captured label with a 3D offset(x, y, z).
+--          - SolveMachineCalibration: fits CameraWireOffset bases and
+--            per-pin overrides plus roller offsets from collected captures.
+--          - SolveContinuousBPinLoop: replaces the planar Z fit with a
+--            continuous loop solution for B-side pin XYZ.
+--
+-- Excludes:
+--   - The wrap-tangent / anchor-to-target solve itself (uv-wrap-geometry.allium)
+--   - The pin geometry tables, layer ranges, endpoint pins (layer-geometry.allium)
+--   - Operator-workflow plumbing for calibration sessions in general
+--     (operator-workflows.allium owns those state machines)
+--   - Recipe / gcode syntax (winder-macros.allium)
+
+use "./core.allium" as core
+use "./layer-geometry.allium" as layout
+use "./uv-wrap-geometry.allium" as wrap
+
+-- ==========================================================================
+-- Pin calibration storage (snapshot model)
+-- ==========================================================================
+--
+-- Pin coordinates are stored as snapshots: a timestamped, possibly partial
+-- map from PinName to raw camera-space XYZ. A PinCalibrationFile holds the
+-- append-only history of snapshots for one machine. Effective coordinates
+-- resolve to the most recent snapshot containing each pin, so an operator
+-- can re-calibrate one face or one pin without rewriting the whole file.
+--
+-- The single file holds both U and V layer pins (snapshots are layer-agnostic);
+-- this replaces the legacy per-layer files (config/APA/U_Calibration.json,
+-- V_Calibration.json) that stored side+number string keys with offsets baked
+-- in.
+
+value PinCoordinate {
+    pin: core/PinName
+    xyz: wrap/Point3D
+}
+
+entity PinCalibrationFile {
+    machine_id: String
+
+    snapshots: PinCalibrationSnapshot with file = this
+    effective_pin_coords: latest_pin_coords_per_pin(snapshots)
+}
+
+entity PinCalibrationSnapshot {
+    file:                  PinCalibrationFile
+    taken_at:              Timestamp
+    calibration_camera_id: String
+    operator_name:         String?
+    notes:                 String?
+
+    pins: PinCoordinate with snapshot = this
+}
+
+-- A PinCoordinate inside a snapshot. The snapshot is identified by its file
+-- and timestamp, so legacy callers querying the latest coordinate for a pin
+-- can walk PinCalibrationFile.snapshots newest-first.
+entity PinCoordinateEntry {
+    snapshot: PinCalibrationSnapshot
+    pin:      core/PinName
+    xyz:      wrap/Point3D
+}
+
+rule AppendPinCalibrationSnapshot {
+    when: PinCalibrationSnapshotCaptured(file, taken_at, calibration_camera_id, operator_name, notes, pin_coordinates)
+
+    requires: file != null
+    requires: pin_coordinates.count > 0
+
+    ensures: PinCalibrationSnapshot.created(
+        file:                  file,
+        taken_at:              taken_at,
+        calibration_camera_id: calibration_camera_id,
+        operator_name:         operator_name,
+        notes:                 notes
+    )
+    ensures:
+        for entry in pin_coordinates:
+            PinCoordinateEntry.created(
+                snapshot: latest_snapshot_for(file),
+                pin:      entry.pin,
+                xyz:      entry.xyz
+            )
+
+    @guidance
+        -- Snapshots are append-only. A snapshot may carry only the pins
+        -- touched in the calibration session that produced it; the rest of
+        -- the active calibration is inherited from earlier snapshots.
+        --
+        -- file.effective_pin_coords resolves to the latest known XYZ for
+        -- each PinName by walking file.snapshots newest-first; pins absent
+        -- from every snapshot are absent from the result.
+}
+
+-- ==========================================================================
+-- Machine-calibration capture (APA.html "Use current position")
+-- ==========================================================================
+--
+-- During recipe execution on APA.html, the operator may pause the run, jog
+-- the winder to the position the just-executed gcode line was supposed to
+-- have reached, and click "Use current position". The system records a
+-- MachineCalibrationCapturePoint and rewrites every gcode line with the
+-- same label so it carries an offset(x, y, z) that would have produced the
+-- captured pose.
+
+value Vec3Mm {
+    x: Decimal
+    y: Decimal
+    z: Decimal
+}
+
+entity MachineCalibrationFile {
+    machine_id: String
+
+    capture_points: MachineCalibrationCapturePoint with file = this
+    fitted_model:   wrap/MachineCalibrationModel?
+    roller_offsets: RollerOffsets?
+}
+
+entity MachineCalibrationCapturePoint {
+    file:           MachineCalibrationFile
+    captured_at:    Timestamp
+    operator_name:  String?
+    gcode_label:    String        -- e.g. "Top B Corner"
+    gcode_line:     String        -- raw text of the line that produced calculated_xyz
+    calculated_xyz: Vec3Mm
+    recorded_xyz:   Vec3Mm
+    head_side:      wrap/HeadSide
+    pin:            core/PinName?
+}
+
+-- Per-roller offset corrections fitted by SolveMachineCalibration. The
+-- concrete shape is implementation-defined; the spec only requires that
+-- the solver populates them and the gcode regenerator consumes them.
+value RollerOffsets {
+    placeholder: String
+
+    @guidance
+        -- Treated as opaque at the spec level. Implementations may carry
+        -- per-roller XYZ deltas, axis-aligned biases, or richer models;
+        -- callers must not introspect.
+}
+
+-- ==========================================================================
+-- Capture workflow
+-- ==========================================================================
+--
+-- The capture button is gated on recipe execution being paused; the server
+-- enforces this in addition to the UI. A successful capture appends a
+-- MachineCalibrationCapturePoint to the active MachineCalibrationFile AND
+-- rewrites the loaded recipe gcode so every line sharing the captured
+-- label carries offset(x, y, z) = recorded_xyz - calculated_xyz.
+
+actor RecipeOperator {
+    identified_by: operator_id
+}
+
+external entity RecipeRun {
+    state: running | paused | stopped | completed
+    last_executed_gcode_line: String?
+    last_executed_gcode_label: String?
+    last_executed_calculated_xyz: Vec3Mm?
+    loaded_recipe_path: String
+}
+
+surface ApaCaptureSurface {
+    facing operator: RecipeOperator
+
+    exposes:
+        for run in RecipeRuns:
+            run.state
+            run.last_executed_gcode_line
+            run.last_executed_gcode_label
+            run.last_executed_calculated_xyz
+
+    provides:
+        OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz, head_side)
+            when run.state = paused
+
+    @guarantee CaptureGatedOnPause
+        -- The capture provider event is offered only when the recipe run is
+        -- paused. This includes both UI-side disabling and server-side
+        -- enforcement.
+}
+
+rule RecordMachineCalibrationCapture {
+    when: OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz, head_side)
+
+    requires: run.state = paused
+    requires: run.last_executed_gcode_line != null
+    requires: run.last_executed_gcode_label != null
+    requires: run.last_executed_calculated_xyz != null
+
+    ensures: MachineCalibrationCapturePoint.created(
+        file:           active_machine_calibration_file(),
+        captured_at:    now,
+        operator_name:  operator.name,
+        gcode_label:    run.last_executed_gcode_label,
+        gcode_line:     run.last_executed_gcode_line,
+        calculated_xyz: run.last_executed_calculated_xyz,
+        recorded_xyz:   recorded_xyz,
+        head_side:      head_side,
+        pin:            pin_for_gcode_label(run.last_executed_gcode_label)
+    )
+    ensures: GcodeOffsetsPropagated(
+        run:    run,
+        label:  run.last_executed_gcode_label,
+        offset: subtract_vec3(recorded_xyz, run.last_executed_calculated_xyz)
+    )
+
+    @guidance
+        -- The capture point is appended to the active MachineCalibrationFile
+        -- (see AppendMachineCalibrationCapturePoint). The
+        -- GcodeOffsetsPropagated event triggers RegenerateLoadedRecipeGcode,
+        -- which rewrites every gcode line sharing the captured label with
+        -- offset(x, y, z) = recorded - calculated.
+        --
+        -- pin_for_gcode_label may be null when the label does not correspond
+        -- directly to a single pin (e.g. multi-pin transfer paths).
+}
+
+rule RejectCaptureWhileRunning {
+    when: OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz, head_side)
+    requires: run.state != paused
+
+    ensures: CaptureRejected(reason: "recipe execution is not paused")
+
+    @guidance
+        -- The same gating applies in the UI (button disabled) and on the
+        -- server (POST refused). This prevents capturing a transient pose
+        -- while the controller is still moving.
+}
+
+rule PersistMachineCalibrationCapturePoint {
+    when: point: MachineCalibrationCapturePoint.created
+
+    ensures: MachineCalibrationCapturePointPersisted(point: point)
+
+    @guidance
+        -- The capture point's file field already binds it to the active
+        -- MachineCalibrationFile, so file.capture_points (a derived set
+        -- of MachineCalibrationCapturePoint with file = this) reflects
+        -- the new entry without an explicit append. The persistence event
+        -- requires the capture to be durable on disk before the operator's
+        -- next action is offered.
+}
+
+-- ==========================================================================
+-- Label-driven gcode rewrite
+-- ==========================================================================
+
+rule RegenerateLoadedRecipeGcode {
+    when: GcodeOffsetsPropagated(run, label, offset)
+
+    requires: run != null
+    requires: label != null
+
+    ensures: LoadedRecipeRewritten(
+        run:           run,
+        label:         label,
+        applied_offset: offset
+    )
+
+    @guidance
+        -- Every gcode line in run.loaded_recipe whose label equals `label`
+        -- has its offset(x, y, z) replaced (NOT additively combined) with
+        -- the captured (dx, dy, dz). The rewritten recipe is persisted to
+        -- run.loaded_recipe_path on disk and reloaded into the active
+        -- session, so a paused-then-resumed run picks up the new offsets.
+        --
+        -- Lines without the captured label are unchanged. The 3D offset
+        -- form replaces the legacy 2D offset(x, y) form; legacy recipes are
+        -- read with z = 0.
+}
+
+invariant LabelPropagationApplies3DOffset {
+    -- For every LoadedRecipeRewritten event, every gcode line in the loaded
+    -- recipe whose label = event.label carries offset(x, y, z) equal to
+    -- event.applied_offset.
+}
+
+invariant CaptureRequiresPause {
+    -- Every MachineCalibrationCapturePoint was created from a
+    -- RecipeRun whose state was paused at capture time.
+}
+
+-- ==========================================================================
+-- Machine-calibration solve
+-- ==========================================================================
+
+surface MachineCalibrationSolver {
+    facing operator: RecipeOperator
+
+    provides:
+        OperatorRequestsMachineCalibrationSolve(operator, file)
+}
+
+rule SolveMachineCalibration {
+    when: OperatorRequestsMachineCalibrationSolve(operator, file)
+
+    requires: file != null
+    requires: file.capture_points.count > 0
+
+    ensures: file.fitted_model = solve_camera_wire_offset_model(
+        capture_points:  file.capture_points,
+        pin_calibration: active_effective_pin_calibration(),
+        roller_state:    current_roller_state()
+    )
+    ensures: file.roller_offsets = solve_roller_offsets(
+        capture_points:  file.capture_points,
+        roller_state:    current_roller_state()
+    )
+    ensures: GcodeOffsetsRegeneratedFromModel(file)
+
+    @guidance
+        -- solve_camera_wire_offset_model fits two scalar bases
+        -- (base_stage, base_fixed) over capture points partitioned by
+        -- head_side, plus per_pin_overrides for pins where capture data
+        -- exists. Bases are the central tendency for un-captured poses;
+        -- per_pin_overrides win where present.
+        --
+        -- After solve, GcodeOffsetsRegeneratedFromModel rewrites all gcode
+        -- offsets in the loaded recipe from the new fitted_model so the
+        -- recipe reflects the latest fit. This is distinct from
+        -- LoadedRecipeRewritten (which applies a single capture's offset
+        -- to one label); after a solve, every label is recomputed from
+        -- scratch.
+}
+
+invariant SolverConsumesAllCapturePoints {
+    -- For every MachineCalibrationFile.fitted_model, the solver was called
+    -- with every capture point in file.capture_points. Selective dropping
+    -- of capture points is not part of this spec.
+}
+
+-- ==========================================================================
+-- Continuous B-pin loop solver (replaces planar Z fit)
+-- ==========================================================================
+--
+-- The B-side pins form a closed rectangular loop around the APA. Their Z
+-- coordinates are NOT constrained to a plane in general — the frame can
+-- bow along the loop. The new solver fits a continuous closed loop of
+-- B-side XYZ from the calibrated B-pin coordinates and the wire-touches-pin
+-- constraints derived from recorded calibration positions.
+--
+-- A-side coordinates are derived from B-side by displacement along the
+-- board normal: A.xyz = B.xyz + board_a_to_b_z_normal(layer), where
+-- board_a_to_b_z_normal magnitude is config.u_board_a_to_b_z_mm for U
+-- and config.v_board_a_to_b_z_mm for V (see layer-geometry.allium).
+
+entity BPinLoopSolution {
+    layer:        core/Layer
+    b_pin_coords: List<PinCoordinate>   -- closed continuous loop of B pins
+    a_pin_coords: List<PinCoordinate>   -- derived: B + board_a_to_b normal
+}
+
+rule SolveContinuousBPinLoop {
+    when: NeedBPinLoopSolution(layer)
+
+    requires: layer in { u, v }
+
+    ensures: BPinLoopSolution.created(
+        layer:        layer,
+        b_pin_coords: solve_b_pin_continuous_loop(
+            layer:           layer,
+            b_pin_calibration: b_pins_from_effective_calibration(layer),
+            wire_constraints:  wire_touches_pin_constraints(layer)
+        ),
+        a_pin_coords: derive_a_pins_from_b(layer, solve_b_pin_continuous_loop(
+            layer:           layer,
+            b_pin_calibration: b_pins_from_effective_calibration(layer),
+            wire_constraints:  wire_touches_pin_constraints(layer)
+        ))
+    )
+
+    @guidance
+        -- The previous solver fitted a single plane in Z to the B-side
+        -- pins and used the plane equation everywhere. The new solver
+        -- fits a continuous closed loop of B-side XYZ that respects the
+        -- wire-touches-pin constraints recorded during calibration. The
+        -- loop is allowed to bow in Z; the planar fit is recoverable as
+        -- a special case but is no longer an assumption.
+        --
+        -- derive_a_pins_from_b computes A.xyz = B.xyz + n where n is
+        -- the inward APA normal scaled by the per-layer board width
+        -- (130 mm for U, 120 mm for V).
+}
+
+invariant ALoopMatchesBLoopWithBoardWidthOffset {
+    -- For every BPinLoopSolution s, for every i,
+    --   s.a_pin_coords[i].xyz = s.b_pin_coords[i].xyz + board_normal(s.layer) * board_width_mm(s.layer)
+    -- within geometry_epsilon.
+}
+
+invariant BLoopIsClosed {
+    -- For every BPinLoopSolution s, s.b_pin_coords forms a closed loop:
+    -- the last entry's neighbour-distance to the first entry equals the
+    -- average B-pin pitch within geometry_epsilon.
+}
+
+-- ==========================================================================
+-- Open questions
+-- ==========================================================================
+
+open question "Should the per-pin override take effect for both A and B sides of the same pin number, or only the side that was captured?"
+open question "When a recipe label maps to multiple gcode lines that produced different calculated_xyz values (e.g. due to differing focus or Z arm extension), should label-driven propagation apply per-line or use a single representative offset?"
+open question "Should the continuous B-pin loop solver be re-run automatically after every PinCalibrationSnapshot append, or only on explicit operator request?"
