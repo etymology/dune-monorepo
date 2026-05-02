@@ -21,9 +21,12 @@ pub use pins::{
 };
 pub use tension::Geometry;
 pub use wire::{
-    apply_anchor_to_target_offsets, circle_pair_tangent_pairs, effective_camera_wire_offset,
-    select_tangent_solution, solve_anchor_to_target, AnchorToTargetRequest,
-    AnchorToTargetSolution, RectBounds, TangentSide, TangentSolution, WireError,
+    actual_wire_point_from_machine_target, apply_anchor_to_target_offsets,
+    circle_pair_tangent_pairs, compute_arm_corrected_outbound, effective_camera_wire_offset,
+    line_equation_from_tangent_points, select_tangent_solution, solve_anchor_to_target,
+    tangent_candidates_for_pin_pair, AnchorToTargetRequest, AnchorToTargetSolution,
+    ArmCorrectedOutbound, HeadQuadrant, LineEquation, RectBounds, TangentSide, TangentSolution,
+    WireError,
 };
 
 #[cfg(feature = "pyo3")]

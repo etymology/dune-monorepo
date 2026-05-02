@@ -1,0 +1,48 @@
+{
+  "name": "northwest_quadrant_with_custom_roller_y_offsets",
+  "notes": "Anchor up-left of target \u2192 NW quadrant, roller_index 1; non-default roller_arm_y_offsets exercise the override branch.",
+  "anchor_pin_point": {
+    "x": -5.0,
+    "y": 5.0
+  },
+  "target_pin_point": {
+    "x": 5.0,
+    "y": -5.0
+  },
+  "tangent_point_a": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "tangent_point_b": {
+    "x": 1.0,
+    "y": -1.0
+  },
+  "transfer_bounds": {
+    "left": -100.0,
+    "top": 100.0,
+    "right": 100.0,
+    "bottom": -100.0
+  },
+  "head_arm_length": 12.5,
+  "head_roller_radius": 1.0,
+  "head_roller_gap": 2.0,
+  "roller_arm_y_offsets": [
+    1.9,
+    2.1,
+    2.05,
+    1.95
+  ],
+  "selected": {
+    "corrected_outbound": [
+      100.0,
+      -88.1857864376269
+    ],
+    "corrected_head_center": [
+      100.0,
+      -88.1857864376269
+    ],
+    "roller_index": 1,
+    "quadrant": "NW"
+  },
+  "error": null
+}

@@ -15,10 +15,14 @@ use crate::pins::{
     Side,
 };
 use crate::wire::{
+    actual_wire_point_from_machine_target as rust_actual_wire_point_from_machine_target,
     circle_pair_tangent_pairs as rust_circle_pair_tangent_pairs,
+    compute_arm_corrected_outbound as rust_compute_arm_corrected_outbound,
+    line_equation_from_tangent_points as rust_line_equation_from_tangent_points,
     select_tangent_solution as rust_select_tangent_solution,
-    solve_anchor_to_target as rust_solve_anchor_to_target, AnchorToTargetRequest,
-    AnchorToTargetSolution, RectBounds, TangentSide,
+    solve_anchor_to_target as rust_solve_anchor_to_target,
+    tangent_candidates_for_pin_pair as rust_tangent_candidates_for_pin_pair,
+    AnchorToTargetRequest, AnchorToTargetSolution, HeadQuadrant, RectBounds, TangentSide,
 };
 
 fn calibration_error_to_py(err: CalibrationError) -> PyErr {
@@ -841,6 +845,128 @@ fn py_select_tangent_solution(
     ))
 }
 
+/// Compute the line equation `(slope, intercept, is_vertical)` through two
+/// tangent points. Vertical lines return `slope = float('inf')` and the
+/// `intercept` carries the `x` coordinate.
+#[pyfunction]
+#[pyo3(name = "line_equation_from_tangent_points")]
+fn py_line_equation_from_tangent_points(
+    tangent_a: (f64, f64),
+    tangent_b: (f64, f64),
+) -> (f64, f64, bool) {
+    let eq = rust_line_equation_from_tangent_points(tangent_a, tangent_b);
+    (eq.slope, eq.intercept, eq.is_vertical)
+}
+
+/// Wrap `circle_pair_tangent_pairs` with the legacy
+/// `_tangent_candidates_for_pin_pair` surface — takes both pin centers and
+/// both pin radii (the legacy treats `radius_b` as `radius_a + clearance`).
+#[pyfunction]
+#[pyo3(name = "tangent_candidates_for_pin_pair")]
+fn py_tangent_candidates_for_pin_pair(
+    point_a: (f64, f64),
+    point_b: (f64, f64),
+    radius_a: f64,
+    radius_b: f64,
+) -> PyResult<Vec<((f64, f64), (f64, f64))>> {
+    rust_tangent_candidates_for_pin_pair(point_a, point_b, radius_a, radius_b)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+fn quadrant_str(q: HeadQuadrant) -> &'static str {
+    match q {
+        HeadQuadrant::NW => "NW",
+        HeadQuadrant::NE => "NE",
+        HeadQuadrant::SW => "SW",
+        HeadQuadrant::SE => "SE",
+    }
+}
+
+/// Solve the head pose so the active roller is tangent to the wire-tangent
+/// line, returning
+/// `((corrected_outbound_x, corrected_outbound_y),
+///   (corrected_head_center_x, corrected_head_center_y),
+///   roller_index, "NW" | "NE" | "SW" | "SE")`.
+///
+/// `transfer_bounds = (left, top, right, bottom)`.
+/// `roller_arm_y_offsets = (y0, y1, y2, y3)` or `None` for nominal.
+#[pyfunction]
+#[pyo3(name = "compute_arm_corrected_outbound")]
+#[pyo3(signature = (
+    anchor_pin_point,
+    target_pin_point,
+    tangent_point_a,
+    tangent_point_b,
+    transfer_bounds,
+    head_arm_length,
+    head_roller_radius,
+    head_roller_gap,
+    roller_arm_y_offsets = None,
+))]
+#[allow(clippy::too_many_arguments)]
+fn py_compute_arm_corrected_outbound(
+    anchor_pin_point: (f64, f64),
+    target_pin_point: (f64, f64),
+    tangent_point_a: (f64, f64),
+    tangent_point_b: (f64, f64),
+    transfer_bounds: (f64, f64, f64, f64),
+    head_arm_length: f64,
+    head_roller_radius: f64,
+    head_roller_gap: f64,
+    roller_arm_y_offsets: Option<(f64, f64, f64, f64)>,
+) -> PyResult<((f64, f64), (f64, f64), u8, &'static str)> {
+    let (left, top, right, bottom) = transfer_bounds;
+    let bounds = RectBounds {
+        left,
+        top,
+        right,
+        bottom,
+    };
+    let result = rust_compute_arm_corrected_outbound(
+        anchor_pin_point,
+        target_pin_point,
+        tangent_point_a,
+        tangent_point_b,
+        bounds,
+        head_arm_length,
+        head_roller_radius,
+        head_roller_gap,
+        roller_arm_y_offsets,
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok((
+        result.corrected_outbound,
+        result.corrected_head_center,
+        result.roller_index,
+        quadrant_str(result.quadrant),
+    ))
+}
+
+/// Project the actual wire-end XY for a commanded head pose. Returns
+/// `(wire_x, wire_y)`.
+#[pyfunction]
+#[pyo3(name = "actual_wire_point_from_machine_target")]
+#[allow(clippy::too_many_arguments)]
+fn py_actual_wire_point_from_machine_target(
+    final_head_xy: (f64, f64),
+    compensated_anchor_xy: (f64, f64),
+    anchor_z: f64,
+    head_z: f64,
+    head_arm_length: f64,
+    head_roller_radius: f64,
+    head_roller_gap: f64,
+) -> (f64, f64) {
+    rust_actual_wire_point_from_machine_target(
+        final_head_xy,
+        compensated_anchor_xy,
+        anchor_z,
+        head_z,
+        head_arm_length,
+        head_roller_radius,
+        head_roller_gap,
+    )
+}
+
 // silence unused-import warnings under different feature combos
 #[allow(dead_code)]
 fn _unused(_: &PyDict) {}
@@ -866,5 +992,9 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
     m.add_function(wrap_pyfunction!(py_circle_pair_tangent_pairs, m)?)?;
     m.add_function(wrap_pyfunction!(py_select_tangent_solution, m)?)?;
+    m.add_function(wrap_pyfunction!(py_line_equation_from_tangent_points, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tangent_candidates_for_pin_pair, m)?)?;
+    m.add_function(wrap_pyfunction!(py_compute_arm_corrected_outbound, m)?)?;
+    m.add_function(wrap_pyfunction!(py_actual_wire_point_from_machine_target, m)?)?;
     Ok(())
 }
