@@ -54,6 +54,14 @@ impl Vec3 {
             z: self.z + other.z,
         }
     }
+
+    pub fn lerp(a: Vec3, b: Vec3, t: f64) -> Vec3 {
+        Vec3::new(
+            a.x + (b.x - a.x) * t,
+            a.y + (b.y - a.y) * t,
+            a.z + (b.z - a.z) * t,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
