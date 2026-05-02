@@ -35,6 +35,10 @@ impl Vec3 {
         z: 0.0,
     };
 
+    pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
+        Vec3 { x, y, z }
+    }
+
     pub fn sub(self, other: Vec3) -> Vec3 {
         Vec3 {
             x: self.x - other.x,
