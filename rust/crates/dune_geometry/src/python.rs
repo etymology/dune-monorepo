@@ -16,8 +16,9 @@ use crate::pins::{
 };
 use crate::wire::{
     circle_pair_tangent_pairs as rust_circle_pair_tangent_pairs,
+    select_tangent_solution as rust_select_tangent_solution,
     solve_anchor_to_target as rust_solve_anchor_to_target, AnchorToTargetRequest,
-    AnchorToTargetSolution,
+    AnchorToTargetSolution, RectBounds, TangentSide,
 };
 
 fn calibration_error_to_py(err: CalibrationError) -> PyErr {
@@ -770,6 +771,76 @@ fn py_circle_pair_tangent_pairs(
     rust_circle_pair_tangent_pairs(first_center, first_radius, second_center, second_radius)
 }
 
+fn parse_tangent_side(value: &str) -> PyResult<TangentSide> {
+    match value {
+        "plus" => Ok(TangentSide::Plus),
+        "minus" => Ok(TangentSide::Minus),
+        other => Err(PyValueError::new_err(format!(
+            "unknown tangent side {other:?}; expected 'plus' or 'minus'"
+        ))),
+    }
+}
+
+fn parse_tangent_sides_pair(
+    sides: Option<(String, String)>,
+) -> PyResult<Option<(TangentSide, TangentSide)>> {
+    let Some((sx, sy)) = sides else { return Ok(None) };
+    Ok(Some((parse_tangent_side(&sx)?, parse_tangent_side(&sy)?)))
+}
+
+/// Pick the wire-side tangent line out of the four candidates returned by
+/// `circle_pair_tangent_pairs`. Returns
+/// `((tangent_a_x, tangent_a_y), (tangent_b_x, tangent_b_y),
+///   (clipped_start_x, clipped_start_y), (clipped_end_x, clipped_end_y))`.
+///
+/// `transfer_bounds` is `(left, top, right, bottom)`. `anchor_tangent_sides`
+/// and `wrapped_tangent_sides` are `("plus" | "minus", "plus" | "minus")`
+/// or `None`. Pin-point arguments are `(x, y)` or `None`.
+#[pyfunction]
+#[pyo3(name = "select_tangent_solution")]
+#[pyo3(signature = (
+    candidates,
+    transfer_bounds,
+    anchor_pin_point = None,
+    anchor_tangent_sides = None,
+    wrapped_pin_point = None,
+    wrapped_tangent_sides = None,
+))]
+#[allow(clippy::too_many_arguments)]
+fn py_select_tangent_solution(
+    candidates: Vec<((f64, f64), (f64, f64))>,
+    transfer_bounds: (f64, f64, f64, f64),
+    anchor_pin_point: Option<(f64, f64)>,
+    anchor_tangent_sides: Option<(String, String)>,
+    wrapped_pin_point: Option<(f64, f64)>,
+    wrapped_tangent_sides: Option<(String, String)>,
+) -> PyResult<((f64, f64), (f64, f64), (f64, f64), (f64, f64))> {
+    let (left, top, right, bottom) = transfer_bounds;
+    let bounds = RectBounds {
+        left,
+        top,
+        right,
+        bottom,
+    };
+    let anchor_sides = parse_tangent_sides_pair(anchor_tangent_sides)?;
+    let wrapped_sides = parse_tangent_sides_pair(wrapped_tangent_sides)?;
+    let solution = rust_select_tangent_solution(
+        &candidates,
+        bounds,
+        anchor_pin_point,
+        anchor_sides,
+        wrapped_pin_point,
+        wrapped_sides,
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok((
+        solution.tangent_a,
+        solution.tangent_b,
+        solution.clipped_start,
+        solution.clipped_end,
+    ))
+}
+
 // silence unused-import warnings under different feature combos
 #[allow(dead_code)]
 fn _unused(_: &PyDict) {}
@@ -794,5 +865,6 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(board_a_to_b_z_mm, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
     m.add_function(wrap_pyfunction!(py_circle_pair_tangent_pairs, m)?)?;
+    m.add_function(wrap_pyfunction!(py_select_tangent_solution, m)?)?;
     Ok(())
 }

@@ -1,0 +1,97 @@
+{
+  "name": "diagonal_unequal_radii_with_full_match",
+  "notes": "Asymmetric radii, both pins constrained \u2014 exercises an unambiguous full-match winner.",
+  "first_circle": {
+    "cx": 0.0,
+    "cy": 0.0,
+    "r": 1.5
+  },
+  "second_circle": {
+    "cx": 4.0,
+    "cy": 3.0,
+    "r": 0.5
+  },
+  "transfer_bounds": {
+    "left": -3.0,
+    "top": 6.0,
+    "right": 7.0,
+    "bottom": -3.0
+  },
+  "anchor_pin_point": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "anchor_tangent_sides": [
+    "plus",
+    "plus"
+  ],
+  "wrapped_pin_point": {
+    "x": 4.0,
+    "y": 3.0
+  },
+  "wrapped_tangent_sides": [
+    "minus",
+    "plus"
+  ],
+  "candidates": [
+    {
+      "first_xy": [
+        0.3448636250920512,
+        -1.4598181667894017
+      ],
+      "second_xy": [
+        3.8850454583026495,
+        3.486606055596467
+      ]
+    },
+    {
+      "first_xy": [
+        -1.3048636250920513,
+        0.7398181667894016
+      ],
+      "second_xy": [
+        4.43495454169735,
+        2.7533939444035327
+      ]
+    },
+    {
+      "first_xy": [
+        0.6418163074019441,
+        -1.3557550765359254
+      ],
+      "second_xy": [
+        4.213938769133981,
+        2.5480816411546914
+      ]
+    },
+    {
+      "first_xy": [
+        -1.121816307401944,
+        0.9957550765359253
+      ],
+      "second_xy": [
+        3.6260612308660187,
+        3.3319183588453085
+      ]
+    }
+  ],
+  "selected": {
+    "tangent_a": [
+      0.3448636250920512,
+      -1.4598181667894017
+    ],
+    "tangent_b": [
+      3.8850454583026495,
+      3.486606055596467
+    ],
+    "clipped_start": [
+      -0.7574526139997861,
+      -3.0
+    ],
+    "clipped_end": [
+      5.683894724285563,
+      6.0
+    ]
+  },
+  "error": null
+}

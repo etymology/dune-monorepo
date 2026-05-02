@@ -16,6 +16,11 @@
 //!   building block of the wire-tangent solve, ported ahead of the rest of
 //!   the solver and gated by golden fixtures at
 //!   `tests/golden/geometry/circle_pair_tangent/`.
+//! - The candidate-ranking [`select_tangent_solution`], which picks the
+//!   single tangent line out of `circle_pair_tangent_pairs`'s output that
+//!   matches the requested wrap sides on each pin and clips into the
+//!   transfer-zone rectangle. Gated by fixtures at
+//!   `tests/golden/geometry/select_tangent_solution/`.
 //!
 //! The full wire-tangent geometric solve (the part that picks which side of
 //! each pin the wire wraps and emits the final commanded head pose) still
@@ -101,6 +106,249 @@ fn distance_xy(a: (f64, f64), b: (f64, f64)) -> f64 {
     (dx * dx + dy * dy).sqrt()
 }
 
+/// Numerical tolerance for axis-side checks and clip-line degeneracy. Matches
+/// the legacy Python `_AXIS_EPSILON` (1e-9).
+const AXIS_EPS: f64 = 1.0e-9;
+/// Tolerance used to dedupe coincident clip-line candidates. Matches the
+/// legacy Python `math.isclose(..., abs_tol=1e-8)`.
+const CLIP_DEDUP_EPS: f64 = 1.0e-8;
+
+/// Side of a pin a tangent point must land on, expressed per axis. `Plus`
+/// means strictly greater than the pin center along the axis; `Minus` means
+/// strictly less. Mirrors the legacy `"plus"` / `"minus"` strings used by
+/// [`select_tangent_solution`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TangentSide {
+    Plus,
+    Minus,
+}
+
+impl TangentSide {
+    fn sign(self) -> f64 {
+        match self {
+            Self::Plus => 1.0,
+            Self::Minus => -1.0,
+        }
+    }
+}
+
+/// Axis-aligned transfer-zone rectangle. `top` >= `bottom`, `right` >=
+/// `left`. Mirrors the legacy `RectBounds` dataclass.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct RectBounds {
+    pub left: f64,
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+}
+
+/// One tangent-line candidate that survived clipping into the transfer zone,
+/// returned by [`select_tangent_solution`]. `tangent_a` lies on the anchor
+/// circle, `tangent_b` on the wrapped circle; `clipped_start` /
+/// `clipped_end` are the two points where the infinite line through them
+/// crosses the transfer-zone rectangle.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct TangentSolution {
+    pub tangent_a: (f64, f64),
+    pub tangent_b: (f64, f64),
+    pub clipped_start: (f64, f64),
+    pub clipped_end: (f64, f64),
+}
+
+fn matches_tangent_sides(
+    point: (f64, f64),
+    center: (f64, f64),
+    sides: (TangentSide, TangentSide),
+) -> bool {
+    let dx = point.0 - center.0;
+    let dy = point.1 - center.1;
+    sides.0.sign() * dx > AXIS_EPS && sides.1.sign() * dy > AXIS_EPS
+}
+
+fn try_add_clip_candidate(
+    candidates: &mut Vec<(f64, (f64, f64))>,
+    bounds: &RectBounds,
+    parameter: f64,
+    x: f64,
+    y: f64,
+) {
+    if x < bounds.left - AXIS_EPS || x > bounds.right + AXIS_EPS {
+        return;
+    }
+    if y < bounds.bottom - AXIS_EPS || y > bounds.top + AXIS_EPS {
+        return;
+    }
+    let candidate = (x, y);
+    for (existing_param, existing_point) in candidates.iter() {
+        if (existing_param - parameter).abs() <= CLIP_DEDUP_EPS {
+            return;
+        }
+        if (existing_point.0 - candidate.0).abs() <= CLIP_DEDUP_EPS
+            && (existing_point.1 - candidate.1).abs() <= CLIP_DEDUP_EPS
+        {
+            return;
+        }
+    }
+    candidates.push((parameter, candidate));
+}
+
+fn clip_infinite_line_to_bounds(
+    line_point: (f64, f64),
+    line_direction: (f64, f64),
+    bounds: RectBounds,
+) -> Option<((f64, f64), (f64, f64))> {
+    let (px, py) = line_point;
+    let (dx, dy) = line_direction;
+    if dx.abs() <= AXIS_EPS && dy.abs() <= AXIS_EPS {
+        return None;
+    }
+    let mut candidates: Vec<(f64, (f64, f64))> = Vec::new();
+    if dx.abs() > AXIS_EPS {
+        for x in [bounds.left, bounds.right] {
+            let parameter = (x - px) / dx;
+            try_add_clip_candidate(&mut candidates, &bounds, parameter, x, py + parameter * dy);
+        }
+    }
+    if dy.abs() > AXIS_EPS {
+        for y in [bounds.bottom, bounds.top] {
+            let parameter = (y - py) / dy;
+            try_add_clip_candidate(&mut candidates, &bounds, parameter, px + parameter * dx, y);
+        }
+    }
+    if candidates.len() < 2 {
+        return None;
+    }
+    candidates.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    Some((candidates[0].1, candidates[candidates.len() - 1].1))
+}
+
+fn choose_outbound_intercept(
+    tangent_a: (f64, f64),
+    tangent_b: (f64, f64),
+    clipped_start: (f64, f64),
+    clipped_end: (f64, f64),
+) -> (f64, f64) {
+    let dx = tangent_b.0 - tangent_a.0;
+    let dy = tangent_b.1 - tangent_a.1;
+    let start_proj = (clipped_start.0 - tangent_a.0) * dx + (clipped_start.1 - tangent_a.1) * dy;
+    let end_proj = (clipped_end.0 - tangent_a.0) * dx + (clipped_end.1 - tangent_a.1) * dy;
+    if end_proj >= start_proj {
+        clipped_end
+    } else {
+        clipped_start
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RankKey {
+    match_total: i32,
+    target_matches: i32,
+    outbound_y: f64,
+    outbound_x: f64,
+    tangent_a_y: f64,
+}
+
+impl RankKey {
+    /// Descending compare: returns `Greater` when `self` should sort *before*
+    /// `other`. Mirrors `ranked.sort(key=..., reverse=True)` in the legacy
+    /// implementation.
+    fn cmp_desc(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering::Equal;
+        other
+            .match_total
+            .cmp(&self.match_total)
+            .then(other.target_matches.cmp(&self.target_matches))
+            .then(
+                other
+                    .outbound_y
+                    .partial_cmp(&self.outbound_y)
+                    .unwrap_or(Equal),
+            )
+            .then(
+                other
+                    .outbound_x
+                    .partial_cmp(&self.outbound_x)
+                    .unwrap_or(Equal),
+            )
+            .then(
+                other
+                    .tangent_a_y
+                    .partial_cmp(&self.tangent_a_y)
+                    .unwrap_or(Equal),
+            )
+    }
+}
+
+/// Pick the wire-side tangent line out of the four candidates returned by
+/// [`circle_pair_tangent_pairs`]. Mirrors the legacy
+/// `_select_tangent_solution` in
+/// `src/dune_winder/uv_head_target_parts/geometry2d.py`.
+///
+/// Ranking key (descending):
+/// 1. Number of pins where the candidate landed on the requested side
+///    (anchor + wrapped, 0..=2).
+/// 2. Whether the wrapped pin matched (so a wrapped-only match outranks an
+///    anchor-only match).
+/// 3. `outbound.y`, then `outbound.x`, then `tangent_a.y` (geometry tie
+///    breakers — match the legacy order so fixtures pin them).
+///
+/// Candidates whose infinite line through `(tangent_a, tangent_b)` does not
+/// clip into `transfer_bounds` are skipped. If every candidate fails to
+/// clip, returns [`WireError::CouldNotClipTangent`].
+///
+/// Pass `None` for either `(pin_point, sides)` pair to disable the
+/// corresponding match check (the candidate then scores 0 on that axis).
+pub fn select_tangent_solution(
+    candidates: &[((f64, f64), (f64, f64))],
+    transfer_bounds: RectBounds,
+    anchor_pin_point: Option<(f64, f64)>,
+    anchor_tangent_sides: Option<(TangentSide, TangentSide)>,
+    wrapped_pin_point: Option<(f64, f64)>,
+    wrapped_tangent_sides: Option<(TangentSide, TangentSide)>,
+) -> Result<TangentSolution, WireError> {
+    let mut ranked: Vec<(RankKey, TangentSolution)> = Vec::with_capacity(candidates.len());
+    for (tangent_a, tangent_b) in candidates {
+        let anchor_matches = match (anchor_pin_point, anchor_tangent_sides) {
+            (Some(center), Some(sides)) => matches_tangent_sides(*tangent_a, center, sides),
+            _ => false,
+        };
+        let target_matches = match (wrapped_pin_point, wrapped_tangent_sides) {
+            (Some(center), Some(sides)) => matches_tangent_sides(*tangent_b, center, sides),
+            _ => false,
+        };
+        let direction = (tangent_b.0 - tangent_a.0, tangent_b.1 - tangent_a.1);
+        let Some((clipped_start, clipped_end)) =
+            clip_infinite_line_to_bounds(*tangent_a, direction, transfer_bounds)
+        else {
+            continue;
+        };
+        let outbound = choose_outbound_intercept(*tangent_a, *tangent_b, clipped_start, clipped_end);
+        let key = RankKey {
+            match_total: i32::from(anchor_matches) + i32::from(target_matches),
+            target_matches: i32::from(target_matches),
+            outbound_y: outbound.1,
+            outbound_x: outbound.0,
+            tangent_a_y: tangent_a.1,
+        };
+        ranked.push((
+            key,
+            TangentSolution {
+                tangent_a: *tangent_a,
+                tangent_b: *tangent_b,
+                clipped_start,
+                clipped_end,
+            },
+        ));
+    }
+    if ranked.is_empty() {
+        return Err(WireError::CouldNotClipTangent);
+    }
+    // Stable sort preserves input order on ties — matches Python's stable
+    // `list.sort(reverse=True)`.
+    ranked.sort_by(|a, b| a.0.cmp_desc(&b.0));
+    Ok(ranked.into_iter().next().unwrap().1)
+}
+
 /// Inputs to [`solve_anchor_to_target`]. Coordinates are raw camera-space
 /// (from `PinCalibrationFile::effective_pin_coords`) — the solver applies
 /// the per-pose camera wire offset and arm correction internally.
@@ -143,6 +391,8 @@ pub struct AnchorToTargetSolution {
 pub enum WireError {
     #[error("anchor and target pins must share the same layer (got {anchor:?} vs {target:?})")]
     LayerMismatch { anchor: Pin, target: Pin },
+    #[error("could not clip a tangent line to the transfer zone")]
+    CouldNotClipTangent,
 }
 
 /// Resolve the per-pose camera wire offset for a `(pin, head_side)` pair.
@@ -365,5 +615,69 @@ mod tests {
         // loose (≤ 4) and let the golden fixture pin the exact count.
         assert!(pairs.len() >= 2);
         assert!(pairs.len() <= 4);
+    }
+
+    fn unit_bounds(half: f64) -> RectBounds {
+        RectBounds {
+            left: -half,
+            right: half,
+            bottom: -half,
+            top: half,
+        }
+    }
+
+    #[test]
+    fn select_tangent_solution_errors_when_no_candidate_clips() {
+        // Tangent line entirely outside the transfer rectangle.
+        let candidates = vec![((10.0, 10.0), (10.0, 11.0))];
+        let bounds = unit_bounds(1.0);
+        let err = select_tangent_solution(&candidates, bounds, None, None, None, None);
+        assert!(matches!(err, Err(WireError::CouldNotClipTangent)));
+    }
+
+    #[test]
+    fn select_tangent_solution_picks_match_winner_over_geometry_tiebreaker() {
+        // Two candidates both clip; the one matching anchor + wrapped sides
+        // should win even though the other has a higher outbound.y.
+        let bounds = RectBounds {
+            left: -10.0,
+            right: 10.0,
+            bottom: -10.0,
+            top: 10.0,
+        };
+        // Candidate A: matches both sides (anchor (+,+), wrapped (-,+)),
+        // outbound somewhere central.
+        let candidate_match = ((1.0, 1.0), (-1.0, 1.0));
+        // Candidate B: doesn't match (tangent_a y is negative when we ask +).
+        let candidate_nonmatch = ((1.0, -1.0), (-1.0, -1.0));
+        let candidates = vec![candidate_nonmatch, candidate_match];
+        let sol = select_tangent_solution(
+            &candidates,
+            bounds,
+            Some((0.0, 0.0)),
+            Some((TangentSide::Plus, TangentSide::Plus)),
+            Some((0.0, 0.0)),
+            Some((TangentSide::Minus, TangentSide::Plus)),
+        )
+        .unwrap();
+        assert_eq!(sol.tangent_a, candidate_match.0);
+        assert_eq!(sol.tangent_b, candidate_match.1);
+    }
+
+    #[test]
+    fn select_tangent_solution_falls_back_to_outbound_y_when_no_side_constraints() {
+        // No side constraints — score 0 for everyone; tiebreak by outbound.y
+        // descending.
+        let bounds = unit_bounds(1.0);
+        // Horizontal line through y=+0.5 clips to (-1, 0.5)..(1, 0.5);
+        // outbound = (1, 0.5).
+        let high_line = ((-1.0, 0.5), (1.0, 0.5));
+        // Horizontal line through y=-0.5 clips to (-1, -0.5)..(1, -0.5);
+        // outbound = (1, -0.5).
+        let low_line = ((-1.0, -0.5), (1.0, -0.5));
+        let candidates = vec![low_line, high_line];
+        let sol = select_tangent_solution(&candidates, bounds, None, None, None, None).unwrap();
+        // High-y outbound wins.
+        assert_eq!(sol.tangent_a, high_line.0);
     }
 }
