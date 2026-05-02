@@ -136,29 +136,56 @@ rule SolveSpineLoopFromCalibrationTouches {
     )
 
     @guidance
-        -- Fit obligation:
+        -- Fit obligation. The model encodes three priors, in
+        -- decreasing strength:
+        --   (i)  Z is nearly constant across the APA — the spine is
+        --        almost flat.
+        --   (ii) Any tilt of the spine plane is small. Default prior:
+        --        slope ≤ ~15 mm of Z change over the ~6000 mm APA span
+        --        (≈ 0.0025 rise/run). Encoded as a Gaussian prior on
+        --        the (a, b) tilt parameters.
+        --   (iii) Per-pin departures from that tilted plane are small
+        --        and smoothly varying around the perimeter, with a
+        --        length-scale of hundreds of pins.
         --
         -- 1. For each touch t in touches:
         --      observed_spine_xyz(t) = t.winder_xyz - sign(t.pin.side) * half_w * z_normal
         --      (the inverse of DerivePinPositionFromSpine)
         --
         -- 2. Group observed_spine points by pin.number. Multiple touches
-        --    on the same number (different sides, or repeats) collapse to
-        --    one observation by component-wise mean.
+        --    on the same number (different sides, or repeats) collapse
+        --    to one observation by component-wise mean.
         --
-        -- 3. Fit a closed continuous 3D path through the observations
-        --    indexed by perimeter position (pin.number). The path is NOT
-        --    constrained to a plane — it absorbs frame distortion under
-        --    wire tension. Missing pin numbers between observations are
-        --    interpolated; the loop is required to close so the fit
-        --    propagates around the perimeter.
+        -- 3. Fit a ridge-regularised plane Z = a·X + b·Y + c through
+        --    every observed spine point. The constant c is unpenalised;
+        --    the tilt parameters (a, b) are penalised with weight
+        --    λ = (data_noise_mm / tilt_prior_slope)². With sparse data
+        --    or data inconsistent with the prior, (a, b) shrink toward
+        --    zero and the plane collapses to the mean Z. With many
+        --    well-spread observations strongly supporting one tilt, the
+        --    fit recovers it.
         --
-        -- 4. The output SpineLoop.points is the fitted XYZ at every
+        -- 4. For each pin number n in 1..pin_count(layer):
+        --      - if n is observed, take its observed XYZ as-is;
+        --      - else lerp X and Y around the closed loop between the
+        --        two nearest observed neighbours, evaluate
+        --        plane_z = a·X + b·Y + c at the lerped XY, then add a
+        --        Gaussian-smoothed residual:
+        --          residual_at(n) = Σ wᵢ · rᵢ / (Σ wᵢ + prior_weight)
+        --        where rᵢ = observed Zᵢ − plane(Xᵢ, Yᵢ),
+        --        wᵢ = exp(-(circular_distance(n, nᵢ) / σ)² / 2),
+        --        σ = residual_smoothing_pins, and the prior_weight in
+        --        the denominator pulls residuals at pins far from any
+        --        observation back toward zero (i.e. trust the plane).
+        --
+        -- 5. The output SpineLoop.points is the fitted XYZ at every
         --    pin.number in 1..pin_count(layer), ordered by number.
         --
         -- The reference implementation lives at
         --   dune_geometry::spine::solve_spine_loop
-        -- and a synthetic-input + golden-fixture parity test at
+        -- (defaults) and
+        --   dune_geometry::spine::solve_spine_loop_with_config
+        -- (tunable priors), with golden parity fixtures landing at
         --   tests/golden/geometry/spine_loop/.
 }
 
@@ -194,5 +221,5 @@ invariant ReplacesPerSidePinCalibration {
     -- migration time.
 }
 
-open question "Should the spine fit be a single closed B-spline indexed by perimeter arc-length, or a per-edge piecewise fit (head, bottom, foot, top) joined at the four corners? The plan currently leaves the parametrisation to the implementation, but the operator-visible smoothness near corners depends on the choice."
+open question "Should the tilt prior, data noise, and residual smoothing length-scale be machine-level config (read once from a YAML alongside the calibration file), or per-fit overrides supplied by the calibration UI? Today they are SpineFitConfig defaults baked into the Rust crate (15 mm tilt over 6000 mm span, 1 mm data noise, 200 pins of smoothing)."
 open question "When a layer's calibration sweep covers only a partial perimeter, should the fit refuse to produce a SpineLoop, or emit a partial loop with the missing arcs left as straight interpolations? Today the assumption is a full sweep, but in practice operators may capture in passes."
