@@ -262,12 +262,25 @@ config {
   apa_height_mm:    Decimal = 2300.0
   apa_thickness_mm: Decimal = 76.2
 
-  -- Board cross-section (nominal; calibration-loaded). Per-layer A↔B Z
-  -- displacement: the A plane sits one board width away from the B plane
-  -- in +Z. Used by anchor-to-target geometry to derive A-side raw pin
-  -- coordinates from the calibrated B-side coordinates.
-  u_board_a_to_b_z_mm:      Decimal = 130.0
-  v_board_a_to_b_z_mm:      Decimal = 120.0
+  -- Per-layer board width along Z (mm).
+  --
+  -- Each layer's boards are physically centred on the APA spine — the
+  -- closed continuous loop running around the perimeter at the APA Z
+  -- midplane. The two pin-bearing faces (A and B) sit one half-board-width
+  -- to either side of the spine along Z:
+  --
+  --   A_xyz = spine_xyz + (board_width_z / 2) * z_normal
+  --   B_xyz = spine_xyz - (board_width_z / 2) * z_normal
+  --
+  -- The spine itself is the calibration target (see
+  -- spine-calibration.allium). The per-side raw pin coordinates consumed
+  -- by anchor-to-target geometry are derived at lookup time from the
+  -- spine plus the layer's half-board-width — there is no separate
+  -- calibration of the A or B faces.
+  u_board_width_z_mm:       Decimal = 130.0
+  v_board_width_z_mm:       Decimal = 120.0
+  x_board_width_z_mm:       Decimal = 110.0
+  g_board_width_z_mm:       Decimal = 140.0
   apa_board_width_z_mm:     Decimal = 0.0
   apa_board_thickness_x_mm: Decimal = 0.0
   apa_board_thickness_y_mm: Decimal = 0.0

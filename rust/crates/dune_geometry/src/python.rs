@@ -14,6 +14,11 @@ use crate::pins::{
     endpoint_pins, face_ranges, tangent_sides as rust_tangent_sides, Face, Layer, Pin, PinError,
     Side,
 };
+use crate::spine::{
+    derive_pin_position_from_spine as rust_derive_pin_position_from_spine,
+    observe_spine_point_from_touch as rust_observe_spine_point_from_touch,
+    solve_spine_loop as rust_solve_spine_loop, CalibrationTouch, SpineLoop, SpinePoint,
+};
 use crate::wire::{
     actual_wire_point_from_machine_target as rust_actual_wire_point_from_machine_target,
     circle_pair_tangent_pairs as rust_circle_pair_tangent_pairs,
@@ -139,8 +144,18 @@ impl PyPin {
     }
 
     #[getter]
-    fn board_a_to_b_z_mm(&self) -> f64 {
-        self.inner.board_a_to_b_z_mm()
+    fn board_width_z_mm(&self) -> f64 {
+        self.inner.board_width_z_mm()
+    }
+
+    #[getter]
+    fn half_board_width_z_mm(&self) -> f64 {
+        self.inner.half_board_width_z_mm()
+    }
+
+    #[getter]
+    fn spine_to_face_sign(&self) -> f64 {
+        self.inner.spine_to_face_sign()
     }
 
     fn __str__(&self) -> String {
@@ -191,8 +206,8 @@ fn pin_count(layer: &str) -> PyResult<u16> {
 }
 
 #[pyfunction]
-fn board_a_to_b_z_mm(layer: &str) -> PyResult<f64> {
-    Ok(parse_layer(layer)?.board_a_to_b_z_mm())
+fn board_width_z_mm(layer: &str) -> PyResult<f64> {
+    Ok(parse_layer(layer)?.board_width_z_mm())
 }
 
 // =========================================================================
@@ -967,6 +982,142 @@ fn py_actual_wire_point_from_machine_target(
     )
 }
 
+// =========================================================================
+// Spine calibration pyclasses & functions
+// =========================================================================
+
+#[pyclass(name = "SpinePoint", module = "dune_geometry", frozen, eq, from_py_object)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PySpinePoint {
+    inner: SpinePoint,
+}
+
+#[pymethods]
+impl PySpinePoint {
+    #[new]
+    fn new(layer: &str, number: u16, xyz: &PyVec3) -> PyResult<Self> {
+        Ok(PySpinePoint {
+            inner: SpinePoint {
+                layer: parse_layer(layer)?,
+                number,
+                xyz: xyz.inner,
+            },
+        })
+    }
+
+    #[getter]
+    fn layer(&self) -> &'static str {
+        match self.inner.layer {
+            Layer::U => "U",
+            Layer::V => "V",
+        }
+    }
+
+    #[getter]
+    fn number(&self) -> u16 {
+        self.inner.number
+    }
+
+    #[getter]
+    fn xyz(&self) -> PyVec3 {
+        PyVec3::from_inner(self.inner.xyz)
+    }
+}
+
+#[pyclass(name = "SpineLoop", module = "dune_geometry", from_py_object)]
+#[derive(Clone)]
+pub struct PySpineLoop {
+    inner: SpineLoop,
+}
+
+#[pymethods]
+impl PySpineLoop {
+    #[new]
+    fn new(layer: &str, points: Vec<PySpinePoint>) -> PyResult<Self> {
+        Ok(PySpineLoop {
+            inner: SpineLoop {
+                layer: parse_layer(layer)?,
+                points: points.into_iter().map(|p| p.inner).collect(),
+            },
+        })
+    }
+
+    #[getter]
+    fn layer(&self) -> &'static str {
+        match self.inner.layer {
+            Layer::U => "U",
+            Layer::V => "V",
+        }
+    }
+
+    #[getter]
+    fn points(&self) -> Vec<PySpinePoint> {
+        self.inner
+            .points
+            .iter()
+            .copied()
+            .map(|p| PySpinePoint { inner: p })
+            .collect()
+    }
+
+    fn point(&self, number: u16) -> Option<PySpinePoint> {
+        self.inner.point(number).copied().map(|p| PySpinePoint { inner: p })
+    }
+}
+
+/// Derive raw camera-space pin XYZ from a spine XYZ at the same pin
+/// number. Returns `(x, y, z)`. Mirrors
+/// `derive_pin_position_from_spine` in `dune_geometry::spine`.
+#[pyfunction]
+#[pyo3(name = "derive_pin_position_from_spine")]
+fn py_derive_pin_position_from_spine(
+    spine_xyz: (f64, f64, f64),
+    pin: &PyPin,
+) -> (f64, f64, f64) {
+    let (x, y, z) = spine_xyz;
+    let derived = rust_derive_pin_position_from_spine(Vec3::new(x, y, z), pin.inner);
+    (derived.x, derived.y, derived.z)
+}
+
+/// Inverse of `derive_pin_position_from_spine`: collapse a calibration
+/// touch (`pin`, recorded `winder_xyz`) into the implied spine XYZ at
+/// `pin.number`. Returns `(x, y, z)`.
+#[pyfunction]
+#[pyo3(name = "observe_spine_point_from_touch")]
+fn py_observe_spine_point_from_touch(
+    pin: &PyPin,
+    winder_xyz: (f64, f64, f64),
+) -> (f64, f64, f64) {
+    let (x, y, z) = winder_xyz;
+    let observed = rust_observe_spine_point_from_touch(CalibrationTouch {
+        pin: pin.inner,
+        winder_xyz: Vec3::new(x, y, z),
+    });
+    (observed.x, observed.y, observed.z)
+}
+
+/// Fit a closed continuous spine loop to a list of calibration touches
+/// `[(pin, (winder_x, winder_y, winder_z)), ...]`. Returns a
+/// `SpineLoop` covering every pin number in `1..=pin_count(layer)`.
+#[pyfunction]
+#[pyo3(name = "solve_spine_loop")]
+fn py_solve_spine_loop(
+    layer: &str,
+    touches: Vec<(PyPin, (f64, f64, f64))>,
+) -> PyResult<PySpineLoop> {
+    let layer = parse_layer(layer)?;
+    let touches: Vec<CalibrationTouch> = touches
+        .into_iter()
+        .map(|(pin, (x, y, z))| CalibrationTouch {
+            pin: pin.inner,
+            winder_xyz: Vec3::new(x, y, z),
+        })
+        .collect();
+    rust_solve_spine_loop(layer, &touches)
+        .map(|loop_| PySpineLoop { inner: loop_ })
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 // silence unused-import warnings under different feature combos
 #[allow(dead_code)]
 fn _unused(_: &PyDict) {}
@@ -988,7 +1139,7 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_endpoint_pins, m)?)?;
     m.add_function(wrap_pyfunction!(py_face_ranges, m)?)?;
     m.add_function(wrap_pyfunction!(pin_count, m)?)?;
-    m.add_function(wrap_pyfunction!(board_a_to_b_z_mm, m)?)?;
+    m.add_function(wrap_pyfunction!(board_width_z_mm, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
     m.add_function(wrap_pyfunction!(py_circle_pair_tangent_pairs, m)?)?;
     m.add_function(wrap_pyfunction!(py_select_tangent_solution, m)?)?;
@@ -996,5 +1147,10 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_tangent_candidates_for_pin_pair, m)?)?;
     m.add_function(wrap_pyfunction!(py_compute_arm_corrected_outbound, m)?)?;
     m.add_function(wrap_pyfunction!(py_actual_wire_point_from_machine_target, m)?)?;
+    m.add_class::<PySpinePoint>()?;
+    m.add_class::<PySpineLoop>()?;
+    m.add_function(wrap_pyfunction!(py_derive_pin_position_from_spine, m)?)?;
+    m.add_function(wrap_pyfunction!(py_observe_spine_point_from_touch, m)?)?;
+    m.add_function(wrap_pyfunction!(py_solve_spine_loop, m)?)?;
     Ok(())
 }
