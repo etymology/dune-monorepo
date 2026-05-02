@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
+import dune_geometry
+
 from .calibration import (
     _load_layer_calibration,
     _load_machine_calibration,
@@ -12,12 +14,10 @@ from .geometry2d import (
     _arm_correction_head_shift_signs,
     _arm_correction_tangent_y_side,
     _roller_index_for_head_shift_signs,
-    _select_tangent_solution,
     _sign_with_epsilon,
-    _tangent_candidates_for_pin_pair,
 )
-from .models import Point2D, RectBounds, UvHeadTargetError
-from .pin_layout import _normalize_layer, _normalize_pin_name, tangent_sides
+from .models import Point2D, UvHeadTargetError
+from .pin_layout import _normalize_layer, _normalize_pin_name
 
 
 @dataclass(frozen=True)
@@ -79,26 +79,22 @@ def _cached_compute_pin_pair_tangent_geometry(
     pin_radius = float(machine_cal.pinDiameter) / 2.0
     target_pin_clearance = float(machine_cal.targetPinClearance)
     target_pin_radius = pin_radius + target_pin_clearance
-    transfer_bounds = RectBounds(
-        left=float(machine_cal.transferLeft),
-        top=float(machine_cal.transferTop),
-        right=float(machine_cal.transferRight),
-        bottom=float(machine_cal.transferBottom),
-    )
-    anchor_tangent_sides = tangent_sides(normalized_layer, pin_a_name)
-    wrapped_tangent_sides = tangent_sides(normalized_layer, pin_b_name)
 
-    candidates = _tangent_candidates_for_pin_pair(
-        pin_a_pt, pin_b_pt, pin_radius, point_b_radius=target_pin_radius
-    )
-    tangent_a, tangent_b, _, _ = _select_tangent_solution(
-        candidates,
-        transfer_bounds,
-        anchor_pin_point=pin_a_pt,
-        anchor_tangent_sides=anchor_tangent_sides,
-        wrapped_pin_point=pin_b_pt,
-        wrapped_tangent_sides=wrapped_tangent_sides,
-    )
+    anchor_pin = dune_geometry.Pin(normalized_layer, pin_a_name[0], int(pin_a_name[1:]))
+    target_pin = dune_geometry.Pin(normalized_layer, pin_b_name[0], int(pin_b_name[1:]))
+    try:
+        (tangent_a_xy, tangent_b_xy) = dune_geometry.tangent_for_pin_pair(
+            anchor_pin,
+            (pin_a_pt.x, pin_a_pt.y),
+            pin_radius,
+            target_pin,
+            (pin_b_pt.x, pin_b_pt.y),
+            target_pin_radius,
+        )
+    except ValueError as exc:
+        raise UvHeadTargetError(str(exc)) from exc
+    tangent_a = Point2D(tangent_a_xy[0], tangent_a_xy[1])
+    tangent_b = Point2D(tangent_b_xy[0], tangent_b_xy[1])
 
     direction = Point2D(tangent_b.x - tangent_a.x, tangent_b.y - tangent_a.y)
     dir_len = (direction.x**2 + direction.y**2) ** 0.5

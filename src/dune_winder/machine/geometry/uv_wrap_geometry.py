@@ -3,11 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
+import dune_geometry
+
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
-from dune_winder.queued_motion.filleted_path import (
-    WaypointCircle,
-    circle_pair_tangent_pairs,
-)
 
 
 _AXIS_EPSILON = 1e-9
@@ -350,103 +348,6 @@ def _clip_infinite_line_to_bounds(
     return (candidates[0][1], candidates[-1][1])
 
 
-def _tangent_candidates_for_pin_pair(
-    point_a: Point2D,
-    point_b: Point2D,
-    pin_radius: float,
-    *,
-    point_b_radius: float | None = None,
-) -> list[tuple[Point2D, Point2D]]:
-    if (
-        _length_2d(Point2D(point_b.x - point_a.x, point_b.y - point_a.y))
-        <= _AXIS_EPSILON
-    ):
-        raise UvWrapGeometryError(
-            "Cannot compute a tangent for coincident pin centers."
-        )
-    radius_a = pin_radius
-    radius_b = pin_radius if point_b_radius is None else point_b_radius
-    tangent_pairs = circle_pair_tangent_pairs(
-        WaypointCircle(
-            waypoint_xy=(point_a.x, point_a.y),
-            center_xy=(point_a.x, point_a.y),
-            radius=radius_a,
-        ),
-        WaypointCircle(
-            waypoint_xy=(point_b.x, point_b.y),
-            center_xy=(point_b.x, point_b.y),
-            radius=radius_b,
-        ),
-    )
-    return [
-        (Point2D(first_xy[0], first_xy[1]), Point2D(second_xy[0], second_xy[1]))
-        for first_xy, second_xy in tangent_pairs
-    ]
-
-
-def _select_tangent_solution(
-    candidates: list[tuple[Point2D, Point2D]],
-    transfer_bounds: RectBounds,
-    anchor_pin_point: Point2D | None = None,
-    anchor_tangent_sides: tuple[str, str] | None = None,
-    wrapped_pin_point: Point2D | None = None,
-    wrapped_tangent_sides: tuple[str, str] | None = None,
-) -> tuple[Point2D, Point2D, Point2D, Point2D]:
-    ranked: list[
-        tuple[
-            tuple[int, int, float, float, float],
-            tuple[Point2D, Point2D, Point2D, Point2D],
-        ]
-    ] = []
-    for tangent_a, tangent_b in candidates:
-        anchor_matches = (
-            anchor_pin_point is not None
-            and anchor_tangent_sides is not None
-            and _matches_tangent_sides(
-                tangent_a, anchor_pin_point, anchor_tangent_sides
-            )
-        )
-        target_matches = (
-            wrapped_pin_point is not None
-            and wrapped_tangent_sides is not None
-            and _matches_tangent_sides(
-                tangent_b, wrapped_pin_point, wrapped_tangent_sides
-            )
-        )
-        clipped = _clip_infinite_line_to_bounds(
-            tangent_a,
-            Point2D(tangent_b.x - tangent_a.x, tangent_b.y - tangent_a.y),
-            transfer_bounds,
-        )
-        if clipped is None:
-            continue
-        clipped_start, clipped_end = clipped
-        outbound = _choose_outbound_intercept(
-            tangent_a,
-            tangent_b,
-            clipped_start,
-            clipped_end,
-        )
-        ranked.append(
-            (
-                (
-                    int(anchor_matches) + int(target_matches),
-                    int(target_matches),
-                    outbound.y,
-                    outbound.x,
-                    tangent_a.y,
-                ),
-                (tangent_a, tangent_b, clipped_start, clipped_end),
-            )
-        )
-
-    if not ranked:
-        raise UvWrapGeometryError("Could not clip a tangent line to the transfer zone.")
-
-    ranked.sort(key=lambda item: item[0], reverse=True)
-    return ranked[0][1]
-
-
 def _sign_with_epsilon(value: float, *, epsilon: float = _AXIS_EPSILON) -> int:
     if value > epsilon:
         return 1
@@ -699,26 +600,42 @@ def plan_wrap_transition(
 
     same_side = pin_family(normalized_anchor_pin) == target_family
     if same_side:
-        candidates = _tangent_candidates_for_pin_pair(
-            anchor_point_2d,
-            target_point_2d,
-            pin_radius,
-            point_b_radius=actual_target_pin_radius,
+        anchor_pin_obj = dune_geometry.Pin(
+            normalized_layer,
+            normalized_anchor_pin[0],
+            int(normalized_anchor_pin[1:]),
         )
-        tangent_point_a, tangent_point_b, clipped_start, clipped_end = (
-            _select_tangent_solution(
-                candidates,
-                transfer_bounds,
-                anchor_pin_point=anchor_point_2d,
-                anchor_tangent_sides=tangent_sides(
-                    normalized_layer, normalized_anchor_pin
-                ),
-                wrapped_pin_point=target_point_2d,
-                wrapped_tangent_sides=tangent_sides(
-                    normalized_layer, normalized_target_pin
-                ),
+        target_pin_obj = dune_geometry.Pin(
+            normalized_layer,
+            normalized_target_pin[0],
+            int(normalized_target_pin[1:]),
+        )
+        try:
+            (tangent_a_xy, tangent_b_xy) = dune_geometry.tangent_for_pin_pair(
+                anchor_pin_obj,
+                (anchor_point_2d.x, anchor_point_2d.y),
+                pin_radius,
+                target_pin_obj,
+                (target_point_2d.x, target_point_2d.y),
+                actual_target_pin_radius,
             )
+        except ValueError as exc:
+            raise UvWrapGeometryError(str(exc)) from exc
+        tangent_point_a = Point2D(tangent_a_xy[0], tangent_a_xy[1])
+        tangent_point_b = Point2D(tangent_b_xy[0], tangent_b_xy[1])
+        clipped = _clip_infinite_line_to_bounds(
+            tangent_point_a,
+            Point2D(
+                tangent_point_b.x - tangent_point_a.x,
+                tangent_point_b.y - tangent_point_a.y,
+            ),
+            transfer_bounds,
         )
+        if clipped is None:
+            raise UvWrapGeometryError(
+                "Could not clip a tangent line to the transfer zone."
+            )
+        clipped_start, clipped_end = clipped
         outbound_intercept = _choose_outbound_intercept(
             tangent_point_a,
             tangent_point_b,
@@ -830,8 +747,6 @@ __all__ = [
     "_matches_tangent_sides",
     "_roller_index_for_head_shift_signs",
     "_roller_offset_for_index",
-    "_select_tangent_solution",
-    "_tangent_candidates_for_pin_pair",
     "b_to_a_pin",
     "alternating_side_hover_y_offset",
     "face_for_pin",
