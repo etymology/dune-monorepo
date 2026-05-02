@@ -15,6 +15,7 @@ use crate::pins::{
     Side,
 };
 use crate::wire::{
+    circle_pair_tangent_pairs as rust_circle_pair_tangent_pairs,
     solve_anchor_to_target as rust_solve_anchor_to_target, AnchorToTargetRequest,
     AnchorToTargetSolution,
 };
@@ -756,6 +757,19 @@ fn py_solve_anchor_to_target(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Compute all tangent line pairs between two 2D circles. Returns a list of
+/// `((first_x, first_y), (second_x, second_y))` tuples, one per tangent.
+#[pyfunction]
+#[pyo3(name = "circle_pair_tangent_pairs")]
+fn py_circle_pair_tangent_pairs(
+    first_center: (f64, f64),
+    first_radius: f64,
+    second_center: (f64, f64),
+    second_radius: f64,
+) -> Vec<((f64, f64), (f64, f64))> {
+    rust_circle_pair_tangent_pairs(first_center, first_radius, second_center, second_radius)
+}
+
 // silence unused-import warnings under different feature combos
 #[allow(dead_code)]
 fn _unused(_: &PyDict) {}
@@ -779,5 +793,6 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pin_count, m)?)?;
     m.add_function(wrap_pyfunction!(board_a_to_b_z_mm, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
+    m.add_function(wrap_pyfunction!(py_circle_pair_tangent_pairs, m)?)?;
     Ok(())
 }

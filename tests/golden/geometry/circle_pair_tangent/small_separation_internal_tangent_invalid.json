@@ -1,0 +1,46 @@
+{
+  "name": "small_separation_internal_tangent_invalid",
+  "notes": "Centers separated by exactly 2*r \u2014 internal tangents collapse, only external tangents are valid; expect 2 tangent pairs.",
+  "first": {
+    "cx": 0.0,
+    "cy": 0.0,
+    "r": 1.0
+  },
+  "second": {
+    "cx": 2.0,
+    "cy": 0.0,
+    "r": 1.0
+  },
+  "tangent_pairs": [
+    {
+      "first_xy": [
+        -1.0,
+        0.0
+      ],
+      "second_xy": [
+        3.0,
+        0.0
+      ]
+    },
+    {
+      "first_xy": [
+        0.0,
+        -1.0
+      ],
+      "second_xy": [
+        2.0,
+        -1.0
+      ]
+    },
+    {
+      "first_xy": [
+        0.0,
+        1.0
+      ],
+      "second_xy": [
+        2.0,
+        1.0
+      ]
+    }
+  ]
+}
