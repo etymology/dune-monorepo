@@ -102,7 +102,7 @@ value Pin {
 --   X layer: 480 slots
 --   G layer: 481 slots
 --
--- Distinct from the X/G board comb slots, the APA also carries four
+-- Distinct from the X/G board tooth slots, the APA also carries four
 -- mid-APA combs positioned vertically at four X positions in the middle
 -- of the APA (not on the head or foot edges). They constrain wires
 -- mid-span.
@@ -110,10 +110,10 @@ value Pin {
 enum SlotSide { a | b }
 enum SlotEdge { head | foot }
 
-value XGCombSlotGrid {
+value XGSlotGrid {
   layer:            Layer       -- x | g
   count_per_side:   Integer     -- 480 for X, 481 for G
-  pitch:            Decimal     -- mm, = apa_height / count_per_side
+  pitch:            Decimal     -- mm, = 2300 / 480
 }
 
 value CombPositions {
@@ -125,7 +125,7 @@ entity APAGeometry {
   frame:               APAFrame
   pin:                 Pin
   layer_board:         List<LayerBoardCrossSection>   -- one entry per layer
-  xg_comb_slots:       List<XGCombSlotGrid>           -- entries for x and g
+  xg_comb_slots:       List<XGSlotGrid>           -- entries for x and g
   combs:               CombPositions
 }
 
@@ -242,8 +242,8 @@ config {
   last_wrap_index: Integer = 399
 
   -- APA physical envelope (calibration-loaded)
-  apa_length_mm:    Decimal = 6060.2
-  apa_height_mm:    Decimal = 2300.0
+  apa_length_mm:    Decimal = 6060.2                                                                                                                                                                                                                                                                                  
+  apa_height_mm:    Decimal = 2300.0                                                                                                                                                                                  
   apa_thickness_mm: Decimal = 76.2
 
   -- Board cross-section (nominal; calibration-loaded)
@@ -252,7 +252,7 @@ config {
   apa_board_thickness_y_mm: Decimal = 0.0
 
   -- Pin nominal radius (calibration-loaded; per-pin offsets come from
-  -- the WinderCalibration contract).
+
   pin_radius_mm: Decimal = 0.0
 
   -- X/G slot grid (head and foot boards)

@@ -39,5 +39,8 @@ typecheck:
 build-rust:
 	uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
 
+build-web:
+	cd src/dune_tension/web/app && npm install && npm run build
+
 clean-rust:
 	cargo clean --manifest-path rust/Cargo.toml
