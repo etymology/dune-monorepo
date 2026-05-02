@@ -1,0 +1,37 @@
+{
+  "name": "ua_unequal_radii",
+  "notes": "Anchor at the standard 0.5 mm pin radius, target with extra clearance \u2014 exercises radius_sign \u00d7 tangent_sign with r != 0.",
+  "layer": "U",
+  "anchor": {
+    "pin": "A200",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "minus"
+    ]
+  },
+  "target": {
+    "pin": "A201",
+    "xy": [
+      10.0,
+      2.0
+    ],
+    "r": 0.6,
+    "tangent_sides": [
+      "plus",
+      "minus"
+    ]
+  },
+  "tangent_a": [
+    0.10286104543328203,
+    -0.4893052271664101
+  ],
+  "tangent_b": [
+    10.123433254519938,
+    1.412833727400308
+  ]
+}

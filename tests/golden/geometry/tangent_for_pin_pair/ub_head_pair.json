@@ -1,0 +1,37 @@
+{
+  "name": "ub_head_pair",
+  "notes": "UB pins, sa = (1, 1). AB direction in SE quadrant.",
+  "layer": "U",
+  "anchor": {
+    "pin": "B50",
+    "xy": [
+      10.0,
+      10.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "plus"
+    ]
+  },
+  "target": {
+    "pin": "B51",
+    "xy": [
+      15.0,
+      9.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "plus"
+    ]
+  },
+  "tangent_a": [
+    10.098058067569092,
+    10.49029033784546
+  ],
+  "tangent_b": [
+    15.098058067569092,
+    9.49029033784546
+  ]
+}

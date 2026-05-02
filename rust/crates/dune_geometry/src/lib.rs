@@ -29,9 +29,9 @@ pub use wire::{
     actual_wire_point_from_machine_target, apply_anchor_to_target_offsets,
     circle_pair_tangent_pairs, compute_arm_corrected_outbound, effective_camera_wire_offset,
     line_equation_from_tangent_points, select_tangent_solution, solve_anchor_to_target,
-    tangent_candidates_for_pin_pair, AnchorToTargetRequest, AnchorToTargetSolution,
-    ArmCorrectedOutbound, HeadQuadrant, LineEquation, RectBounds, TangentSide, TangentSolution,
-    WireError,
+    tangent_candidates_for_pin_pair, tangent_for_pin_pair, AnchorToTargetRequest,
+    AnchorToTargetSolution, ArmCorrectedOutbound, HeadQuadrant, LineEquation, RectBounds,
+    TangentSide, TangentSolution, WireError,
 };
 
 #[cfg(feature = "pyo3")]

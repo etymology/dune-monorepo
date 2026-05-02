@@ -1,0 +1,37 @@
+{
+  "name": "vb_head_pair",
+  "notes": "VB pins (head edge), sa = (1, -1). AB direction in NE quadrant.",
+  "layer": "V",
+  "anchor": {
+    "pin": "B100",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "minus"
+    ]
+  },
+  "target": {
+    "pin": "B101",
+    "xy": [
+      5.0,
+      1.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "minus"
+    ]
+  },
+  "tangent_a": [
+    0.09805806756909201,
+    -0.49029033784546006
+  ],
+  "tangent_b": [
+    5.098058067569092,
+    0.5097096621545399
+  ]
+}

@@ -26,8 +26,10 @@ use crate::wire::{
     line_equation_from_tangent_points as rust_line_equation_from_tangent_points,
     select_tangent_solution as rust_select_tangent_solution,
     solve_anchor_to_target as rust_solve_anchor_to_target,
+    solve_xg_slots as rust_solve_xg_slots,
     tangent_candidates_for_pin_pair as rust_tangent_candidates_for_pin_pair,
-    AnchorToTargetRequest, AnchorToTargetSolution, HeadQuadrant, RectBounds, TangentSide,
+    tangent_for_pin_pair as rust_tangent_for_pin_pair, AnchorToTargetRequest,
+    AnchorToTargetSolution, HeadQuadrant, RectBounds, TangentSide,
 };
 
 fn calibration_error_to_py(err: CalibrationError) -> PyErr {
@@ -59,8 +61,10 @@ fn parse_layer(value: &str) -> PyResult<Layer> {
     match value {
         "U" => Ok(Layer::U),
         "V" => Ok(Layer::V),
+        "X" => Ok(Layer::X),
+        "G" => Ok(Layer::G),
         other => Err(PyValueError::new_err(format!(
-            "unknown layer {other:?}; expected 'U' or 'V'"
+            "unknown layer {other:?}; expected 'U', 'V', 'X' or 'G'"
         ))),
     }
 }
@@ -112,6 +116,8 @@ impl PyPin {
         match self.inner.layer {
             Layer::U => "U",
             Layer::V => "V",
+            Layer::X => "X",
+            Layer::G => "G",
         }
     }
 
@@ -888,6 +894,34 @@ fn py_tangent_candidates_for_pin_pair(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Compute the unique wire-side tangent line between two pins, derived
+/// directly from each pin's `tangent_sides` rule. Returns
+/// `((tangent_a_x, tangent_a_y), (tangent_b_x, tangent_b_y))`.
+///
+/// The four-candidate enumeration in `circle_pair_tangent_pairs` collapses
+/// to one closed-form solve once `(layer, side, n)` is known for both
+/// pins.
+#[pyfunction]
+#[pyo3(name = "tangent_for_pin_pair")]
+fn py_tangent_for_pin_pair(
+    anchor: &PyPin,
+    anchor_xy: (f64, f64),
+    anchor_radius: f64,
+    target: &PyPin,
+    target_xy: (f64, f64),
+    target_radius: f64,
+) -> PyResult<((f64, f64), (f64, f64))> {
+    rust_tangent_for_pin_pair(
+        anchor.inner,
+        anchor_xy,
+        anchor_radius,
+        target.inner,
+        target_xy,
+        target_radius,
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 fn quadrant_str(q: HeadQuadrant) -> &'static str {
     match q {
         HeadQuadrant::NW => "NW",
@@ -1010,6 +1044,8 @@ impl PySpinePoint {
         match self.inner.layer {
             Layer::U => "U",
             Layer::V => "V",
+            Layer::X => "X",
+            Layer::G => "G",
         }
     }
 
@@ -1047,6 +1083,8 @@ impl PySpineLoop {
         match self.inner.layer {
             Layer::U => "U",
             Layer::V => "V",
+            Layer::X => "X",
+            Layer::G => "G",
         }
     }
 
@@ -1122,6 +1160,22 @@ fn py_solve_spine_loop(
 #[allow(dead_code)]
 fn _unused(_: &PyDict) {}
 
+#[pyfunction]
+#[pyo3(name = "solve_xg_slots")]
+fn py_solve_xg_slots(
+    layer: &str,
+    bh1: &PyVec3,
+    bh_max: &PyVec3,
+    bf1: &PyVec3,
+    bf_max: &PyVec3,
+) -> PyResult<Vec<PyPinCoordinate>> {
+    let layer = parse_layer(layer)?;
+    Ok(rust_solve_xg_slots(layer, bh1.inner, bh_max.inner, bf1.inner, bf_max.inner)
+        .into_iter()
+        .map(|c| PyPinCoordinate { inner: c })
+        .collect())
+}
+
 #[pymodule]
 pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPin>()?;
@@ -1141,10 +1195,12 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pin_count, m)?)?;
     m.add_function(wrap_pyfunction!(board_width_z_mm, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
+    m.add_function(wrap_pyfunction!(py_solve_xg_slots, m)?)?;
     m.add_function(wrap_pyfunction!(py_circle_pair_tangent_pairs, m)?)?;
     m.add_function(wrap_pyfunction!(py_select_tangent_solution, m)?)?;
     m.add_function(wrap_pyfunction!(py_line_equation_from_tangent_points, m)?)?;
     m.add_function(wrap_pyfunction!(py_tangent_candidates_for_pin_pair, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tangent_for_pin_pair, m)?)?;
     m.add_function(wrap_pyfunction!(py_compute_arm_corrected_outbound, m)?)?;
     m.add_function(wrap_pyfunction!(py_actual_wire_point_from_machine_target, m)?)?;
     m.add_class::<PySpinePoint>()?;
