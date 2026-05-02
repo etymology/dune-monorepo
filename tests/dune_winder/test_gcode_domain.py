@@ -78,6 +78,20 @@ class GCodeParserTests(unittest.TestCase):
         macro = cast(MacroCall, line.items[1])
         self.assertEqual(macro.text, "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))")
 
+    def test_parser_and_renderer_support_anchor_to_target_3d_offset_keyword(self):
+        line = parse_line_text(
+            "N8 ~anchorToTarget(B1201,B2001,offset=(1.25,-2.5,0.75))"
+        )
+
+        self.assertEqual(
+            render_line(line),
+            "N8 ~anchorToTarget(B1201,B2001,offset=(1.25,-2.5,0.75))",
+        )
+        macro = cast(MacroCall, line.items[1])
+        self.assertEqual(
+            macro.text, "anchorToTarget(B1201,B2001,offset=(1.25,-2.5,0.75))"
+        )
+
     def test_parser_and_renderer_support_anchor_to_target_hover_keyword(self):
         line = parse_line_text("N9 ~anchorToTarget(B1201,B2001,hover=True)")
 
