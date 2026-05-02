@@ -39,7 +39,7 @@ def test_invalid_pin_number_raises() -> None:
 
 def test_invalid_layer_or_side_raises() -> None:
     with pytest.raises(ValueError):
-        dune_geometry.Pin("X", "A", 1)
+        dune_geometry.Pin("Q", "A", 1)
     with pytest.raises(ValueError):
         dune_geometry.Pin("U", "C", 1)
 
