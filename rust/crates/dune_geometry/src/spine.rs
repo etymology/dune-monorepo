@@ -126,7 +126,7 @@ pub enum SpineError {
 ///
 /// ```text
 /// half_w = pin.layer.half_board_width_z_mm()
-/// sign   = +1 when pin.side == A, -1 when pin.side == B
+/// sign   = -1 when pin.side == A, +1 when pin.side == B
 /// raw    = Vec3(spine.x, spine.y, spine.z + sign * half_w)
 /// ```
 pub fn derive_pin_position_from_spine(spine_xyz: Vec3, pin: Pin) -> Vec3 {
@@ -469,17 +469,17 @@ mod tests {
     }
 
     #[test]
-    fn derive_pin_position_a_side_is_plus_half_width_in_z() {
+    fn derive_pin_position_a_side_is_minus_half_width_in_z() {
         let spine = Vec3::new(10.0, 20.0, 100.0);
         let derived = derive_pin_position_from_spine(spine, ua(1));
-        assert_eq!(derived, Vec3::new(10.0, 20.0, 100.0 + 65.0));
+        assert_eq!(derived, Vec3::new(10.0, 20.0, 100.0 - 65.0));
     }
 
     #[test]
-    fn derive_pin_position_b_side_is_minus_half_width_in_z() {
+    fn derive_pin_position_b_side_is_plus_half_width_in_z() {
         let spine = Vec3::new(10.0, 20.0, 100.0);
         let derived = derive_pin_position_from_spine(spine, ub(1));
-        assert_eq!(derived, Vec3::new(10.0, 20.0, 100.0 - 65.0));
+        assert_eq!(derived, Vec3::new(10.0, 20.0, 100.0 + 65.0));
     }
 
     #[test]
@@ -490,7 +490,7 @@ mod tests {
         assert_eq!(a.x, b.x);
         assert_eq!(a.y, b.y);
         assert_eq!((a.z + b.z) / 2.0, spine.z);
-        assert_eq!(a.z - b.z, Layer::U.board_width_z_mm());
+        assert_eq!(b.z - a.z, Layer::U.board_width_z_mm());
     }
 
     #[test]

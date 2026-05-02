@@ -85,10 +85,10 @@ def test_board_widths() -> None:
 
 
 def test_spine_to_face_sign() -> None:
-    assert dune_geometry.Pin("U", "A", 1).spine_to_face_sign == 1.0
-    assert dune_geometry.Pin("U", "B", 1).spine_to_face_sign == -1.0
-    assert dune_geometry.Pin("V", "A", 1).spine_to_face_sign == 1.0
-    assert dune_geometry.Pin("V", "B", 1).spine_to_face_sign == -1.0
+    assert dune_geometry.Pin("U", "A", 1).spine_to_face_sign == -1.0
+    assert dune_geometry.Pin("U", "B", 1).spine_to_face_sign == 1.0
+    assert dune_geometry.Pin("V", "A", 1).spine_to_face_sign == -1.0
+    assert dune_geometry.Pin("V", "B", 1).spine_to_face_sign == 1.0
 
 
 def test_pin_count() -> None:
