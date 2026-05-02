@@ -1,0 +1,23 @@
+error[E0277]: the trait bound `dune_plc_bus::Write: Readable` is not satisfied
+ --> tests/compile_fail/snapshot_write_only_tag.rs:9:26
+  |
+9 |     let _ = bus.snapshot(Tags::STATE_REQUEST_ID);
+  |                 -------- ^^^^^^^^^^^^^^^^^^^^^^ the trait `Readable` is not implemented for `dune_plc_bus::Write`
+  |                 |
+  |                 required by a bound introduced by this call
+  |
+help: the following other types implement trait `Readable`
+ --> src/capability.rs
+  |
+  | impl Readable for Read {}
+  | ^^^^^^^^^^^^^^^^^^^^^^ `dune_plc_bus::Read`
+  | impl Readable for ReadWrite {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `ReadWrite`
+note: required by a bound in `TagBus::snapshot`
+ --> src/bus.rs
+  |
+  |     pub fn snapshot<T, C>(&self, tag: TagId<T, C>) -> Snapshot<T>
+  |            -------- required by a bound in this associated function
+...
+  |         C: Readable,
+  |            ^^^^^^^^ required by this bound in `TagBus::snapshot`

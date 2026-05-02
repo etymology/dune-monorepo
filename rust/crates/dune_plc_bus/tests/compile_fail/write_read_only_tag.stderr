@@ -1,0 +1,23 @@
+error[E0277]: the trait bound `dune_plc_bus::Read: Writable` is not satisfied
+ --> tests/compile_fail/write_read_only_tag.rs:9:23
+  |
+9 |     let _ = bus.write(Tags::STATE, 1, Duration::from_millis(50));
+  |                 ----- ^^^^^^^^^^^ the trait `Writable` is not implemented for `dune_plc_bus::Read`
+  |                 |
+  |                 required by a bound introduced by this call
+  |
+help: the following other types implement trait `Writable`
+ --> src/capability.rs
+  |
+  | impl Writable for Write {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^ `dune_plc_bus::Write`
+  | impl Writable for ReadWrite {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `ReadWrite`
+note: required by a bound in `TagBus::write`
+ --> src/bus.rs
+  |
+  |     pub fn write<T, C>(
+  |            ----- required by a bound in this associated function
+...
+  |         C: Writable,
+  |            ^^^^^^^^ required by this bound in `TagBus::write`

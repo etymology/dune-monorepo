@@ -1,252 +1,142 @@
 ###############################################################################
 # Name: PLC_Motor.py
-# Uses: Motor on a PLC.
-# Date: 2016-02-07
-# Author(s):
-#   Andrew Que <aque@bb7.com>
-#
-# $$$FUTURE - To-do:
-#  - Accelerations.
-#
+# Uses: Motor on a PLC, backed by the TagBus.
 ###############################################################################
 
 import time
+from typing import Any, List
+
+from dune_winder.io.devices.tag_bus_registry import tag_bus_for
 from dune_winder.io.primitives.motor import Motor
-from dune_winder.io.devices.plc import PLC
-from typing import List
+
+# Reads that gate motion decisions (position, velocity, movement, fault) need a
+# fresh value; the bus may have a slightly stale snapshot from its tier poll.
+_FRESH_WITHIN_MS = 50
+_READ_TIMEOUT_MS = 250
+
+
+def _snapshot_or(bus: Any, name: str, default):
+    snap = bus.snapshot(name)
+    if snap is None or snap.source == "default":
+        return default
+    return snap.value
+
+
+class _BusReadShim:
+    """`.get()` shim over a single bus tag with a typed default."""
+
+    def __init__(self, bus: Any, name: str, default):
+        self._bus = bus
+        self._name = name
+        self._default = default
+
+    def get(self):
+        return _snapshot_or(self._bus, self._name, self._default)
 
 
 class PLC_Motor(Motor):
     instances: List["PLC_Motor"] = []
 
-    # ---------------------------------------------------------------------
     def __init__(self, name, plc, tagBase):
         """
-        Constructor.
-
         Args:
           name: Name of motor.
-          plc: Instance of IO_Device.PLC.
-          tagBase: All tags will start with this prepended to the name.
+          plc: A legacy PLC subclass *or* a TagBus.
+          tagBase: All tags will start with this prepended ('X', 'Y', 'Z').
         """
-
         Motor.__init__(self, name)
         PLC_Motor.instances.append(self)
 
-        self._plc = plc
+        self._bus = tag_bus_for(plc)
         self._tagBase = tagBase
 
-        # Write tags.
-        attributes = PLC.Tag.Attributes()
-        attributes.defaultValue = 0
-        self._targetPosition = PLC.Tag(plc, tagBase + "_POSITION", attributes, "REAL")
-        self._jogSpeed = PLC.Tag(plc, tagBase + "_SPEED", attributes, "REAL")
-        self._jogDirection = PLC.Tag(plc, tagBase + "_DIR", attributes, "DINT")
+        self._target_tag = f"{tagBase}_POSITION"
+        self._jog_speed_tag = f"{tagBase}_SPEED"
+        self._jog_dir_tag = f"{tagBase}_DIR"
+        self._position_tag = f"{tagBase}_axis.ActualPosition"
+        self._velocity_tag = f"{tagBase}_axis.ActualVelocity"
+        self._acceleration_tag = f"{tagBase}_axis.CommandAcceleration"
+        self._movement_tag = f"{tagBase}_axis.CoordinatedMotionStatus"
+        self._faulted_tag = f"{tagBase}_axis.ModuleFault"
 
-        # Read-only attributes tags.
-        attributes = PLC.Tag.Attributes()
-        attributes.isPolled = True
-        attributes.canWrite = False
-
-        self._position = PLC.Tag(plc, tagBase + "_axis.ActualPosition", attributes)
-        self._velocity = PLC.Tag(plc, tagBase + "_axis.ActualVelocity", attributes)
-        self._acceleration = PLC.Tag(
-            plc, tagBase + "_axis.CommandAcceleration", attributes
-        )
-        self._movement = PLC.Tag(
-            plc, tagBase + "_axis.CoordinatedMotionStatus", attributes
-        )
-        #    print(self._position)
-        # Motor status tag defaults to a faulted state in case read fails.
-        attributes = PLC.Tag.Attributes()
-        attributes.isPolled = True
-        attributes.canWrite = False
-        attributes.defaultValue = True
-        self._faulted = PLC.Tag(plc, tagBase + "_axis.ModuleFault", attributes)
-
-        # print("self._faulted")
-        # print(self._faulted.get())
         self._seekStartPosition = 0
+
+        # `.get()`-shaped shim for legacy callers (e.g. Head) that read the
+        # axis position via the tag handle rather than `getPosition()`.
+        self._position = _BusReadShim(self._bus, self._position_tag, 0.0)
 
     # ---------------------------------------------------------------------
     def isFunctional(self):
-        """
-        Check to see if motor is ready to run.
-
-        Returns:
-          True if functional, False if not.
-        """
-
-        # print("not bool(self._faulted.get()) in isFunctional PLC_Motor.py")
-        # print(not bool(self._faulted.get()))
-        return not bool(self._faulted.get())
+        # Default to faulted (matches the legacy `defaultValue=True` for the
+        # fault tag) until we've actually seen the wire.
+        faulted = _snapshot_or(self._bus, self._faulted_tag, True)
+        return not bool(faulted)
 
     # ---------------------------------------------------------------------
     def setDesiredPosition(self, position):
-        """
-        Go to a location.
-
-        Args:
-          positions: Position to seek (in motor units).
-        """
         self._seekStartPosition = self.getPosition()
-        self._targetPosition.set(position)
+        self._bus.write(self._target_tag, float(position))
 
     # ---------------------------------------------------------------------
     def getSeekStartPosition(self):
-        """
-        Get the position the current (or last) seek started from.
-
-        Returns:
-          Position the current (or last) seek started from.
-        """
         return self._seekStartPosition
 
     # ---------------------------------------------------------------------
     def getDesiredPosition(self):
-        """
-        Return the desired (seeking) position.
-
-        Returns:
-          Desired motor position.
-        """
-        return self._targetPosition.get()
+        return _snapshot_or(self._bus, self._target_tag, 0.0)
 
     # ---------------------------------------------------------------------
     def isSeeking(self):
-        """
-        See if the motor is in motion.
-
-        Returns:
-          True if seeking desired position, False if at desired position.
-        """
-
-        result = bool(self._movement.get())
-
-        return result
+        return bool(_snapshot_or(self._bus, self._movement_tag, False))
 
     # ---------------------------------------------------------------------
     def setEnable(self, isEnabled):
-        """
-        Enable/disable motor.
-
-        Args:
-          isEnabled: True if enabled, False if not.
-
-        """
         pass
 
     # ---------------------------------------------------------------------
     def seekWait(self):
-        """
-        Block until seek is obtained.
-
-        """
         while self.isSeeking():
             time.sleep(0.01)
 
     # ---------------------------------------------------------------------
     def getPosition(self):
-        """
-        Return current motor position.
-
-        Returns:
-          Motor position (in motor units).
-        """
-
-        return self._position.get()
+        return _snapshot_or(self._bus, self._position_tag, 0.0)
 
     # ---------------------------------------------------------------------
     def setMaxVelocity(self, maxVelocity):
-        """
-        Set maximum velocity motor may move.
-
-        Args:
-          maxVelocity: Maximum velocity.
-
-        """
-        self._jogSpeed.set(maxVelocity)
+        self._bus.write(self._jog_speed_tag, float(maxVelocity))
 
     # ---------------------------------------------------------------------
     def getMaxVelocity(self):
-        """
-        Get maximum velocity motor may move.
-
-        Args:
-          maxVelocity: Maximum velocity.
-
-        """
-
         return None
 
     # ---------------------------------------------------------------------
     def getVelocity(self):
-        """
-        Get current motor velocity.
-
-        Returns:
-          Current motor velocity (in motor units/second).
-        """
-
-        return self._velocity.get()
+        return _snapshot_or(self._bus, self._velocity_tag, 0.0)
 
     # ---------------------------------------------------------------------
     def setVelocity(self, velocity):
-        """
-        Set motor velocity.  Useful for jogging motor.  Set to 0 to stop.
-
-        Args:
-          velocity: Desired velocity.  Negative velocity is reverse direction.
-        """
-
         direction = 0
         if velocity < 0:
             direction = 1
             velocity = -velocity
 
-        self._jogSpeed.set(velocity)
-        self._jogDirection.set(direction)
+        self._bus.write(self._jog_speed_tag, float(velocity))
+        self._bus.write(self._jog_dir_tag, int(direction))
 
     # ---------------------------------------------------------------------
     def setMaxAcceleration(self, maxAcceleration):
-        """
-        Set maximum acceleration motor may move.
-
-        Args:
-          maxAcceleration: Maximum acceleration motor may move.
-
-        """
-
         pass
 
     # ---------------------------------------------------------------------
     def getMaxAcceleration(self):
-        """
-        Get maximum acceleration motor may move.
-
-        Returns:
-          Maximum acceleration motor may move.
-        """
-
         pass
 
     # ---------------------------------------------------------------------
     def getAcceleration(self):
-        """
-        Get current motor acceleration.
-
-        Returns:
-          Motor acceleration (in motor units/second squared).
-        """
-
-        return self._acceleration.get()
+        return _snapshot_or(self._bus, self._acceleration_tag, 0.0)
 
     # ---------------------------------------------------------------------
     def poll(self):
-        """
-        Update motor.  Call periodically.  (Unneeded for this type of motor.)
-        """
+        # Bus owns its own poll thread; nothing to do here.
         pass
-
-
-# end class
