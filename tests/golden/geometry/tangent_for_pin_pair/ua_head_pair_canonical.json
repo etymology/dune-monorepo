@@ -1,0 +1,37 @@
+{
+  "name": "ua_head_pair_canonical",
+  "notes": "UA pins (n \u2264 1200), sa = (1, -1). AB direction in NE quadrant.",
+  "layer": "U",
+  "anchor": {
+    "pin": "A100",
+    "xy": [
+      100.0,
+      50.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "minus"
+    ]
+  },
+  "target": {
+    "pin": "A101",
+    "xy": [
+      105.0,
+      51.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "plus",
+      "minus"
+    ]
+  },
+  "tangent_a": [
+    100.0980580675691,
+    49.50970966215454
+  ],
+  "tangent_b": [
+    105.0980580675691,
+    50.50970966215454
+  ]
+}

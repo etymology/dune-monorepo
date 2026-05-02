@@ -25,6 +25,11 @@
 //!   `_tangent_candidates_for_pin_pair` wrapper around
 //!   [`circle_pair_tangent_pairs`] that takes two radii and validates
 //!   non-coincident centers.
+//! - [`tangent_for_pin_pair`] — the analytic single-tangent replacement
+//!   that takes two [`Pin`]s and uses each pin's `tangent_sides` rule to
+//!   compute the unique wire-side tangent in closed form, with no
+//!   four-candidate enumeration or ranking. Gated by fixtures at
+//!   `tests/golden/geometry/tangent_for_pin_pair/`.
 //! - [`line_equation_from_tangent_points`] — slope/intercept of the
 //!   tangent line, with vertical lines flagged.
 //! - [`compute_arm_corrected_outbound`] — solves the head pose so the
@@ -47,14 +52,62 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::calibration::{HeadSide, MachineCalibrationModel, Vec3};
-use crate::pins::Pin;
+use crate::calibration::{HeadSide, MachineCalibrationModel, PinCoordinate, Vec3};
+use crate::pins::{Layer, Pin, Side};
 
 /// Numerical tolerance shared with the Python reference for "is this two
 /// solutions or one?" deduplication and "is this geometrically degenerate?"
 /// checks. Matches the legacy implementation's hard-coded `1e-9` / `1e-6`.
 const TANGENT_FEASIBILITY_EPS: f64 = 1.0e-9;
 const TANGENT_DEDUP_EPS: f64 = 1.0e-6;
+
+/// Interpolate a full set of X/G layer slot coordinates from four measured
+/// corner points.
+///
+/// Corners are measured on the B side at the first and last slots of the head
+/// and foot edges. The function yields the B-side coordinates for all slots
+/// via linear interpolation, and derives the A-side coordinates by
+/// displacing one board-width in +Z.
+///
+/// Returns a list of [`PinCoordinate`]s for the layer.
+pub fn solve_xg_slots(
+    layer: Layer,
+    bh1: Vec3,
+    bh_max: Vec3,
+    bf1: Vec3,
+    bf_max: Vec3,
+) -> Vec<PinCoordinate> {
+    let max = if layer == Layer::X { 480 } else { 481 };
+    let mut out = Vec::with_capacity((max * 4) as usize);
+
+    for n in 1..=max {
+        let t = (n - 1) as f64 / (max - 1) as f64;
+        let bh_n_b = Vec3::lerp(bh1, bh_max, t);
+        let bf_n_b = Vec3::lerp(bf1, bf_max, t);
+
+        // B side
+        out.push(PinCoordinate {
+            pin: Pin::new(layer, Side::B, n).unwrap(),
+            xyz: bh_n_b,
+        });
+        out.push(PinCoordinate {
+            pin: Pin::new(layer, Side::B, n + max).unwrap(),
+            xyz: bf_n_b,
+        });
+
+        // A side: measurements are B side; A side is +board_width in Z.
+        let dz = Vec3::new(0.0, 0.0, layer.board_width_z_mm());
+        out.push(PinCoordinate {
+            pin: Pin::new(layer, Side::A, n).unwrap(),
+            xyz: bh_n_b.add(dz),
+        });
+        out.push(PinCoordinate {
+            pin: Pin::new(layer, Side::A, n + max).unwrap(),
+            xyz: bf_n_b.add(dz),
+        });
+    }
+    out
+}
 
 /// Compute the (up to four) tangent line pairs between two circles in 2D.
 ///
@@ -416,6 +469,98 @@ pub fn tangent_candidates_for_pin_pair(
     Ok(circle_pair_tangent_pairs(point_a, radius_a, point_b, radius_b))
 }
 
+/// Compute the unique wire-side tangent line between two pins, derived
+/// directly from each pin's `tangent_sides` rule.
+///
+/// This is the analytic single-line replacement for the legacy
+/// `circle_pair_tangent_pairs` + `select_tangent_solution` ranking pipeline:
+/// because each U/V pin's wrap-side normal is determined by `(layer, side, n)`
+/// alone, the four-candidate enumeration collapses to one closed-form solve.
+///
+/// Returns `(tangent_a, tangent_b)` — the tangent point on the anchor circle
+/// and on the target circle. Errors when:
+///
+/// - either pin is on layer X or G (slots, no wrap normal),
+/// - the two pins are on different layers,
+/// - the pin centers are coincident,
+/// - the requested wrap sides are geometrically incompatible — only possible
+///   if the two pins are on opposite sides of the board, since the same-face
+///   `tangent_sides` rule already guarantees axial agreement,
+/// - or the circles are too close to admit a tangent under the chosen
+///   radius_sign (`h² < -eps`).
+pub fn tangent_for_pin_pair(
+    anchor: Pin,
+    anchor_xy: (f64, f64),
+    anchor_radius: f64,
+    target: Pin,
+    target_xy: (f64, f64),
+    target_radius: f64,
+) -> Result<((f64, f64), (f64, f64)), WireError> {
+    if anchor.layer != target.layer {
+        return Err(WireError::LayerMismatch { anchor, target });
+    }
+    let (sa_x, sa_y) = anchor.tangent_normal_sign();
+    if sa_x == 0 || sa_y == 0 {
+        return Err(WireError::TangentSidesUndefinedForLayer {
+            layer: anchor.layer,
+        });
+    }
+    let (sb_x, sb_y) = target.tangent_normal_sign();
+    if sb_x == 0 || sb_y == 0 {
+        return Err(WireError::TangentSidesUndefinedForLayer {
+            layer: target.layer,
+        });
+    }
+    let rs_x = i32::from(sa_x) * i32::from(sb_x);
+    let rs_y = i32::from(sa_y) * i32::from(sb_y);
+    if rs_x != rs_y {
+        return Err(WireError::IncompatibleWrapSides {
+            anchor_sides: (sa_x, sa_y),
+            target_sides: (sb_x, sb_y),
+        });
+    }
+    let radius_sign = rs_x as f64;
+
+    let dx = target_xy.0 - anchor_xy.0;
+    let dy = target_xy.1 - anchor_xy.1;
+    let z = dx * dx + dy * dy;
+    if z <= TANGENT_FEASIBILITY_EPS {
+        return Err(WireError::CoincidentPinCenters);
+    }
+    let r = target_radius * radius_sign - anchor_radius;
+    let h_sq = z - r * r;
+    if h_sq < -TANGENT_FEASIBILITY_EPS {
+        return Err(WireError::TangentInfeasible);
+    }
+    let h = h_sq.max(0.0).sqrt();
+
+    // With radius_sign fixed by (sa · sb), the two tangent_sign choices give
+    // mirror-image tangent points across the AB line. Pick the one whose
+    // anchor-side normal matches (sa_x, sa_y).
+    let want_x = i32::from(sa_x);
+    let want_y = i32::from(sa_y);
+    let mut chosen_normal: Option<(f64, f64)> = None;
+    for tangent_sign in [-1.0_f64, 1.0_f64] {
+        let nx = (dx * r - dy * h * tangent_sign) / z;
+        let ny = (dy * r + dx * h * tangent_sign) / z;
+        if sign_with_eps(nx) == want_x && sign_with_eps(ny) == want_y {
+            chosen_normal = Some((nx, ny));
+            break;
+        }
+    }
+    let (nx, ny) = chosen_normal.ok_or(WireError::TangentSidesUnreachable {
+        anchor_sides: (sa_x, sa_y),
+        target_sides: (sb_x, sb_y),
+    })?;
+
+    let tangent_a = (anchor_xy.0 + anchor_radius * nx, anchor_xy.1 + anchor_radius * ny);
+    let tangent_b = (
+        target_xy.0 + target_radius * radius_sign * nx,
+        target_xy.1 + target_radius * radius_sign * ny,
+    );
+    Ok((tangent_a, tangent_b))
+}
+
 fn sign_with_eps(value: f64) -> i32 {
     if value > AXIS_EPS {
         1
@@ -732,6 +877,26 @@ pub enum WireError {
     ArmCorrectionRollerTangentMismatch,
     #[error("cannot measure distance to a degenerate line")]
     DegenerateLine,
+    #[error("layer {layer:?} has slots, not pins — wrap-side normals are undefined")]
+    TangentSidesUndefinedForLayer { layer: Layer },
+    #[error(
+        "anchor wrap sides {anchor_sides:?} and target wrap sides {target_sides:?} do not agree on radius_sign \
+         (sa·sb disagrees axially) — pins must be on the same face"
+    )]
+    IncompatibleWrapSides {
+        anchor_sides: (i8, i8),
+        target_sides: (i8, i8),
+    },
+    #[error("circles too close to admit a tangent under the chosen radius_sign")]
+    TangentInfeasible,
+    #[error(
+        "no tangent_sign produced a normal matching anchor wrap sides {anchor_sides:?} \
+         (target sides {target_sides:?}) — degenerate geometry"
+    )]
+    TangentSidesUnreachable {
+        anchor_sides: (i8, i8),
+        target_sides: (i8, i8),
+    },
 }
 
 /// Resolve the per-pose camera wire offset for a `(pin, head_side)` pair.
@@ -1134,5 +1299,145 @@ mod tests {
             2.0,
         );
         assert!(p.0.is_finite() && p.1.is_finite());
+    }
+
+    fn va(n: u16) -> Pin {
+        Pin::new(Layer::V, Side::A, n).unwrap()
+    }
+
+    fn xa(n: u16) -> Pin {
+        Pin::new(Layer::X, Side::A, n).unwrap()
+    }
+
+    /// For a tangent_for_pin_pair result, assert that the anchor-side normal
+    /// matches `Pin::tangent_normal_sign` axially and the result equals one of
+    /// the four candidates from the legacy kernel (within tolerance).
+    fn assert_tangent_consistent_with_kernel(
+        anchor: Pin,
+        anchor_xy: (f64, f64),
+        anchor_r: f64,
+        target: Pin,
+        target_xy: (f64, f64),
+        target_r: f64,
+        result: ((f64, f64), (f64, f64)),
+    ) {
+        let (ta, tb) = result;
+        let (sa_x, sa_y) = anchor.tangent_normal_sign();
+        let nx = (ta.0 - anchor_xy.0) / anchor_r;
+        let ny = (ta.1 - anchor_xy.1) / anchor_r;
+        assert_eq!(
+            sign_with_eps(nx),
+            i32::from(sa_x),
+            "anchor normal x-sign mismatch (n=({nx},{ny}), want sa=({sa_x},{sa_y}))"
+        );
+        assert_eq!(sign_with_eps(ny), i32::from(sa_y), "anchor normal y-sign mismatch");
+        let (sb_x, sb_y) = target.tangent_normal_sign();
+        let mx = (tb.0 - target_xy.0) / target_r;
+        let my = (tb.1 - target_xy.1) / target_r;
+        assert_eq!(sign_with_eps(mx), i32::from(sb_x), "target normal x-sign mismatch");
+        assert_eq!(sign_with_eps(my), i32::from(sb_y), "target normal y-sign mismatch");
+        let kernel = circle_pair_tangent_pairs(anchor_xy, anchor_r, target_xy, target_r);
+        assert!(
+            kernel.iter().any(|(ka, kb)| {
+                distance_xy(*ka, ta) <= 1e-9 && distance_xy(*kb, tb) <= 1e-9
+            }),
+            "analytic tangent {:?} not present in legacy kernel candidates {:?}",
+            (ta, tb),
+            kernel
+        );
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_ua_realistic_geometry() {
+        // Two UA pins with sa = (1, -1). Realistic spacing.
+        let anchor = ua(100);
+        let target = ua(101);
+        let anchor_xy = (100.0, 50.0);
+        let target_xy = (105.0, 51.0);
+        let r = 0.5;
+        let result =
+            tangent_for_pin_pair(anchor, anchor_xy, r, target, target_xy, r).unwrap();
+        assert_tangent_consistent_with_kernel(
+            anchor, anchor_xy, r, target, target_xy, r, result,
+        );
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_ub_pair() {
+        // UB pins with sa = (1, 1).
+        let anchor = ub(50);
+        let target = ub(51);
+        let anchor_xy = (10.0, 10.0);
+        let target_xy = (15.0, 9.0);
+        let result = tangent_for_pin_pair(anchor, anchor_xy, 0.5, target, target_xy, 0.5)
+            .unwrap();
+        assert_tangent_consistent_with_kernel(
+            anchor, anchor_xy, 0.5, target, target_xy, 0.5, result,
+        );
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_va_head_pair() {
+        // VA pins in the head edge: sa = (1, 1). For the wrap-side normal at
+        // the anchor to land in the +x/+y quadrant, the perpendicular to AB
+        // must have positive components, so AB direction sits in the SE
+        // quadrant (positive dx, negative dy).
+        let anchor = va(100);
+        let target = va(101);
+        let anchor_xy = (0.0, 0.0);
+        let target_xy = (5.0, -1.0);
+        let result = tangent_for_pin_pair(anchor, anchor_xy, 0.5, target, target_xy, 0.5)
+            .unwrap();
+        assert_tangent_consistent_with_kernel(
+            anchor, anchor_xy, 0.5, target, target_xy, 0.5, result,
+        );
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_ua_past_n1200_pair() {
+        // UA pins with n > 1200: sa = (-1, 1). Different sa pattern from the
+        // n ≤ 1200 case, ensures the analytic solver picks the right
+        // tangent_sign for the flipped x-side.
+        let anchor = ua(1300);
+        let target = ua(1301);
+        let anchor_xy = (0.0, 0.0);
+        let target_xy = (5.0, 1.0);
+        let result = tangent_for_pin_pair(anchor, anchor_xy, 0.5, target, target_xy, 0.5)
+            .unwrap();
+        assert_tangent_consistent_with_kernel(
+            anchor, anchor_xy, 0.5, target, target_xy, 0.5, result,
+        );
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_rejects_layer_mismatch() {
+        let result = tangent_for_pin_pair(ua(1), (0.0, 0.0), 0.5, vb(1), (5.0, 0.0), 0.5);
+        assert!(matches!(result, Err(WireError::LayerMismatch { .. })));
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_rejects_xg_slot() {
+        let result = tangent_for_pin_pair(xa(1), (0.0, 0.0), 0.5, xa(2), (5.0, 0.0), 0.5);
+        assert!(matches!(
+            result,
+            Err(WireError::TangentSidesUndefinedForLayer { layer: Layer::X })
+        ));
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_rejects_coincident_centers() {
+        let result =
+            tangent_for_pin_pair(ua(1), (1.0, 1.0), 0.5, ua(2), (1.0, 1.0), 0.5);
+        assert!(matches!(result, Err(WireError::CoincidentPinCenters)));
+    }
+
+    #[test]
+    fn tangent_for_pin_pair_rejects_opposite_face_pair() {
+        // UA1 has sa=(1,-1); UB1 has sa=(1,1). rs_x=1 but rs_y=-1 → incompatible.
+        let result = tangent_for_pin_pair(ua(1), (0.0, 0.0), 0.5, ub(1), (5.0, 1.0), 0.5);
+        assert!(matches!(
+            result,
+            Err(WireError::IncompatibleWrapSides { .. })
+        ));
     }
 }
