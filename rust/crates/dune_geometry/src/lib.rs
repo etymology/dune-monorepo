@@ -5,8 +5,14 @@
 //! Spec source of truth: `specs/layer-geometry.allium`,
 //! `specs/uv-wrap-geometry.allium`, `specs/uv-machine-calibration.allium`.
 
+pub mod calibration;
 pub mod pins;
 
+pub use calibration::{
+    CalibrationError, CalibrationPoint, HeadSide, MachineCalibrationFile,
+    MachineCalibrationModel, PerPinOffset, PinCalibrationFile, PinCalibrationSnapshot,
+    PinCoordinate, Vec3,
+};
 pub use pins::{
     endpoint_pins, face_ranges, tangent_sides, Face, Layer, Pin, PinError, Side,
     ENDPOINT_PINS_U, ENDPOINT_PINS_V, FACE_RANGES_U, FACE_RANGES_V,
