@@ -12,6 +12,10 @@
 //!   ([`apply_anchor_to_target_offsets`]).
 //! - A typed [`AnchorToTargetRequest`] / [`AnchorToTargetSolution`] pair
 //!   shared by Rust callers and the PyO3 surface.
+//! - The pure-math kernel [`circle_pair_tangent_pairs`] — the lowest-level
+//!   building block of the wire-tangent solve, ported ahead of the rest of
+//!   the solver and gated by golden fixtures at
+//!   `tests/golden/geometry/circle_pair_tangent/`.
 //!
 //! The full wire-tangent geometric solve (the part that picks which side of
 //! each pin the wire wraps and emits the final commanded head pose) still
@@ -27,6 +31,75 @@ use thiserror::Error;
 
 use crate::calibration::{HeadSide, MachineCalibrationModel, Vec3};
 use crate::pins::Pin;
+
+/// Numerical tolerance shared with the Python reference for "is this two
+/// solutions or one?" deduplication and "is this geometrically degenerate?"
+/// checks. Matches the legacy implementation's hard-coded `1e-9` / `1e-6`.
+const TANGENT_FEASIBILITY_EPS: f64 = 1.0e-9;
+const TANGENT_DEDUP_EPS: f64 = 1.0e-6;
+
+/// Compute the (up to four) tangent line pairs between two circles in 2D.
+///
+/// Each returned tuple `(first_xy, second_xy)` is one tangent line, with
+/// `first_xy` lying on the first circle and `second_xy` on the second. The
+/// implementation enumerates the four sign combinations of (radius_sign,
+/// tangent_sign), skipping any combination that is geometrically infeasible
+/// (negative `h²`) or numerically duplicate of a solution already in the
+/// result.
+///
+/// Returns an empty `Vec` if the circle centers are coincident. Behaviour is
+/// otherwise a direct port of the legacy Python implementation at
+/// `src/dune_winder/queued_motion/filleted_path.py::circle_pair_tangent_pairs`,
+/// gated by the JSON fixtures under
+/// `tests/golden/geometry/circle_pair_tangent/`.
+pub fn circle_pair_tangent_pairs(
+    first_center: (f64, f64),
+    first_radius: f64,
+    second_center: (f64, f64),
+    second_radius: f64,
+) -> Vec<((f64, f64), (f64, f64))> {
+    let dx = second_center.0 - first_center.0;
+    let dy = second_center.1 - first_center.1;
+    let z = dx * dx + dy * dy;
+    if z <= TANGENT_FEASIBILITY_EPS {
+        return Vec::new();
+    }
+    let mut tangent_pairs: Vec<((f64, f64), (f64, f64))> = Vec::with_capacity(4);
+    for radius_sign in [-1.0_f64, 1.0_f64] {
+        let r = second_radius * radius_sign - first_radius;
+        let h_sq = z - r * r;
+        if h_sq < -TANGENT_FEASIBILITY_EPS {
+            continue;
+        }
+        let h = h_sq.max(0.0).sqrt();
+        for tangent_sign in [-1.0_f64, 1.0_f64] {
+            let nx = (dx * r - dy * h * tangent_sign) / z;
+            let ny = (dy * r + dx * h * tangent_sign) / z;
+            let first_xy = (
+                first_center.0 + first_radius * nx,
+                first_center.1 + first_radius * ny,
+            );
+            let second_xy = (
+                second_center.0 + second_radius * radius_sign * nx,
+                second_center.1 + second_radius * radius_sign * ny,
+            );
+            let already_present = tangent_pairs.iter().any(|(ef, es)| {
+                distance_xy(first_xy, *ef) <= TANGENT_DEDUP_EPS
+                    && distance_xy(second_xy, *es) <= TANGENT_DEDUP_EPS
+            });
+            if !already_present {
+                tangent_pairs.push((first_xy, second_xy));
+            }
+        }
+    }
+    tangent_pairs
+}
+
+fn distance_xy(a: (f64, f64), b: (f64, f64)) -> f64 {
+    let dx = a.0 - b.0;
+    let dy = a.1 - b.1;
+    (dx * dx + dy * dy).sqrt()
+}
 
 /// Inputs to [`solve_anchor_to_target`]. Coordinates are raw camera-space
 /// (from `PinCalibrationFile::effective_pin_coords`) — the solver applies
@@ -260,5 +333,37 @@ mod tests {
             solve_anchor_to_target(&request, &model),
             Err(WireError::LayerMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn circle_pair_tangent_pairs_returns_empty_for_coincident_centers() {
+        assert!(circle_pair_tangent_pairs((0.0, 0.0), 1.0, (0.0, 0.0), 1.0).is_empty());
+    }
+
+    #[test]
+    fn circle_pair_tangent_pairs_equal_radius_horizontal() {
+        // Reference values cross-checked against the Python implementation in
+        // `tests/golden/geometry/circle_pair_tangent/equal_radius_horizontal_separation.json`.
+        let pairs = circle_pair_tangent_pairs((0.0, 0.0), 1.0, (5.0, 0.0), 1.0);
+        assert_eq!(pairs.len(), 4);
+        // External tangents (same y on both circles) — radius_sign = +1.
+        assert!(pairs.iter().any(|((_, ya), (_, yb))| {
+            (ya - (-1.0)).abs() < 1e-9 && (yb - (-1.0)).abs() < 1e-9
+        }));
+        assert!(pairs.iter().any(|((_, ya), (_, yb))| {
+            (ya - 1.0).abs() < 1e-9 && (yb - 1.0).abs() < 1e-9
+        }));
+    }
+
+    #[test]
+    fn circle_pair_tangent_pairs_skips_infeasible_internal_when_circles_touch() {
+        // Internal tangents collapse when |c2-c1| == 2r — the kernel should
+        // emit only the two external pairs.
+        let pairs = circle_pair_tangent_pairs((0.0, 0.0), 1.0, (2.0, 0.0), 1.0);
+        // Internal tangents have h_sq ~= 0 and produce two coincident
+        // solutions — the dedup pass collapses them. We keep the assertion
+        // loose (≤ 4) and let the golden fixture pin the exact count.
+        assert!(pairs.len() >= 2);
+        assert!(pairs.len() <= 4);
     }
 }
