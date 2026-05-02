@@ -7,6 +7,7 @@
 
 pub mod calibration;
 pub mod pins;
+pub mod spine;
 pub mod tension;
 pub mod wire;
 
@@ -18,6 +19,10 @@ pub use calibration::{
 pub use pins::{
     endpoint_pins, face_ranges, tangent_sides, Face, Layer, Pin, PinError, Side,
     ENDPOINT_PINS_U, ENDPOINT_PINS_V, FACE_RANGES_U, FACE_RANGES_V,
+};
+pub use spine::{
+    derive_pin_position_from_spine, observe_spine_point_from_touch, solve_spine_loop,
+    CalibrationTouch, SpineCalibrationFile, SpineError, SpineLoop, SpinePoint,
 };
 pub use tension::Geometry;
 pub use wire::{

@@ -1,0 +1,198 @@
+-- allium: 3
+-- spine-calibration.allium
+
+-- Scope: The APA spine — the closed continuous loop running around the
+--        perimeter of the APA at the Z midplane on which every layer's
+--        boards are centred. This spec defines:
+--          * the per-layer SpineLoop entity (closed continuous 3D loop
+--            indexed by pin number),
+--          * the rule that derives A-side and B-side raw pin coordinates
+--            from spine + half_board_width along Z,
+--          * the obligation on the calibration solver to fit a closed
+--            continuous loop from the calibration sweep (winder positions
+--            captured while touching pins),
+--          * invariants that pin the loop's closure and the symmetry of
+--            the A/B derivation.
+--
+-- Excludes:
+--   * Camera-wire-offset and arm-correction (uv-machine-calibration.allium)
+--   * Per-side pin storage (this spec replaces it)
+--   * Tension geometry (tension-physics.allium)
+--
+-- Why a spine, not separate A/B calibrations:
+--   The two pin-bearing faces are bolted to opposite sides of the same
+--   physical board. Storing them independently doubles the number of free
+--   parameters and lets calibration drift accumulate asymmetrically. The
+--   spine carries the geometry the boards actually share; A and B are
+--   geometric consequences, not calibration targets.
+
+use "./core.allium" as core
+use "./layer-geometry.allium" as layout
+
+-- ==========================================================================
+-- Value types
+-- ==========================================================================
+
+value Point3D {
+    x: Decimal
+    y: Decimal
+    z: Decimal
+}
+
+-- A single point on a per-layer spine loop. The pin number indexes the
+-- spine point that the layer's boards are centred on at that perimeter
+-- position; A-side and B-side pin coordinates derive from this point
+-- ± half-board-width along Z.
+value SpinePoint {
+    layer:   core/Layer
+    number:  Integer       -- 1..pin_count(layer)
+    xyz:     Point3D       -- spine XYZ in raw camera-space
+}
+
+-- The closed continuous loop of spine points for a single layer.
+-- Points are ordered so that consecutive entries are physically adjacent
+-- around the APA perimeter; the loop closes back to its first entry.
+value SpineLoop {
+    layer:   core/Layer
+    points:  List<SpinePoint>      -- ordered, closed (last ↔ first adjacent)
+}
+
+-- ==========================================================================
+-- Calibration storage
+-- ==========================================================================
+--
+-- The persisted spine calibration replaces today's per-pin per-side
+-- PinCalibrationFile. One file per APA holds one SpineLoop per layer
+-- (U, V, X, G); per-side pin lookup walks through DerivePinPositionFromSpine
+-- below.
+
+entity SpineCalibrationFile {
+    machine_id: String
+    loops:      List<SpineLoop>           -- one per layer; layers may be partial
+}
+
+-- ==========================================================================
+-- Calibration sweep input
+-- ==========================================================================
+--
+-- The continuous-loop fit consumes a list of CalibrationTouch records: at
+-- each touch the operator drove the calibration camera to a pin and
+-- recorded the winder XYZ. The fit treats those records as noisy
+-- observations of the pin position; combined with the wire-touches-pin
+-- constraint and the requirement that the spine forms a closed loop, the
+-- solver recovers the spine.
+
+value CalibrationTouch {
+    pin:       core/PinName     -- the pin the camera was looking at
+    winder_xyz: Point3D         -- raw winder XYZ at touch time (no offset baked in)
+}
+
+-- ==========================================================================
+-- Rules
+-- ==========================================================================
+
+rule DerivePinPositionFromSpine {
+    when: NeedRawPinPosition(pin)
+
+    requires: pin.layer in { u, v, x, g }
+    requires: pin.side in { a, b }
+    requires: pin.number >= 1
+    requires: pin.number <= pin_count(pin.layer)
+
+    -- The raw camera-space coordinate of any (layer, side, number) pin is
+    -- the spine point at that (layer, number) displaced by half the
+    -- layer's board width along Z. A-side is +Z, B-side is -Z.
+    ensures: RawPinPosition.created(
+        pin: pin,
+        xyz: derived_pin_xyz(pin)
+    )
+
+    @guidance
+        -- derived_pin_xyz(pin) =
+        --   spine_xyz = lookup_spine_point(pin.layer, pin.number).xyz
+        --   half_w    = board_width_z_mm(pin.layer) / 2
+        --   sign      = +1 when pin.side = a, -1 when pin.side = b
+        --   Point3D(spine_xyz.x, spine_xyz.y, spine_xyz.z + sign * half_w)
+        --
+        -- Layers without a spine point recorded for `number` raise
+        -- MissingSpinePoint; the legacy calibration converter materialises
+        -- a spine point for every pin number present in the legacy
+        -- per-side calibration files, taking the midpoint of the legacy
+        -- A and B Z values where both are present.
+}
+
+rule SolveSpineLoopFromCalibrationTouches {
+    when: SpineFitRequested(layer, touches)
+
+    requires: layer in { u, v, x, g }
+    requires: |touches| >= 1
+
+    -- The solver fits a closed continuous 3D loop of spine points to the
+    -- supplied calibration touches. The loop is indexed by pin number
+    -- 1..pin_count(layer) and closes back to point 1.
+    ensures: SpineLoop.created(
+        layer: layer,
+        points: continuous_spine_loop_fit(layer, touches)
+    )
+
+    @guidance
+        -- Fit obligation:
+        --
+        -- 1. For each touch t in touches:
+        --      observed_spine_xyz(t) = t.winder_xyz - sign(t.pin.side) * half_w * z_normal
+        --      (the inverse of DerivePinPositionFromSpine)
+        --
+        -- 2. Group observed_spine points by pin.number. Multiple touches
+        --    on the same number (different sides, or repeats) collapse to
+        --    one observation by component-wise mean.
+        --
+        -- 3. Fit a closed continuous 3D path through the observations
+        --    indexed by perimeter position (pin.number). The path is NOT
+        --    constrained to a plane — it absorbs frame distortion under
+        --    wire tension. Missing pin numbers between observations are
+        --    interpolated; the loop is required to close so the fit
+        --    propagates around the perimeter.
+        --
+        -- 4. The output SpineLoop.points is the fitted XYZ at every
+        --    pin.number in 1..pin_count(layer), ordered by number.
+        --
+        -- The reference implementation lives at
+        --   dune_geometry::spine::solve_spine_loop
+        -- and a synthetic-input + golden-fixture parity test at
+        --   tests/golden/geometry/spine_loop/.
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant SpineLoopIsClosed {
+    -- For every SpineLoop, the loop is closed: the spine point indexed at
+    -- pin_count(layer) sits geometrically adjacent to the spine point
+    -- indexed at 1, within a layer-defined epsilon.
+}
+
+invariant SpineLoopCoversAllPinNumbers {
+    -- For every SpineLoop produced by SolveSpineLoopFromCalibrationTouches,
+    -- there is exactly one SpinePoint with .number = n for every
+    -- n in 1..pin_count(layer).
+}
+
+invariant DerivedABCoordsAreSymmetricAboutSpine {
+    -- For every PinName pin, the derived A-side and B-side raw XYZ have
+    -- equal X and Y, and their Z values straddle the spine point's Z by
+    -- exactly board_width_z_mm(pin.layer) / 2 in opposite directions.
+}
+
+invariant ReplacesPerSidePinCalibration {
+    -- The persisted SpineCalibrationFile is the sole source of raw pin
+    -- coordinates. Any code path that previously read per-side pin XYZ
+    -- from a PinCalibrationFile must instead derive XYZ via
+    -- DerivePinPositionFromSpine over the spine calibration. The legacy
+    -- per-side schema is converted to a SpineCalibrationFile by
+    -- scripts/convert_legacy_pin_calibration_to_spine.py at one-shot
+    -- migration time.
+}
+
+open question "Should the spine fit be a single closed B-spline indexed by perimeter arc-length, or a per-edge piecewise fit (head, bottom, foot, top) joined at the four corners? The plan currently leaves the parametrisation to the implementation, but the operator-visible smoothness near corners depends on the choice."
+open question "When a layer's calibration sweep covers only a partial perimeter, should the fit refuse to produce a SpineLoop, or emit a partial loop with the missing arcs left as straight interpolations? Today the assumption is a full sweep, but in practice operators may capture in passes."

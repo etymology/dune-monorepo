@@ -25,14 +25,25 @@ impl Layer {
         }
     }
 
-    /// Per-layer A↔B board displacement along Z, in millimetres.
-    /// Mirrors `config.u_board_a_to_b_z_mm` / `config.v_board_a_to_b_z_mm`
-    /// in `specs/layer-geometry.allium`.
-    pub const fn board_a_to_b_z_mm(self) -> f64 {
+    /// Per-layer board width along Z, in millimetres. The two pin-bearing
+    /// faces (A and B) sit one half-board-width to either side of the
+    /// spine along Z. Mirrors `config.{u,v,x,g}_board_width_z_mm` in
+    /// `specs/layer-geometry.allium`. X and G are returned for
+    /// completeness even though `Layer` is currently `U | V` — the helper
+    /// is `match`-exhaustive so adding X/G layer variants later will
+    /// require a code update here.
+    pub const fn board_width_z_mm(self) -> f64 {
         match self {
             Layer::U => 130.0,
             Layer::V => 120.0,
         }
+    }
+
+    /// Half the layer's board width along Z. The displacement from the
+    /// spine to either pin face is `± half_board_width_z_mm` along Z
+    /// (A is `+`, B is `-`).
+    pub const fn half_board_width_z_mm(self) -> f64 {
+        self.board_width_z_mm() / 2.0
     }
 
     pub const fn letter(self) -> char {
@@ -208,8 +219,23 @@ impl Pin {
         endpoint_pins(self.layer).binary_search(&self.number).is_ok()
     }
 
-    pub fn board_a_to_b_z_mm(self) -> f64 {
-        self.layer.board_a_to_b_z_mm()
+    pub fn board_width_z_mm(self) -> f64 {
+        self.layer.board_width_z_mm()
+    }
+
+    pub fn half_board_width_z_mm(self) -> f64 {
+        self.layer.half_board_width_z_mm()
+    }
+
+    /// Sign of the Z displacement from spine to this pin's face: `+1`
+    /// for the A side, `-1` for the B side. Mirrors the
+    /// `DerivePinPositionFromSpine` rule in
+    /// `specs/spine-calibration.allium`.
+    pub const fn spine_to_face_sign(self) -> f64 {
+        match self.side {
+            Side::A => 1.0,
+            Side::B => -1.0,
+        }
     }
 }
 
@@ -256,8 +282,18 @@ mod tests {
 
     #[test]
     fn board_widths() {
-        assert_eq!(Layer::U.board_a_to_b_z_mm(), 130.0);
-        assert_eq!(Layer::V.board_a_to_b_z_mm(), 120.0);
+        assert_eq!(Layer::U.board_width_z_mm(), 130.0);
+        assert_eq!(Layer::V.board_width_z_mm(), 120.0);
+        assert_eq!(Layer::U.half_board_width_z_mm(), 65.0);
+        assert_eq!(Layer::V.half_board_width_z_mm(), 60.0);
+    }
+
+    #[test]
+    fn spine_to_face_sign_is_positive_for_a_negative_for_b() {
+        assert_eq!(Pin::new(Layer::U, Side::A, 1).unwrap().spine_to_face_sign(), 1.0);
+        assert_eq!(Pin::new(Layer::U, Side::B, 1).unwrap().spine_to_face_sign(), -1.0);
+        assert_eq!(Pin::new(Layer::V, Side::A, 1).unwrap().spine_to_face_sign(), 1.0);
+        assert_eq!(Pin::new(Layer::V, Side::B, 1).unwrap().spine_to_face_sign(), -1.0);
     }
 
     #[test]
