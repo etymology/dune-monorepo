@@ -14,6 +14,10 @@ use crate::pins::{
     endpoint_pins, face_ranges, tangent_sides as rust_tangent_sides, Face, Layer, Pin, PinError,
     Side,
 };
+use crate::wire::{
+    solve_anchor_to_target as rust_solve_anchor_to_target, AnchorToTargetRequest,
+    AnchorToTargetSolution,
+};
 
 fn calibration_error_to_py(err: CalibrationError) -> PyErr {
     PyValueError::new_err(err.to_string())
@@ -640,6 +644,118 @@ impl PyMachineCalibrationFile {
     }
 }
 
+// =========================================================================
+// Wire / anchor-to-target pyclasses
+// =========================================================================
+
+#[pyclass(name = "AnchorToTargetRequest", module = "dune_geometry", from_py_object)]
+#[derive(Clone)]
+pub struct PyAnchorToTargetRequest {
+    inner: AnchorToTargetRequest,
+}
+
+#[pymethods]
+impl PyAnchorToTargetRequest {
+    #[new]
+    #[pyo3(signature = (
+        anchor_pin,
+        anchor_xyz,
+        target_pin,
+        target_xyz,
+        head_side,
+        target_offset = None,
+        hover = false,
+    ))]
+    fn new(
+        anchor_pin: &PyPin,
+        anchor_xyz: &PyVec3,
+        target_pin: &PyPin,
+        target_xyz: &PyVec3,
+        head_side: &str,
+        target_offset: Option<(f64, f64)>,
+        hover: bool,
+    ) -> PyResult<Self> {
+        let hs = parse_head_side(head_side)?;
+        Ok(PyAnchorToTargetRequest {
+            inner: AnchorToTargetRequest {
+                anchor_pin: anchor_pin.inner,
+                anchor_xyz: anchor_xyz.inner,
+                target_pin: target_pin.inner,
+                target_xyz: target_xyz.inner,
+                target_offset,
+                head_side: hs,
+                hover,
+            },
+        })
+    }
+
+    #[getter]
+    fn anchor_pin(&self) -> PyPin {
+        PyPin {
+            inner: self.inner.anchor_pin,
+        }
+    }
+    #[getter]
+    fn anchor_xyz(&self) -> PyVec3 {
+        PyVec3::from_inner(self.inner.anchor_xyz)
+    }
+    #[getter]
+    fn target_pin(&self) -> PyPin {
+        PyPin {
+            inner: self.inner.target_pin,
+        }
+    }
+    #[getter]
+    fn target_xyz(&self) -> PyVec3 {
+        PyVec3::from_inner(self.inner.target_xyz)
+    }
+    #[getter]
+    fn target_offset(&self) -> Option<(f64, f64)> {
+        self.inner.target_offset
+    }
+    #[getter]
+    fn head_side(&self) -> &'static str {
+        head_side_str(self.inner.head_side)
+    }
+    #[getter]
+    fn hover(&self) -> bool {
+        self.inner.hover
+    }
+}
+
+#[pyclass(name = "AnchorToTargetSolution", module = "dune_geometry", from_py_object)]
+#[derive(Clone)]
+pub struct PyAnchorToTargetSolution {
+    inner: AnchorToTargetSolution,
+}
+
+#[pymethods]
+impl PyAnchorToTargetSolution {
+    #[getter]
+    fn commanded_head_xyz(&self) -> PyVec3 {
+        PyVec3::from_inner(self.inner.commanded_head_xyz)
+    }
+    #[getter]
+    fn effective_camera_wire_offset(&self) -> PyVec3 {
+        PyVec3::from_inner(self.inner.effective_camera_wire_offset)
+    }
+    #[getter]
+    fn effective_arm_correction(&self) -> PyVec3 {
+        PyVec3::from_inner(self.inner.effective_arm_correction)
+    }
+}
+
+#[pyfunction]
+#[pyo3(name = "solve_anchor_to_target")]
+fn py_solve_anchor_to_target(
+    request: &PyAnchorToTargetRequest,
+    model: &PyMachineCalibrationModel,
+) -> PyResult<PyAnchorToTargetSolution> {
+    rust_solve_anchor_to_target(&request.inner, &model.inner)
+        .map(|s| PyAnchorToTargetSolution { inner: s })
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 // silence unused-import warnings under different feature combos
 #[allow(dead_code)]
 fn _unused(_: &PyDict) {}
@@ -655,10 +771,13 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMachineCalibrationModel>()?;
     m.add_class::<PyCalibrationPoint>()?;
     m.add_class::<PyMachineCalibrationFile>()?;
+    m.add_class::<PyAnchorToTargetRequest>()?;
+    m.add_class::<PyAnchorToTargetSolution>()?;
     m.add_function(wrap_pyfunction!(py_tangent_sides, m)?)?;
     m.add_function(wrap_pyfunction!(py_endpoint_pins, m)?)?;
     m.add_function(wrap_pyfunction!(py_face_ranges, m)?)?;
     m.add_function(wrap_pyfunction!(pin_count, m)?)?;
     m.add_function(wrap_pyfunction!(board_a_to_b_z_mm, m)?)?;
+    m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
     Ok(())
 }
