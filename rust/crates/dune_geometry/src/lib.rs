@@ -22,7 +22,8 @@ pub use pins::{
 pub use tension::Geometry;
 pub use wire::{
     apply_anchor_to_target_offsets, circle_pair_tangent_pairs, effective_camera_wire_offset,
-    solve_anchor_to_target, AnchorToTargetRequest, AnchorToTargetSolution, WireError,
+    select_tangent_solution, solve_anchor_to_target, AnchorToTargetRequest,
+    AnchorToTargetSolution, RectBounds, TangentSide, TangentSolution, WireError,
 };
 
 #[cfg(feature = "pyo3")]

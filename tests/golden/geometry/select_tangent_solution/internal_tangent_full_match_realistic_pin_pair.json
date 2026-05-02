@@ -1,0 +1,97 @@
+{
+  "name": "internal_tangent_full_match_realistic_pin_pair",
+  "notes": "Two pins at realistic UV spacing; anchor wraps on -x/-y, wrapped on +x/+y \u2014 picks the lower-to-upper internal tangent (the only candidate satisfying both constraints).",
+  "first_circle": {
+    "cx": 100.0,
+    "cy": 50.0,
+    "r": 0.5
+  },
+  "second_circle": {
+    "cx": 105.75,
+    "cy": 50.0,
+    "r": 0.5
+  },
+  "transfer_bounds": {
+    "left": 95.0,
+    "top": 60.0,
+    "right": 115.0,
+    "bottom": 40.0
+  },
+  "anchor_pin_point": {
+    "x": 100.0,
+    "y": 50.0
+  },
+  "anchor_tangent_sides": [
+    "minus",
+    "minus"
+  ],
+  "wrapped_pin_point": {
+    "x": 105.75,
+    "y": 50.0
+  },
+  "wrapped_tangent_sides": [
+    "plus",
+    "plus"
+  ],
+  "candidates": [
+    {
+      "first_xy": [
+        99.91304347826087,
+        49.50761949335191
+      ],
+      "second_xy": [
+        105.83695652173913,
+        50.49238050664809
+      ]
+    },
+    {
+      "first_xy": [
+        99.91304347826087,
+        50.49238050664809
+      ],
+      "second_xy": [
+        105.83695652173913,
+        49.50761949335191
+      ]
+    },
+    {
+      "first_xy": [
+        100.0,
+        49.5
+      ],
+      "second_xy": [
+        105.75,
+        49.5
+      ]
+    },
+    {
+      "first_xy": [
+        100.0,
+        50.5
+      ],
+      "second_xy": [
+        105.75,
+        50.5
+      ]
+    }
+  ],
+  "selected": {
+    "tangent_a": [
+      99.91304347826087,
+      49.50761949335191
+    ],
+    "tangent_b": [
+      105.83695652173913,
+      50.49238050664809
+    ],
+    "clipped_start": [
+      95.0,
+      48.690900267645716
+    ],
+    "clipped_end": [
+      115.0,
+      52.015598000608975
+    ]
+  },
+  "error": null
+}

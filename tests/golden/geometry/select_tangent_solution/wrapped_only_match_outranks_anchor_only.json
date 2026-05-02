@@ -1,0 +1,97 @@
+{
+  "name": "wrapped_only_match_outranks_anchor_only",
+  "notes": "Constraints satisfiable on wrapped only \u2014 the rank key uses target_matches as the secondary ordering, so the wrapped-only match should win even if some other candidate has higher outbound.y.",
+  "first_circle": {
+    "cx": 0.0,
+    "cy": 0.0,
+    "r": 1.0
+  },
+  "second_circle": {
+    "cx": 5.0,
+    "cy": 2.0,
+    "r": 1.0
+  },
+  "transfer_bounds": {
+    "left": -2.0,
+    "top": 5.0,
+    "right": 7.0,
+    "bottom": -5.0
+  },
+  "anchor_pin_point": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "anchor_tangent_sides": [
+    "plus",
+    "minus"
+  ],
+  "wrapped_pin_point": {
+    "x": 5.0,
+    "y": 2.0
+  },
+  "wrapped_tangent_sides": [
+    "minus",
+    "plus"
+  ],
+  "candidates": [
+    {
+      "first_xy": [
+        0.0,
+        -1.0
+      ],
+      "second_xy": [
+        5.0,
+        3.0
+      ]
+    },
+    {
+      "first_xy": [
+        -0.6896551724137931,
+        0.7241379310344828
+      ],
+      "second_xy": [
+        5.689655172413794,
+        1.2758620689655173
+      ]
+    },
+    {
+      "first_xy": [
+        0.3713906763541037,
+        -0.9284766908852593
+      ],
+      "second_xy": [
+        5.371390676354103,
+        1.0715233091147407
+      ]
+    },
+    {
+      "first_xy": [
+        -0.3713906763541037,
+        0.9284766908852593
+      ],
+      "second_xy": [
+        4.628609323645897,
+        2.928476690885259
+      ]
+    }
+  ],
+  "selected": {
+    "tangent_a": [
+      -0.3713906763541037,
+      0.9284766908852593
+    ],
+    "tangent_b": [
+      4.628609323645897,
+      2.928476690885259
+    ],
+    "clipped_start": [
+      -2.0,
+      0.2770329614269009
+    ],
+    "clipped_end": [
+      7.0,
+      3.8770329614269006
+    ]
+  },
+  "error": null
+}
