@@ -35,10 +35,8 @@ from .uv_head_target_parts.geometry2d import (
     _point_on_line,
     _roller_index_for_head_shift_signs,
     _roller_offset_for_index,
-    _select_tangent_solution,
     _sign_with_epsilon,
     _subtract_2d,
-    _tangent_candidates_for_pin_pair,
     matches_tangent_sides,
 )
 from .uv_head_target_parts.head_target import compute_uv_head_target
