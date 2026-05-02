@@ -12,24 +12,10 @@
 //!   ([`apply_anchor_to_target_offsets`]).
 //! - A typed [`AnchorToTargetRequest`] / [`AnchorToTargetSolution`] pair
 //!   shared by Rust callers and the PyO3 surface.
-//! - The pure-math kernel [`circle_pair_tangent_pairs`] — the lowest-level
-//!   building block of the wire-tangent solve, ported ahead of the rest of
-//!   the solver and gated by golden fixtures at
-//!   `tests/golden/geometry/circle_pair_tangent/`.
-//! - The candidate-ranking [`select_tangent_solution`], which picks the
-//!   single tangent line out of `circle_pair_tangent_pairs`'s output that
-//!   matches the requested wrap sides on each pin and clips into the
-//!   transfer-zone rectangle. Gated by fixtures at
-//!   `tests/golden/geometry/select_tangent_solution/`.
-//! - [`tangent_candidates_for_pin_pair`] — the legacy
-//!   `_tangent_candidates_for_pin_pair` wrapper around
-//!   [`circle_pair_tangent_pairs`] that takes two radii and validates
-//!   non-coincident centers.
-//! - [`tangent_for_pin_pair`] — the analytic single-tangent replacement
-//!   that takes two [`Pin`]s and uses each pin's `tangent_sides` rule to
-//!   compute the unique wire-side tangent in closed form, with no
-//!   four-candidate enumeration or ranking. Gated by fixtures at
-//!   `tests/golden/geometry/tangent_for_pin_pair/`.
+//! - [`tangent_for_pin_pair`] — the analytic single-tangent solver that
+//!   takes two [`Pin`]s and uses each pin's `tangent_sides` rule to
+//!   compute the unique wire-side tangent in closed form. Gated by
+//!   fixtures at `tests/golden/geometry/tangent_for_pin_pair/`.
 //! - [`line_equation_from_tangent_points`] — slope/intercept of the
 //!   tangent line, with vertical lines flagged.
 //! - [`compute_arm_corrected_outbound`] — solves the head pose so the
@@ -54,12 +40,12 @@ use thiserror::Error;
 
 use crate::calibration::{HeadSide, MachineCalibrationModel, PinCoordinate, Vec3};
 use crate::pins::{Layer, Pin, Side};
+use crate::spine::SpineCalibrationFile;
 
 /// Numerical tolerance shared with the Python reference for "is this two
 /// solutions or one?" deduplication and "is this geometrically degenerate?"
 /// checks. Matches the legacy implementation's hard-coded `1e-9` / `1e-6`.
 const TANGENT_FEASIBILITY_EPS: f64 = 1.0e-9;
-const TANGENT_DEDUP_EPS: f64 = 1.0e-6;
 
 /// Interpolate a full set of X/G layer slot coordinates from four measured
 /// corner points.
@@ -109,94 +95,12 @@ pub fn solve_xg_slots(
     out
 }
 
-/// Compute the (up to four) tangent line pairs between two circles in 2D.
-///
-/// Each returned tuple `(first_xy, second_xy)` is one tangent line, with
-/// `first_xy` lying on the first circle and `second_xy` on the second. The
-/// implementation enumerates the four sign combinations of (radius_sign,
-/// tangent_sign), skipping any combination that is geometrically infeasible
-/// (negative `h²`) or numerically duplicate of a solution already in the
-/// result.
-///
-/// Returns an empty `Vec` if the circle centers are coincident. Behaviour is
-/// otherwise a direct port of the legacy Python implementation at
-/// `src/dune_winder/queued_motion/filleted_path.py::circle_pair_tangent_pairs`,
-/// gated by the JSON fixtures under
-/// `tests/golden/geometry/circle_pair_tangent/`.
-pub fn circle_pair_tangent_pairs(
-    first_center: (f64, f64),
-    first_radius: f64,
-    second_center: (f64, f64),
-    second_radius: f64,
-) -> Vec<((f64, f64), (f64, f64))> {
-    let dx = second_center.0 - first_center.0;
-    let dy = second_center.1 - first_center.1;
-    let z = dx * dx + dy * dy;
-    if z <= TANGENT_FEASIBILITY_EPS {
-        return Vec::new();
-    }
-    let mut tangent_pairs: Vec<((f64, f64), (f64, f64))> = Vec::with_capacity(4);
-    for radius_sign in [-1.0_f64, 1.0_f64] {
-        let r = second_radius * radius_sign - first_radius;
-        let h_sq = z - r * r;
-        if h_sq < -TANGENT_FEASIBILITY_EPS {
-            continue;
-        }
-        let h = h_sq.max(0.0).sqrt();
-        for tangent_sign in [-1.0_f64, 1.0_f64] {
-            let nx = (dx * r - dy * h * tangent_sign) / z;
-            let ny = (dy * r + dx * h * tangent_sign) / z;
-            let first_xy = (
-                first_center.0 + first_radius * nx,
-                first_center.1 + first_radius * ny,
-            );
-            let second_xy = (
-                second_center.0 + second_radius * radius_sign * nx,
-                second_center.1 + second_radius * radius_sign * ny,
-            );
-            let already_present = tangent_pairs.iter().any(|(ef, es)| {
-                distance_xy(first_xy, *ef) <= TANGENT_DEDUP_EPS
-                    && distance_xy(second_xy, *es) <= TANGENT_DEDUP_EPS
-            });
-            if !already_present {
-                tangent_pairs.push((first_xy, second_xy));
-            }
-        }
-    }
-    tangent_pairs
-}
-
-fn distance_xy(a: (f64, f64), b: (f64, f64)) -> f64 {
-    let dx = a.0 - b.0;
-    let dy = a.1 - b.1;
-    (dx * dx + dy * dy).sqrt()
-}
-
 /// Numerical tolerance for axis-side checks and clip-line degeneracy. Matches
 /// the legacy Python `_AXIS_EPSILON` (1e-9).
 const AXIS_EPS: f64 = 1.0e-9;
 /// Tolerance used to dedupe coincident clip-line candidates. Matches the
 /// legacy Python `math.isclose(..., abs_tol=1e-8)`.
 const CLIP_DEDUP_EPS: f64 = 1.0e-8;
-
-/// Side of a pin a tangent point must land on, expressed per axis. `Plus`
-/// means strictly greater than the pin center along the axis; `Minus` means
-/// strictly less. Mirrors the legacy `"plus"` / `"minus"` strings used by
-/// [`select_tangent_solution`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TangentSide {
-    Plus,
-    Minus,
-}
-
-impl TangentSide {
-    fn sign(self) -> f64 {
-        match self {
-            Self::Plus => 1.0,
-            Self::Minus => -1.0,
-        }
-    }
-}
 
 /// Axis-aligned transfer-zone rectangle. `top` >= `bottom`, `right` >=
 /// `left`. Mirrors the legacy `RectBounds` dataclass.
@@ -206,29 +110,6 @@ pub struct RectBounds {
     pub top: f64,
     pub right: f64,
     pub bottom: f64,
-}
-
-/// One tangent-line candidate that survived clipping into the transfer zone,
-/// returned by [`select_tangent_solution`]. `tangent_a` lies on the anchor
-/// circle, `tangent_b` on the wrapped circle; `clipped_start` /
-/// `clipped_end` are the two points where the infinite line through them
-/// crosses the transfer-zone rectangle.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct TangentSolution {
-    pub tangent_a: (f64, f64),
-    pub tangent_b: (f64, f64),
-    pub clipped_start: (f64, f64),
-    pub clipped_end: (f64, f64),
-}
-
-fn matches_tangent_sides(
-    point: (f64, f64),
-    center: (f64, f64),
-    sides: (TangentSide, TangentSide),
-) -> bool {
-    let dx = point.0 - center.0;
-    let dy = point.1 - center.1;
-    sides.0.sign() * dx > AXIS_EPS && sides.1.sign() * dy > AXIS_EPS
 }
 
 fn try_add_clip_candidate(
@@ -305,116 +186,6 @@ fn choose_outbound_intercept(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct RankKey {
-    match_total: i32,
-    target_matches: i32,
-    outbound_y: f64,
-    outbound_x: f64,
-    tangent_a_y: f64,
-}
-
-impl RankKey {
-    /// Descending compare: returns `Greater` when `self` should sort *before*
-    /// `other`. Mirrors `ranked.sort(key=..., reverse=True)` in the legacy
-    /// implementation.
-    fn cmp_desc(&self, other: &Self) -> std::cmp::Ordering {
-        use std::cmp::Ordering::Equal;
-        other
-            .match_total
-            .cmp(&self.match_total)
-            .then(other.target_matches.cmp(&self.target_matches))
-            .then(
-                other
-                    .outbound_y
-                    .partial_cmp(&self.outbound_y)
-                    .unwrap_or(Equal),
-            )
-            .then(
-                other
-                    .outbound_x
-                    .partial_cmp(&self.outbound_x)
-                    .unwrap_or(Equal),
-            )
-            .then(
-                other
-                    .tangent_a_y
-                    .partial_cmp(&self.tangent_a_y)
-                    .unwrap_or(Equal),
-            )
-    }
-}
-
-/// Pick the wire-side tangent line out of the four candidates returned by
-/// [`circle_pair_tangent_pairs`]. Mirrors the legacy
-/// `_select_tangent_solution` in
-/// `src/dune_winder/uv_head_target_parts/geometry2d.py`.
-///
-/// Ranking key (descending):
-/// 1. Number of pins where the candidate landed on the requested side
-///    (anchor + wrapped, 0..=2).
-/// 2. Whether the wrapped pin matched (so a wrapped-only match outranks an
-///    anchor-only match).
-/// 3. `outbound.y`, then `outbound.x`, then `tangent_a.y` (geometry tie
-///    breakers — match the legacy order so fixtures pin them).
-///
-/// Candidates whose infinite line through `(tangent_a, tangent_b)` does not
-/// clip into `transfer_bounds` are skipped. If every candidate fails to
-/// clip, returns [`WireError::CouldNotClipTangent`].
-///
-/// Pass `None` for either `(pin_point, sides)` pair to disable the
-/// corresponding match check (the candidate then scores 0 on that axis).
-pub fn select_tangent_solution(
-    candidates: &[((f64, f64), (f64, f64))],
-    transfer_bounds: RectBounds,
-    anchor_pin_point: Option<(f64, f64)>,
-    anchor_tangent_sides: Option<(TangentSide, TangentSide)>,
-    wrapped_pin_point: Option<(f64, f64)>,
-    wrapped_tangent_sides: Option<(TangentSide, TangentSide)>,
-) -> Result<TangentSolution, WireError> {
-    let mut ranked: Vec<(RankKey, TangentSolution)> = Vec::with_capacity(candidates.len());
-    for (tangent_a, tangent_b) in candidates {
-        let anchor_matches = match (anchor_pin_point, anchor_tangent_sides) {
-            (Some(center), Some(sides)) => matches_tangent_sides(*tangent_a, center, sides),
-            _ => false,
-        };
-        let target_matches = match (wrapped_pin_point, wrapped_tangent_sides) {
-            (Some(center), Some(sides)) => matches_tangent_sides(*tangent_b, center, sides),
-            _ => false,
-        };
-        let direction = (tangent_b.0 - tangent_a.0, tangent_b.1 - tangent_a.1);
-        let Some((clipped_start, clipped_end)) =
-            clip_infinite_line_to_bounds(*tangent_a, direction, transfer_bounds)
-        else {
-            continue;
-        };
-        let outbound = choose_outbound_intercept(*tangent_a, *tangent_b, clipped_start, clipped_end);
-        let key = RankKey {
-            match_total: i32::from(anchor_matches) + i32::from(target_matches),
-            target_matches: i32::from(target_matches),
-            outbound_y: outbound.1,
-            outbound_x: outbound.0,
-            tangent_a_y: tangent_a.1,
-        };
-        ranked.push((
-            key,
-            TangentSolution {
-                tangent_a: *tangent_a,
-                tangent_b: *tangent_b,
-                clipped_start,
-                clipped_end,
-            },
-        ));
-    }
-    if ranked.is_empty() {
-        return Err(WireError::CouldNotClipTangent);
-    }
-    // Stable sort preserves input order on ties — matches Python's stable
-    // `list.sort(reverse=True)`.
-    ranked.sort_by(|a, b| a.0.cmp_desc(&b.0));
-    Ok(ranked.into_iter().next().unwrap().1)
-}
-
 /// Two-dimensional line written as `y = slope * x + intercept`, or
 /// `x = intercept` for `is_vertical = true` (in which case `slope` is
 /// stored as `f64::INFINITY` to mirror the legacy Python dataclass).
@@ -451,31 +222,12 @@ pub fn line_equation_from_tangent_points(
     }
 }
 
-/// Wrap [`circle_pair_tangent_pairs`] with the legacy `_tangent_candidates_for_pin_pair`
-/// surface — takes two pin centers and two radii, validates that the
-/// centers are not coincident, and returns the (up to four) tangent line
-/// pairs.
-pub fn tangent_candidates_for_pin_pair(
-    point_a: (f64, f64),
-    point_b: (f64, f64),
-    radius_a: f64,
-    radius_b: f64,
-) -> Result<Vec<((f64, f64), (f64, f64))>, WireError> {
-    let dx = point_b.0 - point_a.0;
-    let dy = point_b.1 - point_a.1;
-    if (dx * dx + dy * dy).sqrt() <= AXIS_EPS {
-        return Err(WireError::CoincidentPinCenters);
-    }
-    Ok(circle_pair_tangent_pairs(point_a, radius_a, point_b, radius_b))
-}
-
 /// Compute the unique wire-side tangent line between two pins, derived
 /// directly from each pin's `tangent_sides` rule.
 ///
-/// This is the analytic single-line replacement for the legacy
-/// `circle_pair_tangent_pairs` + `select_tangent_solution` ranking pipeline:
-/// because each U/V pin's wrap-side normal is determined by `(layer, side, n)`
-/// alone, the four-candidate enumeration collapses to one closed-form solve.
+/// Each U/V pin's wrap-side normal is determined by `(layer, side, n)` alone,
+/// so the tangent line is given in closed form once both pin centers and radii
+/// are known.
 ///
 /// Returns `(tangent_a, tangent_b)` — the tangent point on the anchor circle
 /// and on the target circle. Errors when:
@@ -859,8 +611,6 @@ pub struct AnchorToTargetSolution {
 pub enum WireError {
     #[error("anchor and target pins must share the same layer (got {anchor:?} vs {target:?})")]
     LayerMismatch { anchor: Pin, target: Pin },
-    #[error("could not clip a tangent line to the transfer zone")]
-    CouldNotClipTangent,
     #[error("cannot compute a tangent for coincident pin centers")]
     CoincidentPinCenters,
     #[error(
@@ -897,6 +647,10 @@ pub enum WireError {
         anchor_sides: (i8, i8),
         target_sides: (i8, i8),
     },
+    #[error(
+        "spine calibration is missing a point for pin {pin} (layer loop absent or pin number not covered)"
+    )]
+    MissingSpinePoint { pin: Pin },
 }
 
 /// Resolve the per-pose camera wire offset for a `(pin, head_side)` pair.
@@ -962,11 +716,66 @@ pub fn solve_anchor_to_target(
     })
 }
 
+/// Pin-keyed variant of [`AnchorToTargetRequest`] for the spine-based
+/// adoption path. Raw camera-space XYZ for each pin is resolved at
+/// solve time from a [`SpineCalibrationFile`], so callers no longer
+/// have to plumb XYZ through themselves.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AnchorToTargetSpineRequest {
+    pub anchor_pin: Pin,
+    pub target_pin: Pin,
+    /// Optional `(dx, dy)` to add to the resolved target XYZ before the
+    /// offset model is applied. Mirrors the legacy `offset=(x,y)` keyword.
+    pub target_offset: Option<(f64, f64)>,
+    pub head_side: HeadSide,
+    pub hover: bool,
+}
+
+/// Spine-backed parallel of [`solve_anchor_to_target`]: resolves
+/// `anchor_xyz` and `target_xyz` from `spine_file` (via
+/// [`SpineCalibrationFile::raw_pin_position`]) and then delegates to
+/// the existing solver. Runs alongside the per-side `PinCalibrationFile`
+/// pathway during adoption — Python callers can flip onto this surface
+/// without flipping any of the underlying solver.
+pub fn solve_anchor_to_target_from_spine(
+    request: &AnchorToTargetSpineRequest,
+    spine_file: &SpineCalibrationFile,
+    model: &MachineCalibrationModel,
+) -> Result<AnchorToTargetSolution, WireError> {
+    if request.anchor_pin.layer != request.target_pin.layer {
+        return Err(WireError::LayerMismatch {
+            anchor: request.anchor_pin,
+            target: request.target_pin,
+        });
+    }
+    let anchor_xyz = spine_file
+        .raw_pin_position(request.anchor_pin)
+        .ok_or(WireError::MissingSpinePoint {
+            pin: request.anchor_pin,
+        })?;
+    let target_xyz = spine_file
+        .raw_pin_position(request.target_pin)
+        .ok_or(WireError::MissingSpinePoint {
+            pin: request.target_pin,
+        })?;
+    let xyz_request = AnchorToTargetRequest {
+        anchor_pin: request.anchor_pin,
+        anchor_xyz,
+        target_pin: request.target_pin,
+        target_xyz,
+        target_offset: request.target_offset,
+        head_side: request.head_side,
+        hover: request.hover,
+    };
+    solve_anchor_to_target(&xyz_request, model)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::calibration::PerPinOffset;
     use crate::pins::{Layer, Side};
+    use crate::spine::{SpineLoop, SpinePoint};
 
     fn ua(n: u16) -> Pin {
         Pin::new(Layer::U, Side::A, n).unwrap()
@@ -1089,38 +898,6 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn circle_pair_tangent_pairs_returns_empty_for_coincident_centers() {
-        assert!(circle_pair_tangent_pairs((0.0, 0.0), 1.0, (0.0, 0.0), 1.0).is_empty());
-    }
-
-    #[test]
-    fn circle_pair_tangent_pairs_equal_radius_horizontal() {
-        // Reference values cross-checked against the Python implementation in
-        // `tests/golden/geometry/circle_pair_tangent/equal_radius_horizontal_separation.json`.
-        let pairs = circle_pair_tangent_pairs((0.0, 0.0), 1.0, (5.0, 0.0), 1.0);
-        assert_eq!(pairs.len(), 4);
-        // External tangents (same y on both circles) — radius_sign = +1.
-        assert!(pairs.iter().any(|((_, ya), (_, yb))| {
-            (ya - (-1.0)).abs() < 1e-9 && (yb - (-1.0)).abs() < 1e-9
-        }));
-        assert!(pairs.iter().any(|((_, ya), (_, yb))| {
-            (ya - 1.0).abs() < 1e-9 && (yb - 1.0).abs() < 1e-9
-        }));
-    }
-
-    #[test]
-    fn circle_pair_tangent_pairs_skips_infeasible_internal_when_circles_touch() {
-        // Internal tangents collapse when |c2-c1| == 2r — the kernel should
-        // emit only the two external pairs.
-        let pairs = circle_pair_tangent_pairs((0.0, 0.0), 1.0, (2.0, 0.0), 1.0);
-        // Internal tangents have h_sq ~= 0 and produce two coincident
-        // solutions — the dedup pass collapses them. We keep the assertion
-        // loose (≤ 4) and let the golden fixture pin the exact count.
-        assert!(pairs.len() >= 2);
-        assert!(pairs.len() <= 4);
-    }
-
     fn unit_bounds(half: f64) -> RectBounds {
         RectBounds {
             left: -half,
@@ -1128,61 +905,6 @@ mod tests {
             bottom: -half,
             top: half,
         }
-    }
-
-    #[test]
-    fn select_tangent_solution_errors_when_no_candidate_clips() {
-        // Tangent line entirely outside the transfer rectangle.
-        let candidates = vec![((10.0, 10.0), (10.0, 11.0))];
-        let bounds = unit_bounds(1.0);
-        let err = select_tangent_solution(&candidates, bounds, None, None, None, None);
-        assert!(matches!(err, Err(WireError::CouldNotClipTangent)));
-    }
-
-    #[test]
-    fn select_tangent_solution_picks_match_winner_over_geometry_tiebreaker() {
-        // Two candidates both clip; the one matching anchor + wrapped sides
-        // should win even though the other has a higher outbound.y.
-        let bounds = RectBounds {
-            left: -10.0,
-            right: 10.0,
-            bottom: -10.0,
-            top: 10.0,
-        };
-        // Candidate A: matches both sides (anchor (+,+), wrapped (-,+)),
-        // outbound somewhere central.
-        let candidate_match = ((1.0, 1.0), (-1.0, 1.0));
-        // Candidate B: doesn't match (tangent_a y is negative when we ask +).
-        let candidate_nonmatch = ((1.0, -1.0), (-1.0, -1.0));
-        let candidates = vec![candidate_nonmatch, candidate_match];
-        let sol = select_tangent_solution(
-            &candidates,
-            bounds,
-            Some((0.0, 0.0)),
-            Some((TangentSide::Plus, TangentSide::Plus)),
-            Some((0.0, 0.0)),
-            Some((TangentSide::Minus, TangentSide::Plus)),
-        )
-        .unwrap();
-        assert_eq!(sol.tangent_a, candidate_match.0);
-        assert_eq!(sol.tangent_b, candidate_match.1);
-    }
-
-    #[test]
-    fn select_tangent_solution_falls_back_to_outbound_y_when_no_side_constraints() {
-        // No side constraints — score 0 for everyone; tiebreak by outbound.y
-        // descending.
-        let bounds = unit_bounds(1.0);
-        // Horizontal line through y=+0.5 clips to (-1, 0.5)..(1, 0.5);
-        // outbound = (1, 0.5).
-        let high_line = ((-1.0, 0.5), (1.0, 0.5));
-        // Horizontal line through y=-0.5 clips to (-1, -0.5)..(1, -0.5);
-        // outbound = (1, -0.5).
-        let low_line = ((-1.0, -0.5), (1.0, -0.5));
-        let candidates = vec![low_line, high_line];
-        let sol = select_tangent_solution(&candidates, bounds, None, None, None, None).unwrap();
-        // High-y outbound wins.
-        assert_eq!(sol.tangent_a, high_line.0);
     }
 
     #[test]
@@ -1208,21 +930,6 @@ mod tests {
         assert!(!eq.is_vertical);
         assert_eq!(eq.slope, 2.0);
         assert_eq!(eq.intercept, 1.0);
-    }
-
-    #[test]
-    fn tangent_candidates_rejects_coincident_centers() {
-        let result = tangent_candidates_for_pin_pair((0.0, 0.0), (0.0, 0.0), 1.0, 1.0);
-        assert!(matches!(result, Err(WireError::CoincidentPinCenters)));
-    }
-
-    #[test]
-    fn tangent_candidates_two_radii() {
-        let pairs =
-            tangent_candidates_for_pin_pair((0.0, 0.0), (5.0, 0.0), 1.0, 0.5).unwrap();
-        // Same as circle_pair_tangent_pairs((0,0), 1.0, (5,0), 0.5).
-        let direct = circle_pair_tangent_pairs((0.0, 0.0), 1.0, (5.0, 0.0), 0.5);
-        assert_eq!(pairs, direct);
     }
 
     #[test]
@@ -1309,10 +1016,7 @@ mod tests {
         Pin::new(Layer::X, Side::A, n).unwrap()
     }
 
-    /// For a tangent_for_pin_pair result, assert that the anchor-side normal
-    /// matches `Pin::tangent_normal_sign` axially and the result equals one of
-    /// the four candidates from the legacy kernel (within tolerance).
-    fn assert_tangent_consistent_with_kernel(
+    fn assert_tangent_normals_match_pins(
         anchor: Pin,
         anchor_xy: (f64, f64),
         anchor_r: f64,
@@ -1336,15 +1040,6 @@ mod tests {
         let my = (tb.1 - target_xy.1) / target_r;
         assert_eq!(sign_with_eps(mx), i32::from(sb_x), "target normal x-sign mismatch");
         assert_eq!(sign_with_eps(my), i32::from(sb_y), "target normal y-sign mismatch");
-        let kernel = circle_pair_tangent_pairs(anchor_xy, anchor_r, target_xy, target_r);
-        assert!(
-            kernel.iter().any(|(ka, kb)| {
-                distance_xy(*ka, ta) <= 1e-9 && distance_xy(*kb, tb) <= 1e-9
-            }),
-            "analytic tangent {:?} not present in legacy kernel candidates {:?}",
-            (ta, tb),
-            kernel
-        );
     }
 
     #[test]
@@ -1357,7 +1052,7 @@ mod tests {
         let r = 0.5;
         let result =
             tangent_for_pin_pair(anchor, anchor_xy, r, target, target_xy, r).unwrap();
-        assert_tangent_consistent_with_kernel(
+        assert_tangent_normals_match_pins(
             anchor, anchor_xy, r, target, target_xy, r, result,
         );
     }
@@ -1371,7 +1066,7 @@ mod tests {
         let target_xy = (15.0, 9.0);
         let result = tangent_for_pin_pair(anchor, anchor_xy, 0.5, target, target_xy, 0.5)
             .unwrap();
-        assert_tangent_consistent_with_kernel(
+        assert_tangent_normals_match_pins(
             anchor, anchor_xy, 0.5, target, target_xy, 0.5, result,
         );
     }
@@ -1388,7 +1083,7 @@ mod tests {
         let target_xy = (5.0, -1.0);
         let result = tangent_for_pin_pair(anchor, anchor_xy, 0.5, target, target_xy, 0.5)
             .unwrap();
-        assert_tangent_consistent_with_kernel(
+        assert_tangent_normals_match_pins(
             anchor, anchor_xy, 0.5, target, target_xy, 0.5, result,
         );
     }
@@ -1404,7 +1099,7 @@ mod tests {
         let target_xy = (5.0, 1.0);
         let result = tangent_for_pin_pair(anchor, anchor_xy, 0.5, target, target_xy, 0.5)
             .unwrap();
-        assert_tangent_consistent_with_kernel(
+        assert_tangent_normals_match_pins(
             anchor, anchor_xy, 0.5, target, target_xy, 0.5, result,
         );
     }
@@ -1429,6 +1124,109 @@ mod tests {
         let result =
             tangent_for_pin_pair(ua(1), (1.0, 1.0), 0.5, ua(2), (1.0, 1.0), 0.5);
         assert!(matches!(result, Err(WireError::CoincidentPinCenters)));
+    }
+
+    fn spine_file_with(layer: Layer, points: Vec<(u16, Vec3)>) -> SpineCalibrationFile {
+        SpineCalibrationFile {
+            machine_id: "test".to_string(),
+            loops: vec![SpineLoop {
+                layer,
+                points: points
+                    .into_iter()
+                    .map(|(number, xyz)| SpinePoint { layer, number, xyz })
+                    .collect(),
+            }],
+        }
+    }
+
+    #[test]
+    fn spine_solve_matches_xyz_solve_when_spine_covers_both_pins() {
+        let model = MachineCalibrationModel {
+            base_camera_wire_offset_stage: Vec3::new(1.0, 2.0, 0.0),
+            base_camera_wire_offset_fixed: Vec3::ZERO,
+            per_pin_camera_wire_offset: vec![],
+            arm_correction: Vec3::new(0.5, 0.0, -0.25),
+        };
+        // Spine sits at Z=50 for pin 1 and Z=60 for pin 2; A side derives
+        // by adding +half_board_width_z_mm (= 65 mm for U).
+        let spine = spine_file_with(
+            Layer::U,
+            vec![
+                (1, Vec3::new(100.0, 100.0, -15.0)),
+                (2, Vec3::new(200.0, 200.0, -5.0)),
+            ],
+        );
+        let spine_request = AnchorToTargetSpineRequest {
+            anchor_pin: ua(1),
+            target_pin: ub(2),
+            target_offset: None,
+            head_side: HeadSide::Stage,
+            hover: false,
+        };
+        let spine_sol = solve_anchor_to_target_from_spine(&spine_request, &spine, &model).unwrap();
+
+        // Recompute via the existing XYZ-based path with the same derived
+        // coordinates and assert the solutions agree exactly.
+        let anchor_xyz = spine.raw_pin_position(ua(1)).unwrap();
+        let target_xyz = spine.raw_pin_position(ub(2)).unwrap();
+        let xyz_request = AnchorToTargetRequest {
+            anchor_pin: ua(1),
+            anchor_xyz,
+            target_pin: ub(2),
+            target_xyz,
+            target_offset: None,
+            head_side: HeadSide::Stage,
+            hover: false,
+        };
+        let xyz_sol = solve_anchor_to_target(&xyz_request, &model).unwrap();
+        assert_eq!(spine_sol, xyz_sol);
+    }
+
+    #[test]
+    fn spine_solve_errors_when_layer_loop_is_missing() {
+        let model = MachineCalibrationModel::empty();
+        let spine = SpineCalibrationFile::new("test".to_string());
+        let request = AnchorToTargetSpineRequest {
+            anchor_pin: ua(1),
+            target_pin: ub(2),
+            target_offset: None,
+            head_side: HeadSide::Stage,
+            hover: false,
+        };
+        let err = solve_anchor_to_target_from_spine(&request, &spine, &model);
+        assert!(matches!(err, Err(WireError::MissingSpinePoint { pin }) if pin == ua(1)));
+    }
+
+    #[test]
+    fn spine_solve_errors_when_pin_number_is_missing() {
+        let model = MachineCalibrationModel::empty();
+        let spine = spine_file_with(Layer::U, vec![(1, Vec3::new(0.0, 0.0, 0.0))]);
+        let request = AnchorToTargetSpineRequest {
+            anchor_pin: ua(1),
+            target_pin: ub(2),
+            target_offset: None,
+            head_side: HeadSide::Stage,
+            hover: false,
+        };
+        let err = solve_anchor_to_target_from_spine(&request, &spine, &model);
+        assert!(matches!(err, Err(WireError::MissingSpinePoint { pin }) if pin == ub(2)));
+    }
+
+    #[test]
+    fn spine_solve_rejects_layer_mismatch() {
+        let model = MachineCalibrationModel::empty();
+        let spine = spine_file_with(Layer::U, vec![(1, Vec3::ZERO)]);
+        let request = AnchorToTargetSpineRequest {
+            anchor_pin: ua(1),
+            target_pin: vb(2),
+            target_offset: None,
+            head_side: HeadSide::Stage,
+            hover: false,
+        };
+        assert!(matches!(
+            solve_anchor_to_target_from_spine(&request, &spine, &model),
+            Err(WireError::LayerMismatch { .. })
+        ));
     }
 
     #[test]
