@@ -42,6 +42,16 @@ def _xml_import_pin_name(pin_name: str) -> str:
     normalized = str(pin_name)
     if normalized.startswith("F"):
         return "A" + normalized[1:]
+    # Canonical layer-explicit form ("UA234"/"VB23"): strip the layer prefix
+    # so internal storage stays in the legacy layer-implicit form. The
+    # Pin-aware methods reattach the layer from self._layer when callers
+    # request a Pin object.
+    if (
+        len(normalized) >= 3
+        and normalized[0] in ("U", "V")
+        and normalized[1] in ("A", "B")
+    ):
+        return normalized[1:]
     return normalized
 
 
@@ -154,6 +164,57 @@ class LayerCalibration:
     def getPinNames(self):
         """Return a list of pin names."""
         return list(self._locations.keys())
+
+    # -------------------------------------------------------------------
+    def getPinObjects(self):
+        """Return calibrated pins as ``dune_geometry.Pin`` instances.
+
+        Pins are reconstructed from the layer set on this calibration plus
+        the side+number key in internal storage. Raises ``RuntimeError``
+        when ``self._layer`` is not set.
+        """
+        from dune_geometry import Pin
+
+        layer = self._layer
+        if layer not in ("U", "V"):
+            raise RuntimeError(
+                f"LayerCalibration.getPinObjects() requires a U/V layer; got {layer!r}"
+            )
+        out = []
+        for legacy_key in self._locations.keys():
+            if len(legacy_key) < 2 or legacy_key[0] not in ("A", "B"):
+                continue
+            try:
+                number = int(legacy_key[1:])
+            except ValueError:
+                continue
+            out.append(Pin(layer, legacy_key[0], number))
+        return out
+
+    # -------------------------------------------------------------------
+    def getPinLocationByPin(self, pin):
+        """Look up a calibrated location by ``dune_geometry.Pin``.
+
+        Caller must hold a Pin whose ``layer`` matches this calibration's
+        layer. Returns the same ``Location`` instance ``getPinLocation``
+        would return for the equivalent legacy string key.
+        """
+        if pin.layer != self._layer:
+            raise ValueError(
+                f"Pin layer {pin.layer!r} does not match calibration layer "
+                f"{self._layer!r}"
+            )
+        return self.getPinLocation(f"{pin.side}{pin.number}")
+
+    # -------------------------------------------------------------------
+    def setPinLocationByPin(self, pin, location):
+        """Set a calibrated location by ``dune_geometry.Pin``."""
+        if pin.layer != self._layer:
+            raise ValueError(
+                f"Pin layer {pin.layer!r} does not match calibration layer "
+                f"{self._layer!r}"
+            )
+        self.setPinLocation(f"{pin.side}{pin.number}", location)
 
     # -------------------------------------------------------------------
     def getLayerNames(self):
