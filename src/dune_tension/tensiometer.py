@@ -255,6 +255,7 @@ def build_tensiometer(
     audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
     summary_refresh_callback: Optional[Callable[[Any], None]] = None,
     wire_preview_callback: Optional[Callable[[int, float, float], None]] = None,
+    wire_result_callback: Optional[Callable[[Any], None]] = None,
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
     audio_store: AudioStore | None = None,
@@ -405,6 +406,7 @@ def build_tensiometer(
         audio_sample_callback=audio_sample_callback,
         summary_refresh_callback=summary_refresh_callback,
         wire_preview_callback=wire_preview_callback,
+        wire_result_callback=wire_result_callback,
         config=config,
         motion=active_runtime.motion,
         audio=active_runtime.audio,
@@ -457,6 +459,7 @@ class Tensiometer:
         audio_sample_callback: Optional[Callable[[Any, int, Any | None], None]] = None,
         summary_refresh_callback: Optional[Callable[[Any], None]] = None,
         wire_preview_callback: Optional[Callable[[int, float, float], None]] = None,
+        wire_result_callback: Optional[Callable[[Any], None]] = None,
         config: TensiometerConfig | None = None,
         motion: MotionService | None = None,
         audio: AudioCaptureService | None = None,
@@ -548,6 +551,7 @@ class Tensiometer:
         self.summary_refresh_callback = summary_refresh_callback or (
             lambda _config: None
         )
+        self.wire_result_callback = wire_result_callback or (lambda _result: None)
         self.wire_preview_callback = wire_preview_callback or (lambda *_args: None)
 
         self.a_taped = bool(a_taped)
@@ -1990,6 +1994,12 @@ class Tensiometer:
             "merge_results",
             self._profile_time() - merge_started,
         )
+
+        if result:
+            try:
+                self.wire_result_callback(result)
+            except Exception as exc:
+                LOGGER.debug("Wire result callback failed: %s", exc)
 
         if result is None:
             if self._legacy_tension_condition_predicate is not None:
