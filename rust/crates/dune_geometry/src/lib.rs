@@ -7,6 +7,8 @@
 
 pub mod calibration;
 pub mod pins;
+pub mod tension;
+pub mod wire;
 
 pub use calibration::{
     CalibrationError, CalibrationPoint, HeadSide, MachineCalibrationFile,
@@ -17,6 +19,7 @@ pub use pins::{
     endpoint_pins, face_ranges, tangent_sides, Face, Layer, Pin, PinError, Side,
     ENDPOINT_PINS_U, ENDPOINT_PINS_V, FACE_RANGES_U, FACE_RANGES_V,
 };
+pub use tension::Geometry;
 
 #[cfg(feature = "pyo3")]
 pub mod python;
