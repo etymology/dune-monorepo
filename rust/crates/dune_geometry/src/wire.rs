@@ -21,6 +21,19 @@
 //!   matches the requested wrap sides on each pin and clips into the
 //!   transfer-zone rectangle. Gated by fixtures at
 //!   `tests/golden/geometry/select_tangent_solution/`.
+//! - [`tangent_candidates_for_pin_pair`] — the legacy
+//!   `_tangent_candidates_for_pin_pair` wrapper around
+//!   [`circle_pair_tangent_pairs`] that takes two radii and validates
+//!   non-coincident centers.
+//! - [`line_equation_from_tangent_points`] — slope/intercept of the
+//!   tangent line, with vertical lines flagged.
+//! - [`compute_arm_corrected_outbound`] — solves the head pose so the
+//!   active roller is tangent to the wire-tangent line and the head
+//!   center sits within the transfer rectangle. Gated by fixtures at
+//!   `tests/golden/geometry/compute_arm_corrected_outbound/`.
+//! - [`actual_wire_point_from_machine_target`] — the roller-tilt math
+//!   that turns a commanded head pose into the actual wire-end XY. Gated
+//!   by fixtures at `tests/golden/geometry/actual_wire_point/`.
 //!
 //! The full wire-tangent geometric solve (the part that picks which side of
 //! each pin the wire wraps and emits the final commanded head pose) still
@@ -349,6 +362,316 @@ pub fn select_tangent_solution(
     Ok(ranked.into_iter().next().unwrap().1)
 }
 
+/// Two-dimensional line written as `y = slope * x + intercept`, or
+/// `x = intercept` for `is_vertical = true` (in which case `slope` is
+/// stored as `f64::INFINITY` to mirror the legacy Python dataclass).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct LineEquation {
+    pub slope: f64,
+    pub intercept: f64,
+    pub is_vertical: bool,
+}
+
+/// Compute the line equation that passes through the two tangent points.
+/// Mirrors the legacy `_line_equation_from_tangent_points`. When the
+/// segment is (numerically) vertical the result has `is_vertical = true`
+/// and `intercept = tangent_a.x`.
+pub fn line_equation_from_tangent_points(
+    tangent_a: (f64, f64),
+    tangent_b: (f64, f64),
+) -> LineEquation {
+    let dx = tangent_b.0 - tangent_a.0;
+    let dy = tangent_b.1 - tangent_a.1;
+    if dx.abs() <= AXIS_EPS {
+        return LineEquation {
+            slope: f64::INFINITY,
+            intercept: tangent_a.0,
+            is_vertical: true,
+        };
+    }
+    let slope = dy / dx;
+    let intercept = tangent_a.1 - slope * tangent_a.0;
+    LineEquation {
+        slope,
+        intercept,
+        is_vertical: false,
+    }
+}
+
+/// Wrap [`circle_pair_tangent_pairs`] with the legacy `_tangent_candidates_for_pin_pair`
+/// surface — takes two pin centers and two radii, validates that the
+/// centers are not coincident, and returns the (up to four) tangent line
+/// pairs.
+pub fn tangent_candidates_for_pin_pair(
+    point_a: (f64, f64),
+    point_b: (f64, f64),
+    radius_a: f64,
+    radius_b: f64,
+) -> Result<Vec<((f64, f64), (f64, f64))>, WireError> {
+    let dx = point_b.0 - point_a.0;
+    let dy = point_b.1 - point_a.1;
+    if (dx * dx + dy * dy).sqrt() <= AXIS_EPS {
+        return Err(WireError::CoincidentPinCenters);
+    }
+    Ok(circle_pair_tangent_pairs(point_a, radius_a, point_b, radius_b))
+}
+
+fn sign_with_eps(value: f64) -> i32 {
+    if value > AXIS_EPS {
+        1
+    } else if value < -AXIS_EPS {
+        -1
+    } else {
+        0
+    }
+}
+
+fn arm_correction_head_shift_signs(
+    anchor: (f64, f64),
+    target: (f64, f64),
+) -> Option<(i32, i32)> {
+    let sign_x = sign_with_eps(anchor.0 - target.0);
+    let sign_y = sign_with_eps(anchor.1 - target.1);
+    if sign_x == 0 || sign_y == 0 {
+        None
+    } else {
+        Some((sign_x, sign_y))
+    }
+}
+
+fn roller_index_for_head_shift_signs(sign_x: i32, sign_y: i32) -> u8 {
+    match (sign_x, sign_y) {
+        (-1, -1) => 0,
+        (-1, 1) => 1,
+        (1, -1) => 2,
+        (1, 1) => 3,
+        _ => panic!("invalid head shift signs ({sign_x}, {sign_y})"),
+    }
+}
+
+fn roller_offset_for_index(
+    roller_index: u8,
+    head_arm_length: f64,
+    head_roller_radius: f64,
+    head_roller_gap: f64,
+    roller_arm_y_offsets: Option<(f64, f64, f64, f64)>,
+) -> (f64, f64) {
+    let y_offset = if let Some((y0, y1, y2, y3)) = roller_arm_y_offsets {
+        match roller_index {
+            0 => y0,
+            1 => y1,
+            2 => y2,
+            3 => y3,
+            _ => panic!("invalid roller index {roller_index}"),
+        }
+    } else {
+        head_roller_gap / 2.0 + head_roller_radius
+    };
+    let y_sign = if matches!(roller_index, 0 | 2) {
+        -1.0
+    } else {
+        1.0
+    };
+    let x_offset = if matches!(roller_index, 0 | 1) {
+        -head_arm_length
+    } else {
+        head_arm_length
+    };
+    (x_offset, y_sign * y_offset)
+}
+
+fn distance_point_to_line(
+    point: (f64, f64),
+    line_point: (f64, f64),
+    line_direction: (f64, f64),
+) -> Result<f64, WireError> {
+    let numerator = ((point.0 - line_point.0) * line_direction.1
+        - (point.1 - line_point.1) * line_direction.0)
+        .abs();
+    let denominator = (line_direction.0 * line_direction.0
+        + line_direction.1 * line_direction.1)
+        .sqrt();
+    if denominator <= AXIS_EPS {
+        return Err(WireError::DegenerateLine);
+    }
+    Ok(numerator / denominator)
+}
+
+/// Which corner of the head the active roller sits in. Mirrors the legacy
+/// `"NW" | "NE" | "SW" | "SE"` strings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HeadQuadrant {
+    NW,
+    NE,
+    SW,
+    SE,
+}
+
+/// Output of [`compute_arm_corrected_outbound`]: the commanded head-center
+/// pose, the resulting outbound point on the wire-tangent line, the index
+/// of the active roller (0..=3), and the head-quadrant the roller occupies.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ArmCorrectedOutbound {
+    pub corrected_outbound: (f64, f64),
+    pub corrected_head_center: (f64, f64),
+    pub roller_index: u8,
+    pub quadrant: HeadQuadrant,
+}
+
+/// Solve the head pose so the active roller is tangent to the chosen wire
+/// line and the head center sits within the transfer rectangle. Mirrors
+/// the legacy `_compute_arm_corrected_outbound` in
+/// `src/dune_winder/uv_head_target_parts/geometry2d.py`.
+///
+/// `roller_arm_y_offsets`, when present, overrides the nominal
+/// `(head_roller_gap / 2 + head_roller_radius)` for each of the four
+/// rollers (indices 0..=3 = SW, NW, SE, NE).
+#[allow(clippy::too_many_arguments)]
+pub fn compute_arm_corrected_outbound(
+    anchor_pin_point: (f64, f64),
+    target_pin_point: (f64, f64),
+    tangent_point_a: (f64, f64),
+    tangent_point_b: (f64, f64),
+    transfer_bounds: RectBounds,
+    head_arm_length: f64,
+    head_roller_radius: f64,
+    head_roller_gap: f64,
+    roller_arm_y_offsets: Option<(f64, f64, f64, f64)>,
+) -> Result<ArmCorrectedOutbound, WireError> {
+    let head_shift_signs = arm_correction_head_shift_signs(anchor_pin_point, target_pin_point);
+    let tangent_x_side = sign_with_eps(target_pin_point.0 - anchor_pin_point.0);
+    let Some((sign_x, sign_y)) = head_shift_signs else {
+        return Err(WireError::ArmCorrectionAnchorTargetIndeterminate);
+    };
+    if tangent_x_side == 0 {
+        return Err(WireError::ArmCorrectionAnchorTargetIndeterminate);
+    }
+    let roller_index = roller_index_for_head_shift_signs(sign_x, sign_y);
+    let quadrant = match (sign_x, sign_y) {
+        (-1, -1) => HeadQuadrant::SW,
+        (-1, 1) => HeadQuadrant::NW,
+        (1, -1) => HeadQuadrant::SE,
+        (1, 1) => HeadQuadrant::NE,
+        _ => unreachable!(),
+    };
+    let roller_offset = roller_offset_for_index(
+        roller_index,
+        head_arm_length,
+        head_roller_radius,
+        head_roller_gap,
+        roller_arm_y_offsets,
+    );
+    let direction = (
+        tangent_point_b.0 - tangent_point_a.0,
+        tangent_point_b.1 - tangent_point_a.1,
+    );
+    let direction_length = (direction.0 * direction.0 + direction.1 * direction.1).sqrt();
+    if direction_length <= AXIS_EPS {
+        return Err(WireError::ArmCorrectionDegenerateTangent);
+    }
+    let unit_direction = (direction.0 / direction_length, direction.1 / direction_length);
+    let candidate_normals = [
+        (-unit_direction.1, unit_direction.0),
+        (unit_direction.1, -unit_direction.0),
+    ];
+    let matching: Vec<(f64, f64)> = candidate_normals
+        .iter()
+        .copied()
+        .filter(|n| sign_with_eps(n.0) == tangent_x_side)
+        .collect();
+    if matching.len() != 1 {
+        return Err(WireError::ArmCorrectionAmbiguousNormal);
+    }
+    let normal = matching[0];
+    let locus_origin = (
+        tangent_point_a.0 + normal.0 * head_roller_radius - roller_offset.0,
+        tangent_point_a.1 + normal.1 * head_roller_radius - roller_offset.1,
+    );
+    let Some((clipped_start, clipped_end)) =
+        clip_infinite_line_to_bounds(locus_origin, direction, transfer_bounds)
+    else {
+        return Err(WireError::ArmCorrectionNoTransferZoneIntersection);
+    };
+    let corrected_outbound = choose_outbound_intercept(
+        locus_origin,
+        (locus_origin.0 + direction.0, locus_origin.1 + direction.1),
+        clipped_start,
+        clipped_end,
+    );
+    let corrected_head_center = corrected_outbound;
+    let selected_roller_center = (
+        corrected_head_center.0 + roller_offset.0,
+        corrected_head_center.1 + roller_offset.1,
+    );
+    let dist = distance_point_to_line(selected_roller_center, tangent_point_a, direction)?;
+    if (dist - head_roller_radius).abs() > 1.0e-6 {
+        return Err(WireError::ArmCorrectionRollerTangentMismatch);
+    }
+    Ok(ArmCorrectedOutbound {
+        corrected_outbound,
+        corrected_head_center,
+        roller_index,
+        quadrant,
+    })
+}
+
+/// Project the wire-end point given a commanded head pose, the
+/// compensated anchor-pin XY, the anchor and head Z, and head geometry.
+/// Mirrors the legacy `_actual_wire_point_from_machine_target` in
+/// `src/dune_winder/uv_head_target_parts/anchor_to_target.py` byte-for-byte,
+/// including the legacy quirk that `roller_offset_z` is computed but never
+/// applied to the returned XY (preserved here as a `let _` to keep behaviour
+/// identical under golden parity).
+#[allow(clippy::too_many_arguments)]
+pub fn actual_wire_point_from_machine_target(
+    final_head_xy: (f64, f64),
+    compensated_anchor_xy: (f64, f64),
+    anchor_z: f64,
+    head_z: f64,
+    head_arm_length: f64,
+    head_roller_radius: f64,
+    head_roller_gap: f64,
+) -> (f64, f64) {
+    let mut delta_x = final_head_xy.0 - compensated_anchor_xy.0;
+    let mut delta_z = head_z - anchor_z;
+    let mut length_xz = (delta_x * delta_x + delta_z * delta_z).sqrt();
+    if length_xz <= AXIS_EPS {
+        return final_head_xy;
+    }
+    let head_ratio = head_arm_length / length_xz;
+    let x = final_head_xy.0 - delta_x * head_ratio;
+    let y = final_head_xy.1;
+    let z = head_z - delta_z * head_ratio;
+
+    delta_x = x - compensated_anchor_xy.0;
+    let delta_y = y - compensated_anchor_xy.1;
+    delta_z = z - anchor_z;
+    length_xz = (delta_x * delta_x + delta_z * delta_z).sqrt();
+    let length_xyz =
+        (delta_x * delta_x + delta_y * delta_y + delta_z * delta_z).sqrt();
+    if length_xz <= AXIS_EPS || length_xyz <= AXIS_EPS {
+        return (x, y);
+    }
+
+    let mut roller_offset_y = head_roller_radius * length_xz / length_xyz;
+    let roller_offset_xz = head_roller_radius * delta_y / length_xyz;
+    let mut roller_offset_x = (roller_offset_xz * delta_x / length_xz).abs();
+    // Computed by the legacy but never used in the returned XY — kept here
+    // as `let _` so future readers don't reintroduce the dead path under the
+    // assumption the legacy applied it.
+    let _roller_offset_z = (roller_offset_xz * delta_z / length_xz).abs();
+    roller_offset_y -= head_roller_radius;
+    roller_offset_y -= head_roller_gap / 2.0;
+
+    if delta_x < 0.0 {
+        roller_offset_x = -roller_offset_x;
+    }
+    if delta_y > 0.0 {
+        roller_offset_y = -roller_offset_y;
+    }
+    (x - roller_offset_x, y - roller_offset_y)
+}
+
 /// Inputs to [`solve_anchor_to_target`]. Coordinates are raw camera-space
 /// (from `PinCalibrationFile::effective_pin_coords`) — the solver applies
 /// the per-pose camera wire offset and arm correction internally.
@@ -393,6 +716,22 @@ pub enum WireError {
     LayerMismatch { anchor: Pin, target: Pin },
     #[error("could not clip a tangent line to the transfer zone")]
     CouldNotClipTangent,
+    #[error("cannot compute a tangent for coincident pin centers")]
+    CoincidentPinCenters,
+    #[error(
+        "arm correction is unavailable because the anchor-to-target pin direction is indeterminate"
+    )]
+    ArmCorrectionAnchorTargetIndeterminate,
+    #[error("arm correction requires a non-degenerate tangent line")]
+    ArmCorrectionDegenerateTangent,
+    #[error("arm correction could not determine a unique tangent side for the selected roller")]
+    ArmCorrectionAmbiguousNormal,
+    #[error("arm correction could not find a transfer-zone point tangent to the selected roller")]
+    ArmCorrectionNoTransferZoneIntersection,
+    #[error("arm correction did not place the selected roller tangent to the outbound line")]
+    ArmCorrectionRollerTangentMismatch,
+    #[error("cannot measure distance to a degenerate line")]
+    DegenerateLine,
 }
 
 /// Resolve the per-pose camera wire offset for a `(pin, head_side)` pair.
@@ -679,5 +1018,121 @@ mod tests {
         let sol = select_tangent_solution(&candidates, bounds, None, None, None, None).unwrap();
         // High-y outbound wins.
         assert_eq!(sol.tangent_a, high_line.0);
+    }
+
+    #[test]
+    fn line_equation_horizontal_line() {
+        let eq = line_equation_from_tangent_points((0.0, 5.0), (10.0, 5.0));
+        assert!(!eq.is_vertical);
+        assert_eq!(eq.slope, 0.0);
+        assert_eq!(eq.intercept, 5.0);
+    }
+
+    #[test]
+    fn line_equation_vertical_line() {
+        let eq = line_equation_from_tangent_points((3.0, 0.0), (3.0, 7.0));
+        assert!(eq.is_vertical);
+        assert!(eq.slope.is_infinite());
+        assert_eq!(eq.intercept, 3.0);
+    }
+
+    #[test]
+    fn line_equation_diagonal_line() {
+        // y = 2x + 1
+        let eq = line_equation_from_tangent_points((0.0, 1.0), (1.0, 3.0));
+        assert!(!eq.is_vertical);
+        assert_eq!(eq.slope, 2.0);
+        assert_eq!(eq.intercept, 1.0);
+    }
+
+    #[test]
+    fn tangent_candidates_rejects_coincident_centers() {
+        let result = tangent_candidates_for_pin_pair((0.0, 0.0), (0.0, 0.0), 1.0, 1.0);
+        assert!(matches!(result, Err(WireError::CoincidentPinCenters)));
+    }
+
+    #[test]
+    fn tangent_candidates_two_radii() {
+        let pairs =
+            tangent_candidates_for_pin_pair((0.0, 0.0), (5.0, 0.0), 1.0, 0.5).unwrap();
+        // Same as circle_pair_tangent_pairs((0,0), 1.0, (5,0), 0.5).
+        let direct = circle_pair_tangent_pairs((0.0, 0.0), 1.0, (5.0, 0.0), 0.5);
+        assert_eq!(pairs, direct);
+    }
+
+    #[test]
+    fn compute_arm_corrected_outbound_rejects_axis_aligned_pins() {
+        // anchor and target share x → indeterminate.
+        let result = compute_arm_corrected_outbound(
+            (0.0, 0.0),
+            (0.0, 5.0),
+            (0.0, 0.0),
+            (1.0, 0.0),
+            unit_bounds(10.0),
+            10.0,
+            1.0,
+            2.0,
+            None,
+        );
+        assert!(matches!(
+            result,
+            Err(WireError::ArmCorrectionAnchorTargetIndeterminate)
+        ));
+    }
+
+    #[test]
+    fn compute_arm_corrected_outbound_returns_quadrant_for_diagonal_pins() {
+        // anchor at (5, 5), target at (-5, -5) → anchor.x - target.x > 0
+        // and anchor.y - target.y > 0 → quadrant NE, roller_index 3.
+        // Tangent line through (0, 0) toward target → direction (-1, -1).
+        let bounds = RectBounds {
+            left: -100.0,
+            right: 100.0,
+            bottom: -100.0,
+            top: 100.0,
+        };
+        let result = compute_arm_corrected_outbound(
+            (5.0, 5.0),
+            (-5.0, -5.0),
+            (0.0, 0.0),
+            (-1.0, -1.0),
+            bounds,
+            10.0,
+            1.0,
+            2.0,
+            None,
+        )
+        .unwrap();
+        assert_eq!(result.roller_index, 3);
+        assert_eq!(result.quadrant, HeadQuadrant::NE);
+    }
+
+    #[test]
+    fn actual_wire_point_collapses_when_anchor_at_head_xz() {
+        // length_xz == 0 short-circuit returns final_head_xy.
+        let p = actual_wire_point_from_machine_target(
+            (10.0, 5.0),
+            (10.0, 99.0),
+            7.0,
+            7.0,
+            10.0,
+            1.0,
+            2.0,
+        );
+        assert_eq!(p, (10.0, 5.0));
+    }
+
+    #[test]
+    fn actual_wire_point_returns_finite_for_realistic_geometry() {
+        let p = actual_wire_point_from_machine_target(
+            (10.0, 0.0),
+            (0.0, 0.0),
+            0.0,
+            5.0,
+            10.0,
+            1.0,
+            2.0,
+        );
+        assert!(p.0.is_finite() && p.1.is_finite());
     }
 }

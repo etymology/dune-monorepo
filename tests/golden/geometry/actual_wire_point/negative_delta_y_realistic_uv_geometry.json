@@ -1,0 +1,21 @@
+{
+  "name": "negative_delta_y_realistic_uv_geometry",
+  "notes": "Realistic UV pose with negative delta_y; exercises full math.",
+  "final_head_xy": {
+    "x": 100.0,
+    "y": 50.0
+  },
+  "compensated_anchor_xy": {
+    "x": 95.0,
+    "y": 53.0
+  },
+  "anchor_z": 145.0,
+  "head_z": 150.0,
+  "head_arm_length": 35.0,
+  "head_roller_radius": 1.5,
+  "head_roller_gap": 3.0,
+  "wire_point": [
+    75.36454235171924,
+    51.50857939460557
+  ]
+}

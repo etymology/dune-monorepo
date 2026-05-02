@@ -1,0 +1,21 @@
+{
+  "name": "anchor_directly_below_head_collapses_to_input",
+  "notes": "anchor_xy == final_head_xy and head_z == anchor_z \u2192 length_xz is 0, function short-circuits and returns final_head_xy.",
+  "final_head_xy": {
+    "x": 10.0,
+    "y": 5.0
+  },
+  "compensated_anchor_xy": {
+    "x": 10.0,
+    "y": 99.0
+  },
+  "anchor_z": 7.0,
+  "head_z": 7.0,
+  "head_arm_length": 10.0,
+  "head_roller_radius": 1.0,
+  "head_roller_gap": 2.0,
+  "wire_point": [
+    10.0,
+    5.0
+  ]
+}
