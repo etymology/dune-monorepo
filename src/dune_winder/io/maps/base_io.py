@@ -14,6 +14,21 @@ from dune_winder.io.controllers.plc_logic import PLC_Logic
 from dune_winder.io.controllers.head import Head
 from dune_winder.io.controllers.camera import Camera
 from dune_winder.io.devices.plc import PLC
+from dune_winder.io.devices.tag_bus_registry import start_bus_for
+
+
+class _BusReadShim:
+    """Read-only `.get()` over a single bus tag, for legacy monitoring callers."""
+
+    def __init__(self, bus, name: str):
+        self._bus = bus
+        self._name = name
+
+    def get(self):
+        snap = self._bus.snapshot(self._name)
+        if snap is None or snap.source == "default":
+            return None
+        return snap.value
 
 
 class BaseIO:
@@ -56,6 +71,11 @@ class BaseIO:
 
         # Use the PLC passed in.
         self.plc = plc
+
+        # Stand up the Rust TagBus over this PLC and start its poll thread.
+        # All downstream consumers acquire the same cached bus via
+        # `tag_bus_for(self.plc)`.
+        self._bus = start_bus_for(self.plc)
 
         # Individual axises.
         self.xAxis = PLC_Motor("xAxis", self.plc, "X")
@@ -179,13 +199,11 @@ class BaseIO:
             "Gate_Key", self.plc, "MORE_STATS_S[0]", 0
         )  # Gate Key
 
-        # Process monitoring tags (polled for Grafana/Prometheus export).
-        _mon = PLC.Tag.Attributes()
-        _mon.isPolled = True
-        _mon.canWrite = False
-        self.tension_tag = PLC.Tag(plc, "tension", _mon, "REAL")
-        self.v_xyz_tag = PLC.Tag(plc, "v_xyz", _mon, "REAL")
-        self.tension_motor_cv_tag = PLC.Tag(plc, "tension_motor_cv", _mon, "REAL")
+        # Process monitoring tags (Grafana/Prometheus export). Polled by the
+        # bus on its `high` tier; consumers call `.get()` for the latest value.
+        self.tension_tag = _BusReadShim(self._bus, "tension")
+        self.v_xyz_tag = _BusReadShim(self._bus, "v_xyz")
+        self.tension_motor_cv_tag = _BusReadShim(self._bus, "tension_motor_cv")
 
 
 # end class

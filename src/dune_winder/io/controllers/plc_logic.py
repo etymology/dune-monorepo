@@ -1,25 +1,64 @@
 ###############################################################################
 # Name: PLC_Logic.py
-# Uses: Interface for special logic inside PLC.
-# Date: 2016-02-26
-# Author(s):
-#   Andrew Que <aque@bb7.com>
-# Notes:
-#   This unit is designed to work with specific PLC logic.  It handles how
-#   operations must be preformed for the given setup, such as how to initiate
-#   a synchronized X/Y movement, or other multi-step operation.  The scope of
-#   this unit is limited to operations performed by the ladder logic in the
-#   PLC.  No operation that isn't specific to the ladder logic should be in
-#   this unit.
-###################################################>############################
-from dune_winder.io.devices.plc import PLC
+# Uses: Interface for PLC ladder dispatch, backed by the TagBus.
+###############################################################################
+
+from typing import Any
+
+from dune_winder.io.devices.tag_bus_registry import tag_bus_for
 from dune_winder.io.primitives.multi_axis_motor import MultiAxisMotor
 from dune_winder.io.primitives.plc_motor import PLC_Motor
 from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface
 
 
+_FRESH_MS = 50
+_TIMEOUT_MS = 250
+
+
+def _value_or(snap: Any, default):
+    if snap is None or snap.source == "default":
+        return default
+    return snap.value
+
+
+class _MachineSwStatBit:
+    """`.get()` shim returning bit `bit_index` of `MACHINE_SW_STAT[slot]`.
+
+    The legacy ladder publishes one boolean per slot in bit 0; we keep the
+    bit index parametric to match `PLC_Input`'s contract.
+    """
+
+    def __init__(self, bus, slot: int, bit: int = 0):
+        self._bus = bus
+        self._tag = f"MACHINE_SW_STAT[{slot}]"
+        self._bit = bit
+
+    def get(self) -> bool:
+        snap = self._bus.snapshot(self._tag)
+        if snap is None or snap.source == "default":
+            return False
+        try:
+            return bool((int(snap.value) >> self._bit) & 0x01)
+        except (TypeError, ValueError):
+            return False
+
+
+class _BusGetShim:
+    """`.get()` shim over a single bus tag with a typed default."""
+
+    def __init__(self, bus, name: str, default):
+        self._bus = bus
+        self._name = name
+        self._default = default
+
+    def get(self):
+        snap = self._bus.snapshot(self._name)
+        if snap is None or snap.source == "default":
+            return self._default
+        return snap.value
+
+
 class PLC_Logic:
-    # States for primary state machine.
     class States:
         INIT = 0
         READY = 1
@@ -37,8 +76,6 @@ class PLC_Logic:
         YZ_SEEK = 13
         HMI_STOP = 14
 
-    # end class
-
     _DIRECT_STATE_REQUESTS = {
         States.XY_SEEK,
         States.Z_SEEK,
@@ -50,7 +87,6 @@ class PLC_Logic:
         States.HMI_STOP,
     }
 
-    # States for move type state machine.
     class MoveTypes:
         RESET = 0
         JOG_XY = 1
@@ -65,16 +101,11 @@ class PLC_Logic:
         SEEK_XZ = 10
         HMI_STOP_REQUEST = 11
 
-    # end class
-
     class LatchPosition:
         FULL_UP = 0
         PARTIAL_UP = 1
         DOWN = 2
 
-    # end class
-
-    # Lookup table of error code names.
     ERROR_CODES = {
         0: "None",
         1001: "Rotation lock missing",
@@ -102,597 +133,236 @@ class PLC_Logic:
         8002: "Wire over-tensioned",
     }
 
-    # ---------------------------------------------------------------------
-    def isReady(self):
-        """
-        Check to see if the PLC is in a ready state.  This can be used to determine
-        if all motion has completed, including all motor motion and latching
-        operations.
-
-        Returns:
-          True if ready, False if some other operation is taking place.
-        """
-        state = self._state.get()
-        stateRequest = self._stateRequest.get()
-
-        if self.States.READY == state and int(stateRequest) == 0:
-            result = True
-        else:
-            result = False
-
-        return result
-
-    # ---------------------------------------------------------------------
-    def isError(self):
-        """
-        Check to see if PLC state machine is in error.
-
-        Returns:
-          True if in error, False if not.
-        """
-
-        return self.States.ERROR == self._state.get()
-
-    # ---------------------------------------------------------------------
-    def stopSeek(self):
-        """
-        Request the PLC HMI stop state for a controlled user-initiated motion stop.
-        """
-        self._requestState(self.States.HMI_STOP)
-
-    # ---------------------------------------------------------------------
-    def recoverEOT(self):
-        """
-        Request the PLC EOT recovery state.
-        """
-        self._requestState(self.States.EOT)
-
-    # ---------------------------------------------------------------------
-    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
-        """
-        Make a coordinated move of the X/Y axis.
-
-        Args:
-          x: Position to seek in x-axis (in millimeters).
-          y: Position to seek in y-axis (in millimeters).
-          velocity: Maximum velocity at which to make move.  None to use last
-            velocity.
-        """
-        if velocity is not None:
-            self._velocity = velocity
-
-        if acceleration is not None:
-            self._maxXY_Acceleration.set(float(acceleration))
-
-        if deceleration is not None:
-            self._maxXY_Deceleration.set(float(deceleration))
-
-        self._maxXY_Velocity.set(self._velocity)
-        self._xyAxis.setDesiredPosition([x, y])
-        self._requestState(self.States.XY_SEEK)
-
-    # ---------------------------------------------------------------------
-    def jogXY(self, xVelocity, yVelocity, acceleration=None, deceleration=None):
-        """
-        Jog the X/Y axis at a given velocity.
-
-        Args:
-          xVelocity: Speed of travel on x-axis.  0 for no motion or stop, negative
-            for seeking in reverse direction.
-          yVelocity: Speed of travel on y-axis.  0 for no motion or stop, negative
-            for seeking in reverse direction.
-        """
-
-        if acceleration is not None:
-            self._maxXY_Acceleration.set(float(acceleration))
-
-        if deceleration is not None:
-            self._maxXY_Deceleration.set(float(deceleration))
-
-        self._xyAxis.setVelocity([xVelocity, yVelocity])
-        self._moveType.set(self.MoveTypes.JOG_XY)
-
-    # ---------------------------------------------------------------------
-    def setZ_Position(self, position, velocity=None):
-        """
-        Move Z-axis to a position.
-
-        Args:
-          position: Position to seek in z-axis (in millimeters).
-          velocity: Maximum velocity at which to make move.  None to use last
-            velocity.
-        """
-        if velocity is not None:
-            self._velocity = velocity
-
-        self._zAxis.setVelocity(self._velocity)
-        self._zAxis.setDesiredPosition(position)
-        self._requestState(self.States.Z_SEEK)
-
-    # ---------------------------------------------------------------------
-    def setXZ_Position(self, x, z, velocity=None):
-        """
-        Move in the X/Z plane using the PLC transfer-motion interface.
-
-        Args:
-          x: Position to seek in x-axis (in millimeters).
-          z: Position to seek in z-axis (in millimeters).
-          velocity: Reserved for interface compatibility. Ignored by the PLC
-            transfer-motion command.
-        """
-        del velocity
-
-        yTransferOk = self._readTagNow(self._yTransferOk)
-        if not bool(yTransferOk):
-            raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
-
-        self._xzPositionTarget.set([float(x), float(z)])
-        self._requestState(self.States.XZ_SEEK)
-
-    # ---------------------------------------------------------------------
-    def setYZ_Position(self, y, z, velocity=None):
-        """
-        Move in the Y/Z plane using the PLC transfer-motion interface.
-
-        Args:
-          y: Position to seek in y-axis (in millimeters).
-          z: Position to seek in z-axis (in millimeters).
-          velocity: Reserved for interface compatibility. Ignored by the PLC
-            transfer-motion command.
-        """
-        del velocity
-
-        xTransferOk = self._readTagNow(self._xTransferOk)
-        if not bool(xTransferOk):
-            raise ValueError("X_Transfer_OK must be true before issuing a YZ move.")
-
-        self._yzPositionTarget.set([float(y), float(z)])
-        self._requestState(self.States.YZ_SEEK)
-
-    # ---------------------------------------------------------------------
-    def _readTagNow(self, tag):
-        """
-        Read a tag immediately without relying on cached poll state.
-
-        Notes:
-          Uses the PLC multi-read shape (`read([tag])`) so it works with the real
-          PLC driver, whose single-tag path expects iterable tag names.
-        """
-        result = self._plc.read([tag.getName()])
-        if result is None or self._plc.isNotFunctional():
-            return tag.get()
-
-        for entry in result:
-            if not isinstance(entry, (list, tuple)) or len(entry) < 2:
-                continue
-            if str(entry[0]) != tag.getName():
-                continue
-            tag.updateFromReadTag(entry[1])
-            return entry[1]
-
-        return tag.get()
-
-    # ---------------------------------------------------------------------
-    def _readTagsNow(self, tags):
-        """
-        Read multiple tags immediately as a single PLC snapshot.
-
-        Args:
-          tags: Iterable of PLC.Tag instances.
-
-        Returns:
-          Dictionary keyed by tag name with fresh values when available.
-        """
-        tagList = list(tags)
-        tagNames = [tag.getName() for tag in tagList]
-        result = self._plc.read(tagNames)
-        values = {}
-
-        if result is None or self._plc.isNotFunctional():
-            for tag in tagList:
-                values[tag.getName()] = tag.get()
-            return values
-
-        for entry in result:
-            if not isinstance(entry, (list, tuple)) or len(entry) < 2:
-                continue
-            tagName = str(entry[0])
-            values[tagName] = entry[1]
-            if tagName in PLC.Tag.tag_lookup_table:
-                for tag in PLC.Tag.tag_lookup_table[tagName]:
-                    tag.updateFromReadTag(entry[1])
-
-        for tag in tagList:
-            tagName = tag.getName()
-            if tagName not in values:
-                values[tagName] = tag.get()
-
-        return values
-
-    # ---------------------------------------------------------------------
-    def _writeTagNow(self, tagName, value):
-        """
-        Write a tag immediately and fail fast if the PLC rejects the write.
-        """
-        result = self._plc.write((str(tagName), value))
-        if result is None:
-            raise RuntimeError("Write failed for PLC tag " + str(tagName) + ".")
-        return result
-
-    # ---------------------------------------------------------------------
-    def _pulseMoveType(self, moveType):
-        """
-        Force a clean MOVE_TYPE edge for ladder transitions out of READY.
-
-        The PLC READY-state ladder uses one-shots on comparisons like
-        `MOVE_TYPE = 4`; rewriting the same value does not retrigger those rungs.
-        Pulsing through RESET guarantees a fresh false->true transition for each
-        Z move request.
-        """
-        requested = int(moveType)
-        self._writeTagNow(self._moveType.getName(), self.MoveTypes.RESET)
-        self._moveType.updateFromReadTag(self.MoveTypes.RESET)
-        self._writeTagNow(self._moveType.getName(), requested)
-        self._moveType.updateFromReadTag(requested)
-
-    # ---------------------------------------------------------------------
-    def _requestState(self, state):
-        """
-        Write a direct PLC state request for routines that now dispatch through
-        STATE_REQUEST instead of MOVE_TYPE.
-        """
-        requested = int(state)
-        if requested not in self._DIRECT_STATE_REQUESTS:
-            raise ValueError("Unsupported STATE_REQUEST target: " + str(requested))
-        self._writeTagNow(self._stateRequest.getName(), requested)
-        self._stateRequest.updateFromReadTag(requested)
-
-    # ---------------------------------------------------------------------
-    def jogZ(self, velocity):
-        """
-        Jog the Z axis at a given velocity.
-
-        Args:
-          velocity: Speed of travel.  0 for no motion or stop, negative
-            for seeking in reverse direction.
-        """
-
-        self._zAxis.setVelocity(velocity)
-        self._pulseMoveType(self.MoveTypes.JOG_Z)
-
-    # ---------------------------------------------------------------------
-    def getLatchPosition(self):
-        """
-        Get the current latch position.
-
-        Returns:
-          One of the PLC_Logic.LatchPosition elements.
-        """
-        return self._actuatorPosition.get()
-
-    def getHeadPosition(self):
-        """
-        Get the current head position.
-
-        Returns:
-          Current head position.
-        """
-        return self._actuatorPosition.get()
-
-    # ---------------------------------------------------------------------
-    def canMoveLatch(self):
-        """
-        Check whether the latch pulse interlock is currently satisfied.
-
-        Returns:
-          True if ENABLE_ACTUATOR is true, False otherwise.
-        """
-        return bool(self._readTagNow(self._enableActuator))
-
-    # ---------------------------------------------------------------------
-    def getTransferStateNow(self):
-        """
-        Read the head transfer tags immediately without using cached poll state.
-
-        Returns:
-          Dictionary containing the current live transfer state.
-        """
-        values = self._readTagsNow(
-            [
-                self._zStagePresentBit,
-                self._zFixedPresentBit,
-                self._zStageLatchedBit,
-                self._zFixedLatchedBit,
-                self._zExtendedBit,
-                self._enableActuator,
-                self._actuatorPosition,
-                self._zAxis._position,
-            ]
-        )
-        return {
-            "stagePresent": bool(values[self._zStagePresentBit.getName()]),
-            "fixedPresent": bool(values[self._zFixedPresentBit.getName()]),
-            "stageLatched": bool(values[self._zStageLatchedBit.getName()]),
-            "fixedLatched": bool(values[self._zFixedLatchedBit.getName()]),
-            "zExtended": bool(values[self._zExtendedBit.getName()]),
-            "enableActuator": bool(values[self._enableActuator.getName()]),
-            "actuatorPos": int(values[self._actuatorPosition.getName()]),
-            "zPosition": float(values[self._zAxis._position.getName()]),
-        }
-
-    # ---------------------------------------------------------------------
-    def move_latch(self):
-        """
-        Request a latch transition through the PLC move-type state machine.
-
-        Returns:
-          True if the request was sent, False if the transfer-present interlock is
-          not satisfied.
-        """
-        if not self.canMoveLatch():
-            return False
-
-        self._requestState(self.States.LATCHING)
-        return True
-
-    # ---------------------------------------------------------------------
-    def poll(self):
-        """
-        Internal update. Call periodically.
-        """
-        PLC.Tag.pollAll(self._plc)
-
-    # ---------------------------------------------------------------------
-    def getMoveType(self):
-        """
-        Return the move type tag value.
-
-        Returns:
-          Move type tag value, number from PLC_Logic.MoveTypes.
-        """
-        return self._moveType.get()
-
-    # ---------------------------------------------------------------------
-    def getStateRequest(self):
-        """
-        Return the current direct state-request tag value.
-
-        Returns:
-          State-request tag value, or 0 when idle.
-        """
-        return self._stateRequest.get()
-
-    # ---------------------------------------------------------------------
-    def getState(self):
-        """
-        Return the state tag value.
-
-        Returns:
-          State tag value, number from PLC_Logic.States.
-        """
-        return self._readTagNow(self._state)
-
-    # ---------------------------------------------------------------------
-    def reset(self):
-        """
-        Reset PLC logic.  Clears errors.
-        """
-        self._writeTagNow(self._errorCode.getName(), 0)
-        self._errorCode.updateFromReadTag(0)
-        self._writeTagNow(self._stateRequest.getName(), 0)
-        self._stateRequest.updateFromReadTag(0)
-
-    # ---------------------------------------------------------------------
-    # New function for PLC_Init - PWH - September 2021
-    def PLC_init(self):
-        """
-        Initilize PLC logic.
-        """
-
-        self._moveType.set(self.MoveTypes.PLC_INIT)
-
-    # ---------------------------------------------------------------------
-
-    def latchHome(self):
-        """
-        Start a latch homing operation.
-        """
-        raise NotImplementedError(
-            "Latch home is not supported by the checked-in PLC STATE_REQUEST contract."
-        )
-
-    # ---------------------------------------------------------------------
-    def latchUnlock(self):
-        """
-        Unlock latch motor for manual operation.  Requires PLC_Logic.reset after
-        complete.
-        """
-        raise NotImplementedError(
-            "Latch unlock is not supported by the checked-in PLC STATE_REQUEST contract."
-        )
-
-    # ---------------------------------------------------------------------
-    def maxVelocity(self, maxVelocity=None):
-        """
-        Set/get the maximum velocity.
-
-        Args:
-          maxVelocity: New maximum velocity (optional).
-
-        Returns:
-          Maximum velocity.
-        """
-        if maxVelocity is not None:
-            self._velocity = maxVelocity
-
-        self._maxXY_Velocity.set(self._velocity)
-
-        return self._velocity
-
-    # ---------------------------------------------------------------------
-    def maxAcceleration(self, maxAcceleration=None):
-        """
-        Set/get the maximum positive acceleration.
-
-        Args:
-          maxVelocity: New maximum positive acceleration (optional).
-
-        Returns:
-          Maximum positive acceleration.
-        """
-        if maxAcceleration is not None:
-            self._maxAcceleration = maxAcceleration
-
-        self._maxXY_Acceleration.set(self._maxAcceleration)
-        self._maxZ_Acceleration.set(self._maxAcceleration)
-
-        return self._maxAcceleration
-
-    # ---------------------------------------------------------------------
-    def maxDeceleration(self, maxDeceleration=None):
-        """
-        Set/get the maximum negative acceleration.
-
-        Args:
-          maxVelocity: New maximum negative acceleration (optional).
-
-        Returns:
-          Maximum positive acceleration.
-        """
-        if maxDeceleration is not None:
-            self._maxDeceleration = maxDeceleration
-
-        self._maxXY_Deceleration.set(self._maxDeceleration)
-        self._maxZ_Deceleration.set(self._maxDeceleration)
-
-        return self._maxDeceleration
-
-    # ---------------------------------------------------------------------
-    def setupLimits(self, maxVelocity=None, maxAcceleration=None, maxDeceleration=None):
-        """
-        Setup the velocity and acceleration limits.
-
-        Args:
-          maxVelocity: Maximum velocity.
-          maxAcceleration: Maximum positive acceleration.
-          maxDeceleration: Maximum negative acceleration.
-        """
-        if maxVelocity is not None:
-            self._velocity = maxVelocity
-
-        if maxAcceleration is not None:
-            self._maxAcceleration = maxAcceleration
-
-        if maxDeceleration is not None:
-            self._maxDeceleration = maxDeceleration
-
-        self._maxXY_Velocity.set(self._velocity)
-        self._maxXY_Acceleration.set(self._maxAcceleration)
-        self._maxXY_Deceleration.set(self._maxDeceleration)
-        self._maxZ_Acceleration.set(self._maxAcceleration)
-        self._maxZ_Deceleration.set(self._maxDeceleration)
-
-    # ---------------------------------------------------------------------
-    def servoDisable(self):
-        """
-        Disable servo control of motors.
-        """
-        self._requestState(self.States.UNSERVO)
-
-    # ---------------------------------------------------------------------
-    def getErrorCode(self):
-        """
-        Get the error code reported by PLC.
-        (Use 'getErrorCodeString' to translate code into string.)
-
-        Returns:
-          Integer error code.
-        """
-        return self._errorCode.get()
-
-    # ---------------------------------------------------------------------
-    def getErrorCodeString(self):
-        """
-        Get the error code reported by PLC as a string.
-
-        Returns:
-          String representation of error code.
-        """
-        errorCode = self._errorCode.get()
-
-        if errorCode in PLC_Logic.ERROR_CODES:
-            result = PLC_Logic.ERROR_CODES[errorCode]
-        else:
-            result = "Unknown " + str(errorCode)
-
-        return result
-
-    # ---------------------------------------------------------------------
     def __init__(self, plc, xyAxis: MultiAxisMotor, zAxis: PLC_Motor):
         """
-        Constructor.
-
         Args:
-          plc: Instance of PLC.
-          xyAxis: Instance of MultiAxisMotor for X/Y axis.
+          plc: A legacy PLC subclass *or* a TagBus.
+          xyAxis: Coordinated X/Y motor.
+          zAxis: Z motor.
         """
-        self._plc = plc
+        self._plc = plc  # kept for QueuedMotionPLCInterface
+        self._bus = tag_bus_for(plc)
         self._xyAxis = xyAxis
         self._zAxis = zAxis
         self._latchPosition = 0
-
-        attributes = PLC.Tag.Attributes()
-        attributes.isPolled = True
-        self._state = PLC.Tag(plc, "STATE", attributes, tagType="DINT")
-        self._nextState = PLC.Tag(plc, "NEXTSTATE", attributes, tagType="DINT")
-        self._errorCode = PLC.Tag(plc, "ERROR_CODE", attributes, tagType="DINT")
-        self._headLatchState = PLC.Tag(plc, "HEAD_POS", attributes, tagType="DINT")
-        self._actuatorPosition = PLC.Tag(
-            plc, "ACTUATOR_POS", attributes, tagType="DINT"
-        )
-        self._moveType = PLC.Tag(plc, "MOVE_TYPE", attributes, tagType="INT")
-        self._stateRequest = PLC.Tag(plc, "STATE_REQUEST", attributes, tagType="DINT")
-        self._xTransferOk = PLC.Tag(plc, "X_XFER_OK", attributes, tagType="DINT")
-        self._yTransferOk = PLC.Tag(plc, "Y_XFER_OK", attributes, tagType="DINT")
-
-        machineStatus = PLC.Tag.Attributes()
-        machineStatus.canWrite = False
-        machineStatus.defaultValue = 0
-        machineStatus.isPolled = True
-        self._zStageLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[6]", machineStatus)
-        self._zFixedLatchedBit = PLC.Tag(plc, "MACHINE_SW_STAT[7]", machineStatus)
-        self._zStagePresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[9]", machineStatus)
-        self._zFixedPresentBit = PLC.Tag(plc, "MACHINE_SW_STAT[10]", machineStatus)
-        self._zExtendedBit = PLC.Tag(plc, "MACHINE_SW_STAT[5]", machineStatus)
-        self._enableActuator = PLC.Tag(plc, "ENABLE_ACTUATOR", machineStatus)
-
-        pulseAttributes = PLC.Tag.Attributes()
-        pulseAttributes.defaultValue = 0
-        pulseAttributes.isPolled = True
-        self._guiLatchPulse = PLC.Tag(
-            plc, "gui_latch_pulse", pulseAttributes, tagType="BOOL"
-        )
-
-        self._maxXY_Velocity = PLC.Tag(plc, "XY_SPEED", tagType="REAL")
-        self._maxXY_Acceleration = PLC.Tag(plc, "XY_ACCELERATION", tagType="REAL")
-        self._maxXY_Deceleration = PLC.Tag(plc, "XY_DECELERATION", tagType="REAL")
-        self._maxZ_Velocity = PLC.Tag(plc, "Z_SPEED", tagType="REAL")
-        self._maxZ_Acceleration = PLC.Tag(plc, "Z_ACCELERATION", tagType="REAL")
-        self._maxZ_Deceleration = PLC.Tag(plc, "Z_DECELLERATION", tagType="REAL")
-
-        writeOnly = PLC.Tag.Attributes()
-        writeOnly.canRead = False
-        self._xzPositionTarget = PLC.Tag(
-            plc, "xz_position_target", writeOnly, tagType="REAL[2]"
-        )
-        self._yzPositionTarget = PLC.Tag(
-            plc, "yz_position_target", writeOnly, tagType="REAL[2]"
-        )
-
         self._velocity = 0.0
         self._maxAcceleration = 0
         self._maxDeceleration = 0
         self.queuedMotion = QueuedMotionPLCInterface(plc)
+        # Bit-extracting `.get()` shims over MACHINE_SW_STAT slots that the
+        # legacy ladder publishes one-bit-per-DINT. Head reads these directly.
+        self._zStageLatchedBit = _MachineSwStatBit(self._bus, 6)
+        self._zFixedLatchedBit = _MachineSwStatBit(self._bus, 7)
+        self._zStagePresentBit = _MachineSwStatBit(self._bus, 9)
+        self._zFixedPresentBit = _MachineSwStatBit(self._bus, 10)
+        self._actuatorPosition = _BusGetShim(self._bus, "ACTUATOR_POS", 0)
 
+    # ---------------------------------------------------------------------
+    # State queries
+    # ---------------------------------------------------------------------
+    def isReady(self) -> bool:
+        state = _value_or(self._bus.snapshot("STATE"), 0)
+        req = _value_or(self._bus.snapshot("STATE_REQUEST"), 0)
+        return state == self.States.READY and int(req) == 0
 
-# end class
+    def isError(self) -> bool:
+        return _value_or(self._bus.snapshot("STATE"), 0) == self.States.ERROR
+
+    def getState(self):
+        snap = self._bus.read_fresh("STATE", _FRESH_MS, _TIMEOUT_MS)
+        return snap.value
+
+    def getMoveType(self):
+        return _value_or(self._bus.snapshot("MOVE_TYPE"), 0)
+
+    def getStateRequest(self):
+        return _value_or(self._bus.snapshot("STATE_REQUEST"), 0)
+
+    # ---------------------------------------------------------------------
+    # State requests
+    # ---------------------------------------------------------------------
+    def stopSeek(self):
+        self._requestState(self.States.HMI_STOP)
+
+    def recoverEOT(self):
+        self._requestState(self.States.EOT)
+
+    def servoDisable(self):
+        self._requestState(self.States.UNSERVO)
+
+    def _requestState(self, state):
+        requested = int(state)
+        if requested not in self._DIRECT_STATE_REQUESTS:
+            raise ValueError("Unsupported STATE_REQUEST target: " + str(requested))
+        self._bus.write("STATE_REQUEST", requested)
+
+    def _pulseMoveType(self, moveType):
+        # The PLC READY-state ladder uses one-shots on `MOVE_TYPE = N`; pulsing
+        # through RESET guarantees a fresh false→true transition.
+        self._bus.write("MOVE_TYPE", int(self.MoveTypes.RESET))
+        self._bus.write("MOVE_TYPE", int(moveType))
+
+    # ---------------------------------------------------------------------
+    # Motion commands
+    # ---------------------------------------------------------------------
+    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
+        if velocity is not None:
+            self._velocity = velocity
+        if acceleration is not None:
+            self._bus.write("XY_ACCELERATION", float(acceleration))
+        if deceleration is not None:
+            self._bus.write("XY_DECELERATION", float(deceleration))
+        self._bus.write("XY_SPEED", float(self._velocity))
+        self._xyAxis.setDesiredPosition([x, y])
+        self._requestState(self.States.XY_SEEK)
+
+    def jogXY(self, xVelocity, yVelocity, acceleration=None, deceleration=None):
+        if acceleration is not None:
+            self._bus.write("XY_ACCELERATION", float(acceleration))
+        if deceleration is not None:
+            self._bus.write("XY_DECELERATION", float(deceleration))
+        self._xyAxis.setVelocity([xVelocity, yVelocity])
+        self._bus.write("MOVE_TYPE", int(self.MoveTypes.JOG_XY))
+
+    def setZ_Position(self, position, velocity=None):
+        if velocity is not None:
+            self._velocity = velocity
+        self._zAxis.setVelocity(self._velocity)
+        self._zAxis.setDesiredPosition(position)
+        self._requestState(self.States.Z_SEEK)
+
+    def setXZ_Position(self, x, z, velocity=None):
+        del velocity
+        snap = self._bus.read_fresh("Y_XFER_OK", _FRESH_MS, _TIMEOUT_MS)
+        if not bool(snap.value):
+            raise ValueError("Y_Transfer_OK must be true before issuing an XZ move.")
+        self._bus.write("xz_position_target", [float(x), float(z)])
+        self._requestState(self.States.XZ_SEEK)
+
+    def setYZ_Position(self, y, z, velocity=None):
+        del velocity
+        snap = self._bus.read_fresh("X_XFER_OK", _FRESH_MS, _TIMEOUT_MS)
+        if not bool(snap.value):
+            raise ValueError("X_Transfer_OK must be true before issuing a YZ move.")
+        self._bus.write("yz_position_target", [float(y), float(z)])
+        self._requestState(self.States.YZ_SEEK)
+
+    def jogZ(self, velocity):
+        self._zAxis.setVelocity(velocity)
+        self._pulseMoveType(self.MoveTypes.JOG_Z)
+
+    # ---------------------------------------------------------------------
+    # Latch / transfer
+    # ---------------------------------------------------------------------
+    def getLatchPosition(self):
+        return _value_or(self._bus.snapshot("ACTUATOR_POS"), 0)
+
+    def getHeadPosition(self):
+        return _value_or(self._bus.snapshot("ACTUATOR_POS"), 0)
+
+    def canMoveLatch(self) -> bool:
+        snap = self._bus.read_fresh("ENABLE_ACTUATOR", _FRESH_MS, _TIMEOUT_MS)
+        return bool(snap.value)
+
+    def move_latch(self) -> bool:
+        if not self.canMoveLatch():
+            return False
+        self._requestState(self.States.LATCHING)
+        return True
+
+    def getTransferStateNow(self) -> dict:
+        names = [
+            "MACHINE_SW_STAT[9]",  # stagePresent
+            "MACHINE_SW_STAT[10]",  # fixedPresent
+            "MACHINE_SW_STAT[6]",  # stageLatched
+            "MACHINE_SW_STAT[7]",  # fixedLatched
+            "MACHINE_SW_STAT[5]",  # zExtended
+            "ENABLE_ACTUATOR",
+            "ACTUATOR_POS",
+            "Z_axis.ActualPosition",
+        ]
+        snapshots = self._bus.read_many_fresh(names)
+        values: dict[str, Any] = {}
+        for name in names:
+            snap = snapshots.get(name)
+            values[name] = snap.value if snap is not None else 0
+        return {
+            "stagePresent": bool(values["MACHINE_SW_STAT[9]"]),
+            "fixedPresent": bool(values["MACHINE_SW_STAT[10]"]),
+            "stageLatched": bool(values["MACHINE_SW_STAT[6]"]),
+            "fixedLatched": bool(values["MACHINE_SW_STAT[7]"]),
+            "zExtended": bool(values["MACHINE_SW_STAT[5]"]),
+            "enableActuator": bool(values["ENABLE_ACTUATOR"]),
+            "actuatorPos": int(values["ACTUATOR_POS"]),
+            "zPosition": float(values["Z_axis.ActualPosition"]),
+        }
+
+    # ---------------------------------------------------------------------
+    # Lifecycle
+    # ---------------------------------------------------------------------
+    def reset(self):
+        self._bus.write("ERROR_CODE", 0)
+        self._bus.write("STATE_REQUEST", 0)
+
+    def PLC_init(self):
+        self._bus.write("MOVE_TYPE", int(self.MoveTypes.PLC_INIT))
+
+    def latchHome(self):
+        raise NotImplementedError(
+            "Latch home is not supported by the checked-in PLC STATE_REQUEST contract."
+        )
+
+    def latchUnlock(self):
+        raise NotImplementedError(
+            "Latch unlock is not supported by the checked-in PLC STATE_REQUEST contract."
+        )
+
+    def poll(self):
+        # Bus owns its own poll thread; nothing to do here.
+        pass
+
+    # ---------------------------------------------------------------------
+    # Limits
+    # ---------------------------------------------------------------------
+    def maxVelocity(self, maxVelocity=None):
+        if maxVelocity is not None:
+            self._velocity = maxVelocity
+        self._bus.write("XY_SPEED", float(self._velocity))
+        return self._velocity
+
+    def maxAcceleration(self, maxAcceleration=None):
+        if maxAcceleration is not None:
+            self._maxAcceleration = maxAcceleration
+        self._bus.write("XY_ACCELERATION", float(self._maxAcceleration))
+        self._bus.write("Z_ACCELERATION", float(self._maxAcceleration))
+        return self._maxAcceleration
+
+    def maxDeceleration(self, maxDeceleration=None):
+        if maxDeceleration is not None:
+            self._maxDeceleration = maxDeceleration
+        self._bus.write("XY_DECELERATION", float(self._maxDeceleration))
+        self._bus.write("Z_DECELLERATION", float(self._maxDeceleration))
+        return self._maxDeceleration
+
+    def setupLimits(self, maxVelocity=None, maxAcceleration=None, maxDeceleration=None):
+        if maxVelocity is not None:
+            self._velocity = maxVelocity
+        if maxAcceleration is not None:
+            self._maxAcceleration = maxAcceleration
+        if maxDeceleration is not None:
+            self._maxDeceleration = maxDeceleration
+        self._bus.write("XY_SPEED", float(self._velocity))
+        self._bus.write("XY_ACCELERATION", float(self._maxAcceleration))
+        self._bus.write("XY_DECELERATION", float(self._maxDeceleration))
+        self._bus.write("Z_ACCELERATION", float(self._maxAcceleration))
+        self._bus.write("Z_DECELLERATION", float(self._maxDeceleration))
+
+    # ---------------------------------------------------------------------
+    # Errors
+    # ---------------------------------------------------------------------
+    def getErrorCode(self):
+        return _value_or(self._bus.snapshot("ERROR_CODE"), 0)
+
+    def getErrorCodeString(self) -> str:
+        code = self.getErrorCode()
+        return self.ERROR_CODES.get(code, "Unknown " + str(code))
