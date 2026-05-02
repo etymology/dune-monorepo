@@ -17,19 +17,18 @@ use crate::pins::{
 use crate::spine::{
     derive_pin_position_from_spine as rust_derive_pin_position_from_spine,
     observe_spine_point_from_touch as rust_observe_spine_point_from_touch,
-    solve_spine_loop as rust_solve_spine_loop, CalibrationTouch, SpineLoop, SpinePoint,
+    solve_spine_loop as rust_solve_spine_loop, CalibrationTouch, SpineCalibrationFile,
+    SpineLoop, SpinePoint,
 };
 use crate::wire::{
     actual_wire_point_from_machine_target as rust_actual_wire_point_from_machine_target,
-    circle_pair_tangent_pairs as rust_circle_pair_tangent_pairs,
     compute_arm_corrected_outbound as rust_compute_arm_corrected_outbound,
     line_equation_from_tangent_points as rust_line_equation_from_tangent_points,
-    select_tangent_solution as rust_select_tangent_solution,
     solve_anchor_to_target as rust_solve_anchor_to_target,
+    solve_anchor_to_target_from_spine as rust_solve_anchor_to_target_from_spine,
     solve_xg_slots as rust_solve_xg_slots,
-    tangent_candidates_for_pin_pair as rust_tangent_candidates_for_pin_pair,
     tangent_for_pin_pair as rust_tangent_for_pin_pair, AnchorToTargetRequest,
-    AnchorToTargetSolution, HeadQuadrant, RectBounds, TangentSide,
+    AnchorToTargetSolution, AnchorToTargetSpineRequest, HeadQuadrant, RectBounds,
 };
 
 fn calibration_error_to_py(err: CalibrationError) -> PyErr {
@@ -783,89 +782,6 @@ fn py_solve_anchor_to_target(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
-/// Compute all tangent line pairs between two 2D circles. Returns a list of
-/// `((first_x, first_y), (second_x, second_y))` tuples, one per tangent.
-#[pyfunction]
-#[pyo3(name = "circle_pair_tangent_pairs")]
-fn py_circle_pair_tangent_pairs(
-    first_center: (f64, f64),
-    first_radius: f64,
-    second_center: (f64, f64),
-    second_radius: f64,
-) -> Vec<((f64, f64), (f64, f64))> {
-    rust_circle_pair_tangent_pairs(first_center, first_radius, second_center, second_radius)
-}
-
-fn parse_tangent_side(value: &str) -> PyResult<TangentSide> {
-    match value {
-        "plus" => Ok(TangentSide::Plus),
-        "minus" => Ok(TangentSide::Minus),
-        other => Err(PyValueError::new_err(format!(
-            "unknown tangent side {other:?}; expected 'plus' or 'minus'"
-        ))),
-    }
-}
-
-fn parse_tangent_sides_pair(
-    sides: Option<(String, String)>,
-) -> PyResult<Option<(TangentSide, TangentSide)>> {
-    let Some((sx, sy)) = sides else { return Ok(None) };
-    Ok(Some((parse_tangent_side(&sx)?, parse_tangent_side(&sy)?)))
-}
-
-/// Pick the wire-side tangent line out of the four candidates returned by
-/// `circle_pair_tangent_pairs`. Returns
-/// `((tangent_a_x, tangent_a_y), (tangent_b_x, tangent_b_y),
-///   (clipped_start_x, clipped_start_y), (clipped_end_x, clipped_end_y))`.
-///
-/// `transfer_bounds` is `(left, top, right, bottom)`. `anchor_tangent_sides`
-/// and `wrapped_tangent_sides` are `("plus" | "minus", "plus" | "minus")`
-/// or `None`. Pin-point arguments are `(x, y)` or `None`.
-#[pyfunction]
-#[pyo3(name = "select_tangent_solution")]
-#[pyo3(signature = (
-    candidates,
-    transfer_bounds,
-    anchor_pin_point = None,
-    anchor_tangent_sides = None,
-    wrapped_pin_point = None,
-    wrapped_tangent_sides = None,
-))]
-#[allow(clippy::too_many_arguments)]
-fn py_select_tangent_solution(
-    candidates: Vec<((f64, f64), (f64, f64))>,
-    transfer_bounds: (f64, f64, f64, f64),
-    anchor_pin_point: Option<(f64, f64)>,
-    anchor_tangent_sides: Option<(String, String)>,
-    wrapped_pin_point: Option<(f64, f64)>,
-    wrapped_tangent_sides: Option<(String, String)>,
-) -> PyResult<((f64, f64), (f64, f64), (f64, f64), (f64, f64))> {
-    let (left, top, right, bottom) = transfer_bounds;
-    let bounds = RectBounds {
-        left,
-        top,
-        right,
-        bottom,
-    };
-    let anchor_sides = parse_tangent_sides_pair(anchor_tangent_sides)?;
-    let wrapped_sides = parse_tangent_sides_pair(wrapped_tangent_sides)?;
-    let solution = rust_select_tangent_solution(
-        &candidates,
-        bounds,
-        anchor_pin_point,
-        anchor_sides,
-        wrapped_pin_point,
-        wrapped_sides,
-    )
-    .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok((
-        solution.tangent_a,
-        solution.tangent_b,
-        solution.clipped_start,
-        solution.clipped_end,
-    ))
-}
-
 /// Compute the line equation `(slope, intercept, is_vertical)` through two
 /// tangent points. Vertical lines return `slope = float('inf')` and the
 /// `intercept` carries the `x` coordinate.
@@ -879,28 +795,9 @@ fn py_line_equation_from_tangent_points(
     (eq.slope, eq.intercept, eq.is_vertical)
 }
 
-/// Wrap `circle_pair_tangent_pairs` with the legacy
-/// `_tangent_candidates_for_pin_pair` surface — takes both pin centers and
-/// both pin radii (the legacy treats `radius_b` as `radius_a + clearance`).
-#[pyfunction]
-#[pyo3(name = "tangent_candidates_for_pin_pair")]
-fn py_tangent_candidates_for_pin_pair(
-    point_a: (f64, f64),
-    point_b: (f64, f64),
-    radius_a: f64,
-    radius_b: f64,
-) -> PyResult<Vec<((f64, f64), (f64, f64))>> {
-    rust_tangent_candidates_for_pin_pair(point_a, point_b, radius_a, radius_b)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
 /// Compute the unique wire-side tangent line between two pins, derived
 /// directly from each pin's `tangent_sides` rule. Returns
 /// `((tangent_a_x, tangent_a_y), (tangent_b_x, tangent_b_y))`.
-///
-/// The four-candidate enumeration in `circle_pair_tangent_pairs` collapses
-/// to one closed-form solve once `(layer, side, n)` is known for both
-/// pins.
 #[pyfunction]
 #[pyo3(name = "tangent_for_pin_pair")]
 fn py_tangent_for_pin_pair(
@@ -1103,6 +1000,132 @@ impl PySpineLoop {
     }
 }
 
+#[pyclass(name = "SpineCalibrationFile", module = "dune_geometry", from_py_object)]
+#[derive(Clone)]
+pub struct PySpineCalibrationFile {
+    inner: SpineCalibrationFile,
+}
+
+#[pymethods]
+impl PySpineCalibrationFile {
+    #[new]
+    #[pyo3(signature = (machine_id, loops = vec![]))]
+    fn new(machine_id: String, loops: Vec<PySpineLoop>) -> Self {
+        PySpineCalibrationFile {
+            inner: SpineCalibrationFile {
+                machine_id,
+                loops: loops.into_iter().map(|l| l.inner).collect(),
+            },
+        }
+    }
+
+    #[getter]
+    fn machine_id(&self) -> String {
+        self.inner.machine_id.clone()
+    }
+
+    #[getter]
+    fn loops(&self) -> Vec<PySpineLoop> {
+        self.inner
+            .loops
+            .iter()
+            .cloned()
+            .map(|l| PySpineLoop { inner: l })
+            .collect()
+    }
+
+    fn loop_for(&self, layer: &str) -> PyResult<Option<PySpineLoop>> {
+        let layer = parse_layer(layer)?;
+        Ok(self
+            .inner
+            .loop_for(layer)
+            .cloned()
+            .map(|l| PySpineLoop { inner: l }))
+    }
+
+    /// Derived raw camera-space XYZ for a `(layer, side, number)` pin.
+    /// Returns `None` when the layer's loop is missing or the loop has
+    /// no spine point at that number.
+    fn raw_pin_position(&self, pin: &PyPin) -> Option<(f64, f64, f64)> {
+        self.inner
+            .raw_pin_position(pin.inner)
+            .map(|v| (v.x, v.y, v.z))
+    }
+}
+
+#[pyclass(name = "AnchorToTargetSpineRequest", module = "dune_geometry", from_py_object)]
+#[derive(Clone)]
+pub struct PyAnchorToTargetSpineRequest {
+    inner: AnchorToTargetSpineRequest,
+}
+
+#[pymethods]
+impl PyAnchorToTargetSpineRequest {
+    #[new]
+    #[pyo3(signature = (
+        anchor_pin,
+        target_pin,
+        head_side,
+        target_offset = None,
+        hover = false,
+    ))]
+    fn new(
+        anchor_pin: &PyPin,
+        target_pin: &PyPin,
+        head_side: &str,
+        target_offset: Option<(f64, f64)>,
+        hover: bool,
+    ) -> PyResult<Self> {
+        let hs = parse_head_side(head_side)?;
+        Ok(PyAnchorToTargetSpineRequest {
+            inner: AnchorToTargetSpineRequest {
+                anchor_pin: anchor_pin.inner,
+                target_pin: target_pin.inner,
+                target_offset,
+                head_side: hs,
+                hover,
+            },
+        })
+    }
+
+    #[getter]
+    fn anchor_pin(&self) -> PyPin {
+        PyPin { inner: self.inner.anchor_pin }
+    }
+    #[getter]
+    fn target_pin(&self) -> PyPin {
+        PyPin { inner: self.inner.target_pin }
+    }
+    #[getter]
+    fn target_offset(&self) -> Option<(f64, f64)> {
+        self.inner.target_offset
+    }
+    #[getter]
+    fn head_side(&self) -> &'static str {
+        head_side_str(self.inner.head_side)
+    }
+    #[getter]
+    fn hover(&self) -> bool {
+        self.inner.hover
+    }
+}
+
+/// Spine-backed parallel of `solve_anchor_to_target`: resolves the
+/// anchor and target raw XYZ from `spine_file` and delegates to the
+/// existing solver. Errors with `ValueError` if either pin's spine
+/// point is missing or if the two pins are on different layers.
+#[pyfunction]
+#[pyo3(name = "solve_anchor_to_target_from_spine")]
+fn py_solve_anchor_to_target_from_spine(
+    request: &PyAnchorToTargetSpineRequest,
+    spine_file: &PySpineCalibrationFile,
+    model: &PyMachineCalibrationModel,
+) -> PyResult<PyAnchorToTargetSolution> {
+    rust_solve_anchor_to_target_from_spine(&request.inner, &spine_file.inner, &model.inner)
+        .map(|s| PyAnchorToTargetSolution { inner: s })
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Derive raw camera-space pin XYZ from a spine XYZ at the same pin
 /// number. Returns `(x, y, z)`. Mirrors
 /// `derive_pin_position_from_spine` in `dune_geometry::spine`.
@@ -1196,17 +1219,17 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(board_width_z_mm, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_xg_slots, m)?)?;
-    m.add_function(wrap_pyfunction!(py_circle_pair_tangent_pairs, m)?)?;
-    m.add_function(wrap_pyfunction!(py_select_tangent_solution, m)?)?;
     m.add_function(wrap_pyfunction!(py_line_equation_from_tangent_points, m)?)?;
-    m.add_function(wrap_pyfunction!(py_tangent_candidates_for_pin_pair, m)?)?;
     m.add_function(wrap_pyfunction!(py_tangent_for_pin_pair, m)?)?;
     m.add_function(wrap_pyfunction!(py_compute_arm_corrected_outbound, m)?)?;
     m.add_function(wrap_pyfunction!(py_actual_wire_point_from_machine_target, m)?)?;
     m.add_class::<PySpinePoint>()?;
     m.add_class::<PySpineLoop>()?;
+    m.add_class::<PySpineCalibrationFile>()?;
+    m.add_class::<PyAnchorToTargetSpineRequest>()?;
     m.add_function(wrap_pyfunction!(py_derive_pin_position_from_spine, m)?)?;
     m.add_function(wrap_pyfunction!(py_observe_spine_point_from_touch, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_spine_loop, m)?)?;
+    m.add_function(wrap_pyfunction!(py_solve_anchor_to_target_from_spine, m)?)?;
     Ok(())
 }
