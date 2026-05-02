@@ -17637,6 +17637,96 @@
       "value": 1
     },
     {
+      "name": "STATE_REQUEST_ID",
+      "fully_qualified_name": "STATE_REQUEST_ID",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "value": 0
+    },
+    {
+      "name": "STATE_REQUEST_ACK",
+      "fully_qualified_name": "STATE_REQUEST_ACK",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "value": 0
+    },
+    {
+      "name": "STATE_REQUEST_RESULT",
+      "fully_qualified_name": "STATE_REQUEST_RESULT",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "value": 0
+    },
+    {
+      "name": "STATE_FAULT_FLAGS",
+      "fully_qualified_name": "STATE_FAULT_FLAGS",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "value": 0
+    },
+    {
+      "name": "STATE_ENTRY_COUNTER",
+      "fully_qualified_name": "STATE_ENTRY_COUNTER",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "value": 0
+    },
+    {
+      "name": "LAST_STATE",
+      "fully_qualified_name": "LAST_STATE",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "alias": false,
+      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "value": 1
+    },
+    {
       "name": "latching_in_progress",
       "fully_qualified_name": "latching_in_progress",
       "tag_type": "atomic",
