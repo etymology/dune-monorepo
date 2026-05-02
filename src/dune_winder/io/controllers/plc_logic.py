@@ -14,6 +14,22 @@ from dune_winder.queued_motion.plc_interface import QueuedMotionPLCInterface
 _FRESH_MS = 50
 _TIMEOUT_MS = 250
 
+# RESULT outcome codes published by the PLC handshake.
+_RESULT_IDLE = 0
+_RESULT_ACCEPTED = 1
+_RESULT_REJECTED = 2
+_RESULT_COMPLETED = 3
+_RESULT_FAULTED = 4
+
+# STATE_FAULT_FLAGS bit definitions. Mirrors the ladder.
+FAULT_INTERLOCK = 0x01
+FAULT_AXIS = 0x02
+FAULT_EOT = 0x04
+FAULT_SAFETY = 0x08
+FAULT_TENSION = 0x10
+FAULT_LATCH_TIMEOUT = 0x20
+FAULT_REQUEST_OUT_OF_RANGE = 0x40
+
 
 def _value_or(snap: Any, default):
     if snap is None or snap.source == "default":
@@ -148,6 +164,7 @@ class PLC_Logic:
         self._velocity = 0.0
         self._maxAcceleration = 0
         self._maxDeceleration = 0
+        self._lastIssuedRequestId = 0
         self.queuedMotion = QueuedMotionPLCInterface(plc)
         # Bit-extracting `.get()` shims over MACHINE_SW_STAT slots that the
         # legacy ladder publishes one-bit-per-DINT. Head reads these directly.
@@ -161,9 +178,42 @@ class PLC_Logic:
     # State queries
     # ---------------------------------------------------------------------
     def isReady(self) -> bool:
-        state = _value_or(self._bus.snapshot("STATE"), 0)
-        req = _value_or(self._bus.snapshot("STATE_REQUEST"), 0)
-        return state == self.States.READY and int(req) == 0
+        # Prefer the handshake RESULT once we've actually issued a request and
+        # the PLC has acknowledged. Until then (or against transitional
+        # firmware that hasn't yet wired the new tags), fall back to the legacy
+        # `STATE == READY ∧ STATE_REQUEST == 0` check.
+        ack = int(_value_or(self._bus.snapshot("STATE_REQUEST_ACK"), 0))
+        state = int(_value_or(self._bus.snapshot("STATE"), 0))
+        if self._lastIssuedRequestId > 0 and ack == self._lastIssuedRequestId:
+            result = int(_value_or(self._bus.snapshot("STATE_REQUEST_RESULT"), 0))
+            return (
+                result in (_RESULT_IDLE, _RESULT_COMPLETED)
+                and state == self.States.READY
+            )
+        req = int(_value_or(self._bus.snapshot("STATE_REQUEST"), 0))
+        return state == self.States.READY and req == 0
+
+    # ---------------------------------------------------------------------
+    # Handshake diagnostics. Public so Head._updateG206 and ControlStateMachine
+    # can detect transient ERROR bounces and rejected requests.
+    # ---------------------------------------------------------------------
+    def getStateRequestResult(self) -> int:
+        return int(_value_or(self._bus.snapshot("STATE_REQUEST_RESULT"), 0))
+
+    def getStateFaultFlags(self) -> int:
+        return int(_value_or(self._bus.snapshot("STATE_FAULT_FLAGS"), 0))
+
+    def getStateEntryCounter(self) -> int:
+        return int(_value_or(self._bus.snapshot("STATE_ENTRY_COUNTER"), 0))
+
+    def getLastState(self) -> int:
+        return int(_value_or(self._bus.snapshot("LAST_STATE"), 0))
+
+    def getStateRequestAck(self) -> int:
+        return int(_value_or(self._bus.snapshot("STATE_REQUEST_ACK"), 0))
+
+    def getLastRequestId(self) -> int:
+        return self._lastIssuedRequestId
 
     def isError(self) -> bool:
         return _value_or(self._bus.snapshot("STATE"), 0) == self.States.ERROR
@@ -194,6 +244,12 @@ class PLC_Logic:
         requested = int(state)
         if requested not in self._DIRECT_STATE_REQUESTS:
             raise ValueError("Unsupported STATE_REQUEST target: " + str(requested))
+        # Bump the handshake ID so the ladder can correlate ACK/RESULT to this
+        # specific request. Writes go out as separate bus calls; the simulator
+        # and ladder both tolerate either order because the ID write only
+        # rearms ACK/RESULT/FLAGS — dispatch fires on the STATE_REQUEST write.
+        self._lastIssuedRequestId += 1
+        self._bus.write("STATE_REQUEST_ID", self._lastIssuedRequestId)
         self._bus.write("STATE_REQUEST", requested)
 
     def _pulseMoveType(self, moveType):
@@ -360,7 +416,38 @@ class PLC_Logic:
     # ---------------------------------------------------------------------
     # Errors
     # ---------------------------------------------------------------------
+    # Mapping from (state_we_left, fault_flag_bit) → legacy ERROR_CODE. Lets
+    # us reconstruct the operator-facing string from the new bitfield without
+    # rewriting the ERROR_CODES dict. Falls back to the raw ERROR_CODE tag
+    # when the handshake tags are zero (transitional firmware).
+    _FAULT_TO_LEGACY_CODE = {
+        (States.XY_SEEK, FAULT_INTERLOCK): 3001,
+        (States.XY_SEEK, FAULT_AXIS): 3002,
+        (States.Z_SEEK, FAULT_INTERLOCK): 5001,
+        (States.Z_SEEK, FAULT_AXIS): 5002,
+        (States.XZ_SEEK, FAULT_INTERLOCK): 5001,
+        (States.YZ_SEEK, FAULT_INTERLOCK): 5001,
+        (States.LATCHING, FAULT_INTERLOCK): 6001,
+        (States.LATCHING, FAULT_LATCH_TIMEOUT): 6002,
+    }
+
     def getErrorCode(self):
+        flags = int(_value_or(self._bus.snapshot("STATE_FAULT_FLAGS"), 0))
+        if flags:
+            lastState = int(_value_or(self._bus.snapshot("LAST_STATE"), 0))
+            for bit in (
+                FAULT_INTERLOCK,
+                FAULT_AXIS,
+                FAULT_EOT,
+                FAULT_SAFETY,
+                FAULT_TENSION,
+                FAULT_LATCH_TIMEOUT,
+                FAULT_REQUEST_OUT_OF_RANGE,
+            ):
+                if flags & bit:
+                    code = self._FAULT_TO_LEGACY_CODE.get((lastState, bit))
+                    if code is not None:
+                        return code
         return _value_or(self._bus.snapshot("ERROR_CODE"), 0)
 
     def getErrorCodeString(self) -> str:
