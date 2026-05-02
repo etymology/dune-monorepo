@@ -1,47 +1,30 @@
-# End to end change to diagonal layer workflow and
+# End to end change to diagonal layer workflow
 
 The desired UV workflow is similar to the one we do today but different mainly in the area of solving for the machine calibration, in the nature of the calibration artifacts stored and how they are used.
 
-Today the UV calibration routines save json files with the winder coordinates (i.e. "camera coordinates") plus the camera wire offset. These adjusted positions are then used by the solver called by the ~anchorToTarget macro to determine the command position of the winder in order to stretch a wire from the anchor pin to the target pin, tangent to both pins on the correct sides of the pins, and taking into account that the wire does not actually go to the camera position but to a position displaced from the camera position by a certain amount. This displacement is the "camera wire offset" plus the "arm correction" which will be explained in further detail below.
+Today the UV calibration routines save json files with the winder coordinates (i.e. "camera coordinates") which have had the camera wire offset added to them. These adjusted positions are then used by the solver called by the ~anchorToTarget macro to determine the command position of the winder in order to stretch a wire from the anchor pin to the target pin, tangent to both pins on the correct sides of the pins, and taking into account that the wire does not actually go to the camera position but to a position displaced from the camera position by a certain amount. This displacement is the "camera wire offset" plus the "arm correction" which will be explained in further detail below.
 
-One goal of the rewrite is to use a single coordinate system (the command positions of the winder) for all calibration artifacts and commands. This will require that the ~anchorToTarget macro be rewritten to take these raw calibration camera coordinates as inputs, as well as the machine parameters regarding the wire offset from the camera, and the rollers.
+The problem is that the camera wire offset is not in fact constant. It varies depending on the pose of the winder (for example, how far the z arm is extended). Therefore it does not make sense to store the calibration file with the offset baked in. Instead the anchorToTarget macro should consume calibration camera space coordinate pins and solve for thee final pose of hte winder using per pose calculations of the camera wire offset.
 
-This will also change the way that the per-line offsets are calculated, the Gcode is generated, and the way that the machine calibration is solved for.
+In a UV layer recipe there are 12 pin placements. Currently, the user must go to the gcode generation page to add offsets to each of the 12 placement points in order for the wire to go to the right place. I want to change the way this works so that, on the APA.html page, after executing a gcode command within a recipe, the user will manually move the winder to the correct position then use a dialogue box to select "use current position" which will record the xyz position of the winder and the gcode line that was supposed to have generated it on the machine calibration page, and also modify the loaded gcode adding offsets in x y and z in order to move the winder from the calculated position to the recorded position. This will require addition of offset in Z as offset(x,y) currently.
 
-The new workflow will be as follows:
+The offsets recorded for one gcode line get propagated to all gcode lines with the same label (e.g. Top B Corner). The dialogue box is located on the APA.html page next to the executing gcode panel.
 
-The winder has an xyz gantry loop-frame that passes around the APA. It has a z arm that can extend and retract, latch and unlatch the winding head to the A or B sides of the APA. The z arm can only be extended when in the "transfer zone" beyond the edges of the apa. It must not move or be extended when the winder is in the xy area of the apa, to avoid collision. It must also not move the z arm when it is over the conditionally present support arms.
-The APA is roughly rectangular in shape with four sides in the xy plane: head bottom foot top. There is a calibration camera on the B side of the loop-frame
+Finally, when we have collected several calibration points, we can run the machine calibration solver in the machine calibration page. This will calculate the implied camera wire offset by the collected gcode lines and their resulting points and the roller positions.
+
+The reason why there are different camera wire offsets is because the wire, under tension, pulls the winding head with its rollers to one side or another. Because the frame distortions are somewhat arbitrary and depend on the extension of the Z arm, which gets pulled to one side or another or up or down. This is why we need individal offsets per pin placement. But we also want to establish two basic values for the camera wire offset: one for when the winding head is on the stage and one for when it is on the fixed side.
+
+Once the machine calibration has been calculated we save the camera wire offsets and roller offsets to the machine calibration file and regenerate the gcode offsets.
+
+For the solution of the Z plane, change the way that the plane is calculated as follows: the B pins form a rectangular loop roughly parallel in the xy plane with various offsets. The A plane is displaced from the B plane by the board width, which is equal to 130mm for U, 120mm for V. The new solver should, using the knowledge of the position of the winder and the fact that the wire touches the pins, attempts to solve for a continuous loop for the b pin positions. In other words, the B pins may not be planar but must be continuous.
 
 The calibration files are generated using the Calibrate.html page.
+
 B pins' xy coordinates are found by moving winder calibration camera on the B side to the pin and recording the xy position of the winder. The A pins are then decided based on a transformation from the nominal geometry based on the B side.
-
-Recorded values should be backlash corrected in x, i.e. they should try to calculate how much of the reversal window has been consumed in the movement and record the actual space position of the winder rather than the encoder position.
-
-There is a change from how the pins were calculated on the previous model, which added the camera wire offset to the recorded values. We should NOT add this to the calibration locations. Instead the calibration files should store the camera positions. This means that the gcode interpreter will have to be able to consume these new raw calibration camera positions rather than ones already offset with the camera-wire offset.
 
 We should change the way that the pins are named to layer, side, number. where layer is in UV, side is in AB and number is in 1-2399 for V and 1-2401 for U. So the pins are named UA1 or VB23.
 
-The calibration files are consumed by the gcode interpreter called in APA.html. The gcode interpreter supports commands ~anchorToTarget, increment, goto, as well as the legacy G... P... commands
-
-
-When a wire is placed, it has the following geometry:
-It is tangent to the two pins according to the wrap_orientation rule
-
-``` python
-def tangent_sides(layer: str, side: str, n: int) -> tuple[int, int]:
-    x = 1 if (
-        (layer == "U" and n <= 1200) or
-        (layer == "V" and (n <= 399 or n >= 1600))
-    ) else -1
-
-    y = (1 if (layer, side) in {("U", "B"), ("V", "A")} else -1) * x
-    return x, y
-```
-
-The cal
-
-From this, we can derive "face" which is in head, bottom, foot top in the following way
+Create a Pin class which has these there properties and the derived properites "face" and "tangent_normal_sign"
 
 ``` python
 _FACE_RANGES = {
@@ -59,8 +42,18 @@ _FACE_RANGES = {
   },
 }
 ```
+and
 
-and also the board number from the list of endpoint pins (which is n between)
+``` python
+def tangent_sides(layer: str, side: str, n: int) -> tuple[int, int]:
+    x = 1 if (
+        (layer == "U" and n <= 1200) or
+        (layer == "V" and (n <= 399 or n >= 1600))
+    ) else -1
+
+    y = (1 if (layer, side) in {("U", "B"), ("V", "A")} else -1) * x
+    return x, y
+```
 
 ``` python
 _ENDPOINT_PINS = {
@@ -92,3 +85,5 @@ _ENDPOINT_PINS = {
   ),
 }
 ```
+
+Simultaneously centralize the geometry helpers in a module separate from dune_winder and dune_tension which will be imported from them both, dune_geometry. This package will calculate and expose wire paths which will be consumed by dune_tension and dune_winder.
