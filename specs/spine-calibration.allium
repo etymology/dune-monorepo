@@ -101,7 +101,7 @@ rule DerivePinPositionFromSpine {
 
     -- The raw camera-space coordinate of any (layer, side, number) pin is
     -- the spine point at that (layer, number) displaced by half the
-    -- layer's board width along Z. A-side is +Z, B-side is -Z.
+    -- layer's board width along Z. A-side is -Z, B-side is +Z.
     ensures: RawPinPosition.created(
         pin: pin,
         xyz: derived_pin_xyz(pin)
@@ -111,7 +111,7 @@ rule DerivePinPositionFromSpine {
         -- derived_pin_xyz(pin) =
         --   spine_xyz = lookup_spine_point(pin.layer, pin.number).xyz
         --   half_w    = board_width_z_mm(pin.layer) / 2
-        --   sign      = +1 when pin.side = a, -1 when pin.side = b
+        --   sign      = -1 when pin.side = a, +1 when pin.side = b
         --   Point3D(spine_xyz.x, spine_xyz.y, spine_xyz.z + sign * half_w)
         --
         -- Layers without a spine point recorded for `number` raise

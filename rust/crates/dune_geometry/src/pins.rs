@@ -242,14 +242,14 @@ impl Pin {
         self.layer.half_board_width_z_mm()
     }
 
-    /// Sign of the Z displacement from spine to this pin/slot's face: `+1`
-    /// for the A side, `-1` for the B side. Mirrors the
+    /// Sign of the Z displacement from spine to this pin/slot's face: `-1`
+    /// for the A side, `+1` for the B side. Mirrors the
     /// `DerivePinPositionFromSpine` rule in
     /// `specs/spine-calibration.allium`.
     pub const fn spine_to_face_sign(self) -> f64 {
         match self.side {
-            Side::A => 1.0,
-            Side::B => -1.0,
+            Side::A => -1.0,
+            Side::B => 1.0,
         }
     }
 }
@@ -308,11 +308,11 @@ mod tests {
     }
 
     #[test]
-    fn spine_to_face_sign_is_positive_for_a_negative_for_b() {
-        assert_eq!(Pin::new(Layer::U, Side::A, 1).unwrap().spine_to_face_sign(), 1.0);
-        assert_eq!(Pin::new(Layer::U, Side::B, 1).unwrap().spine_to_face_sign(), -1.0);
-        assert_eq!(Pin::new(Layer::V, Side::A, 1).unwrap().spine_to_face_sign(), 1.0);
-        assert_eq!(Pin::new(Layer::V, Side::B, 1).unwrap().spine_to_face_sign(), -1.0);
+    fn spine_to_face_sign_is_negative_for_a_positive_for_b() {
+        assert_eq!(Pin::new(Layer::U, Side::A, 1).unwrap().spine_to_face_sign(), -1.0);
+        assert_eq!(Pin::new(Layer::U, Side::B, 1).unwrap().spine_to_face_sign(), 1.0);
+        assert_eq!(Pin::new(Layer::V, Side::A, 1).unwrap().spine_to_face_sign(), -1.0);
+        assert_eq!(Pin::new(Layer::V, Side::B, 1).unwrap().spine_to_face_sign(), 1.0);
     }
 
     #[test]
