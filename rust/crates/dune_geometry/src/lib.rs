@@ -20,6 +20,10 @@ pub use pins::{
     ENDPOINT_PINS_U, ENDPOINT_PINS_V, FACE_RANGES_U, FACE_RANGES_V,
 };
 pub use tension::Geometry;
+pub use wire::{
+    apply_anchor_to_target_offsets, effective_camera_wire_offset, solve_anchor_to_target,
+    AnchorToTargetRequest, AnchorToTargetSolution, WireError,
+};
 
 #[cfg(feature = "pyo3")]
 pub mod python;
