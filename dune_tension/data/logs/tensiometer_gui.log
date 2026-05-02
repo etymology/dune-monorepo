@@ -7132,3 +7132,384 @@
 2026-04-30 13:03:55,213 INFO [pid=375319 MainThread dune_tension.gui.actions] GUI shutdown requested.
 2026-04-30 13:03:56,031 INFO [pid=375319 MainThread dune_tension.gui.app] Tk mainloop exited.
 2026-04-30 13:03:56,597 INFO [pid=375319 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=7108632 kB vmhwm=1666072 kB vmrss=1476204 kB
+2026-05-01 13:52:05,308 INFO [pid=96830 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=96830 python=3.13.5 threads=1
+2026-05-01 13:52:05,308 INFO [pid=96830 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 13:52:05,308 INFO [pid=96830 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-01 13:52:05,995 INFO [pid=96830 MainThread dune_tension.gui.app] Tk root ready. threads=1
+2026-05-01 13:52:05,996 INFO [pid=96830 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-01 13:52:06,045 INFO [pid=96830 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 13:52:06,045 INFO [pid=96830 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=True, spoof_movement=True, spoof_servo=True, spoof_valve=True)
+2026-05-01 13:52:06,046 WARNING [pid=96830 MainThread dune_tension.plc_io] PLC_IO_MODE is not set. Falling back to 'desktop' mode.
+2026-05-01 13:52:11,059 WARNING [pid=96830 MainThread dune_tension.plc_desktop] desktop_is_server_active error: HTTPConnectionPool(host='192.168.137.1', port=8080): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.1', port=8080) at 0x11726d010>, 'Connection to 192.168.137.1 timed out. (connect timeout=5)'))
+2026-05-01 13:52:11,059 WARNING [pid=96830 MainThread dune_tension.services] spoof_movement enabled. Using dummy motion functions.
+2026-05-01 13:52:11,062 WARNING [pid=96830 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 13:52:11,062 WARNING [pid=96830 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 13:52:11,244 INFO [pid=96830 MainThread dune_tension.services] Using spoofed audio sample for testing.
+2026-05-01 13:52:11,254 INFO [pid=96830 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /Users/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-01 13:52:11,254 INFO [pid=96830 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=44100 servo=ServoController valve=None
+2026-05-01 13:52:11,256 INFO [pid=96830 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-01 13:52:11,256 INFO [pid=96830 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-01 13:52:11,256 INFO [pid=96830 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-01 13:52:11,257 INFO [pid=96830 MainThread dune_tension.gui.app] Initialising servo focus command to 4000
+2026-05-01 13:52:11,257 INFO [pid=96830 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-01 13:52:25,566 INFO [pid=24084 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=24084 python=3.13.5 threads=1
+2026-05-01 13:52:25,566 INFO [pid=24084 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 13:52:25,566 INFO [pid=24084 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-01 13:52:25,777 INFO [pid=24084 MainThread dune_tension.gui.app] Tk root ready. threads=1
+2026-05-01 13:52:25,777 INFO [pid=24084 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-01 13:52:25,816 INFO [pid=24084 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 13:52:25,817 INFO [pid=24084 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=True, spoof_movement=True, spoof_servo=True, spoof_valve=True)
+2026-05-01 13:52:25,817 WARNING [pid=24084 MainThread dune_tension.plc_io] PLC_IO_MODE is not set. Falling back to 'desktop' mode.
+2026-05-01 13:52:30,827 WARNING [pid=24084 MainThread dune_tension.plc_desktop] desktop_is_server_active error: HTTPConnectionPool(host='192.168.137.1', port=8080): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.1', port=8080) at 0x116728ad0>, 'Connection to 192.168.137.1 timed out. (connect timeout=5)'))
+2026-05-01 13:52:30,827 WARNING [pid=24084 MainThread dune_tension.services] spoof_movement enabled. Using dummy motion functions.
+2026-05-01 13:52:30,829 WARNING [pid=24084 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 13:52:30,829 WARNING [pid=24084 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 13:52:30,971 INFO [pid=24084 MainThread dune_tension.services] Using spoofed audio sample for testing.
+2026-05-01 13:52:30,977 INFO [pid=24084 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /Users/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-01 13:52:30,977 INFO [pid=24084 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=44100 servo=ServoController valve=None
+2026-05-01 13:52:30,979 INFO [pid=24084 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-01 13:52:30,979 INFO [pid=24084 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-01 13:52:30,979 INFO [pid=24084 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-01 13:52:30,979 INFO [pid=24084 MainThread dune_tension.gui.app] Initialising servo focus command to 4000
+2026-05-01 13:52:30,979 INFO [pid=24084 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-01 13:52:32,092 INFO [pid=24084 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for  layer X
+2026-05-01 13:52:45,980 INFO [pid=24084 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:53:00,982 INFO [pid=24084 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:53:22,511 INFO [pid=25476 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=25476 python=3.13.5 threads=1
+2026-05-01 13:53:22,511 INFO [pid=25476 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 13:53:22,511 INFO [pid=25476 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-01 13:53:22,745 INFO [pid=25476 MainThread dune_tension.gui.app] Tk root ready. threads=1
+2026-05-01 13:53:22,745 INFO [pid=25476 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-01 13:53:22,783 INFO [pid=25476 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 13:53:22,783 INFO [pid=25476 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-01 13:53:32,817 WARNING [pid=25476 MainThread dune_tension.plc_direct] Direct PLC is unavailable: PLC communication error
+2026-05-01 13:53:32,818 WARNING [pid=25476 MainThread dune_tension.services] PLC is not available. Movement disabled.
+2026-05-01 13:53:32,820 WARNING [pid=25476 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 13:53:32,820 WARNING [pid=25476 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 13:53:32,971 INFO [pid=25476 MainThread dune_tension.services] Using spoofed audio sample for testing.
+2026-05-01 13:53:32,973 INFO [pid=25476 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/cu.debug-console
+2026-05-01 13:53:32,975 INFO [pid=25476 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /Users/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-01 13:53:32,975 INFO [pid=25476 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=44100 servo=ServoController valve=ValveController
+2026-05-01 13:53:32,976 INFO [pid=25476 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-01 13:53:32,977 INFO [pid=25476 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-01 13:53:32,977 INFO [pid=25476 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-01 13:53:32,977 INFO [pid=25476 MainThread dune_tension.gui.app] Initialising servo focus command to 4000
+2026-05-01 13:53:32,977 INFO [pid=25476 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-01 13:53:34,090 INFO [pid=25476 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for  layer X
+2026-05-01 13:53:47,978 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:54:02,981 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:54:17,982 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:54:32,984 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:54:47,986 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:55:02,988 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:55:17,990 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:55:32,991 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:55:47,993 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:56:02,995 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:56:17,996 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:56:32,998 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:56:48,000 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:57:03,002 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:57:18,004 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:57:33,006 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:57:48,008 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:58:03,010 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:58:18,012 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:58:33,013 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:58:48,015 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:59:03,017 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:59:18,019 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:59:33,021 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 13:59:48,023 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:00:03,025 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:00:18,026 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:00:33,028 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:00:48,030 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:01:03,031 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:01:18,033 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:01:33,035 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:01:48,037 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:02:03,039 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:02:18,041 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:02:33,042 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:02:48,044 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:03:03,046 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:03:18,048 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:03:33,050 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:03:48,051 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:04:03,053 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:04:18,055 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:04:33,058 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:04:48,060 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:05:03,062 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:05:18,063 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:05:33,064 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:05:48,065 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:06:03,068 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:06:18,069 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:06:33,071 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:06:48,073 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:07:03,074 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:07:18,076 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:07:33,078 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:07:48,079 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:08:03,080 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:08:18,082 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:08:33,084 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:08:48,086 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:09:03,089 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:09:18,091 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:09:33,094 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:09:48,096 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:10:03,098 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:10:18,100 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:10:33,102 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:10:48,104 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:11:03,106 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:11:18,108 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:11:33,110 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:11:48,113 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:12:03,114 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:12:18,115 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:12:33,117 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:12:48,118 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:13:03,119 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:13:18,121 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:13:33,123 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:13:48,125 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:14:03,126 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:14:18,128 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:14:33,130 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:14:48,132 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:15:03,133 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:15:18,136 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:15:33,137 INFO [pid=25476 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:16:49,273 INFO [pid=52589 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=52589 python=3.13.5 threads=1
+2026-05-01 14:16:49,273 INFO [pid=52589 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 14:16:49,273 INFO [pid=52589 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-01 14:16:49,507 INFO [pid=52589 MainThread dune_tension.gui.app] Tk root ready. threads=1
+2026-05-01 14:16:49,507 INFO [pid=52589 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-01 14:16:49,525 INFO [pid=52589 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 14:16:49,525 INFO [pid=52589 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-01 14:16:49,530 WARNING [pid=52589 MainThread dune_tension.plc_io] PLC_IO_MODE is not set. Falling back to 'desktop' mode.
+2026-05-01 14:16:54,535 WARNING [pid=52589 MainThread dune_tension.plc_desktop] desktop_is_server_active error: HTTPConnectionPool(host='192.168.137.1', port=8080): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.1', port=8080) at 0x115a68c20>, 'Connection to 192.168.137.1 timed out. (connect timeout=5)'))
+2026-05-01 14:16:54,537 WARNING [pid=52589 MainThread dune_tension.services] PLC is not available. Movement disabled.
+2026-05-01 14:16:54,540 WARNING [pid=52589 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 14:16:54,541 WARNING [pid=52589 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 14:16:54,635 INFO [pid=52589 MainThread dune_tension.services] Using spoofed audio sample for testing.
+2026-05-01 14:16:54,636 INFO [pid=52589 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/cu.debug-console
+2026-05-01 14:16:54,636 INFO [pid=52589 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /Users/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-01 14:16:54,637 INFO [pid=52589 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=44100 servo=ServoController valve=ValveController
+2026-05-01 14:16:54,637 INFO [pid=52589 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-01 14:16:54,637 INFO [pid=52589 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-01 14:16:54,637 INFO [pid=52589 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-01 14:16:54,637 INFO [pid=52589 MainThread dune_tension.gui.app] Initialising servo focus command to 4000
+2026-05-01 14:16:54,637 INFO [pid=52589 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-01 14:16:55,736 INFO [pid=52589 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for  layer X
+2026-05-01 14:17:09,638 INFO [pid=52589 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 14:17:16,528 INFO [pid=52589 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-05-01 14:17:16,543 INFO [pid=52589 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-05-01 14:17:16,545 INFO [pid=52589 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1
+2026-05-01 22:15:27,795 INFO [pid=20309 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=20309 python=3.13.5 threads=1
+2026-05-01 22:15:27,795 INFO [pid=20309 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 22:15:27,795 INFO [pid=20309 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-01 22:15:28,229 INFO [pid=20309 MainThread dune_tension.gui.app] Tk root ready. threads=1
+2026-05-01 22:15:28,229 INFO [pid=20309 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-01 22:15:28,257 INFO [pid=20309 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/Users/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-01 22:15:28,257 INFO [pid=20309 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-01 22:15:28,262 WARNING [pid=20309 MainThread dune_tension.plc_io] PLC_IO_MODE is not set. Falling back to 'desktop' mode.
+2026-05-01 22:15:33,266 WARNING [pid=20309 MainThread dune_tension.plc_desktop] desktop_is_server_active error: HTTPConnectionPool(host='192.168.137.1', port=8080): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.1', port=8080) at 0x116054c20>, 'Connection to 192.168.137.1 timed out. (connect timeout=5)'))
+2026-05-01 22:15:33,267 WARNING [pid=20309 MainThread dune_tension.services] PLC is not available. Movement disabled.
+2026-05-01 22:15:33,270 WARNING [pid=20309 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 22:15:33,271 WARNING [pid=20309 MainThread dune_tension.audio_runtime] Couldn't find USB PnP Sound Device.
+2026-05-01 22:15:33,372 INFO [pid=20309 MainThread dune_tension.services] Using spoofed audio sample for testing.
+2026-05-01 22:15:33,373 INFO [pid=20309 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/cu.debug-console
+2026-05-01 22:15:33,373 INFO [pid=20309 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /Users/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-01 22:15:33,373 INFO [pid=20309 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=44100 servo=ServoController valve=ValveController
+2026-05-01 22:15:33,374 INFO [pid=20309 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-01 22:15:33,374 INFO [pid=20309 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-01 22:15:33,374 INFO [pid=20309 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-01 22:15:33,374 INFO [pid=20309 MainThread dune_tension.gui.app] Initialising servo focus command to 4000
+2026-05-01 22:15:33,374 INFO [pid=20309 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-01 22:15:34,486 INFO [pid=20309 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for  layer X
+2026-05-01 22:15:48,375 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:16:03,377 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:16:18,378 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:16:33,381 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:16:48,384 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:17:03,385 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:17:18,388 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:17:33,390 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:17:48,392 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:18:03,394 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:18:51,124 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:19:06,127 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:19:21,129 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:19:36,130 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:19:51,131 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:20:06,133 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:20:21,135 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:20:36,137 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:20:51,138 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:21:06,141 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:21:21,144 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:21:36,145 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:21:51,146 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:22:06,148 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:22:21,150 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:22:36,152 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:22:51,154 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:24:23,471 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:24:38,545 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:32:33,976 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:32:48,978 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:33:03,980 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:33:18,981 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:33:33,982 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:33:48,985 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:34:03,987 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:34:18,989 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:34:33,991 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:34:48,993 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:35:03,995 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:35:18,996 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:35:33,997 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:35:48,999 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:36:04,000 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:36:19,001 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:36:34,003 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:36:49,004 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:37:04,007 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:37:19,010 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:37:34,012 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:37:49,014 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:38:04,015 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:38:19,018 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:38:34,020 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:38:49,021 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:39:04,023 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:39:19,027 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:39:34,029 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:39:49,030 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:40:04,032 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:40:19,033 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:40:34,034 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:40:49,037 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:41:04,038 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:41:19,040 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:41:34,041 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:41:49,042 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:42:04,044 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:42:19,046 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:42:34,048 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:42:49,050 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:43:04,051 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:43:19,054 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:43:34,055 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:43:49,056 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:44:04,056 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:44:19,057 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:44:34,059 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:44:49,060 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:45:04,062 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:45:19,064 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:45:34,065 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:45:49,066 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:46:04,068 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:46:19,070 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:46:34,071 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:46:49,072 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:47:04,074 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:47:19,076 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:47:34,077 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:47:49,078 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:48:04,080 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:48:19,081 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:48:34,084 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:48:49,087 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:49:04,088 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:49:19,091 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:49:34,093 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:49:49,094 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:50:04,096 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:50:19,098 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:50:34,099 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:50:49,100 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:51:04,103 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:51:19,104 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:51:34,106 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:51:49,107 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:52:04,109 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:52:19,111 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:52:34,114 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:52:49,116 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:53:04,118 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:53:19,120 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:53:34,121 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:53:49,123 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:54:04,125 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:54:19,127 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:54:34,129 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:54:49,130 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:55:04,132 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:55:19,133 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:55:34,135 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:55:49,136 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:56:04,136 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:56:19,138 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:56:34,139 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:56:49,140 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:57:04,141 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:57:19,143 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:57:34,145 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:57:49,147 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:58:04,148 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:58:19,151 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:58:34,152 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:58:49,154 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:59:04,155 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:59:19,157 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:59:34,159 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 22:59:49,160 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:00:04,161 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:00:19,162 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:00:34,164 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:00:49,165 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:01:04,167 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:01:19,169 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:01:34,171 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:01:49,174 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:02:04,176 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:02:19,179 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:02:34,181 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:02:49,183 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:03:04,186 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:03:19,189 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:03:34,191 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:03:49,193 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:04:04,196 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:04:19,198 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:04:34,200 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:04:49,202 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:05:04,204 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:05:19,206 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:05:34,208 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:05:49,211 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:06:04,213 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:06:19,214 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:06:34,216 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:06:49,218 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:07:04,220 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:07:19,222 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:07:34,224 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:07:49,225 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:08:04,227 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:08:19,229 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:08:34,231 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:08:49,232 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:09:04,234 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:09:19,237 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:09:34,239 INFO [pid=20309 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4000 threads=1
+2026-05-01 23:09:48,930 INFO [pid=20309 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-05-01 23:09:48,947 INFO [pid=20309 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-05-01 23:09:48,949 INFO [pid=20309 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1
