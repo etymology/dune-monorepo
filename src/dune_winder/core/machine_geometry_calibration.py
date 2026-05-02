@@ -252,7 +252,7 @@ def _project_machine_xy_measurement_payload(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z),
+            float(target_location.z) + float(command.target_offset[2]),
         )
 
     pin_radius = float(machine_calibration.pinDiameter) / 2.0

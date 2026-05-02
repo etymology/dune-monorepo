@@ -163,7 +163,9 @@ class AnchorToTargetCommand:
     raw_text: str
     anchor_pin: str
     target_pin: str
-    target_offset: tuple[float, float] | None
+    # `(dx, dy, dz)` to add to the target pin coordinate before solving. Two-
+    # element legacy form is accepted at parse time and padded to `dz = 0`.
+    target_offset: tuple[float, float, float] | None
     hover: bool
 
 
