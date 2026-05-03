@@ -56,6 +56,7 @@ class PLCLogicTests(unittest.TestCase):
             plc.write_calls,
             [
                 ("xz_position_target", [12.5, 34.5]),
+                ("STATE_REQUEST_ID", 1),
                 ("STATE_REQUEST", PLC_Logic.States.XZ_SEEK),
             ],
         )
@@ -73,6 +74,7 @@ class PLCLogicTests(unittest.TestCase):
                 ("Z_SPEED", 250.0),
                 ("Z_DIR", 0),
                 ("Z_POSITION", 43.0),
+                ("STATE_REQUEST_ID", 1),
                 ("STATE_REQUEST", PLC_Logic.States.Z_SEEK),
             ],
         )
@@ -112,7 +114,8 @@ class PLCLogicTests(unittest.TestCase):
         self.assertTrue(sent)
         self.assertEqual(plc.read_calls, [["ENABLE_ACTUATOR"]])
         self.assertEqual(
-            plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.LATCHING)]
+            plc.write_calls,
+            [("STATE_REQUEST_ID", 1), ("STATE_REQUEST", PLC_Logic.States.LATCHING)],
         )
 
     def test_move_latch_skips_pulse_when_present_interlock_is_false(self):
@@ -176,7 +179,8 @@ class PLCLogicTests(unittest.TestCase):
         logic.stopSeek()
 
         self.assertEqual(
-            plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.HMI_STOP)]
+            plc.write_calls,
+            [("STATE_REQUEST_ID", 1), ("STATE_REQUEST", PLC_Logic.States.HMI_STOP)],
         )
 
     def test_reset_clears_error_code_and_state_request(self):
@@ -211,6 +215,7 @@ class PLCLogicTests(unittest.TestCase):
                 ("XY_SPEED", 150.0),
                 ("X_POSITION", 10.0),
                 ("Y_POSITION", 20.0),
+                ("STATE_REQUEST_ID", 1),
                 ("STATE_REQUEST", PLC_Logic.States.XY_SEEK),
             ],
         )
@@ -221,7 +226,10 @@ class PLCLogicTests(unittest.TestCase):
 
         logic.servoDisable()
 
-        self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.UNSERVO)])
+        self.assertEqual(
+            plc.write_calls,
+            [("STATE_REQUEST_ID", 1), ("STATE_REQUEST", PLC_Logic.States.UNSERVO)],
+        )
 
     def test_eot_recover_requests_state_request(self):
         plc = _FreshReadPLC()
@@ -229,7 +237,10 @@ class PLCLogicTests(unittest.TestCase):
 
         logic.recoverEOT()
 
-        self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.EOT)])
+        self.assertEqual(
+            plc.write_calls,
+            [("STATE_REQUEST_ID", 1), ("STATE_REQUEST", PLC_Logic.States.EOT)],
+        )
 
     def test_latch_home_is_not_supported_by_checked_in_plc_contract(self):
         plc = _FreshReadPLC()
