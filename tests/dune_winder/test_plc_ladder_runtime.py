@@ -98,7 +98,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     "XIC trigger BST GRT sum 10 MOV 1 branch_hit NXB LEQ sum 10 MOV 2 branch_hit BND",
                 ]
             ),
-            program="MoveXY_State_2_3",
+            program="state_3_move_xy",
         )
 
         self.ctx.set_value("trigger", True)
@@ -121,7 +121,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     "XIC trigger BST GRT sum 10 MOV 1 branch_hit NXB LEQ sum 10 MOV 2 branch_hit BND",
                 ]
             ),
-            program="MoveXY_State_2_3",
+            program="state_3_move_xy",
         )
 
         def setup(ctx: ScanContext):
@@ -168,7 +168,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     "XIC trigger ONS oneshot_storage OTL oneshot_latched",
                 ]
             ),
-            program="Ready_State_1",
+            program="state_1_ready",
         )
 
         self.ctx.set_value("trigger", True)
@@ -198,7 +198,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     "XIC unload FFU SegQueue[0] CurSeg QueueCtl ? ?",
                 ]
             ),
-            program="motionQueue",
+            program="queued_motion",
         )
 
         self.ctx.set_value("IncomingSeg.Valid", True)
@@ -226,7 +226,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     "XIC unload FFU SegQueue[0] CurSeg QueueCtl ? ?",
                 ]
             ),
-            program="motionQueue",
+            program="queued_motion",
         )
 
         def setup(ctx: ScanContext):
@@ -255,7 +255,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
         py_ctx.set_value("unload", True)
         self.executor.execute_routine(routine, ast_ctx)
         generated(py_ctx)
-        self._assert_contexts_match(ast_ctx, py_ctx, program="motionQueue")
+        self._assert_contexts_match(ast_ctx, py_ctx, program="queued_motion")
 
     def test_coordinate_motion_tracks_pending_status_scan_by_scan(self):
         start_routine = self.parser.parse_routine_text(
@@ -266,7 +266,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     'XIC issue_b MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0',
                 ]
             ),
-            program="motionQueue",
+            program="queued_motion",
         )
 
         self.ctx.set_value("CmdA_XY[0]", 100.0)
@@ -314,7 +314,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     'XIC issue MCCM X_Y MoveA 0 CmdA_XY[0] CmdA_CircleType CmdA_ViaCenter[0] CmdA_Direction CmdA_Speed "Units per sec" CmdA_Accel "Units per sec2" CmdA_Decel "Units per sec2" S-Curve CmdA_JerkAccel CmdA_JerkDecel "Units per sec3" CmdA_TermType Disabled Programmed CmdTolerance 0 None 0 0',
                 ]
             ),
-            program="motionQueue",
+            program="queued_motion",
         )
 
         self.ctx.set_value("CmdA_XY[0]", 100.0)
@@ -341,11 +341,11 @@ class PlcLadderRuntimeTests(unittest.TestCase):
         self.assertTrue(self.ctx.get_value("MoveA.IP"))
 
     def test_generated_python_matches_ast_execution_for_movexy_main(self):
-        path = PLC_ROOT / "MoveXY_State_2_3" / "main" / "pasteable.rll"
+        path = PLC_ROOT / "state_3_move_xy" / "main" / "pasteable.rll"
         routine = self.parser.parse_routine_path(
             path,
             routine_name="main",
-            program="MoveXY_State_2_3",
+            program="state_3_move_xy",
         )
 
         def setup(ctx: ScanContext):
@@ -367,11 +367,11 @@ class PlcLadderRuntimeTests(unittest.TestCase):
         self._assert_ast_and_generated_match(routine, setup=setup)
 
     def test_generated_python_matches_ast_execution_for_movez_main(self):
-        path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
+        path = PLC_ROOT / "state_5_move_z" / "main" / "pasteable.rll"
         routine = self.parser.parse_routine_path(
             path,
             routine_name="main",
-            program="MoveZ_State_4_5",
+            program="state_5_move_z",
         )
 
         def setup(ctx: ScanContext):
@@ -402,7 +402,7 @@ class PlcLadderRuntimeTests(unittest.TestCase):
                     'XIC issue_b MCLM X_Y MoveB 0 CmdB_XY[0] CmdB_Speed "Units per sec" CmdB_Accel "Units per sec2" CmdB_Decel "Units per sec2" S-Curve CmdB_JerkAccel CmdB_JerkDecel "Units per sec3" CmdB_TermType Disabled Programmed CmdTolerance 0 None 0 0',
                 ]
             ),
-            program="motionQueue",
+            program="queued_motion",
         )
 
         def setup(ctx: ScanContext):
