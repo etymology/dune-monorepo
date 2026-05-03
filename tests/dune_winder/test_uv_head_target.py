@@ -43,7 +43,7 @@ _LINE_RE = re.compile(
 
 def _load_machine_calibration() -> MachineCalibration:
     calibration = MachineCalibration(
-        str(REPO_ROOT / "dune_winder" / "config"), "machineCalibration.json"
+        str(REPO_ROOT / "config"), "machineCalibration.json"
     )
     calibration.load()
     calibration.targetPinClearance = 0.0
@@ -212,16 +212,16 @@ def test_compute_uv_head_target_rejects_unknown_pin():
         )
 
 
-def test_default_layer_calibration_path_prefers_dune_winder_copy_for_u():
+def test_default_layer_calibration_path_for_u():
     path = _default_layer_calibration_path("U")
 
-    assert path == REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"
+    assert path == REPO_ROOT / "config" / "APA" / "U_Calibration.json"
 
 
-def test_default_layer_calibration_path_prefers_dune_winder_copy_for_v():
+def test_default_layer_calibration_path_for_v():
     path = _default_layer_calibration_path("V")
 
-    assert path == REPO_ROOT / "dune_winder" / "config" / "APA" / "V_Calibration.json"
+    assert path == REPO_ROOT / "config" / "APA" / "V_Calibration.json"
 
 
 @pytest.mark.parametrize(
