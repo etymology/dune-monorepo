@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-08T19:04:32.246947+00:00",
+  "generated_at": "2026-05-04T17:09:12.013385+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "queued_motion",
   "main_routine_name": "main",
@@ -534,23 +534,6 @@
       }
     },
     {
-      "name": "InSegONS",
-      "fully_qualified_name": "Program:queued_motion.InSegONS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
-    },
-    {
       "name": "StartCurONS",
       "fully_qualified_name": "Program:queued_motion.StartCurONS",
       "tag_type": "atomic",
@@ -568,42 +551,8 @@
       "value": false
     },
     {
-      "name": "StartNextONS",
-      "fully_qualified_name": "Program:queued_motion.StartNextONS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
-    },
-    {
       "name": "RotateONS_AtoB",
       "fully_qualified_name": "Program:queued_motion.RotateONS_AtoB",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "DoneONS",
-      "fully_qualified_name": "Program:queued_motion.DoneONS",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "alias": false,
@@ -740,23 +689,6 @@
     {
       "name": "RotateMoves",
       "fully_qualified_name": "Program:queued_motion.RotateMoves",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
-    },
-    {
-      "name": "eot_triggered",
-      "fully_qualified_name": "Program:queued_motion.eot_triggered",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "alias": false,
@@ -1128,23 +1060,6 @@
       "value": 1
     },
     {
-      "name": "UseAasCurrent_Next",
-      "fully_qualified_name": "Program:queued_motion.UseAasCurrent_Next",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
-    },
-    {
       "name": "MoveA",
       "fully_qualified_name": "Program:queued_motion.MoveA",
       "tag_type": "struct",
@@ -1160,11 +1075,11 @@
       "program": "queued_motion",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1194,11 +1109,11 @@
       "program": "queued_motion",
       "udt_name": "MOTION_INSTRUCTION",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1607,24 +1522,7 @@
       "array_dimensions": 0,
       "program": "queued_motion",
       "value": 1
-    },
-    {
-      "name": "STATE13_IND",
-      "fully_qualified_name": "Program:queued_motion.STATE13_IND",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
     }
   ],
-  "values_generated_at": "2026-04-08T19:04:47.706642+00:00"
+  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
 }
