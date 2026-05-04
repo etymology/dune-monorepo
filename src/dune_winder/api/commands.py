@@ -1694,6 +1694,23 @@ def build_command_registry(
             True,
         )
 
+    registry.register(
+        "process.machine_capture.get_state",
+        lambda args: (_validateArgs(args), process.machineCaptureService.get_state())[
+            1
+        ],
+        False,
+    )
+
+    registry.register(
+        "process.machine_capture.record",
+        lambda args: (
+            _validateArgs(args),
+            process.machineCaptureService.record_capture(),
+        )[1],
+        True,
+    )
+
     if uiVersion is not None:
         registry.register(
             "ui_version.get_version",

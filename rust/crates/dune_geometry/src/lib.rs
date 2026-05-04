@@ -12,7 +12,7 @@ pub mod tension;
 pub mod wire;
 
 pub use calibration::{
-    CalibrationError, CalibrationPoint, HeadSide, MachineCalibrationFile,
+    CalibrationError, CalibrationPoint, HeadConfig, HeadSide, MachineCalibrationFile,
     MachineCalibrationModel, PerPinOffset, PinCalibrationFile, PinCalibrationSnapshot,
     PinCoordinate, Vec3,
 };
@@ -21,8 +21,8 @@ pub use pins::{
     ENDPOINT_PINS_U, ENDPOINT_PINS_V, FACE_RANGES_U, FACE_RANGES_V,
 };
 pub use spine::{
-    derive_pin_position_from_spine, observe_spine_point_from_touch, solve_spine_loop,
-    CalibrationTouch, SpineCalibrationFile, SpineError, SpineLoop, SpinePoint,
+    derive_pin_position_from_spine, observe_spine_point_from_touch, solve_spine_plane,
+    CalibrationTouch, SpineCalibrationFile, SpineError, SpinePlane,
 };
 pub use tension::Geometry;
 pub use wire::{

@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::pins::Pin;
+use crate::pins::{Pin, Side};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
@@ -69,6 +69,48 @@ impl Vec3 {
 pub enum HeadSide {
     Stage,
     Fixed,
+}
+
+/// 4-way classification of the winder head configuration during an
+/// `~anchorToTarget` move, fully determined by the
+/// `(anchor.side, target.side)` pair:
+///
+/// | (anchor, target) | HeadConfig | physical state                         |
+/// |------------------|------------|----------------------------------------|
+/// | (A, A)           | StageA     | head on stage, Z extended below spine  |
+/// | (B, B)           | StageB     | head on stage, Z extended above spine  |
+/// | (A, B)           | Fixed      | head latched to fixed, stage retracted |
+/// | (B, A)           | Retracted  | both heads retracted                   |
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HeadConfig {
+    StageA,
+    StageB,
+    Fixed,
+    Retracted,
+}
+
+impl HeadConfig {
+    pub const fn from_sides(anchor_side: Side, target_side: Side) -> HeadConfig {
+        match (anchor_side, target_side) {
+            (Side::A, Side::A) => HeadConfig::StageA,
+            (Side::B, Side::B) => HeadConfig::StageB,
+            (Side::A, Side::B) => HeadConfig::Fixed,
+            (Side::B, Side::A) => HeadConfig::Retracted,
+        }
+    }
+
+    /// Reduce to the binary [`HeadSide`] used by the existing wire solver
+    /// to look up `base_camera_wire_offset_{stage,fixed}` from a
+    /// [`MachineCalibrationModel`]. `Retracted` reports `Stage` because
+    /// no wire is being pinned and the choice does not affect the
+    /// calculation.
+    pub const fn head_side(self) -> HeadSide {
+        match self {
+            HeadConfig::StageA | HeadConfig::StageB | HeadConfig::Retracted => HeadSide::Stage,
+            HeadConfig::Fixed => HeadSide::Fixed,
+        }
+    }
 }
 
 // =========================================================================
@@ -147,7 +189,7 @@ pub struct CalibrationPoint {
     pub gcode_line: String,
     pub calculated_xyz: Vec3,
     pub recorded_xyz: Vec3,
-    pub head_side: HeadSide,
+    pub head_config: HeadConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pin: Option<Pin>,
 }
@@ -326,7 +368,7 @@ mod tests {
             gcode_line: "G1 X1 Y2 Z3".into(),
             calculated_xyz: Vec3 { x: 1.0, y: 2.0, z: 3.0 },
             recorded_xyz: Vec3 { x: 1.5, y: 2.25, z: 3.75 },
-            head_side: HeadSide::Stage,
+            head_config: HeadConfig::StageA,
             pin: None,
         };
         let off = p.offset();
@@ -365,12 +407,28 @@ mod tests {
             gcode_line: "~anchorToTarget(B1201,B2001)".into(),
             calculated_xyz: Vec3 { x: 1.0, y: 2.0, z: 3.0 },
             recorded_xyz: Vec3 { x: 1.5, y: 2.25, z: 3.75 },
-            head_side: HeadSide::Fixed,
+            head_config: HeadConfig::Fixed,
             pin: Some(pin(Layer::U, Side::B, 1201)),
         });
         let text = file.to_json().unwrap();
         let restored = MachineCalibrationFile::from_json(&text).unwrap();
         assert_eq!(file, restored);
-        assert!(text.contains("\"head_side\": \"fixed\""));
+        assert!(text.contains("\"head_config\": \"fixed\""));
+    }
+
+    #[test]
+    fn head_config_from_sides_covers_all_four_cases() {
+        assert_eq!(HeadConfig::from_sides(Side::A, Side::A), HeadConfig::StageA);
+        assert_eq!(HeadConfig::from_sides(Side::B, Side::B), HeadConfig::StageB);
+        assert_eq!(HeadConfig::from_sides(Side::A, Side::B), HeadConfig::Fixed);
+        assert_eq!(HeadConfig::from_sides(Side::B, Side::A), HeadConfig::Retracted);
+    }
+
+    #[test]
+    fn head_config_reduces_to_head_side() {
+        assert_eq!(HeadConfig::StageA.head_side(), HeadSide::Stage);
+        assert_eq!(HeadConfig::StageB.head_side(), HeadSide::Stage);
+        assert_eq!(HeadConfig::Fixed.head_side(), HeadSide::Fixed);
+        assert_eq!(HeadConfig::Retracted.head_side(), HeadSide::Stage);
     }
 }

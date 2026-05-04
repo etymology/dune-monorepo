@@ -105,32 +105,34 @@ Sub-tasks fully done:
   (`c02580a3`).
 - Analytic `tangent_for_pin_pair` single-tangent solver (`cae1f680`).
 
-### Phase G (partial) — spine solver math ✅
+### Phase G — spine solver math ✅
 
-`dune_geometry::spine`:
+`dune_geometry::spine` simplified to a single APA-wide plane (no
+per-layer planes, no closed-loop interpolation):
 
-- `SpinePoint`, `SpineLoop`, `SpineCalibrationFile`, `CalibrationTouch`.
+- `SpinePlane { a, b, c }` — APA-wide; no `layer` field. One plane
+  shared by all layers; written by machine calibration solver.
+- `SpineCalibrationFile { machine_id, plane: Option<SpinePlane> }` —
+  single optional plane; absent until first machine calibration solve.
 - `derive_pin_position_from_spine` and inverse
-  `observe_spine_point_from_touch` (A=−, B=+ since `4a7e7615`).
-- `solve_spine_loop` / `solve_spine_loop_with_config` — ridge-regularised
-  plane fit (`Z = a·X + b·Y + c`) with tilt prior, then closed-loop
-  Gaussian-smoothed residuals to fill unobserved pin numbers
-  (`6d4aebdc`).
-- X and G layer support (`9e53c77d`).
-- PyO3 surface for `SpinePoint` / `SpineLoop` / `SpineCalibrationFile`
-  / `solve_spine_loop`.
+  `observe_spine_point_from_touch` (A=−, B=+ sign convention).
+- `solve_spine_plane(touches: &[CalibrationTouch])` — accepts touches
+  from any mix of layers; ridge-regularised plane fit; defaults to
+  `(0,0,207)` on degenerate input.
+- `SpineCalibrationFile::z_at(layer, side, x, y)` — primary API; layer
+  supplies board-width offset; plane is layer-independent.
+- PyO3 surface: `SpinePlane(a, b, c)`, `SpineCalibrationFile(machine_id, plane?)`,
+  `solve_spine_plane(touches)`, `derive_pin_position_from_spine`,
+  `observe_spine_point_from_touch`, `solve_anchor_to_target_from_spine`.
+- 52 Rust unit tests + 73 Python surface tests passing.
 
 ### Phase D consumers — step 1 of `SpineCalibrationFile` adoption ✅
 
-- `dune_geometry::wire::solve_anchor_to_target_from_spine` — parallel
-  surface that resolves XYZ via `SpineCalibrationFile.raw_pin_position`,
-  then delegates to the existing XYZ solver. New error
-  `WireError::MissingSpinePoint { pin }`.
-- PyO3 wrappers `PySpineCalibrationFile.raw_pin_position`,
-  `PyAnchorToTargetSpineRequest`,
-  `py_solve_anchor_to_target_from_spine`.
-- 4 Rust tests covering parity, layer mismatch, and missing-pin paths.
-- Landed inside `1f94a86c`.
+- `dune_geometry::wire::solve_anchor_to_target_from_spine` — resolves Z
+  for each pin via `SpineCalibrationFile::z_at`, then delegates to the
+  existing XYZ solver.
+- `PyAnchorToTargetSpineRequest`, `py_solve_anchor_to_target_from_spine`.
+- Tests: parity with flat-plane XYZ solve, layer mismatch, absent plane.
 
 ### Sign convention fix ✅
 
@@ -145,24 +147,24 @@ test. Commit `4a7e7615`.
 
 ### Phase E — APA.html one-click pose capture + 3D gcode offsets
 
-Not started in code. Spec exists. The capture UI, the
-"execution-paused" gate (server-side and client-side), the `(label,
-gcode_line, calculated_xyz, recorded_xyz, head_side)` POST endpoint,
-the immediate gcode rewrite for every line sharing the label, and the
-`offset(x, y)` → `offset(x, y, z)` parser/emitter extension all need
-implementation.
+Not started in code. Spec exists (`uv-machine-calibration.allium`).
+Needed pieces:
+
+- Capture UI: "use current position" button, gated on recipe paused.
+- Server-side pause gate + `(label, gcode_line, calculated_xyz, recorded_xyz, head_side)` POST endpoint → appends to `MachineCalibrationFile`.
+- Immediate gcode rewrite: every line sharing the captured label gets `offset(x, y, z) = recorded − calculated`.
+- `offset(x, y)` → `offset(x, y, z)` parser/emitter extension; legacy recipes read with z=0.
 
 ### Phase G consumer flip — `_wire_space_pin` onto the spine surface (step 2 of #13)
 
-**Blocked.** The constant-Z fallback (207 ± half_w) we discussed is
-mathematically compatible end-to-end after the sign fix, but ~24
-existing tests encode legacy per-pin Z values and break by 3-30 mm
-when a flat-plane spine replaces the per-pin Z. Two viable cuts (see
-**Open decisions** below). Not flipped in code.
+**Blocked.** ~24 existing tests encode legacy per-pin Z values and break
+by 3–30 mm when the spine plane replaces per-pin Z. Deferring until
+Phase F produces a real `SpineCalibrationFile`; tests can then be
+updated against real calibration data rather than a flat-plane stand-in.
 
 ### Phase H — end-to-end verification
 
-Pending Phase E + the rest of #13.
+Pending Phase E + Phase F + step 2 of #13.
 
 ---
 
@@ -170,33 +172,46 @@ Pending Phase E + the rest of #13.
 
 ### Phase F — machine-calibration solver page
 
-`dune_geometry::calibration::solve_machine_calibration` not yet
-written. UI rewiring also pending. Inputs: `CalibrationPoint`s, current
-`PinCalibrationFile`, roller positions. Outputs:
-`per_pin_camera_wire_offset`, `base_camera_wire_offset_stage` /
-`_fixed`, updated `roller_offsets`. After save, regenerate gcode
-offsets from the new model. Golden fixtures under
-`tests/golden/geometry/machine_calibration/`.
+`dune_geometry::calibration::solve_machine_calibration` not yet written.
+UI rewiring also pending.
+
+**Inputs:** `CalibrationPoint`s (from `MachineCalibrationFile`), current
+`PinCalibrationFile`, roller positions.
+
+**Outputs (joint solve):**
+- `MachineCalibrationFile.fitted_model`: `per_pin_camera_wire_offset`,
+  `base_camera_wire_offset_stage` / `_fixed`, `arm_correction`.
+- `MachineCalibrationFile.roller_offsets`.
+- `SpineCalibrationFile.plane`: APA-wide `SpinePlane` derived from
+  `recorded_xyz` of capture points that have a `pin` field.
+
+After save, regenerate all gcode offsets from the new model.
+Golden fixtures under `tests/golden/geometry/machine_calibration/`.
+
+**Architecture:** Phase E and Phase F are coupled — E collects the data
+(`MachineCalibrationFile`), F solves from it and writes both
+`MachineCalibrationFile.fitted_model` and `SpineCalibrationFile`. The
+`SpineCalibrationFile` has one APA-wide plane shared by all layers.
 
 ### Remaining steps of #13 — adopt `SpineCalibrationFile` across consumers
 
 - **Step 2 (blocked):** flip Python `_wire_space_pin` onto
-  `SpineCalibrationFile.raw_pin_position`.
-- **Step 3:** `Calibrate.html` backend writes a real
-  `SpineCalibrationFile`; new
-  `scripts/convert_legacy_pin_calibration_to_spine.py` synthesises
-  spine points from existing per-side files using:
+  `SpineCalibrationFile.z_at`.
+- **Step 3:** write `scripts/convert_legacy_pin_calibration_to_spine.py`
+  to bootstrap a `SpineCalibrationFile` from existing per-side XY data
+  for machines that have not yet run Phase F. The bootstrap plane uses
+  the default `(0, 0, 207)`; XY positions still come from
+  `PinCalibrationFile`. BtoA mapping for the spine bootstrap:
 
   ```
   V: BtoA(n) = A( 1 + ((399 - n) mod 2399) )
   U: BtoA(n) = A( 1 + ((400 - n) mod 2401) )
   ```
 
-  i.e. `BtoA(n)` returns the A-side pin number that physically maps to
-  B-side number `n` on the same perimeter location. The spine point at
-  that perimeter is the XY mean of those two legacy entries (Z is the
-  midpoint, or the spine plane if we trust the new model more than the
-  legacy Z).
+  Note: `Calibrate.html` does **not** write `SpineCalibrationFile` — it
+  writes only XY pin coordinates into `PinCalibrationFile`. The spine
+  plane is always produced by the machine calibration solver (Phase F)
+  or the bootstrap script (Step 3).
 - **Step 4:** flip the tension-side loader (`dune_tension`) onto
   `SpineCalibrationFile` once Step 3 produces real files.
 - **Step 5:** delete the legacy per-side `PinCalibrationFile`.
@@ -240,29 +255,17 @@ surface.
 
 ### How to land Step 2 of #13 without breaking the 24 calibration tests
 
-Two options:
+Defer Step 2 until Phase F lands a real `SpineCalibrationFile`. Once the
+machine calibration solver writes an actual calibrated plane, tests can be
+updated against real data rather than a flat-plane stand-in (207 ± half_w).
+Updating fixtures now would lock in values we will immediately discard.
 
-1. **Update fixtures + expected values** to spine-fallback Z
-   (207 ± half_w). ~6 test files affected (`test_uv_head_target.py`,
-   `test_uv_head_target_gui.py`, `test_uv_tangency_analysis.py`,
-   `test_wrap_runtime.py`, `test_v_template_gcode.py`,
-   `test_manual_calibration.py`, `test_uv_layout.py`). One is a
-   golden-string output (`test_v_template_gcode`). This locks in a
-   stand-in we will throw away once real spine capture exists.
-2. **Defer Step 2 until Step 3 lands** — once `Calibrate.html` writes a
-   real `SpineCalibrationFile`, the spine fallback becomes spine-truth
-   and tests can be updated against captured data rather than a
-   flat-plane stand-in.
+### Where the spine plane default lives
 
-Recommendation: option 2.
-
-### Where the spine plane Z constant should live for the fallback
-
-Currently `_DEFAULT_SPINE_Z_MM = 207.0` (zExtended/2) was the
-candidate value. Once Step 3 lands this constant disappears. If we
-take option 1 above, it would live in
-`dune_geometry::spine::DEFAULT_SPINE_Z_MM` to be testable from Rust
-and reachable from Python.
+`SpinePlane::default()` in `dune_geometry::spine` returns `(0, 0, 207)`.
+This constant is used whenever no `SpineCalibrationFile` exists or its
+`plane` field is `None`. It disappears as a meaningful number once Phase F
+has been run on a real machine.
 
 ---
 
@@ -311,7 +314,7 @@ To modify (for remaining phases):
 
 ## Verification checklist
 
-- `cargo test -p dune_geometry` — currently 57 tests passing.
+- `cargo test -p dune_geometry` — currently 52 tests passing.
 - `pytest tests/dune_geometry/ tests/golden/geometry/` — passing.
 - `pytest tests/dune_winder/ tests/dune_tension/` — passing on
   pre-Step-2 state.

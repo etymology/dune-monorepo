@@ -17,6 +17,7 @@ from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
 from dune_winder.core.gcode_playback_service import GCodePlaybackService
 from dune_winder.core.machine_geometry_calibration import MachineGeometryCalibration
+from dune_winder.core.machine_calibration_capture import MachineCaptureService
 from dune_winder.core.manual_calibration import ManualCalibration, normalize_calibration
 from dune_winder.core.recipe_service import RecipeService
 from dune_winder.core.runtime_state_service import RuntimeStateService
@@ -281,6 +282,7 @@ class Process:
         self.vTemplateRecipe = VTemplateRecipe(self)
         self.uTemplateRecipe = UTemplateRecipe(self)
         self.machineGeometryCalibration = MachineGeometryCalibration(self)
+        self.machineCaptureService = MachineCaptureService(self)
 
         self.controlStateMachine.machineCalibration = self._machineCalibration
 
