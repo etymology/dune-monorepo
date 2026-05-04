@@ -69,7 +69,7 @@ Python today and directly from Rust services as the port progresses.
 Crate at `rust/crates/dune_geometry/` registered in `rust/Cargo.toml`.
 Modules: `pins.rs`, `wire.rs`, `calibration.rs`, `spine.rs`,
 `tension.rs`, `python.rs`. PyO3 abi3-py312 bindings via maturin produce
-a Python `dune_geometry` module. 57 Rust unit tests + Python
+a Python `dune_geometry` module. 54 Rust unit tests + Python
 PyO3-surface tests in `tests/dune_geometry/` (e.g.
 `test_pin_surface.py`, `test_calibration_surface.py`,
 `test_anchor_to_target_math_smoke.py`).
@@ -124,7 +124,7 @@ per-layer planes, no closed-loop interpolation):
 - PyO3 surface: `SpinePlane(a, b, c)`, `SpineCalibrationFile(machine_id, plane?)`,
   `solve_spine_plane(touches)`, `derive_pin_position_from_spine`,
   `observe_spine_point_from_touch`, `solve_anchor_to_target_from_spine`.
-- 52 Rust unit tests + 73 Python surface tests passing.
+- 54 Rust unit tests + Python surface tests passing.
 
 ### Phase D consumers — step 1 of `SpineCalibrationFile` adoption ✅
 
@@ -141,19 +141,35 @@ Spine `A=−Z, B=+Z` is now consistent across the spec
 `derive_pin_position_from_spine` doc + tests), and the PyO3 surface
 test. Commit `4a7e7615`.
 
+### Phase E — APA.html one-click pose capture + 3D gcode offsets ✅
+
+Landed across commits `b44d4c9d` (3D offset foundation) and `041cf304`
+(capture panel + service):
+
+- `~anchorToTarget(..., offset=(x,y,z))` parser/emitter; 2D form still
+  parsed with `dz = 0` (`anchor_to_target.py`, `models.py`).
+- APA.html column-3 spine-capture panel: shows last `~anchorToTarget`
+  line, calculated XYZ, current XYZ, delta, derived head config, and
+  propagation scope. Bottom-right confirmation dialog with 5 mm
+  overshoot warning (`APA.html`, `APA.js`, `APA.css`).
+- Backend `MachineCaptureService`
+  (`src/dune_winder/core/machine_calibration_capture.py`) records
+  `(anchor, target, calculated, recorded, head_config)` into the
+  `MachineCalibrationFile` and propagates the captured offset across
+  every wrap at the same line index, then regenerates the recipe so the
+  rest of the run picks up the corrected position.
+- `HeadConfig` 4-way classification (StageA / StageB / Fixed /
+  Retracted) on `CalibrationPoint`, derived from `(anchor.side,
+  target.side)` at capture time so the operator never picks it.
+  `HeadSide` retained for the wire solver's binary base-offset lookup.
+- `operator-workflows.allium` gained a `pause_pending` state to model
+  "stop next" semantics.
+- Tests: `tests/dune_winder/test_anchor_to_target_parser.py`,
+  `tests/dune_winder/test_machine_calibration_capture.py`.
+
 ---
 
 ## Status — in progress
-
-### Phase E — APA.html one-click pose capture + 3D gcode offsets
-
-Not started in code. Spec exists (`uv-machine-calibration.allium`).
-Needed pieces:
-
-- Capture UI: "use current position" button, gated on recipe paused.
-- Server-side pause gate + `(label, gcode_line, calculated_xyz, recorded_xyz, head_side)` POST endpoint → appends to `MachineCalibrationFile`.
-- Immediate gcode rewrite: every line sharing the captured label gets `offset(x, y, z) = recorded − calculated`.
-- `offset(x, y)` → `offset(x, y, z)` parser/emitter extension; legacy recipes read with z=0.
 
 ### Phase G consumer flip — `_wire_space_pin` onto the spine surface (step 2 of #13)
 
@@ -301,11 +317,9 @@ To modify (for remaining phases):
 
 - `src/dune_winder/.../Calibrate.html` and its FastAPI/handler module
   (Step 3)
-- `src/dune_winder/.../APA.html` and its handler module (Phase E)
 - `src/dune_winder/.../machine_calibration` page + handler module
   (Phase F)
-- `src/dune_winder/.../gcode_generation/` (drop manual 12-offset UI;
-  parser/emitter to support `offset(x, y, z)`)
+- `src/dune_winder/.../gcode_generation/` (drop manual 12-offset UI)
 - `src/dune_winder/uv_head_target_parts/calibration.py`
   (`_wire_space_pin` onto spine — Step 2 of #13)
 - `src/dune_winder/geometry/primitives/` (delete or thin)
@@ -314,7 +328,7 @@ To modify (for remaining phases):
 
 ## Verification checklist
 
-- `cargo test -p dune_geometry` — currently 52 tests passing.
+- `cargo test -p dune_geometry` — currently 54 tests passing.
 - `pytest tests/dune_geometry/ tests/golden/geometry/` — passing.
 - `pytest tests/dune_winder/ tests/dune_tension/` — passing on
   pre-Step-2 state.
