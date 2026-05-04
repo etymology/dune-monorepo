@@ -14,8 +14,8 @@
 
 import math
 from dune_winder.library.math_extra import MathExtra
-from dune_winder.library.Geometry.location import Location
-from dune_winder.library.Geometry.circle import Circle
+from dune_winder.geometry.primitives.location import Location
+from dune_winder.geometry.primitives.circle import Circle
 
 
 class WirePathModel:

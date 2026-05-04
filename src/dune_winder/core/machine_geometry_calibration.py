@@ -16,7 +16,7 @@ import traceback
 
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.gcode.runtime import GCodeExecutionError, execute_text_line
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.calibration.roller_arm import (

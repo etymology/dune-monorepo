@@ -473,7 +473,7 @@ impl CpalInputSource {
         let channels = supported_config.channels().max(1) as usize;
         let mut config: StreamConfig = supported_config.clone().into();
         config.channels = supported_config.channels().max(1);
-        config.sample_rate = SampleRate(sample_rate as u32);
+        config.sample_rate = sample_rate as u32;
         config.buffer_size = cpal::BufferSize::Fixed(block_size as u32);
 
         let (sender, receiver) = mpsc::sync_channel::<Vec<f32>>(64);

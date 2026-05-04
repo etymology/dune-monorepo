@@ -7,7 +7,7 @@
 ###############################################################################
 
 from .machine import MachineGeometry
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 
 
 class APA_Geometry(MachineGeometry):

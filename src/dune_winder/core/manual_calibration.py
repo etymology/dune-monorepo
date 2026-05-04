@@ -8,8 +8,8 @@ import math
 import os
 import json
 
-from dune_winder.library.Geometry.location import Location
-from dune_winder.library.serializable_location import SerializableLocation
+from dune_winder.geometry.primitives.location import Location
+from dune_winder.geometry.serializable_location import SerializableLocation
 from dune_winder.recipes.xg_template_gcode import (
     WIRE_SPACING as GX_WIRE_SPACING,
     WRAP_COUNTS as GX_WRAP_COUNTS,

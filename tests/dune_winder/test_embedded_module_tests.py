@@ -8,8 +8,8 @@ from typing import Any, cast
 import dune_winder.gcode.handler_base as handler_base_module
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.gcode.runtime import GCodeProgramExecutor
-from dune_winder.library.Geometry.circle import Circle
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.circle import Circle
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.machine.calibration.defaults import (
     DefaultLayerCalibration,

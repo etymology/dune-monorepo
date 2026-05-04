@@ -34,10 +34,10 @@ from dune_winder.gcode.runtime import (
     GCodeProgramExecutor,
 )
 
-from dune_winder.library.Geometry.location import Location
-from dune_winder.library.Geometry.line import Line
-from dune_winder.library.Geometry.box import Box
-from dune_winder.library.Geometry.segment import Segment
+from dune_winder.geometry.primitives.location import Location
+from dune_winder.geometry.primitives.line import Line
+from dune_winder.geometry.primitives.box import Box
+from dune_winder.geometry.primitives.segment import Segment
 
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
@@ -513,7 +513,9 @@ class GCodeHandlerBase:
         try:
             layer_calibration = self._layerCalibration
             if layer_calibration is None:
-                raise GCodeExecutionError("No layer calibration is loaded.", [target_pin])
+                raise GCodeExecutionError(
+                    "No layer calibration is loaded.", [target_pin]
+                )
 
             plan = plan_wrap_transition(
                 layer=layer_calibration.getLayerNames(),

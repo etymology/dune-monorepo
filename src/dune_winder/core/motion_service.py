@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Callable, Optional
 
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.core.control_events import (
     ManualModeEvent,
     SetManualJoggingEvent,

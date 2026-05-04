@@ -502,7 +502,7 @@ def main() -> None:
         raise ValueError("Specify both --start-x and --start-y together.")
 
     if args.gui:
-        from motionQueueTest_gui import WaypointPlannerApp
+        from dune_winder.queued_motion.tools.waypoint_planner_gui import WaypointPlannerApp
 
         app = WaypointPlannerApp(
             plc_path=PLC_PATH,
@@ -510,8 +510,7 @@ def main() -> None:
         )
         app.allow_stops_var.set(bool(args.waypoint_allow_stops))
         if args.start_x is not None and args.start_y is not None:
-            app.start_x_var.set(str(float(args.start_x)))
-            app.start_y_var.set(str(float(args.start_y)))
+            app._update_live_status(float(args.start_x), float(args.start_y), False)
         app.mainloop()
         return
 

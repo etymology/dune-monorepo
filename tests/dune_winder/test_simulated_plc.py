@@ -1,6 +1,6 @@
 import unittest
 
-from dune_winder.io.Devices.simulated_plc import SimulatedPLC
+from dune_winder.io.devices.simulated_plc import SimulatedPLC
 
 
 class SimulatedPlcBehaviorTests(unittest.TestCase):

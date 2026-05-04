@@ -159,6 +159,7 @@ contract MeasurementArtifacts {
 -- Re-exported from core.allium
 use "./core.allium" as core
 
+enum Layer { u | v | x | g }
 enum Side { a | b }
 enum MeasurementMode { legacy | stream_sweep | stream_rescue }
 enum RequestKind { calibrate | auto | list | zone | condition }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 
 from .calibration import _location_to_point3
 from .constants import _AXIS_EPSILON

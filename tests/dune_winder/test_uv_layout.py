@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dune_winder.library.Geometry.location import Location
-from dune_winder.library.serializable_location import SerializableLocation
+from dune_winder.geometry.primitives.location import Location
+from dune_winder.geometry.serializable_location import SerializableLocation
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.uv_calibration import (
     build_nominal_uv_calibration,

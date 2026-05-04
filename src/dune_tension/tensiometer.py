@@ -1340,83 +1340,41 @@ class Tensiometer:
             )
 
     def measure_auto(self) -> None:
-        from dune_tension.summaries import get_missing_wires
+        """Measure all missing wires in the current layer/side using Rust core."""
+        import dune_tension_core
 
-        wires_dict = get_missing_wires(self.config)
-        wires_to_measure = wires_dict.get(self.config.side, [])
+        def pesto_wrapper(audio, samplerate, expected_frequency):
+            return analyze_audio_with_pesto(
+                audio,
+                samplerate,
+                expected_frequency=expected_frequency,
+                include_activations=False,
+            )
 
-        if not wires_to_measure:
-            self.estimated_time_callback("0:00:00")
-            LOGGER.info("All wires are already measured.")
-            return
+        core = dune_tension_core.Tensiometer(
+            config=self.config,
+            motion_service=self.motion,
+            goto_xy_func=self._goto_xy_with_reset_recovery,
+            get_current_xy_position=self.get_current_xy_position,
+            focus_wiggle_func=self._apply_focus_wiggle_with_x_compensation,
+            focus_position_getter=self.focus_position_getter,
+            focus_range_getter=self.focus_range_getter,
+            use_manual_focus=self.use_manual_focus,
+            manual_focus_target=self.manual_focus_target,
+            stop_event=self.stop_event,
+            repository=self.repository,
+            audio_service=self.audio,
+            strum_func=self.strum_func,
+            pesto_func=pesto_wrapper,
+            harmonic_comb_config=self._harmonic_comb_config,
+        )
 
-        LOGGER.info("Measuring missing wires...")
-        LOGGER.info("Missing wires: %s", wires_to_measure)
-
-        start_time = self._time()
-        measured_count = 0
-        did_report_zero = False
-        last_successful_result: TensionResult | None = None
-        last_successful_wire_number: int | None = None
-        self._start_batch_profile(workflow="auto", requested_wires=wires_to_measure)
         try:
-            with self.repository.run_scope():
-                for wire_number in wires_to_measure:
-                    if check_stop_event(self.stop_event):
-                        return
-
-                    self._start_wire_profile("auto", int(wire_number))
-                    target_started = self._profile_time()
-                    target = self._plan_batch_measurement_pose(
-                        int(wire_number),
-                        last_successful_result=last_successful_result,
-                        last_successful_wire_number=last_successful_wire_number,
-                    )
-                    self._record_wire_stage(
-                        "plan_measurement_pose",
-                        self._profile_time() - target_started,
-                    )
-                    if target is None:
-                        LOGGER.warning(
-                            "No position data found for wire %s during auto measurement.",
-                            wire_number,
-                        )
-                        self._complete_wire_profile(skipped=True)
-                        continue
-
-                    LOGGER.info(
-                        "Measuring wire %s at position %s,%s focus=%s",
-                        target.wire_number,
-                        target.x,
-                        target.y,
-                        target.focus_position,
-                    )
-                    result = self.goto_collect_wire_data(
-                        wire_number=target.wire_number,
-                        wire_x=target.x,
-                        wire_y=target.y,
-                        focus_position=target.focus_position,
-                        zone=target.zone,
-                        return_to_center=False,
-                    )
-                    self._complete_wire_profile()
-                    if result is not None and float(result.frequency) > 0.0:
-                        last_successful_result = result
-                        last_successful_wire_number = int(target.wire_number)
-                    measured_count += 1
-                    remaining = len(wires_to_measure) - measured_count
-                    if remaining > 0:
-                        elapsed = self._time() - start_time
-                        avg_time = elapsed / measured_count
-                        est_remaining = avg_time * remaining
-                        eta_text = str(timedelta(seconds=int(est_remaining)))
-                        self.estimated_time_callback(eta_text)
-                        did_report_zero = eta_text == "0:00:00"
-            if not did_report_zero:
-                self.estimated_time_callback("0:00:00")
-            LOGGER.info("Done measuring all wires")
-        finally:
-            self._finish_batch_profile()
+            core.measure_auto()
+        except KeyboardInterrupt:
+            LOGGER.info("Measurement interrupted by user.")
+        except Exception as exc:
+            LOGGER.exception("Rust measurement core failed: %s", exc)
 
     def measure_list(
         self, wire_list: list[int], preserve_order: bool, profile: bool = False
@@ -1500,6 +1458,7 @@ class Tensiometer:
         measuring_timeout = self.config.measuring_duration
         candidate_wires: list[TensionResult] = []
         measured_zone = int(zone) if zone is not None else None
+
         def on_recording_started() -> None:
             self._record_wire_stage(
                 "wait_for_audio_trigger", self._profile_time() - strum_started
