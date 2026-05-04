@@ -14,6 +14,7 @@ debug commands. This README keeps package-specific operational detail only.
 - Queued-motion planning, preview, and PLC queue execution utilities.
 - Rockwell PLC ladder text and exported tag metadata under `plc/`.
 - Python-to-Rockwell Ladder Logic transpilation helpers for selected motion code.
+- Rust-backed geometry and PLC bus helpers exposed through PyO3 modules.
 - Unit tests for recipe generation, process behavior, and core utilities.
 
 ## Requirements
@@ -57,7 +58,17 @@ plcMode = "REAL" # or "SIM"
 ```
 
 ## Development
+
 Use the root README for setup, syncing, testing, linting, and editor workflow.
+Winder code imports local Rust-backed modules such as `dune_geometry` and
+`dune_plc_bus`; `uv sync` builds and installs those PyO3 packages into the
+shared root `.venv`. For changes that cross the Python/Rust boundary, run:
+
+```bash
+uv run pytest tests/dune_winder tests/dune_geometry tests/dune_plc_bus
+cargo test --workspace --manifest-path rust/Cargo.toml
+uv run ty check
+```
 
 ## Remote Command API v2
 
@@ -340,20 +351,20 @@ result into paste-friendly ladder text.
 The winder pushes PLC tag values directly into InfluxDB after each poll cycle
 (~10 Hz) and a pre-configured Grafana dashboard displays them in real time.
 
-### Requirements
+### Dashboard Requirements
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (runs Grafana and InfluxDB as containers — nothing else to install)
 
 ### Monitored tags
 
-| Metric | Tag | Range |
-|---|---|---|
-| Tension | `tension` | 0–10 N |
-| XYZ velocity setpoint | `v_xyz` | 0–1100 mm/s |
-| Tension motor CV | `tension_motor_cv` | 0–10 |
-| X axis position / velocity | `X_axis.ActualPosition/Velocity` | −10–7200 mm |
-| Y axis position / velocity | `Y_axis.ActualPosition/Velocity` | −10–2688 mm |
-| Z axis position / velocity | `Z_axis.ActualPosition/Velocity` | −5–420 mm |
+| Metric                     | Tag                              | Range        |
+| -------------------------- | -------------------------------- | ------------ |
+| Tension                    | `tension`                        | 0–10 N       |
+| XYZ velocity setpoint      | `v_xyz`                          | 0–1100 mm/s  |
+| Tension motor CV           | `tension_motor_cv`               | 0–10         |
+| X axis position / velocity | `X_axis.ActualPosition/Velocity` | −10–7200 mm  |
+| Y axis position / velocity | `Y_axis.ActualPosition/Velocity` | −10–2688 mm  |
+| Z axis position / velocity | `Z_axis.ActualPosition/Velocity` | −5–420 mm    |
 
 ### Usage
 
@@ -371,7 +382,7 @@ docker compose up -d
 
 **3.** Open Grafana in your browser:
 
-```
+```text
 http://localhost:3000
 ```
 
