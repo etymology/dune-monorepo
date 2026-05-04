@@ -14,6 +14,18 @@ function APA(modules) {
 
   var G_CODE_ROWS = 14;
 
+  function computeGCodeRows() {
+    var container = document.getElementById("gCodeDiv");
+    if (!container) return G_CODE_ROWS;
+    var available = container.clientHeight;
+    var header = container.querySelector("h2");
+    if (header) available -= header.offsetHeight;
+    var ROW_HEIGHT = 22;
+    var totalRows = Math.floor(available / ROW_HEIGHT);
+    var halfRows = Math.floor((totalRows - 1) / 2);
+    return Math.max(5, halfRows);
+  }
+
   var LOG_ENTIRES = 6;
 
   // Tags to disable during APA loading.
@@ -655,12 +667,21 @@ function APA(modules) {
 
   page.loadSubPage("/Desktop/Modules/G_Code", "#gCodeDiv", function () {
     var gCode = modules.get("G_Code");
+    G_CODE_ROWS = computeGCodeRows();
     gCode.create(G_CODE_ROWS);
   });
 
   page.loadSubPage("/Desktop/Modules/RecentLog", "#recentLogDiv", function () {
     var recentLog = modules.get("RecentLog");
     recentLog.create(LOG_ENTIRES);
+  });
+
+  page.loadSubPage("/Desktop/Modules/IncrementalJog", "#increments", function () {
+    var incrementalJog = modules.get("IncrementalJog");
+    var manualMove = modules.get("ManualMove");
+    if (manualMove && manualMove.applyVelocityCallback) {
+      manualMove.applyVelocityCallback();
+    }
   });
 
   var createSlider = function (slider, getString, setString) {
