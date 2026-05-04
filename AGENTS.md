@@ -9,7 +9,8 @@ AGENTS.md or CLAUDE.md; all policy lives here.
 ## Python tooling — always use `uv`
 
 This project uses [uv](https://docs.astral.sh/uv/) for dependency and
-environment management.
+environment management. The root `pyproject.toml` is also the Python entrypoint
+for the Rust-backed PyO3 packages in `rust/crates/*`.
 
 **Never** invoke `python`, `python3`, `pip`, or `python -m venv` directly.
 Always prefix with `uv run` or use `uv` itself:
@@ -38,6 +39,35 @@ make typecheck      # uv run ty check
 
 ---
 
+## Joint Python + Rust workflow
+
+Python imports several Rust-backed modules through local `uv` path sources:
+
+- `dune-rust-audio` installs `dune_tension._rust_audio`
+- `dune-tension-core` installs `dune_tension_core`
+- `dune-geometry` installs `dune_geometry`
+- `dune-plc-bus` installs `dune_plc_bus`
+
+Run `uv sync` after changing any PyO3 package metadata, crate features, or lock
+state. It builds the local Rust Python packages into the shared root `.venv`.
+For an explicit rebuild of the audio extension during backend work, use:
+
+```bash
+uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
+```
+
+Use `uv run pytest` for Python tests that exercise those imported extension
+modules, and use Cargo for Rust unit/integration tests. When a change crosses
+the Python/Rust boundary, run both sides before calling the task complete:
+
+```bash
+uv run pytest
+cargo test --workspace --manifest-path rust/Cargo.toml
+uv run ty check
+```
+
+---
+
 ## Rust tooling — use the root Cargo workspace
 
 Rust code lives under `rust/` and uses `rust/Cargo.toml` as the workspace
@@ -53,8 +83,9 @@ cargo fmt --manifest-path rust/Cargo.toml --all
 uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
 ```
 
-The PyO3 extension is installed as `dune_tension._rust_audio` and should be
-built through `uv run maturin ...` so it lands in the repository `.venv`.
+Do not run `cargo` from a crate subdirectory with an implicit manifest. Keep
+workspace-wide checks anchored at `rust/Cargo.toml` so shared dependency and
+feature resolution match CI and the root Makefile.
 
 ---
 
@@ -117,13 +148,15 @@ runs are only needed for bulk reformatting.
 - Lock file: `uv.lock` (canonical — always commit this)
 - Rust workspace: `rust/` with lock file `rust/Cargo.lock`
 - Python ≥ 3.12 (managed by uv); works on Windows and Unix/macOS
-- Rust ≥ 1.83 for the optional `dune_tension._rust_audio` extension
+- Rust ≥ 1.83 for the Rust workspace and PyO3 extension modules
 
 ### Test by package
 
 ```bash
 uv run pytest tests/dune_tension    # tension package only
 uv run pytest tests/dune_winder     # winder package only
+uv run pytest tests/dune_geometry   # Python surface tests for dune_geometry
+uv run pytest tests/dune_plc_bus    # Python surface tests for dune_plc_bus
 cargo test --workspace --manifest-path rust/Cargo.toml
 ```
 

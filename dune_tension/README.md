@@ -5,7 +5,7 @@ Wire-tension measurement tooling for DUNE APA work, including:
 - A Tk GUI for guided measurements (`dune_tension`)
 - Spectrum/pitch analysis CLIs (`spectrum_analysis`)
 - PLC/servo/valve control integration
-- Optional Rust audio/DSP/ONNX backend exposed through `dune_tension._rust_audio`
+- Rust-backed PyO3 modules for audio/DSP/ONNX and selected core workflows
 - Logging, summaries, plots, and M2M upload utilities
 
 The supported setup and development workflow starts at the monorepo root.
@@ -24,7 +24,7 @@ debug commands. This README keeps package-specific operational detail only.
 ## Requirements
 
 - Python `>=3.12`
-- Rust `>=1.83` when building the optional Rust audio extension
+- Rust `>=1.83` for the local Rust-backed Python modules
 - macOS/Linux with audio input support
 - Optional hardware:
   - PLC reachable either directly via `pycomm3` or through `src/dune_tension/tension_server.py`
@@ -32,8 +32,10 @@ debug commands. This README keeps package-specific operational detail only.
   - Supported valve trigger device
 
 Project dependencies are declared in [pyproject.toml](pyproject.toml).
-Rust crates and dependency versions are declared in [../rust/Cargo.toml](../rust/Cargo.toml)
-and locked by [../rust/Cargo.lock](../rust/Cargo.lock).
+Rust crates and dependency versions are declared in
+[../rust/Cargo.toml](../rust/Cargo.toml) and locked by
+[../rust/Cargo.lock](../rust/Cargo.lock). The root `uv sync` installs the
+local PyO3 packages from `../rust/crates/*` into the shared `.venv`.
 
 ## Entry Points
 
@@ -138,10 +140,16 @@ Default runtime paths include:
 - Plots: `dune_tension/data/tension_plots/`
 - Missing/bad wires: `dune_tension/data/badwires/`
 
-## Rust Audio Backend
+## Rust-Backed Python Modules
 
-The optional Rust extension accelerates audio DSP helpers and exposes an ONNX
-PESTO path. Build it into the root `.venv` with:
+The tension package uses Rust through Python extension modules installed by the
+root `uv sync`:
+
+- `dune_tension._rust_audio` for audio DSP helpers and Rust ONNX PESTO paths
+- `dune_tension_core` for selected tensiometer runtime behavior
+- `dune_geometry` for shared APA geometry and calibration calculations
+
+Explicitly rebuild the audio extension while iterating on that crate:
 
 ```bash
 uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
@@ -180,6 +188,14 @@ Example uploader script:
 ## Development
 
 Use the root README for setup, syncing, testing, linting, and editor workflow.
+For changes that cross the Python/Rust boundary, run:
+
+```bash
+uv run pytest tests/dune_tension
+cargo test --workspace --manifest-path rust/Cargo.toml
+uv run ty check
+```
+
 Package-local compile checks can still be run with:
 
 ```bash
