@@ -107,7 +107,7 @@ entity WindingRun {
   layer: Layer
   started_at: Timestamp
   completed_at: Timestamp?
-  state: running | paused | completed | stopped | failed
+  state: running | pause_pending | paused | completed | stopped | failed
   continuous_order: List<WrapInstruction>
   current_step_index: Integer
   total_steps: Integer
@@ -261,11 +261,24 @@ rule AdvanceWindingRun {
   ensures: run.current_step_index = step_index + 1
 }
 
+rule AdvanceAndPauseWindingRun {
+  when: WindingStepCompleted(run, step_index)
+  requires: run.state = pause_pending
+  requires: step_index = run.current_step_index
+
+  ensures: run.current_step_index = step_index + 1
+  ensures: run.state = paused
+}
+
 rule PauseWindingRun {
   when: OperatorPausesWinding(run)
   requires: run.state = running
 
-  ensures: run.state = paused
+  ensures: run.state = pause_pending
+
+  @guidance
+    -- Pausing is a "pause next" operation: the winder completes the current
+    -- macro (step) before entering the paused state.
 }
 
 rule ResumeWindingRun {
@@ -278,7 +291,7 @@ rule ResumeWindingRun {
 
 rule CompleteWindingRun {
   when: run: WindingRun.all_steps_completed
-  requires: run.state = running
+  requires: run.state in { running, pause_pending }
 
   ensures: run.state = completed
   ensures: run.completed_at = now
@@ -286,15 +299,19 @@ rule CompleteWindingRun {
 
 rule StopWindingRun {
   when: OperatorStopsWinding(run)
-  requires: run.state in { running, paused }
+  requires: run.state in { running, pause_pending, paused }
 
   ensures: run.state = stopped
   ensures: run.completed_at = now
+
+  @guidance
+    -- Stopping is immediate. This rule corresponds to the "hmi stop 14"
+    -- command which halts the winder regardless of the current macro state.
 }
 
 rule FailWindingRun {
   when: WindingRunFailed(run, reason)
-  requires: run.state in { running, paused }
+  requires: run.state in { running, pause_pending, paused }
 
   ensures: run.state = failed
   ensures: run.completed_at = now
@@ -366,6 +383,15 @@ rule CalibrationReadyToApply {
   requires: session.state = capturing
 
   ensures: session.state = ready_to_apply
+
+  @guidance
+    -- A calibration session is ready to apply when the required subset of
+    -- features for the layer has been captured and accepted.
+    --
+    -- For X and G layers, the required comb-slot subset is the first and
+    -- last slots of the B side at both the head and foot boards:
+    --   X Layer: BH1, BH480, BF481, BF960
+    --   G Layer: BH1, BH481, BF482, BF962
 }
 
 rule ApplyCalibrationSession {
@@ -670,9 +696,3 @@ surface TensionHardwareBoundary {
 --   - tension measurement internals: specs/tension-measurement.allium
 --   - tension physics: specs/tension-physics.allium
 
-------------------------------------------------------------
--- Open Questions
-------------------------------------------------------------
-
-open question "For X/G calibration, which comb-slot subset is required before calibration may be applied: every slot, fixed head/foot reference slots, or a sampled set per comb?"
-open question "Should winding expose pause/resume at every macro boundary, every continuous-wrap step, or only at explicit recipe breakpoints?"

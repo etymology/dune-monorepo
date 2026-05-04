@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 use crate::calibration::{
-    CalibrationError, CalibrationPoint, HeadSide, MachineCalibrationFile,
+    CalibrationError, CalibrationPoint, HeadConfig, HeadSide, MachineCalibrationFile,
     MachineCalibrationModel, PerPinOffset, PinCalibrationFile, PinCalibrationSnapshot,
     PinCoordinate, Vec3,
 };
@@ -17,8 +17,8 @@ use crate::pins::{
 use crate::spine::{
     derive_pin_position_from_spine as rust_derive_pin_position_from_spine,
     observe_spine_point_from_touch as rust_observe_spine_point_from_touch,
-    solve_spine_loop as rust_solve_spine_loop, CalibrationTouch, SpineCalibrationFile,
-    SpineLoop, SpinePoint,
+    solve_spine_plane as rust_solve_spine_plane, CalibrationTouch, SpineCalibrationFile,
+    SpinePlane,
 };
 use crate::wire::{
     actual_wire_point_from_machine_target as rust_actual_wire_point_from_machine_target,
@@ -49,6 +49,27 @@ fn head_side_str(side: HeadSide) -> &'static str {
     match side {
         HeadSide::Stage => "stage",
         HeadSide::Fixed => "fixed",
+    }
+}
+
+fn parse_head_config(value: &str) -> PyResult<HeadConfig> {
+    match value {
+        "stage_a" => Ok(HeadConfig::StageA),
+        "stage_b" => Ok(HeadConfig::StageB),
+        "fixed" => Ok(HeadConfig::Fixed),
+        "retracted" => Ok(HeadConfig::Retracted),
+        other => Err(PyValueError::new_err(format!(
+            "unknown head_config {other:?}; expected 'stage_a', 'stage_b', 'fixed', or 'retracted'"
+        ))),
+    }
+}
+
+fn head_config_str(config: HeadConfig) -> &'static str {
+    match config {
+        HeadConfig::StageA => "stage_a",
+        HeadConfig::StageB => "stage_b",
+        HeadConfig::Fixed => "fixed",
+        HeadConfig::Retracted => "retracted",
     }
 }
 
@@ -523,7 +544,7 @@ impl PyCalibrationPoint {
         gcode_line,
         calculated_xyz,
         recorded_xyz,
-        head_side,
+        head_config,
         operator = None,
         pin = None,
     ))]
@@ -533,11 +554,11 @@ impl PyCalibrationPoint {
         gcode_line: String,
         calculated_xyz: &PyVec3,
         recorded_xyz: &PyVec3,
-        head_side: &str,
+        head_config: &str,
         operator: Option<String>,
         pin: Option<PyPin>,
     ) -> PyResult<Self> {
-        let hs = parse_head_side(head_side)?;
+        let hc = parse_head_config(head_config)?;
         Ok(PyCalibrationPoint {
             inner: CalibrationPoint {
                 captured_at,
@@ -546,7 +567,7 @@ impl PyCalibrationPoint {
                 gcode_line,
                 calculated_xyz: calculated_xyz.inner,
                 recorded_xyz: recorded_xyz.inner,
-                head_side: hs,
+                head_config: hc,
                 pin: pin.map(|p| p.inner),
             },
         })
@@ -577,8 +598,8 @@ impl PyCalibrationPoint {
         PyVec3::from_inner(self.inner.recorded_xyz)
     }
     #[getter]
-    fn head_side(&self) -> &'static str {
-        head_side_str(self.inner.head_side)
+    fn head_config(&self) -> &'static str {
+        head_config_str(self.inner.head_config)
     }
     #[getter]
     fn pin(&self) -> Option<PyPin> {
@@ -588,6 +609,16 @@ impl PyCalibrationPoint {
     fn offset(&self) -> PyVec3 {
         PyVec3::from_inner(self.inner.offset())
     }
+}
+
+/// Module-level helper: derive the 4-way head configuration from the
+/// `(anchor_side, target_side)` pair of an `~anchorToTarget` macro.
+#[pyfunction]
+#[pyo3(name = "head_config_from_sides")]
+fn py_head_config_from_sides(anchor_side: &str, target_side: &str) -> PyResult<&'static str> {
+    let a = parse_side(anchor_side)?;
+    let t = parse_side(target_side)?;
+    Ok(head_config_str(HeadConfig::from_sides(a, t)))
 }
 
 #[pyclass(name = "MachineCalibrationFile", module = "dune_geometry")]
@@ -917,86 +948,28 @@ fn py_actual_wire_point_from_machine_target(
 // Spine calibration pyclasses & functions
 // =========================================================================
 
-#[pyclass(name = "SpinePoint", module = "dune_geometry", frozen, eq, from_py_object)]
+#[pyclass(name = "SpinePlane", module = "dune_geometry", frozen, eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
-pub struct PySpinePoint {
-    inner: SpinePoint,
+pub struct PySpinePlane {
+    inner: SpinePlane,
 }
 
 #[pymethods]
-impl PySpinePoint {
+impl PySpinePlane {
     #[new]
-    fn new(layer: &str, number: u16, xyz: &PyVec3) -> PyResult<Self> {
-        Ok(PySpinePoint {
-            inner: SpinePoint {
-                layer: parse_layer(layer)?,
-                number,
-                xyz: xyz.inner,
-            },
-        })
+    fn new(a: f64, b: f64, c: f64) -> Self {
+        PySpinePlane { inner: SpinePlane { a, b, c } }
     }
 
     #[getter]
-    fn layer(&self) -> &'static str {
-        match self.inner.layer {
-            Layer::U => "U",
-            Layer::V => "V",
-            Layer::X => "X",
-            Layer::G => "G",
-        }
-    }
-
+    fn a(&self) -> f64 { self.inner.a }
     #[getter]
-    fn number(&self) -> u16 {
-        self.inner.number
-    }
-
+    fn b(&self) -> f64 { self.inner.b }
     #[getter]
-    fn xyz(&self) -> PyVec3 {
-        PyVec3::from_inner(self.inner.xyz)
-    }
-}
+    fn c(&self) -> f64 { self.inner.c }
 
-#[pyclass(name = "SpineLoop", module = "dune_geometry", from_py_object)]
-#[derive(Clone)]
-pub struct PySpineLoop {
-    inner: SpineLoop,
-}
-
-#[pymethods]
-impl PySpineLoop {
-    #[new]
-    fn new(layer: &str, points: Vec<PySpinePoint>) -> PyResult<Self> {
-        Ok(PySpineLoop {
-            inner: SpineLoop {
-                layer: parse_layer(layer)?,
-                points: points.into_iter().map(|p| p.inner).collect(),
-            },
-        })
-    }
-
-    #[getter]
-    fn layer(&self) -> &'static str {
-        match self.inner.layer {
-            Layer::U => "U",
-            Layer::V => "V",
-            Layer::X => "X",
-            Layer::G => "G",
-        }
-    }
-
-    #[getter]
-    fn points(&self) -> Vec<PySpinePoint> {
-        self.inner
-            .points
-            .iter()
-            .copied()
-            .map(|p| PySpinePoint { inner: p })
-            .collect()
-    }
-
-    fn point(&self, number: u16) -> Option<PySpinePoint> {
-        self.inner.point(number).copied().map(|p| PySpinePoint { inner: p })
+    fn z_at(&self, x: f64, y: f64) -> f64 {
+        self.inner.z_at(x, y)
     }
 }
 
@@ -1009,12 +982,12 @@ pub struct PySpineCalibrationFile {
 #[pymethods]
 impl PySpineCalibrationFile {
     #[new]
-    #[pyo3(signature = (machine_id, loops = vec![]))]
-    fn new(machine_id: String, loops: Vec<PySpineLoop>) -> Self {
+    #[pyo3(signature = (machine_id, plane = None))]
+    fn new(machine_id: String, plane: Option<PySpinePlane>) -> Self {
         PySpineCalibrationFile {
             inner: SpineCalibrationFile {
                 machine_id,
-                loops: loops.into_iter().map(|l| l.inner).collect(),
+                plane: plane.map(|p| p.inner),
             },
         }
     }
@@ -1025,31 +998,20 @@ impl PySpineCalibrationFile {
     }
 
     #[getter]
-    fn loops(&self) -> Vec<PySpineLoop> {
-        self.inner
-            .loops
-            .iter()
-            .cloned()
-            .map(|l| PySpineLoop { inner: l })
-            .collect()
+    fn plane(&self) -> Option<PySpinePlane> {
+        self.inner.plane.map(|p| PySpinePlane { inner: p })
     }
 
-    fn loop_for(&self, layer: &str) -> PyResult<Option<PySpineLoop>> {
+    fn set_plane(&mut self, plane: Option<PySpinePlane>) {
+        self.inner.plane = plane.map(|p| p.inner);
+    }
+
+    /// Z coordinate of a `(layer, side)` pin at winder position `(x, y)`.
+    /// Falls back to the default plane `Z = 207` when no plane is set.
+    fn z_at(&self, layer: &str, side: &str, x: f64, y: f64) -> PyResult<f64> {
         let layer = parse_layer(layer)?;
-        Ok(self
-            .inner
-            .loop_for(layer)
-            .cloned()
-            .map(|l| PySpineLoop { inner: l }))
-    }
-
-    /// Derived raw camera-space XYZ for a `(layer, side, number)` pin.
-    /// Returns `None` when the layer's loop is missing or the loop has
-    /// no spine point at that number.
-    fn raw_pin_position(&self, pin: &PyPin) -> Option<(f64, f64, f64)> {
-        self.inner
-            .raw_pin_position(pin.inner)
-            .map(|v| (v.x, v.y, v.z))
+        let side = parse_side(side)?;
+        Ok(self.inner.z_at(layer, side, x, y))
     }
 }
 
@@ -1064,14 +1026,18 @@ impl PyAnchorToTargetSpineRequest {
     #[new]
     #[pyo3(signature = (
         anchor_pin,
+        anchor_xy,
         target_pin,
+        target_xy,
         head_side,
         target_offset = None,
         hover = false,
     ))]
     fn new(
         anchor_pin: &PyPin,
+        anchor_xy: (f64, f64),
         target_pin: &PyPin,
+        target_xy: (f64, f64),
         head_side: &str,
         target_offset: Option<(f64, f64)>,
         hover: bool,
@@ -1080,7 +1046,9 @@ impl PyAnchorToTargetSpineRequest {
         Ok(PyAnchorToTargetSpineRequest {
             inner: AnchorToTargetSpineRequest {
                 anchor_pin: anchor_pin.inner,
+                anchor_xy,
                 target_pin: target_pin.inner,
+                target_xy,
                 target_offset,
                 head_side: hs,
                 hover,
@@ -1093,8 +1061,16 @@ impl PyAnchorToTargetSpineRequest {
         PyPin { inner: self.inner.anchor_pin }
     }
     #[getter]
+    fn anchor_xy(&self) -> (f64, f64) {
+        self.inner.anchor_xy
+    }
+    #[getter]
     fn target_pin(&self) -> PyPin {
         PyPin { inner: self.inner.target_pin }
+    }
+    #[getter]
+    fn target_xy(&self) -> (f64, f64) {
+        self.inner.target_xy
     }
     #[getter]
     fn target_offset(&self) -> Option<(f64, f64)> {
@@ -1110,10 +1086,9 @@ impl PyAnchorToTargetSpineRequest {
     }
 }
 
-/// Spine-backed parallel of `solve_anchor_to_target`: resolves the
-/// anchor and target raw XYZ from `spine_file` and delegates to the
-/// existing solver. Errors with `ValueError` if either pin's spine
-/// point is missing or if the two pins are on different layers.
+/// Spine-backed parallel of `solve_anchor_to_target`: resolves Z for
+/// each pin from the spine plane and delegates to the existing solver.
+/// Errors with `ValueError` if the pins are on different layers.
 #[pyfunction]
 #[pyo3(name = "solve_anchor_to_target_from_spine")]
 fn py_solve_anchor_to_target_from_spine(
@@ -1157,16 +1132,14 @@ fn py_observe_spine_point_from_touch(
     (observed.x, observed.y, observed.z)
 }
 
-/// Fit a closed continuous spine loop to a list of calibration touches
-/// `[(pin, (winder_x, winder_y, winder_z)), ...]`. Returns a
-/// `SpineLoop` covering every pin number in `1..=pin_count(layer)`.
+/// Fit the APA-wide spine plane from calibration touches
+/// `[(pin, (winder_x, winder_y, winder_z)), ...]`. Touches may span
+/// any combination of layers and sides. Returns a `SpinePlane`.
 #[pyfunction]
-#[pyo3(name = "solve_spine_loop")]
-fn py_solve_spine_loop(
-    layer: &str,
+#[pyo3(name = "solve_spine_plane")]
+fn py_solve_spine_plane(
     touches: Vec<(PyPin, (f64, f64, f64))>,
-) -> PyResult<PySpineLoop> {
-    let layer = parse_layer(layer)?;
+) -> PyResult<PySpinePlane> {
     let touches: Vec<CalibrationTouch> = touches
         .into_iter()
         .map(|(pin, (x, y, z))| CalibrationTouch {
@@ -1174,8 +1147,8 @@ fn py_solve_spine_loop(
             winder_xyz: Vec3::new(x, y, z),
         })
         .collect();
-    rust_solve_spine_loop(layer, &touches)
-        .map(|loop_| PySpineLoop { inner: loop_ })
+    rust_solve_spine_plane(&touches)
+        .map(|plane| PySpinePlane { inner: plane })
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
@@ -1223,13 +1196,13 @@ pub fn dune_geometry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_tangent_for_pin_pair, m)?)?;
     m.add_function(wrap_pyfunction!(py_compute_arm_corrected_outbound, m)?)?;
     m.add_function(wrap_pyfunction!(py_actual_wire_point_from_machine_target, m)?)?;
-    m.add_class::<PySpinePoint>()?;
-    m.add_class::<PySpineLoop>()?;
+    m.add_class::<PySpinePlane>()?;
     m.add_class::<PySpineCalibrationFile>()?;
     m.add_class::<PyAnchorToTargetSpineRequest>()?;
     m.add_function(wrap_pyfunction!(py_derive_pin_position_from_spine, m)?)?;
     m.add_function(wrap_pyfunction!(py_observe_spine_point_from_touch, m)?)?;
-    m.add_function(wrap_pyfunction!(py_solve_spine_loop, m)?)?;
+    m.add_function(wrap_pyfunction!(py_solve_spine_plane, m)?)?;
     m.add_function(wrap_pyfunction!(py_solve_anchor_to_target_from_spine, m)?)?;
+    m.add_function(wrap_pyfunction!(py_head_config_from_sides, m)?)?;
     Ok(())
 }

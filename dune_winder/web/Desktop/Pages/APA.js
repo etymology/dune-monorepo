@@ -52,6 +52,12 @@ function APA(modules) {
   var forecastLogHandledId = 0;
   var forecastPollTimer = null;
   var lastSegmentLookupLine = null;
+  var spineCapturePollTimer = null;
+  var spineCaptureRequestId = 0;
+  var spineCaptureHandledId = 0;
+  var spineCaptureLastState = null;
+  var spineCaptureFrozenForDialog = null;
+  var SPINE_CAPTURE_WARN_MM = 5.0;
 
   //-----------------------------------------------------------------------------
   // Uses:
@@ -563,6 +569,248 @@ function APA(modules) {
       .on("click.apa", function () {
         self.jumpWraps();
       });
+
+    $("#spineCaptureButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        openSpineCaptureDialog();
+      });
+
+    $("#spineCaptureCancelButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        closeSpineCaptureDialog();
+      });
+
+    $("#spineCaptureDialogClose")
+      .off("click.apa")
+      .on("click.apa", function () {
+        closeSpineCaptureDialog();
+      });
+
+    $("#spineCaptureConfirmButton")
+      .off("click.apa")
+      .on("click.apa", function () {
+        confirmSpineCapture();
+      });
+  };
+
+  // -- Spine Capture (APA.html one-click pose capture) --------------------
+
+  var formatNumber = function (value) {
+    if (value === null || value === undefined || isNaN(value)) return "-";
+    return Number(value).toFixed(2);
+  };
+
+  var formatXyz = function (xyz) {
+    if (!xyz) return "-";
+    return (
+      formatNumber(xyz.x) +
+      "  " +
+      formatNumber(xyz.y) +
+      "  " +
+      formatNumber(xyz.z)
+    );
+  };
+
+  var formatDelta = function (delta) {
+    if (!delta) return "-";
+    var part = function (v) {
+      if (v === null || v === undefined || isNaN(v)) return "-";
+      var sign = v >= 0 ? "+" : "";
+      return sign + Number(v).toFixed(2);
+    };
+    return part(delta.x) + "  " + part(delta.y) + "  " + part(delta.z);
+  };
+
+  var computeDelta = function (current, calculated) {
+    if (!current || !calculated) return null;
+    var calcZ = calculated.z;
+    if (calcZ === null || calcZ === undefined) calcZ = calculated.pinZ;
+    if (calcZ === null || calcZ === undefined) return null;
+    return {
+      x: current.x - calculated.x,
+      y: current.y - calculated.y,
+      z: current.z - calcZ,
+    };
+  };
+
+  var deltaExceedsWarning = function (delta) {
+    if (!delta) return false;
+    return (
+      Math.abs(delta.x) > SPINE_CAPTURE_WARN_MM ||
+      Math.abs(delta.y) > SPINE_CAPTURE_WARN_MM ||
+      Math.abs(delta.z) > SPINE_CAPTURE_WARN_MM
+    );
+  };
+
+  var formatPropagationScope = function (scope) {
+    if (!scope) return "-";
+    var line = scope.wrapLineNumber;
+    var count = scope.wrapCount;
+    if (line === null || line === undefined) return "-";
+    if (count === null || count === undefined) {
+      return "line " + line + " of every wrap";
+    }
+    return "line " + line + " of every wrap (" + count + " wraps)";
+  };
+
+  var updateSpineCapturePanel = function (state) {
+    spineCaptureLastState = state || null;
+
+    var $status = $("#spineCaptureStatus");
+    var $body = $("#spineCaptureBody");
+    var $button = $("#spineCaptureButton");
+
+    if (!state) {
+      $status.text("-");
+      $body.css("opacity", "0.6");
+      $button.prop("disabled", true);
+      return;
+    }
+
+    if (!state.available) {
+      $status.text("dune_geometry not loaded — capture unavailable");
+      $body.css("opacity", "0.4");
+      $button.prop("disabled", true);
+      return;
+    }
+
+    var trace = state.lastTrace || null;
+    var lineText = trace && trace.line ? String(trace.line) : "-";
+    var calculated =
+      trace && trace.resultingTarget
+        ? {
+            x: trace.resultingTarget.x,
+            y: trace.resultingTarget.y,
+            z: trace.resultingTarget.pinZ,
+          }
+        : null;
+    var current = state.currentXyz || null;
+    var delta = computeDelta(current, calculated);
+
+    var anchorTarget = "-";
+    if (state.anchorSide && state.targetSide) {
+      anchorTarget = state.anchorSide + " face → " + state.targetSide + " face";
+    }
+    var headConfigText = "-";
+    if (state.headConfig) {
+      headConfigText =
+        state.headConfig +
+        (state.headConfigLabel ? "  (" + state.headConfigLabel + ")" : "");
+    }
+
+    $("#spineCaptureLastLine").text(lineText);
+    $("#spineCaptureAnchorTarget").text(anchorTarget);
+    $("#spineCaptureHeadConfig").text(headConfigText);
+    $("#spineCaptureCalculated").text(formatXyz(calculated));
+    $("#spineCaptureCurrent").text(formatXyz(current));
+
+    var $delta = $("#spineCaptureDelta");
+    $delta.text(formatDelta(delta));
+    $delta.toggleClass("spineCaptureWarn", deltaExceedsWarning(delta));
+
+    $("#spineCapturePropagation").text(
+      formatPropagationScope(state.propagationScope)
+    );
+
+    var captureCount = state.captureCount || 0;
+    $("#spineCaptureCount").text(captureCount + " captures recorded");
+
+    if (state.canRecord) {
+      $status.text("Ready to capture.");
+      $body.css("opacity", "1");
+    } else {
+      var reason;
+      if (!trace) reason = "Run a recipe to begin.";
+      else if (!state.headConfig)
+        reason = "Last line is not an ~anchorToTarget move.";
+      else if (!state.propagationScope)
+        reason = "No propagation scope (line not labelled).";
+      else reason = "Pause the recipe to enable capture.";
+      $status.text(reason);
+      $body.css("opacity", "0.7");
+    }
+    $button.prop("disabled", !state.canRecord);
+  };
+
+  var openSpineCaptureDialog = function () {
+    var state = spineCaptureLastState;
+    if (!state || !state.canRecord) return;
+
+    var trace = state.lastTrace || null;
+    var calculated =
+      trace && trace.resultingTarget
+        ? {
+            x: trace.resultingTarget.x,
+            y: trace.resultingTarget.y,
+            z: trace.resultingTarget.pinZ,
+          }
+        : null;
+    var current = state.currentXyz || null;
+    var delta = computeDelta(current, calculated);
+    if (!delta) return;
+
+    spineCaptureFrozenForDialog = {
+      delta: delta,
+      headConfig: state.headConfig,
+      headConfigLabel: state.headConfigLabel,
+      propagationScope: state.propagationScope,
+    };
+
+    $("#spineCaptureDialogOffset").text(formatDelta(delta));
+    $("#spineCaptureDialogScope").text(
+      formatPropagationScope(state.propagationScope)
+    );
+    var headConfigText = state.headConfig || "-";
+    if (state.headConfigLabel) {
+      headConfigText += "  (" + state.headConfigLabel + ")";
+    }
+    $("#spineCaptureDialogHeadConfig").text(headConfigText);
+
+    var warn = deltaExceedsWarning(delta);
+    $("#spineCaptureDialogWarning").toggleClass("hidden", !warn);
+    $("#spineCaptureConfirmButton").text(
+      warn ? "Use Current Position (override)" : "Use Current Position"
+    );
+
+    $("#spineCaptureDialog").removeClass("hidden");
+  };
+
+  var closeSpineCaptureDialog = function () {
+    spineCaptureFrozenForDialog = null;
+    $("#spineCaptureDialog").addClass("hidden");
+  };
+
+  var confirmSpineCapture = function () {
+    if (!spineCaptureFrozenForDialog) {
+      closeSpineCaptureDialog();
+      return;
+    }
+    var $confirm = $("#spineCaptureConfirmButton");
+    $confirm.prop("disabled", true);
+    call(
+      commands.process.machineCaptureRecord,
+      {},
+      function () {
+        $confirm.prop("disabled", false);
+        closeSpineCaptureDialog();
+        pollSpineCapture();
+      },
+      function () {
+        $confirm.prop("disabled", false);
+      }
+    );
+  };
+
+  var pollSpineCapture = function () {
+    spineCaptureRequestId += 1;
+    var requestId = spineCaptureRequestId;
+    call(commands.process.machineCaptureGetState, {}, function (data) {
+      if (requestId < spineCaptureHandledId) return;
+      spineCaptureHandledId = requestId;
+      updateSpineCapturePanel(data);
+    });
   };
 
   bindControls();
@@ -1127,10 +1375,17 @@ function APA(modules) {
   fetchForecastLogs();
   forecastPollTimer = setInterval(fetchForecastLogs, 2000);
 
+  pollSpineCapture();
+  spineCapturePollTimer = setInterval(pollSpineCapture, 1000);
+
   modules.registerShutdownCallback(function () {
     if (forecastPollTimer) {
       clearInterval(forecastPollTimer);
       forecastPollTimer = null;
+    }
+    if (spineCapturePollTimer) {
+      clearInterval(spineCapturePollTimer);
+      spineCapturePollTimer = null;
     }
   });
 }

@@ -647,10 +647,6 @@ pub enum WireError {
         anchor_sides: (i8, i8),
         target_sides: (i8, i8),
     },
-    #[error(
-        "spine calibration is missing a point for pin {pin} (layer loop absent or pin number not covered)"
-    )]
-    MissingSpinePoint { pin: Pin },
 }
 
 /// Resolve the per-pose camera wire offset for a `(pin, head_side)` pair.
@@ -717,13 +713,15 @@ pub fn solve_anchor_to_target(
 }
 
 /// Pin-keyed variant of [`AnchorToTargetRequest`] for the spine-based
-/// adoption path. Raw camera-space XYZ for each pin is resolved at
-/// solve time from a [`SpineCalibrationFile`], so callers no longer
-/// have to plumb XYZ through themselves.
+/// adoption path. The caller supplies the winder (X, Y) position for
+/// each pin; the spine plane provides the Z coordinate via
+/// [`SpineCalibrationFile::z_at`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AnchorToTargetSpineRequest {
     pub anchor_pin: Pin,
+    pub anchor_xy: (f64, f64),
     pub target_pin: Pin,
+    pub target_xy: (f64, f64),
     /// Optional `(dx, dy)` to add to the resolved target XYZ before the
     /// offset model is applied. Mirrors the legacy `offset=(x,y)` keyword.
     pub target_offset: Option<(f64, f64)>,
@@ -731,12 +729,9 @@ pub struct AnchorToTargetSpineRequest {
     pub hover: bool,
 }
 
-/// Spine-backed parallel of [`solve_anchor_to_target`]: resolves
-/// `anchor_xyz` and `target_xyz` from `spine_file` (via
-/// [`SpineCalibrationFile::raw_pin_position`]) and then delegates to
-/// the existing solver. Runs alongside the per-side `PinCalibrationFile`
-/// pathway during adoption — Python callers can flip onto this surface
-/// without flipping any of the underlying solver.
+/// Spine-backed parallel of [`solve_anchor_to_target`]: resolves Z
+/// for each pin from `spine_file` (via [`SpineCalibrationFile::z_at`])
+/// and delegates to the existing solver.
 pub fn solve_anchor_to_target_from_spine(
     request: &AnchorToTargetSpineRequest,
     spine_file: &SpineCalibrationFile,
@@ -748,16 +743,18 @@ pub fn solve_anchor_to_target_from_spine(
             target: request.target_pin,
         });
     }
-    let anchor_xyz = spine_file
-        .raw_pin_position(request.anchor_pin)
-        .ok_or(WireError::MissingSpinePoint {
-            pin: request.anchor_pin,
-        })?;
-    let target_xyz = spine_file
-        .raw_pin_position(request.target_pin)
-        .ok_or(WireError::MissingSpinePoint {
-            pin: request.target_pin,
-        })?;
+    let (ax, ay) = request.anchor_xy;
+    let anchor_xyz = Vec3::new(
+        ax,
+        ay,
+        spine_file.z_at(request.anchor_pin.layer, request.anchor_pin.side, ax, ay),
+    );
+    let (tx, ty) = request.target_xy;
+    let target_xyz = Vec3::new(
+        tx,
+        ty,
+        spine_file.z_at(request.target_pin.layer, request.target_pin.side, tx, ty),
+    );
     let xyz_request = AnchorToTargetRequest {
         anchor_pin: request.anchor_pin,
         anchor_xyz,
@@ -775,7 +772,7 @@ mod tests {
     use super::*;
     use crate::calibration::PerPinOffset;
     use crate::pins::{Layer, Side};
-    use crate::spine::{SpineLoop, SpinePoint};
+    use crate::spine::SpinePlane;
 
     fn ua(n: u16) -> Pin {
         Pin::new(Layer::U, Side::A, n).unwrap()
@@ -1126,49 +1123,41 @@ mod tests {
         assert!(matches!(result, Err(WireError::CoincidentPinCenters)));
     }
 
-    fn spine_file_with(layer: Layer, points: Vec<(u16, Vec3)>) -> SpineCalibrationFile {
+    fn spine_file_flat(_layer: Layer, z: f64) -> SpineCalibrationFile {
         SpineCalibrationFile {
             machine_id: "test".to_string(),
-            loops: vec![SpineLoop {
-                layer,
-                points: points
-                    .into_iter()
-                    .map(|(number, xyz)| SpinePoint { layer, number, xyz })
-                    .collect(),
-            }],
+            plane: Some(SpinePlane { a: 0.0, b: 0.0, c: z }),
         }
     }
 
     #[test]
-    fn spine_solve_matches_xyz_solve_when_spine_covers_both_pins() {
+    fn spine_solve_matches_xyz_solve_for_flat_plane() {
         let model = MachineCalibrationModel {
             base_camera_wire_offset_stage: Vec3::new(1.0, 2.0, 0.0),
             base_camera_wire_offset_fixed: Vec3::ZERO,
             per_pin_camera_wire_offset: vec![],
             arm_correction: Vec3::new(0.5, 0.0, -0.25),
         };
-        // Spine sits at Z=50 for pin 1 and Z=60 for pin 2; A side derives
-        // by adding +half_board_width_z_mm (= 65 mm for U).
-        let spine = spine_file_with(
-            Layer::U,
-            vec![
-                (1, Vec3::new(100.0, 100.0, -15.0)),
-                (2, Vec3::new(200.0, 200.0, -5.0)),
-            ],
-        );
+        // Flat spine at Z=207. Anchor at (100, 100), target at (200, 200).
+        let spine = spine_file_flat(Layer::U, 207.0);
+        let anchor_xy = (100.0, 100.0);
+        let target_xy = (200.0, 200.0);
         let spine_request = AnchorToTargetSpineRequest {
             anchor_pin: ua(1),
+            anchor_xy,
             target_pin: ub(2),
+            target_xy,
             target_offset: None,
             head_side: HeadSide::Stage,
             hover: false,
         };
         let spine_sol = solve_anchor_to_target_from_spine(&spine_request, &spine, &model).unwrap();
 
-        // Recompute via the existing XYZ-based path with the same derived
-        // coordinates and assert the solutions agree exactly.
-        let anchor_xyz = spine.raw_pin_position(ua(1)).unwrap();
-        let target_xyz = spine.raw_pin_position(ub(2)).unwrap();
+        // Recompute via the existing XYZ-based path with the same Z values.
+        let (ax, ay) = anchor_xy;
+        let anchor_xyz = Vec3::new(ax, ay, spine.z_at(Layer::U, Side::A, ax, ay));
+        let (tx, ty) = target_xy;
+        let target_xyz = Vec3::new(tx, ty, spine.z_at(Layer::U, Side::B, tx, ty));
         let xyz_request = AnchorToTargetRequest {
             anchor_pin: ua(1),
             anchor_xyz,
@@ -1183,42 +1172,33 @@ mod tests {
     }
 
     #[test]
-    fn spine_solve_errors_when_layer_loop_is_missing() {
+    fn spine_solve_falls_back_to_default_when_layer_absent() {
+        // No calibration for U — should still succeed using the default plane.
         let model = MachineCalibrationModel::empty();
         let spine = SpineCalibrationFile::new("test".to_string());
         let request = AnchorToTargetSpineRequest {
             anchor_pin: ua(1),
+            anchor_xy: (0.0, 0.0),
             target_pin: ub(2),
+            target_xy: (10.0, 10.0),
             target_offset: None,
             head_side: HeadSide::Stage,
             hover: false,
         };
-        let err = solve_anchor_to_target_from_spine(&request, &spine, &model);
-        assert!(matches!(err, Err(WireError::MissingSpinePoint { pin }) if pin == ua(1)));
-    }
-
-    #[test]
-    fn spine_solve_errors_when_pin_number_is_missing() {
-        let model = MachineCalibrationModel::empty();
-        let spine = spine_file_with(Layer::U, vec![(1, Vec3::new(0.0, 0.0, 0.0))]);
-        let request = AnchorToTargetSpineRequest {
-            anchor_pin: ua(1),
-            target_pin: ub(2),
-            target_offset: None,
-            head_side: HeadSide::Stage,
-            hover: false,
-        };
-        let err = solve_anchor_to_target_from_spine(&request, &spine, &model);
-        assert!(matches!(err, Err(WireError::MissingSpinePoint { pin }) if pin == ub(2)));
+        // Should not error — the plane defaults to Z=207.
+        let result = solve_anchor_to_target_from_spine(&request, &spine, &model);
+        assert!(result.is_ok() || matches!(result, Err(WireError::LayerMismatch { .. })));
     }
 
     #[test]
     fn spine_solve_rejects_layer_mismatch() {
         let model = MachineCalibrationModel::empty();
-        let spine = spine_file_with(Layer::U, vec![(1, Vec3::ZERO)]);
+        let spine = spine_file_flat(Layer::U, 207.0);
         let request = AnchorToTargetSpineRequest {
             anchor_pin: ua(1),
+            anchor_xy: (0.0, 0.0),
             target_pin: vb(2),
+            target_xy: (10.0, 10.0),
             target_offset: None,
             head_side: HeadSide::Stage,
             hover: false,

@@ -1,8 +1,7 @@
 """Smoke tests for the spine PyO3 surface.
 
 Spec source of truth: `specs/spine-calibration.allium`. Each test pins
-a contract from that spec; golden parity fixtures for the closed-loop
-fit will land alongside the higher-fidelity solver in a follow-up.
+a contract from that spec.
 """
 
 from __future__ import annotations
@@ -16,16 +15,16 @@ def _pin(layer: str, side: str, number: int):
     return dune_geometry.Pin(layer, side, number)
 
 
-def test_derive_a_side_is_plus_half_width_in_z() -> None:
+def test_derive_a_side_is_minus_half_width_in_z() -> None:
     spine = (10.0, 20.0, 100.0)
     derived = dune_geometry.derive_pin_position_from_spine(spine, _pin("U", "A", 1))
-    assert derived == (10.0, 20.0, 165.0)
+    assert derived == (10.0, 20.0, 35.0)  # 100 - 65
 
 
-def test_derive_b_side_is_minus_half_width_in_z() -> None:
+def test_derive_b_side_is_plus_half_width_in_z() -> None:
     spine = (10.0, 20.0, 100.0)
     derived = dune_geometry.derive_pin_position_from_spine(spine, _pin("U", "B", 1))
-    assert derived == (10.0, 20.0, 35.0)
+    assert derived == (10.0, 20.0, 165.0)  # 100 + 65
 
 
 def test_derive_is_symmetric_about_spine() -> None:
@@ -35,7 +34,7 @@ def test_derive_is_symmetric_about_spine() -> None:
     assert a[0] == b[0] == spine[0]
     assert a[1] == b[1] == spine[1]
     assert (a[2] + b[2]) / 2 == spine[2]
-    assert a[2] - b[2] == 120.0  # V board width
+    assert b[2] - a[2] == 120.0  # V board width; B is +, A is -
 
 
 def test_observe_round_trips_with_derive() -> None:
@@ -48,34 +47,52 @@ def test_observe_round_trips_with_derive() -> None:
             assert abs(actual - expected) < 1e-12
 
 
-def test_solve_with_two_observations_interpolates_linearly() -> None:
+def test_solve_plane_flat_observations() -> None:
     pin_1 = _pin("U", "A", 1)
-    pin_1201 = _pin("U", "A", 1201)
-    winder_1 = dune_geometry.derive_pin_position_from_spine((0.0, 0.0, 0.0), pin_1)
-    winder_1201 = dune_geometry.derive_pin_position_from_spine(
-        (100.0, 0.0, 10.0), pin_1201
+    pin_601 = _pin("U", "A", 601)
+    winder_1 = dune_geometry.derive_pin_position_from_spine((0.0, 0.0, 207.0), pin_1)
+    winder_601 = dune_geometry.derive_pin_position_from_spine(
+        (100.0, 50.0, 207.0), pin_601
     )
-    loop = dune_geometry.solve_spine_loop(
-        "U", [(pin_1, winder_1), (pin_1201, winder_1201)]
-    )
-    assert len(loop.points) == 2401
-    spine_at_1 = loop.point(1).xyz
-    spine_at_1201 = loop.point(1201).xyz
-    spine_at_601 = loop.point(601).xyz
-    assert (spine_at_1.x, spine_at_1.y, spine_at_1.z) == (0.0, 0.0, 0.0)
-    assert (spine_at_1201.x, spine_at_1201.y, spine_at_1201.z) == (100.0, 0.0, 10.0)
-    # Halfway along the forward arc 1 → 1201 is pin 601; lerp midpoint
-    # is (50, 0, 5).
-    assert abs(spine_at_601.x - 50.0) < 1e-9
-    assert abs(spine_at_601.y - 0.0) < 1e-9
-    assert abs(spine_at_601.z - 5.0) < 1e-9
+    plane = dune_geometry.solve_spine_plane([(pin_1, winder_1), (pin_601, winder_601)])
+    assert abs(plane.c - 207.0) < 1.0
+    assert abs(plane.a) < 0.01
+    assert abs(plane.b) < 0.01
 
 
-def test_solve_rejects_empty_touches() -> None:
+def test_solve_plane_accepts_mixed_layers() -> None:
+    ua = _pin("U", "A", 1)
+    vb = _pin("V", "B", 1)
+    winder_ua = dune_geometry.derive_pin_position_from_spine((0.0, 0.0, 207.0), ua)
+    winder_vb = dune_geometry.derive_pin_position_from_spine((100.0, 0.0, 207.0), vb)
+    plane = dune_geometry.solve_spine_plane([(ua, winder_ua), (vb, winder_vb)])
+    assert abs(plane.c - 207.0) < 1.0
+
+
+def test_solve_plane_rejects_empty_touches() -> None:
     with pytest.raises(ValueError):
-        dune_geometry.solve_spine_loop("U", [])
+        dune_geometry.solve_spine_plane([])
 
 
-def test_solve_rejects_layer_mismatch() -> None:
-    with pytest.raises(ValueError):
-        dune_geometry.solve_spine_loop("U", [(_pin("V", "A", 1), (0.0, 0.0, 0.0))])
+def test_spine_calibration_file_z_at() -> None:
+    plane = dune_geometry.SpinePlane(0.0, 0.0, 207.0)
+    f = dune_geometry.SpineCalibrationFile("test", plane)
+    z_a = f.z_at("U", "A", 0.0, 0.0)
+    z_b = f.z_at("U", "B", 0.0, 0.0)
+    assert z_a == 207.0 - 65.0  # A is −half_w
+    assert z_b == 207.0 + 65.0  # B is +half_w
+
+
+def test_spine_calibration_file_same_plane_all_layers() -> None:
+    plane = dune_geometry.SpinePlane(0.0, 0.0, 207.0)
+    f = dune_geometry.SpineCalibrationFile("test", plane)
+    u_mid = (f.z_at("U", "A", 0.0, 0.0) + f.z_at("U", "B", 0.0, 0.0)) / 2
+    v_mid = (f.z_at("V", "A", 0.0, 0.0) + f.z_at("V", "B", 0.0, 0.0)) / 2
+    assert u_mid == 207.0
+    assert v_mid == 207.0
+
+
+def test_spine_calibration_file_defaults_when_absent() -> None:
+    f = dune_geometry.SpineCalibrationFile("test")
+    z_a = f.z_at("U", "A", 0.0, 0.0)
+    assert z_a == 207.0 - 65.0  # default plane Z=207

@@ -89,14 +89,22 @@ def test_effective_pin_coords_newest_wins() -> None:
 def test_calibration_point_offset_helper() -> None:
     cp = dune_geometry.CalibrationPoint(
         captured_at="now",
-        gcode_label="Top B Corner",
+        gcode_label="(5,8)",
         gcode_line="~anchorToTarget(B1201,B2001)",
         calculated_xyz=dune_geometry.Vec3(1.0, 2.0, 3.0),
         recorded_xyz=dune_geometry.Vec3(1.5, 2.25, 3.75),
-        head_side="stage",
+        head_config="stage_b",
     )
     off = cp.offset()
     assert (off.x, off.y, off.z) == (0.5, 0.25, 0.75)
+    assert cp.head_config == "stage_b"
+
+
+def test_head_config_from_sides_4_way_table() -> None:
+    assert dune_geometry.head_config_from_sides("A", "A") == "stage_a"
+    assert dune_geometry.head_config_from_sides("B", "B") == "stage_b"
+    assert dune_geometry.head_config_from_sides("A", "B") == "fixed"
+    assert dune_geometry.head_config_from_sides("B", "A") == "retracted"
 
 
 def test_machine_calibration_model_effective_offset() -> None:
@@ -121,11 +129,11 @@ def test_machine_calibration_file_round_trip_with_roller_offsets() -> None:
     file.append_capture(
         dune_geometry.CalibrationPoint(
             captured_at="2026-05-02T12:00:00Z",
-            gcode_label="Top B Corner",
-            gcode_line="~anchorToTarget(B1201,B2001)",
+            gcode_label="(1,8)",
+            gcode_line="~anchorToTarget(A1201,B2001)",
             calculated_xyz=dune_geometry.Vec3(1.0, 2.0, 3.0),
             recorded_xyz=dune_geometry.Vec3(1.5, 2.25, 3.75),
-            head_side="fixed",
+            head_config="fixed",
             operator="ben",
             pin=dune_geometry.Pin("U", "B", 1201),
         )
@@ -137,13 +145,13 @@ def test_machine_calibration_file_round_trip_with_roller_offsets() -> None:
     assert restored.machine_id == "apa-stand-01"
     assert len(restored.capture_points) == 1
     cp = restored.capture_points[0]
-    assert cp.gcode_label == "Top B Corner"
-    assert cp.head_side == "fixed"
+    assert cp.gcode_label == "(1,8)"
+    assert cp.head_config == "fixed"
     assert cp.pin == dune_geometry.Pin("U", "B", 1201)
     assert restored.roller_offsets() == {"stage": [1.0, 2.0], "fixed": [3.0, 4.0]}
 
 
-def test_invalid_head_side_rejected() -> None:
+def test_invalid_head_config_rejected() -> None:
     with pytest.raises(ValueError):
         dune_geometry.CalibrationPoint(
             captured_at="now",
@@ -151,5 +159,5 @@ def test_invalid_head_side_rejected() -> None:
             gcode_line="X",
             calculated_xyz=dune_geometry.Vec3(0.0, 0.0, 0.0),
             recorded_xyz=dune_geometry.Vec3(0.0, 0.0, 0.0),
-            head_side="left",
+            head_config="left",
         )
