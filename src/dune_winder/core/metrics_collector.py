@@ -33,7 +33,7 @@ _ORG = "dune"
 _BUCKET = "winder"
 
 
-def _endpoint_is_reachable(url: str, timeoutSeconds: float = 1) -> bool:
+def _endpoint_is_reachable(url: str, timeoutSeconds: float = 10) -> bool:
     """Return True when the configured InfluxDB endpoint accepts TCP connections."""
     parsed = urlparse(url)
     host = parsed.hostname
