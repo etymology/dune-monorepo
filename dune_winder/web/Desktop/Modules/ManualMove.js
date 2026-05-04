@@ -168,6 +168,10 @@ function ManualMove(modules) {
     refreshIncrementalJogVelocity();
   };
 
+  this.applyVelocityCallback = function () {
+    applyVelocityCallback();
+  };
+
   this.openPopout = function () {
     if (isPopupMode) {
       return;
@@ -235,14 +239,6 @@ function ManualMove(modules) {
     initializePositionCopy();
   });
 
-  page.loadSubPage("/Desktop/Modules/IncrementalJog", "#increments", function () {
-    incrementalJog = modules.get("IncrementalJog");
-    applyVelocityCallback();
-  });
-
-  page.loadSubPage("/Desktop/Modules/Sliders", "#slidersDiv", function () {
-    sliders = modules.get("Sliders");
-  });
 
   $("#manualMovePopoutButton").click(function () {
     self.openPopout();

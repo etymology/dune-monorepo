@@ -41,7 +41,7 @@
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax( 0, 1fr ) minmax( 260px, 320px );
+  grid-template-columns: 1fr;
 }
 
 .manualMoveStatusColumn
@@ -83,7 +83,8 @@
 
 #manualGCode
 {
-  flex: 1 1 220px;
+  flex: 0 1 140px;
+  width: 140px;
   text-transform: uppercase;
 }
 
