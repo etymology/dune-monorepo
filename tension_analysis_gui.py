@@ -1,22 +1,16 @@
 import sqlite3
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("Agg")
+from matplotlib.figure import Figure
 import seaborn as sns
 from scipy.stats import gaussian_kde
+from io import BytesIO
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-import sys
-
-# Use macosx backend if on macOS to avoid tkagg issues
-if sys.platform == "darwin":
-    try:
-        import matplotlib
-
-        matplotlib.use("macosx")
-    except Exception:
-        pass
 
 
 def get_mode_kde(series):
@@ -157,6 +151,7 @@ class TensionAnalysisApp:
         self.save_btn.pack(side=tk.LEFT, padx=10)
 
         self.current_fig = None
+        self.plot_window = None
 
     def run_analysis(self):
         self.generate_btn.config(state=tk.DISABLED)
@@ -197,33 +192,66 @@ class TensionAnalysisApp:
             self.generate_btn.config(state=tk.NORMAL)
 
     def show_plot(self, all_diffs, total_wires, min_samples, ma_window, layer_filter):
-        plt.close("all")
-        self.current_fig = plt.figure(figsize=(10, 6))
+        if self.plot_window is not None:
+            try:
+                self.plot_window.destroy()
+            except tk.TclError:
+                pass
+            self.plot_window = None
+        self.current_fig = None
+
         sns.set_theme(style="whitegrid")
+        fig = Figure(figsize=(10, 6))
+        ax = fig.add_subplot(111)
 
-        sns.histplot(all_diffs, bins=100, kde=True, color="skyblue", edgecolor="black")
+        sns.histplot(
+            all_diffs, bins=100, kde=True, color="skyblue", edgecolor="black", ax=ax
+        )
 
-        plt.title(
+        ax.set_title(
             f"MA Differences from Mode\n(MinSamples={min_samples}, Window={ma_window}, Layer={layer_filter})"
         )
-        plt.xlabel("Difference from Mode (N)")
-        plt.ylabel("Frequency")
+        ax.set_xlabel("Difference from Mode (N)")
+        ax.set_ylabel("Frequency")
 
         mu = np.mean(all_diffs)
         std = np.std(all_diffs)
         textstr = f"Wires = {total_wires}\nSamples = {len(all_diffs)}\nMean = {mu:.4f}\nStd = {std:.4f}"
-        plt.text(
+        ax.text(
             0.95,
             0.95,
             textstr,
-            transform=plt.gca().transAxes,
+            transform=ax.transAxes,
             fontsize=10,
             verticalalignment="top",
             horizontalalignment="right",
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.5),
         )
+        fig.tight_layout()
 
-        plt.show(block=False)
+        buf = BytesIO()
+        fig.savefig(buf, format="png", dpi=100)
+        buf.seek(0)
+
+        self.plot_window = tk.Toplevel(self.root)
+        self.plot_window.title("Tension Mode Differences")
+        self.plot_window.protocol("WM_DELETE_WINDOW", self._on_plot_close)
+
+        self._plot_image = tk.PhotoImage(data=buf.getvalue())
+        label = ttk.Label(self.plot_window, image=self._plot_image)
+        label.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        self.current_fig = fig
+
+    def _on_plot_close(self):
+        if self.plot_window is not None:
+            try:
+                self.plot_window.destroy()
+            except tk.TclError:
+                pass
+        self.plot_window = None
+        self.current_fig = None
+        self.save_btn.config(state=tk.DISABLED)
 
     def save_plot(self):
         if self.current_fig:
