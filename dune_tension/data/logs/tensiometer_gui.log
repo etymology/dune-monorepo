@@ -7132,3 +7132,147 @@
 2026-04-30 13:03:55,213 INFO [pid=375319 MainThread dune_tension.gui.actions] GUI shutdown requested.
 2026-04-30 13:03:56,031 INFO [pid=375319 MainThread dune_tension.gui.app] Tk mainloop exited.
 2026-04-30 13:03:56,597 INFO [pid=375319 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=7108632 kB vmhwm=1666072 kB vmrss=1476204 kB
+2026-05-05 12:49:49,244 INFO [pid=392915 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=392915 python=3.12.3 threads=1 vmsize=2183792 kB vmhwm=203084 kB vmrss=203084 kB
+2026-05-05 12:49:49,244 INFO [pid=392915 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:49:49,244 INFO [pid=392915 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-05 12:49:49,397 INFO [pid=392915 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=2186280 kB vmhwm=207516 kB vmrss=207516 kB
+2026-05-05 12:49:49,397 INFO [pid=392915 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-05 12:49:50,209 INFO [pid=392915 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:49:50,210 INFO [pid=392915 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-05 12:49:50,326 INFO [pid=392915 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/ttyACM1
+2026-05-05 12:49:50,327 INFO [pid=392915 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /home/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-05 12:49:50,327 INFO [pid=392915 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=ValveController
+2026-05-05 12:49:50,329 INFO [pid=392915 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-05 12:49:50,339 WARNING [pid=392915 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': '400 Client Error: Bad Request for url: http://192.168.137.1:8080/api/v2/command'}
+2026-05-05 12:49:50,340 WARNING [pid=392915 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:49:50,347 WARNING [pid=392915 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': '400 Client Error: Bad Request for url: http://192.168.137.1:8080/api/v2/command'}
+2026-05-05 12:49:50,347 WARNING [pid=392915 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:49:50,348 INFO [pid=392915 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-05 12:49:50,356 WARNING [pid=392915 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': '400 Client Error: Bad Request for url: http://192.168.137.1:8080/api/v2/command'}
+2026-05-05 12:49:50,356 WARNING [pid=392915 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:49:50,357 INFO [pid=392915 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-05 12:49:50,357 INFO [pid=392915 MainThread dune_tension.gui.app] Initialising servo focus command to 4821
+2026-05-05 12:49:50,358 INFO [pid=392915 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-05 12:49:52,318 INFO [pid=392915 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer U
+2026-05-05 12:50:05,359 INFO [pid=392915 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=2303716 kB vmhwm=305572 kB vmrss=305572 kB
+2026-05-05 12:50:14,045 WARNING [pid=392915 MainThread dune_tension.gui.actions] Manual goto to 6300.0,320.0 failed: PLC not available.
+2026-05-05 12:50:19,051 INFO [pid=392915 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-05-05 12:50:19,225 INFO [pid=392915 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-05-05 12:50:19,781 INFO [pid=392915 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=2284288 kB vmhwm=304332 kB vmrss=303048 kB
+2026-05-05 12:50:28,085 INFO [pid=393184 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=393184 python=3.12.3 threads=1 vmsize=2183788 kB vmhwm=203132 kB vmrss=203132 kB
+2026-05-05 12:50:28,085 INFO [pid=393184 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:50:28,085 INFO [pid=393184 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-05 12:50:28,226 INFO [pid=393184 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=2186276 kB vmhwm=207564 kB vmrss=207564 kB
+2026-05-05 12:50:28,227 INFO [pid=393184 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-05 12:50:29,080 INFO [pid=393184 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:50:29,081 INFO [pid=393184 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-05 12:50:29,191 INFO [pid=393184 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/ttyACM1
+2026-05-05 12:50:29,192 INFO [pid=393184 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /home/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-05 12:50:29,192 INFO [pid=393184 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=ValveController
+2026-05-05 12:50:29,193 INFO [pid=393184 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-05 12:50:29,201 WARNING [pid=393184 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': '400 Client Error: Bad Request for url: http://192.168.137.1:8080/api/v2/command'}
+2026-05-05 12:50:29,201 WARNING [pid=393184 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:50:29,207 WARNING [pid=393184 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': '400 Client Error: Bad Request for url: http://192.168.137.1:8080/api/v2/command'}
+2026-05-05 12:50:29,207 WARNING [pid=393184 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:50:29,207 INFO [pid=393184 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-05 12:50:29,215 WARNING [pid=393184 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': '400 Client Error: Bad Request for url: http://192.168.137.1:8080/api/v2/command'}
+2026-05-05 12:50:29,215 WARNING [pid=393184 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:50:29,215 INFO [pid=393184 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-05 12:50:29,216 INFO [pid=393184 MainThread dune_tension.gui.app] Initialising servo focus command to 4821
+2026-05-05 12:50:29,216 INFO [pid=393184 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-05 12:50:31,192 INFO [pid=393184 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer U
+2026-05-05 12:50:44,217 INFO [pid=393184 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=2310184 kB vmhwm=310304 kB vmrss=310304 kB
+2026-05-05 12:50:55,100 WARNING [pid=393184 MainThread dune_tension.gui.actions] Manual goto to 6300.0,300.0 failed: PLC not available.
+2026-05-05 12:50:59,218 INFO [pid=393184 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=2310184 kB vmhwm=310304 kB vmrss=310304 kB
+2026-05-05 12:51:00,963 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] Starting connection refresh...
+2026-05-05 12:51:00,983 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] Connection check (attempt 1): plc=✓, servo=✓, valve=✓
+2026-05-05 12:51:00,984 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] All connections established successfully.
+2026-05-05 12:51:02,240 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] Starting connection refresh...
+2026-05-05 12:51:02,253 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] Connection check (attempt 1): plc=✓, servo=✓, valve=✓
+2026-05-05 12:51:02,253 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] All connections established successfully.
+2026-05-05 12:51:03,984 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] Starting connection refresh...
+2026-05-05 12:51:03,998 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] Connection check (attempt 1): plc=✓, servo=✓, valve=✓
+2026-05-05 12:51:03,999 INFO [pid=393184 gui-refresh-connections dune_tension.gui.actions] All connections established successfully.
+2026-05-05 12:51:05,242 WARNING [pid=393184 MainThread dune_tension.gui.actions] Manual goto to 6300.0,300.0 failed: PLC not available.
+2026-05-05 12:51:13,308 INFO [pid=393184 MainThread dune_tension.gui.actions] GUI shutdown requested.
+2026-05-05 12:51:13,480 INFO [pid=393184 MainThread dune_tension.gui.app] Tk mainloop exited.
+2026-05-05 12:51:14,008 INFO [pid=393184 MainThread dune_tension.gui.crash] GUI process exiting cleanly. threads=1 vmsize=2293212 kB vmhwm=310300 kB vmrss=310300 kB
+2026-05-05 12:55:17,745 INFO [pid=394846 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=394846 python=3.12.3 threads=1 vmsize=2183916 kB vmhwm=202748 kB vmrss=202748 kB
+2026-05-05 12:55:17,745 INFO [pid=394846 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:55:17,745 INFO [pid=394846 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-05 12:55:17,892 INFO [pid=394846 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=2186404 kB vmhwm=207148 kB vmrss=207148 kB
+2026-05-05 12:55:17,892 INFO [pid=394846 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-05 12:55:18,671 INFO [pid=394846 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:55:18,672 INFO [pid=394846 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-05 12:55:18,807 INFO [pid=394846 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/ttyACM1
+2026-05-05 12:55:18,809 INFO [pid=394846 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /home/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-05 12:55:18,809 INFO [pid=394846 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=ValveController
+2026-05-05 12:55:18,813 INFO [pid=394846 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-05 12:55:23,829 WARNING [pid=394846 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': "HTTPConnectionPool(host='192.168.137.1', port=8080): Read timed out. (read timeout=5.0)"}
+2026-05-05 12:55:23,830 WARNING [pid=394846 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:55:23,846 WARNING [pid=394846 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:23,846 WARNING [pid=394846 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:55:23,847 INFO [pid=394846 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-05 12:55:23,852 WARNING [pid=394846 MainThread dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:23,852 WARNING [pid=394846 MainThread dune_tension.gui.actions] Layer calibration sync failed for U: Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:55:23,852 INFO [pid=394846 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-05 12:55:23,853 INFO [pid=394846 MainThread dune_tension.gui.app] Initialising servo focus command to 4821
+2026-05-05 12:55:23,853 INFO [pid=394846 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-05 12:55:25,819 INFO [pid=394846 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer U
+2026-05-05 12:55:30,496 INFO [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Worker thread starting: measure calibrate measurement=True
+2026-05-05 12:55:30,515 WARNING [pid=394846 gui-measure_calibrate dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:30,516 WARNING [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:55:30,523 WARNING [pid=394846 gui-measure_calibrate dune_tension.plc_desktop] desktop_acknowledge_error failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:30,524 INFO [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Worker thread finished: measure calibrate
+2026-05-05 12:55:36,656 INFO [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Worker thread starting: measure calibrate measurement=True
+2026-05-05 12:55:36,666 WARNING [pid=394846 gui-measure_calibrate dune_tension.plc_desktop] desktop_get_layer_calibration_json failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:36,667 WARNING [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Failed to fetch layer U calibration JSON from desktop.
+2026-05-05 12:55:36,672 WARNING [pid=394846 gui-measure_calibrate dune_tension.plc_desktop] desktop_acknowledge_error failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:36,673 INFO [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Worker thread finished: measure calibrate
+2026-05-05 12:55:38,854 INFO [pid=394846 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=2310208 kB vmhwm=310032 kB vmrss=310032 kB
+2026-05-05 12:55:44,620 INFO [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Worker thread starting: measure calibrate measurement=True
+2026-05-05 12:55:44,630 WARNING [pid=394846 gui-measure_calibrate dune_tension.plc_desktop] desktop_get_xy failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:44,636 WARNING [pid=394846 gui-measure_calibrate dune_tension.plc_desktop] desktop_acknowledge_error failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:55:44,637 INFO [pid=394846 gui-measure_calibrate dune_tension.gui.actions] Worker thread finished: measure calibrate
+2026-05-05 12:55:51,314 CRITICAL [pid=394846 gui-measure_calibrate dune_tension.gui.crash] Unhandled exception from thread gui-measure_calibrate
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/actions.py", line 829, in run
+    func(ctx, inputs, *args, **kwargs)
+  File "/home/ben/dune-monorepo/src/dune_tension/gui/actions.py", line 868, in measure_calibrate
+    tensiometer.measure_calibrate(wire_number)
+  File "/home/ben/dune-monorepo/src/dune_tension/tensiometer.py", line 1320, in measure_calibrate
+    xy = self.get_current_xy_position()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ben/dune-monorepo/src/dune_tension/plc_io.py", line 327, in get_xy
+    raise RuntimeError("Failed to read XY position from desktop PC")
+RuntimeError: Failed to read XY position from desktop PC
+2026-05-05 12:55:53,857 INFO [pid=394846 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=1 vmsize=2312256 kB vmhwm=313248 kB vmrss=313248 kB
+2026-05-05 12:56:02,720 INFO [pid=395244 MainThread dune_tension.gui.crash] Installed GUI crash logging. log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log pid=395244 python=3.12.3 threads=1 vmsize=2183788 kB vmhwm=203032 kB vmrss=203032 kB
+2026-05-05 12:56:02,720 INFO [pid=395244 MainThread dune_tension.gui.app] Launching tensiometer GUI. state_file=gui_state.json root_provided=False log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log_path=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:56:02,720 INFO [pid=395244 MainThread dune_tension.gui.app] Creating Tk root window.
+2026-05-05 12:56:02,862 INFO [pid=395244 MainThread dune_tension.gui.app] Tk root ready. threads=1 vmsize=2186280 kB vmhwm=207356 kB vmrss=207356 kB
+2026-05-05 12:56:02,862 INFO [pid=395244 MainThread dune_tension.gui.app] Creating GUI widgets.
+2026-05-05 12:56:03,730 INFO [pid=395244 MainThread dune_tension.gui.app] GUI log panel attached. persistent_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui.log fault_log=/home/ben/dune-monorepo/dune_tension/data/logs/tensiometer_gui_faults.log
+2026-05-05 12:56:03,731 INFO [pid=395244 MainThread dune_tension.gui.app] Resolved runtime options: RuntimeOptions(spoof_audio=False, spoof_movement=False, spoof_servo=False, spoof_valve=False)
+2026-05-05 12:56:03,749 WARNING [pid=395244 MainThread dune_tension.plc_desktop] desktop_is_server_active error: HTTPConnectionPool(host='192.168.137.1', port=8080): Max retries exceeded with url: / (Caused by NewConnectionError("HTTPConnection(host='192.168.137.1', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))
+2026-05-05 12:56:03,749 WARNING [pid=395244 MainThread dune_tension.services] PLC is not available. Movement disabled.
+2026-05-05 12:56:03,832 INFO [pid=395244 MainThread dune_tension.maestro] Connected to Micro Maestro on /dev/ttyACM1
+2026-05-05 12:56:03,833 INFO [pid=395244 MainThread dune_tension.audio_store] AudioStore enabled — recordings → /home/ben/dune-monorepo/dune_tension/audio/recordings  (set DUNE_TENSION_RECORD_AUDIO=0 to disable)
+2026-05-05 12:56:03,833 INFO [pid=395244 MainThread dune_tension.gui.app] Runtime bundle ready. motion=MotionService audio_samplerate=48000 servo=ServoController valve=ValveController
+2026-05-05 12:56:03,836 INFO [pid=395244 MainThread dune_tension.gui.app] GUI commands configured.
+2026-05-05 12:56:03,836 INFO [pid=395244 MainThread dune_tension.gui.app] Loaded GUI state from gui_state.json
+2026-05-05 12:56:03,836 INFO [pid=395244 MainThread dune_tension.gui.app] Requesting initial live summary refresh.
+2026-05-05 12:56:03,836 INFO [pid=395244 MainThread dune_tension.gui.app] Initialising servo focus command to 4821
+2026-05-05 12:56:03,837 INFO [pid=395244 MainThread dune_tension.gui.app] Entering Tk mainloop.
+2026-05-05 12:56:04,859 INFO [pid=395244 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APAUK007 layer G
+2026-05-05 12:56:10,122 INFO [pid=395244 gui-measure_calibrate dune_tension.gui.actions] Worker thread starting: measure calibrate measurement=True
+2026-05-05 12:56:10,145 WARNING [pid=395244 gui-measure_calibrate dune_tension.plc_desktop] desktop_get_xy failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:56:10,150 WARNING [pid=395244 gui-measure_calibrate dune_tension.plc_desktop] desktop_acknowledge_error failed: {'code': 'REQUEST_FAILED', 'message': 'HTTPConnectionPool(host=\'192.168.137.1\', port=8080): Max retries exceeded with url: /api/v2/command (Caused by NewConnectionError("HTTPConnection(host=\'192.168.137.1\', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))'}
+2026-05-05 12:56:10,151 INFO [pid=395244 gui-measure_calibrate dune_tension.gui.actions] Worker thread finished: measure calibrate
+2026-05-05 12:56:18,839 INFO [pid=395244 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=2 vmsize=2202804 kB vmhwm=229844 kB vmrss=229844 kB
+2026-05-05 12:56:33,856 INFO [pid=395244 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=2 vmsize=2202804 kB vmhwm=229844 kB vmrss=229844 kB
+2026-05-05 12:56:48,858 INFO [pid=395244 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=False active_measurement=idle focus=4821 threads=2 vmsize=2202804 kB vmhwm=229844 kB vmrss=229844 kB

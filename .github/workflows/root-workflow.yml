@@ -18,13 +18,16 @@ jobs:
       - name: Add uv to PATH
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+
       - name: Sync workspace
         run: uv sync
 
       - name: Import smoke test
         run: |
           uv run python -c "import dune_tension, dune_winder, spectrum_analysis"
-          uv run python -c "import convert_plc_rllscrap, motionQueueTest_gui"
+          uv run python -c "from dune_winder import convert_plc_rllscrap"
 
       - name: Run dune_winder tests
         run: uv run python -m unittest discover -s dune_winder/tests
