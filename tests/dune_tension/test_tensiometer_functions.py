@@ -2,6 +2,7 @@ import importlib
 import sys
 import types
 from pathlib import Path
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -12,12 +13,12 @@ from dune_tension.config import GEOMETRY_CONFIG
 
 
 def _load_module(monkeypatch):
-    data_cache = types.ModuleType("dune_tension.data_cache")
+    data_cache = cast(Any, types.ModuleType("dune_tension.data_cache"))
     data_cache.get_dataframe = lambda _path: None
     data_cache.select_dataframe = lambda *_, **__: pd.DataFrame()
     monkeypatch.setitem(sys.modules, "dune_tension.data_cache", data_cache)
 
-    plc_io = types.ModuleType("dune_tension.plc_io")
+    plc_io = cast(Any, types.ModuleType("dune_tension.plc_io"))
     plc_io.is_motion_target_in_bounds = lambda x, y: (
         GEOMETRY_CONFIG.measurable_x_min <= float(x) <= GEOMETRY_CONFIG.measurable_x_max
         and GEOMETRY_CONFIG.measurable_y_min

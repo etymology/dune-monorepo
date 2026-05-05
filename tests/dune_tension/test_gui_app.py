@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import types
+from typing import Any, cast
 
 
 MODULE_PATH = (
@@ -10,34 +11,34 @@ MODULE_PATH = (
 
 
 def _load_app_module(monkeypatch):
-    tk_stub = types.ModuleType("tkinter")
+    tk_stub = cast(Any, types.ModuleType("tkinter"))
     tk_stub.Misc = object
     tk_stub.StringVar = object
     tk_stub.BooleanVar = object
     tk_stub.Button = object
     tk_stub.Canvas = object
     monkeypatch.setitem(sys.modules, "tkinter", tk_stub)
-    tkfont_stub = types.ModuleType("tkinter.font")
+    tkfont_stub = cast(Any, types.ModuleType("tkinter.font"))
     tkfont_stub.nametofont = lambda _name: types.SimpleNamespace(
         configure=lambda **_kwargs: None
     )
     monkeypatch.setitem(sys.modules, "tkinter.font", tkfont_stub)
 
-    dune_pkg = types.ModuleType("dune_tension")
+    dune_pkg = cast(Any, types.ModuleType("dune_tension"))
     dune_pkg.__path__ = []
-    gui_pkg = types.ModuleType("dune_tension.gui")
+    gui_pkg = cast(Any, types.ModuleType("dune_tension.gui"))
     gui_pkg.__path__ = []
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
-    config = types.ModuleType("dune_tension.config")
+    config = cast(Any, types.ModuleType("dune_tension.config"))
     config.MEASUREMENT_WIGGLE_CONFIG = types.SimpleNamespace(
         y_sigma_mm=1.0,
         focus_sigma_quarter_us=2.0,
     )
     monkeypatch.setitem(sys.modules, "dune_tension.config", config)
 
-    actions = types.ModuleType("dune_tension.gui.actions")
+    actions = cast(Any, types.ModuleType("dune_tension.gui.actions"))
     for name in [
         "adjust_focus_with_x_compensation",
         "calibrate_background_noise",
@@ -68,23 +69,23 @@ def _load_app_module(monkeypatch):
         setattr(actions, name, lambda *args, **kwargs: None)
     monkeypatch.setitem(sys.modules, "dune_tension.gui.actions", actions)
 
-    context = types.ModuleType("dune_tension.gui.context")
+    context = cast(Any, types.ModuleType("dune_tension.gui.context"))
     context.GUIContext = object
     context.GUIWidgets = object
     context.create_context = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.context", context)
 
-    live_plots = types.ModuleType("dune_tension.gui.live_plots")
+    live_plots = cast(Any, types.ModuleType("dune_tension.gui.live_plots"))
     live_plots.LIVE_SUMMARY_FIGSIZE = (7.8, 3.6)
     live_plots.LIVE_WAVEFORM_FIGSIZE = (7.2, 4.6)
     live_plots.LivePlotManager = object
     monkeypatch.setitem(sys.modules, "dune_tension.gui.live_plots", live_plots)
 
-    logging_panel = types.ModuleType("dune_tension.gui.logging_panel")
+    logging_panel = cast(Any, types.ModuleType("dune_tension.gui.logging_panel"))
     logging_panel.configure_gui_logging = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.logging_panel", logging_panel)
 
-    crash_logging = types.ModuleType("dune_tension.gui.crash_logging")
+    crash_logging = cast(Any, types.ModuleType("dune_tension.gui.crash_logging"))
     crash_logging.format_process_stats = lambda: ""
     crash_logging.install_gui_crash_logging = lambda: types.SimpleNamespace(
         log_path="",
@@ -94,16 +95,18 @@ def _load_app_module(monkeypatch):
     crash_logging.install_tk_exception_logging = lambda *_args, **_kwargs: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.crash_logging", crash_logging)
 
-    services = types.ModuleType("dune_tension.services")
+    services = cast(Any, types.ModuleType("dune_tension.services"))
     services.build_runtime_bundle = lambda *_args, **_kwargs: object()
     services.resolve_runtime_options = lambda *_args, **_kwargs: object()
     monkeypatch.setitem(sys.modules, "dune_tension.services", services)
 
-    state = types.ModuleType("dune_tension.gui.state")
+    state = cast(Any, types.ModuleType("dune_tension.gui.state"))
     state.load_state = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.state", state)
 
-    tensiometer_functions = types.ModuleType("dune_tension.tensiometer_functions")
+    tensiometer_functions = cast(
+        Any, types.ModuleType("dune_tension.tensiometer_functions")
+    )
     tensiometer_functions.make_config = lambda **kwargs: types.SimpleNamespace(**kwargs)
     monkeypatch.setitem(
         sys.modules,

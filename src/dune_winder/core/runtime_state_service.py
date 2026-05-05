@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Optional
 
 from dune_winder.io.primitives.digital_input import DigitalInput
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 
 if TYPE_CHECKING:
     from dune_winder.core.winder_workspace import WinderWorkspace

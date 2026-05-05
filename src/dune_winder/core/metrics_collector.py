@@ -12,6 +12,7 @@
 
 import socket
 from urllib.parse import urlparse
+from typing import Any, cast
 
 try:
     from influxdb_client import InfluxDBClient, Point
@@ -32,7 +33,7 @@ _ORG = "dune"
 _BUCKET = "winder"
 
 
-def _endpoint_is_reachable(url: str, timeoutSeconds: float = 1) -> bool:
+def _endpoint_is_reachable(url: str, timeoutSeconds: float = 10) -> bool:
     """Return True when the configured InfluxDB endpoint accepts TCP connections."""
     parsed = urlparse(url)
     host = parsed.hostname
@@ -91,10 +92,14 @@ class MetricsCollector:
             self._disabledReason = f"InfluxDB endpoint {_URL} is not reachable."
             return
 
-        self._client = InfluxDBClient(url=_URL, token=_TOKEN, org=_ORG)
+        influxdb_client = cast(Any, InfluxDBClient)
+        write_options_cls = cast(Any, WriteOptions)
+        write_type_cls = cast(Any, WriteType)
+
+        self._client = influxdb_client(url=_URL, token=_TOKEN, org=_ORG)
         self._write_api = self._client.write_api(
-            write_options=WriteOptions(
-                write_type=WriteType.batching,
+            write_options=write_options_cls(
+                write_type=write_type_cls.batching,
                 batch_size=1,
                 flush_interval=200,
             )
@@ -117,8 +122,9 @@ class MetricsCollector:
         if self._write_api is None:
             return
 
+        point_cls = cast(Any, Point)
         point = (
-            Point("plc_tags")
+            point_cls("plc_tags")
             .field("tension", _safe_float(self._io.tension_tag.get()))
             .field("v_xyz", _safe_float(self._io.v_xyz_tag.get()))
             .field("tension_motor_cv", _safe_float(self._io.tension_motor_cv_tag.get()))

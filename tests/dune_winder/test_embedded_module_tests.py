@@ -3,12 +3,13 @@ import math
 import os
 import tempfile
 import unittest
+from typing import Any, cast
 
 import dune_winder.gcode.handler_base as handler_base_module
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.gcode.runtime import GCodeProgramExecutor
-from dune_winder.library.Geometry.circle import Circle
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.circle import Circle
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.machine.calibration.defaults import (
     DefaultLayerCalibration,
@@ -139,11 +140,12 @@ class EmbeddedModuleTests(unittest.TestCase):
         ]
 
         for case in tests:
-            for orientation, expected in case["results"].items():
+            results = cast(dict[str, Location | None], case["results"])
+            circle = cast(Circle, case["circle"])
+            position = cast(Location, case["position"])
+            for orientation, expected in results.items():
                 with self.subTest(position=case["position"], orientation=orientation):
-                    location = case["circle"].tangentPoint(
-                        orientation, case["position"]
-                    )
+                    location = circle.tangentPoint(orientation, position)
                     if expected is None:
                         self.assertIsNone(location)
                         continue

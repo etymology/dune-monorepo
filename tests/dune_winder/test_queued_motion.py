@@ -1,13 +1,15 @@
 import time
 import unittest
 from types import SimpleNamespace
+from typing import Any, cast
+from typing import Any, cast
 from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.gcode.runtime import GCodeProgramExecutor
 from dune_winder.io.devices.plc import PLC
 from dune_winder.io.devices.simulated_plc import SimulatedPLC
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.defaults import DefaultMachineCalibration
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.head_compensation import WirePathModel
@@ -38,13 +40,26 @@ class _Input:
         return self._value
 
 
+class _DummyQueuedMotion:
+    def poll(self):
+        pass
+
+    def status(self):
+        return SimpleNamespace(is_idle=True)
+
+    def set_stop_request(self, value):
+        pass
+
+
 class _QueuedMotionPLCLogic:
     def __init__(self, queued_motion=None, y_transfer_ok=True):
         self._maxAcceleration = 2000.0
         self._maxDeceleration = 2000.0
         self._velocity = 1000.0
         self.y_transfer_ok = bool(y_transfer_ok)
-        self.queuedMotion = object() if queued_motion is None else queued_motion
+        self.queuedMotion = (
+            _DummyQueuedMotion() if queued_motion is None else queued_motion
+        )
         self.legacy_xy_moves = []
         self.xz_moves = []
         self.stop_seek_calls = 0
@@ -546,7 +561,7 @@ class QueuedMotionTests(unittest.TestCase):
         self.assertEqual(handler._currentLine, 0)
         self.assertEqual(handler._nextLine, 0)
         self.assertEqual(handler._queued_stop_mode, None)
-        self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+        self.assertEqual(cast(Any, handler._io).plcLogic.legacy_xy_moves, [])
         self.assertAlmostEqual(
             plc.get_tag("X_axis.ActualPosition"), expected_segment.x, places=6
         )
@@ -569,7 +584,7 @@ class QueuedMotionTests(unittest.TestCase):
 
         handler.stop()
 
-        self.assertEqual(handler._io.plcLogic.stop_seek_calls, 1)
+        self.assertEqual(cast(Any, handler._io).plcLogic.stop_seek_calls, 1)
         self.assertEqual(plc.get_tag("QueueStopRequest"), 1)
         self.assertEqual(plc.get_tag("AbortQueue"), 0)
         self.assertIsNone(handler._queued_session)
@@ -747,9 +762,11 @@ class QueuedMotionTests(unittest.TestCase):
         error = handler.executeG_CodeLine("X500 Z200")
 
         self.assertIsNone(error)
-        self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
-        self.assertEqual(handler._io.plcLogic.xz_moves[0][:2], (500.0, 200.0))
-        self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+        self.assertEqual(len(cast(Any, handler._io).plcLogic.xz_moves), 1)
+        self.assertEqual(
+            cast(Any, handler._io).plcLogic.xz_moves[0][:2], (500.0, 200.0)
+        )
+        self.assertEqual(cast(Any, handler._io).plcLogic.legacy_xy_moves, [])
 
     def test_execute_manual_line_rejects_xz_move_when_y_transfer_not_ok(self):
         calibration = DefaultMachineCalibration()
@@ -763,7 +780,7 @@ class QueuedMotionTests(unittest.TestCase):
 
         self.assertIsNotNone(error)
         self.assertIn("Y_Transfer_OK", error["message"])
-        self.assertEqual(handler._io.plcLogic.xz_moves, [])
+        self.assertEqual(cast(Any, handler._io).plcLogic.xz_moves, [])
 
     def test_execute_manual_line_routes_symbolic_xz_extend_move_through_plc_logic(self):
         calibration = DefaultMachineCalibration()
@@ -774,9 +791,9 @@ class QueuedMotionTests(unittest.TestCase):
         error = handler.executeG_CodeLine("X500 ZEXTEND")
 
         self.assertIsNone(error)
-        self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
+        self.assertEqual(len(cast(Any, handler._io).plcLogic.xz_moves), 1)
         self.assertEqual(
-            handler._io.plcLogic.xz_moves[0][:2],
+            cast(Any, handler._io).plcLogic.xz_moves[0][:2],
             (500.0, float(calibration.zBack)),
         )
 
@@ -790,7 +807,7 @@ class QueuedMotionTests(unittest.TestCase):
 
         self.assertIsNotNone(error)
         self.assertIn("target X out of bounds", error["message"])
-        self.assertEqual(handler._io.plcLogic.xz_moves, [])
+        self.assertEqual(cast(Any, handler._io).plcLogic.xz_moves, [])
 
     def test_execute_manual_line_rejects_xz_move_with_z_out_of_bounds(self):
         calibration = DefaultMachineCalibration()
@@ -804,7 +821,7 @@ class QueuedMotionTests(unittest.TestCase):
 
         self.assertIsNotNone(error)
         self.assertIn("target Z out of bounds", error["message"])
-        self.assertEqual(handler._io.plcLogic.xz_moves, [])
+        self.assertEqual(cast(Any, handler._io).plcLogic.xz_moves, [])
 
     def test_execute_recipe_style_line_routes_z0_pxz_move_through_plc_logic(self):
         calibration = DefaultMachineCalibration()
@@ -823,9 +840,9 @@ class QueuedMotionTests(unittest.TestCase):
         error = handler.executeG_CodeLine("G103 PA799 PA798 Z0 PXZ")
 
         self.assertIsNone(error)
-        self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
-        self.assertEqual(handler._io.plcLogic.xz_moves[0][:2], (520.0, 0.0))
-        self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+        self.assertEqual(len(cast(Any, handler._io).plcLogic.xz_moves), 1)
+        self.assertEqual(cast(Any, handler._io).plcLogic.xz_moves[0][:2], (520.0, 0.0))
+        self.assertEqual(cast(Any, handler._io).plcLogic.legacy_xy_moves, [])
 
     def test_execute_recipe_style_line_routes_zextend_pxz_move_through_plc_logic(self):
         calibration = DefaultMachineCalibration()
@@ -844,12 +861,12 @@ class QueuedMotionTests(unittest.TestCase):
         error = handler.executeG_CodeLine("G103 PA799 PA798 ZEXTEND PXZ G105 PX5")
 
         self.assertIsNone(error)
-        self.assertEqual(len(handler._io.plcLogic.xz_moves), 1)
+        self.assertEqual(len(cast(Any, handler._io).plcLogic.xz_moves), 1)
         self.assertEqual(
-            handler._io.plcLogic.xz_moves[0][:2],
+            cast(Any, handler._io).plcLogic.xz_moves[0][:2],
             (525.0, float(calibration.zBack)),
         )
-        self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+        self.assertEqual(cast(Any, handler._io).plcLogic.legacy_xy_moves, [])
 
     def test_execute_manual_line_does_not_run_stale_pending_xy_action(self):
         calibration = DefaultMachineCalibration()
@@ -918,7 +935,7 @@ class QueuedMotionTests(unittest.TestCase):
         error = handler.executeG_CodeLine("G113 PPRECISE X1000.05 Y150.00")
 
         self.assertIsNone(error)
-        self.assertEqual(handler._io.plcLogic.legacy_xy_moves, [])
+        self.assertEqual(cast(Any, handler._io).plcLogic.legacy_xy_moves, [])
 
     def test_gcode_builder_rejects_central_apa_motion_when_z_extended(self):
         calibration = self._z_collision_calibration()
@@ -979,15 +996,15 @@ class QueuedMotionTests(unittest.TestCase):
     ):
         with MotionQueueClient("SIM") as motion:
             motion._safety_limits = self._z_collision_limits()
-            motion._plc.set_tag("X_axis.ActualPosition", 450.0)
-            motion._plc.set_tag("Y_axis.ActualPosition", 25.0)
-            motion._plc.set_tag("Z_axis.ActualPosition", 200.0)
-            motion._plc.set_tag("MACHINE_SW_STAT[26]", 0)
-            motion._plc.set_tag("MACHINE_SW_STAT[27]", 0)
-            motion._plc.set_tag("MACHINE_SW_STAT[28]", 0)
-            motion._plc.set_tag("MACHINE_SW_STAT[29]", 0)
-            motion._plc.set_tag("MACHINE_SW_STAT[30]", 0)
-            motion._plc.set_tag("MACHINE_SW_STAT[31]", 0)
+            cast(Any, motion._plc).set_tag("X_axis.ActualPosition", 450.0)
+            cast(Any, motion._plc).set_tag("Y_axis.ActualPosition", 25.0)
+            cast(Any, motion._plc).set_tag("Z_axis.ActualPosition", 200.0)
+            cast(Any, motion._plc).set_tag("MACHINE_SW_STAT[26]", 0)
+            cast(Any, motion._plc).set_tag("MACHINE_SW_STAT[27]", 0)
+            cast(Any, motion._plc).set_tag("MACHINE_SW_STAT[28]", 0)
+            cast(Any, motion._plc).set_tag("MACHINE_SW_STAT[29]", 0)
+            cast(Any, motion._plc).set_tag("MACHINE_SW_STAT[30]", 0)
+            cast(Any, motion._plc).set_tag("MACHINE_SW_STAT[31]", 0)
             motion.reset_queue()
 
             with self.assertRaisesRegex(ValueError, "APA collision zone"):
@@ -1002,11 +1019,11 @@ class QueuedMotionTests(unittest.TestCase):
     def test_motion_queue_reset_clears_latched_stop_request(self):
         with MotionQueueClient("SIM") as motion:
             motion._require_queue().set_stop_request(True)
-            self.assertEqual(motion._plc.get_tag("QueueStopRequest"), 1)
+            self.assertEqual(cast(Any, motion._plc).get_tag("QueueStopRequest"), 1)
 
             motion.reset_queue()
 
-            self.assertEqual(motion._plc.get_tag("QueueStopRequest"), 0)
+            self.assertEqual(cast(Any, motion._plc).get_tag("QueueStopRequest"), 0)
 
 
 if __name__ == "__main__":

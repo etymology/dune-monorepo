@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from dune_winder.io.Maps.production_io import create_plc_backend
+from dune_winder.io.maps.production_io import create_plc_backend
 from dune_winder.io.devices.plc_backend import normalize_plc_mode
 from dune_winder.io.devices.plc_backend import resolve_plc_sim_engine
 from dune_winder.library.app_config import AppConfig

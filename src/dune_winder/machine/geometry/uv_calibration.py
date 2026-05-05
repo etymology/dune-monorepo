@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dune_winder.library.Geometry.location import Location
-from dune_winder.library.serializable_location import SerializableLocation
+from dune_winder.geometry.primitives.location import Location
+from dune_winder.geometry.serializable_location import SerializableLocation
 from dune_winder.machine.calibration.defaults import apply_layer_z_defaults
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.geometry.uv_layout import Point3D, UV_LAYERS, get_uv_layout

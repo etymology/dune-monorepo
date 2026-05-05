@@ -1,6 +1,6 @@
 import unittest
 
-from dune_winder.motionQueueTest_gui import (
+from dune_winder.queued_motion.tools.waypoint_planner_gui import (
     _live_position_matches_plan_start,
     _planner_waypoints,
     _planned_speed_summary_text,

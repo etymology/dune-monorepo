@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import types
+from typing import Any, cast
 
 import pytest
 
@@ -169,7 +170,7 @@ class _FakePhotoImage:
 
 
 def _load_module(monkeypatch):
-    tk_module = types.ModuleType("tkinter")
+    tk_module = cast(Any, types.ModuleType("tkinter"))
     tk_module.Misc = object
     tk_module.Tk = _FakeRoot
     tk_module.StringVar = _FakeVar
@@ -178,7 +179,7 @@ def _load_module(monkeypatch):
     tk_module.Canvas = _FakeCanvas
     monkeypatch.setitem(sys.modules, "tkinter", tk_module)
 
-    ttk_module = types.ModuleType("tkinter.ttk")
+    ttk_module = cast(Any, types.ModuleType("tkinter.ttk"))
     ttk_module.Frame = _FakeWidget
     ttk_module.LabelFrame = _FakeWidget
     ttk_module.Label = _FakeWidget

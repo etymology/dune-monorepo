@@ -152,53 +152,6 @@ contract MeasurementArtifacts {
      -- or another durable model. The contract is behavioral, not a schema.
 }
 
-contract PitchAnalysis {
-  estimate_pitch: (event: AudioEvent, expected_frequency_hz: Decimal?) -> PitchEstimate
-  score_stream_frame: (window: AudioWindow, expected_frequency_hz: Decimal?) -> FrameScore
-
-  @invariant AnalysisExplainsConfidence
-    -- Every accepted pitch estimate carries a frequency and confidence score
-    -- sufficient for thresholding and later review.
-}
-
-contract MeasurementArtifacts {
-  append_sample: (sample: TensionSample) -> Boolean
-  append_result: (result: TensionResult) -> Boolean
-  clear_wire: (setup: MeasurementSetup, wire_number: Integer) -> Boolean
-  append_stream_event: (session: StreamingSession, artifact: Any) -> Boolean
-
-  @guidance
-    -- The implementation may use a database, event log, files, cloud storage,
-    -- or another durable model. The contract is behavioral, not a schema.
-}
-
-contract AudioCapture {
-  capture_event: (duration: Duration, expected_frequency_hz: Decimal?) -> AudioEvent?
-  start_stream: (session: StreamingSession) -> Boolean
-  stop_stream: (session: StreamingSession) -> Boolean
-  captured_windows: (session: StreamingSession) -> Set<AudioWindow>
-}
-
-contract PitchAnalysis {
-  estimate_pitch: (event: AudioEvent, expected_frequency_hz: Decimal?) -> PitchEstimate
-  score_stream_frame: (window: AudioWindow, expected_frequency_hz: Decimal?) -> FrameScore
-
-  @invariant AnalysisExplainsConfidence
-    -- Every accepted pitch estimate carries a frequency and confidence score
-    -- sufficient for thresholding and later review.
-}
-
-contract MeasurementArtifacts {
-  append_sample: (sample: TensionSample) -> Boolean
-  append_result: (result: TensionResult) -> Boolean
-  clear_wire: (setup: MeasurementSetup, wire_number: Integer) -> Boolean
-  append_stream_event: (session: StreamingSession, artifact: Any) -> Boolean
-
-  @guidance
-    -- The implementation may use a database, event log, files, cloud storage,
-    -- or another durable model. The contract is behavioral, not a schema.
-}
-
 ------------------------------------------------------------
 -- Enumerations
 ------------------------------------------------------------
@@ -206,6 +159,7 @@ contract MeasurementArtifacts {
 -- Re-exported from core.allium
 use "./core.allium" as core
 
+enum Layer { u | v | x | g }
 enum Side { a | b }
 enum MeasurementMode { legacy | stream_sweep | stream_rescue }
 enum RequestKind { calibrate | auto | list | zone | condition }

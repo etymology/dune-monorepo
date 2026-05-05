@@ -112,30 +112,7 @@ value TensionVerdict {
 
 entity FrequencyEstimate {
     samples:              List<Decimal>   -- one frequency_hz value per valid observation
-    accepted_frequency_hz: Decimal        -- mode of the sample distribution (see rule below)
-}
-
-rule EstimateFrequencyFromSamples {
-    when: batch: FrequencyEstimate.created
-    requires: batch.samples.count >= 1
-
-    ensures: batch.accepted_frequency_hz = kde_mode(batch.samples)
-
-    @guidance
-        -- kde_mode is implemented as:
-        --   1. Fit a Gaussian kernel density estimate to the sample vector
-        --      using Scott's rule for bandwidth selection.
-        --   2. Evaluate the KDE on a uniform grid of 1000 points spanning
-        --      [min(samples), max(samples)].
-        --   3. Return the grid point with the highest density value.
-        -- For a single sample, return that sample directly (KDE is undefined
-        -- for n=1; numpy's gaussian_kde raises LinAlgError for degenerate input,
-        -- which the implementation handles by falling back to samples[0]).
-        --
-        -- Rust port note: the grid size (1000) and the bandwidth rule must
-        -- match the Python implementation exactly to produce bit-identical
-        -- frequency estimates.  Divergence here changes accepted tensions and
-        -- therefore changes which wires pass QC.
+    accepted_frequency_hz: Decimal        -- the most-supported frequency in the sample distribution
 }
 
 -- ==========================================================================

@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from typing import Optional
+from typing import Optional, Any, cast
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.core.control_state_machine import ControlStateMachine
@@ -204,7 +204,7 @@ class Process:
         )
         # Keep simulated PLCs consistent with calibration-derived travel limits.
         if hasattr(io.plc, "update_limits"):
-            io.plc.update_limits(
+            cast(Any, io.plc).update_limits(
                 parkX=getattr(machineCalibration, "parkX", None),
                 parkY=getattr(machineCalibration, "parkY", None),
                 transferLeft=getattr(machineCalibration, "transferLeft", None),

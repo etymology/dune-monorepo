@@ -6,8 +6,8 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.library.Geometry.line import Line
-from dune_winder.library.Geometry.box import Box
+from dune_winder.geometry.primitives.line import Line
+from dune_winder.geometry.primitives.box import Box
 
 
 class MachineGeometry(object):

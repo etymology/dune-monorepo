@@ -596,12 +596,8 @@ def test_project_measurement_bypasses_uv_head_target_view(monkeypatch, tmp_path)
 
     projection = service._projectMeasurement(
         measurement,
-        layer_path=str(
-            REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"
-        ),
-        machine_path=str(
-            REPO_ROOT / "dune_winder" / "config" / "machineCalibration.json"
-        ),
+        layer_path=str(REPO_ROOT / "config" / "APA" / "U_Calibration.json"),
+        machine_path=str(REPO_ROOT / "config" / "machineCalibration.json"),
         roller_y_cals=(24.0, 23.0, 18.0, 17.0),
     )
 
@@ -618,6 +614,7 @@ def test_machine_xy_solve_records_progress_and_success(monkeypatch, tmp_path):
     )
 
     def evaluate(measurements, *, progress_callback=None, **kwargs):
+        assert progress_callback is not None
         progress_callback("test_step", "Test progress update.")
         return {
             "cameraOffsetX": 11.0,

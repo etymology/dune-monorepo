@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 import os
 import hashlib
+from typing import Any
 
 
 from dune_winder.core.control_events import ManualModeEvent
@@ -126,6 +127,11 @@ class FakeAPARefresh:
 
 
 class FakeWorkspaceForRefreshMessages:
+    _log: Any
+    _gCodeHandler: Any
+    _controlStateMachine: Any
+    _recipeArchiveDirectory: str
+
     def __init__(self, recipePath, calibrationPath):
         self._recipePath = recipePath
         self._calibrationPath = calibrationPath
@@ -167,11 +173,6 @@ class FakeWorkspaceForRefreshMessages:
         if self._calibrationPath is None or not os.path.isfile(self._calibrationPath):
             return None
         return self._calibrationSignature
-
-    def _getCalibrationHashValueFromFile(self):
-        from dune_winder.core.winder_workspace import WinderWorkspace
-
-        return WinderWorkspace._getCalibrationHashValueFromFile(self)
 
     def refreshRecipeIfChanged(self):
         from dune_winder.core.winder_workspace import WinderWorkspace
@@ -267,7 +268,14 @@ class _ReloadGuardFakeCalibration:
 
 
 WindMode = type("WindMode", (), {})
-StopMode = type("StopMode", (), {})
+
+
+class _StopStateMachine:
+    state: Any
+
+
+class StopMode:
+    stopStateMachine: _StopStateMachine
 
 
 class _ReloadGuardControlStateMachine:
@@ -835,8 +843,8 @@ class _HeadBlocker:
 class _ControlStateMachineNotReady:
     def __init__(self):
         self.state = _ManualModeState()
-        self.stopMode = type("StopMode", (), {})()
-        self.stopMode.stopStateMachine = type("StopStateMachine", (), {})()
+        self.stopMode = StopMode()
+        self.stopMode.stopStateMachine = _StopStateMachine()
         self.stopMode.stopStateMachine.state = _IdleStopState()
 
     def isReadyForMovement(self):
@@ -846,7 +854,7 @@ class _ControlStateMachineNotReady:
 class ProcessManualGCodeTests(unittest.TestCase):
     def _build_process_for_manual_gcode(self, x_position=10.0, y_position=20.0):
         process = object.__new__(Process)
-        process._io = type("IO", (), {})()
+        process._io = _ReloadGuardFakeIO()
         process._io.xAxis = _AxisForManualGCode(x_position)
         process._io.yAxis = _AxisForManualGCode(y_position)
         process._io.zAxis = _AxisForManualGCode(5.0)
@@ -941,6 +949,16 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
         self.assertIsNone(error)
         self.assertEqual(process.gCodeHandler.lines, ["F120"])
+
+    def test_execute_manual_gcode_accepts_xy_move_with_feed(self):
+        process = self._build_process_for_manual_gcode(
+            x_position=11.0, y_position=22.0
+        )
+
+        error = process.executeG_CodeLine("X7174 Y0 F300")
+
+        self.assertIsNone(error)
+        self.assertEqual(process.gCodeHandler.lines, ["X7174 Y0 F300"])
 
     def test_execute_manual_gcode_accepts_z_move_with_feed(self):
         process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)

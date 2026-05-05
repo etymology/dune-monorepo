@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.13,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "dune-tension-core"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.maturin]
+module-name = "dune_tension_core"
+features = ["pyo3/extension-module"]

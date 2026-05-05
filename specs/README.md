@@ -16,6 +16,13 @@ specs.
 - **Common value types**: PinSide, FrameEdge, PinRange, PinName, PinPair,
   WrapSide
 
+### `operator-workflows.allium`
+
+Operator-facing workflows across the winder and tension tools. Covers manual
+motion, winding, calibration capture, tension measurement, and tension
+observation review as user-visible interactions, while deferring low-level
+geometry, safety, PLC, and analysis details to the domain specs below.
+
 ### `tension-physics.allium`
 
 Wire resonance physics, frequency-tension-length equations, KDE-based frequency
@@ -28,17 +35,24 @@ wire targeting, focus-aware pose planning, legacy pulse measurements, streaming
 sweep/rescue measurements, result acceptance, raw samples, summaries, clearing,
 and upload/review boundaries.
 
-### `streaming-evidence.allium`
-
-Streaming measurement evidence. Models how audio frames become voiced windows,
-pitch observations, wire candidates, rescue queue items, and accepted tension
-results.
-
 ### `layer-geometry.allium`
 
-APA wire geometry for U, V, X, and G layers. U/V geometry is fully specified;
-X/G geometry is intentionally marked as placeholder work pending detailed
-mechanical design.
+APA wire geometry for U, V, X, and G layers, plus the APA physical
+envelope: frame dimensions, board cross-section, pin radius, the X/G
+board slot grid (head/foot edges, A/B sides, X slots numbered 1-480,
+G slots numbered 1-481), the four mid-APA combs, and
+the X/G wrap visit order. U/V wire geometry is fully specified; X/G
+wire-segment formulas remain placeholders pending detailed mechanical
+design. Winding angles are derived from pin locations on the fly and
+are intentionally not part of the spec.
+
+### `winder-calibration.allium`
+
+The `WinderCalibration` contract — the single, enumerated set of
+calibration values a reimplementer must supply (APA envelope, board
+cross-section, pin and tooth tables, workspace bounds, Y transfer
+positions, headward-pivot keepout, frame-support keepout bands, arc
+discretisation, max velocity).
 
 ### `uv-wrap-geometry.allium`
 
@@ -94,10 +108,12 @@ Common exclusions:
 
 - Start with `tension-measurement.allium` for measurement contracts.
 - Use `tension-physics.allium` for resonance equations and thresholds.
-- Use `streaming-evidence.allium` for streaming measurement provenance.
+- Use `operator-workflows.allium` for user-facing workflow obligations and
+  operator-visible progress/outcome states.
 - Reference `winder-states.allium` for safety interlocks and state transitions.
-- Use `layer-geometry.allium` and `uv-wrap-geometry.allium` for wire geometry.
-- Use `motion-safety.allium` for queued-motion safety validation.
+- Use `layer-geometry.allium` and `uv-wrap-geometry.allium` for wire geometry and the APA physical envelope.
+- Use `motion-safety.allium` for queued-motion safety validation and pose invariants.
+- Use `winder-calibration.allium` for the calibration values that workspace and geometry rules consume.
 - Use `winder-macros.allium` for recipe execution semantics.
 
 ### For Python Implementation

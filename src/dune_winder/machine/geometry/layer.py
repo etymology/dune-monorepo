@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 
 from .apa import APA_Geometry
 

@@ -47,7 +47,7 @@ class WebServerInterface(SimpleHTTPRequestHandler):
         self.wfile.write(jsonDumps(responseBody).encode("utf-8"))
 
     # ---------------------------------------------------------------------
-    def log_message(self, *_):
+    def log_message(self, format, *args):
         """
         Empty function to disable log messages.
         """

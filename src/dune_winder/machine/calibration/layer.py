@@ -15,8 +15,8 @@ import shutil
 import tempfile
 
 from dune_winder.library.hash import Hash
-from dune_winder.library.serializable_location import SerializableLocation
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.serializable_location import SerializableLocation
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.z_plane import (
     layer_z_plane_calibration_from_dict,
     layer_z_plane_calibration_to_dict,
@@ -95,8 +95,8 @@ class LayerCalibration:
         # Look-up table that correlates pin names to their locations.
         self._locations: dict[str, Location] = {}
 
-        self._filePath = filePath
-        self._fileName = fileName
+        self._filePath = filePath or ""
+        self._fileName = fileName or ""
         self._archivePath = archivePath
 
         # Content hash — used for change detection and archive naming.
@@ -162,15 +162,17 @@ class LayerCalibration:
 
     # -------------------------------------------------------------------
     def getFullFileName(self) -> str:
+        if not self._filePath or not self._fileName:
+            return ""
         return str(pathlib.Path(self._filePath) / self._fileName)
 
     # -------------------------------------------------------------------
     def getFileName(self) -> str:
-        return self._fileName
+        return str(self._fileName)
 
     # -------------------------------------------------------------------
     def getFilePath(self) -> str:
-        return self._filePath
+        return str(self._filePath)
 
     # -------------------------------------------------------------------
     def _compute_hash(self, data: dict) -> str:
@@ -326,8 +328,8 @@ class LayerCalibration:
         if filePath is None and fileName is None:
             filePath = self._filePath
             fileName = self._fileName
-        self._filePath = filePath
-        self._fileName = fileName
+        self._filePath = filePath or ""
+        self._fileName = fileName or ""
 
     # -------------------------------------------------------------------
     def save(self, filePath=None, fileName=None, nameOverride=None):
@@ -445,7 +447,7 @@ class LayerCalibration:
 
         # Read scalar fields from typed element nodes.
         for node in root.childNodes:
-            if node.nodeType != node.ELEMENT_NODE:
+            if not isinstance(node, xml.dom.minidom.Element):
                 continue
             name = node.getAttribute("name")
             if not node.firstChild:
@@ -462,7 +464,7 @@ class LayerCalibration:
         for node in root.getElementsByTagName("SerializableLocation"):
             loc = Location()
             for child in node.childNodes:
-                if child.nodeType != child.ELEMENT_NODE:
+                if not isinstance(child, xml.dom.minidom.Element):
                     continue
                 attr = child.getAttribute("name")
                 if child.firstChild:

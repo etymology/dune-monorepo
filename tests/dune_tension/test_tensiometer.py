@@ -6,6 +6,7 @@ import math
 import sys
 import time
 import types
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -276,6 +277,7 @@ def test_collect_samples_stops_when_confidence_threshold_is_met(monkeypatch):
     )
 
     assert len(repository.samples) == 1
+    assert samples is not None
     assert len(samples) == 1
     assert samples[0].confidence == pytest.approx(0.95)
 
@@ -418,7 +420,7 @@ def test_default_quiet_waiter_requires_one_second_of_silence(monkeypatch):
     quiet_chunk = np.full(chunk_size, 0.05, dtype=np.float32)
     noisy_chunk = np.full(chunk_size, 0.2, dtype=np.float32)
     chunks = [quiet_chunk] * 7 + [noisy_chunk] + [quiet_chunk] * 8
-    created_sources: list[object] = []
+    created_sources: list[Any] = []
 
     class FakeMicSource:
         def __init__(self, sample_rate: int, requested_chunk_size: int) -> None:
@@ -466,7 +468,7 @@ def test_default_quiet_waiter_requires_one_second_of_silence(monkeypatch):
     tensiometer.quiet_waiter()
 
     assert len(created_sources) == 1
-    source = created_sources[0]
+    source = cast(FakeMicSource, created_sources[0])
     assert source.started is True
     assert source.stopped is True
     assert source.read_count == 16
@@ -803,7 +805,7 @@ def test_amplitude_mode_continues_after_implausible_threshold_sample(monkeypatch
 
 def test_measure_auto_reports_estimated_time(monkeypatch):
     eta_updates = []
-    summaries_stub = types.ModuleType("dune_tension.summaries")
+    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries_stub.get_missing_wires = lambda _cfg: {"A": [1, 2]}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
     provider = _StubWirePositionProvider(
@@ -855,7 +857,7 @@ def test_measure_auto_reports_estimated_time(monkeypatch):
 
 def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
     eta_updates = []
-    summaries_stub = types.ModuleType("dune_tension.summaries")
+    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries_stub.get_missing_wires = lambda _cfg: {"A": [10, 12]}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
 
@@ -1026,7 +1028,7 @@ def test_measure_list_logs_timing_profile_summary(caplog):
 
 
 def test_measure_auto_uv_uses_provider_pose_for_every_wire(monkeypatch):
-    summaries_stub = types.ModuleType("dune_tension.summaries")
+    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries_stub.get_missing_wires = lambda _cfg: {"A": [10, 12]}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
 
@@ -1157,7 +1159,7 @@ def test_measure_list_uv_uses_provider_pose_for_every_wire():
 def test_load_tension_summary_uses_sqlite_backed_summary_series(tmp_path, monkeypatch):
     db_path = tmp_path / "tension_data.db"
     db_path.write_text("")
-    summaries_stub = types.ModuleType("dune_tension.summaries")
+    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries_stub.get_expected_range = lambda _layer: range(1, 4)
     summaries_stub.get_tension_series = lambda _config: {
         "A": {1: 1.0, 3: 3.0},
@@ -1203,7 +1205,7 @@ def test_load_tension_summary_missing(tmp_path):
 def test_load_tension_summary_reports_missing_summary_rows(tmp_path, monkeypatch):
     db_path = tmp_path / "empty.db"
     db_path.write_text("")
-    summaries_stub = types.ModuleType("dune_tension.summaries")
+    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries_stub.get_expected_range = lambda _layer: range(1, 3)
     summaries_stub.get_tension_series = lambda _config: {"A": {}, "B": {}}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)

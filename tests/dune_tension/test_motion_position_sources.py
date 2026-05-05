@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import types
+from typing import Any, cast
 
 import dune_tension.services as services_module
 
@@ -102,7 +103,7 @@ def test_gui_context_uses_runtime_bundle_motion(monkeypatch):
 
     dune_pkg = types.ModuleType("dune_tension")
     dune_pkg.__path__ = []
-    services = types.ModuleType("dune_tension.services")
+    services = cast(Any, types.ModuleType("dune_tension.services"))
     services.RuntimeBundle = object
 
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)

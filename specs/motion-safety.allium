@@ -84,13 +84,15 @@ value CollisionState {
     z_actual_position: Decimal
 
     -- Frame-lock sensor states — true when a physical frame support brace
-    -- occupies the corresponding zone.
-    frame_lock_head_top: Boolean
-    frame_lock_head_mid: Boolean
-    frame_lock_head_btm: Boolean
-    frame_lock_foot_top: Boolean
-    frame_lock_foot_mid: Boolean
-    frame_lock_foot_btm: Boolean
+    -- occupies the corresponding zone. Each field corresponds to a single
+    -- PLC tag in the MACHINE_SW_STAT array; a reimplementer must read these
+    -- tags to populate the collision state.
+    frame_lock_head_top: Boolean   -- PLC tag MACHINE_SW_STAT[26]
+    frame_lock_head_mid: Boolean   -- PLC tag MACHINE_SW_STAT[27]
+    frame_lock_head_btm: Boolean   -- PLC tag MACHINE_SW_STAT[28]
+    frame_lock_foot_top: Boolean   -- PLC tag MACHINE_SW_STAT[29]
+    frame_lock_foot_mid: Boolean   -- PLC tag MACHINE_SW_STAT[30]
+    frame_lock_foot_btm: Boolean   -- PLC tag MACHINE_SW_STAT[31]
 
     -- Z is considered extended when z_actual_position exceeds the threshold.
     z_extended: z_actual_position > config.z_collision_threshold
@@ -312,4 +314,99 @@ invariant ZExtendedMotionRespectsCollisionZones {
 invariant HeadwardPivotNeverTraversed {
     -- No commanded motion path enters or crosses the headward-pivot keepout box,
     -- regardless of CollisionState.
+}
+
+-- ==========================================================================
+-- Pose invariants
+-- ==========================================================================
+--
+-- The PLC supports three horizontal-move modes (see plc_logic.States:
+-- XY_SEEK, XZ_SEEK, YZ_SEEK). The absence of bare X-only, Y-only, or
+-- XY-only modes is what mechanically guarantees Z is under power
+-- throughout any horizontal motion.
+--
+-- The position-based invariants below reference the Z encoder position;
+-- the held-under-power invariant references the Z actuator state. The two
+-- are independent.
+
+invariant HorizontalMoveModeRules {
+    -- For each horizontal-move mode the PLC accepts, the move is allowed
+    -- only when:
+    --
+    --   xy_seek (combined X+Y, may also command Z):
+    --     Z is retracted along the entire path
+    --     (z_position ≤ z_collision_threshold). Head presence is irrelevant.
+    --
+    --   xz_seek (X and Z, no Y motion):
+    --     Y is parked in a Y transfer zone (PLC tag Y_Transfer_OK).
+    --
+    --   yz_seek (Y and Z, no X motion):
+    --     X is parked in an X transfer zone (PLC tag X_Transfer_OK), AND
+    --     either Z is retracted along the path OR the path avoids every
+    --     frame-support keepout currently asserted (ActiveFrameLockKeepoutsRespected).
+}
+
+invariant ZHeldDuringHorizontalMotion {
+    -- Whenever X or Y is commanded to move, the Z axis is held under
+    -- power. Statement about actuator state, not encoder position.
+}
+
+invariant ActiveFrameLockKeepoutsRespected {
+    -- For each frame_lock_<edge>_<row> sensor (edge ∈ {head, foot},
+    -- row ∈ {top, mid, btm}) that is asserted, no commanded motion path
+    -- enters the corresponding frame-support keepout box (mapped by
+    -- DeriveActiveForbiddenBoxes).
+}
+
+-- ==========================================================================
+-- Z motion invariants (PLC MASTER_Z_GO)
+-- ==========================================================================
+--
+-- The PLC computes a single boolean MASTER_Z_GO at state_5_move_z that
+-- gates all Z motion. It is the conjunction of three named conditions
+-- (no_latch_collision, no_apa_collision, no_supports_collision) and
+-- mirrors the rung in dune_winder/plc/state_5_move_z/main/pasteable.rll.
+--
+-- The names below match the PLC tags so the spec and ladder logic line
+-- up symbol-for-symbol. NoZMotionWhileFloating in winder-states.allium
+-- is a separate, complementary constraint on the head-transfer state
+-- machine; it is not part of MASTER_Z_GO.
+
+invariant ZMotionRequiresMasterZGo {
+    -- Whenever a Z-axis move is in progress (PLC z_seek state), the
+    -- conjunction NoLatchCollision ∧ NoApaCollision ∧ NoSupportsCollision
+    -- holds for the entire move. If any component becomes false the PLC
+    -- raises ERROR_CODE 5001.
+}
+
+invariant NoLatchCollision {
+    -- Either the head is not fixed-latched (Z_FIXED_LATCHED = false), OR
+    -- the head is fixed-latched AND the rocker has settled to
+    -- mid_engagement (ActuatorPosition = 2).
+}
+
+invariant NoApaCollision {
+    -- X is parked in an X transfer zone (X_Transfer_OK), OR Y is parked
+    -- in a Y transfer zone (Y_Transfer_OK).
+}
+
+invariant NoSupportsCollision {
+    -- At least one of:
+    --   (a) Y is parked in a Y transfer zone (Y_Transfer_OK), OR
+    --   (b) Y is outside every support Y band (none of
+    --       support_collision_window_bttm / _mid / _top is active), OR
+    --   (c) X lies within the head transfer X band
+    --       [transfer_zone_head_min_x, transfer_zone_head_max_x] AND for
+    --       the (single) support Y band Y currently occupies, the
+    --       matching head frame-lock sensor frame_lock_head_<row> is
+    --       deasserted, OR
+    --   (d) X lies within the foot transfer X band
+    --       [transfer_zone_foot_min_x, transfer_zone_foot_max_x] AND for
+    --       the support Y band Y currently occupies, the matching foot
+    --       frame-lock sensor frame_lock_foot_<row> is deasserted.
+    --
+    -- The support Y bands are
+    --   bttm: [support_collision_bottom_min_y, support_collision_bottom_max_y]
+    --   mid:  [support_collision_middle_min_y, support_collision_middle_max_y]
+    --   top:  [support_collision_top_min_y,    support_collision_top_max_y]
 }

@@ -1,6 +1,13 @@
 import unittest
+from typing import cast
 
-from dune_winder.gcode.model import MacroCall, OPCODE_CATALOG, FunctionCall, Opcode
+from dune_winder.gcode.model import (
+    MacroCall,
+    OPCODE_CATALOG,
+    FunctionCall,
+    Opcode,
+    CommandWord,
+)
 from dune_winder.gcode.parser import GCodeParseError, parse_line_text
 from dune_winder.gcode.renderer import render_line
 from dune_winder.gcode.runtime import (
@@ -23,7 +30,7 @@ from dune_winder.recipes.gcode_functions import (
 class GCodeParserTests(unittest.TestCase):
     def test_p_parameters_bind_to_previous_word(self):
         line = parse_line_text("G103 PA800 PA799 PXY")
-        function = line.items[0]
+        function = cast(FunctionCall, line.items[0])
 
         self.assertIsInstance(function, FunctionCall)
         self.assertEqual(function.opcode, "103")
@@ -49,17 +56,18 @@ class GCodeParserTests(unittest.TestCase):
         line = parse_line_text("G103 PA800 PA799 ZEXTEND PXZ")
 
         self.assertEqual(render_line(line), "G103 PA800 PA799 PXZ ZEXTEND")
-        self.assertIsInstance(line.items[0], FunctionCall)
-        self.assertEqual(line.items[0].parameters, ["A800", "A799", "XZ"])
-        self.assertEqual(line.items[1].letter, "Z")
-        self.assertEqual(line.items[1].value, "EXTEND")
+        function = cast(FunctionCall, line.items[0])
+        z_word = cast(CommandWord, line.items[1])
+        self.assertEqual(function.parameters, ["A800", "A799", "XZ"])
+        self.assertEqual(z_word.letter, "Z")
+        self.assertEqual(z_word.value, "EXTEND")
 
     def test_parser_and_renderer_support_tilde_macro_lines(self):
         line = parse_line_text("N7 ~anchorToTarget(B1201,B2001) ( top )")
 
         self.assertEqual(render_line(line), "N7 ~anchorToTarget(B1201,B2001) ( top )")
-        self.assertIsInstance(line.items[1], MacroCall)
-        self.assertEqual(line.items[1].text, "anchorToTarget(B1201,B2001)")
+        macro = cast(MacroCall, line.items[1])
+        self.assertEqual(macro.text, "anchorToTarget(B1201,B2001)")
 
     def test_parser_and_renderer_support_anchor_to_target_offset_keyword(self):
         line = parse_line_text("N8 ~anchorToTarget(B1201,B2001,offset=(1.25,-2.5))")
@@ -67,10 +75,8 @@ class GCodeParserTests(unittest.TestCase):
         self.assertEqual(
             render_line(line), "N8 ~anchorToTarget(B1201,B2001,offset=(1.25,-2.5))"
         )
-        self.assertIsInstance(line.items[1], MacroCall)
-        self.assertEqual(
-            line.items[1].text, "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))"
-        )
+        macro = cast(MacroCall, line.items[1])
+        self.assertEqual(macro.text, "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))")
 
     def test_parser_and_renderer_support_anchor_to_target_hover_keyword(self):
         line = parse_line_text("N9 ~anchorToTarget(B1201,B2001,hover=True)")
@@ -78,8 +84,8 @@ class GCodeParserTests(unittest.TestCase):
         self.assertEqual(
             render_line(line), "N9 ~anchorToTarget(B1201,B2001,hover=True)"
         )
-        self.assertIsInstance(line.items[1], MacroCall)
-        self.assertEqual(line.items[1].text, "anchorToTarget(B1201,B2001,hover=True)")
+        macro = cast(MacroCall, line.items[1])
+        self.assertEqual(macro.text, "anchorToTarget(B1201,B2001,hover=True)")
 
 
 class GCodeRuntimeTests(unittest.TestCase):
@@ -144,9 +150,9 @@ class GCodeDomainTests(unittest.TestCase):
         line = parse_line_text("G206 P3")
 
         self.assertEqual(render_line(line), "G206 P3")
-        self.assertIsInstance(line.items[0], FunctionCall)
-        self.assertEqual(line.items[0].opcode, "206")
-        self.assertEqual(line.items[0].parameters, ["3"])
+        function = cast(FunctionCall, line.items[0])
+        self.assertEqual(function.opcode, "206")
+        self.assertEqual(function.parameters, ["3"])
 
     def test_parser_still_supports_legacy_g106(self):
         line = parse_line_text("G106 P0")
@@ -156,11 +162,13 @@ class GCodeDomainTests(unittest.TestCase):
     def test_parser_and_renderer_support_wrap_commands(self):
         line = parse_line_text("G114 PX7174 PY0")
         self.assertEqual(render_line(line), "G114 PX7174 PY0")
-        self.assertEqual(line.items[0].parameters, ["X7174", "Y0"])
+        function = cast(FunctionCall, line.items[0])
+        self.assertEqual(function.parameters, ["X7174", "Y0"])
 
         line = parse_line_text("G118 PB2001")
         self.assertEqual(render_line(line), "G118 PB2001")
-        self.assertEqual(line.items[0].parameters, ["B2001"])
+        function = cast(FunctionCall, line.items[0])
+        self.assertEqual(function.parameters, ["B2001"])
 
     def test_program_executor_executes_with_canonical_runtime(self):
         seen = []

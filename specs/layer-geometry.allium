@@ -21,6 +21,12 @@
 --   is applied over time". Tension measurement should be specified separately as
 --   "how a final wire segment is projected into measurable laser poses".
 
+use "./core.allium" as core
+
+-- The following types and enums are redeclared locally to keep this spec
+-- self-validating. They mirror the canonical definitions in core.allium;
+-- update core.allium first and propagate any change here.
+
 value PinRange {
   first: Integer
   last: Integer
@@ -45,6 +51,96 @@ value WrapSide {
 enum Layer { u | v | x | g }
 enum PinSide { a | b }
 enum FrameEdge { head | bottom | foot | top }
+
+-- ==========================================================================
+-- APA physical envelope
+-- ==========================================================================
+--
+-- The APA (Anode Plane Assembly) is a planar wire-wound frame. The winder
+-- operates over its surface. A reimplementer must know its envelope to
+-- derive workspace bounds, keepouts, and the X/G comb-slot grid.
+--
+-- The frame is a rectangle in the X–Y plane (length along X, height along Y)
+-- with finite thickness in Z. Each layer (U, V, X, G) carries its own set
+-- of four boards — head, foot, top, bottom — bearing the wire features for
+-- that layer. The boards are oriented as follows:
+--
+--   * top/bottom edge boards lie in the X–Z plane (long axis X, board
+--     extent along Z; their thickness pokes outward in ±Y);
+--   * head/foot edge boards lie in the Y–Z plane (long axis Y, board
+--     extent along Z; their thickness pokes outward in ±X).
+--
+-- A board is centred on the APA body in Z: its Z extent is symmetric about
+-- the APA Z midplane. Board width along Z is per-layer (see
+-- LayerBoardCrossSection below).
+
+value APAFrame {
+  length:    Decimal   -- mm, X extent
+  height:    Decimal   -- mm, Y extent
+  thickness: Decimal   -- mm, Z extent of the bare frame
+}
+
+-- Per-layer board cross-section. The board is centred on the APA Z
+-- midplane and extends ±(board_width_z / 2) along Z.
+value LayerBoardCrossSection {
+  layer:         Layer
+  board_width_z: Decimal   -- mm, total Z extent of this layer's boards
+}
+
+value Pin {
+  radius: Decimal   -- mm
+}
+
+-- ==========================================================================
+-- X/G board comb slots and mid-APA combs
+-- ==========================================================================
+--
+-- The X and G layers wrap around comb slots carried by the head and foot
+-- boards (X/G boards). Each board has two sides of slots, A and B, running
+-- along the board's long (Y) axis. Slots are numbered bottom-to-top on each
+-- (head/foot, A/B) combination. Slot count per side is per-layer:
+--   X layer: 480 slots
+--   G layer: 481 slots
+--
+-- Distinct from the X/G board comb slots, the APA also carries four
+-- mid-APA combs positioned vertically at four X positions in the middle
+-- of the APA (not on the head or foot edges). They constrain wires
+-- mid-span.
+
+enum SlotSide { a | b }
+enum SlotEdge { head | foot }
+
+value XGCombSlotGrid {
+  layer:            Layer       -- x | g
+  count_per_side:   Integer     -- 480 for X, 481 for G
+  pitch:            Decimal     -- mm, = apa_height / count_per_side
+}
+
+value CombPositions {
+  count: Integer            -- 4
+  x_positions: List<Decimal>  -- mm along X, mid-APA
+}
+
+entity APAGeometry {
+  frame:               APAFrame
+  pin:                 Pin
+  layer_board:         List<LayerBoardCrossSection>   -- one entry per layer
+  xg_comb_slots:       List<XGCombSlotGrid>           -- entries for x and g
+  combs:               CombPositions
+}
+
+-- Ordered visit sequence for X/G layer wrap, expressed as a slot address.
+-- Slots are numbered bottom-to-top (1..count_per_side).
+value XGSlotAddress {
+  edge: SlotEdge       -- head | foot
+  side: SlotSide       -- a | b
+  number: Integer      -- 1..480 for X, 1..481 for G
+}
+
+entity XGWrapOrder {
+  layer: Layer                    -- x | g
+  visit_order: List<XGSlotAddress>
+}
 
 entity LayerFrame {
   layer: Layer
@@ -144,6 +240,29 @@ config {
   wrap_count: Integer = 400
   first_wrap_index: Integer = 0
   last_wrap_index: Integer = 399
+
+  -- APA physical envelope (calibration-loaded)
+  apa_length_mm:    Decimal = 6060.2
+  apa_height_mm:    Decimal = 2300.0
+  apa_thickness_mm: Decimal = 76.2
+
+  -- Board cross-section (nominal; calibration-loaded)
+  apa_board_width_z_mm:     Decimal = 0.0
+  apa_board_thickness_x_mm: Decimal = 0.0
+  apa_board_thickness_y_mm: Decimal = 0.0
+
+  -- Pin nominal radius (calibration-loaded; per-pin offsets come from
+  -- the WinderCalibration contract).
+  pin_radius_mm: Decimal = 0.0
+
+  -- X/G slot grid (head and foot boards)
+  x_slot_count_per_side: Integer = 480
+  g_slot_count_per_side: Integer = 481
+  x_slot_pitch_mm:       Decimal = 4.791666666666667   -- apa_height_mm / 480
+  g_slot_pitch_mm:       Decimal = 4.781704781704782   -- apa_height_mm / 481
+
+  -- Combs: four mid-APA combs along X. Calibration supplies positions.
+  comb_count: Integer = 4
 }
 
 given {
@@ -151,6 +270,7 @@ given {
   v_frame: LayerFrame
   x_frame: LayerFrame
   g_frame: LayerFrame
+  apa: APAGeometry
 }
 
 rule DefineUvLayerFrames {
@@ -449,4 +569,69 @@ rule ReportEndpointEdgesForTensionConsumers {
     -- edge, for example V segment 401 maps bottom -> top and V segment 8 maps
     -- head -> top. That is a consumer of this geometry, not a separate pin
     -- numbering rule.
+}
+
+-- ==========================================================================
+-- APA geometry instantiation
+-- ==========================================================================
+
+rule DefineAPAGeometry {
+  when: APAGeometryLoaded()
+
+  ensures: APAGeometry.created(
+    frame: {
+      length: config.apa_length_mm,
+      height: config.apa_height_mm,
+      thickness: config.apa_thickness_mm,
+      board_width_z: config.apa_board_width_z_mm,
+      board_thickness_x: config.apa_board_thickness_x_mm,
+      board_thickness_y: config.apa_board_thickness_y_mm
+    },
+    pin: { radius: config.pin_radius_mm },
+    xg_comb_slots: xg_comb_slot_grids(),
+    combs: {
+      count: config.comb_count,
+      x_positions: comb_x_positions()
+    }
+  )
+
+  @guidance
+    -- Frame, pin radius, board cross-section, and per-pin and per-comb
+    -- positions are loaded from calibration via the WinderCalibration
+    -- contract (see winder-calibration.allium). The values declared in
+    -- config are nominal placeholders.
+    --
+    -- The X/G comb-slot grid models the head and foot boards' slots. Each
+    -- board carries side A and side B slots, numbered bottom-to-top. X slots
+    -- are numbered 1..480 and G slots are numbered 1..481 on each side of
+    -- each head/foot board.
+    --
+    -- The combs are four physical structures positioned vertically in the
+    -- middle of the APA at four mid-APA X positions. They are NOT on the
+    -- head or foot edges and are distinct from the X/G board slots.
+}
+
+rule DefineXGWrapOrder {
+  when: NeedXGWrapOrder(layer)
+
+  requires: layer in { x, g }
+
+  ensures: XGWrapOrder.created(
+    layer: layer,
+    visit_order: xg_visit_order(layer)
+  )
+
+  @guidance
+    -- The X/G layer is wound by visiting slots in a fixed interleaved order.
+    -- With slots numbered bottom-to-top from 1 to the layer's count per side,
+    -- the visit order is:
+    --
+    --   head A_1, foot A_1, foot B_1, head B_1,
+    --   head A_2, foot A_2, foot B_2, head B_2,
+    --   ...
+    --   head A_n, foot A_n, foot B_n, head B_n
+    --
+    -- That is, for each n in the layer-specific slot range the wrap visits
+    -- four slots in the order (head, A) -> (foot, A) -> (foot, B) -> (head, B)
+    -- before incrementing n.
 }

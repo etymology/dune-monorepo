@@ -9,7 +9,7 @@ from typing import Sequence
 
 from dune_winder.gcode.handler_base import GCodeHandlerBase
 from dune_winder.gcode.runtime import GCodeExecutionError, execute_text_line
-from dune_winder.library.Geometry.location import Location
+from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.head_compensation import WirePathModel
@@ -47,10 +47,8 @@ class _CalibrationPerturbationSpec:
 
 _RENDERED_LINE_NUMBER_RE = re.compile(r"^N(\d+)\b")
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_MACHINE_CALIBRATION_PATH = (
-    _REPO_ROOT / "dune_winder/config/machineCalibration.json"
-)
-_DEFAULT_LAYER_CALIBRATION_DIRECTORY = _REPO_ROOT / "dune_winder/config/APA"
+_DEFAULT_MACHINE_CALIBRATION_PATH = _REPO_ROOT / "config/machineCalibration.json"
+_DEFAULT_LAYER_CALIBRATION_DIRECTORY = _REPO_ROOT / "config/APA"
 
 _SITE_SPECS = {
     "U": (

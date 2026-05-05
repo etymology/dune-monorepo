@@ -1,3 +1,21 @@
+"""
+Regenerate PLC .rll files from .rllscrap sources.
+
+The .rllscrap files are the source of truth for ladder logic. This script:
+1. Transforms each studio_copy.rllscrap into a pasteable.rll (ready for import into PLC Studio)
+2. Resolves timer/counter arguments from tag definitions in programTags.json
+3. Updates manifest.json with refreshed tag metadata
+
+This is step 1 of the PLC sync workflow. For a complete sync (regenerate .rll + export metadata
++ export tag values), use sync_plc_state.py instead.
+
+Usage:
+  python -m dune_winder.convert_plc_rllscrap              # regenerate all
+  python -m dune_winder.convert_plc_rllscrap path/to/dir  # regenerate specific dir
+  python -m dune_winder.convert_plc_rllscrap --dry-run    # preview changes
+
+See also: sync_plc_state.py (unified PLC sync script)
+"""
 import argparse
 import re
 from pathlib import Path
@@ -42,6 +60,7 @@ TIMER_COUNTER_PATTERN = re.compile(r"(TON|CTU) (\S+) \? \?")
 
 
 def _resolve_tag_arguments(match, plc_metadata, program):
+    """Replace TON/CTU placeholder args with actual PRE/ACC values from tag definitions."""
     instruction = match.group(1)
     tag_name = match.group(2)
     tag = plc_metadata.get_tag_definition(tag_name, program=program)
@@ -62,10 +81,21 @@ def resolve_timer_counter_args(text, plc_metadata, program):
 
 
 def iter_rllscrap_files(routine_dir: Path):
+    """Find all studio_copy.rllscrap files in routine_dir tree, sorted by path."""
     yield from sorted(routine_dir.rglob("studio_copy.rllscrap"))
 
 
 def convert_directory(routine_dir: Path, dry_run: bool = False) -> int:
+    """
+    Convert all studio_copy.rllscrap files in routine_dir to pasteable.rll files.
+
+    Transformations applied:
+    1. Standard rung formatting via plc_rung_transform
+    2. Timer/Counter arg resolution: replaces TON/CTU "? ?" placeholders with actual PRE/ACC values
+    3. Manifest updates: refreshes tag metadata in manifest.json
+
+    Returns: number of files converted
+    """
     source_dir = routine_dir.resolve()
     if not source_dir.is_dir():
         raise FileNotFoundError(f"Routine directory does not exist: {source_dir}")

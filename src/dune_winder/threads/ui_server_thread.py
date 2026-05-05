@@ -151,22 +151,26 @@ class UICommandServerThread(PrimaryThread):
             # While the system is running...
             while PrimaryThread.isRunning:
                 # Wait for a connection, or 100 ms.
-                inputReady, _, _ = select.select([serverSocket], [], [], 0.1)
+                server_socket = serverSocket
+                if server_socket is None:
+                    break
+                inputReady, _, _ = select.select([server_socket], [], [], 0.1)
 
                 # For all the results the unblocked...
                 for readySource in inputReady:
                     # Was the source our server getting a connection?
-                    if readySource == serverSocket:
+                    if readySource == server_socket:
                         # Start a thread to deal with this client
                         _CommandClientThread(
-                            serverSocket.accept(), self._callback, self._log
+                            server_socket.accept(), self._callback, self._log
                         )
                 # end for
 
             # end while
 
         # Close server socket.
-        serverSocket.close()
+        if serverSocket is not None:
+            serverSocket.close()
 
 
 # end class

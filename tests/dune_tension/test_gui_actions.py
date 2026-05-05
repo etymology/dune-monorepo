@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 import types
+from typing import Any, cast
 
 
 MODULE_PATH = (
@@ -23,7 +24,7 @@ def _load_actions_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
-    tk = types.ModuleType("tkinter")
+    tk = cast(Any, types.ModuleType("tkinter"))
     tk.StringVar = lambda **kwargs: types.SimpleNamespace(
         get=lambda: "", set=lambda _: None
     )
@@ -39,10 +40,10 @@ def _load_actions_module(monkeypatch):
     tk.Misc = object
     monkeypatch.setitem(sys.modules, "tkinter", tk)
 
-    tk_messagebox = types.ModuleType("tkinter.messagebox")
+    tk_messagebox = cast(Any, types.ModuleType("tkinter.messagebox"))
     monkeypatch.setitem(sys.modules, "tkinter.messagebox", tk_messagebox)
 
-    config = types.ModuleType("dune_tension.config")
+    config = cast(Any, types.ModuleType("dune_tension.config"))
     config.GEOMETRY_CONFIG = types.SimpleNamespace(
         comb_positions=[],
         measurable_x_min=0.0,
@@ -54,7 +55,7 @@ def _load_actions_module(monkeypatch):
     config.LAYER_LAYOUTS = {}
     monkeypatch.setitem(sys.modules, "dune_tension.config", config)
 
-    data_cache = types.ModuleType("dune_tension.data_cache")
+    data_cache = cast(Any, types.ModuleType("dune_tension.data_cache"))
     data_cache.clear_wire_numbers = lambda *args, **kwargs: None
     data_cache.clear_wire_range = lambda *args, **kwargs: None
     data_cache.find_distribution_outliers = lambda *args, **kwargs: []
@@ -63,16 +64,18 @@ def _load_actions_module(monkeypatch):
     data_cache.update_dataframe = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dune_tension.data_cache", data_cache)
 
-    results = types.ModuleType("dune_tension.results")
+    results = cast(Any, types.ModuleType("dune_tension.results"))
     results.EXPECTED_COLUMNS = []
     monkeypatch.setitem(sys.modules, "dune_tension.results", results)
 
-    tensiometer = types.ModuleType("dune_tension.tensiometer")
+    tensiometer = cast(Any, types.ModuleType("dune_tension.tensiometer"))
     tensiometer.Tensiometer = object
     tensiometer.build_tensiometer = lambda **kwargs: kwargs
     monkeypatch.setitem(sys.modules, "dune_tension.tensiometer", tensiometer)
 
-    tensiometer_functions = types.ModuleType("dune_tension.tensiometer_functions")
+    tensiometer_functions = cast(
+        Any, types.ModuleType("dune_tension.tensiometer_functions")
+    )
     tensiometer_functions.make_config = lambda **kwargs: types.SimpleNamespace(**kwargs)
     tensiometer_functions.normalize_confidence_source = lambda value: (
         str(value).strip().lower().replace(" ", "_")
@@ -83,15 +86,15 @@ def _load_actions_module(monkeypatch):
         tensiometer_functions,
     )
 
-    context = types.ModuleType("dune_tension.gui.context")
+    context = cast(Any, types.ModuleType("dune_tension.gui.context"))
     context.GUIContext = object
     monkeypatch.setitem(sys.modules, "dune_tension.gui.context", context)
 
-    state = types.ModuleType("dune_tension.gui.state")
+    state = cast(Any, types.ModuleType("dune_tension.gui.state"))
     state.save_state = lambda _ctx: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.state", state)
 
-    layer_calibration = types.ModuleType("dune_tension.layer_calibration")
+    layer_calibration = cast(Any, types.ModuleType("dune_tension.layer_calibration"))
     layer_calibration.capture_laser_offset = lambda **kwargs: kwargs
     layer_calibration.ensure_layer_calibration_ready = lambda _layer: None
     layer_calibration.get_bottom_pin_options = lambda _layer, _side: [
@@ -110,15 +113,15 @@ def _load_actions_module(monkeypatch):
         sys.modules, "dune_tension.layer_calibration", layer_calibration
     )
 
-    plc_desktop = types.ModuleType("dune_tension.plc_desktop")
+    plc_desktop = cast(Any, types.ModuleType("dune_tension.plc_desktop"))
     plc_desktop.desktop_seek_pin = lambda *_args, **_kwargs: True
     monkeypatch.setitem(sys.modules, "dune_tension.plc_desktop", plc_desktop)
 
-    plc_io = types.ModuleType("dune_tension.plc_io")
+    plc_io = cast(Any, types.ModuleType("dune_tension.plc_io"))
     plc_io.get_plc_io_mode = lambda: "desktop"
     monkeypatch.setitem(sys.modules, "dune_tension.plc_io", plc_io)
 
-    uv_wire_planner = types.ModuleType("dune_tension.uv_wire_planner")
+    uv_wire_planner = cast(Any, types.ModuleType("dune_tension.uv_wire_planner"))
     uv_wire_planner.plan_uv_wire = lambda *_args, **_kwargs: None
     uv_wire_planner.plan_uv_wire_zone = lambda *_args, **_kwargs: 0
     monkeypatch.setitem(sys.modules, "dune_tension.uv_wire_planner", uv_wire_planner)
@@ -525,7 +528,7 @@ def test_clear_range_accepts_tension_expression(monkeypatch):
         def get(self):
             return self._value
 
-    summaries = types.ModuleType("dune_tension.summaries")
+    summaries = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries.get_tension_series = lambda _config: {
         "A": {1: 6.9, 2: 7.0, 3: 7.1, 5: 8.4}
     }
@@ -566,7 +569,7 @@ def test_measure_list_button_skips_already_measured_wires_when_enabled(monkeypat
         def close(self):
             pass
 
-    summaries = types.ModuleType("dune_tension.summaries")
+    summaries = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries.get_tension_series = lambda _config: {"A": {3: 5.8, 6: 6.1}}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
     monkeypatch.setattr(
@@ -628,7 +631,7 @@ def test_measure_list_button_skips_requested_wires_when_all_are_measured(
         def close(self):
             pass
 
-    summaries = types.ModuleType("dune_tension.summaries")
+    summaries = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries.get_tension_series = lambda _config: {
         "A": {3: 5.8, 5: 6.0, 6: 6.1, 7: 6.2}
     }
@@ -664,7 +667,7 @@ def test_measure_zone_button_skips_requested_wires_when_all_are_measured(monkeyp
         def close(self):
             pass
 
-    summaries = types.ModuleType("dune_tension.summaries")
+    summaries = cast(Any, types.ModuleType("dune_tension.summaries"))
     summaries.get_tension_series = lambda _config: {"A": {11: 5.8, 12: 6.1, 13: 6.2}}
     monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries)
     monkeypatch.setattr(

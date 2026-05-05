@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 import types
+from typing import Any, cast
 
 
 MODULE_PATH = (
@@ -11,26 +12,26 @@ MODULE_PATH = (
 
 
 def _load_state_module(monkeypatch):
-    tk_stub = types.ModuleType("tkinter")
+    tk_stub = cast(Any, types.ModuleType("tkinter"))
     tk_stub.Entry = object
     tk_stub.END = "end"
     monkeypatch.setitem(sys.modules, "tkinter", tk_stub)
 
-    dune_pkg = types.ModuleType("dune_tension")
+    dune_pkg = cast(Any, types.ModuleType("dune_tension"))
     dune_pkg.__path__ = []
-    gui_pkg = types.ModuleType("dune_tension.gui")
+    gui_pkg = cast(Any, types.ModuleType("dune_tension.gui"))
     gui_pkg.__path__ = []
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
 
-    config = types.ModuleType("dune_tension.config")
+    config = cast(Any, types.ModuleType("dune_tension.config"))
     config.MEASUREMENT_WIGGLE_CONFIG = types.SimpleNamespace(
         y_sigma_mm=0.2,
         focus_sigma_quarter_us=100.0,
     )
     monkeypatch.setitem(sys.modules, "dune_tension.config", config)
 
-    context = types.ModuleType("dune_tension.gui.context")
+    context = cast(Any, types.ModuleType("dune_tension.gui.context"))
     context.GUIContext = object
     monkeypatch.setitem(sys.modules, "dune_tension.gui.context", context)
 

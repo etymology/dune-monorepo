@@ -14,14 +14,14 @@ from scipy.io import wavfile
 from scipy.signal import wiener
 
 try:  # Optional dependency - may not be available in CI
-    import soundfile as sf  # type: ignore
+    import soundfile as sf
 except Exception:  # pragma: no cover - soundfile is optional
-    sf = None  # type: ignore
+    sf = None
 
 try:  # Optional dependency - full audio analysis toolkit
-    import librosa  # type: ignore
+    import librosa
 except Exception:  # pragma: no cover - dependency may be absent
-    librosa = None  # type: ignore
+    librosa = None
 
 from spectrum_analysis.audio_sources import MicSource, sd, _audio_lock
 

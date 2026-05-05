@@ -23,6 +23,8 @@ dependencies = [
     "ty>=0.0.32",
     "scikit-learn>=1.8.0",
     "anthropic>=0.97.0",
+    "dune-rust-audio",
+    "dune-tension-core",
 ]
 
 [project.scripts]
@@ -67,6 +69,10 @@ dev = [
     "pytest>=9.0.2",
     "ruff>=0.9.9",
 ]
+
+[tool.uv.sources]
+dune-rust-audio = { path = "rust/crates/dune-python" }
+dune-tension-core = { path = "rust/crates/dune_tension_core" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests/dune_tension", "tests/dune_winder"]

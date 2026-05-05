@@ -451,11 +451,8 @@ def filleted_polygon_segments(
             seg_type=last.seg_type,
             direction=last.direction,
             circle_type=last.circle_type,
-            via_x=last.via_x,
-            via_y=last.via_y,
             via_center_x=last.via_center_x,
             via_center_y=last.via_center_y,
-            z=last.z,
         )
 
     return segments

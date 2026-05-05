@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import types
+from typing import Any, cast
 
 from dune_winder.uv_head_target import (
     LineEquation,
@@ -84,7 +85,7 @@ class _FakeWidget:
 
 def _load_gui_module(monkeypatch):
     _FakeWidget.instances = []
-    tk_stub = types.ModuleType("tkinter")
+    tk_stub = cast(Any, types.ModuleType("tkinter"))
     tk_stub.Misc = object
     tk_stub.StringVar = _FakeVar
     tk_stub.Canvas = _FakeCanvas

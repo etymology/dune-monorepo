@@ -125,19 +125,24 @@ class GCodeHandler(GCodeHandlerBase):
         """
 
         isDone = True
-        if self._gCode:
+        gCode = self._gCode
+        if gCode is not None:
             startLine = 0
-            endLine = self._gCode.getLineCount() - 1
+            endLine = gCode.getLineCount() - 1
 
             if -1 != self.runToLine:
                 if 1 == self._direction:
                     endLine = self.runToLine - 1
-                else:
+            else:
                     startLine = self.runToLine - 1
 
             isDone = False
-            isDone |= 1 == self._direction and self._nextLine >= endLine
-            isDone |= 1 != self._direction and self._nextLine <= startLine
+            nextLine = self._nextLine
+            direction = self._direction
+            if nextLine is None or direction is None:
+                return True
+            isDone |= 1 == direction and nextLine >= endLine
+            isDone |= 1 != direction and nextLine <= startLine
             isDone |= self._isG_CodeError
 
         return isDone
@@ -152,8 +157,9 @@ class GCodeHandler(GCodeHandlerBase):
           is no G-Code file currently loaded.
         """
         result = None
-        if self._gCode:
-            result = self._gCode.getLineCount()
+        gCode = self._gCode
+        if gCode is not None:
+            result = gCode.getLineCount()
 
         return result
 
@@ -168,7 +174,8 @@ class GCodeHandler(GCodeHandlerBase):
         """
 
         result = None
-        if self._gCode:
+        gCode = self._gCode
+        if gCode is not None:
             result = self._currentLine
 
         return result
@@ -183,7 +190,8 @@ class GCodeHandler(GCodeHandlerBase):
         """
 
         isError = True
-        if line >= -1 and line < self._gCode.getLineCount():
+        gCode = self._gCode
+        if gCode is not None and line >= -1 and line < gCode.getLineCount():
             isError = False
             self._nextLine = line
             self._currentLine = line
@@ -422,7 +430,10 @@ class GCodeHandler(GCodeHandlerBase):
         self._functions = []
         self._suppress_instruction_trace = True
         try:
-            self._gCode.executeNextLine(line_index)
+            gCode = self._gCode
+            if gCode is None:
+                return None
+            gCode.executeNextLine(line_index)
         finally:
             self._suppress_instruction_trace = False
 
@@ -447,7 +458,7 @@ class GCodeHandler(GCodeHandlerBase):
 
         preview = _PreviewedQueuedLine(
             line_index=line_index,
-            line_text=str(self._gCode.lines[line_index]),
+            line_text=str(gCode.lines[line_index]),
             queueable=queueable,
             comment_only=no_motion_requests,
             x=float(self._x),
@@ -787,6 +798,8 @@ class GCodeHandler(GCodeHandlerBase):
         session = self._queued_session
         if session is None:
             return False
+        gCode = self._gCode
+        direction = self._direction if self._direction is not None else 0
 
         session.advance()
 
@@ -795,7 +808,7 @@ class GCodeHandler(GCodeHandlerBase):
             self._isG_CodeErrorMessage = session.error
             self._isG_CodeErrorData = [
                 self._queued_block_start_line,
-                self._gCode.lines[self._queued_block_start_line],
+                gCode.lines[self._queued_block_start_line] if gCode is not None else None,
             ]
             self._queued_session = None
             self._queued_stop_mode = None
@@ -803,13 +816,15 @@ class GCodeHandler(GCodeHandlerBase):
 
         if session.aborted:
             self._queued_session = None
-            self._nextLine = self._queued_block_start_line - self._direction
+            if self._queued_block_start_line is not None:
+                self._nextLine = self._queued_block_start_line - direction
             self._queued_stop_mode = None
             return True
 
         if session.done:
             self._queued_session = None
-            self._nextLine = self._queued_block_resume_line - self._direction
+            if self._queued_block_resume_line is not None:
+                self._nextLine = self._queued_block_resume_line - direction
             if self._queued_stop_mode == "single_step":
                 self._stopNextMove = True
             self._queued_stop_mode = None
@@ -843,11 +858,16 @@ class GCodeHandler(GCodeHandlerBase):
                 self._io.plcLogic.queuedMotion.set_stop_request(True)
             self._queued_session = None
             self._queued_stop_mode = None
-            self._nextLine = self._queued_block_start_line - self._direction
+            if self._queued_block_start_line is not None and self._direction is not None:
+                self._nextLine = self._queued_block_start_line - self._direction
             return
 
         # If we are interrupting a running line, set it as the next line to run.
-        if not self._io.plcLogic.isReady() and self._nextLine is not None:
+        if (
+            not self._io.plcLogic.isReady()
+            and self._nextLine is not None
+            and self._direction is not None
+        ):
             self._nextLine -= self._direction
 
     # ---------------------------------------------------------------------
@@ -864,7 +884,8 @@ class GCodeHandler(GCodeHandlerBase):
             )
             self._queued_preview = None
             self._queued_stop_mode = None
-            self._nextLine = self._queued_block_start_line - self._direction
+            if self._queued_block_start_line is not None and self._direction is not None:
+                self._nextLine = self._queued_block_start_line - self._direction
             self._stopNextMove = True
             return
 
@@ -874,7 +895,8 @@ class GCodeHandler(GCodeHandlerBase):
             self._io.plcLogic.queuedMotion.set_abort(False)
             self._queued_session = None
             self._queued_stop_mode = None
-            self._nextLine = self._queued_block_start_line - self._direction
+            if self._queued_block_start_line is not None and self._direction is not None:
+                self._nextLine = self._queued_block_start_line - self._direction
             self._stopNextMove = True
             return
         self._stopNextMove = True
@@ -1121,13 +1143,17 @@ class GCodeHandler(GCodeHandlerBase):
                 self._stopNextMove = False
 
                 if not isDone:
-                    if self._delay > 0:
-                        self._delay -= 1
+                    delay = self._delay
+                    if delay > 0:
+                        self._delay = delay - 1
                     elif self._pauseCount < self._PAUSE:
                         self._pauseCount += 1
                     else:
                         self._pauseCount = 0
-                        self._nextLine += self._direction
+                        next_line = self._nextLine
+                        direction = self._direction
+                        if next_line is not None and direction is not None:
+                            self._nextLine = next_line + direction
 
                         if self._positionLog:
                             x = self._io.xAxis.getPosition()
@@ -1159,12 +1185,15 @@ class GCodeHandler(GCodeHandlerBase):
                         self._stopNextMove = self.singleStep
                         queued_started = False
                         if self._beforeExecuteLineCallback:
+                            gCode = self._gCode
+                            if gCode is None:
+                                return True
                             error = self._beforeExecuteLineCallback()
                             if error:
                                 self._isG_CodeErrorMessage = str(error)
                                 self._isG_CodeErrorData = [
                                     self._nextLine,
-                                    self._gCode.lines[self._nextLine],
+                                    gCode.lines[self._nextLine],
                                 ]
                                 self._isG_CodeError = True
                                 return True
@@ -1336,25 +1365,32 @@ class GCodeHandler(GCodeHandlerBase):
         self._functions = []
 
         try:
+            gCode = self._gCode
+            if gCode is None:
+                return
+            line_index = self._nextLine
+            if line_index is None:
+                return
+            line_text = gCode.lines[line_index]
             if self._beforeExecuteLineCallback and not skip_before_execute_callback:
                 error = self._beforeExecuteLineCallback()
                 if error:
                     self._isG_CodeErrorMessage = str(error)
                     self._isG_CodeErrorData = [
-                        self._nextLine,
-                        self._gCode.lines[self._nextLine],
+                        line_index,
+                        line_text,
                     ]
                     self._isG_CodeError = True
                     return
 
             # Interpret the next line.
-            self._gCode.executeNextLine(self._nextLine)
+            gCode.executeNextLine(line_index)
         except GCodeExecutionError as exception:
             self._isG_CodeErrorMessage = str(exception)
 
             self._isG_CodeErrorData = [
-                self._nextLine,
-                self._gCode.lines[self._nextLine],
+                line_index,
+                line_text,
             ]
             self._isG_CodeErrorData += exception.data
 

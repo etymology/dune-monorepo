@@ -1,0 +1,678 @@
+-- allium: 3
+-- operator-workflows.allium
+
+-- Scope: Operator-facing workflows for the DUNE winder and tension tools.
+-- Includes: winding, manual motion, calibration capture, tension measurement,
+--           and review of measured tension observations as user-visible
+--           interactions.
+-- Excludes:
+--   - Tk/Web widget layout, command transport, and button naming
+--   - PLC tag encodings, servo tuning, audio model internals, and file schemas
+--   - Detailed geometry, motion-safety, and tension-physics algorithms
+--
+-- This spec sits above the lower-level specs. It states what an operator can
+-- ask the system to do, what progress and outcomes must be visible, and which
+-- lower-level contracts must be respected.
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+external entity WinderRuntime {
+  online: Boolean
+  ready_for_movement: Boolean
+}
+
+external entity MeasurementRuntime {
+  online: Boolean
+  audio_ready: Boolean
+  laser_ready: Boolean
+  excitation_ready: Boolean
+}
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+value MachinePose {
+  x_mm: Decimal
+  y_mm: Decimal
+  z_mm: Decimal?
+  focus_position: Decimal?
+  laser_x_mm: Decimal?
+}
+
+value ManualMotionCommand {
+  kind: xy_seek | z_seek | xz_seek | yz_seek | pin_seek | head_transfer | single_gcode_line | servo_idle
+  target_pose: MachinePose?
+  pin_name: String?
+  head_side: stage | fixed | null
+  gcode_line: String?
+  velocity_mm_s: Decimal?
+}
+
+value WrapInstruction {
+  sequence_number: Integer
+  layer: Layer
+  description: String
+}
+
+value CalibrationFeatureAddress {
+  kind: uv_pin | xg_comb_slot
+  layer: Layer
+  side: PinSide?
+  pin_number: Integer?
+  slot_edge: SlotEdge?
+  slot_number: Integer?
+}
+
+value TensionRunSetup {
+  apa_name: String
+  layer: Layer
+  side: PinSide
+  wires: Set<Integer>
+  mode: single_wire | batch | sweep | rescue
+  skip_already_measured: Boolean
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+-- Mirrors core.allium for standalone validation.
+enum Layer { u | v | x | g }
+enum PinSide { a | b }
+enum SlotEdge { head | foot }
+enum CalibrationMode { uv_pin_calibration | xg_comb_calibration }
+enum TensionClass { low | passing | high | implausible | no_result }
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Operator {
+  name: String
+}
+
+entity ManualMotionRequest {
+  operator: Operator
+  command: ManualMotionCommand
+  requested_at: Timestamp
+  state: requested | accepted | rejected | completed | stopped
+  rejection_reason: String?
+}
+
+entity WindingRun {
+  operator: Operator
+  layer: Layer
+  started_at: Timestamp
+  completed_at: Timestamp?
+  state: running | paused | completed | stopped | failed
+  continuous_order: List<WrapInstruction>
+  current_step_index: Integer
+  total_steps: Integer
+  failure_reason: String?
+
+  all_steps_completed: current_step_index >= total_steps
+}
+
+entity CalibrationSession {
+  operator: Operator
+  layer: Layer
+  mode: CalibrationMode
+  started_at: Timestamp
+  completed_at: Timestamp?
+  state: capturing | ready_to_apply | applied | aborted
+
+  observations: CalibrationObservation with session = this
+  accepted_observations: observations where state = accepted
+  required_features_satisfied:
+    calibration_features_satisfied(layer, mode, accepted_observations)
+}
+
+entity CalibrationObservation {
+  session: CalibrationSession
+  feature: CalibrationFeatureAddress
+  camera_pose: MachinePose
+  recorded_wire_pose: MachinePose
+  captured_at: Timestamp
+  state: recorded | accepted | rejected
+}
+
+entity TensionMeasurementRun {
+  operator: Operator
+  setup: TensionRunSetup
+  started_at: Timestamp
+  completed_at: Timestamp?
+  state: running | reviewing | completed | interrupted | failed
+
+  targets: TensionTarget with run = this
+  observations: TensionObservation with run = this
+
+  targets_settled:
+    targets.all(t => t.state in { classified, no_result, skipped })
+}
+
+entity TensionTarget {
+  run: TensionMeasurementRun
+  wire_number: Integer
+  planned_pose: MachinePose
+  actual_pose: MachinePose?
+  state: planned | positioned | excited | classified | no_result | skipped
+}
+
+entity TensionObservation {
+  run: TensionMeasurementRun
+  target: TensionTarget
+  pose: MachinePose
+  frequency_hz: Decimal?
+  tension_n: Decimal?
+  classification: TensionClass
+  confidence: Decimal
+  captured_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+rule RequestManualMotion {
+  when: OperatorRequestsManualMotion(operator, command)
+
+  ensures: ManualMotionRequest.created(
+    operator: operator,
+    command: command,
+    requested_at: now,
+    state: requested,
+    rejection_reason: null
+  )
+}
+
+rule AcceptLegalManualMotion {
+  when: request: ManualMotionRequest.created
+  requires: manual_motion_is_legal(request.command)
+  requires: WinderRuntime.ready_for_movement
+
+  ensures: request.state = accepted
+
+  @guidance
+    -- Legal manual motions include absolute XY, Z, XZ/YZ transfer-window
+    -- moves, calibrated pin seeks, head transfers, single-line manual G-code,
+    -- servo idle, and stop commands whenever the relevant lower-level safety
+    -- and state rules would accept them. Deprecated XY and Z jog modes are not
+    -- legal manual motions.
+}
+
+rule RejectIllegalManualMotion {
+  when: request: ManualMotionRequest.created
+  requires: not manual_motion_is_legal(request.command)
+      or not WinderRuntime.ready_for_movement
+
+  ensures: request.state = rejected
+  ensures: request.rejection_reason = manual_motion_rejection_reason(request.command)
+}
+
+rule CompleteManualMotion {
+  when: ManualMotionCompleted(request)
+  requires: request.state = accepted
+
+  ensures: request.state = completed
+}
+
+rule StopManualMotion {
+  when: OperatorStopsManualMotion(request)
+  requires: request.state = accepted
+
+  ensures: request.state = stopped
+}
+
+rule StartWindingRun {
+  when: OperatorStartsWinding(operator, layer, start_step?)
+  requires: layer in { u, v, x, g }
+  requires: WinderRuntime.ready_for_movement
+  requires: continuous_wrap_order(layer).count > 0
+
+  let order = continuous_wrap_order(layer)
+
+  ensures: WindingRun.created(
+    operator: operator,
+    layer: layer,
+    started_at: now,
+    completed_at: null,
+    state: running,
+    continuous_order: order,
+    current_step_index: starting_step(layer, start_step),
+    total_steps: order.count,
+    failure_reason: null
+  )
+
+  @guidance
+    -- The order is the continuous wire wrap order for the selected layer.
+    -- U/V use the continuous pin succession; X/G use the layer's comb-slot
+    -- visit order. Recipe file format and macro rendering are lower-level
+    -- concerns owned by layer-geometry and winder-macros.
+}
+
+rule AdvanceWindingRun {
+  when: WindingStepCompleted(run, step_index)
+  requires: run.state = running
+  requires: step_index = run.current_step_index
+
+  ensures: run.current_step_index = step_index + 1
+}
+
+rule PauseWindingRun {
+  when: OperatorPausesWinding(run)
+  requires: run.state = running
+
+  ensures: run.state = paused
+}
+
+rule ResumeWindingRun {
+  when: OperatorResumesWinding(run)
+  requires: run.state = paused
+  requires: WinderRuntime.ready_for_movement
+
+  ensures: run.state = running
+}
+
+rule CompleteWindingRun {
+  when: run: WindingRun.all_steps_completed
+  requires: run.state = running
+
+  ensures: run.state = completed
+  ensures: run.completed_at = now
+}
+
+rule StopWindingRun {
+  when: OperatorStopsWinding(run)
+  requires: run.state in { running, paused }
+
+  ensures: run.state = stopped
+  ensures: run.completed_at = now
+}
+
+rule FailWindingRun {
+  when: WindingRunFailed(run, reason)
+  requires: run.state in { running, paused }
+
+  ensures: run.state = failed
+  ensures: run.completed_at = now
+  ensures: run.failure_reason = reason
+}
+
+rule StartCalibrationSession {
+  when: OperatorStartsCalibration(operator, layer)
+  requires: layer in { u, v, x, g }
+  requires: WinderRuntime.ready_for_movement
+
+  ensures: CalibrationSession.created(
+    operator: operator,
+    layer: layer,
+    mode: calibration_mode_for_layer(layer),
+    started_at: now,
+    completed_at: null,
+    state: capturing
+  )
+}
+
+rule CaptureCalibrationFeature {
+  when: OperatorCapturesCalibrationFeature(session, feature, camera_pose)
+  requires: session.state = capturing
+  requires: calibration_feature_belongs_to_layer(feature, session.layer)
+  requires: calibration_feature_kind_matches_mode(feature, session.mode)
+
+  ensures: CalibrationObservation.created(
+    session: session,
+    feature: feature,
+    camera_pose: camera_pose,
+    recorded_wire_pose: camera_pose_to_wire_pose(camera_pose, session.layer),
+    captured_at: now,
+    state: recorded
+  )
+
+  @guidance
+    -- For U/V layers, feature.kind is uv_pin and the camera captures pin
+    -- positions. A U/V pin feature records side A/B and pin number; the pin
+    -- edge is derived from the layer and pin number rather than recorded by
+    -- the operator.
+    --
+    -- For X/G layers, feature.kind is xg_comb_slot and the camera captures
+    -- board comb-slot positions. An X/G slot feature records head/foot,
+    -- side A/B, and slot number. X slots are numbered 1..480 and G slots are
+    -- numbered 1..481 on each head/foot and A/B combination.
+}
+
+rule AcceptCalibrationObservation {
+  when: OperatorAcceptsCalibrationObservation(session, observation)
+  requires: session.state = capturing
+  requires: observation.session = session
+  requires: observation.state = recorded
+
+  ensures: observation.state = accepted
+}
+
+rule RejectCalibrationObservation {
+  when: OperatorRejectsCalibrationObservation(session, observation)
+  requires: session.state = capturing
+  requires: observation.session = session
+  requires: observation.state = recorded
+
+  ensures: observation.state = rejected
+}
+
+rule CalibrationReadyToApply {
+  when: session: CalibrationSession.required_features_satisfied
+  requires: session.state = capturing
+
+  ensures: session.state = ready_to_apply
+}
+
+rule ApplyCalibrationSession {
+  when: OperatorAppliesCalibration(session)
+  requires: session.state = ready_to_apply
+
+  ensures: session.state = applied
+  ensures: session.completed_at = now
+  ensures: CalibrationValuesUpdated(session)
+}
+
+rule AbortCalibrationSession {
+  when: OperatorAbortsCalibration(session)
+  requires: session.state in { capturing, ready_to_apply }
+
+  ensures: session.state = aborted
+  ensures: session.completed_at = now
+}
+
+rule StartTensionMeasurementRun {
+  when: OperatorStartsTensionMeasurement(operator, setup)
+  requires: MeasurementRuntime.online
+  requires: MeasurementRuntime.audio_ready
+  requires: MeasurementRuntime.laser_ready
+  requires: MeasurementRuntime.excitation_ready
+
+  ensures: TensionMeasurementRun.created(
+    operator: operator,
+    setup: setup,
+    started_at: now,
+    completed_at: null,
+    state: running
+  )
+}
+
+rule PlanTensionTargets {
+  when: run: TensionMeasurementRun.created
+
+  ensures:
+    for wire_number in run.setup.wires:
+      TensionTarget.created(
+        run: run,
+        wire_number: wire_number,
+        planned_pose: planned_laser_pose(run.setup, wire_number),
+        actual_pose: null,
+        state: planned
+      )
+}
+
+rule SkipPreviouslyMeasuredTarget {
+  when: target: TensionTarget.created
+  requires: target.run.setup.skip_already_measured
+  requires: latest_passing_tension(target.run.setup, target.wire_number) != null
+
+  ensures: target.state = skipped
+}
+
+rule PositionLaserOverWire {
+  when: OperatorPositionsLaserOverWire(target, pose)
+  requires: target.state = planned
+  requires: pose_places_laser_over_wire(pose, target.run.setup, target.wire_number)
+  requires: WinderRuntime.ready_for_movement
+
+  ensures: target.state = positioned
+  ensures: target.actual_pose = pose
+}
+
+rule PulsePositionedWire {
+  when: OperatorRequestsTensionPulse(target)
+  requires: target.state = positioned
+  requires: MeasurementRuntime.excitation_ready
+  requires: MeasurementRuntime.audio_ready
+
+  ensures: target.state = excited
+  ensures: AirPulseIssued(target)
+  ensures: AudioListeningWindowStarted(target)
+}
+
+rule ClassifyMeasuredTension {
+  when: WireFrequencyEstimated(target, frequency_hz, confidence, tension_n)
+  requires: target.state = excited
+
+  let classification = classify_tension(tension_n, target.run.setup, target.wire_number)
+
+  ensures: TensionObservation.created(
+    run: target.run,
+    target: target,
+    pose: target.actual_pose,
+    frequency_hz: frequency_hz,
+    tension_n: tension_n,
+    classification: classification,
+    confidence: confidence,
+    captured_at: now
+  )
+  ensures: target.state = classified
+}
+
+rule MarkTensionNoResult {
+  when: WireFrequencyUnavailable(target)
+  requires: target.state = excited
+
+  ensures: TensionObservation.created(
+    run: target.run,
+    target: target,
+    pose: target.actual_pose,
+    frequency_hz: null,
+    tension_n: null,
+    classification: no_result,
+    confidence: 0.0,
+    captured_at: now
+  )
+  ensures: target.state = no_result
+}
+
+rule MoveTensionRunToReview {
+  when: run: TensionMeasurementRun.targets_settled
+  requires: run.state = running
+
+  ensures: run.state = reviewing
+}
+
+rule CompleteTensionMeasurementRun {
+  when: OperatorCompletesTensionReview(run)
+  requires: run.state = reviewing
+
+  ensures: run.state = completed
+  ensures: run.completed_at = now
+}
+
+rule InterruptTensionMeasurementRun {
+  when: OperatorStopsTensionMeasurement(run)
+  requires: run.state in { running, reviewing }
+
+  ensures: run.state = interrupted
+  ensures: run.completed_at = now
+}
+
+rule FailTensionMeasurementRun {
+  when: TensionMeasurementFailed(run)
+  requires: run.state in { running, reviewing }
+
+  ensures: run.state = failed
+  ensures: run.completed_at = now
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant ManualMotionCompleteness {
+  -- Every motion accepted through the manual workflow is a legal motion under
+  -- the lower-level motion-safety and winder-state rules. No special-purpose
+  -- legal motion is reserved for winding or calibration only.
+}
+
+invariant CalibrationCapturesLayerFeatures {
+  -- U/V calibration sessions accept only pin observations. X/G calibration
+  -- sessions accept only comb-slot observations.
+}
+
+invariant CalibrationAddressShape {
+  -- U/V pin calibration features carry side A/B and pin_number only; their
+  -- board edge is derived from the layer's pin-number ranges. X/G comb-slot
+  -- calibration features carry slot_edge in {head, foot}, side in {a, b}, and
+  -- a slot_number in 1..480 for X or 1..481 for G.
+}
+
+invariant WindingUsesContinuousWrapOrder {
+  -- A winding run's continuous_order is the continuous wire wrap order for
+  -- its selected layer, and the run advances monotonically through that order.
+}
+
+invariant TensionClassificationRequiresFrequencyOrNoResult {
+  -- A classified tension target has either an accepted frequency and tension
+  -- class, or an explicit no_result observation with no frequency.
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface OperatorWorkflowConsole {
+  facing operator: Operator
+
+  exposes:
+    for request in ManualMotionRequests where operator = operator:
+      request.command
+      request.state
+      request.rejection_reason
+    for run in WindingRuns where operator = operator:
+      run.layer
+      run.state
+      run.current_step_index
+      run.total_steps
+      run.failure_reason
+    for session in CalibrationSessions where operator = operator:
+      session.layer
+      session.mode
+      session.state
+      session.accepted_observations
+      session.required_features_satisfied
+    for run in TensionMeasurementRuns where operator = operator:
+      run.setup
+      run.state
+      for target in run.targets:
+        target.wire_number
+        target.state
+        target.actual_pose
+      for observation in run.observations:
+        observation.target
+        observation.frequency_hz
+        observation.tension_n
+        observation.classification
+        observation.confidence
+
+  provides:
+    OperatorRequestsManualMotion(operator, command)
+    OperatorStopsManualMotion(request) when request.state = accepted
+    OperatorStartsWinding(operator, layer, start_step?)
+    OperatorPausesWinding(run) when run.state = running
+    OperatorResumesWinding(run) when run.state = paused
+    OperatorStopsWinding(run) when run.state in { running, paused }
+    OperatorStartsCalibration(operator, layer)
+    OperatorCapturesCalibrationFeature(session, feature, camera_pose) when session.state = capturing
+    OperatorAcceptsCalibrationObservation(session, observation) when session.state = capturing
+    OperatorRejectsCalibrationObservation(session, observation) when session.state = capturing
+    OperatorAppliesCalibration(session) when session.state = ready_to_apply
+    OperatorAbortsCalibration(session) when session.state in { capturing, ready_to_apply }
+    OperatorStartsTensionMeasurement(operator, setup)
+    OperatorPositionsLaserOverWire(target, pose) when target.state = planned
+    OperatorRequestsTensionPulse(target) when target.state = positioned
+    OperatorCompletesTensionReview(run) when run.state = reviewing
+    OperatorStopsTensionMeasurement(run) when run.state in { running, reviewing }
+
+  related:
+    RuntimeWorkflowBoundary
+
+  @guarantee WorkflowVisibility
+    -- The operator can see whether each workflow is unavailable, in progress,
+    -- blocked, failed, or complete, with enough state to decide the next action.
+
+  @guarantee TensionObservationReview
+    -- During and after tension review, the operator can visualize and compare
+    -- the measured observations for the run without this spec prescribing a
+    -- persistent distribution-analysis entity or grouping taxonomy.
+
+  @guarantee ManualMotionAtWill
+    -- The operator can request any legal manual motion at will. Rejections must
+    -- identify the safety, readiness, calibration, or syntax condition that
+    -- made the requested motion illegal.
+}
+
+surface RuntimeWorkflowBoundary {
+  facing runtime: WinderRuntime
+
+  exposes:
+    runtime.online
+    runtime.ready_for_movement
+
+  provides:
+    ManualMotionCompleted(request) when request.state = accepted
+    WindingStepCompleted(run, step_index) when run.state = running
+    WindingRunFailed(run, reason) when run.state in { running, paused }
+
+  @guarantee LowerLevelSafetyIsAuthoritative
+    -- Runtime completion and failure events are produced only after lower-level
+    -- motion-safety, winder-state, macro, and PLC rules have accepted or
+    -- rejected the commanded work.
+}
+
+surface TensionHardwareBoundary {
+  facing runtime: MeasurementRuntime
+
+  exposes:
+    runtime.online
+    runtime.audio_ready
+    runtime.laser_ready
+    runtime.excitation_ready
+
+  provides:
+    WireFrequencyEstimated(target, frequency_hz, confidence, tension_n) when target.state = excited
+    WireFrequencyUnavailable(target) when target.state = excited
+    TensionMeasurementFailed(run) when run.state in { running, reviewing }
+
+  @guarantee LaserPulseAudioChain
+    -- A frequency estimate is not provided until the laser has been positioned
+    -- over the requested wire, a bounded air pulse has excited the wire, and
+    -- the audio analyzer has listened to the resulting vibration.
+}
+
+------------------------------------------------------------
+-- Deferred Specifications
+------------------------------------------------------------
+
+-- Detailed lower-level behaviour remains in:
+--   - winding order and final wire geometry: specs/layer-geometry.allium
+--   - UV wrap head geometry: specs/uv-wrap-geometry.allium
+--   - macro execution: specs/winder-macros.allium
+--   - state and interlocks: specs/winder-states.allium
+--   - motion validation: specs/motion-safety.allium
+--   - calibration value contract: specs/winder-calibration.allium
+--   - tension measurement internals: specs/tension-measurement.allium
+--   - tension physics: specs/tension-physics.allium
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "For X/G calibration, which comb-slot subset is required before calibration may be applied: every slot, fixed head/foot reference slots, or a sampled set per comb?"
+open question "Should winding expose pause/resume at every macro boundary, every continuous-wrap step, or only at explicit recipe breakpoints?"
