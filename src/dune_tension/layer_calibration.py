@@ -357,7 +357,18 @@ def save_laser_offset_store(store: dict[str, Any]) -> None:
 
 
 def get_laser_offset(side: str) -> dict[str, Any] | None:
-    return load_laser_offset_store().get(_normalize_side(side))
+    requested_side = _normalize_side(side)
+    offset = load_laser_offset_store().get(requested_side)
+    if offset is None:
+        return {
+            "x": 0.0,
+            "y": -260.0,
+            "captured_layer": None,
+            "captured_pin": None,
+            "captured_focus": None,
+            "is_default": True,
+        }
+    return offset
 
 
 def capture_laser_offset(

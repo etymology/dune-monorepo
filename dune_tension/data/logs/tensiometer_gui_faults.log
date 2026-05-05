@@ -433,3 +433,13 @@ Extension modules: _pydevd_bundle.pydevd_cython, _pydevd_sys_monitoring_cython, 
 [2026-04-30T12:47:56] starting fault capture pid=365598 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
 
 [2026-04-30T12:56:14] starting fault capture pid=375319 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-05-01T13:52:05] starting fault capture pid=96830 argv=/Users/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-05-01T13:52:25] starting fault capture pid=24084 argv=/Users/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-05-01T13:53:22] starting fault capture pid=25476 argv=/Users/ben/dune-monorepo/src/dune_tension/main.py
+
+[2026-05-01T14:16:49] starting fault capture pid=52589 argv=/Users/ben/dune-monorepo/.venv/bin/dune-tension-gui --spoof --spoof-movement
+
+[2026-05-01T22:15:27] starting fault capture pid=20309 argv=src/dune_tension/main.py
