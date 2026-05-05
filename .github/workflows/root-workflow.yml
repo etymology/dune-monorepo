@@ -27,7 +27,7 @@ jobs:
       - name: Import smoke test
         run: |
           uv run python -c "import dune_tension, dune_winder, spectrum_analysis"
-          uv run python -c "import convert_plc_rllscrap, motionQueueTest_gui"
+          uv run python -c "from dune_winder import convert_plc_rllscrap"
 
       - name: Run dune_winder tests
         run: uv run python -m unittest discover -s dune_winder/tests

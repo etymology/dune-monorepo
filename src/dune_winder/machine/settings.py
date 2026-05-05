@@ -6,7 +6,7 @@
 #   Andrew Que <aque@bb7.com>
 ###############################################################################
 
-from dune_winder.paths import CONFIGURATION_PATH, PACKAGE_ROOT
+from dune_winder.paths import CONFIGURATION_PATH, PACKAGE_ROOT, REPO_ROOT
 
 # src/dune_winder/machine/ -> src/dune_winder/ -> src/ -> project root
 _ROOT = PACKAGE_ROOT
@@ -30,8 +30,8 @@ class Settings:
     CACHE_DIR = str(_ROOT / "cache")
     RECIPE_DIR = str(_ROOT / "gc_files")
     RECIPE_ARCHIVE_DIR = str(_ROOT / "cache" / "Recipes")
-    MACHINE_CALIBRATION_PATH = str(_ROOT / "config") + "/"
-    APA_CALIBRATION_DIR = str(_ROOT / "config" / "APA")
+    MACHINE_CALIBRATION_PATH = str(REPO_ROOT / "config") + "/"
+    APA_CALIBRATION_DIR = str(REPO_ROOT / "config" / "APA")
 
     # Files.
     IO_LOG = str(_ROOT / "cache" / "IO_log.csv")
