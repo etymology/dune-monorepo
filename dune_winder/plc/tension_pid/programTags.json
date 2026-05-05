@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-08T19:04:32.246947+00:00",
+  "generated_at": "2026-05-04T17:09:12.013385+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "tension_pid",
   "main_routine_name": "main",
@@ -64,7 +64,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": -2.497758388519287
+      "value": 0.20608758926391602
     },
     {
       "name": "tension_turned_off",
@@ -117,10 +117,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 1000,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 1000,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -140,27 +140,11 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 20,
-        "ACC": 1,
-        "EN": true,
-        "TT": true,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
         "DN": false
       }
-    },
-    {
-      "name": "oneshotob",
-      "fully_qualified_name": "Program:tension_pid.oneshotob",
-      "tag_type": "atomic",
-      "data_type_name": "DWORD",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        1,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "tension_pid",
-      "value": false
     },
     {
       "name": "oneshotsb",
@@ -176,7 +160,7 @@
       ],
       "array_dimensions": 1,
       "program": "tension_pid",
-      "value": false
+      "value": true
     },
     {
       "name": "cv_to_electrocraft",
@@ -192,7 +176,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": 2.5
+      "value": 5.775777816772461
     },
     {
       "name": "Enable_tension_motor",
@@ -209,7 +193,7 @@
       "array_dimensions": 0,
       "program": "tension_pid",
       "bit_position": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "tension_stable_tolerance",
@@ -244,5 +228,5 @@
       "value": 1
     }
   ],
-  "values_generated_at": "2026-04-08T19:04:47.706642+00:00"
+  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
 }

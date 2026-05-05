@@ -1105,7 +1105,10 @@ class RoutineExecutor:
         control_program = self._resolve_motion_control_program(control_path, ctx)
         control = _deep_copy(ctx.get_value(control_path, program=control_program))
         if not isinstance(control, dict):
-            return
+            raise TypeError(
+                f"Expected motion control at {control_path!r} to be a dict, "
+                f"got {type(control).__name__}: {control!r}"
+            )
         control["EN"] = False
         ctx.set_value(control_path, control, program=control_program)
 

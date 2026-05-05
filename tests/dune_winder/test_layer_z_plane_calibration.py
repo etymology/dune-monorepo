@@ -74,7 +74,7 @@ _U_SAMPLE_MEASUREMENTS = [
 
 def _load_machine_calibration() -> MachineCalibration:
     calibration = MachineCalibration(
-        str(REPO_ROOT / "dune_winder" / "config"),
+        str(REPO_ROOT / "config"),
         "machineCalibration.json",
     )
     calibration.load()
