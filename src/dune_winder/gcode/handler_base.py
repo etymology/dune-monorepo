@@ -621,10 +621,11 @@ class GCodeHandlerBase:
         if target_offset is not None:
             offset_x = float(target_offset[0])
             offset_y = float(target_offset[1])
+            offset_z = float(target_offset[2]) if len(target_offset) > 2 else 0.0
             target_location = Location(
                 float(target_location.x) + offset_x,
                 float(target_location.y) + offset_y,
-                float(target_location.z),
+                float(target_location.z) + offset_z,
             )
 
         try:
@@ -773,14 +774,13 @@ class GCodeHandlerBase:
                             [raw_text],
                         )
                     offset_values = self._split_macro_arguments(keyword_value[1:-1])
-                    if len(offset_values) != 2:
+                    if len(offset_values) not in (2, 3):
                         raise GCodeExecutionError(
-                            "~anchorToTarget offset requires exactly two values.",
+                            "~anchorToTarget offset requires two or three values.",
                             [raw_text],
                         )
-                    target_offset = (
-                        float(self._eval_numeric_macro_expr(offset_values[0])),
-                        float(self._eval_numeric_macro_expr(offset_values[1])),
+                    target_offset = tuple(
+                        float(self._eval_numeric_macro_expr(v)) for v in offset_values
                     )
                     continue
                 if keyword_name == "hover":

@@ -1,0 +1,32 @@
+{
+  "name": "rejects_axis_aligned_pins_indeterminate",
+  "notes": "Anchor and target share x \u2192 indeterminate direction; legacy raises UvHeadTargetError.",
+  "anchor_pin_point": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "target_pin_point": {
+    "x": 0.0,
+    "y": 5.0
+  },
+  "tangent_point_a": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "tangent_point_b": {
+    "x": 1.0,
+    "y": 0.0
+  },
+  "transfer_bounds": {
+    "left": -10.0,
+    "top": 10.0,
+    "right": 10.0,
+    "bottom": -10.0
+  },
+  "head_arm_length": 10.0,
+  "head_roller_radius": 1.0,
+  "head_roller_gap": 2.0,
+  "roller_arm_y_offsets": null,
+  "selected": null,
+  "error": "Arm correction is unavailable because the anchor-to-target pin direction is indeterminate."
+}

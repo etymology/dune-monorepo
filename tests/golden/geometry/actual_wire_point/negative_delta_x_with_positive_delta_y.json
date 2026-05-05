@@ -1,0 +1,21 @@
+{
+  "name": "negative_delta_x_with_positive_delta_y",
+  "notes": "Head left of anchor in x, above in y \u2192 roller offset signs flip.",
+  "final_head_xy": {
+    "x": -10.0,
+    "y": 4.0
+  },
+  "compensated_anchor_xy": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "anchor_z": 0.0,
+  "head_z": 5.0,
+  "head_arm_length": 10.0,
+  "head_roller_radius": 1.5,
+  "head_roller_gap": 3.0,
+  "wire_point": [
+    0.23105833418637256,
+    1.424530179326931
+  ]
+}

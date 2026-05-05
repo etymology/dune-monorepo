@@ -39,7 +39,7 @@ def test_invalid_pin_number_raises() -> None:
 
 def test_invalid_layer_or_side_raises() -> None:
     with pytest.raises(ValueError):
-        dune_geometry.Pin("X", "A", 1)
+        dune_geometry.Pin("Q", "A", 1)
     with pytest.raises(ValueError):
         dune_geometry.Pin("U", "C", 1)
 
@@ -76,10 +76,19 @@ def test_endpoint_membership_matches_table() -> None:
 
 
 def test_board_widths() -> None:
-    assert dune_geometry.Pin("U", "A", 1).board_a_to_b_z_mm == 130.0
-    assert dune_geometry.Pin("V", "A", 1).board_a_to_b_z_mm == 120.0
-    assert dune_geometry.board_a_to_b_z_mm("U") == 130.0
-    assert dune_geometry.board_a_to_b_z_mm("V") == 120.0
+    assert dune_geometry.Pin("U", "A", 1).board_width_z_mm == 130.0
+    assert dune_geometry.Pin("V", "A", 1).board_width_z_mm == 120.0
+    assert dune_geometry.Pin("U", "A", 1).half_board_width_z_mm == 65.0
+    assert dune_geometry.Pin("V", "A", 1).half_board_width_z_mm == 60.0
+    assert dune_geometry.board_width_z_mm("U") == 130.0
+    assert dune_geometry.board_width_z_mm("V") == 120.0
+
+
+def test_spine_to_face_sign() -> None:
+    assert dune_geometry.Pin("U", "A", 1).spine_to_face_sign == -1.0
+    assert dune_geometry.Pin("U", "B", 1).spine_to_face_sign == 1.0
+    assert dune_geometry.Pin("V", "A", 1).spine_to_face_sign == -1.0
+    assert dune_geometry.Pin("V", "B", 1).spine_to_face_sign == 1.0
 
 
 def test_pin_count() -> None:

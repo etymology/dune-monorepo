@@ -29,8 +29,6 @@ from dune_winder.uv_head_target import (
     _lookup_recipe_site,
     _clip_infinite_line_to_bounds,
     _line_equation_from_tangent_points,
-    _select_tangent_solution,
-    _tangent_candidates_for_pin_pair,
     RectBounds,
     compute_uv_head_target,
     compute_uv_tangent_view,
@@ -355,34 +353,6 @@ def test_compute_uv_tangent_view_derives_wrap_side_for_f_pin():
         result.tangent_point_b,
         Point2D(result.pin_b_point.x, result.pin_b_point.y),
         result.wrap_sides,
-    )
-
-
-def test_tangent_candidate_selection_allows_different_anchor_and_target_sides():
-    candidates = _tangent_candidates_for_pin_pair(
-        Point2D(0.0, 0.0),
-        Point2D(10.0, 0.0),
-        1.0,
-    )
-
-    tangent_point_a, tangent_point_b, _, _ = _select_tangent_solution(
-        candidates,
-        RectBounds(left=-20.0, top=20.0, right=20.0, bottom=-20.0),
-        anchor_pin_point=Point2D(0.0, 0.0),
-        anchor_tangent_sides=("minus", "minus"),
-        wrapped_pin_point=Point2D(10.0, 0.0),
-        wrapped_tangent_sides=("plus", "plus"),
-    )
-
-    assert _matches_tangent_sides(
-        tangent_point_a,
-        Point2D(0.0, 0.0),
-        ("minus", "minus"),
-    )
-    assert _matches_tangent_sides(
-        tangent_point_b,
-        Point2D(10.0, 0.0),
-        ("plus", "plus"),
     )
 
 

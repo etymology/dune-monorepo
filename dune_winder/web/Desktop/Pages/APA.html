@@ -135,9 +135,66 @@
     <article id="gCodeDiv">Loading...</article>
   </section>
 
+  <section id="column3">
+    <div id="increments">Loading...</div>
+    <article id="operatorOffsetCalibrationDiv">
+      <h3>Spine Capture</h3>
+      <p id="spineCaptureStatus" class="spineCaptureStatus">-</p>
+      <div id="spineCaptureBody">
+        <dl class="spineCaptureGrid">
+          <dt>Last line</dt>
+          <dd id="spineCaptureLastLine" class="spineCaptureLine">-</dd>
+          <dt>Anchor &rarr; Target</dt>
+          <dd id="spineCaptureAnchorTarget">-</dd>
+          <dt>Head config</dt>
+          <dd id="spineCaptureHeadConfig">-</dd>
+          <dt>Calculated XYZ</dt>
+          <dd id="spineCaptureCalculated" class="spineCaptureValue">-</dd>
+          <dt>Current XYZ</dt>
+          <dd id="spineCaptureCurrent" class="spineCaptureValue">-</dd>
+          <dt>Delta (cur&minus;calc)</dt>
+          <dd id="spineCaptureDelta" class="spineCaptureValue spineCaptureDelta">-</dd>
+          <dt>Propagates to</dt>
+          <dd id="spineCapturePropagation">-</dd>
+        </dl>
+        <div class="apaGCodeButtonRow">
+          <button type="button" id="spineCaptureButton" disabled>
+            Use Current Position
+          </button>
+        </div>
+        <p id="spineCaptureCount" class="spineCaptureCount">0 captures recorded</p>
+      </div>
+    </article>
+  </section>
 
 </div>
 
 <section id="column4">
   <article id="recentLogDiv">Loading...</article>
+</section>
+
+<section id="spineCaptureDialog" class="spineCaptureDialog hidden">
+  <article class="spineCaptureDialogCard">
+    <div class="spineCaptureDialogHeader">
+      <h2>Use current position?</h2>
+      <button type="button" id="spineCaptureDialogClose">Close</button>
+    </div>
+    <dl class="spineCaptureGrid">
+      <dt>Captured offset (mm)</dt>
+      <dd id="spineCaptureDialogOffset" class="spineCaptureValue">-</dd>
+      <dt>Will rewrite</dt>
+      <dd id="spineCaptureDialogScope">-</dd>
+      <dt>Head config</dt>
+      <dd id="spineCaptureDialogHeadConfig">-</dd>
+    </dl>
+    <p id="spineCaptureDialogWarning" class="spineCaptureWarning hidden">
+      &#9888; Offset exceeds 5&nbsp;mm. Are you sure?
+    </p>
+    <div class="apaGCodeButtonRow spineCaptureDialogButtons">
+      <button type="button" id="spineCaptureCancelButton">Cancel</button>
+      <button type="button" id="spineCaptureConfirmButton">
+        Use Current Position
+      </button>
+    </div>
+  </article>
 </section>

@@ -1,0 +1,37 @@
+{
+  "name": "ua_past_n1200_pair",
+  "notes": "UA pins (n > 1200), sa = (-1, 1). AB direction in NE quadrant.",
+  "layer": "U",
+  "anchor": {
+    "pin": "A1300",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "minus",
+      "plus"
+    ]
+  },
+  "target": {
+    "pin": "A1301",
+    "xy": [
+      5.0,
+      1.0
+    ],
+    "r": 0.5,
+    "tangent_sides": [
+      "minus",
+      "plus"
+    ]
+  },
+  "tangent_a": [
+    -0.09805806756909201,
+    0.49029033784546006
+  ],
+  "tangent_b": [
+    4.901941932430908,
+    1.49029033784546
+  ]
+}

@@ -38,8 +38,10 @@ value PinName {
   number: Integer
 
   @guidance
-    -- Canonical string form is "{LAYER}{SIDE}{NUMBER}" with the layer letter
-    -- in upper case and no separators, e.g. "UA1", "VB23", "UA2401".
+    -- Canonical string form for U/V is "{LAYER}{SIDE}{NUMBER}", e.g. "UA1".
+    -- Canonical string form for X/G is "{LAYER}{SIDE}{EDGE}{INDEX}",
+    -- where EDGE is "H" (head) or "F" (foot) and INDEX is 1..480 (or 481),
+    -- e.g. "XAH1", "XBF480", "GAH481".
     -- Persisted JSON stores the structured form (layer, side, number) — not
     -- the string form — so the layer is never implicit from a filename.
 }
@@ -214,9 +216,9 @@ config {
   u_pin_count: Integer = 2401
   v_pin_count: Integer = 2399
 
-  -- X/G layer pin counts (placeholder: to be specified)
-  x_pin_count: Integer = 480
-  g_pin_count: Integer = 481
+  -- X/G layer pin counts (Head slots + Foot slots)
+  x_pin_count: Integer = 960
+  g_pin_count: Integer = 962
 
   -- Segment ranges (shared across U/V; X/G may differ)
   formula_segment_min: Integer = 1
@@ -235,16 +237,16 @@ config {
   v_foot: PinRange = { first: 1200, last: 1599 }
   v_top: PinRange = { first: 1600, last: 2399 }
 
-  -- X/G frame edge pin ranges (placeholder)
-  x_head: PinRange = { first: 1, last: 240 }
-  x_bottom: PinRange = { first: 241, last: 360 }
-  x_foot: PinRange = { first: 361, last: 480 }
-  x_top: PinRange = { first: 481, last: 480 }
+  -- X/G frame edge pin ranges (Head: 1..max, Foot: max+1..2*max)
+  x_head: PinRange = { first: 1, last: 480 }
+  x_bottom: PinRange = { first: 0, last: 0 }
+  x_foot: PinRange = { first: 481, last: 960 }
+  x_top: PinRange = { first: 0, last: 0 }
 
-  g_head: PinRange = { first: 1, last: 240 }
-  g_bottom: PinRange = { first: 241, last: 361 }
-  g_foot: PinRange = { first: 362, last: 481 }
-  g_top: PinRange = { first: 482, last: 481 }
+  g_head: PinRange = { first: 1, last: 481 }
+  g_bottom: PinRange = { first: 0, last: 0 }
+  g_foot: PinRange = { first: 482, last: 962 }
+  g_top: PinRange = { first: 0, last: 0 }
 
   -- U/V segment endpoint formulas (same pin number on A and B sides)
   u_segment_1_start: Integer = 450
@@ -262,12 +264,25 @@ config {
   apa_height_mm:    Decimal = 2300.0
   apa_thickness_mm: Decimal = 76.2
 
-  -- Board cross-section (nominal; calibration-loaded). Per-layer A↔B Z
-  -- displacement: the A plane sits one board width away from the B plane
-  -- in +Z. Used by anchor-to-target geometry to derive A-side raw pin
-  -- coordinates from the calibrated B-side coordinates.
-  u_board_a_to_b_z_mm:      Decimal = 130.0
-  v_board_a_to_b_z_mm:      Decimal = 120.0
+  -- Per-layer board width along Z (mm).
+  --
+  -- Each layer's boards are physically centred on the APA spine — the
+  -- closed continuous loop running around the perimeter at the APA Z
+  -- midplane. The two pin-bearing faces (A and B) sit one half-board-width
+  -- to either side of the spine along Z:
+  --
+  --   A_xyz = spine_xyz + (board_width_z / 2) * z_normal
+  --   B_xyz = spine_xyz - (board_width_z / 2) * z_normal
+  --
+  -- The spine itself is the calibration target (see
+  -- spine-calibration.allium). The per-side raw pin coordinates consumed
+  -- by anchor-to-target geometry are derived at lookup time from the
+  -- spine plus the layer's half-board-width — there is no separate
+  -- calibration of the A or B faces.
+  u_board_width_z_mm:       Decimal = 130.0
+  v_board_width_z_mm:       Decimal = 120.0
+  x_board_width_z_mm:       Decimal = 110.0
+  g_board_width_z_mm:       Decimal = 140.0
   apa_board_width_z_mm:     Decimal = 0.0
   apa_board_thickness_x_mm: Decimal = 0.0
   apa_board_thickness_y_mm: Decimal = 0.0
@@ -388,13 +403,13 @@ rule DefineXgLayerFrames {
     bottom: config.x_bottom,
     foot: config.x_foot,
     top: config.x_top,
-    named_bottom_foot_end: 360,
-    named_bottom_head_end: 241,
-    named_top_foot_end: 481,
-    named_top_head_end: 480,
-    named_foot_bottom_end: 361,
-    named_foot_top_end: 480,
-    named_head_bottom_end: 240,
+    named_bottom_foot_end: 0,
+    named_bottom_head_end: 0,
+    named_top_foot_end: 0,
+    named_top_head_end: 0,
+    named_foot_bottom_end: 481,
+    named_foot_top_end: 960,
+    named_head_bottom_end: 480,
     named_head_top_end: 1
   )
 
@@ -409,13 +424,13 @@ rule DefineXgLayerFrames {
     bottom: config.g_bottom,
     foot: config.g_foot,
     top: config.g_top,
-    named_bottom_foot_end: 361,
-    named_bottom_head_end: 241,
-    named_top_foot_end: 482,
-    named_top_head_end: 481,
-    named_foot_bottom_end: 362,
-    named_foot_top_end: 481,
-    named_head_bottom_end: 240,
+    named_bottom_foot_end: 0,
+    named_bottom_head_end: 0,
+    named_top_foot_end: 0,
+    named_top_head_end: 0,
+    named_foot_bottom_end: 482,
+    named_foot_top_end: 962,
+    named_head_bottom_end: 481,
     named_head_top_end: 1
   )
 
@@ -575,39 +590,39 @@ rule ClassifyPinWrapSide {
     -- Wrap side is a property of the final wire around the pin, not of a
     -- particular robot move.
     --
-    -- The wrap-side output is a signed normal vector in {-1, 1}^2. Its
-    -- components are the signs of the tangent normal vector from the pin
-    -- center to the tangent point where the wire contacts that pin:
+    -- For U/V pins:
+    --   The wrap-side output is a signed normal vector in {-1, 1}^2. Its
+    --   components are the signs of the tangent normal vector from the pin
+    --   center to the tangent point where the wire contacts that pin:
     --
-    --   tangent_point = pin_center + pin_radius * wrap_side
-    --   wrap_side = (x_sign, y_sign)
-    --   x_sign in {-1, 1}
-    --   y_sign in {-1, 1}
+    --     tangent_point = pin_center + pin_radius * wrap_side
+    --     wrap_side = (x_sign, y_sign)
+    --     x_sign in {-1, 1}
+    --     y_sign in {-1, 1}
     --
-    -- A compact parity rule for the signs is:
-    --   layer_bit = 0 for U, 1 for V, 2 for X, 3 for G
-    --   side_bit = 0 for B, 1 for A
-    --   x_edge_bit = 0 for bottom, 1 for top
-    --   y_edge_bit = 0 for head, 1 for foot
+    --   A compact parity rule for the signs is:
+    --     layer_bit = 0 for U, 1 for V, 2 for X, 3 for G
+    --     side_bit = 0 for B, 1 for A
+    --     x_edge_bit = 0 for bottom, 1 for top
+    --     y_edge_bit = 0 for head, 1 for foot
     --
-    -- On top/bottom edges:
-    --   x_sign =  1 when layer_bit xor side_bit xor x_edge_bit = 0
-    --   x_sign = -1 otherwise
+    --   On top/bottom edges:
+    --     x_sign =  1 when layer_bit xor side_bit xor x_edge_bit = 0
+    --     x_sign = -1 otherwise
     --
-    -- On head/foot edges:
-    --   y_sign =  1 when layer_bit xor side_bit xor y_edge_bit = 0
-    --   y_sign = -1 otherwise
+    --   On head/foot edges:
+    --     y_sign =  1 when layer_bit xor side_bit xor y_edge_bit = 0
+    --     y_sign = -1 otherwise
     --
-    -- The non-dominant component is still part of the output so consumers can
-    -- treat wrap side uniformly as a 2D sign vector. The current Python layout
-    -- API presents the same information as plus/minus strings and integer
-    -- x_sign/y_sign helpers.
+    -- For X/G slots:
+    --   Slots have no wrap orientation. The wrap side is (0, 0).
+    --   tangent_point = slot_center
 }
 
 rule ClassifyEndpointPin {
   when: NeedEndpointClassification(pin)
 
-  requires: pin.layer in { u, v }
+  requires: pin.layer in { u, v, x, g }
   requires: pin.side in { a, b }
   requires: pin.number >= 1
   requires: pin.number <= pin_count(pin.layer)
@@ -620,16 +635,14 @@ rule ClassifyEndpointPin {
   @guidance
     -- A pin is an endpoint when its number appears in the layer's endpoint
     -- pin number list (config.u_endpoint_pin_numbers for U,
-    -- config.v_endpoint_pin_numbers for V). Endpoint membership is
-    -- side-independent: if pin number n is an endpoint for layer L, both
-    -- LA n and LB n are endpoints.
+    -- config.v_endpoint_pin_numbers for V).
+    --
+    -- All X/G slots are treated as endpoints.
     --
     -- pin_is_endpoint(pin) =
-    --   pin.number in config.u_endpoint_pin_numbers when pin.layer = u,
-    --   pin.number in config.v_endpoint_pin_numbers when pin.layer = v
-    --
-    -- Recipe generation places gcode commands at endpoint pins; intermediate
-    -- wrap pins are visited as side-effects of wire stretch.
+    --   (pin.layer in { x, g }) OR
+    --   (pin.number in config.u_endpoint_pin_numbers when pin.layer = u) OR
+    --   (pin.number in config.v_endpoint_pin_numbers when pin.layer = v)
 }
 
 rule ReportEndpointEdgesForTensionConsumers {

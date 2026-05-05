@@ -115,6 +115,8 @@
       manualCalibrationCaptureCurrentReference: "process.manual_calibration.capture_current_reference",
       manualCalibrationGotoReference: "process.manual_calibration.goto_reference",
       manualCalibrationUpdateReferencePoint: "process.manual_calibration.update_reference_point",
+      machineCaptureGetState: "process.machine_capture.get_state",
+      machineCaptureRecord: "process.machine_capture.record",
     },
     io:
     {

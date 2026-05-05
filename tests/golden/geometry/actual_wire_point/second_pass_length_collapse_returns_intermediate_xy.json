@@ -1,0 +1,21 @@
+{
+  "name": "second_pass_length_collapse_returns_intermediate_xy",
+  "notes": "After the first pass, anchor and intermediate point coincide in xz with the recomputed head pose \u2192 second-pass length_xz is 0 and function returns the intermediate (x, y).",
+  "final_head_xy": {
+    "x": 10.0,
+    "y": 0.0
+  },
+  "compensated_anchor_xy": {
+    "x": 0.0,
+    "y": 0.0
+  },
+  "anchor_z": 0.0,
+  "head_z": 10.0,
+  "head_arm_length": 14.142135623730951,
+  "head_roller_radius": 1.0,
+  "head_roller_gap": 2.0,
+  "wire_point": [
+    0.0,
+    0.0
+  ]
+}

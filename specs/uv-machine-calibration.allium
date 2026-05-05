@@ -4,16 +4,16 @@
 -- Scope: Calibration capture, persistence, and solver behaviour for the UV
 --        diagonal-layer workflow. Covers:
 --          - PinCalibrationSnapshot / PinCalibrationFile: how raw camera-space
---            pin coordinates are recorded by Calibrate.html and persisted.
+--            pin XY coordinates are recorded by Calibrate.html and persisted.
 --          - MachineCalibrationCapturePoint / MachineCalibrationFile: the
---            APA.html "Use current position" capture workflow that records
---            pose-vs-target deltas during a paused recipe run.
+--            APA.html "use current position" capture workflow that records
+--            actual-vs-predicted pose deltas during a paused recipe run.
 --          - Label propagation: a single capture rewrites every gcode line
 --            sharing the captured label with a 3D offset(x, y, z).
---          - SolveMachineCalibration: fits CameraWireOffset bases and
---            per-pin overrides plus roller offsets from collected captures.
---          - SolveContinuousBPinLoop: replaces the planar Z fit with a
---            continuous loop solution for B-side pin XYZ.
+--          - SolveMachineCalibration: jointly fits the APA spine plane,
+--            CameraWireOffset bases and per-pin overrides, and roller offsets
+--            from collected captures. Writes both MachineCalibrationFile and
+--            SpineCalibrationFile (spine-calibration.allium).
 --
 -- Excludes:
 --   - The wrap-tangent / anchor-to-target solve itself (uv-wrap-geometry.allium)
@@ -21,6 +21,7 @@
 --   - Operator-workflow plumbing for calibration sessions in general
 --     (operator-workflows.allium owns those state machines)
 --   - Recipe / gcode syntax (winder-macros.allium)
+--   - Spine plane type and fit algorithm (spine-calibration.allium)
 
 use "./core.allium" as core
 use "./layer-geometry.allium" as layout
@@ -120,6 +121,16 @@ value Vec3Mm {
     z: Decimal
 }
 
+-- Four-way classification of the winder head configuration during an
+-- ~anchorToTarget move. Fully determined by the (anchor.side, target.side)
+-- pair; never operator-chosen.
+--
+--   stage_a     : (A,A) — head on stage, Z extended to A face (z < 207)
+--   stage_b     : (B,B) — head on stage, Z extended to B face (z > 207)
+--   fixed       : (A,B) — head latched to fixed side, stage retracted
+--   retracted   : (B,A) — both heads retracted (transfer between sides)
+type HeadConfig = stage_a | stage_b | fixed | retracted
+
 entity MachineCalibrationFile {
     machine_id: String
 
@@ -132,11 +143,11 @@ entity MachineCalibrationCapturePoint {
     file:           MachineCalibrationFile
     captured_at:    Timestamp
     operator_name:  String?
-    gcode_label:    String        -- e.g. "Top B Corner"
+    gcode_label:    String        -- e.g. "(5,8)" (wrap_number, line_number)
     gcode_line:     String        -- raw text of the line that produced calculated_xyz
     calculated_xyz: Vec3Mm
     recorded_xyz:   Vec3Mm
-    head_side:      wrap/HeadSide
+    head_config:    HeadConfig
     pin:            core/PinName?
 }
 
@@ -185,17 +196,23 @@ surface ApaCaptureSurface {
             run.last_executed_calculated_xyz
 
     provides:
-        OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz, head_side)
+        OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz)
             when run.state = paused
 
     @guarantee CaptureGatedOnPause
         -- The capture provider event is offered only when the recipe run is
         -- paused. This includes both UI-side disabling and server-side
         -- enforcement.
+
+    @guidance
+        -- The operator never picks a head configuration. It is implicit in
+        -- the (anchor.side, target.side) pair of the just-executed
+        -- ~anchorToTarget macro line; the server classifies it via
+        -- HeadConfig.from_sides at capture time.
 }
 
 rule RecordMachineCalibrationCapture {
-    when: OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz, head_side)
+    when: OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz)
 
     requires: run.state = paused
     requires: run.last_executed_gcode_line != null
@@ -210,7 +227,10 @@ rule RecordMachineCalibrationCapture {
         gcode_line:     run.last_executed_gcode_line,
         calculated_xyz: run.last_executed_calculated_xyz,
         recorded_xyz:   recorded_xyz,
-        head_side:      head_side,
+        head_config:    head_config_from_sides(
+            anchor_side: anchor_side_of(run.last_executed_gcode_line),
+            target_side: target_side_of(run.last_executed_gcode_line)
+        ),
         pin:            pin_for_gcode_label(run.last_executed_gcode_label)
     )
     ensures: GcodeOffsetsPropagated(
@@ -231,7 +251,7 @@ rule RecordMachineCalibrationCapture {
 }
 
 rule RejectCaptureWhileRunning {
-    when: OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz, head_side)
+    when: OperatorRequestsCurrentPositionCapture(operator, run, recorded_xyz)
     requires: run.state != paused
 
     ensures: CaptureRejected(reason: "recipe execution is not paused")
@@ -273,21 +293,26 @@ rule RegenerateLoadedRecipeGcode {
     )
 
     @guidance
-        -- Every gcode line in run.loaded_recipe whose label equals `label`
-        -- has its offset(x, y, z) replaced (NOT additively combined) with
-        -- the captured (dx, dy, dz). The rewritten recipe is persisted to
-        -- run.loaded_recipe_path on disk and reloaded into the active
-        -- session, so a paused-then-resumed run picks up the new offsets.
+        -- The captured label is a (wrap_number, wrap_line_number) tuple
+        -- like "(5,8)". Propagation keys on the *line index within a
+        -- wrap*: every wrap of the loaded recipe, at line index
+        -- `wrap_line_number`, has its offset(x, y, z) additively combined
+        -- with the captured (dx, dy, dz). I.e. capturing on (5,8) updates
+        -- (1,8), (2,8), …, (WRAP_COUNT, 8) — not just (5,8). This matches
+        -- the operator's mental model of "this offset applies to every
+        -- Head B corner across the whole run".
         --
-        -- Lines without the captured label are unchanged. The 3D offset
-        -- form replaces the legacy 2D offset(x, y) form; legacy recipes are
-        -- read with z = 0.
+        -- The rewritten recipe is persisted to run.loaded_recipe_path on
+        -- disk and reloaded into the active session, so a paused-then-
+        -- resumed run picks up the new offsets. Lines without the captured
+        -- line index are unchanged. The 3D offset form replaces the legacy
+        -- 2D offset(x, y) form; legacy recipes are read with z = 0.
 }
 
 invariant LabelPropagationApplies3DOffset {
     -- For every LoadedRecipeRewritten event, every gcode line in the loaded
-    -- recipe whose label = event.label carries offset(x, y, z) equal to
-    -- event.applied_offset.
+    -- recipe whose wrap_line_number matches the captured label's line index
+    -- has its offset(x, y, z) updated by event.applied_offset.
 }
 
 invariant CaptureRequiresPause {
@@ -321,6 +346,9 @@ rule SolveMachineCalibration {
         capture_points:  file.capture_points,
         roller_state:    current_roller_state()
     )
+    ensures: active_spine_calibration_file().plane = solve_spine_plane(
+        touches: spine_touches_from_captures(file.capture_points)
+    )
     ensures: GcodeOffsetsRegeneratedFromModel(file)
 
     @guidance
@@ -329,6 +357,15 @@ rule SolveMachineCalibration {
         -- head_side, plus per_pin_overrides for pins where capture data
         -- exists. Bases are the central tendency for un-captured poses;
         -- per_pin_overrides win where present.
+        --
+        -- solve_spine_plane is called with CalibrationTouches derived from
+        -- capture points that have a non-null pin field, using recorded_xyz
+        -- as the winder_xyz. See SolveSpinePlaneFromCalibrationTouches in
+        -- spine-calibration.allium for the fit algorithm. The result is
+        -- written to the active SpineCalibrationFile; it replaces any
+        -- previously fitted plane. Captures without a pin association are
+        -- excluded from the spine fit (they contribute only to the
+        -- camera-wire-offset model).
         --
         -- After solve, GcodeOffsetsRegeneratedFromModel rewrites all gcode
         -- offsets in the loaded recipe from the new fitted_model so the
@@ -345,74 +382,8 @@ invariant SolverConsumesAllCapturePoints {
 }
 
 -- ==========================================================================
--- Continuous B-pin loop solver (replaces planar Z fit)
--- ==========================================================================
---
--- The B-side pins form a closed rectangular loop around the APA. Their Z
--- coordinates are NOT constrained to a plane in general — the frame can
--- bow along the loop. The new solver fits a continuous closed loop of
--- B-side XYZ from the calibrated B-pin coordinates and the wire-touches-pin
--- constraints derived from recorded calibration positions.
---
--- A-side coordinates are derived from B-side by displacement along the
--- board normal: A.xyz = B.xyz + board_a_to_b_z_normal(layer), where
--- board_a_to_b_z_normal magnitude is config.u_board_a_to_b_z_mm for U
--- and config.v_board_a_to_b_z_mm for V (see layer-geometry.allium).
-
-entity BPinLoopSolution {
-    layer:        core/Layer
-    b_pin_coords: List<PinCoordinate>   -- closed continuous loop of B pins
-    a_pin_coords: List<PinCoordinate>   -- derived: B + board_a_to_b normal
-}
-
-rule SolveContinuousBPinLoop {
-    when: NeedBPinLoopSolution(layer)
-
-    requires: layer in { u, v }
-
-    ensures: BPinLoopSolution.created(
-        layer:        layer,
-        b_pin_coords: solve_b_pin_continuous_loop(
-            layer:           layer,
-            b_pin_calibration: b_pins_from_effective_calibration(layer),
-            wire_constraints:  wire_touches_pin_constraints(layer)
-        ),
-        a_pin_coords: derive_a_pins_from_b(layer, solve_b_pin_continuous_loop(
-            layer:           layer,
-            b_pin_calibration: b_pins_from_effective_calibration(layer),
-            wire_constraints:  wire_touches_pin_constraints(layer)
-        ))
-    )
-
-    @guidance
-        -- The previous solver fitted a single plane in Z to the B-side
-        -- pins and used the plane equation everywhere. The new solver
-        -- fits a continuous closed loop of B-side XYZ that respects the
-        -- wire-touches-pin constraints recorded during calibration. The
-        -- loop is allowed to bow in Z; the planar fit is recoverable as
-        -- a special case but is no longer an assumption.
-        --
-        -- derive_a_pins_from_b computes A.xyz = B.xyz + n where n is
-        -- the inward APA normal scaled by the per-layer board width
-        -- (130 mm for U, 120 mm for V).
-}
-
-invariant ALoopMatchesBLoopWithBoardWidthOffset {
-    -- For every BPinLoopSolution s, for every i,
-    --   s.a_pin_coords[i].xyz = s.b_pin_coords[i].xyz + board_normal(s.layer) * board_width_mm(s.layer)
-    -- within geometry_epsilon.
-}
-
-invariant BLoopIsClosed {
-    -- For every BPinLoopSolution s, s.b_pin_coords forms a closed loop:
-    -- the last entry's neighbour-distance to the first entry equals the
-    -- average B-pin pitch within geometry_epsilon.
-}
-
--- ==========================================================================
 -- Open questions
 -- ==========================================================================
 
 open question "Should the per-pin override take effect for both A and B sides of the same pin number, or only the side that was captured?"
 open question "When a recipe label maps to multiple gcode lines that produced different calculated_xyz values (e.g. due to differing focus or Z arm extension), should label-driven propagation apply per-line or use a single representative offset?"
-open question "Should the continuous B-pin loop solver be re-run automatically after every PinCalibrationSnapshot append, or only on explicit operator request?"

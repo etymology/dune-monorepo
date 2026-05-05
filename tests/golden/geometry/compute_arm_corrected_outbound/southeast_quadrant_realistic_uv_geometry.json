@@ -1,0 +1,43 @@
+{
+  "name": "southeast_quadrant_realistic_uv_geometry",
+  "notes": "Realistic UV pin spacing: anchor at (100, 47), target at (98, 50). Anchor is down-right of target \u2192 SE quadrant, roller_index 2.",
+  "anchor_pin_point": {
+    "x": 100.0,
+    "y": 47.0
+  },
+  "target_pin_point": {
+    "x": 98.0,
+    "y": 50.0
+  },
+  "tangent_point_a": {
+    "x": 99.95,
+    "y": 47.5
+  },
+  "tangent_point_b": {
+    "x": 98.05,
+    "y": 49.5
+  },
+  "transfer_bounds": {
+    "left": 50.0,
+    "top": 200.0,
+    "right": 200.0,
+    "bottom": 0.0
+  },
+  "head_arm_length": 35.0,
+  "head_roller_radius": 1.5,
+  "head_roller_gap": 3.0,
+  "roller_arm_y_offsets": null,
+  "selected": {
+    "corrected_outbound": [
+      50.0,
+      64.05898196461041
+    ],
+    "corrected_head_center": [
+      50.0,
+      64.05898196461041
+    ],
+    "roller_index": 2,
+    "quadrant": "SE"
+  },
+  "error": null
+}

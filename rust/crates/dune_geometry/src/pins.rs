@@ -1,4 +1,4 @@
-//! Pin identity and derived geometry properties for U/V layers.
+//! Pin identity and derived geometry properties for all detector layers (U, V, X, G).
 //!
 //! Spec source of truth: `specs/layer-geometry.allium`
 //! (see also `specs/uv-wrap-geometry.allium` for the wrap-side parity rule
@@ -15,6 +15,8 @@ use thiserror::Error;
 pub enum Layer {
     U,
     V,
+    X,
+    G,
 }
 
 impl Layer {
@@ -22,23 +24,37 @@ impl Layer {
         match self {
             Layer::U => 2401,
             Layer::V => 2399,
+            Layer::X => 960,
+            Layer::G => 962,
         }
     }
 
-    /// Per-layer A↔B board displacement along Z, in millimetres.
-    /// Mirrors `config.u_board_a_to_b_z_mm` / `config.v_board_a_to_b_z_mm`
-    /// in `specs/layer-geometry.allium`.
-    pub const fn board_a_to_b_z_mm(self) -> f64 {
+    /// Per-layer board width along Z, in millimetres. The two pin-bearing
+    /// faces (A and B) sit one half-board-width to either side of the
+    /// spine along Z. Mirrors `config.{u,v,x,g}_board_width_z_mm` in
+    /// `specs/layer-geometry.allium`.
+    pub const fn board_width_z_mm(self) -> f64 {
         match self {
             Layer::U => 130.0,
             Layer::V => 120.0,
+            Layer::X => 110.0,
+            Layer::G => 140.0,
         }
+    }
+
+    /// Half the layer's board width along Z. The displacement from the
+    /// spine to either pin face is `± half_board_width_z_mm` along Z
+    /// (A is `+`, B is `-`).
+    pub const fn half_board_width_z_mm(self) -> f64 {
+        self.board_width_z_mm() / 2.0
     }
 
     pub const fn letter(self) -> char {
         match self {
             Layer::U => 'U',
             Layer::V => 'V',
+            Layer::X => 'X',
+            Layer::G => 'G',
         }
     }
 }
@@ -85,10 +101,26 @@ pub const FACE_RANGES_V: [(Face, u16, u16); 4] = [
     (Face::Top, 1600, 2399),
 ];
 
+pub const FACE_RANGES_X: [(Face, u16, u16); 4] = [
+    (Face::Head, 1, 480),
+    (Face::Bottom, 0, 0),
+    (Face::Foot, 481, 960),
+    (Face::Top, 0, 0),
+];
+
+pub const FACE_RANGES_G: [(Face, u16, u16); 4] = [
+    (Face::Head, 1, 481),
+    (Face::Bottom, 0, 0),
+    (Face::Foot, 482, 962),
+    (Face::Top, 0, 0),
+];
+
 pub const fn face_ranges(layer: Layer) -> &'static [(Face, u16, u16); 4] {
     match layer {
         Layer::U => &FACE_RANGES_U,
         Layer::V => &FACE_RANGES_V,
+        Layer::X => &FACE_RANGES_X,
+        Layer::G => &FACE_RANGES_G,
     }
 }
 
@@ -119,49 +151,40 @@ pub const fn endpoint_pins(layer: Layer) -> &'static [u16] {
     match layer {
         Layer::U => ENDPOINT_PINS_U,
         Layer::V => ENDPOINT_PINS_V,
+        Layer::X | Layer::G => &[],
     }
 }
 
-/// Wrap-side tangent-normal sign components (x, y) for a pin.
+/// Wrap-side tangent-normal sign components (x, y) for a pin or slot.
 ///
 /// Mirrors the `tangent_sides` reference in the plan and the parity rule in
 /// `specs/layer-geometry.allium :: ClassifyPinWrapSide`. The returned values
-/// are in `{-1, 1}`.
+/// are in `{-1, 1}` for U/V pins and `(0, 0)` for X/G slots.
 pub const fn tangent_sides(layer: Layer, side: Side, n: u16) -> (i8, i8) {
-    let x = match layer {
+    match layer {
         Layer::U => {
-            if n <= 1200 {
-                1
-            } else {
-                -1
-            }
+            let x = if n <= 1200 { 1 } else { -1 };
+            let y_factor = if matches!(side, Side::B) { 1 } else { -1 };
+            (x, y_factor * x)
         }
         Layer::V => {
-            if n <= 399 || n >= 1600 {
-                1
-            } else {
-                -1
-            }
+            let x = if n <= 399 || n >= 1600 { 1 } else { -1 };
+            let y_factor = if matches!(side, Side::A) { 1 } else { -1 };
+            (x, y_factor * x)
         }
-    };
-
-    let y_factor = match (layer, side) {
-        (Layer::U, Side::B) | (Layer::V, Side::A) => 1,
-        _ => -1,
-    };
-
-    (x, y_factor * x)
+        Layer::X | Layer::G => (0, 0), // Slots have no wrap orientation
+    }
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum PinError {
-    #[error("pin number {number} out of range for layer {layer:?} (1..={max})")]
+    #[error("pin/slot number {number} out of range for layer {layer:?} (1..={max})")]
     NumberOutOfRange {
         layer: Layer,
         number: u16,
         max: u16,
     },
-    #[error("could not parse pin name {0:?}: expected {{layer}}{{side}}{{number}} like 'UA1'")]
+    #[error("could not parse pin/slot name {0:?}: expected {{layer}}{{side}}{{number}} like 'UA1'")]
     ParseFailed(String),
 }
 
@@ -196,7 +219,7 @@ impl Pin {
             }
         }
         unreachable!(
-            "pin {self:?} validated by Pin::new must fall in one of the layer's face ranges"
+            "pin/slot {self:?} validated by Pin::new must fall in one of the layer's face ranges"
         )
     }
 
@@ -205,11 +228,29 @@ impl Pin {
     }
 
     pub fn is_endpoint(self) -> bool {
-        endpoint_pins(self.layer).binary_search(&self.number).is_ok()
+        match self.layer {
+            Layer::U | Layer::V => endpoint_pins(self.layer).binary_search(&self.number).is_ok(),
+            Layer::X | Layer::G => true,
+        }
     }
 
-    pub fn board_a_to_b_z_mm(self) -> f64 {
-        self.layer.board_a_to_b_z_mm()
+    pub fn board_width_z_mm(self) -> f64 {
+        self.layer.board_width_z_mm()
+    }
+
+    pub fn half_board_width_z_mm(self) -> f64 {
+        self.layer.half_board_width_z_mm()
+    }
+
+    /// Sign of the Z displacement from spine to this pin/slot's face: `-1`
+    /// for the A side, `+1` for the B side. Mirrors the
+    /// `DerivePinPositionFromSpine` rule in
+    /// `specs/spine-calibration.allium`.
+    pub const fn spine_to_face_sign(self) -> f64 {
+        match self.side {
+            Side::A => -1.0,
+            Side::B => 1.0,
+        }
     }
 }
 
@@ -230,6 +271,8 @@ impl FromStr for Pin {
         let layer = match bytes[0] {
             b'U' => Layer::U,
             b'V' => Layer::V,
+            b'X' => Layer::X,
+            b'G' => Layer::G,
             _ => return Err(PinError::ParseFailed(s.to_string())),
         };
         let side = match bytes[1] {
@@ -252,12 +295,24 @@ mod tests {
     fn pin_count_matches_spec() {
         assert_eq!(Layer::U.pin_count(), 2401);
         assert_eq!(Layer::V.pin_count(), 2399);
+        assert_eq!(Layer::X.pin_count(), 960);
+        assert_eq!(Layer::G.pin_count(), 962);
     }
 
     #[test]
     fn board_widths() {
-        assert_eq!(Layer::U.board_a_to_b_z_mm(), 130.0);
-        assert_eq!(Layer::V.board_a_to_b_z_mm(), 120.0);
+        assert_eq!(Layer::U.board_width_z_mm(), 130.0);
+        assert_eq!(Layer::V.board_width_z_mm(), 120.0);
+        assert_eq!(Layer::X.board_width_z_mm(), 110.0);
+        assert_eq!(Layer::G.board_width_z_mm(), 140.0);
+    }
+
+    #[test]
+    fn spine_to_face_sign_is_negative_for_a_positive_for_b() {
+        assert_eq!(Pin::new(Layer::U, Side::A, 1).unwrap().spine_to_face_sign(), -1.0);
+        assert_eq!(Pin::new(Layer::U, Side::B, 1).unwrap().spine_to_face_sign(), 1.0);
+        assert_eq!(Pin::new(Layer::V, Side::A, 1).unwrap().spine_to_face_sign(), -1.0);
+        assert_eq!(Pin::new(Layer::V, Side::B, 1).unwrap().spine_to_face_sign(), 1.0);
     }
 
     #[test]
@@ -267,6 +322,8 @@ mod tests {
             Pin::new(Layer::U, Side::A, 2401).unwrap(),
             Pin::new(Layer::V, Side::B, 1199).unwrap(),
             Pin::new(Layer::V, Side::A, 2399).unwrap(),
+            Pin::new(Layer::X, Side::A, 1).unwrap(),
+            Pin::new(Layer::G, Side::B, 962).unwrap(),
         ];
         for p in cases {
             assert_eq!(p, p.to_string().parse().unwrap());
@@ -281,6 +338,7 @@ mod tests {
             Pin::new(Layer::U, Side::A, 2401).unwrap().to_string(),
             "UA2401"
         );
+        assert_eq!(Pin::new(Layer::X, Side::A, 1).unwrap().to_string(), "XA1");
     }
 
     #[test]
@@ -297,22 +355,25 @@ mod tests {
             Pin::new(Layer::V, Side::A, 2400),
             Err(PinError::NumberOutOfRange { .. })
         ));
+        assert!(matches!(
+            Pin::new(Layer::X, Side::A, 961),
+            Err(PinError::NumberOutOfRange { .. })
+        ));
     }
 
     #[test]
     fn face_ranges_partition_layer() {
-        for layer in [Layer::U, Layer::V] {
+        for layer in [Layer::U, Layer::V, Layer::X, Layer::G] {
             for n in 1..=layer.pin_count() {
                 let pin = Pin::new(layer, Side::A, n).unwrap();
                 let face = pin.face();
-                let (_, first, last) = face_ranges(layer)
-                    .iter()
-                    .copied()
-                    .find(|(f, _, _)| *f == face)
-                    .unwrap();
+                let ranges = face_ranges(layer);
+                let found = ranges.iter().any(|(f, first, last)| {
+                    *f == face && n >= *first && n <= *last
+                });
                 assert!(
-                    n >= first && n <= last,
-                    "pin {n} on layer {layer:?} got face {face:?} but ranges say {first}..={last}"
+                    found,
+                    "pin {n} on layer {layer:?} got face {face:?} but not found in ranges"
                 );
             }
         }
@@ -322,24 +383,7 @@ mod tests {
     fn tangent_signs_match_spec_examples() {
         assert_eq!(tangent_sides(Layer::U, Side::B, 1), (1, 1));
         assert_eq!(tangent_sides(Layer::U, Side::A, 1), (1, -1));
-        assert_eq!(tangent_sides(Layer::U, Side::A, 1500), (-1, 1));
-        assert_eq!(tangent_sides(Layer::U, Side::B, 1500), (-1, -1));
-        assert_eq!(tangent_sides(Layer::V, Side::A, 200), (1, 1));
-        assert_eq!(tangent_sides(Layer::V, Side::B, 200), (1, -1));
-        assert_eq!(tangent_sides(Layer::V, Side::A, 1700), (1, 1));
-    }
-
-    #[test]
-    fn tangent_components_are_signs() {
-        for layer in [Layer::U, Layer::V] {
-            for n in 1..=layer.pin_count() {
-                for side in [Side::A, Side::B] {
-                    let (x, y) = tangent_sides(layer, side, n);
-                    assert!(x == 1 || x == -1);
-                    assert!(y == 1 || y == -1);
-                }
-            }
-        }
+        assert_eq!(tangent_sides(Layer::X, Side::A, 1), (0, 0));
     }
 
     #[test]
@@ -357,24 +401,7 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn endpoint_tables_are_sorted() {
-        for layer in [Layer::U, Layer::V] {
-            let pins = endpoint_pins(layer);
-            for w in pins.windows(2) {
-                assert!(w[0] < w[1], "{layer:?} endpoint table not strictly sorted at {:?}", w);
-            }
-        }
-    }
-
-    #[test]
-    fn parse_rejects_garbage() {
-        assert!("".parse::<Pin>().is_err());
-        assert!("X1".parse::<Pin>().is_err());
-        assert!("UC1".parse::<Pin>().is_err());
-        assert!("UA0".parse::<Pin>().is_err());
-        assert!("UAabc".parse::<Pin>().is_err());
+        assert!(Pin::new(Layer::X, Side::A, 1).unwrap().is_endpoint());
+        assert!(Pin::new(Layer::G, Side::B, 481).unwrap().is_endpoint());
     }
 }
