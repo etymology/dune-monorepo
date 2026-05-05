@@ -1094,6 +1094,11 @@ class RoutineExecutor:
 
     def _disarm_motion_control(self, control_path: str, ctx: ScanContext):
         control = _deep_copy(ctx.get_value(control_path))
+        if not isinstance(control, dict):
+            raise TypeError(
+                f"Expected motion control at {control_path!r} to be a dict, "
+                f"got {type(control).__name__}: {control!r}"
+            )
         control["EN"] = False
         ctx.set_value(control_path, control)
 
