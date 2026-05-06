@@ -1017,6 +1017,34 @@ class GCodeHandler(GCodeHandlerBase):
                     self._set_gcode_error(str(exception))
                 else:
                     moving = True
+        elif action_kind == "yz":
+            target_y = float(self._pending_action_value(action, "y", self._y))
+            target_z = float(self._pending_action_value(action, "z", self._z))
+            y_limits = self._motion_safety_limits()
+            z_front, z_rear = self._z_motion_limits()
+            if target_y < y_limits.limit_bottom or target_y > y_limits.limit_top:
+                self._set_gcode_error(
+                    "YZ move target Y out of bounds ["
+                    + str(y_limits.limit_bottom)
+                    + ", "
+                    + str(y_limits.limit_top)
+                    + "]."
+                )
+            elif target_z < z_front or target_z > z_rear:
+                self._set_gcode_error(
+                    "YZ move target Z out of bounds ["
+                    + str(z_front)
+                    + ", "
+                    + str(z_rear)
+                    + "]."
+                )
+            else:
+                try:
+                    self._io.plcLogic.setYZ_Position(target_y, target_z, velocity)
+                except ValueError as exception:
+                    self._set_gcode_error(str(exception))
+                else:
+                    moving = True
         elif action_kind == "head":
             error = self._io.head.setHeadPosition(
                 int(
@@ -1073,7 +1101,7 @@ class GCodeHandler(GCodeHandlerBase):
         proceed without treating the head controller as an active blocker.
         """
         return bool(self._pending_actions) and all(
-            self._pending_action_kind(action) in ("z", "xz")
+            self._pending_action_kind(action) in ("z", "xz", "yz")
             for action in self._pending_actions
         )
 

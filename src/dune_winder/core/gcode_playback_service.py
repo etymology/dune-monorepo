@@ -375,6 +375,15 @@ class GCodePlaybackService:
 
     # -- manual G-code execution ---------------------------------------------
 
+    def _isTransferOk(self, attributeName):
+        signal = getattr(self._io, attributeName, None)
+        if signal is None or not hasattr(signal, "get"):
+            return False
+        try:
+            return bool(signal.get())
+        except Exception:
+            return False
+
     def executeG_CodeLine(self, line: str):
         error = None
         if not self._controlStateMachine.isReadyForMovement():
@@ -571,10 +580,17 @@ class GCodePlaybackService:
                 )
             else:
                 lineToExecute = line
+                zPosition = float(self._io.zAxis.getPosition())
                 if re.match(x_only + "|" + xf + "|" + fx, line):
-                    lineToExecute = line.strip() + " Y" + str(yPosition)
+                    if self._isTransferOk("Y_Transfer_OK"):
+                        lineToExecute = line.strip() + " Z" + str(zPosition)
+                    else:
+                        lineToExecute = line.strip() + " Y" + str(yPosition)
                 elif re.match(y_only + "|" + yf + "|" + fy, line):
-                    lineToExecute = line.strip() + " X" + str(xPosition)
+                    if self._isTransferOk("X_Transfer_OK"):
+                        lineToExecute = line.strip() + " Z" + str(zPosition)
+                    else:
+                        lineToExecute = line.strip() + " X" + str(xPosition)
 
                 errorData = self._gCodeHandler.executeG_CodeLine(
                     lineToExecute,

@@ -34,6 +34,7 @@ class ManualModeEvent:
     idleServos: bool = False
     executeGCode: bool = False
     isJogging: bool = False
+    combinedAxis: Optional[str] = None
 
 
 @dataclass(frozen=True)

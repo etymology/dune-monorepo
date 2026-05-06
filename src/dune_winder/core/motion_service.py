@@ -14,6 +14,11 @@ from dune_winder.core.control_events import (
     SetManualJoggingEvent,
 )
 from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
+from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
+from dune_winder.queued_motion.safety import (
+    QueuedMotionCollisionState,
+    validate_xy_move_within_safety_limits,
+)
 
 if TYPE_CHECKING:
     from dune_winder.core.control_state_machine import ControlStateMachine
@@ -164,6 +169,37 @@ class MotionService:
             targetX = currentX if xPosition is None else float(xPosition)
             targetY = currentY if yPosition is None else float(yPosition)
             targetRawX = self._xBacklash.getCommandedRawX(currentRawX, targetX)
+
+            xOnly = xPosition is not None and yPosition is None
+            yOnly = yPosition is not None and xPosition is None
+
+            if xOnly and self._isTransferOk("Y_Transfer_OK"):
+                return self._manualSeekXZ(
+                    currentX,
+                    currentY,
+                    currentRawX,
+                    targetX,
+                    targetRawX,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    xPosition,
+                    yPosition,
+                )
+
+            if yOnly and self._isTransferOk("X_Transfer_OK"):
+                return self._manualSeekYZ(
+                    currentRawX,
+                    currentX,
+                    currentY,
+                    targetY,
+                    velocity,
+                    xPosition,
+                    yPosition,
+                    acceleration,
+                    deceleration,
+                )
+
             isNoopMove = (
                 abs(targetRawX - currentRawX) < _MANUAL_XY_RESOLUTION_MM
                 and abs(targetY - currentY) < _MANUAL_XY_RESOLUTION_MM
@@ -253,6 +289,176 @@ class MotionService:
             )
 
         return isError
+
+    def _isTransferOk(self, attributeName):
+        signal = getattr(self._io, attributeName, None)
+        if signal is None or not hasattr(signal, "get"):
+            return False
+        try:
+            return bool(signal.get())
+        except Exception:
+            return False
+
+    def _frameLockCollisionState(self, currentZ):
+        def _enabled(name):
+            point = getattr(self._io, name, None)
+            if point is None or not hasattr(point, "get"):
+                return False
+            try:
+                return bool(point.get())
+            except Exception:
+                return False
+
+        return QueuedMotionCollisionState(
+            z_actual_position=float(currentZ),
+            frame_lock_head_top=_enabled("FrameLockHeadTop"),
+            frame_lock_head_mid=_enabled("FrameLockHeadMid"),
+            frame_lock_head_btm=_enabled("FrameLockHeadBtm"),
+            frame_lock_foot_top=_enabled("FrameLockFootTop"),
+            frame_lock_foot_mid=_enabled("FrameLockFootMid"),
+            frame_lock_foot_btm=_enabled("FrameLockFootBtm"),
+        )
+
+    def _manualSeekXZ(
+        self,
+        currentX,
+        currentY,
+        currentRawX,
+        targetX,
+        targetRawX,
+        velocity,
+        acceleration,
+        deceleration,
+        xPositionRaw,
+        yPositionRaw,
+    ):
+        currentZ = float(self._io.zAxis.getPosition())
+        isNoopMove = abs(targetRawX - currentRawX) < _MANUAL_XY_RESOLUTION_MM
+
+        error = self._safety.validate_xy_move_target(
+            currentX, currentY, targetX, currentY
+        )
+        if error is None and (
+            targetRawX < self._safety.limit_left
+            or targetRawX > self._safety.limit_right
+        ):
+            error = (
+                "Compensated X-axis target exceeds raw axis limits ["
+                + str(self._safety.limit_left)
+                + ", "
+                + str(self._safety.limit_right)
+                + "]."
+            )
+        if error is None and isNoopMove:
+            self._log.add(
+                LOG_NAME,
+                "JOG",
+                "Manual move XZ skipped because target is already within resolution.",
+                [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration],
+            )
+            return False
+        if error is not None:
+            self._log.add(
+                LOG_NAME,
+                "JOG",
+                "Manual move XZ ignored.",
+                [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, error],
+            )
+            return True
+
+        self._xBacklash.noteCommand(currentRawX, targetX)
+        self._log.add(
+            LOG_NAME,
+            "JOG",
+            "Manual move XZ to ("
+            + str(xPositionRaw)
+            + ", Z="
+            + str(currentZ)
+            + ") at "
+            + str(velocity)
+            + ".",
+            [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, currentZ],
+        )
+        self._controlStateMachine.dispatch(
+            ManualModeEvent(
+                seekX=targetRawX,
+                seekZ=currentZ,
+                velocity=velocity,
+                acceleration=acceleration,
+                deceleration=deceleration,
+                combinedAxis="XZ",
+            )
+        )
+        return False
+
+    def _manualSeekYZ(
+        self,
+        currentRawX,
+        currentX,
+        currentY,
+        targetY,
+        velocity,
+        xPositionRaw,
+        yPositionRaw,
+        acceleration,
+        deceleration,
+    ):
+        currentZ = float(self._io.zAxis.getPosition())
+        isNoopMove = abs(targetY - currentY) < _MANUAL_XY_RESOLUTION_MM
+
+        collisionState = self._frameLockCollisionState(currentZ)
+        try:
+            validate_xy_move_within_safety_limits(
+                (currentX, currentY),
+                (currentX, targetY),
+                self._safety.current_motion_safety_limits(),
+                queued_motion_collision_state=collisionState,
+            )
+            error = None
+        except ValueError as exception:
+            error = str(exception)
+
+        if error is None and isNoopMove:
+            self._log.add(
+                LOG_NAME,
+                "JOG",
+                "Manual move YZ skipped because target is already within resolution.",
+                [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration],
+            )
+            return False
+        if error is not None:
+            self._log.add(
+                LOG_NAME,
+                "JOG",
+                "Manual move YZ ignored.",
+                [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, error],
+            )
+            return True
+
+        del currentRawX
+        self._log.add(
+            LOG_NAME,
+            "JOG",
+            "Manual move YZ to ("
+            + str(yPositionRaw)
+            + ", Z="
+            + str(currentZ)
+            + ") at "
+            + str(velocity)
+            + ".",
+            [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, currentZ],
+        )
+        self._controlStateMachine.dispatch(
+            ManualModeEvent(
+                seekY=targetY,
+                seekZ=currentZ,
+                velocity=velocity,
+                acceleration=acceleration,
+                deceleration=deceleration,
+                combinedAxis="YZ",
+            )
+        )
+        return False
 
     def manualSeekZ(self, position, velocity=None):
         isError = True
@@ -420,22 +626,29 @@ class MotionService:
 
     def setAnchorPoint(self, pinA, pinB=None):
         calibration = self._gCodeHandler.getLayerCalibration()
+        machineCalibration = getattr(self._headCompensation, "_machineCalibration", None)
 
         isError = True
 
         if calibration:
-            pinA = calibration.getPinLocation(pinA)
+            try:
+                pinA_loc = wire_space_pin_location(calibration, machineCalibration, pinA)
+            except KeyError:
+                pinA_loc = None
 
-            if pinA:
+            if pinA_loc:
                 if pinB:
-                    pinB = calibration.getPinLocation(pinB)
+                    try:
+                        pinB_loc = wire_space_pin_location(
+                            calibration, machineCalibration, pinB
+                        )
+                    except KeyError:
+                        pinB_loc = None
 
-                    if pinB:
-                        location = pinA.center(pinB)
+                    if pinB_loc:
+                        location = pinA_loc.center(pinB_loc)
                 else:
-                    location = pinA
-
-                location = location.add(calibration.offset)
+                    location = pinA_loc
 
                 self._headCompensation.anchorPoint(location)
                 isError = False

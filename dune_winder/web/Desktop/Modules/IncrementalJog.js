@@ -41,7 +41,6 @@ function IncrementalJog( modules )
 
     var velocity = getVelocity()
     var rawX = motorStatus.motor[ "xPosition" ]
-    var y = motorStatus.motor[ "yPosition" ]
     var requestMove = function( realX )
     {
       var x = parseFloat( realX )
@@ -51,7 +50,7 @@ function IncrementalJog( modules )
       uiServices.call
       (
         commands.process.manualSeekXY,
-        { x: x + offset, y: y, velocity: velocity }
+        { x: x + offset, velocity: velocity }
       )
     }
 

@@ -117,35 +117,67 @@ class ManualMode(StateMachineState):
             self._syncSubState()
             isError = False
 
-        # X/Y axis move?
-        if request.seekX is not None or request.seekY is not None:
-            x = request.seekX
-            if x is None:
-                x = self._io.xAxis.getPosition()
+        # XZ / YZ combined-axis move (transfer-zone jog)?
+        if request.combinedAxis == "XZ":
+            try:
+                self._io.head.clearQueuedTransfer()
+                self._io.plcLogic.setXZ_Position(
+                    request.seekX, request.seekZ, request.velocity
+                )
+                self._awaitPlcReady = True
+                isError = False
+            except ValueError as exception:
+                self._log.add(
+                    self.__class__.__name__,
+                    "JOG",
+                    "Combined XZ move rejected: " + str(exception),
+                )
+                isError = True
+        elif request.combinedAxis == "YZ":
+            try:
+                self._io.head.clearQueuedTransfer()
+                self._io.plcLogic.setYZ_Position(
+                    request.seekY, request.seekZ, request.velocity
+                )
+                self._awaitPlcReady = True
+                isError = False
+            except ValueError as exception:
+                self._log.add(
+                    self.__class__.__name__,
+                    "JOG",
+                    "Combined YZ move rejected: " + str(exception),
+                )
+                isError = True
+        else:
+            # X/Y axis move?
+            if request.seekX is not None or request.seekY is not None:
+                x = request.seekX
+                if x is None:
+                    x = self._io.xAxis.getPosition()
 
-            y = request.seekY
-            if y is None:
-                y = self._io.yAxis.getPosition()
+                y = request.seekY
+                if y is None:
+                    y = self._io.yAxis.getPosition()
 
-            self._io.plcLogic.setXY_Position(
-                x,
-                y,
-                request.velocity,
-                request.acceleration,
-                request.deceleration,
-            )
+                self._io.plcLogic.setXY_Position(
+                    x,
+                    y,
+                    request.velocity,
+                    request.acceleration,
+                    request.deceleration,
+                )
 
-            self._awaitPlcReady = True
-            isError = False
+                self._awaitPlcReady = True
+                isError = False
+
+            if request.seekZ is not None:
+                self._io.head.clearQueuedTransfer()
+                self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
+                self._awaitPlcReady = True
+                isError = False
 
         if request.isJogging:
             self._wasJogging = True
-            self._awaitPlcReady = True
-            isError = False
-
-        if request.seekZ is not None:
-            self._io.head.clearQueuedTransfer()
-            self._io.plcLogic.setZ_Position(request.seekZ, request.velocity)
             self._awaitPlcReady = True
             isError = False
 
