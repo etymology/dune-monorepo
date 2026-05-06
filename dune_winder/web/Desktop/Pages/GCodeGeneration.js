@@ -1499,6 +1499,18 @@ function GCodeGeneration( modules )
       }
     )
 
+  $( "#gCodeGenerationVGenerateWrappingButton" )
+    .click
+    (
+      function()
+      {
+        generateVRecipe(
+          "process.v_template.generate_recipe_file_wrapping",
+          "Generated the live V-layer.gc wrapping recipe."
+        )
+      }
+    )
+
   $( "#gCodeGenerationUResetButton" )
     .click
     (

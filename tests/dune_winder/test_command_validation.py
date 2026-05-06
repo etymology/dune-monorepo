@@ -102,6 +102,18 @@ class CommandValidationTests(unittest.TestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(response["data"]["data"]["scriptVariant"], "xz")
 
+    def test_v_template_wrapping_generate_command_is_registered(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+        response = registry.executeRequest(
+            {
+                "name": "process.v_template.generate_recipe_file_wrapping",
+                "args": {},
+            },
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["data"]["data"]["scriptVariant"], "wrapping")
+
     def test_machine_geometry_record_measurement_accepts_string_booleans(self):
         registry, _, _, _, _, _ = build_registry_fixture()
         response = registry.executeRequest(

@@ -899,6 +899,15 @@ def build_command_registry(
         True,
     )
 
+    registry.register(
+        "process.v_template.generate_recipe_file_wrapping",
+        lambda args: (
+            _validateArgs(args),
+            process.vTemplateRecipe.generateRecipeFile(scriptVariant="wrapping"),
+        )[1],
+        True,
+    )
+
     def u_template_set_offset(args):
         _validateArgs(args, required=("offset_id", "value"))
         return process.uTemplateRecipe.setOffset(
