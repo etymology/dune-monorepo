@@ -62,15 +62,34 @@
       </p>
 
       <div class="machineGeometrySectionTitle">Live</div>
+      <p class="machineGeometryHint">
+        Camera-wire offset is applied at runtime by <code>~anchorToTarget</code>
+        and other calibrated motion. Edit directly to override, or use Solve
+        Machine XY to fit it from measurements.
+      </p>
       <table class="machineGeometryTable">
         <tbody>
           <tr>
-            <th>Camera Offset X</th>
-            <td id="machineGeometryLiveCameraX" class="numeric">-</td>
+            <th><label for="machineGeometryLiveCameraX">Camera Offset X</label></th>
+            <td>
+              <input
+                type="number"
+                id="machineGeometryLiveCameraX"
+                class="numeric"
+                step="0.001"
+              />
+            </td>
           </tr>
           <tr>
-            <th>Camera Offset Y</th>
-            <td id="machineGeometryLiveCameraY" class="numeric">-</td>
+            <th><label for="machineGeometryLiveCameraY">Camera Offset Y</label></th>
+            <td>
+              <input
+                type="number"
+                id="machineGeometryLiveCameraY"
+                class="numeric"
+                step="0.001"
+              />
+            </td>
           </tr>
           <tr>
             <th>Nominal Roller Y</th>

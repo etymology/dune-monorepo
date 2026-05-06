@@ -29,14 +29,6 @@
       <article class="manualCalibrationCard manualCalibrationControlsGroup">
         <h2>Controls</h2>
         <div class="manualCalibrationFieldRow">
-          <label for="manualCalibrationOffsetX">Camera Offset X</label>
-          <input type="number" id="manualCalibrationOffsetX" step="0.001" />
-        </div>
-        <div class="manualCalibrationFieldRow">
-          <label for="manualCalibrationOffsetY">Camera Offset Y</label>
-          <input type="number" id="manualCalibrationOffsetY" step="0.001" />
-        </div>
-        <div class="manualCalibrationFieldRow">
           <label for="manualCalibrationXBacklashCompensation">X Backlash Compensation (mm)</label>
           <input
             type="number"
@@ -56,8 +48,8 @@
           />
         </div>
         <p class="manualCalibrationHint">
-          Offsets apply on change. Capture stores wire = machine + offset and
-          go-to uses wire - offset.
+          Capture stores raw winder positions. The camera-wire offset lives on
+          the Machine Geometry page and is applied at runtime.
         </p>
         <p class="manualCalibrationHint">
           X backlash compensation applies to calibration capture, seek/playback
@@ -185,9 +177,9 @@
             </button>
           </div>
           <div class="manualCalibrationFieldRow">
-            <label for="manualCalibrationWireX">Wire X</label>
+            <label for="manualCalibrationWireX">Camera X</label>
             <input type="number" id="manualCalibrationWireX" step="0.001" />
-            <label for="manualCalibrationWireY">Wire Y</label>
+            <label for="manualCalibrationWireY">Camera Y</label>
             <input type="number" id="manualCalibrationWireY" step="0.001" />
           </div>
           <div class="manualCalibrationButtonRow">
@@ -206,10 +198,6 @@
             <div>
               <h3>Side / Board</h3>
               <p id="manualCalibrationPredictionBoard">-</p>
-            </div>
-            <div>
-              <h3>Camera Target</h3>
-              <p id="manualCalibrationCameraTarget">-</p>
             </div>
           </div>
         </div>
@@ -245,9 +233,9 @@
             </div>
           </div>
           <div class="manualCalibrationFieldRow">
-            <label for="manualCalibrationReferenceWireX">Wire X</label>
+            <label for="manualCalibrationReferenceWireX">Camera X</label>
             <input type="number" id="manualCalibrationReferenceWireX" step="0.001" />
-            <label for="manualCalibrationReferenceWireY">Wire Y</label>
+            <label for="manualCalibrationReferenceWireY">Camera Y</label>
             <input type="number" id="manualCalibrationReferenceWireY" step="0.001" />
           </div>
           <div class="manualCalibrationButtonRow">
@@ -273,7 +261,7 @@
                 <tr>
                   <th>Pin</th>
                   <th>Raw Camera</th>
-                  <th>Wire</th>
+                  <th>Camera (compensated)</th>
                   <th>Source</th>
                   <th>Status</th>
                   <th>Updated</th>
@@ -293,7 +281,7 @@
                   <th>Reference</th>
                   <th>Pin</th>
                   <th>Raw Camera</th>
-                  <th>Wire</th>
+                  <th>Camera (compensated)</th>
                   <th>Source</th>
                   <th>Updated</th>
                 </tr>
@@ -420,12 +408,8 @@
           <p id="manualCalibrationBoardDialogBoard">-</p>
         </div>
         <div>
-          <h3>Predicted Wire</h3>
+          <h3>Predicted Camera</h3>
           <p id="manualCalibrationBoardDialogWire">-</p>
-        </div>
-        <div>
-          <h3>Camera Target</h3>
-          <p id="manualCalibrationBoardDialogCamera">-</p>
         </div>
         <div>
           <h3>Machine Now</h3>
