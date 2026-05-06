@@ -80,8 +80,34 @@ _CALIBRATION_OBJECT_CACHE: dict[
 def _wire_space_pin_location(
     layer_calibration: LayerCalibration,
     pin_name: str,
+    machine_calibration: MachineCalibration | None = None,
+    *,
+    camera_wire_offset: tuple[float, float] | None = None,
 ) -> Location:
-    return layer_calibration.getPinLocation(str(pin_name)).add(layer_calibration.offset)
+    """
+    Wire-space pin location.  Stored pin positions are raw winder coordinates
+    (no camera-wire offset baked in); the offset is added at runtime.
+
+    Pass `camera_wire_offset` to use a candidate offset (used by the Machine
+    XY solver while iterating); otherwise the offset is read from the
+    supplied `machine_calibration`.
+    """
+    raw = layer_calibration.getPinLocation(str(pin_name))
+    layer_offset = layer_calibration.offset
+    if camera_wire_offset is not None:
+        cam_x = float(camera_wire_offset[0])
+        cam_y = float(camera_wire_offset[1])
+    elif machine_calibration is not None:
+        cam_x = float(getattr(machine_calibration, "cameraWireOffsetX", None) or 0.0)
+        cam_y = float(getattr(machine_calibration, "cameraWireOffsetY", None) or 0.0)
+    else:
+        cam_x = 0.0
+        cam_y = 0.0
+    return Location(
+        float(raw.x) + float(layer_offset.x) + cam_x,
+        float(raw.y) + float(layer_offset.y) + cam_y,
+        float(raw.z) + float(layer_offset.z),
+    )
 
 
 def _transfer_edge_for_point(bounds, point, *, tolerance=1e-6):
@@ -224,17 +250,39 @@ def _project_machine_xy_measurement_payload(
     roller_y_cals,
     _layer_calibration=None,
     _machine_calibration=None,
+    cameraWireOffset: tuple[float, float] = (0.0, 0.0),
 ):
+    """
+    Project a single measurement.
+
+    Pin positions in `LayerCalibration` are stored raw (no camera-wire
+    offset baked in).  The projection is computed in *raw* camera space
+    by default (`cameraWireOffset=(0,0)`).  Callers compose the camera
+    offset on top via `_translate_projection_payload` so the solver can
+    iterate candidate offsets without re-projecting from scratch.
+    """
     layer_name = str(measurement["layer"])
+    machine_calibration_for_load = None
     if _layer_calibration is not None:
         layer_calibration = _layer_calibration
     else:
         layer_calibration = LayerCalibration(layer_name)
         layer_directory, layer_filename = os.path.split(str(layer_path))
+        if _machine_calibration is not None:
+            machine_calibration_for_load = _machine_calibration
+        elif machine_path is not None:
+            machine_directory_load, machine_filename_load = os.path.split(
+                str(machine_path)
+            )
+            machine_calibration_for_load = MachineCalibration(
+                machine_directory_load, machine_filename_load
+            )
+            machine_calibration_for_load.load()
         layer_calibration.load(
             layer_directory,
             layer_filename,
             exceptionForMismatch=False,
+            machineCalibration=machine_calibration_for_load,
         )
     if _machine_calibration is not None:
         machine_calibration = _machine_calibration
@@ -242,12 +290,43 @@ def _project_machine_xy_measurement_payload(
         machine_directory, machine_filename = os.path.split(str(machine_path))
         machine_calibration = MachineCalibration(machine_directory, machine_filename)
         machine_calibration.load()
+
+    # The projection runs in raw-camera space by default.  We override the
+    # candidate's camera-wire offset locally (without persisting the change)
+    # so the GCode handler invoked below also treats the pin as raw.
+    saved_offset_x = machine_calibration.cameraWireOffsetX
+    saved_offset_y = machine_calibration.cameraWireOffsetY
+    machine_calibration.cameraWireOffsetX = float(cameraWireOffset[0])
+    machine_calibration.cameraWireOffsetY = float(cameraWireOffset[1])
+    try:
+        return _project_machine_xy_measurement_payload_inner(
+            measurement,
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            roller_y_cals=roller_y_cals,
+        )
+    finally:
+        machine_calibration.cameraWireOffsetX = saved_offset_x
+        machine_calibration.cameraWireOffsetY = saved_offset_y
+
+
+def _project_machine_xy_measurement_payload_inner(
+    measurement,
+    *,
+    layer_calibration,
+    machine_calibration,
+    roller_y_cals,
+):
     command = parse_anchor_to_target_command(
         _extract_anchor_to_target_command_text(measurement["gcodeLine"])
     )
 
-    anchor_location = _wire_space_pin_location(layer_calibration, command.anchor_pin)
-    target_location = _wire_space_pin_location(layer_calibration, command.target_pin)
+    anchor_location = _wire_space_pin_location(
+        layer_calibration, command.anchor_pin, machine_calibration
+    )
+    target_location = _wire_space_pin_location(
+        layer_calibration, command.target_pin, machine_calibration
+    )
     if command.target_offset is not None:
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
@@ -260,7 +339,7 @@ def _project_machine_xy_measurement_payload(
     target_pin_radius = pin_radius + target_pin_clearance
 
     plan = plan_wrap_transition(
-        layer=layer_name,
+        layer=str(measurement["layer"]),
         anchor_pin=command.anchor_pin,
         target_pin=command.target_pin,
         anchor_pin_point=WrapPoint3D(
@@ -526,16 +605,17 @@ def _project_machine_xy_measurements(
     if not group_measurements:
         return []
     layer_name = str(group_measurements[0]["layer"])
+    machine_directory, machine_filename = os.path.split(str(machine_path))
+    machine_calibration = MachineCalibration(machine_directory, machine_filename)
+    machine_calibration.load()
     layer_calibration = LayerCalibration(layer_name)
     layer_directory, layer_filename = os.path.split(str(layer_path))
     layer_calibration.load(
         layer_directory,
         layer_filename,
         exceptionForMismatch=False,
+        machineCalibration=machine_calibration,
     )
-    machine_directory, machine_filename = os.path.split(str(machine_path))
-    machine_calibration = MachineCalibration(machine_directory, machine_filename)
-    machine_calibration.load()
     results = []
     for measurement in group_measurements:
         results.append(
@@ -1142,6 +1222,75 @@ class MachineGeometryCalibration:
         return measurement
 
     # -------------------------------------------------------------------
+    def recordJogMeasurement(
+        self,
+        *,
+        layer,
+        line_index,
+        gcode_line,
+        label,
+        offset_id,
+        commanded,
+        actual,
+        delta,
+        previous_offset=None,
+        new_offset=None,
+    ):
+        """Persist a jog-derived calibration sample alongside camera-trace samples.
+
+        Stored as `kind = "jog_calibration"` so the existing solvers can
+        distinguish it from automated trace measurements.  Returns the
+        measurement dict that was appended.
+        """
+        target_layer = _normalize_layer(layer)
+        line_key = extract_line_key(gcode_line)
+        wrap_number = wrap_line_number = None
+        if line_key is not None:
+            inner = line_key[1:-1].split(",")
+            try:
+                wrap_number = int(inner[0])
+                wrap_line_number = int(inner[1])
+            except (IndexError, ValueError):
+                wrap_number = wrap_line_number = None
+
+        measurement = {
+            "id": uuid.uuid4().hex,
+            "layer": target_layer,
+            "timestamp": str(self._process._systemTime.get()),
+            "kind": "jog_calibration",
+            "gcodeLine": gcode_line,
+            "lineIndex": line_index,
+            "lineKey": line_key,
+            "wrapNumber": wrap_number,
+            "wrapLineNumber": wrap_line_number,
+            "siteLabel": label,
+            "offsetId": offset_id,
+            "commandedX": float(commanded["x"]),
+            "commandedY": float(commanded["y"]),
+            "commandedZ": float(commanded["z"]),
+            "actualWireX": float(actual["x"]),
+            "actualWireY": float(actual["y"]),
+            "actualZ": float(actual["z"]),
+            "deltaX": float(delta["x"]),
+            "deltaY": float(delta["y"]),
+            "deltaZ": float(delta["z"]),
+            "previousOffset": (
+                None if previous_offset is None else dict(previous_offset)
+            ),
+            "newOffset": None if new_offset is None else dict(new_offset),
+        }
+        state = self._loadState()
+        state["measurements"].append(measurement)
+        self._bumpMeasurementRevision()
+        self._saveState()
+        self._log(
+            "RECORD_JOG",
+            "Jog calibration recorded for " + str(label),
+            [target_layer, offset_id, dict(delta)],
+        )
+        return measurement
+
+    # -------------------------------------------------------------------
     def deleteMeasurement(self, measurement_id):
         state = self._loadState()
         target_id = str(measurement_id)
@@ -1167,7 +1316,8 @@ class MachineGeometryCalibration:
                 and measurement.get("actualZ") is not None
             )
             measurement["usableForMachineXY"] = (
-                measurement.get("actualWireX") is not None
+                measurement.get("kind") != "jog_calibration"
+                and measurement.get("actualWireX") is not None
                 and measurement.get("actualWireY") is not None
                 and measurement.get("lineKey") is not None
                 and measurement.get("gcodeLine")
@@ -2103,7 +2253,12 @@ class MachineGeometryCalibration:
 
         layer_calibration = LayerCalibration(layer)
         _layer_dir, _layer_file = os.path.split(str(layer_path))
-        layer_calibration.load(_layer_dir, _layer_file, exceptionForMismatch=False)
+        layer_calibration.load(
+            _layer_dir,
+            _layer_file,
+            exceptionForMismatch=False,
+            machineCalibration=self._machineCalibration(),
+        )
 
         working_vector = list(initial_vector)
         batch_size = min(

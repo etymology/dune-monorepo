@@ -92,6 +92,13 @@ class LayerCalibration:
         self.zBack = None
         self.zPlaneCalibration = None
 
+        # Coordinate system for the stored pin positions.  "raw" means the
+        # winder XY at the moment the camera was centred on the pin (the
+        # machine camera-wire offset is *not* baked in).  "wire" is the
+        # legacy format where the camera-wire offset has been added at
+        # capture time.  Files without the field are treated as "wire".
+        self.coordinateSystem = "raw"
+
         # Look-up table that correlates pin names to their locations.
         self._locations: dict[str, Location] = {}
 
@@ -114,6 +121,7 @@ class LayerCalibration:
         newLayer.offset = self.offset
         newLayer.zFront = self.zFront
         newLayer.zBack = self.zBack
+        newLayer.coordinateSystem = self.coordinateSystem
         if self.zPlaneCalibration is not None:
             newLayer.zPlaneCalibration = layer_z_plane_calibration_from_dict(
                 layer_z_plane_calibration_to_dict(self.zPlaneCalibration)
@@ -193,6 +201,7 @@ class LayerCalibration:
                 else layer_z_plane_calibration_to_dict(self.zPlaneCalibration)
             ),
             "hashValue": self.hashValue,
+            "coordinateSystem": self.coordinateSystem,
             "offset": _loc_to_dict(self.offset),
             "locations": {
                 pin: _loc_to_dict(loc) for pin, loc in self._locations.items()
@@ -211,6 +220,9 @@ class LayerCalibration:
                 data["zPlaneCalibration"]
             )
         self.hashValue = data.get("hashValue", "")
+        # Files without coordinateSystem predate the raw-storage migration
+        # and have the camera-wire offset baked into their pin positions.
+        self.coordinateSystem = str(data.get("coordinateSystem", "wire")).lower()
         offset_d = data.get("offset", {"x": 0.0, "y": 0.0, "z": 0.0})
         self.offset = SerializableLocation(offset_d["x"], offset_d["y"], offset_d["z"])
         self._locations = {
@@ -382,7 +394,12 @@ class LayerCalibration:
 
     # -------------------------------------------------------------------
     def load(
-        self, filePath=None, fileName=None, nameOverride=None, exceptionForMismatch=True
+        self,
+        filePath=None,
+        fileName=None,
+        nameOverride=None,
+        exceptionForMismatch=True,
+        machineCalibration=None,
     ):
         """
         Load calibration from JSON.  Falls back to XML for first-run migration.
@@ -392,6 +409,11 @@ class LayerCalibration:
           fileName: File name.
           nameOverride: Ignored (kept for call-site compatibility).
           exceptionForMismatch: Raise LayerCalibration.Error on hash mismatch.
+          machineCalibration: When provided and the loaded file is in the
+            legacy "wire" coordinate system, the camera-wire offset is
+            subtracted from every pin position and the file is rewritten in
+            the new "raw" form.  Pass None to skip migration (the in-memory
+            object will retain the legacy values).
 
         Returns:
           True if there was a hash error, False otherwise.
@@ -421,16 +443,57 @@ class LayerCalibration:
                 )
             is_error = bool(stored_hash and computed_hash != stored_hash)
         elif xml_path.exists():
-            # Migration: read XML and immediately re-save as JSON.
+            # Migration: read XML and immediately re-save as JSON.  XML-era
+            # files predate the raw-storage flag, so they must be treated
+            # as legacy "wire" until upgraded.
             self._load_from_xml(xml_path, exceptionForMismatch)
+            self.coordinateSystem = "wire"
             self.save(self._filePath, self._fileName)
             is_error = False
         else:
             is_error = False
 
+        if machineCalibration is not None and self.coordinateSystem == "wire":
+            self._migrateWireToRaw(machineCalibration)
+
         self.archive()
         self._cache_file_stats()
         return is_error
+
+    # -------------------------------------------------------------------
+    def _migrateWireToRaw(self, machineCalibration) -> None:
+        """
+        Subtract the machine camera-wire offset from every stored pin
+        position and rewrite the file in the new raw coordinate system.
+
+        Idempotent if already raw.
+        """
+        if self.coordinateSystem == "raw":
+            return
+
+        offsetX = getattr(machineCalibration, "cameraWireOffsetX", None)
+        offsetY = getattr(machineCalibration, "cameraWireOffsetY", None)
+        if offsetX is None or offsetY is None:
+            raise LayerCalibration.Error(
+                "Cannot migrate legacy layer calibration without cameraWireOffsetX/Y on the machine calibration.",
+                [self.getFullFileName()],
+            )
+
+        offsetX = float(offsetX)
+        offsetY = float(offsetY)
+        for pinName, location in list(self._locations.items()):
+            self._locations[pinName] = Location(
+                float(location.x) - offsetX,
+                float(location.y) - offsetY,
+                float(location.z),
+            )
+
+        self.coordinateSystem = "raw"
+        if self._filePath and self._fileName:
+            # Persist the migrated form so subsequent loads skip the
+            # subtraction.  archive() inside save() preserves the legacy
+            # copy under its original hash.
+            self.save(self._filePath, self._fileName)
 
     # -------------------------------------------------------------------
     def _load_from_xml(self, xml_path: pathlib.Path, exceptionForMismatch=True) -> None:

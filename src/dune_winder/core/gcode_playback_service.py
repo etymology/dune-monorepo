@@ -154,14 +154,22 @@ class GCodePlaybackService:
         offset_y = float(getattr(offset, "y", 0.0))
         offset_z = float(getattr(offset, "z", 0.0))
 
+        machine_calibration = self._machineCalibrationGetter()
+        camera_offset_x = float(
+            getattr(machine_calibration, "cameraWireOffsetX", None) or 0.0
+        )
+        camera_offset_y = float(
+            getattr(machine_calibration, "cameraWireOffsetY", None) or 0.0
+        )
+
         pins = []
         for pin_name in sorted(calibration.getPinNames(), key=pin_sort_key):
             location = calibration.getPinLocation(pin_name)
             pins.append(
                 {
                     "name": str(pin_name),
-                    "x": float(getattr(location, "x", 0.0)) + offset_x,
-                    "y": float(getattr(location, "y", 0.0)) + offset_y,
+                    "x": float(getattr(location, "x", 0.0)) + offset_x + camera_offset_x,
+                    "y": float(getattr(location, "y", 0.0)) + offset_y + camera_offset_y,
                     "z": float(getattr(location, "z", 0.0)) + offset_z,
                 }
             )
