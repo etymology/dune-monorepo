@@ -72,6 +72,18 @@ function GCodeGeneration( modules )
     return value.toFixed( decimals )
   }
 
+  // Offsets are stored server-side as { x, y, z } dicts.  This page edits the
+  // historical natural-axis component; off-axis values set via the jog
+  // calibration panel are preserved by the backend on legacy scalar writes.
+  function offsetNaturalScalar( offsetValue, naturalAxis )
+  {
+    if ( offsetValue === null || offsetValue === undefined )
+      return null
+    if ( typeof offsetValue == "object" )
+      return offsetValue[ naturalAxis || "x" ]
+    return offsetValue
+  }
+
   function formatDisplayNumber( value, decimals )
   {
     if ( ! $.isNumeric( value ) )
@@ -263,12 +275,16 @@ function GCodeGeneration( modules )
       return
     }
 
+    var vNaturalAxis = state.offsetNaturalAxis || {}
     for ( var index in vFieldSpecs )
     {
       var field = vFieldSpecs[ index ]
       setFieldValueIfIdle(
         "#gCodeGenerationV_" + field.key,
-        formatInputNumber( state.offsets[ field.key ], 3 )
+        formatInputNumber(
+          offsetNaturalScalar( state.offsets[ field.key ], vNaturalAxis[ field.key ] ),
+          3
+        )
       )
     }
 
@@ -347,12 +363,16 @@ function GCodeGeneration( modules )
       return
     }
 
+    var uNaturalAxis = state.offsetNaturalAxis || {}
     for ( var index in uFieldSpecs )
     {
       var field = uFieldSpecs[ index ]
       setFieldValueIfIdle(
         "#gCodeGenerationU_" + field.key,
-        formatInputNumber( state.offsets[ field.key ], 3 )
+        formatInputNumber(
+          offsetNaturalScalar( state.offsets[ field.key ], uNaturalAxis[ field.key ] ),
+          3
+        )
       )
     }
 

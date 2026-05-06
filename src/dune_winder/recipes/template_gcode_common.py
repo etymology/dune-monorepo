@@ -38,17 +38,68 @@ def coord(axis, value):
     return axis + format_number(value)
 
 
+_OFFSET_AXIS_KEYS = (("PX", "x"), ("PY", "y"), ("PZ", "z"))
+
+
+def _offset_component(value, axis_key):
+    """Extract one component from a 3D offset dict or treat a scalar as that component."""
+    if isinstance(value, dict):
+        return float(value.get(axis_key, 0.0))
+    return float(value)
+
+
 def offset_fragment(axis, value, *, coord_fn):
-    if abs(float(value)) < 1e-9:
+    component = _offset_component(value, axis.lstrip("P").lower())
+    if abs(component) < 1e-9:
         return None
-    return "G105 " + coord_fn(axis, value)
+    return "G105 " + coord_fn(axis, component)
 
 
 def conditional_offset_fragment(axis, condition_value, rendered_value, *, coord_fn):
-    _ = rendered_value
-    if abs(float(condition_value)) < 1e-9:
+    condition_component = _offset_component(condition_value, axis.lstrip("P").lower())
+    if abs(condition_component) < 1e-9:
         return None
-    return "G105 " + coord_fn(axis, rendered_value)
+    rendered_component = _offset_component(rendered_value, axis.lstrip("P").lower())
+    return "G105 " + coord_fn(axis, rendered_component)
+
+
+def offset3d_fragment(value, *, coord_fn):
+    """Emit `G105 PX… PY… PZ…` for a 3D offset dict (omitting any zero axis)."""
+    parts = []
+    for axis_letter, key in _OFFSET_AXIS_KEYS:
+        component = _offset_component(value, key)
+        if abs(component) < 1e-9:
+            continue
+        parts.append("G105 " + coord_fn(axis_letter, component))
+    return " ".join(parts) if parts else None
+
+
+def conditional_offset3d_fragment(condition_value, rendered_value, *, coord_fn):
+    """Emit a 3D offset only if any component of `condition_value` is non-zero."""
+    if not any(
+        abs(_offset_component(condition_value, key)) >= 1e-9
+        for _, key in _OFFSET_AXIS_KEYS
+    ):
+        return None
+    return offset3d_fragment(rendered_value, coord_fn=coord_fn)
+
+
+def normalize_offset_value(value, natural_axis="x"):
+    """Coerce a scalar or partial dict to `{x, y, z}` floats.
+
+    Scalars are placed on `natural_axis` for legacy migration.
+    """
+    if isinstance(value, dict):
+        return {
+            "x": float(value.get("x", 0.0)),
+            "y": float(value.get("y", 0.0)),
+            "z": float(value.get("z", 0.0)),
+        }
+    scalar = float(value)
+    result = {"x": 0.0, "y": 0.0, "z": 0.0}
+    if natural_axis in result:
+        result[natural_axis] = scalar
+    return result
 
 
 def near_comb(pin_number, combs, layer):

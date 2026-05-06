@@ -213,7 +213,9 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
 
             restarted = UTemplateRecipe(process)
             state = restarted.getState()
-            self.assertAlmostEqual(state["offsets"]["head_a_corner"], 1.25, places=6)
+            self.assertAlmostEqual(
+                state["offsets"]["head_a_corner"]["y"], 1.25, places=6
+            )
             self.assertFalse(state["transferPause"])
             self.assertTrue(state["addFootPauses"])
             self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 212.5, places=6)
@@ -244,7 +246,9 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
 
             restarted = VTemplateRecipe(process)
             state = restarted.getState()
-            self.assertAlmostEqual(state["offsets"]["head_a_corner"], -2.5, places=6)
+            self.assertAlmostEqual(
+                state["offsets"]["head_a_corner"]["y"], -2.5, places=6
+            )
             self.assertFalse(state["transferPause"])
             self.assertTrue(state["addFootPauses"])
             self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 82.5, places=6)
@@ -282,9 +286,11 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
 
             reloadedU = UTemplateRecipe(uProcess).getState()
             reloadedV = VTemplateRecipe(vProcess).getState()
-            self.assertAlmostEqual(reloadedU["offsets"]["head_a_corner"], 3.0, places=6)
             self.assertAlmostEqual(
-                reloadedV["offsets"]["head_a_corner"], -4.0, places=6
+                reloadedU["offsets"]["head_a_corner"]["y"], 3.0, places=6
+            )
+            self.assertAlmostEqual(
+                reloadedV["offsets"]["head_a_corner"]["y"], -4.0, places=6
             )
 
 

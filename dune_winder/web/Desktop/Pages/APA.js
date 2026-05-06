@@ -611,6 +611,17 @@ function APA(modules) {
   );
 
   page.loadSubPage(
+    "/Desktop/Modules/JogCalibration",
+    "#jogCalibrationCard",
+    function () {
+      var jogCalibration = modules.get("JogCalibration");
+      if (jogCalibration && jogCalibration.initialize) {
+        jogCalibration.initialize();
+      }
+    },
+  );
+
+  page.loadSubPage(
     "/Desktop/Modules/ManualMove",
     "#manualMoveCard",
     function () {

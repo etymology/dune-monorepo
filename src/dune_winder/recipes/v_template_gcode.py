@@ -1321,13 +1321,19 @@ class VTemplateProgrammaticGenerator:
             "y_pull_in": self.pull_ins["Y_PULL_IN"],
             "x_pull_in": self.pull_ins["X_PULL_IN"],
         }
+        def _scalar_for(idx):
+            entry = self.offsets[idx]
+            if isinstance(entry, dict):
+                return entry.get(OFFSET_NATURAL_AXIS.get(OFFSET_IDS[idx], "x"), 0.0)
+            return entry
+
         for index, offset_id in enumerate(OFFSET_IDS):
-            values[offset_id] = self.offsets[index]
-            values[offset_id + "_offset"] = self.offsets[index]
+            values[offset_id] = _scalar_for(index)
+            values[offset_id + "_offset"] = _scalar_for(index)
         for legacy_name, index in LEGACY_OFFSET_NAMES.items():
-            values[legacy_name] = self.offsets[index]
+            values[legacy_name] = _scalar_for(index)
         for alias_name, index in SPECIAL_OFFSET_ALIASES.items():
-            values[alias_name] = self.offsets[index]
+            values[alias_name] = _scalar_for(index)
         return values
 
     def get_value(self, column_label, row_number):
