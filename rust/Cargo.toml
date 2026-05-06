@@ -2,6 +2,7 @@
 members = [
     "crates/dune-audio",
     "crates/dune-python",
+    "crates/dune_plc_bus",
     "crates/dune_tension_core",
 ]
 resolver = "2"

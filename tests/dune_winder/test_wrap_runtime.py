@@ -131,20 +131,14 @@ class _IO:
 
 def _load_machine_calibration() -> MachineCalibration:
     calibration = MachineCalibration(
-        str(REPO_ROOT / "dune_winder" / "config"), "machineCalibration.json"
+        str(REPO_ROOT / "config"), "machineCalibration.json"
     )
     calibration.load()
     return calibration
 
 
 def _load_layer_calibration(layer: str) -> LayerCalibration:
-    path = (
-        REPO_ROOT
-        / "dune_winder"
-        / "config"
-        / "APA"
-        / f"{str(layer).upper()}_Calibration.json"
-    )
+    path = REPO_ROOT / "config" / "APA" / f"{str(layer).upper()}_Calibration.json"
     calibration = LayerCalibration(layer)
     calibration.load(str(path.parent), path.name, exceptionForMismatch=False)
     return calibration

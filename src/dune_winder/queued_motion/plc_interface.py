@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
-from dune_winder.io.devices.plc import PLC
+from dune_winder.io.devices.tag_bus_registry import tag_bus_for
 
 from .jerk_limits import is_valid_queued_motion_jerk
 from .safety import QueuedMotionCollisionState
@@ -52,6 +53,51 @@ START_TIMEOUT_S = 5.0
 IDLE_TIMEOUT_S = 120.0
 PLC_QUEUE_DEPTH = 32
 
+_FRESH_WITHIN_MS = 50
+_READ_TIMEOUT_MS = 250
+
+_STATUS_TAGS = (
+    TAG_REQ_ID,
+    TAG_LAST_REQ_ID,
+    TAG_ACK,
+    TAG_MOTION_FAULT,
+    TAG_CUR_ISSUED,
+    TAG_NEXT_ISSUED,
+    TAG_ACTIVE_SEQ,
+    TAG_PENDING_SEQ,
+    TAG_QUEUE_FAULT,
+    TAG_MOVE_A_ER,
+    TAG_MOVE_B_ER,
+    TAG_QUEUE_COUNT,
+    TAG_USE_A_AS_CURRENT,
+    TAG_MOVE_PENDING_STATUS,
+    TAG_FAULT_CODE,
+)
+
+_FRAME_LOCK_TAGS = (
+    TAG_FRAME_LOCK_HEAD_TOP,
+    TAG_FRAME_LOCK_HEAD_MID,
+    TAG_FRAME_LOCK_HEAD_BTM,
+    TAG_FRAME_LOCK_FOOT_TOP,
+    TAG_FRAME_LOCK_FOOT_MID,
+    TAG_FRAME_LOCK_FOOT_BTM,
+)
+
+
+def _snap_value(snap, default):
+    if snap is None or snap.source == "default":
+        return default
+    return snap.value
+
+
+def _frame_lock_bool(snap) -> bool:
+    if snap is None or snap.source == "default":
+        return False
+    try:
+        return bool(int(snap.value) & 0x01)
+    except (TypeError, ValueError):
+        return False
+
 
 @dataclass(frozen=True)
 class QueuedMotionStatus:
@@ -98,53 +144,11 @@ def validate_queue_segment(seg: MotionSegment) -> None:
 
 class QueuedMotionPLCInterface:
     def __init__(self, plc) -> None:
+        # `plc` is the legacy PLC handle; the bus carries atomic tag traffic
+        # while UDT (IncomingSeg) and parametric (SegQueue[i].Speed) accesses
+        # still go through the legacy driver, which the bus does not model.
         self._plc = plc
-
-        polled = PLC.Tag.Attributes()
-        polled.isPolled = True
-
-        self._incoming_seg = PLC.Tag(plc, TAG_INCOMING_SEG, tagType="MotionSeg")
-        self._req_id = PLC.Tag(plc, TAG_REQ_ID, polled, tagType="DINT")
-        self._last_req_id = PLC.Tag(plc, TAG_LAST_REQ_ID, polled, tagType="DINT")
-        self._ack = PLC.Tag(plc, TAG_ACK, polled, tagType="DINT")
-        self._abort = PLC.Tag(plc, TAG_ABORT, tagType="BOOL")
-        self._start = PLC.Tag(plc, TAG_START, tagType="BOOL")
-        self._stop_request = PLC.Tag(plc, TAG_STOP_REQUEST, tagType="BOOL")
-
-        self._motion_fault = PLC.Tag(plc, TAG_MOTION_FAULT, polled, tagType="BOOL")
-        self._cur_issued = PLC.Tag(plc, TAG_CUR_ISSUED, polled, tagType="BOOL")
-        self._next_issued = PLC.Tag(plc, TAG_NEXT_ISSUED, polled, tagType="BOOL")
-        self._active_seq = PLC.Tag(plc, TAG_ACTIVE_SEQ, polled, tagType="DINT")
-        self._pending_seq = PLC.Tag(plc, TAG_PENDING_SEQ, polled, tagType="DINT")
-        self._queue_fault = PLC.Tag(plc, TAG_QUEUE_FAULT, polled, tagType="BOOL")
-        self._move_a_er = PLC.Tag(plc, TAG_MOVE_A_ER, polled, tagType="DINT")
-        self._move_b_er = PLC.Tag(plc, TAG_MOVE_B_ER, polled, tagType="DINT")
-        self._queue_count = PLC.Tag(plc, TAG_QUEUE_COUNT, polled, tagType="DINT")
-        self._use_a_as_current = PLC.Tag(
-            plc, TAG_USE_A_AS_CURRENT, polled, tagType="BOOL"
-        )
-        self._move_pending_status = PLC.Tag(
-            plc, TAG_MOVE_PENDING_STATUS, polled, tagType="DINT"
-        )
-        self._fault_code = PLC.Tag(plc, TAG_FAULT_CODE, polled, tagType="DINT")
-        self._frame_lock_head_top = PLC.Tag(
-            plc, TAG_FRAME_LOCK_HEAD_TOP, polled, tagType="BOOL"
-        )
-        self._frame_lock_head_mid = PLC.Tag(
-            plc, TAG_FRAME_LOCK_HEAD_MID, polled, tagType="BOOL"
-        )
-        self._frame_lock_head_btm = PLC.Tag(
-            plc, TAG_FRAME_LOCK_HEAD_BTM, polled, tagType="BOOL"
-        )
-        self._frame_lock_foot_top = PLC.Tag(
-            plc, TAG_FRAME_LOCK_FOOT_TOP, polled, tagType="BOOL"
-        )
-        self._frame_lock_foot_mid = PLC.Tag(
-            plc, TAG_FRAME_LOCK_FOOT_MID, polled, tagType="BOOL"
-        )
-        self._frame_lock_foot_btm = PLC.Tag(
-            plc, TAG_FRAME_LOCK_FOOT_BTM, polled, tagType="BOOL"
-        )
+        self._bus = tag_bus_for(plc)
 
     @staticmethod
     def segment_to_udt(seg: MotionSegment) -> dict:
@@ -165,31 +169,37 @@ class QueuedMotionPLCInterface:
         }
 
     def poll(self) -> None:
-        PLC.Tag.pollAll(self._plc)
+        # The bus owns its poll thread when started. For non-started buses,
+        # `status()` and friends drive their own fresh reads.
+        pass
 
     def set_abort(self, enabled: bool) -> None:
-        self._abort.set(bool(enabled))
+        self._bus.write(TAG_ABORT, bool(enabled), _READ_TIMEOUT_MS)
 
     def set_start(self, enabled: bool) -> None:
-        self._start.set(bool(enabled))
+        self._bus.write(TAG_START, bool(enabled), _READ_TIMEOUT_MS)
 
     def set_stop_request(self, enabled: bool) -> None:
-        self._stop_request.set(bool(enabled))
+        self._bus.write(TAG_STOP_REQUEST, bool(enabled), _READ_TIMEOUT_MS)
 
     def write_segment(self, seg: MotionSegment) -> None:
+        # IncomingSeg is a UDT; write through the legacy driver.
         validate_queue_segment(seg)
-        self._incoming_seg.set(self.segment_to_udt(seg))
+        result = self._plc.write((TAG_INCOMING_SEG, self.segment_to_udt(seg)))
+        if result is None:
+            raise RuntimeError(f"Write failed for {TAG_INCOMING_SEG}")
 
     def set_req_id(self, req_id: int) -> None:
-        self._req_id.set(int(req_id))
+        self._bus.write(TAG_REQ_ID, int(req_id), _READ_TIMEOUT_MS)
 
     def sync_req_id(self) -> int:
-        last_req = self._last_req_id.get()
-        if last_req is not None:
-            return int(last_req)
-        req = self._req_id.get()
-        if req is not None:
-            return int(req)
+        snaps = self._bus.read_many_fresh([TAG_LAST_REQ_ID, TAG_REQ_ID])
+        last = snaps.get(TAG_LAST_REQ_ID)
+        if last is not None and last.source != "default":
+            return int(last.value)
+        cur = snaps.get(TAG_REQ_ID)
+        if cur is not None and cur.source != "default":
+            return int(cur.value)
         return 0
 
     @staticmethod
@@ -219,13 +229,14 @@ class QueuedMotionPLCInterface:
 
         return read_result
 
-    def _read_one(self, tag: str):
+    def _read_one_legacy(self, tag: str) -> Any:
         return self._extract_read_value(self._plc.read([tag]), tag)
 
     def read_seg_queue_speeds(self, count: int) -> list[float]:
         """Read the Speed field from SegQueue[0..count-1]."""
         return [
-            float(self._read_one(f"{TAG_SEG_QUEUE}[{i}].Speed")) for i in range(count)
+            float(self._read_one_legacy(f"{TAG_SEG_QUEUE}[{i}].Speed"))
+            for i in range(count)
         ]
 
     def write_seg_queue_speed(self, index: int, speed: float) -> None:
@@ -235,42 +246,57 @@ class QueuedMotionPLCInterface:
             raise RuntimeError(f"Write failed for {TAG_SEG_QUEUE}[{index}].Speed")
 
     def read_actual_xy(self) -> tuple[float, float]:
+        snaps = self._bus.read_many_fresh(
+            [TAG_X_ACTUAL_POSITION, TAG_Y_ACTUAL_POSITION]
+        )
         return (
-            float(self._read_one(TAG_X_ACTUAL_POSITION)),
-            float(self._read_one(TAG_Y_ACTUAL_POSITION)),
+            float(_snap_value(snaps.get(TAG_X_ACTUAL_POSITION), 0.0)),
+            float(_snap_value(snaps.get(TAG_Y_ACTUAL_POSITION), 0.0)),
         )
 
     def read_actual_z(self) -> float:
-        return float(self._read_one(TAG_Z_ACTUAL_POSITION))
+        snap = self._bus.read_fresh(
+            TAG_Z_ACTUAL_POSITION, _FRESH_WITHIN_MS, _READ_TIMEOUT_MS
+        )
+        return float(_snap_value(snap, 0.0))
 
     def read_collision_state(self) -> QueuedMotionCollisionState:
+        snaps = self._bus.read_many_fresh([TAG_Z_ACTUAL_POSITION, *_FRAME_LOCK_TAGS])
         return QueuedMotionCollisionState(
-            z_actual_position=self.read_actual_z(),
-            frame_lock_head_top=bool(self._frame_lock_head_top.get()),
-            frame_lock_head_mid=bool(self._frame_lock_head_mid.get()),
-            frame_lock_head_btm=bool(self._frame_lock_head_btm.get()),
-            frame_lock_foot_top=bool(self._frame_lock_foot_top.get()),
-            frame_lock_foot_mid=bool(self._frame_lock_foot_mid.get()),
-            frame_lock_foot_btm=bool(self._frame_lock_foot_btm.get()),
+            z_actual_position=float(_snap_value(snaps.get(TAG_Z_ACTUAL_POSITION), 0.0)),
+            frame_lock_head_top=_frame_lock_bool(snaps.get(TAG_FRAME_LOCK_HEAD_TOP)),
+            frame_lock_head_mid=_frame_lock_bool(snaps.get(TAG_FRAME_LOCK_HEAD_MID)),
+            frame_lock_head_btm=_frame_lock_bool(snaps.get(TAG_FRAME_LOCK_HEAD_BTM)),
+            frame_lock_foot_top=_frame_lock_bool(snaps.get(TAG_FRAME_LOCK_FOOT_TOP)),
+            frame_lock_foot_mid=_frame_lock_bool(snaps.get(TAG_FRAME_LOCK_FOOT_MID)),
+            frame_lock_foot_btm=_frame_lock_bool(snaps.get(TAG_FRAME_LOCK_FOOT_BTM)),
         )
 
     def status(self) -> QueuedMotionStatus:
+        snaps = self._bus.read_many_fresh(list(_STATUS_TAGS))
+
+        def get_int(tag: str) -> int:
+            return int(_snap_value(snaps.get(tag), 0) or 0)
+
+        def get_bool(tag: str) -> bool:
+            return bool(_snap_value(snaps.get(tag), False))
+
         return QueuedMotionStatus(
-            req_id=int(self._req_id.get() or 0),
-            last_req_id=int(self._last_req_id.get() or 0),
-            ack=int(self._ack.get() or 0),
-            motion_fault=bool(self._motion_fault.get()),
-            cur_issued=bool(self._cur_issued.get()),
-            next_issued=bool(self._next_issued.get()),
-            active_seq=int(self._active_seq.get() or 0),
-            pending_seq=int(self._pending_seq.get() or 0),
-            queue_fault=bool(self._queue_fault.get()),
-            move_a_er=int(self._move_a_er.get() or 0),
-            move_b_er=int(self._move_b_er.get() or 0),
-            queue_count=int(self._queue_count.get() or 0),
-            use_a_as_current=bool(self._use_a_as_current.get()),
-            move_pending_status=int(self._move_pending_status.get() or 0),
-            fault_code=int(self._fault_code.get() or 0),
+            req_id=get_int(TAG_REQ_ID),
+            last_req_id=get_int(TAG_LAST_REQ_ID),
+            ack=get_int(TAG_ACK),
+            motion_fault=get_bool(TAG_MOTION_FAULT),
+            cur_issued=get_bool(TAG_CUR_ISSUED),
+            next_issued=get_bool(TAG_NEXT_ISSUED),
+            active_seq=get_int(TAG_ACTIVE_SEQ),
+            pending_seq=get_int(TAG_PENDING_SEQ),
+            queue_fault=get_bool(TAG_QUEUE_FAULT),
+            move_a_er=get_int(TAG_MOVE_A_ER),
+            move_b_er=get_int(TAG_MOVE_B_ER),
+            queue_count=get_int(TAG_QUEUE_COUNT),
+            use_a_as_current=get_bool(TAG_USE_A_AS_CURRENT),
+            move_pending_status=get_int(TAG_MOVE_PENDING_STATUS),
+            fault_code=get_int(TAG_FAULT_CODE),
         )
 
     def snapshot_lines(self) -> list[str]:

@@ -1,74 +1,69 @@
 ###############################################################################
 # Name: PLC_Input.py
-# Uses: Digital input from a PLC.
-# Date: 2016-02-22
-# Author(s):
-#   Andrew Que <aque@bb7.com>
+# Uses: Digital input from a PLC, backed by the TagBus.
 ###############################################################################
 
+from typing import Any
+
+from dune_winder.io.devices.tag_bus_registry import tag_bus_for
 from dune_winder.io.primitives.digital_input import DigitalInput
-from dune_winder.io.devices.plc import PLC
 
 
 class PLC_Input(DigitalInput):
     input_instances: list["PLC_Input"] = []
 
-    # ---------------------------------------------------------------------
     def __init__(
         self, name, plc, tagName=None, bit=0, defaultState=False, tagType="DINT"
     ):
         """
-        Constructor.
-
         Args:
-          name: Name of output.
-          plc: Instance of IO_Device.PLC.
-          tagName: Which PLC tag this input is assigned.  Default is None for when
-            the tag and name are the same.
-          bit: Which bit of the tag.  Defaults to bit 0.
-          defaultState: Default state if input is unreadable.
-          tagType: Tag data type.  Default is "DINT".
+          name: Name of input.
+          plc: Legacy PLC subclass *or* a TagBus.
+          tagName: PLC tag name. Defaults to `name` when None.
+          bit: Bit index inside the tag.
+          defaultState: Value returned before the bus has seen the wire.
+          tagType: Reserved for the future native driver; ignored here since
+            the schema declares the CIP type for each tag.
         """
         DigitalInput.__init__(self, name)
         PLC_Input.input_instances.append(self)
 
-        # Just use the name for the tag?
         if tagName is None:
             tagName = name
 
-        self._plc = plc
-        attributes = PLC.Tag.Attributes()
-        attributes.canWrite = False
-        attributes.defaultValue = defaultState
-        attributes.isPolled = True
-        self._tag = plc.Tag(plc, tagName, attributes, tagType)
-
+        self._bus = tag_bus_for(plc)
+        self._tagName = tagName
         self._bit = bit
-        self._defaultState = defaultState
-        self._state = defaultState
+        self._defaultState = bool(defaultState)
+        self._tagType = tagType
 
-    # ---------------------------------------------------------------------
-    def _doGet(self):
-        """
-        Fetch state of input.
-
-        Returns:
-          Returns whatever was passes as the initial state.
-
-        Note:
-          Does not reflect any useful value until polled.  If the PLC isn't
-          functional, this value returns a default value.
-        """
-        value = self._tag.get()
-        if value is not None:
+    def _doGet(self) -> bool:
+        snap = self._bus.snapshot(self._tagName)
+        if snap is None or snap.source == "default":
+            return self._defaultState
+        value = snap.value
+        if value is None:
+            return self._defaultState
+        try:
             value = int(value)
-            value >>= self._bit
-            value &= 0x01
-            value = bool(value == 1)
-        else:
-            value = self._defaultState
+        except (TypeError, ValueError):
+            return self._defaultState
+        return bool((value >> self._bit) & 0x01)
 
-        return value
+    # Backward-compat shim for any caller that still pokes at `_tag.getName()`.
+    @property
+    def _tag(self) -> Any:
+        bus = self._bus
+        name = self._tagName
 
+        class _Ref:
+            def getName(self) -> str:
+                return name
 
-# end class
+            def get(self):
+                snap = bus.snapshot(name)
+                if snap is None or snap.source == "default":
+                    return None
+                return snap.value
+
+        return _Ref()
