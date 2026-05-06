@@ -59,7 +59,10 @@ class WebServerInterface(SimpleHTTPRequestHandler):
         Callback for an HTTP GET request.
         All paths are handled by SimpleHTTPRequestHandler as static files.
         """
-        super().do_GET()
+        try:
+            super().do_GET()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
 
     # ---------------------------------------------------------------------
     def do_POST(self):
