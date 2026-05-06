@@ -6,7 +6,8 @@ Canonical monorepo workflow for:
 - `dune_tension`: the wire-tension GUI and spectrum-analysis tooling
 
 The monorepo root is the supported developer entrypoint for setup, run, test, and debug.
-The only supported lock state is the root [`uv.lock`](uv.lock).
+The supported lock state is the root [`uv.lock`](uv.lock) plus
+[`rust/Cargo.lock`](rust/Cargo.lock) for the Rust workspace.
 
 ## Requirements
 
@@ -17,7 +18,8 @@ The only supported lock state is the root [`uv.lock`](uv.lock).
 
 ## Quick Start
 
-Install Python dependencies for both workspace packages plus shared developer tools:
+Install Python dependencies for both workspace packages, local PyO3 extension
+modules, and shared developer tools:
 
 ```bash
 uv sync
@@ -25,10 +27,11 @@ npm install
 ```
 
 This creates the shared root `.venv`, installs both Python workspace members
-with the repo-wide dev tooling, and installs the Node-based Markdown tools.
+with repo-wide dev tooling, builds the local Rust-backed Python modules declared
+in `tool.uv.sources`, and installs the Node-based Markdown tools.
 
-Build the optional Rust-backed Python extension when you want the
-`dune_tension._rust_audio` hot path available in the shared `.venv`:
+Use an explicit maturin rebuild when iterating on the audio extension or feature
+flags:
 
 ```bash
 uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
@@ -41,10 +44,16 @@ uv run dune-winder
 uv run dune-tension-gui
 ```
 
-Run all tests (both packages) from root:
+Run all Python tests from root:
 
 ```bash
 uv run pytest
+```
+
+Run the full mixed-language suite with the Makefile shorthand:
+
+```bash
+make test
 ```
 
 Other useful commands:
@@ -52,6 +61,8 @@ Other useful commands:
 ```bash
 uv run pytest tests/dune_tension    # tension tests only
 uv run pytest tests/dune_winder     # winder tests only
+uv run pytest tests/dune_geometry   # Python surface tests for dune_geometry
+uv run pytest tests/dune_plc_bus    # Python surface tests for dune_plc_bus
 uv run ruff check src tests         # lint
 uv run ruff format src tests        # format
 uv run ty check                     # Python static type check
@@ -74,9 +85,16 @@ the root workflow.
 All Python source lives under [`src/`](src/): `dune_winder`, `dune_tension`, `spectrum_analysis`.
 
 Rust source lives under [`rust/`](rust/). The root [`rust/Cargo.lock`](rust/Cargo.lock)
-is the canonical Rust lockfile. The workspace currently provides the optional
-`dune_tension._rust_audio` extension for the live audio hot path and PESTO ONNX
-inference, with the workspace laid out for a broader future rewrite.
+is the canonical Rust lockfile. Several Rust crates are also installed into the
+Python environment through local `uv` path dependencies:
+
+- `dune-rust-audio` provides `dune_tension._rust_audio`
+- `dune-tension-core` provides `dune_tension_core`
+- `dune-geometry` provides `dune_geometry`
+- `dune-plc-bus` provides `dune_plc_bus`
+
+Use Cargo for Rust-only tests and linting; use `uv run pytest` for Python tests
+that import those extension modules.
 
 Data artifacts stay in their own subdirectories and are **not** Python packages:
 
