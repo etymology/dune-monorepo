@@ -1,0 +1,21 @@
+[package]
+name = "dune_geometry"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+pyo3 = ["dep:pyo3"]
+extension-module = ["pyo3", "pyo3/extension-module", "pyo3/abi3-py312"]
+
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+pyo3 = { workspace = true, optional = true }

@@ -410,11 +410,17 @@ wheels = [
 ]
 
 [[package]]
+name = "dune-geometry"
+version = "0.1.0"
+source = { directory = "rust/crates/dune_geometry" }
+
+[[package]]
 name = "dune-monorepo"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "dune-geometry" },
     { name = "dune-plc-bus" },
     { name = "dune-rust-audio" },
     { name = "dune-tension-core" },
@@ -451,6 +457,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.97.0" },
+    { name = "dune-geometry", directory = "rust/crates/dune_geometry" },
     { name = "dune-plc-bus", directory = "rust/crates/dune_plc_bus" },
     { name = "dune-rust-audio", directory = "rust/crates/dune-python" },
     { name = "dune-tension-core", directory = "rust/crates/dune_tension_core" },

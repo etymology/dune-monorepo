@@ -31,6 +31,54 @@ value Point3D {
     z: Decimal
 }
 
+-- The raw camera-space coordinate of a pin: the winder XYZ recorded with
+-- the calibration camera looking directly at the pin. NO camera-wire-offset
+-- and NO arm-correction are baked in; both are applied at solve time.
+value RawPinPosition {
+    pin:  core/PinName
+    xyz:  Point3D
+}
+
+-- The lateral displacement between the camera optical axis and the wire
+-- contact point, expressed in the winder frame. The wire under tension
+-- pulls the winding head and rollers laterally, and the resulting frame
+-- distortion depends on the winder pose (most strongly on Z arm extension)
+-- and on which side of the head is engaged (stage vs fixed). The
+-- effective offset for a given solve is therefore a function of pose and
+-- head_side, not a constant.
+value CameraWireOffset {
+    dx: Decimal   -- mm, winder X
+    dy: Decimal   -- mm, winder Y
+    dz: Decimal   -- mm, winder Z
+}
+
+enum HeadSide { stage | fixed }
+
+-- The fitted machine-calibration model parameterises CameraWireOffset
+-- across pose. Two scalar bases (stage and fixed) cover poses for which
+-- no per-pin override has been captured; per_pin_overrides cover specific
+-- placements for which an operator capture has been collected.
+value MachineCalibrationModel {
+    base_stage:        CameraWireOffset
+    base_fixed:        CameraWireOffset
+    per_pin_overrides: List<MachineCalibrationOverride>
+    arm_correction:    ArmCorrection
+}
+
+value MachineCalibrationOverride {
+    pin:    core/PinName
+    offset: CameraWireOffset
+}
+
+-- Arm correction accounts for the geometric displacement between the
+-- nominal winder origin and the actual wire-emit point on the head,
+-- independent of the pose-dependent CameraWireOffset.
+value ArmCorrection {
+    dx: Decimal
+    dy: Decimal
+    dz: Decimal
+}
+
 value LineEquation {
     slope:       Decimal
     intercept:   Decimal
@@ -122,6 +170,33 @@ value RecipeSite {
     position:            String   -- positional label within the frame face
 }
 
+-- The full pose of the winder at solve time: where the head is, which side
+-- of the head is engaged, and how far the Z arm is extended. The
+-- CameraWireOffset depends on this pose.
+value WinderPose {
+    xyz:           Point3D
+    head_side:     HeadSide
+    z_extension:   Decimal   -- mm, signed extension of Z arm from neutral
+}
+
+-- A fully resolved anchor-to-target solve: the commanded winder pose that
+-- stretches a wire from anchor_pin to target_pin tangent to both pins on
+-- the correct sides, accounting for the per-pose camera wire offset and
+-- arm correction. This is the spec-level equivalent of the anchorToTarget
+-- macro output.
+entity AnchorToTargetSolution {
+    layer:                 core/Layer
+    anchor_pin:            core/PinName
+    target_pin:            core/PinName
+    anchor_raw_position:   RawPinPosition
+    target_raw_position:   RawPinPosition
+    effective_offset:      CameraWireOffset
+    arm_correction:        ArmCorrection
+    commanded_pose:        WinderPose
+    anchor_tangent_xy:     Point2D
+    target_tangent_xy:     Point2D
+}
+
 -- ==========================================================================
 -- Interface
 -- ==========================================================================
@@ -135,6 +210,7 @@ surface WrapGeometryPlanner {
 
     provides:
         WrapPlanRequested(layer, anchor_pin, target_pin, head_z_mode)
+        AnchorToTargetSolveRequested(layer, anchor_pin, target_pin, head_side, raw_pin_positions, model)
 }
 
 -- ==========================================================================
@@ -231,6 +307,99 @@ rule TransferRequiredForCrossSideWrap {
         -- transfer_xy is non-null here (guaranteed by TransferXyNullIfAndOnlyIfNoTransfer).
 }
 
+rule ResolveEffectiveCameraWireOffset {
+    when: NeedEffectiveCameraWireOffset(model, pose, pin)
+
+    requires: model != null
+    requires: pose != null
+
+    -- The effective offset is the per-pin override when one exists;
+    -- otherwise it is the base offset for the engaged head side.
+    ensures: EffectiveCameraWireOffsetResolved(
+        model:  model,
+        pose:   pose,
+        pin:    pin,
+        offset: effective_camera_wire_offset(model, pose, pin)
+    )
+
+    @guidance
+        -- effective_camera_wire_offset(model, pose, pin) =
+        --   override.offset where override in model.per_pin_overrides
+        --     and override.pin = pin                          when present;
+        --   model.base_stage                                  when pose.head_side = stage and no override;
+        --   model.base_fixed                                  when pose.head_side = fixed and no override.
+        --
+        -- The offset varies with pose because the wire under tension
+        -- distorts the frame proportionally to Z arm extension. Future
+        -- refinements may make the base offsets functions of pose
+        -- (e.g. linear in z_extension); per_pin_overrides remain the
+        -- highest-priority source.
+}
+
+rule SolveAnchorToTarget {
+    when: AnchorToTargetSolveRequested(layer, anchor_pin, target_pin, head_side, raw_pin_positions, model)
+
+    requires: layer in { u, v }
+    requires: anchor_pin.layer = layer
+    requires: target_pin.layer = layer
+    requires: raw_pin_positions != null
+    requires: model != null
+
+    -- The solver consumes raw camera-space pin coordinates and computes a
+    -- commanded winder pose so that the wire stretched from anchor to
+    -- target is tangent to both pins on the sides indicated by
+    -- layout/PinWrapClassification.
+    ensures: AnchorToTargetSolution.created(
+        layer:                 layer,
+        anchor_pin:            anchor_pin,
+        target_pin:            target_pin,
+        anchor_raw_position:   lookup_raw_pin_position(raw_pin_positions, anchor_pin),
+        target_raw_position:   lookup_raw_pin_position(raw_pin_positions, target_pin),
+        effective_offset:      effective_camera_wire_offset(
+            model,
+            anchor_to_target_initial_pose(layer, anchor_pin, target_pin, head_side),
+            target_pin
+        ),
+        arm_correction:        model.arm_correction,
+        commanded_pose:        anchor_to_target_commanded_pose(
+            layer, anchor_pin, target_pin, head_side, raw_pin_positions, model
+        ),
+        anchor_tangent_xy:     anchor_to_target_anchor_tangent(layer, anchor_pin, raw_pin_positions),
+        target_tangent_xy:     anchor_to_target_target_tangent(layer, target_pin, raw_pin_positions)
+    )
+
+    @guidance
+        -- Solve sequence:
+        --
+        -- 1. Look up raw camera-space coordinates for anchor and target
+        --    pins from the active PinCalibrationFile (latest snapshot
+        --    containing each pin). NO offset is baked in.
+        --
+        -- 2. Compute the wrap_side for both pins via
+        --    layout/ClassifyPinWrapSide. The wrap_side gives the unit
+        --    normal from the pin centre to the wire-contact point.
+        --
+        -- 3. Compute the tangent points:
+        --      tangent_xy = pin_xy_raw + pin_radius * wrap_side
+        --
+        -- 4. Resolve the effective camera wire offset using
+        --    ResolveEffectiveCameraWireOffset. This depends on the
+        --    head_side and on whether a per-pin override has been
+        --    captured for the target pin.
+        --
+        -- 5. Add the arm correction (constant per machine) to position
+        --    the wire emit point, not the camera, at the target tangent.
+        --
+        -- 6. The commanded winder pose is target_tangent_xy minus the
+        --    sum (effective_offset + arm_correction), with z chosen to
+        --    place the head on the correct APA face for the target pin.
+        --
+        -- This replaces the prior approach of baking a single constant
+        -- camera wire offset into the calibration file at calibration
+        -- time. See uv-machine-calibration.allium for the workflow that
+        -- captures the per-pin overrides used here.
+}
+
 -- ==========================================================================
 -- Invariants
 -- ==========================================================================
@@ -250,5 +419,21 @@ invariant SameSideImpliesNoTransfer {
     -- WrapTransitionPlan.transfer_required is false.
 }
 
+invariant AnchorToTargetUsesRawPinCoords {
+    -- For every AnchorToTargetSolution, anchor_raw_position and
+    -- target_raw_position carry the values stored in the active
+    -- PinCalibrationFile WITHOUT any camera-wire-offset or arm-correction
+    -- pre-applied. The solver applies effective_offset and arm_correction
+    -- itself.
+}
+
+invariant CommandedPoseAccountsForOffsetAndArmCorrection {
+    -- For every AnchorToTargetSolution, the commanded_pose is the target
+    -- raw pin tangent xy displaced by -(effective_offset + arm_correction),
+    -- so that when the winder reaches commanded_pose the wire emit point
+    -- lies at the target tangent_xy.
+}
+
 open question "Should WrapTransitionPlan model the hover Y position separately from the final_xy for alternating-side wraps?"
 open question "How should the outbound_intercept be defined for foot-side wraps where the board edge orientation differs from head-side wraps?"
+open question "Should base_stage / base_fixed in MachineCalibrationModel be functions of pose (e.g. linear in z_extension), or kept scalar with all pose dependence carried by per_pin_overrides?"

@@ -37,7 +37,7 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
     match = _ANCHOR_TO_TARGET_RE.fullmatch(raw_text)
     if match is None:
         raise UvHeadTargetError(
-            "Command must match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True])."
+            "Command must match ~anchorToTarget(pinA,pinB[,offset=(x,y[,z])][,hover=True])."
         )
     anchor_pin = _normalize_pin_name(match.group("anchor"), "Anchor pin")
     target_pin = _normalize_pin_name(match.group("target"), "Target pin")
@@ -74,14 +74,25 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
         if keyword_name == "offset":
             if not keyword_value.startswith("(") or not keyword_value.endswith(")"):
                 raise UvHeadTargetError(
-                    "~anchorToTarget offset must be written as offset=(x,y)."
+                    "~anchorToTarget offset must be written as offset=(x,y) or offset=(x,y,z)."
                 )
             offset_values = [part.strip() for part in keyword_value[1:-1].split(",")]
-            if len(offset_values) != 2:
-                raise UvHeadTargetError(
-                    "~anchorToTarget offset requires exactly two values."
+            if len(offset_values) == 2:
+                target_offset = (
+                    float(offset_values[0]),
+                    float(offset_values[1]),
+                    0.0,
                 )
-            target_offset = (float(offset_values[0]), float(offset_values[1]))
+            elif len(offset_values) == 3:
+                target_offset = (
+                    float(offset_values[0]),
+                    float(offset_values[1]),
+                    float(offset_values[2]),
+                )
+            else:
+                raise UvHeadTargetError(
+                    "~anchorToTarget offset requires two or three values."
+                )
             continue
         if keyword_name == "hover":
             hover_value = keyword_value.lower()
@@ -123,7 +134,7 @@ def _cached_compute_uv_anchor_to_target_view(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z),
+            float(target_location.z) + float(command.target_offset[2]),
         )
     raw_result = compute_uv_tangent_view(
         UvTangentViewRequest(
@@ -180,7 +191,7 @@ def compute_uv_anchor_to_target_view(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z),
+            float(target_location.z) + float(command.target_offset[2]),
         )
     raw_result = compute_uv_tangent_view(
         UvTangentViewRequest(

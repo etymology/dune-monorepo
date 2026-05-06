@@ -58,7 +58,18 @@ discretisation, max velocity).
 
 Geometric planning for UV-layer winding-head pin wraps. Covers tangent point
 computation, same-side versus cross-side transitions, transfer requirements,
-head-position selection, and resolved `WrapTransitionPlan` output.
+head-position selection, the per-pose `CameraWireOffset` model, and the
+resolved `WrapTransitionPlan` and `AnchorToTargetSolution` outputs.
+
+### `uv-machine-calibration.allium`
+
+Capture, persistence, and solver behaviour for the UV diagonal-layer
+machine calibration workflow. Covers the snapshot-based
+`PinCalibrationFile`, the APA.html "Use current position" capture
+(`MachineCalibrationCapturePoint`), label-driven 3D gcode offset
+propagation, the machine-calibration solver that fits the
+`MachineCalibrationModel` and roller offsets, and the continuous
+B-pin loop solver that replaces the planar Z fit.
 
 ### `motion-safety.allium`
 

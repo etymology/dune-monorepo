@@ -242,6 +242,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dune_geometry"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "dune_plc_bus"
 version = "0.1.0"
 dependencies = [
@@ -262,6 +272,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dune-audio",
+ "dune_geometry",
  "numpy",
  "pyo3",
  "rand",
