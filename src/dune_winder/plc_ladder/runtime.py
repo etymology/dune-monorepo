@@ -841,32 +841,26 @@ class RoutineExecutor:
         axis = _deep_copy(ctx.get_value(axis_path))
         axis["DriveEnableStatus"] = True
         ctx.set_value(axis_path, axis)
-        control_program = self._resolve_motion_control_program(control_path, ctx)
-        control = _deep_copy(ctx.get_value(control_path, program=control_program))
-        if not isinstance(control, dict):
-            return
+        control = _deep_copy(ctx.get_value(control_path))
         control["EN"] = True
         control["DN"] = True
         control["PC"] = True
         control["IP"] = False
         control["ER"] = False
-        ctx.set_value(control_path, control, program=control_program)
+        ctx.set_value(control_path, control)
 
     def _servo_off(self, axis_path: str, control_path: str, ctx: ScanContext):
         axis = _deep_copy(ctx.get_value(axis_path))
         axis["DriveEnableStatus"] = False
         axis["CoordinatedMotionStatus"] = False
         ctx.set_value(axis_path, axis)
-        control_program = self._resolve_motion_control_program(control_path, ctx)
-        control = _deep_copy(ctx.get_value(control_path, program=control_program))
-        if not isinstance(control, dict):
-            return
+        control = _deep_copy(ctx.get_value(control_path))
         control["EN"] = True
         control["DN"] = True
         control["PC"] = True
         control["IP"] = False
         control["ER"] = False
-        ctx.set_value(control_path, control, program=control_program)
+        ctx.set_value(control_path, control)
 
     def _fault_reset(self, axis_path: str, control_path: str, ctx: ScanContext):
         axis = _deep_copy(ctx.get_value(axis_path))
@@ -874,15 +868,12 @@ class RoutineExecutor:
         axis["ModuleFault"] = False
         axis["MotionFault"] = False
         ctx.set_value(axis_path, axis)
-        control_program = self._resolve_motion_control_program(control_path, ctx)
-        control = _deep_copy(ctx.get_value(control_path, program=control_program))
-        if not isinstance(control, dict):
-            return
+        control = _deep_copy(ctx.get_value(control_path))
         control["DN"] = True
         control["PC"] = True
         control["IP"] = False
         control["ER"] = False
-        ctx.set_value(control_path, control, program=control_program)
+        ctx.set_value(control_path, control)
 
     def _resolve_motion_control_program(
         self, control_path: str, ctx: ScanContext
@@ -1102,15 +1093,14 @@ class RoutineExecutor:
         self._apply_motion_velocities(motion, ctx)
 
     def _disarm_motion_control(self, control_path: str, ctx: ScanContext):
-        control_program = self._resolve_motion_control_program(control_path, ctx)
-        control = _deep_copy(ctx.get_value(control_path, program=control_program))
+        control = _deep_copy(ctx.get_value(control_path))
         if not isinstance(control, dict):
             raise TypeError(
                 f"Expected motion control at {control_path!r} to be a dict, "
                 f"got {type(control).__name__}: {control!r}"
             )
         control["EN"] = False
-        ctx.set_value(control_path, control, program=control_program)
+        ctx.set_value(control_path, control)
 
     def _start_axis_jog(self, operands, ctx: ScanContext):
         axis_path = operands[0]

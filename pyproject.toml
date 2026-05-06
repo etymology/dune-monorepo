@@ -23,12 +23,8 @@ dependencies = [
     "ty>=0.0.32",
     "scikit-learn>=1.8.0",
     "anthropic>=0.97.0",
-    "fastapi>=0.115.0",
-    "uvicorn>=0.30.0",
-    "websockets>=13.0",
     "dune-rust-audio",
     "dune-tension-core",
-    "dune-plc-bus",
 ]
 
 [project.scripts]
@@ -40,8 +36,7 @@ plc-manifest = "dune_winder.plc_manifest:main"
 plc-sync = "dune_winder.plc_sync:main"
 plc-convert-rllscrap = "dune_winder.convert_plc_rllscrap:main"
 # dune_tension
-dune-tension-gui = "dune_tension.api.cli:main"
-dune-tension-gui-legacy = "dune_tension.main:main"
+dune-tension-gui = "dune_tension.main:main"
 dune-tension-periodic-plots = "dune_tension.periodic_save_plots:main"
 dune-tension-download-m2m = "dune_tension.download_tension_data:main"
 dune-tension-plot-sqlite = "dune_tension.plot_tension_from_sqlite:main"
@@ -78,7 +73,6 @@ dev = [
 [tool.uv.sources]
 dune-rust-audio = { path = "rust/crates/dune-python" }
 dune-tension-core = { path = "rust/crates/dune_tension_core" }
-dune-plc-bus = { path = "rust/crates/dune_plc_bus" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests/dune_tension", "tests/dune_winder"]

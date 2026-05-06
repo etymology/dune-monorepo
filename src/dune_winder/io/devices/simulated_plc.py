@@ -218,7 +218,7 @@ class SimulatedPLC(PLC):
             errorCode = int(code)
             errorState = self.STATE_ERROR if state is None else int(state)
             self._tagValues["ERROR_CODE"] = errorCode
-            self._setStateAndTrack(errorState)
+            self._tagValues["STATE"] = errorState
             self._pendingMoveType = None
             self._settleCyclesRemaining = 0
             self._setAxisMovement(False)
@@ -251,15 +251,9 @@ class SimulatedPLC(PLC):
     # ---------------------------------------------------------------------
     def _seedDefaultTags(self):
         self._tagValues["STATE"] = self.STATE_READY
-        self._tagValues["LAST_STATE"] = self.STATE_READY
-        self._tagValues["STATE_ENTRY_COUNTER"] = 0
         self._tagValues["ERROR_CODE"] = 0
         self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
         self._tagValues["STATE_REQUEST"] = 0
-        self._tagValues["STATE_REQUEST_ID"] = 0
-        self._tagValues["STATE_REQUEST_ACK"] = 0
-        self._tagValues["STATE_REQUEST_RESULT"] = 0
-        self._tagValues["STATE_FAULT_FLAGS"] = 0
         self._tagValues["gui_latch_pulse"] = 0
         self._tagValues["HEAD_POS"] = 0
         self._tagValues["ACTUATOR_POS"] = 1
@@ -350,19 +344,6 @@ class SimulatedPLC(PLC):
 
         if tagName == "STATE_REQUEST":
             self._setStateRequest(int(value))
-            return
-
-        if tagName == "STATE_REQUEST_ID":
-            # Mirror the ladder: ACK echoes the most recently consumed ID and
-            # RESULT/FAULT_FLAGS are cleared so the supervisor sees a fresh
-            # outcome for this transaction. The actual dispatch happens on the
-            # accompanying STATE_REQUEST write.
-            newId = int(value)
-            self._tagValues[tagName] = newId
-            if newId != int(self._tagValues.get("STATE_REQUEST_ACK", 0)):
-                self._tagValues["STATE_REQUEST_ACK"] = newId
-                self._tagValues["STATE_REQUEST_RESULT"] = 0
-                self._tagValues["STATE_FAULT_FLAGS"] = 0
             return
 
         if tagName == "IncomingSeg":
@@ -468,13 +449,8 @@ class SimulatedPLC(PLC):
 
         if requestedState == self.STATE_EOT:
             if self._tagValues.get("STATE", self.STATE_READY) == self.STATE_ERROR:
-                self._tagValues["STATE_REQUEST_RESULT"] = 2
-                self._tagValues["STATE_FAULT_FLAGS"] = (
-                    int(self._tagValues.get("STATE_FAULT_FLAGS", 0)) | 0x01
-                )
                 return
-            self._tagValues["STATE_REQUEST_RESULT"] = 1
-            self._setStateAndTrack(self.STATE_EOT)
+            self._tagValues["STATE"] = self.STATE_EOT
             self._pendingMoveType = None
             self._settleCyclesRemaining = 0
             self._setAxisMovement(False)
@@ -492,40 +468,15 @@ class SimulatedPLC(PLC):
         }
         moveType = moveTypeMap.get(requestedState)
         if busyState is None or moveType is None:
-            # Out-of-range request: 0x40 + RESULT=2 (rejected). Mirrors the
-            # ladder's range check on STATE_REQUEST.
-            self._tagValues["STATE_REQUEST_RESULT"] = 2
-            self._tagValues["STATE_FAULT_FLAGS"] = (
-                int(self._tagValues.get("STATE_FAULT_FLAGS", 0)) | 0x40
-            )
             return
 
         if self._tagValues.get("STATE", self.STATE_READY) == self.STATE_ERROR:
-            # Interlock: cannot dispatch from ERROR until reset clears it.
-            self._tagValues["STATE_REQUEST_RESULT"] = 2
-            self._tagValues["STATE_FAULT_FLAGS"] = (
-                int(self._tagValues.get("STATE_FAULT_FLAGS", 0)) | 0x01
-            )
             return
 
-        self._tagValues["STATE_REQUEST_RESULT"] = 1
-        self._setStateAndTrack(busyState)
+        self._tagValues["STATE"] = busyState
         self._pendingMoveType = moveType
         self._settleCyclesRemaining = 1
         self._setAxisMovement(True)
-
-    # ---------------------------------------------------------------------
-    def _setStateAndTrack(self, newState: int):
-        """Set STATE and maintain LAST_STATE / STATE_ENTRY_COUNTER on edge."""
-        newState = int(newState)
-        currentState = int(self._tagValues.get("STATE", self.STATE_READY))
-        if newState == currentState:
-            return
-        self._tagValues["LAST_STATE"] = currentState
-        self._tagValues["STATE_ENTRY_COUNTER"] = (
-            int(self._tagValues.get("STATE_ENTRY_COUNTER", 0)) + 1
-        )
-        self._tagValues["STATE"] = newState
 
     # ---------------------------------------------------------------------
     def _advanceCycle(self):
@@ -649,9 +600,8 @@ class SimulatedPLC(PLC):
 
         if self._tagValues.get("STATE") != self.STATE_ERROR:
             self._tagValues["ERROR_CODE"] = 0
+            self._tagValues["STATE"] = self.STATE_READY
             self._tagValues["STATE_REQUEST"] = 0
-            self._tagValues["STATE_REQUEST_RESULT"] = 3
-            self._setStateAndTrack(self.STATE_READY)
 
     # ---------------------------------------------------------------------
     def _advanceLatch(self):
@@ -709,11 +659,9 @@ class SimulatedPLC(PLC):
         self._pendingMoveType = None
         self._settleCyclesRemaining = 0
         self._tagValues["ERROR_CODE"] = 0
+        self._tagValues["STATE"] = self.STATE_READY
         self._tagValues["MOVE_TYPE"] = self.MOVE_RESET
         self._tagValues["STATE_REQUEST"] = 0
-        self._tagValues["STATE_REQUEST_RESULT"] = 0
-        self._tagValues["STATE_FAULT_FLAGS"] = 0
-        self._setStateAndTrack(self.STATE_READY)
         self._setAxisMovement(False)
         self._abortQueuedMotion()
 
@@ -722,14 +670,8 @@ class SimulatedPLC(PLC):
         self._pendingMoveType = None
         self._settleCyclesRemaining = 0
         self._tagValues["ERROR_CODE"] = int(code)
+        self._tagValues["STATE"] = self.STATE_ERROR
         self._tagValues["STATE_REQUEST"] = 0
-        self._tagValues["STATE_REQUEST_RESULT"] = 4
-        # Generic axis-fault bit; finer mapping per ERROR_CODE can be added
-        # if/when consumers need to discriminate at the bit level.
-        self._tagValues["STATE_FAULT_FLAGS"] = (
-            int(self._tagValues.get("STATE_FAULT_FLAGS", 0)) | 0x02
-        )
-        self._setStateAndTrack(self.STATE_ERROR)
         self._setAxisMovement(False)
         self._abortQueuedMotion()
 
@@ -768,7 +710,7 @@ class SimulatedPLC(PLC):
         self._tagValues["PendingSeq"] = 0
         self._tagValues["QueueCount"] = 0
         if self._tagValues.get("STATE") == self.STATE_QUEUED_MOTION:
-            self._setStateAndTrack(self.STATE_READY)
+            self._tagValues["STATE"] = self.STATE_READY
         if clearFaults:
             self._tagValues["QueueFault"] = 0
             self._tagValues["MotionFault"] = 0
@@ -781,7 +723,7 @@ class SimulatedPLC(PLC):
         self._queuedMotionActive = True
         self._currentQueueCyclesRemaining = 0
         if self._tagValues.get("STATE") != self.STATE_ERROR:
-            self._setStateAndTrack(self.STATE_QUEUED_MOTION)
+            self._tagValues["STATE"] = self.STATE_QUEUED_MOTION
 
     # ---------------------------------------------------------------------
     def _completeQueuedSegment(self, segment):
@@ -822,7 +764,7 @@ class SimulatedPLC(PLC):
             self._tagValues["CurIssued"] = 0
             self._tagValues["ActiveSeq"] = 0
             if self._tagValues.get("STATE") != self.STATE_ERROR:
-                self._setStateAndTrack(self.STATE_READY)
+                self._tagValues["STATE"] = self.STATE_READY
             self._syncQueueTags()
             return
         self._tagValues["CurIssued"] = 0

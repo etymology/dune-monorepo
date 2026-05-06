@@ -327,7 +327,9 @@ class QueuedMotionTests(unittest.TestCase):
         handler._x = 400.0
         handler._y = 100.0
         handler._z = 0.0
-        layer_calibration_path = REPO_ROOT / "config" / "APA" / "U_Calibration.json"
+        layer_calibration_path = (
+            REPO_ROOT / "dune_winder" / "config" / "APA" / "U_Calibration.json"
+        )
         layer_calibration = LayerCalibration("U")
         layer_calibration.load(
             str(layer_calibration_path.parent),
