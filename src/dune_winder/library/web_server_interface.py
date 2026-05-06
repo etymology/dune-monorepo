@@ -43,8 +43,11 @@ class WebServerInterface(SimpleHTTPRequestHandler):
             self.send_header("Set-Cookie", cookieData)
 
         self.send_header("Content-type", "application/json")
-        self.end_headers()
-        self.wfile.write(jsonDumps(responseBody).encode("utf-8"))
+        try:
+            self.end_headers()
+            self.wfile.write(jsonDumps(responseBody).encode("utf-8"))
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
 
     # ---------------------------------------------------------------------
     def log_message(self, format, *args):
