@@ -1,0 +1,30 @@
+[package]
+name = "dune-winder-host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[[bin]]
+name = "dune-winder-host"
+path = "src/main.rs"
+
+[dependencies]
+dune-winder-api = { path = "../dune-winder-api" }
+dune-winder-control = { path = "../dune-winder-control" }
+dune-winder-domain = { path = "../dune-winder-domain" }
+dune-winder-mirror = { path = "../dune-winder-mirror" }
+dune-winder-plc = { path = "../dune-winder-plc" }
+dune-winder-recipe = { path = "../dune-winder-recipe" }
+dune-winder-safety = { path = "../dune-winder-safety" }
+dune-winder-transfer = { path = "../dune-winder-transfer" }
+dune-winder-workflows = { path = "../dune-winder-workflows" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

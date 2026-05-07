@@ -1,0 +1,18 @@
+[package]
+name = "dune-winder-mirror"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]
+dune-winder-domain = { path = "../dune-winder-domain" }
+dune-winder-plc = { path = "../dune-winder-plc" }
+arc-swap = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
