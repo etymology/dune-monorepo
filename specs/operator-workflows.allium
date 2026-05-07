@@ -43,7 +43,10 @@ value MachinePose {
 }
 
 value ManualMotionCommand {
-  kind: xy_seek | z_seek | xz_seek | yz_seek | pin_seek | head_transfer | single_gcode_line | servo_idle
+  -- Full set accepted by the JSON command catalog (process.* and io.*
+  -- entries in dune_winder/api/commands.py). Compose a request by setting
+  -- the kind and the relevant fields below; unused fields are null.
+  kind: jog_xy | jog_z | manual_seek_xy | manual_seek_z | manual_seek_xz | manual_seek_yz | seek_pin | head_transfer | servo_idle | hmi_stop | recipe_load | recipe_set_layer | recipe_step | recipe_run | recipe_stop_next_line | gcode_set_line | gcode_execute_line | set_anchor_point | set_spool_wire | configuration_set | configuration_get | machine_set_calibration | template_set_offset | template_set_pull_in | template_reset_draft | queued_motion_preview | queued_motion_continue | queued_motion_cancel
   target_pose: MachinePose?
   pin_name: String?
   head_side: stage | fixed | null
@@ -654,6 +657,51 @@ surface TensionHardwareBoundary {
     -- A frequency estimate is not provided until the laser has been positioned
     -- over the requested wire, a bounded air pulse has excited the wire, and
     -- the audio analyzer has listened to the resulting vibration.
+}
+
+-- Physical operator controls. These are hardware inputs distinct from the
+-- GUI command catalog: they originate at a physical button, switch, or
+-- slow-mode selector wired into the PLC. The winder consumes the PLC tag
+-- (see winder-states.allium#MachineSwitches and
+-- winder-hardware-interfaces.allium#PLCSwitchTags) and emits the events
+-- below for higher-level workflows to react to.
+surface PhysicalOperatorControls {
+  facing operator: Operator
+
+  provides:
+    PhysicalEstopPressed()
+    ResetButtonPressed()
+    TensionSwitchToggled(on)
+    SpeedRegulatorSelected(slow)
+
+  @guarantee HardwareInputsTakePrecedence
+    -- A physical E-stop, the safety circuit's reset, the tension on/off
+    -- switch, and the slow-mode regulator are operator-driven hardware
+    -- signals. The PLC ladder logic is authoritative for how each one
+    -- gates motion and tension; the winder reads the resulting tags and
+    -- exposes them through this surface.
+}
+
+-- Operator-facing surface for the load-cell tension calibration session
+-- defined in tension-control.allium. The session captures (weight, raw
+-- voltage) pairs, fits a quartic, and writes the coefficients to the PLC.
+surface TensionCalibrationWorkflow {
+  facing operator: Operator
+
+  provides:
+    StartTensionCalibration(operator)
+    CaptureTensionCalibrationWeight(applied_weight_kg)
+    AcceptTensionCalibrationObservation()
+    RejectTensionCalibrationObservation()
+    RequestTensionCalibrationFit()
+    ApplyTensionCalibration()
+    AbortTensionCalibration()
+
+  @guarantee CalibrationOnlyWritesQuarticCoefficients
+    -- The PLC owns the wire-tension PID loop, the setpoint, and the trip
+    -- thresholds. The only PLC tension write authorised by this workflow
+    -- is the quartic linearisation coefficients (cal_c1..cal_c4) — see
+    -- tension-control.allium#ApplyTensionCalibration.
 }
 
 ------------------------------------------------------------
