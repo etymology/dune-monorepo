@@ -187,6 +187,41 @@ entity MeasurementSetup {
   manual_focus: Boolean
   manual_focus_target: Decimal?
   legacy_tension_condition: MeasurementCondition?
+
+  -- Dead-reckoning fallback: when use_dead_reckoning is true, wire targets
+  -- are placed using the layer's nominal pitch (config.nominal_*_pitch_*)
+  -- rather than calibrated pin positions. Used when no calibration is
+  -- available or when the operator wants to compare nominal vs measured.
+  use_dead_reckoning: Boolean
+
+  -- Focus servo scaling and audio capture parameters used during a run.
+  focus_mm_per_quarter_us:    Decimal
+  focus_x_mm_per_quarter_us:  Decimal
+  default_focus_position:     Integer
+  sample_rate_hz:             Integer
+  audio_frame_size:           Integer
+  audio_hop_size:             Integer
+  default_pulse_duration_s:   Decimal
+  default_pulse_interval_s:   Decimal
+
+  -- Measurement wiggle: small randomised motions during measurement to
+  -- escape stuck PLC state and improve frequency-estimate diversity.
+  xy_sigma_per_meter:         Decimal
+  xy_sigma_cap_mm:            Decimal
+  y_sigma_mm:                 Decimal
+  focus_sigma_quarter_us:     Decimal
+  background_y_sigma_mm:      Decimal
+  background_speed:           Decimal
+  background_interval_seconds: Decimal
+}
+
+-- Comb-zone configuration: six X positions defining five measurement
+-- zones across the APA. The four mid-APA combs (layer-geometry.allium)
+-- correspond to the four interior X positions; the head-end and foot-end
+-- positions close the zone boundary at each end of the APA.
+value MeasurementZoneConfig {
+  zone_x_positions: List<Decimal>   -- six values
+  zone_count:       Integer         -- five = zone_x_positions.count - 1
 }
 
 entity LayerGeometry {
@@ -502,6 +537,23 @@ config {
   streaming_direct_accept_confidence: Decimal = 0.7
   streaming_direct_accept_angle_score: Decimal = 0.5
   streaming_direct_accept_focus_score: Decimal = 0.5
+
+  -- Nominal layer pitch values for dead-reckoning fallback only. When
+  -- MeasurementSetup.use_dead_reckoning is true, planned wire poses are
+  -- placed at multiples of these pitches relative to a known anchor
+  -- pose, instead of consulting calibrated pin positions. The values
+  -- are derived from the APA's mechanical design and are not consulted
+  -- when use_dead_reckoning is false.
+  nominal_uv_pitch_x_mm: Decimal = 8.0
+  nominal_uv_pitch_y_mm: Decimal = 5.75
+  nominal_xg_pitch_y_mm: Decimal = 4.791666666666667   -- 2300 / 480
+
+  -- Six X positions defining five comb measurement zones across the APA.
+  -- The four interior values correspond to the four mid-APA combs in
+  -- layer-geometry.allium#APAGeometry.combs; the head-end (1050) and
+  -- foot-end (7015) close the boundary at each end.
+  comb_zone_x_positions: List<Decimal> = { 1050.0, 2230.0, 3420.0, 4590.0, 5770.0, 7015.0 }
+  comb_zone_count: Integer = 5
 }
 
 ------------------------------------------------------------
