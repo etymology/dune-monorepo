@@ -1,0 +1,361 @@
+-- allium: 3
+-- tension-control.allium
+
+-- Scope: Interactions between non-PLC code and the PLC tension system.
+--
+-- The PLC owns the wire-tension PID loop, the load-cell linearisation, the
+-- overtension trip, and the wire-break trip. The winder code only observes
+-- the loop's named tags and updates the linearisation polynomial when the
+-- operator runs a load-cell calibration routine.
+--
+-- This spec captures:
+--   * The named tags the winder reads to observe the PLC tension loop
+--     (read-only) and writes to update its linearisation polynomial
+--     (read/write).
+--   * A Tension Calibration Session: an operator workflow that applies a
+--     series of calibrated reference weights, records the PLC's raw
+--     load-cell value at each weight, fits a quartic curve mapping raw
+--     value to tension (Newtons), and writes the resulting coefficients
+--     back to the PLC.
+--
+-- Excludes:
+--   * The PID loop itself (gains, sample period, integrator behaviour).
+--   * Linearisation polynomial form (the PLC enforces the quartic; the
+--     winder only fits coefficients).
+--   * The setpoint, max-tolerable-tension threshold, and wire-broken
+--     tension threshold. PLC-owned. The winder may read them for display
+--     but does not write them through this spec.
+--   * Overtension and wire-break trip logic. The PLC raises ERROR_CODE
+--     8001/8002 and the winder consumes those codes through the
+--     winder-states.allium error path.
+
+use "./core.allium" as core
+
+-- ==========================================================================
+-- External entities
+-- ==========================================================================
+
+external entity PLCTensionSystem {
+    -- Read-only observation tags
+    measured_n:   Decimal      -- PLC tag `tension`        (post-linearisation, N)
+    raw_voltage:  Decimal      -- PLC tag `tension_tag`    (pre-linearisation)
+    setpoint_n:   Decimal      -- PLC tag `tension_setpoint`
+    control_ok:   Boolean      -- PLC tag `TENSION_CONTROL_OK`
+    stable:       Boolean      -- PLC tag `tension_stable_timer.DN`
+    on_switch:    Boolean      -- PLC tag `TENSION_ON_SWITCH`
+    motor_cv:     Decimal      -- PLC tag `tension_motor_cv`
+
+    -- Read/write linearisation coefficients (quartic in raw_voltage)
+    cal_c1: Decimal
+    cal_c2: Decimal
+    cal_c3: Decimal
+    cal_c4: Decimal
+}
+
+entity Operator {
+    name: String
+}
+
+-- ==========================================================================
+-- Value types
+-- ==========================================================================
+
+value QuarticFit {
+    c1: Decimal
+    c2: Decimal
+    c3: Decimal
+    c4: Decimal
+    residual_rms_n: Decimal
+}
+
+-- ==========================================================================
+-- Entities
+-- ==========================================================================
+
+entity TensionCalibrationSession {
+    operator: Operator
+    started_at: Timestamp
+    completed_at: Timestamp?
+    state: capturing | fitting | applied | aborted
+    fit: QuarticFit?
+
+    observations: TensionCalibrationObservation with session = this
+    accepted_observations: observations where state = accepted
+
+    transitions state {
+        capturing -> fitting
+        capturing -> aborted
+        fitting   -> capturing
+        fitting   -> applied
+        fitting   -> aborted
+        terminal: applied, aborted
+    }
+}
+
+entity TensionCalibrationObservation {
+    session: TensionCalibrationSession
+    applied_weight_kg: Decimal      -- operator-supplied calibrated reference weight
+    raw_voltage_average: Decimal    -- mean of N samples of `tension_tag`
+    sample_count: Integer
+    captured_at: Timestamp
+    state: recorded | accepted | rejected
+
+    transitions state {
+        recorded -> accepted
+        recorded -> rejected
+        terminal: accepted, rejected
+    }
+}
+
+-- ==========================================================================
+-- Config
+-- ==========================================================================
+
+config {
+    -- Conversion from calibrated reference weight to tension at the load
+    -- cell. The reference weight measures Newtons via gravity:
+    --   tension_n = applied_weight_kg * 9.80665
+    standard_gravity_m_per_s2: Decimal = 9.80665
+
+    -- Minimum number of accepted points before a fit is allowed.
+    min_calibration_points: Integer = 5
+
+    -- Minimum span of applied tensions (N) for an acceptable fit. A fit
+    -- across too narrow a load range is rejected.
+    min_calibration_tension_span_n: Decimal = 4.0
+
+    -- Maximum acceptable RMS residual of the fit (N). A fit with larger
+    -- residuals is reported but not auto-applied.
+    max_residual_rms_n: Decimal = 0.25
+
+    -- Per-point sample count. Each calibration observation averages this
+    -- many readings of `tension_tag` over a short interval.
+    samples_per_observation: Integer = 100
+}
+
+-- ==========================================================================
+-- Contracts
+-- ==========================================================================
+
+contract PLCTensionTagAccess {
+    read_tension_loop:    (context: Any) -> PLCTensionSystem
+    read_raw_voltage:     (context: Any) -> Decimal
+    write_calibration:    (fit: QuarticFit) -> Boolean
+
+    @invariant LoadCellMonotonicity
+        -- The PLC's quartic linearisation requires a monotone-increasing
+        -- mapping from raw_voltage to measured_n over the production load
+        -- range. A fit whose derivative changes sign in that range must not
+        -- be auto-applied.
+
+    @invariant CoefficientsMatchPLCForm
+        -- The PLC computes:
+        --   tension = c1 * v - c2 * v^2 + c3 * v^3 - c4 * v^4
+        -- where v = raw_voltage. write_calibration writes c1..c4 in that
+        -- exact convention; sign flips are part of the polynomial form.
+}
+
+-- ==========================================================================
+-- Given
+-- ==========================================================================
+
+given {
+    plc_tension: PLCTensionSystem
+}
+
+-- ==========================================================================
+-- Rules
+-- ==========================================================================
+
+rule StartTensionCalibrationSession {
+    when: OperatorStartsTensionCalibration(operator)
+
+    ensures: TensionCalibrationSession.created(
+        operator: operator,
+        started_at: now,
+        completed_at: null,
+        state: capturing,
+        fit: null
+    )
+}
+
+rule CaptureTensionCalibrationPoint {
+    when: OperatorCapturesCalibrationWeight(session, applied_weight_kg, raw_voltage_average, sample_count)
+    requires: session.state = capturing
+    requires: applied_weight_kg >= 0
+    requires: sample_count >= config.samples_per_observation
+
+    ensures: TensionCalibrationObservation.created(
+        session: session,
+        applied_weight_kg: applied_weight_kg,
+        raw_voltage_average: raw_voltage_average,
+        sample_count: sample_count,
+        captured_at: now,
+        state: recorded
+    )
+
+    @guidance
+        -- The operator hangs a known reference weight from the load cell,
+        -- then asks the workflow to capture a point. The workflow averages
+        -- `samples_per_observation` reads of the PLC `tension_tag` and
+        -- records the result. The operator may then accept or reject the
+        -- point.
+}
+
+rule AcceptCalibrationObservation {
+    when: OperatorAcceptsCalibrationObservation(session, observation)
+    requires: session.state = capturing
+    requires: observation.session = session
+    requires: observation.state = recorded
+
+    ensures: observation.state = accepted
+}
+
+rule RejectCalibrationObservation {
+    when: OperatorRejectsCalibrationObservation(session, observation)
+    requires: session.state = capturing
+    requires: observation.session = session
+    requires: observation.state = recorded
+
+    ensures: observation.state = rejected
+}
+
+rule FitTensionCalibration {
+    when: OperatorRequestsCalibrationFit(session)
+    requires: session.state = capturing
+    requires: session.accepted_observations.count >= config.min_calibration_points
+
+    let fit = quartic_fit(session.accepted_observations)
+
+    requires: tension_span(session.accepted_observations) >= config.min_calibration_tension_span_n
+
+    ensures: session.state = fitting
+    ensures: session.fit = fit
+
+    @guidance
+        -- quartic_fit returns coefficients (c1, c2, c3, c4) that minimise
+        -- the residuals of the PLC polynomial:
+        --   tension_n = c1*v - c2*v^2 + c3*v^3 - c4*v^4
+        -- against the (raw_voltage_average, applied_weight_kg * g) pairs
+        -- from accepted observations. The residual_rms_n field of the
+        -- returned fit is reported back to the operator.
+}
+
+rule ApplyTensionCalibration {
+    when: OperatorAppliesCalibration(session)
+    requires: session.state = fitting
+    requires: session.fit != null
+    requires: session.fit.residual_rms_n <= config.max_residual_rms_n
+
+    ensures: plc_tension.cal_c1 = session.fit.c1
+    ensures: plc_tension.cal_c2 = session.fit.c2
+    ensures: plc_tension.cal_c3 = session.fit.c3
+    ensures: plc_tension.cal_c4 = session.fit.c4
+    ensures: session.state = applied
+    ensures: session.completed_at = now
+
+    @guidance
+        -- The four c1..c4 writes are dispatched to the PLC through the
+        -- PLCTensionTagAccess contract; from the spec's perspective they
+        -- are observable changes to the live plc_tension entity.
+}
+
+rule ReturnToCaptureFromFit {
+    when: OperatorReopensCapture(session)
+    requires: session.state = fitting
+
+    ensures: session.state = capturing
+
+    @guidance
+        -- The operator can return to capturing additional points after
+        -- inspecting a fit. Useful when the residual is too high or the
+        -- load span too narrow. The previous fit is discarded.
+}
+
+rule AbortTensionCalibration {
+    when: OperatorAbortsTensionCalibration(session)
+    requires: session.state in { capturing, fitting }
+
+    ensures: session.state = aborted
+    ensures: session.completed_at = now
+}
+
+-- ==========================================================================
+-- Invariants
+-- ==========================================================================
+
+invariant AppliedSessionsHaveAcceptableFit {
+    for session in TensionCalibrationSessions where state = applied:
+        session.fit != null
+            and session.fit.residual_rms_n <= config.max_residual_rms_n
+}
+
+invariant PLCOwnsTensionLoop {
+    -- The wire-tension PID loop runs entirely on the PLC. The winder
+    -- never writes `tension`, `tension_setpoint`, `tension_motor_cv`, or
+    -- the trip thresholds; it only reads them. The only PLC tension write
+    -- the spec authorises is the quartic coefficient update from
+    -- ApplyTensionCalibration.
+}
+
+invariant TripsHandledByPLC {
+    -- Overtension (ERROR_CODE 8002) and wire-break (ERROR_CODE 8001) are
+    -- raised by the PLC's tension routine. The winder consumes those
+    -- error codes through winder-states.allium#WireBreakTripsPLC and
+    -- OvertensionTripsPLC; this spec does not redefine them.
+}
+
+-- ==========================================================================
+-- Surfaces
+-- ==========================================================================
+
+surface TensionCalibrationConsole {
+    facing operator: Operator
+
+    exposes:
+        operator.name
+        for session in TensionCalibrationSessions where operator = operator:
+            session.state
+            session.fit
+            for observation in session.observations:
+                observation.applied_weight_kg
+                observation.raw_voltage_average
+                observation.sample_count
+                observation.state
+
+    provides:
+        OperatorStartsTensionCalibration(operator)
+        OperatorCapturesCalibrationWeight(session, applied_weight_kg, raw_voltage_average, sample_count) when session.state = capturing
+        OperatorAcceptsCalibrationObservation(session, observation) when session.state = capturing
+        OperatorRejectsCalibrationObservation(session, observation) when session.state = capturing
+        OperatorRequestsCalibrationFit(session) when session.state = capturing
+        OperatorReopensCapture(session) when session.state = fitting
+        OperatorAppliesCalibration(session) when session.state = fitting
+        OperatorAbortsTensionCalibration(session) when session.state in { capturing, fitting }
+}
+
+surface PLCTensionBoundary {
+    facing plc: PLCTensionSystem
+
+    contracts:
+        fulfils PLCTensionTagAccess
+
+    exposes:
+        plc.measured_n
+        plc.setpoint_n
+        plc.control_ok
+        plc.stable
+        plc.on_switch
+        plc.motor_cv
+        plc.cal_c1
+        plc.cal_c2
+        plc.cal_c3
+        plc.cal_c4
+}
+
+-- ==========================================================================
+-- Open questions
+-- ==========================================================================
+
+open question "Should the calibration workflow allow per-batch wire-density correction, or remain a load-cell-only calibration with wire density fixed in tension-physics.allium?"
+open question "Should the workflow expose a per-fit visualisation (residuals vs raw_voltage) as a normative obligation of TensionCalibrationConsole, or only as an implementation hint?"

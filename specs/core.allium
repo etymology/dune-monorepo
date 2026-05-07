@@ -2,7 +2,8 @@
 -- core.allium
 
 -- Scope: Shared foundational types and contracts used across all DUNE specs.
--- Includes: Detector layer enum, pin/frame geometry types, hardware control contracts.
+-- Includes: Detector layer enum, pin/frame geometry types, machine pose,
+--           hardware control contracts.
 -- Excludes: Domain-specific entities (measurement, state machines, etc.)
 
 -- ==========================================================================
@@ -12,6 +13,7 @@
 enum Layer { u | v | x | g }
 enum PinSide { a | b }
 enum FrameEdge { head | bottom | foot | top }
+enum Axis { x | y | z }
 
 -- ==========================================================================
 -- Value Types
@@ -38,35 +40,56 @@ value WrapSide {
   y_sign: Integer
 }
 
+-- The canonical machine pose. All four coordinates are optional so a pose
+-- can describe XY-only moves, Z-only moves, focus-only moves, or any
+-- combination. Implementations are free to use a richer measurement pose
+-- (see tension-measurement.allium) when downstream code needs the
+-- focus-aware laser-X compensation.
+value MachinePose {
+  x_mm: Decimal?
+  y_mm: Decimal?
+  z_mm: Decimal?
+  focus_quarter_us: Decimal?
+}
+
 -- ==========================================================================
 -- Hardware Control Contracts
 -- ==========================================================================
 
 contract MotionControl {
-  current_pose: (context: Any) -> Any
-  move_to_pose: (pose: Any) -> Boolean
-  move_along_segment: (start: Any, end: Any, speed_mm_s: Decimal) -> Boolean
-  reset_motion: (context: Any) -> Boolean
+  current_pose:        (context: Any) -> MachinePose
+  move_to_pose:        (pose: MachinePose, speed_mm_s: Decimal) -> Boolean
+  move_along_segment:  (start: MachinePose, end: MachinePose, speed_mm_s: Decimal) -> Boolean
+  jog:                 (axis: Axis, velocity_mm_s: Decimal) -> Boolean
+  reset_motion:        (context: Any) -> Boolean
+  stop:                (context: Any) -> Boolean
 
   @invariant BoundedMotion
     -- Motion commands either complete inside the measurable APA envelope or
     -- report failure without creating an accepted result.
+
+  @invariant SpeedClampedByPLC
+    -- The motion implementation may pass any speed_mm_s value through to
+    -- the PLC. The PLC enforces velocity, acceleration, deceleration, and
+    -- jerk limits internally; the spec does not pin those values.
 }
 
 contract FocusControl {
   current_focus: (context: Any) -> Decimal
-  set_focus: (focus_position: Decimal) -> Boolean
+  set_focus:     (focus_quarter_us: Decimal) -> Boolean
 
   @invariant FocusXCompensation
     -- Changing focus changes the effective laser X coordinate. A-side and
     -- B-side compensation signs are opposite and must be applied consistently
     -- unless the operator explicitly chooses manual/uncompensated focus.
+    -- See tension-measurement.allium and winder-hardware-interfaces.allium
+    -- for the exact mm-per-quarter-µs scaling and the side-aware sign rule.
 }
 
 contract ExcitationControl {
-  pulse_wire: (context: Any) -> Boolean
+  pulse_wire: (duration_s: Decimal) -> Boolean
 
   @invariant PulseSafety
-    -- Pulses are bounded, non-continuous excitations in this spec. Continuous
-    -- excitation requires a separate future spec.
+    -- Pulses are bounded, non-continuous excitations in this spec.
+    -- Continuous excitation requires a separate future spec.
 }
