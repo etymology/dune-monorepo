@@ -241,7 +241,10 @@ class ManualCalibrationTests(unittest.TestCase):
             reloaded = LayerCalibration(layer="U")
             reloaded.load(rootDirectory, "U_Calibration.xml")
             self.assertTrue(reloaded.getPinExists("A1"))
-            self.assertFalse(reloaded.getPinExists("F1"))
+            self.assertTrue(reloaded.getPinExists("F1"))  # F1 aliases to A1 at runtime
+            # Verify the internal storage uses A names, not F names
+            self.assertIn("A1", reloaded._locations)
+            self.assertNotIn("F1", reloaded._locations)
 
     def test_layer_metadata_uses_expected_pin_counts_and_bootstrap(self):
         self.assertEqual(LAYER_METADATA["U"]["pinMax"], 2401)
@@ -381,8 +384,9 @@ class ManualCalibrationTests(unittest.TestCase):
             captureResult = service.captureCurrentPin(1)
             self.assertTrue(captureResult["ok"])
             session = service._getSession("U")
-            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 110.0)
-            self.assertAlmostEqual(session.measuredPins[1]["wireY"], 195.0)
+            # Pin storage is now in raw coordinate space, camera offset applied at runtime
+            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 100.0)
+            self.assertAlmostEqual(session.measuredPins[1]["wireY"], 200.0)
 
             gotoResult = service.gotoPin(1, 25.0)
             self.assertTrue(gotoResult["ok"])
@@ -407,7 +411,8 @@ class ManualCalibrationTests(unittest.TestCase):
             self.assertTrue(captureResult["ok"])
             session = service._getSession("U")
             self.assertAlmostEqual(session.measuredPins[1]["rawCameraX"], 100.0)
-            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 108.0)
+            # wireX is backlash-adjusted raw coordinate (raw - backlash when direction > 0)
+            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 98.0)
 
     def test_state_reports_and_updates_x_backlash_compensation(self):
         with tempfile.TemporaryDirectory() as rootDirectory:
@@ -534,11 +539,11 @@ class ManualCalibrationTests(unittest.TestCase):
                 process._workspaceCalibrationDirectory, "U_Calibration.json"
             )
             self.assertAlmostEqual(savedCalibration.zFront, 145.0)
-            self.assertAlmostEqual(savedCalibration.zBack, 270.0)
+            self.assertAlmostEqual(savedCalibration.zBack, 275.0)
             self.assertAlmostEqual(savedCalibration.offset.x, 0.0)
             self.assertAlmostEqual(savedCalibration.offset.y, 0.0)
             self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
-            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
+            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 275.0)
             self.assertAlmostEqual(
                 savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6
             )
@@ -576,9 +581,9 @@ class ManualCalibrationTests(unittest.TestCase):
                 process._workspaceCalibrationDirectory, "U_Calibration.json"
             )
             self.assertAlmostEqual(savedCalibration.zFront, 145.0)
-            self.assertAlmostEqual(savedCalibration.zBack, 270.0)
+            self.assertAlmostEqual(savedCalibration.zBack, 275.0)
             self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
-            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
+            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 275.0)
 
     def test_draft_persists_without_overwriting_live_calibration(self):
         with tempfile.TemporaryDirectory() as rootDirectory:

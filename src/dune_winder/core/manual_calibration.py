@@ -714,10 +714,8 @@ class ManualCalibration:
                     # storage is raw, and the offset is applied at runtime.
                     measuredPins[pin]["offsetX"] = session.cameraOffsetX
                     measuredPins[pin]["offsetY"] = session.cameraOffsetY
-                    measuredPins[pin]["wireX"] = (
-                        self._process._xBacklash.getEffectiveX(
-                            measuredPins[pin]["rawCameraX"]
-                        )
+                    measuredPins[pin]["wireX"] = self._process._xBacklash.getEffectiveX(
+                        measuredPins[pin]["rawCameraX"]
                     )
                     measuredPins[pin]["wireY"] = measuredPins[pin]["rawCameraY"]
             session.measuredPins = measuredPins
@@ -1877,11 +1875,19 @@ class ManualCalibration:
             return self._errorResult(str(exception))
 
         session = self._getSession(layer)
-        reference = session.references.get(
-            referenceId, self._emptyGXReference(referenceId)
-        )
-        wireX = reference.get("wireX")
-        wireY = reference.get("wireY")
+        reference = session.references.get(referenceId)
+        if reference is None:
+            # Use default reference position, applying camera offset to convert
+            # from wire space (physical location) to raw space (camera target)
+            defaultWireX, defaultWireY = GX_REFERENCE_DEFAULT_WIRE_POSITIONS[
+                referenceId
+            ]
+            wireX = defaultWireX - session.cameraOffsetX
+            wireY = defaultWireY - session.cameraOffsetY
+        else:
+            wireX = reference.get("wireX")
+            wireY = reference.get("wireY")
+
         if wireX is None or wireY is None:
             return self._errorResult(
                 "No wire-space target is available for "
