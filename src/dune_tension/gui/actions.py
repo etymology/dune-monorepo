@@ -403,10 +403,19 @@ def _measurement_mode(inputs: WorkerInputs) -> str:
     )
 
 
+UV_LASER_OFFSET_REFRESH_DEBOUNCE_MS = 50
+
+
 def _selected_laser_offset_pin(
     layer: str, side: str, current_value: str | None
 ) -> str | None:
     options = get_bottom_pin_options(layer, side)
+    return _pick_pin_from_options(options, current_value)
+
+
+def _pick_pin_from_options(
+    options: list[tuple[str, str]], current_value: str | None
+) -> str | None:
     if not options:
         return None
     allowed_values = {value for _label, value in options}
@@ -430,21 +439,121 @@ def _laser_offset_readout_text(side: str) -> str:
 
 
 def refresh_uv_laser_offset_controls(ctx: GUIContext) -> None:
+    """Schedule a debounced refresh of the UV laser-offset controls.
+
+    A burst of trace_add fires (e.g. during state load) collapses to one
+    refresh, and the slow disk-bound work runs off the Tk thread.
+    """
+
+    generation = int(getattr(ctx, "_uv_refresh_generation", 0)) + 1
+    ctx._uv_refresh_generation = generation  # type: ignore[attr-defined]
+
+    after_id = getattr(ctx, "_uv_refresh_after_id", None)
+    if after_id is not None:
+        try:
+            ctx.root.after_cancel(after_id)
+        except Exception:
+            pass
+    try:
+        new_after_id = ctx.root.after(
+            UV_LASER_OFFSET_REFRESH_DEBOUNCE_MS,
+            lambda: _dispatch_uv_offset_refresh(ctx, generation),
+        )
+    except Exception:
+        new_after_id = None
+    ctx._uv_refresh_after_id = new_after_id  # type: ignore[attr-defined]
+
+
+def _dispatch_uv_offset_refresh(ctx: GUIContext, generation: int) -> None:
+    if int(getattr(ctx, "_uv_refresh_generation", 0)) != generation:
+        return
+    ctx._uv_refresh_after_id = None  # type: ignore[attr-defined]
+
     widgets = ctx.widgets
     layer = str(widgets.layer_var.get()).upper()
     side = str(widgets.side_var.get()).upper()
     mode = str(widgets.measurement_mode_var.get()).strip().lower() or "legacy"
     show_controls = mode == "legacy" and layer in {"U", "V"}
 
-    if show_controls:
+    if not show_controls:
         try:
-            widgets.laser_offset_frame.grid()
+            widgets.laser_offset_frame.grid_remove()
         except Exception:
             pass
-        options = get_bottom_pin_options(layer, side)
-        selected = _selected_laser_offset_pin(
-            layer, side, widgets.laser_offset_pin_var.get()
+        return
+
+    try:
+        widgets.laser_offset_frame.grid()
+    except Exception:
+        pass
+
+    try:
+        Thread(
+            target=_compute_uv_offset_in_background,
+            name="gui-uv-offset-refresh",
+            args=(ctx, layer, side, generation),
+            daemon=True,
+        ).start()
+    except Exception:
+        LOGGER.exception("Failed to start UV laser offset refresh worker.")
+
+
+def _compute_uv_offset_in_background(
+    ctx: GUIContext, layer: str, side: str, generation: int
+) -> None:
+    options: list[tuple[str, str]] = []
+    try:
+        options = list(get_bottom_pin_options(layer, side))
+    except Exception as exc:
+        LOGGER.warning(
+            "Failed to load bottom pin options for %s/%s: %s", layer, side, exc
         )
+
+    sync_error: str | None = None
+    try:
+        ensure_layer_calibration_ready(layer)
+    except Exception as exc:
+        sync_error = str(exc)
+        LOGGER.warning("Layer calibration sync failed for %s: %s", layer, exc)
+
+    try:
+        readout = _laser_offset_readout_text(side)
+    except Exception as exc:
+        LOGGER.warning("Failed to read laser offset for side %s: %s", side, exc)
+        readout = f"Side {str(side).upper()}: read error"
+
+    try:
+        ctx.root.after(
+            0,
+            lambda: _apply_uv_offset_results(
+                ctx, generation, layer, side, options, readout, sync_error
+            ),
+        )
+    except Exception:
+        return
+
+
+def _apply_uv_offset_results(
+    ctx: GUIContext,
+    generation: int,
+    layer: str,
+    side: str,
+    options: list[tuple[str, str]],
+    readout: str,
+    sync_error: str | None,
+) -> None:
+    if int(getattr(ctx, "_uv_refresh_generation", 0)) != generation:
+        return
+
+    widgets = ctx.widgets
+
+    try:
+        current_value = widgets.laser_offset_pin_var.get()
+    except Exception:
+        current_value = None
+    selected = _pick_pin_from_options(options, current_value)
+
+    try:
         menu = widgets.laser_offset_pin_menu["menu"]
         menu.delete(0, "end")
         for label, value in options:
@@ -452,30 +561,26 @@ def refresh_uv_laser_offset_controls(ctx: GUIContext) -> None:
                 label=label,
                 command=tk._setit(widgets.laser_offset_pin_var, value),
             )
-        if selected is not None:
+    except Exception:
+        pass
+    if selected is not None:
+        try:
             widgets.laser_offset_pin_var.set(selected)
-
-        sync_error: str | None = None
-        try:
-            ensure_layer_calibration_ready(layer)
-        except Exception as exc:
-            sync_error = str(exc)
-            LOGGER.warning("Layer calibration sync failed for %s: %s", layer, exc)
-
-        readout = _laser_offset_readout_text(side)
-        if sync_error:
-            readout = f"{readout} | sync error: {sync_error}"
-        widgets.laser_offset_readout_var.set(readout)
-        button_state = "normal" if sync_error is None else "disabled"
-        try:
-            widgets.btn_seek_pin.configure(state=button_state)
-            widgets.btn_capture_laser_offset.configure(state=button_state)
         except Exception:
             pass
-        return
 
+    final_readout = readout
+    if sync_error:
+        final_readout = f"{readout} | sync error: {sync_error}"
     try:
-        widgets.laser_offset_frame.grid_remove()
+        widgets.laser_offset_readout_var.set(final_readout)
+    except Exception:
+        pass
+
+    button_state = "normal" if sync_error is None else "disabled"
+    try:
+        widgets.btn_seek_pin.configure(state=button_state)
+        widgets.btn_capture_laser_offset.configure(state=button_state)
     except Exception:
         pass
 
@@ -1480,6 +1585,74 @@ def measure_distribution_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None
     _measure_detected_outliers(
         ctx, inputs, find_distribution_outliers, "bulk-distribution"
     )
+
+
+@_run_in_thread(measurement=True)
+def measure_refine_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    """Remeasure the union of residual and bulk-distribution outliers."""
+
+    config = _make_config_from_inputs(inputs)
+    times_sigma, wire_predicates = _parse_outlier_erase_expression(
+        inputs.times_sigma.strip()
+    )
+
+    residual = set(
+        find_outliers(
+            config.data_path,
+            config.apa_name,
+            config.layer,
+            config.side,
+            times_sigma=times_sigma,
+            confidence_threshold=inputs.confidence,
+        )
+    )
+    bulk = set(
+        find_distribution_outliers(
+            config.data_path,
+            config.apa_name,
+            config.layer,
+            config.side,
+            times_sigma=times_sigma,
+            confidence_threshold=inputs.confidence,
+        )
+    )
+    outliers = sorted(residual | bulk)
+
+    if wire_predicates:
+        filtered: list[int] = []
+        for wire in outliers:
+            try:
+                wire_number = int(wire)
+                if all(
+                    _compile_tension_condition(pred)(wire_number, 0.0, 0)
+                    for pred in wire_predicates
+                ):
+                    filtered.append(wire_number)
+            except Exception as exc:
+                LOGGER.warning(
+                    "Error evaluating refine filter for wire %s: %s", wire, exc
+                )
+                return
+        outliers = filtered
+
+    if not outliers:
+        LOGGER.info("Refine: no residual or bulk outliers at %.2fσ", times_sigma)
+        return
+
+    if _measurement_mode(inputs) != "legacy":
+        LOGGER.info("Refine streaming on union: %s", outliers)
+        _run_streaming_for_wires(ctx, inputs, outliers)
+        return
+
+    tensiometer: Tensiometer | None = None
+    try:
+        tensiometer = create_tensiometer(ctx, inputs)
+        LOGGER.info("Refine legacy on union: %s", outliers)
+        tensiometer.measure_list(outliers, preserve_order=False)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+    finally:
+        _cleanup_after_measurement(ctx, tensiometer)
 
 
 def _measure_detected_outliers(
