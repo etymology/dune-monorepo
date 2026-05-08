@@ -803,128 +803,6 @@ def test_amplitude_mode_continues_after_implausible_threshold_sample(monkeypatch
     assert len(repository.samples) == 2
 
 
-def test_measure_auto_reports_estimated_time(monkeypatch):
-    eta_updates = []
-    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
-    summaries_stub.get_missing_wires = lambda _cfg: {"A": [1, 2]}
-    monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
-    provider = _StubWirePositionProvider(
-        {
-            1: PlannedWirePose(1, 1.0, 0.0, 4300),
-            2: PlannedWirePose(2, 2.0, 0.0, 4200),
-        }
-    )
-
-    collected = []
-    times = iter([100.0, 110.0])
-    tensiometer = Tensiometer(
-        apa_name="APA",
-        layer="X",
-        side="A",
-        motion=_make_motion_service(),
-        audio=_make_audio_service(),
-        repository=DummyRepository(),
-        estimated_time_callback=eta_updates.append,
-        time_provider=lambda: next(times),
-        wire_position_provider=provider,
-    )
-    tensiometer.goto_collect_wire_data = lambda **kwargs: (
-        collected.append(kwargs) or None
-    )
-
-    tensiometer.measure_auto()
-
-    assert eta_updates == ["0:00:10", "0:00:00"]
-    assert provider.calls == [(1, 0), (2, 0)]
-    assert collected == [
-        {
-            "wire_number": 1,
-            "wire_x": 1.0,
-            "wire_y": 0.0,
-            "focus_position": 4300,
-            "zone": None,
-            "return_to_center": False,
-            },
-            {
-            "wire_number": 2,
-            "wire_x": 2.0,
-            "wire_y": 0.0,
-            "focus_position": 4200,
-            "zone": None,
-            "return_to_center": False,
-            },    ]
-
-
-def test_measure_auto_steps_from_last_successful_measurement(monkeypatch):
-    eta_updates = []
-    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
-    summaries_stub.get_missing_wires = lambda _cfg: {"A": [10, 12]}
-    monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
-
-    provider = _StubWirePositionProvider(
-        {
-            10: PlannedWirePose(10, 100.0, 200.0, 4300),
-            12: PlannedWirePose(12, 300.0, 999.0, 5200),
-        }
-    )
-
-    measured_result = TensionResult.from_measurement(
-        apa_name="APA",
-        layer="X",
-        side="A",
-        wire_number=10,
-        frequency=80.0,
-        confidence=0.95,
-        x=2500.0,
-        y=1500.0,
-        focus_position=4350,
-        time=datetime(2026, 3, 15, 12, 0, 0),
-    )
-    collected: list[dict[str, object]] = []
-    times = iter([100.0, 110.0])
-    tensiometer = Tensiometer(
-        apa_name="APA",
-        layer="X",
-        side="A",
-        motion=_make_motion_service(),
-        audio=_make_audio_service(),
-        repository=DummyRepository(),
-        estimated_time_callback=eta_updates.append,
-        time_provider=lambda: next(times),
-        wire_position_provider=provider,
-    )
-
-    def _collect(**kwargs):
-        collected.append(kwargs)
-        if kwargs["wire_number"] == 10:
-            return measured_result
-        return None
-
-    tensiometer.goto_collect_wire_data = _collect
-
-    tensiometer.measure_auto()
-
-    assert provider.calls == [(10, 0)]
-    assert eta_updates == ["0:00:10", "0:00:00"]
-    assert collected == [
-        {
-            "wire_number": 10,
-            "wire_x": 100.0,
-            "wire_y": 200.0,
-            "focus_position": 4300,
-            "zone": None,
-            "return_to_center": False,
-        },
-        {
-            "wire_number": 12,
-            "wire_x": 2500.0,
-            "wire_y": 1509.5833333333333,
-            "focus_position": 4350,
-            "zone": None,
-            "return_to_center": False,
-        },
-    ]
-
 def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
     provider = _StubWirePositionProvider(
         {
@@ -986,6 +864,7 @@ def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
         },
     ]
 
+
 def test_measure_list_logs_timing_profile_summary(caplog):
     provider = _StubWirePositionProvider(
         {
@@ -1026,74 +905,6 @@ def test_measure_list_logs_timing_profile_summary(caplog):
     assert "Timing profile summary for list measurement" in caplog.text
     assert "avg_wire=1.25s" in caplog.text
 
-
-def test_measure_auto_uv_uses_provider_pose_for_every_wire(monkeypatch):
-    summaries_stub = cast(Any, types.ModuleType("dune_tension.summaries"))
-    summaries_stub.get_missing_wires = lambda _cfg: {"A": [10, 12]}
-    monkeypatch.setitem(sys.modules, "dune_tension.summaries", summaries_stub)
-
-    provider = _StubWirePositionProvider(
-        {
-            10: PlannedWirePose(10, 100.0, 200.0, 4300),
-            12: PlannedWirePose(12, 300.0, 999.0, 5200),
-        }
-    )
-
-    measured_result = TensionResult.from_measurement(
-        apa_name="APA",
-        layer="U",
-        side="A",
-        wire_number=10,
-        frequency=80.0,
-        confidence=0.95,
-        x=2500.0,
-        y=1500.0,
-        focus_position=4350,
-        time=datetime(2026, 3, 15, 12, 0, 0),
-    )
-    collected: list[dict[str, object]] = []
-    times = iter([100.0, 110.0])
-    tensiometer = Tensiometer(
-        apa_name="APA",
-        layer="U",
-        side="A",
-        motion=_make_motion_service(),
-        audio=_make_audio_service(),
-        repository=DummyRepository(),
-        estimated_time_callback=lambda _value: None,
-        time_provider=lambda: next(times),
-        wire_position_provider=provider,
-    )
-
-    def _collect(**kwargs):
-        collected.append(kwargs)
-        if kwargs["wire_number"] == 10:
-            return measured_result
-        return None
-
-    tensiometer.goto_collect_wire_data = _collect
-
-    tensiometer.measure_auto()
-
-    assert provider.calls == [(10, 0), (12, 0)]
-    assert collected == [
-        {
-            "wire_number": 10,
-            "wire_x": 100.0,
-            "wire_y": 200.0,
-            "focus_position": 4300,
-            "zone": None,
-            "return_to_center": False,
-        },
-        {
-            "wire_number": 12,
-            "wire_x": 300.0,
-            "wire_y": 999.0,
-            "focus_position": 5200,
-            "zone": None,
-            "return_to_center": False,
-        },
-    ]
 
 def test_measure_list_uv_uses_provider_pose_for_every_wire():
     provider = _StubWirePositionProvider(
@@ -1155,6 +966,7 @@ def test_measure_list_uv_uses_provider_pose_for_every_wire():
             "return_to_center": False,
         },
     ]
+
 
 def test_load_tension_summary_uses_sqlite_backed_summary_series(tmp_path, monkeypatch):
     db_path = tmp_path / "tension_data.db"

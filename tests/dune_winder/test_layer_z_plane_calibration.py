@@ -82,13 +82,7 @@ def _load_machine_calibration() -> MachineCalibration:
 
 
 def _copied_layer_calibration(tmp_path, layer: str = "U") -> LayerCalibration:
-    source = (
-        REPO_ROOT
-        / "dune_winder"
-        / "config"
-        / "APA"
-        / f"{layer.upper()}_Calibration.json"
-    )
+    source = REPO_ROOT / "config" / "APA" / f"{layer.upper()}_Calibration.json"
     target = tmp_path / source.name
     shutil.copy2(source, target)
     calibration = LayerCalibration(layer.upper())

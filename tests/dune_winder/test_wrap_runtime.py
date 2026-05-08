@@ -7,6 +7,7 @@ from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.geometry.primitives.location import Location
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
+from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
 from dune_winder.machine.geometry.uv_wrap_geometry import (
     Point2D,
     Point3D,
@@ -144,14 +145,6 @@ def _load_layer_calibration(layer: str) -> LayerCalibration:
     return calibration
 
 
-def _wire_space_pin(layer_calibration: LayerCalibration, pin_name: str) -> Location:
-    return layer_calibration.getPinLocation(pin_name).add(layer_calibration.offset)
-
-
-def _point3(location: Location) -> Point3D:
-    return Point3D(float(location.x), float(location.y), float(location.z))
-
-
 class WrapRuntimeTests(unittest.TestCase):
     def _build_handler(self, start_x, start_y):
         machine_calibration = _load_machine_calibration()
@@ -179,11 +172,11 @@ class WrapRuntimeTests(unittest.TestCase):
         start_y=None,
         use_fitted_roller_offsets=True,
     ):
-        anchor_location = layer_calibration.getPinLocation(anchor_pin).add(
-            layer_calibration.offset
+        anchor_location = wire_space_pin_location(
+            layer_calibration, machine_calibration, anchor_pin
         )
-        target_location = layer_calibration.getPinLocation(target_pin).add(
-            layer_calibration.offset
+        target_location = wire_space_pin_location(
+            layer_calibration, machine_calibration, target_pin
         )
         target_location = Location(
             float(target_location.x) + float(offset_x),
@@ -451,7 +444,7 @@ class WrapRuntimeTests(unittest.TestCase):
             use_fitted_roller_offsets=False,
         )
 
-        self.assertAlmostEqual(float(fitted_plan.final_xy.x), 1281.237, places=3)
+        self.assertAlmostEqual(float(fitted_plan.final_xy.x), 1274.250, places=3)
         self.assertAlmostEqual(float(fitted_plan.final_xy.y), 2683.000, places=3)
         self.assertGreater(
             abs(float(fitted_plan.final_xy.x) - float(nominal_plan.final_xy.x)), 1.0
@@ -479,7 +472,7 @@ class WrapRuntimeTests(unittest.TestCase):
         while handler._dispatch_pending_actions(safety_label="manual"):
             pass
         self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
-        self.assertAlmostEqual(float(plan.final_xy.x), 4079.706, places=3)
+        self.assertAlmostEqual(float(plan.final_xy.x), 4080.428, places=3)
         self.assertAlmostEqual(float(plan.final_xy.y), 0.000, places=3)
         self.assertAlmostEqual(
             io.plcLogic.xy_moves[-1][0], float(plan.final_xy.x), places=3
@@ -505,8 +498,8 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertFalse(plan.same_side)
         self.assertEqual(plan.plane, "yz")
         self.assertEqual(plan.face, "foot")
-        self.assertAlmostEqual(float(plan.final_xy.x), 7030.434, places=3)
-        self.assertAlmostEqual(float(plan.final_xy.y), 4926.365, places=3)
+        self.assertAlmostEqual(float(plan.final_xy.x), 7028.816, places=3)
+        self.assertAlmostEqual(float(plan.final_xy.y), 4927.115, places=3)
         self.assertGreater(float(plan.final_xy.y), 4000.0)
         self.assertLess(float(plan.target_tangent_point.y), 3000.0)
 
