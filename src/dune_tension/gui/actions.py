@@ -936,7 +936,8 @@ def _run_in_thread(func=None, *, measurement: bool = False):
                 return
 
             def run() -> None:
-                ctx.stop_event.clear()
+                if measurement:
+                    ctx.stop_event.clear()
                 LOGGER.info(
                     "Worker thread starting: %s measurement=%s",
                     measurement_name,
@@ -945,8 +946,8 @@ def _run_in_thread(func=None, *, measurement: bool = False):
                 try:
                     func(ctx, inputs, *args, **kwargs)
                 finally:
-                    ctx.stop_event.clear()
                     if measurement:
+                        ctx.stop_event.clear()
                         _end_measurement(ctx)
                     LOGGER.info("Worker thread finished: %s", measurement_name)
 

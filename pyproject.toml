@@ -37,6 +37,7 @@ plc-sync = "dune_winder.plc_sync:main"
 plc-convert-rllscrap = "dune_winder.convert_plc_rllscrap:main"
 # dune_tension
 dune-tension-gui = "dune_tension.main:main"
+dune-tension-gui-simple = "dune_tension.main_simple:main"
 dune-tension-periodic-plots = "dune_tension.periodic_save_plots:main"
 dune-tension-download-m2m = "dune_tension.download_tension_data:main"
 dune-tension-plot-sqlite = "dune_tension.plot_tension_from_sqlite:main"
