@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from typing import Any
 import tkinter as tk
 
@@ -24,6 +25,7 @@ except Exception:  # pragma: no cover - fall back to text placeholders in tests/
 
 LIVE_SUMMARY_FIGSIZE = (6.0, 5.6)
 LIVE_WAVEFORM_FIGSIZE = (11.2, 7.0)
+WAVEFORM_MIN_RENDER_INTERVAL_S = 0.2
 
 
 class LivePlotManager:
@@ -56,6 +58,11 @@ class LivePlotManager:
         self.waveform_placeholder.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
         self._summary_after_id: Any | None = None
         self._summary_generation = 0
+        self._waveform_after_id: Any | None = None
+        self._waveform_generation = 0
+        self._waveform_pending: tuple[np.ndarray, int, Any | None] | None = None
+        self._waveform_in_flight = False
+        self._waveform_last_started_at: float | None = None
 
     def publish_waveform(
         self,
@@ -63,7 +70,7 @@ class LivePlotManager:
         samplerate: int,
         analysis: Any | None = None,
     ) -> None:
-        """Render the latest captured waveform and diagnostics on the Tk thread."""
+        """Schedule a debounced background render of the captured waveform."""
 
         try:
             waveform = np.asarray(audio_sample, dtype=float).reshape(-1)
@@ -73,7 +80,7 @@ class LivePlotManager:
             return
 
         self._on_tk_thread(
-            lambda: self._render_waveform(waveform, int(samplerate), analysis)
+            lambda: self._enqueue_waveform(waveform, int(samplerate), analysis)
         )
 
     def request_summary_refresh(self, config: Any, delay_ms: int = 100) -> None:
@@ -117,12 +124,15 @@ class LivePlotManager:
                 figsize=LIVE_SUMMARY_FIGSIZE,
             )
         except Exception as exc:
+            captured_exc = exc
             self._on_tk_thread(
-                lambda: self._finish_summary_refresh(generation, None, exc)
+                lambda: self._finish_summary_refresh(generation, None, captured_exc)
             )
             return
 
-        self._on_tk_thread(lambda: self._finish_summary_refresh(generation, figure, None))
+        self._on_tk_thread(
+            lambda: self._finish_summary_refresh(generation, figure, None)
+        )
 
     def _finish_summary_refresh(
         self,
@@ -156,21 +166,112 @@ class LivePlotManager:
 
         self._show_canvas("summary", figure)
 
-    def _render_waveform(
+    def _enqueue_waveform(
         self,
         waveform: np.ndarray,
         samplerate: int,
         analysis: Any | None,
     ) -> None:
+        self._waveform_pending = (waveform, samplerate, analysis)
+        if self._waveform_in_flight:
+            return
+        self._dispatch_pending_waveform()
+
+    def _dispatch_pending_waveform(self) -> None:
+        if self._waveform_in_flight:
+            return
+        if self._waveform_pending is None:
+            return
+
         if FigureCanvasTkAgg is None:
+            self._waveform_pending = None
             self._set_placeholder(
                 self.waveform_placeholder,
                 "Matplotlib Tk backend unavailable.\nWaveform plots cannot be embedded.",
             )
             return
 
-        figure = self._build_audio_diagnostics_figure(waveform, samplerate, analysis)
-        self._show_canvas("waveform", figure)
+        now = time.monotonic()
+        if self._waveform_last_started_at is not None:
+            elapsed = now - self._waveform_last_started_at
+            if elapsed < WAVEFORM_MIN_RENDER_INTERVAL_S:
+                delay_ms = int((WAVEFORM_MIN_RENDER_INTERVAL_S - elapsed) * 1000) + 1
+                if self._waveform_after_id is not None:
+                    try:
+                        self.root.after_cancel(self._waveform_after_id)
+                    except Exception:
+                        pass
+                try:
+                    self._waveform_after_id = self.root.after(
+                        delay_ms, self._dispatch_pending_waveform
+                    )
+                except Exception:
+                    self._waveform_after_id = None
+                return
+
+        self._waveform_after_id = None
+        waveform, samplerate, analysis = self._waveform_pending
+        self._waveform_pending = None
+        self._waveform_in_flight = True
+        self._waveform_generation += 1
+        generation = self._waveform_generation
+        self._waveform_last_started_at = now
+
+        worker = threading.Thread(
+            target=self._build_waveform_figure_in_background,
+            args=(waveform, samplerate, analysis, generation),
+            daemon=True,
+        )
+        worker.start()
+
+    def _build_waveform_figure_in_background(
+        self,
+        waveform: np.ndarray,
+        samplerate: int,
+        analysis: Any | None,
+        generation: int,
+    ) -> None:
+        try:
+            figure = self._build_audio_diagnostics_figure(
+                waveform, samplerate, analysis
+            )
+        except Exception as exc:
+            captured_exc = exc
+            self._on_tk_thread(
+                lambda: self._finish_waveform_refresh(generation, None, captured_exc)
+            )
+            return
+
+        self._on_tk_thread(
+            lambda: self._finish_waveform_refresh(generation, figure, None)
+        )
+
+    def _finish_waveform_refresh(
+        self,
+        generation: int,
+        figure: Figure | None,
+        error: Exception | None,
+    ) -> None:
+        self._waveform_in_flight = False
+
+        if generation != self._waveform_generation:
+            if figure is not None:
+                figure.clear()
+            self._dispatch_pending_waveform()
+            return
+
+        if error is not None:
+            self._set_placeholder(
+                self.waveform_placeholder,
+                f"Failed to render waveform plot:\n{error}",
+            )
+            self._dispatch_pending_waveform()
+            return
+
+        if figure is not None:
+            self._show_canvas("waveform", figure)
+
+        self._dispatch_pending_waveform()
 
     def _show_canvas(self, kind: str, figure: Figure) -> None:
         parent = self.summary_parent if kind == "summary" else self.waveform_parent
@@ -496,7 +597,11 @@ class LivePlotManager:
             except (TypeError, ValueError):
                 predicted_frequency = None
         if predicted_frequency is not None and np.isfinite(predicted_frequency):
-            if float(cfg.min_frequency) <= predicted_frequency <= float(cfg.max_frequency):
+            if (
+                float(cfg.min_frequency)
+                <= predicted_frequency
+                <= float(cfg.max_frequency)
+            ):
                 axis.axvline(
                     predicted_frequency,
                     color="cyan",
@@ -511,7 +616,11 @@ class LivePlotManager:
             except (TypeError, ValueError):
                 expected_frequency = None
         if expected_frequency is not None and np.isfinite(expected_frequency):
-            if float(cfg.min_frequency) <= expected_frequency <= float(cfg.max_frequency):
+            if (
+                float(cfg.min_frequency)
+                <= expected_frequency
+                <= float(cfg.max_frequency)
+            ):
                 axis.axvline(
                     expected_frequency,
                     color="#666666",
