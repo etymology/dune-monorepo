@@ -16,7 +16,8 @@ from dune_tension.services import RuntimeBundle
 class GUIWidgets:
     """Collection of Tkinter widgets used by the GUI."""
 
-    entry_apa: tk.Entry
+    apa_location_var: tk.StringVar
+    apa_number_var: tk.StringVar
     measurement_mode_var: tk.StringVar
     layer_var: tk.StringVar
     side_var: tk.StringVar

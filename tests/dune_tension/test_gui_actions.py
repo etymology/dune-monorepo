@@ -7,9 +7,9 @@ import types
 from typing import Any, cast
 
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "actions.py"
-)
+_REPO_SRC = Path(__file__).resolve().parents[2] / "src" / "dune_tension"
+MODULE_PATH = _REPO_SRC / "gui" / "actions.py"
+APA_NAMING_PATH = _REPO_SRC / "apa_naming.py"
 
 
 def _load_actions_module(monkeypatch):
@@ -23,6 +23,16 @@ def _load_actions_module(monkeypatch):
     )
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+
+    apa_spec = importlib.util.spec_from_file_location(
+        "dune_tension.apa_naming", APA_NAMING_PATH
+    )
+    assert apa_spec is not None
+    assert apa_spec.loader is not None
+    apa_module = importlib.util.module_from_spec(apa_spec)
+    monkeypatch.setitem(sys.modules, "dune_tension.apa_naming", apa_module)
+    apa_spec.loader.exec_module(apa_module)
+    cast(Any, dune_pkg).apa_naming = apa_module
 
     tk = cast(Any, types.ModuleType("tkinter"))
     tk.StringVar = lambda **kwargs: types.SimpleNamespace(
@@ -772,7 +782,9 @@ def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
     assert moves == [(97.5, 201.0)]
 
 
-def test_measure_list_button_enables_route_optimization_for_descending_ranges(monkeypatch):
+def test_measure_list_button_enables_route_optimization_for_descending_ranges(
+    monkeypatch,
+):
     actions = _load_actions_module(monkeypatch)
 
     measured_wires = []

@@ -6,9 +6,9 @@ import types
 from typing import Any, cast
 
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "state.py"
-)
+_REPO_SRC = Path(__file__).resolve().parents[2] / "src" / "dune_tension"
+MODULE_PATH = _REPO_SRC / "gui" / "state.py"
+APA_NAMING_PATH = _REPO_SRC / "apa_naming.py"
 
 
 def _load_state_module(monkeypatch):
@@ -23,6 +23,16 @@ def _load_state_module(monkeypatch):
     gui_pkg.__path__ = []
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+
+    apa_spec = importlib.util.spec_from_file_location(
+        "dune_tension.apa_naming", APA_NAMING_PATH
+    )
+    assert apa_spec is not None
+    assert apa_spec.loader is not None
+    apa_module = importlib.util.module_from_spec(apa_spec)
+    monkeypatch.setitem(sys.modules, "dune_tension.apa_naming", apa_module)
+    apa_spec.loader.exec_module(apa_module)
+    dune_pkg.apa_naming = apa_module
 
     config = cast(Any, types.ModuleType("dune_tension.config"))
     config.MEASUREMENT_WIGGLE_CONFIG = types.SimpleNamespace(
@@ -76,7 +86,8 @@ class _FakeScale(_FakeVar):
 
 def _build_widgets(focus_value="4807.0"):
     return types.SimpleNamespace(
-        entry_apa=_FakeEntry("USAPA12"),
+        apa_location_var=_FakeVar("US"),
+        apa_number_var=_FakeVar("012"),
         measurement_mode_var=_FakeVar("legacy"),
         layer_var=_FakeVar("X"),
         side_var=_FakeVar("A"),

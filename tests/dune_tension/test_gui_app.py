@@ -5,9 +5,9 @@ import types
 from typing import Any, cast
 
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "app.py"
-)
+_REPO_SRC = Path(__file__).resolve().parents[2] / "src" / "dune_tension"
+MODULE_PATH = _REPO_SRC / "gui" / "app.py"
+APA_NAMING_PATH = _REPO_SRC / "apa_naming.py"
 
 
 def _load_app_module(monkeypatch):
@@ -30,6 +30,16 @@ def _load_app_module(monkeypatch):
     gui_pkg.__path__ = []
     monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
     monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+
+    apa_spec = importlib.util.spec_from_file_location(
+        "dune_tension.apa_naming", APA_NAMING_PATH
+    )
+    assert apa_spec is not None
+    assert apa_spec.loader is not None
+    apa_module = importlib.util.module_from_spec(apa_spec)
+    monkeypatch.setitem(sys.modules, "dune_tension.apa_naming", apa_module)
+    apa_spec.loader.exec_module(apa_module)
+    dune_pkg.apa_naming = apa_module
 
     config = cast(Any, types.ModuleType("dune_tension.config"))
     config.MEASUREMENT_WIGGLE_CONFIG = types.SimpleNamespace(

@@ -8,6 +8,7 @@ from typing import Any, cast
 import tkinter as tk
 import tkinter.font as tkfont
 
+from dune_tension import apa_naming
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui.actions import (
     adjust_focus_with_x_compensation,
@@ -145,7 +146,10 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             LOGGER.info("Requesting initial live summary refresh.")
             ctx.live_plot_manager.request_summary_refresh(
                 make_config(
-                    apa_name=ctx.widgets.entry_apa.get(),
+                    apa_name=apa_naming.compose(
+                        ctx.widgets.apa_location_var.get(),
+                        int(ctx.widgets.apa_number_var.get()),
+                    ),
                     layer=ctx.widgets.layer_var.get(),
                     side=ctx.widgets.side_var.get(),
                     flipped=bool(ctx.widgets.flipped_var.get()),
@@ -354,9 +358,17 @@ def _create_widgets(
     btn_refresh_connections = tk.Button(bottom_frame, text="Refresh Connections")
     btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
 
-    tk.Label(apa_frame, text="APA Name:").grid(row=0, column=0, sticky="e")
-    entry_apa = tk.Entry(apa_frame)
-    entry_apa.grid(row=0, column=1)
+    tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
+    apa_location_var = tk.StringVar(apa_frame, value="US")
+    tk.OptionMenu(apa_frame, apa_location_var, *apa_naming.LOCATIONS).grid(
+        row=0, column=1
+    )
+
+    tk.Label(apa_frame, text="APA Number:").grid(row=0, column=2, sticky="e")
+    apa_number_var = tk.StringVar(apa_frame, value=apa_naming.NUMBER_LABELS[0])
+    tk.OptionMenu(apa_frame, apa_number_var, *apa_naming.NUMBER_LABELS).grid(
+        row=0, column=3
+    )
 
     tk.Label(apa_frame, text="Mode:").grid(row=1, column=0, sticky="e")
     measurement_mode_var = tk.StringVar(apa_frame, value="legacy")
@@ -671,7 +683,8 @@ def _create_widgets(
         pad_buttons.append((button, dx, dy))
 
     widgets = GUIWidgets(
-        entry_apa=entry_apa,
+        apa_location_var=apa_location_var,
+        apa_number_var=apa_number_var,
         measurement_mode_var=measurement_mode_var,
         layer_var=layer_var,
         side_var=side_var,

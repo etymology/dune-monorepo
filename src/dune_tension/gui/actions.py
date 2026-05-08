@@ -17,6 +17,7 @@ import tkinter as tk
 
 from tkinter import messagebox
 
+from dune_tension import apa_naming
 from dune_tension.config import GEOMETRY_CONFIG, LAYER_LAYOUTS
 from dune_tension.data_cache import (
     clear_wire_numbers,
@@ -77,6 +78,17 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 FOCUS_X_MM_PER_QUARTER_US = (20.0 / 4000.0) / math.sqrt(3.0)
+
+
+def _current_apa_name(widgets: Any) -> str:
+    """Compose the canonical APA name from the GUI dropdown selections."""
+
+    return apa_naming.compose(
+        widgets.apa_location_var.get(),
+        int(widgets.apa_number_var.get()),
+    )
+
+
 DEFAULT_PIN_SEEK_VELOCITY = 25.0
 
 
@@ -255,7 +267,7 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
     legacy_tension_condition_widget = getattr(w, "entry_legacy_tension_condition", None)
 
     return WorkerInputs(
-        apa_name=w.entry_apa.get(),
+        apa_name=_current_apa_name(w),
         measurement_mode=w.measurement_mode_var.get(),
         layer=w.layer_var.get(),
         side=w.side_var.get(),
@@ -1465,7 +1477,9 @@ def measure_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
 
 @_run_in_thread(measurement=True)
 def measure_distribution_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
-    _measure_detected_outliers(ctx, inputs, find_distribution_outliers, "bulk-distribution")
+    _measure_detected_outliers(
+        ctx, inputs, find_distribution_outliers, "bulk-distribution"
+    )
 
 
 def _measure_detected_outliers(
@@ -1883,7 +1897,7 @@ def _make_config_from_widgets(ctx: GUIContext):
         conf = 0.5
 
     return make_config(
-        apa_name=w.entry_apa.get(),
+        apa_name=_current_apa_name(w),
         layer=w.layer_var.get(),
         side=w.side_var.get(),
         flipped=w.flipped_var.get(),
