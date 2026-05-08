@@ -2047,11 +2047,28 @@ class ManualCalibration:
             os.makedirs(outputDirectory)
 
         outputPath = self._liveFilePath(layer)
+        # References store camera-space positions (matching the UV-layer
+        # convention).  The X/G recipe is written in wire-space coordinates,
+        # so apply the camera-wire offset here before handing them to the
+        # template.
+        cameraOffsetX = float(session.cameraOffsetX or 0.0)
+        cameraOffsetY = float(session.cameraOffsetY or 0.0)
+        wireSpaceReferences = {}
+        for referenceId, reference in session.references.items():
+            adjusted = dict(reference)
+            cameraX = reference.get("wireX")
+            cameraY = reference.get("wireY")
+            if cameraX is not None:
+                adjusted["wireX"] = float(cameraX) + cameraOffsetX
+            if cameraY is not None:
+                adjusted["wireY"] = float(cameraY) + cameraOffsetY
+            wireSpaceReferences[referenceId] = adjusted
+
         generation = write_xg_template_file(
             layer,
             output_path=outputPath,
             special_inputs={
-                "references": session.references,
+                "references": wireSpaceReferences,
                 "offsets": session.offsets,
                 "transferPause": session.transferPause,
                 "includeLeadMode": session.includeLeadMode,
