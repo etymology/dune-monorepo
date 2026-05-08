@@ -10,6 +10,7 @@ import tkinter as tk
 import numpy as np
 from matplotlib.figure import Figure
 
+from dune_tension._matplotlib_lock import figure_lock
 from dune_tension.summaries import build_summary_plot_figure_for_config
 from spectrum_analysis.pitch_compare_config import PitchCompareConfig
 
@@ -232,9 +233,10 @@ class LivePlotManager:
         generation: int,
     ) -> None:
         try:
-            figure = self._build_audio_diagnostics_figure(
-                waveform, samplerate, analysis
-            )
+            with figure_lock():
+                figure = self._build_audio_diagnostics_figure(
+                    waveform, samplerate, analysis
+                )
         except Exception as exc:
             captured_exc = exc
             self._on_tk_thread(
@@ -295,7 +297,8 @@ class LivePlotManager:
 
         canvas = FigureCanvasTkAgg(figure, master=parent)
         try:
-            canvas.draw()
+            with figure_lock():
+                canvas.draw()
         except KeyboardInterrupt:
             # GUI interrupted during drawing - safe to ignore
             pass

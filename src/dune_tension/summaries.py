@@ -6,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.figure import Figure
 
+from dune_tension._matplotlib_lock import figure_lock
 from dune_tension.data_cache import select_dataframe
 from dune_tension.paths import data_path
 from dune_tension.tension_calculation import tension_plausible
@@ -158,18 +159,19 @@ def save_plot(
     output_dir: str,
 ) -> None:
     os.makedirs(output_dir, exist_ok=True)
-    figure = build_summary_plot_figure(
-        line_data,
-        histogram_data,
-        apa_name,
-        layer,
-    )
-    if figure is None:
-        return
-    figure.savefig(
-        os.path.join(output_dir, f"tension_plot_{apa_name}_{layer}.png"),
-        dpi=300,
-    )
+    with figure_lock():
+        figure = build_summary_plot_figure(
+            line_data,
+            histogram_data,
+            apa_name,
+            layer,
+        )
+        if figure is None:
+            return
+        figure.savefig(
+            os.path.join(output_dir, f"tension_plot_{apa_name}_{layer}.png"),
+            dpi=300,
+        )
 
 
 def build_summary_plot_figure(
@@ -345,13 +347,14 @@ def build_summary_plot_figure_for_config(
 
     measurements = _load_summary_measurements(config)
     _, line_data, histogram_data, _ = _compute_tensions(config, measurements)
-    return build_summary_plot_figure(
-        line_data,
-        histogram_data,
-        config.apa_name,
-        config.layer,
-        figsize=figsize,
-    )
+    with figure_lock():
+        return build_summary_plot_figure(
+            line_data,
+            histogram_data,
+            config.apa_name,
+            config.layer,
+            figsize=figsize,
+        )
 
 
 def write_missing_wires(
