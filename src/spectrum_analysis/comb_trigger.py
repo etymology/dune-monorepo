@@ -6,6 +6,7 @@ from collections.abc import Callable
 from collections import deque
 from dataclasses import dataclass
 import logging
+import threading
 import time
 
 import numpy as np
@@ -294,6 +295,7 @@ def record_with_harmonic_comb(
     timeout_seconds: float | None = None,
     comb_cfg: HarmonicCombConfig = HarmonicCombConfig(),
     recording_started_callback: Callable[[], None] | None = None,
+    stop_event: threading.Event | None = None,
 ) -> np.ndarray | None:
     """Record audio using the harmonic comb trigger."""
     start_time = time.time()
@@ -341,6 +343,9 @@ def record_with_harmonic_comb(
 
     try:
         while collected_samples < max_samples:
+            if stop_event is not None and stop_event.is_set():
+                LOGGER.info("Audio acquisition interrupted (harmonic comb trigger).")
+                break
             chunk = source.read()
             if chunk.size == 0:
                 continue

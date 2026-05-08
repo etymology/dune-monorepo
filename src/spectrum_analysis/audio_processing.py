@@ -421,6 +421,7 @@ def _acquire_audio_snr(
     source.start()
     LOGGER.info("Listening for audio events (RMS trigger)...")
     snr_threshold = 10 ** (cfg.snr_threshold_db / 20.0)
+    stop_event = getattr(cfg, "stop_event", None)
     collected: list[np.ndarray] = []
     above = False
     recording_started = False
@@ -432,6 +433,9 @@ def _acquire_audio_snr(
     deadline = None if timeout is None else start_time + max(float(timeout), 0.0)
     try:
         while collected_samples < max_samples:
+            if stop_event is not None and stop_event.is_set():
+                LOGGER.info("Audio acquisition interrupted (RMS trigger).")
+                break
             if (
                 deadline is not None
                 and time.time() >= deadline
@@ -550,6 +554,7 @@ def acquire_audio(
         if (
             rust_audio.should_use_capture_backend()
             and getattr(cfg, "recording_started_callback", None) is None
+            and getattr(cfg, "stop_event", None) is None
         ):
             return rust_audio.acquire_audio(cfg, noise_rms, timeout)
     except Exception:
@@ -586,6 +591,7 @@ def acquire_audio(
                 "recording_started_callback",
                 None,
             ),
+            stop_event=getattr(cfg, "stop_event", None),
         )
         if audio is None:
             return None

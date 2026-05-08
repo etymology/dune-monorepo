@@ -121,6 +121,7 @@ class AudioAcquisitionConfig:
     input_audio_path: str | None = None
     comb_trigger: Any = field(default_factory=_default_harmonic_comb_config)
     recording_started_callback: Callable[[], None] | None = None
+    stop_event: threading.Event | None = None
 
 
 @dataclass(frozen=True)
@@ -1472,6 +1473,7 @@ class Tensiometer:
             trigger_mode=("harmonic_comb" if self.use_harmonic_comb_trigger else "snr"),
             comb_trigger=self._harmonic_comb_config,
             recording_started_callback=on_recording_started,
+            stop_event=self.stop_event,
         )
 
         x_step_mm = max(
