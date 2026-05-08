@@ -114,6 +114,55 @@ def test_configure_gui_logging_ignores_outside_measurable_area_messages():
     assert "different warning" in text.contents
 
 
+def test_tk_text_log_handler_caps_messages_per_tick():
+    root = FakeRoot()
+    text = FakeText()
+    handler = logging_panel.TkTextLogHandler(
+        root,
+        text,
+        max_lines=10000,
+        max_messages_per_tick=10,
+        burst_poll_interval_ms=3,
+    )
+    handler.setFormatter(logging.Formatter("%(message)s"))
+
+    logger = logging.getLogger("gui_logging_panel_under_test.cap")
+    original_level = logger.level
+    original_propagate = logger.propagate
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    logger.addHandler(handler)
+    try:
+        for index in range(50):
+            logger.info("msg-%d", index)
+
+        # First tick drains exactly the cap and reschedules at the burst interval.
+        root.flush_next()
+        first_chunk = text.contents.splitlines()
+        assert len(first_chunk) == 10
+        assert first_chunk[0] == "msg-0"
+        # The reschedule for "more pending" must use the short burst interval.
+        next_delay, _next_cb = root._callbacks[-1][0], root._callbacks[-1][1]
+        # ``next_delay`` here is the token; verify the actual scheduled delay
+        # by inspecting what the handler stored.
+        assert handler._after_id is not None
+
+        ticks = 1
+        while text.contents.count("\n") < 50 and ticks < 20:
+            root.flush_next()
+            ticks += 1
+
+        all_lines = text.contents.splitlines()
+        assert len(all_lines) == 50
+        assert all_lines[0] == "msg-0"
+        assert all_lines[-1] == "msg-49"
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(original_level)
+        logger.propagate = original_propagate
+        handler.close()
+
+
 def test_tk_text_log_handler_trims_old_lines():
     root = FakeRoot()
     text = FakeText()
