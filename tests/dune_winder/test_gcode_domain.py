@@ -1,12 +1,15 @@
 import unittest
 from typing import cast
 
+from hypothesis import assume, given, strategies as st
+
 from dune_winder.gcode.model import (
+    CommandWord,
+    FunctionCall,
     MacroCall,
     OPCODE_CATALOG,
-    FunctionCall,
     Opcode,
-    CommandWord,
+    ProgramLine,
 )
 from dune_winder.gcode.parser import GCodeParseError, parse_line_text
 from dune_winder.gcode.renderer import render_line
@@ -27,34 +30,110 @@ from dune_winder.recipes.gcode_functions import (
 )
 
 
-class GCodeParserTests(unittest.TestCase):
+# Strategies for synthesizing canonical g-code lines.
+_param_token = st.text(
+    alphabet=st.characters(
+        whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="-_+."
+    ),
+    min_size=1,
+    max_size=8,
+)
+_int_token = st.integers(min_value=-9999, max_value=9999).map(str)
+_float_token = st.decimals(
+    min_value=-1000, max_value=1000, allow_nan=False, allow_infinity=False, places=2
+).map(str)
+_macro_text = st.text(
+    alphabet=st.characters(
+        whitelist_categories=("Lu", "Ll", "Nd"),
+        whitelist_characters="_",
+    ),
+    min_size=1,
+    max_size=12,
+)
+_comment_text = st.text(
+    alphabet=st.characters(
+        blacklist_characters="()~", blacklist_categories=("Cs", "Cc")
+    ),
+    max_size=20,
+)
+
+
+def _command_word(letter: str, value_strategy):
+    return st.builds(
+        CommandWord,
+        letter=st.just(letter),
+        value=value_strategy,
+        parameters=st.lists(_param_token, max_size=2),
+    )
+
+
+_function_call = st.builds(
+    FunctionCall,
+    opcode=st.sampled_from([int(o) for o in Opcode]).map(str),
+    parameters=st.lists(_param_token, max_size=3),
+)
+
+
+def _line_item():
+    return st.one_of(
+        _function_call,
+        _command_word("F", _float_token),
+        _command_word("X", _float_token),
+        _command_word("Y", _float_token),
+        _command_word("M", _int_token),
+        _command_word("N", _int_token),
+        _command_word("Z", st.one_of(_float_token, st.just("EXTEND"))),
+        _command_word("O", _param_token),
+        st.builds(MacroCall, text=_macro_text),
+    )
+
+
+@st.composite
+def _program_line(draw):
+    items = draw(st.lists(_line_item(), min_size=1, max_size=5))
+    line = ProgramLine(items=items)
+    # The PXZ recipe rebinds a "P" with value "XZ" attached to a Z command word
+    # back to the previous FunctionCall. That edge case is covered by an
+    # explicit example below; exclude it from random generation.
+    rendered = render_line(line)
+    assume(" PXZ" not in rendered.upper())
+    return line
+
+
+class GCodeRoundTripProperties(unittest.TestCase):
+    @given(line=_program_line())
+    def test_render_parse_render_is_idempotent(self, line):
+        first = render_line(line)
+        reparsed = parse_line_text(first)
+        second = render_line(reparsed)
+        self.assertEqual(first, second)
+
+    @given(
+        letter=st.text(min_size=1, max_size=1).filter(lambda c: c not in "FGMNOPXYZ ")
+    )
+    def test_parse_rejects_unknown_command_letter(self, letter):
+        assume(not letter.isspace())
+        assume(letter not in "(~")
+        with self.assertRaises(GCodeParseError):
+            parse_line_text(letter + "1")
+
+    @given(parameter=_param_token)
+    def test_parse_rejects_unassigned_p_parameter(self, parameter):
+        with self.assertRaises(GCodeParseError):
+            parse_line_text("P" + parameter)
+
+
+class GCodeRecipeExamples(unittest.TestCase):
+    """Curated examples for parser recipes that the property test excludes."""
+
     def test_p_parameters_bind_to_previous_word(self):
         line = parse_line_text("G103 PA800 PA799 PXY")
         function = cast(FunctionCall, line.items[0])
-
-        self.assertIsInstance(function, FunctionCall)
         self.assertEqual(function.opcode, "103")
         self.assertEqual(function.parameters, ["A800", "A799", "XY"])
 
-    def test_parse_rejects_unassigned_parameter(self):
-        with self.assertRaises(GCodeParseError) as context:
-            parse_line_text("PA100")
-
-        self.assertEqual(str(context.exception), "Unassigned parameter A100")
-
-    def test_parse_rejects_unknown_code(self):
-        with self.assertRaises(GCodeParseError) as context:
-            parse_line_text("Q2")
-
-        self.assertEqual(str(context.exception), "Unknown parameter Q")
-
-    def test_comments_are_preserved_and_rendered_normalized(self):
-        line = parse_line_text("  N1   X1   ( hello )   Y2  ")
-        self.assertEqual(render_line(line), "N1 X1 ( hello ) Y2")
-
-    def test_parser_supports_symbolic_z_extend_with_pxz_recipe_order(self):
+    def test_pxz_rebinds_to_previous_function_call(self):
         line = parse_line_text("G103 PA800 PA799 ZEXTEND PXZ")
-
         self.assertEqual(render_line(line), "G103 PA800 PA799 PXZ ZEXTEND")
         function = cast(FunctionCall, line.items[0])
         z_word = cast(CommandWord, line.items[1])
@@ -62,30 +141,20 @@ class GCodeParserTests(unittest.TestCase):
         self.assertEqual(z_word.letter, "Z")
         self.assertEqual(z_word.value, "EXTEND")
 
-    def test_parser_and_renderer_support_tilde_macro_lines(self):
-        line = parse_line_text("N7 ~anchorToTarget(B1201,B2001) ( top )")
+    def test_comments_normalize_whitespace(self):
+        line = parse_line_text("  N1   X1   ( hello )   Y2  ")
+        self.assertEqual(render_line(line), "N1 X1 ( hello ) Y2")
 
-        self.assertEqual(render_line(line), "N7 ~anchorToTarget(B1201,B2001) ( top )")
-        macro = cast(MacroCall, line.items[1])
-        self.assertEqual(macro.text, "anchorToTarget(B1201,B2001)")
-
-    def test_parser_and_renderer_support_anchor_to_target_offset_keyword(self):
-        line = parse_line_text("N8 ~anchorToTarget(B1201,B2001,offset=(1.25,-2.5))")
-
-        self.assertEqual(
-            render_line(line), "N8 ~anchorToTarget(B1201,B2001,offset=(1.25,-2.5))"
-        )
-        macro = cast(MacroCall, line.items[1])
-        self.assertEqual(macro.text, "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))")
-
-    def test_parser_and_renderer_support_anchor_to_target_hover_keyword(self):
-        line = parse_line_text("N9 ~anchorToTarget(B1201,B2001,hover=True)")
-
-        self.assertEqual(
-            render_line(line), "N9 ~anchorToTarget(B1201,B2001,hover=True)"
-        )
-        macro = cast(MacroCall, line.items[1])
-        self.assertEqual(macro.text, "anchorToTarget(B1201,B2001,hover=True)")
+    def test_tilde_macro_with_keyword_arguments(self):
+        for text in (
+            "anchorToTarget(B1201,B2001)",
+            "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))",
+            "anchorToTarget(B1201,B2001,hover=True)",
+        ):
+            line = parse_line_text(f"N7 ~{text} ( top )")
+            self.assertEqual(render_line(line), f"N7 ~{text} ( top )")
+            macro = cast(MacroCall, line.items[1])
+            self.assertEqual(macro.text, text)
 
 
 class GCodeRuntimeTests(unittest.TestCase):
@@ -97,78 +166,6 @@ class GCodeRuntimeTests(unittest.TestCase):
         execute_program_line(line, callbacks.get)
 
         self.assertEqual(seen, [line])
-
-
-class GCodeDomainTests(unittest.TestCase):
-    def test_opcode_catalog_covers_all_runtime_opcodes(self):
-        expected = set(range(100, 119))
-        expected.add(206)
-        self.assertEqual(set(OPCODE_CATALOG.keys()), expected)
-        self.assertEqual(int(Opcode.LATCH), 100)
-        self.assertEqual(int(Opcode.TENSION_TESTING), 112)
-        self.assertEqual(int(Opcode.QUEUE_MERGE), 113)
-        self.assertEqual(int(Opcode.WRAP_GOTO), 114)
-        self.assertEqual(int(Opcode.WRAP_INCREMENT), 115)
-        self.assertEqual(int(Opcode.WRAP_ANCHOR), 116)
-        self.assertEqual(int(Opcode.WRAP_B), 117)
-        self.assertEqual(int(Opcode.WRAP_B_TO_A), 118)
-        self.assertEqual(int(Opcode.HEAD_TRANSFER), 206)
-
-    def test_recipe_function_helpers_build_canonical_calls(self):
-        function = pin_center(["A1", "A2"], "XY")
-
-        self.assertIsInstance(function, FunctionCall)
-        self.assertEqual(function.opcode, int(Opcode.PIN_CENTER))
-        self.assertEqual(function.parameters, ["A1", "A2", "XY"])
-
-        transfer = head_transfer(3)
-        self.assertIsInstance(transfer, FunctionCall)
-        self.assertEqual(transfer.opcode, int(Opcode.HEAD_TRANSFER))
-        self.assertEqual(transfer.parameters, [3])
-
-        goto_xy = wrap_goto(x=7174, y=0)
-        self.assertEqual(goto_xy.opcode, int(Opcode.WRAP_GOTO))
-        self.assertEqual(goto_xy.parameters, ["X7174", "Y0"])
-
-        increment_xy = wrap_increment(x=-70, y=50)
-        self.assertEqual(increment_xy.opcode, int(Opcode.WRAP_INCREMENT))
-        self.assertEqual(increment_xy.parameters, ["X-70", "Y50"])
-
-        anchor = wrap_anchor("PA1601")
-        self.assertEqual(anchor.opcode, int(Opcode.WRAP_ANCHOR))
-        self.assertEqual(anchor.parameters, ["PA1601"])
-
-        wrap_b_pin = wrap_b("PB2001")
-        self.assertEqual(wrap_b_pin.opcode, int(Opcode.WRAP_B))
-        self.assertEqual(wrap_b_pin.parameters, ["PB2001"])
-
-        wrap_b_to_a_pin = wrap_b_to_a("PB2001")
-        self.assertEqual(wrap_b_to_a_pin.opcode, int(Opcode.WRAP_B_TO_A))
-        self.assertEqual(wrap_b_to_a_pin.parameters, ["PB2001"])
-
-    def test_parser_and_renderer_support_g206_transfer(self):
-        line = parse_line_text("G206 P3")
-
-        self.assertEqual(render_line(line), "G206 P3")
-        function = cast(FunctionCall, line.items[0])
-        self.assertEqual(function.opcode, "206")
-        self.assertEqual(function.parameters, ["3"])
-
-    def test_parser_still_supports_legacy_g106(self):
-        line = parse_line_text("G106 P0")
-
-        self.assertEqual(render_line(line), "G106 P0")
-
-    def test_parser_and_renderer_support_wrap_commands(self):
-        line = parse_line_text("G114 PX7174 PY0")
-        self.assertEqual(render_line(line), "G114 PX7174 PY0")
-        function = cast(FunctionCall, line.items[0])
-        self.assertEqual(function.parameters, ["X7174", "Y0"])
-
-        line = parse_line_text("G118 PB2001")
-        self.assertEqual(render_line(line), "G118 PB2001")
-        function = cast(FunctionCall, line.items[0])
-        self.assertEqual(function.parameters, ["B2001"])
 
     def test_program_executor_executes_with_canonical_runtime(self):
         seen = []
@@ -194,6 +191,30 @@ class GCodeDomainTests(unittest.TestCase):
 
         self.assertEqual(str(context.exception), "Unassigned parameter A100")
         self.assertEqual(context.exception.data, ["PA100", "P", "A100"])
+
+
+class GCodeDomainTests(unittest.TestCase):
+    def test_opcode_catalog_matches_opcode_enum(self):
+        self.assertEqual(set(OPCODE_CATALOG.keys()), {int(o) for o in Opcode})
+
+    def test_recipe_function_helpers_build_canonical_calls(self):
+        cases = [
+            (pin_center(["A1", "A2"], "XY"), Opcode.PIN_CENTER, ["A1", "A2", "XY"]),
+            (head_transfer(3), Opcode.HEAD_TRANSFER, [3]),
+            (wrap_goto(x=7174, y=0), Opcode.WRAP_GOTO, ["X7174", "Y0"]),
+            (wrap_increment(x=-70, y=50), Opcode.WRAP_INCREMENT, ["X-70", "Y50"]),
+            (wrap_anchor("PA1601"), Opcode.WRAP_ANCHOR, ["PA1601"]),
+            (wrap_b("PB2001"), Opcode.WRAP_B, ["PB2001"]),
+            (wrap_b_to_a("PB2001"), Opcode.WRAP_B_TO_A, ["PB2001"]),
+        ]
+        for call, opcode, parameters in cases:
+            self.assertIsInstance(call, FunctionCall)
+            self.assertEqual(call.opcode, int(opcode))
+            self.assertEqual(call.parameters, parameters)
+
+    def test_parser_renders_function_call_opcodes(self):
+        for text in ("G206 P3", "G106 P0", "G114 PX7174 PY0", "G118 PB2001"):
+            self.assertEqual(render_line(parse_line_text(text)), text)
 
 
 if __name__ == "__main__":

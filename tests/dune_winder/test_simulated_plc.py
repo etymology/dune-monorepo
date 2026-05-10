@@ -179,6 +179,16 @@ class SimulatedPlcBehaviorTests(unittest.TestCase):
         self.assertEqual(plc.get_tag("STATE"), SimulatedPLC.STATE_EOT)
         self.assertEqual(plc.get_tag("STATE_REQUEST"), SimulatedPLC.STATE_EOT)
 
+    def test_update_limits_reflected_in_status(self):
+        plc = SimulatedPLC()
+        plc.update_limits(zFront=164.65, zBack=269.35, limitTop=1234.5)
+        status = plc.get_status()
+
+        self.assertEqual(status["mode"], "SIM")
+        self.assertEqual(status["limits"]["zFront"], 164.65)
+        self.assertEqual(status["limits"]["zBack"], 269.35)
+        self.assertEqual(status["limits"]["limitTop"], 1234.5)
+
 
 if __name__ == "__main__":
     unittest.main()

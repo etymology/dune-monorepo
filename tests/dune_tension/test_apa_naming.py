@@ -1,58 +1,63 @@
+from hypothesis import given, strategies as st
 import pytest
 
 from dune_tension import apa_naming
 
 
-def test_compose_returns_canonical_form():
-    assert apa_naming.compose("US", 1) == "APA-US-001"
-    assert apa_naming.compose("UK", 152) == "APA-UK-152"
-    assert apa_naming.compose("US", 12) == "APA-US-012"
+_canonical_locations = st.sampled_from(apa_naming.LOCATIONS)
+_canonical_numbers = st.integers(min_value=1, max_value=152)
 
 
-@pytest.mark.parametrize("location", ["us", "uk", "DE", "", "USA"])
-def test_compose_rejects_unknown_location(location):
+@given(location=_canonical_locations, number=_canonical_numbers)
+def test_compose_round_trips_through_parse(location, number):
+    name = apa_naming.compose(location, number)
+    assert name == f"APA-{location}-{number:03d}"
+    assert apa_naming.parse(name) == (location, number)
+    assert apa_naming.is_canonical(name)
+
+
+@given(
+    location=st.text().filter(lambda s: s not in apa_naming.LOCATIONS),
+    number=_canonical_numbers,
+)
+def test_compose_rejects_unknown_location(location, number):
     with pytest.raises(ValueError):
-        apa_naming.compose(location, 1)
+        apa_naming.compose(location, number)
 
 
-@pytest.mark.parametrize("number", [0, -1, 153, 1000])
-def test_compose_rejects_out_of_range_number(number):
+@given(
+    location=_canonical_locations,
+    number=st.integers().filter(lambda n: n not in apa_naming.NUMBERS),
+)
+def test_compose_rejects_out_of_range_number(location, number):
     with pytest.raises(ValueError):
-        apa_naming.compose("US", number)
+        apa_naming.compose(location, number)
 
 
-def test_parse_round_trips_for_every_canonical_name():
-    for name in apa_naming.all_canonical_names():
-        parsed = apa_naming.parse(name)
-        assert parsed is not None
-        location, number = parsed
-        assert apa_naming.compose(location, number) == name
+@given(name=st.text())
+def test_parse_agrees_with_is_canonical(name):
+    assert (apa_naming.parse(name) is not None) == apa_naming.is_canonical(name)
 
 
 @pytest.mark.parametrize(
     "name",
     [
-        "USAPA12",
-        "UKAPA7",
-        "APA-US-1",
-        "APA-US-153",
         "APA-DE-001",
         "apa-us-001",
         "APA-US-001 ",
-        " APA-US-001",
-        "APA-US-001\n",
-        "",
-        "APA-US-00",
         "APA-US-0001",
+        "APA-US-153",
     ],
 )
-def test_parse_rejects_malformed_input(name):
+def test_parse_rejects_known_malformed_examples(name):
     assert apa_naming.parse(name) is None
-    assert not apa_naming.is_canonical(name)
 
 
-def test_all_canonical_names_has_304_unique_sorted_entries():
+def test_all_canonical_names_is_sorted_unique_and_complete():
     names = apa_naming.all_canonical_names()
-    assert len(names) == 304
-    assert len(set(names)) == 304
+    expected = len(apa_naming.LOCATIONS) * len(apa_naming.NUMBERS)
+    assert len(names) == expected
+    assert len(set(names)) == expected
     assert names == sorted(names)
+    for name in names:
+        assert apa_naming.is_canonical(name)

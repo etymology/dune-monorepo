@@ -1,37 +1,29 @@
-import importlib.util
-from pathlib import Path
 import sys
 import threading
 import time
 import types
 from typing import Any, cast
 
+from _gui_test_support import (
+    REPO_SRC,
+    install_dune_tension_pkg_shell,
+    load_module_from_path,
+)
 
-_REPO_SRC = Path(__file__).resolve().parents[2] / "src" / "dune_tension"
-MODULE_PATH = _REPO_SRC / "gui" / "actions.py"
-APA_NAMING_PATH = _REPO_SRC / "apa_naming.py"
+
+MODULE_PATH = REPO_SRC / "gui" / "actions.py"
+APA_NAMING_PATH = REPO_SRC / "apa_naming.py"
 
 
 def _load_actions_module(monkeypatch):
-    dune_pkg = types.ModuleType("dune_tension")
-    dune_pkg.__path__ = []
-    gui_pkg = types.ModuleType("dune_tension.gui")
-    gui_pkg.__path__ = []
-
     monkeypatch.setitem(
         sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None)
     )
-    monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
-    monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+    dune_pkg, _gui_pkg = install_dune_tension_pkg_shell(monkeypatch)
 
-    apa_spec = importlib.util.spec_from_file_location(
-        "dune_tension.apa_naming", APA_NAMING_PATH
+    apa_module = load_module_from_path(
+        monkeypatch, "dune_tension.apa_naming", APA_NAMING_PATH
     )
-    assert apa_spec is not None
-    assert apa_spec.loader is not None
-    apa_module = importlib.util.module_from_spec(apa_spec)
-    monkeypatch.setitem(sys.modules, "dune_tension.apa_naming", apa_module)
-    apa_spec.loader.exec_module(apa_module)
     cast(Any, dune_pkg).apa_naming = apa_module
 
     tk = cast(Any, types.ModuleType("tkinter"))
@@ -136,14 +128,7 @@ def _load_actions_module(monkeypatch):
     uv_wire_planner.plan_uv_wire_zone = lambda *_args, **_kwargs: 0
     monkeypatch.setitem(sys.modules, "dune_tension.uv_wire_planner", uv_wire_planner)
 
-    module_name = "gui_actions_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(monkeypatch, "gui_actions_under_test", MODULE_PATH)
 
 
 def _wait_for(predicate, timeout=1.0):

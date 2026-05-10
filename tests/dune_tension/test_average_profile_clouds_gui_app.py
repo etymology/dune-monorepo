@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 import sys
 import types
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -13,6 +12,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     pytest.skip("pandas required", allow_module_level=True)
 
+from _gui_test_support import REPO_SRC, load_module_from_path
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
     LayerAnalysisResult,
@@ -24,13 +24,7 @@ from dune_tension.average_profile_clouds import (
 )
 
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "dune_tension"
-    / "gui"
-    / "average_profile_clouds_app.py"
-)
+MODULE_PATH = REPO_SRC / "gui" / "average_profile_clouds_app.py"
 
 
 class _FakeFigure:
@@ -197,14 +191,9 @@ def _load_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk_module)
     tk_module.ttk = ttk_module
 
-    module_name = "average_profile_clouds_gui_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(
+        monkeypatch, "average_profile_clouds_gui_under_test", MODULE_PATH
+    )
 
 
 def _make_result(

@@ -7,7 +7,6 @@ import sys
 import types
 from typing import Any, cast
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from dune_tension.paths import tension_data_db_path
 

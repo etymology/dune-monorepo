@@ -1,12 +1,15 @@
-import importlib.util
-from pathlib import Path
 import sys
 import types
 from typing import Any, cast
 
+from _gui_test_support import (
+    REPO_SRC,
+    install_dune_tension_pkg_shell,
+    load_module_from_path,
+)
 
-_REPO_SRC = Path(__file__).resolve().parents[2] / "src" / "dune_tension"
-MODULE_PATH = _REPO_SRC / "gui" / "_layout.py"
+
+MODULE_PATH = REPO_SRC / "gui" / "_layout.py"
 
 
 def _load_layout_module(monkeypatch):
@@ -14,26 +17,14 @@ def _load_layout_module(monkeypatch):
     tk_stub.Misc = object
     monkeypatch.setitem(sys.modules, "tkinter", tk_stub)
 
-    dune_pkg = cast(Any, types.ModuleType("dune_tension"))
-    dune_pkg.__path__ = []
-    gui_pkg = cast(Any, types.ModuleType("dune_tension.gui"))
-    gui_pkg.__path__ = []
-    monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
-    monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+    install_dune_tension_pkg_shell(monkeypatch)
 
     live_plots = cast(Any, types.ModuleType("dune_tension.gui.live_plots"))
     live_plots.LIVE_SUMMARY_FIGSIZE = (7.8, 3.6)
     live_plots.LIVE_WAVEFORM_FIGSIZE = (7.2, 4.6)
     monkeypatch.setitem(sys.modules, "dune_tension.gui.live_plots", live_plots)
 
-    module_name = "gui_layout_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(monkeypatch, "gui_layout_under_test", MODULE_PATH)
 
 
 class _FakeRoot:

@@ -64,7 +64,7 @@ class PlcLadderParserTests(unittest.TestCase):
         ]
 
         for path in routine_paths:
-            with self.subTest(path=path):
+            with self.subTest(path=str(path)):
                 routine = self.parser.parse_routine_path(
                     path, routine_name=path.parent.name
                 )
@@ -72,7 +72,7 @@ class PlcLadderParserTests(unittest.TestCase):
 
     def test_parses_all_checked_in_pasteable_routines(self):
         for path in sorted(PLC_ROOT.rglob("pasteable.rll")):
-            with self.subTest(path=path):
+            with self.subTest(path=str(path)):
                 routine = self.parser.parse_routine_path(
                     path, routine_name=path.parent.name
                 )
@@ -187,7 +187,7 @@ class PlcLadderParserTests(unittest.TestCase):
         ]
 
         for path in helper_paths:
-            with self.subTest(path=path):
+            with self.subTest(path=str(path)):
                 routine = self.parser.parse_routine_path(
                     path,
                     routine_name=path.parent.name,

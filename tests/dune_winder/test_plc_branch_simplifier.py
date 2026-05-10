@@ -4,10 +4,73 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from hypothesis import given, settings, strategies as st
+
 from dune_winder.plc_ladder import RllEmitter
 from dune_winder.plc_ladder.branch_simplifier import iter_pasteable_files
 from dune_winder.plc_ladder.branch_simplifier import simplify_file
 from dune_winder.plc_ladder.branch_simplifier import simplify_text
+
+
+_tag = st.text(
+    alphabet=st.characters(whitelist_categories=("Lu", "Ll"), whitelist_characters="_"),
+    min_size=1,
+    max_size=8,
+).filter(lambda s: s[0].isalpha())
+_condition_opcode = st.sampled_from(["XIC", "XIO"])
+
+
+@st.composite
+def _condition_only_branch_rung(draw):
+    """Build a rung whose only branch is a condition-only OR of XIC/XIO terms,
+    with an optional condition prefix and a safe duplicable OTL suffix.
+    """
+    prefix_terms = draw(st.lists(st.tuples(_condition_opcode, _tag), max_size=2))
+    branch_paths = draw(
+        st.lists(
+            st.lists(st.tuples(_condition_opcode, _tag), min_size=1, max_size=3),
+            min_size=2,
+            max_size=4,
+        )
+    )
+    suffix_tag = draw(_tag)
+
+    parts = []
+    for opcode, tag in prefix_terms:
+        parts.extend([opcode, tag])
+    parts.append("BST")
+    for i, path in enumerate(branch_paths):
+        if i > 0:
+            parts.append("NXB")
+        for opcode, tag in path:
+            parts.extend([opcode, tag])
+    parts.append("BND")
+    parts.extend(["OTL", suffix_tag])
+    return " ".join(parts) + " \n"
+
+
+class BranchSimplifierProperties(unittest.TestCase):
+    @given(text=_condition_only_branch_rung())
+    @settings(max_examples=60, deadline=None)
+    def test_simplify_is_idempotent(self, text):
+        emitter = RllEmitter()
+        first = simplify_text(text, routine_name="main")
+        emitted = emitter.emit_routine(first.routine)
+        second = simplify_text(emitted, routine_name="main")
+        self.assertFalse(
+            second.changed,
+            f"second pass changed output:\nafter first: {emitted!r}\n"
+            f"after second: {emitter.emit_routine(second.routine)!r}",
+        )
+        self.assertEqual(emitter.emit_routine(second.routine), emitted)
+
+    @given(text=_condition_only_branch_rung())
+    @settings(max_examples=60, deadline=None)
+    def test_condition_only_branches_are_fully_expanded(self, text):
+        first = simplify_text(text, routine_name="main")
+        emitted = RllEmitter().emit_routine(first.routine)
+        self.assertNotIn("BST", emitted)
+        self.assertNotIn("BND", emitted)
 
 
 class PlcBranchSimplifierTests(unittest.TestCase):

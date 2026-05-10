@@ -6,7 +6,6 @@ from typing import Any, cast
 
 import dune_tension.services as services_module
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from dune_tension.services import MotionService
 
