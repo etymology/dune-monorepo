@@ -73,11 +73,12 @@ class ZMovePathTests(_TagIsolationTestCase):
 
         self._advance(plc, 10)
 
-        # LadderSimulatedPLC no longer models the tension gate stall behavior; the
-        # seek completes and returns to READY.
-        self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
-        self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
-        self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
+        # With check_tension_stable=True and a 0.0 tolerance the tension gate
+        # never opens, so the ladder stalls in STATE_Z_SEEK and the axis never
+        # commands the move.
+        self.assertEqual(plc.get_tag("STATE"), plc.STATE_Z_SEEK)
+        self.assertEqual(plc.get_tag("STATE_REQUEST"), plc.STATE_Z_SEEK)
+        self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
 
     def test_z_seek_errors_when_master_z_go_is_blocked(self):
         plc = LadderSimulatedPLC("SIM")
@@ -220,9 +221,11 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
 
         self._advance_machine(io, machine, scans=40)
 
-        self.assertEqual(machine.getState(), ControlStateMachine.States.STOP)
-        self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_READY)
-        self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
+        # Tension gate stays closed, so the Z seek stalls in STATE_Z_SEEK and
+        # the controller stays in MANUAL rather than handing back to STOP.
+        self.assertEqual(machine.getState(), ControlStateMachine.States.MANUAL)
+        self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_Z_SEEK)
+        self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 0.0, places=6)
 
     def test_manual_z_seek_clears_stale_head_error_and_returns_to_stop(self):
         io, machine = self._build_machine()

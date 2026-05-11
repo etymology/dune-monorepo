@@ -13,6 +13,7 @@ from dune_winder.machine.geometry.uv_wrap_geometry import (
 from dune_winder.uv_head_target import (
     PinPairTangentGeometry,
     RecipeSite,
+    UvHeadTargetError,
     UvHeadTargetRequest,
     UvHeadTargetResult,
     UvTangentViewRequest,
@@ -24,9 +25,6 @@ from dune_winder.uv_head_target import (
     iter_uv_wrap_primary_sites,
     resolve_wrapped_pin_from_g103_pair,
 )
-
-
-UvHeadTargetError = UvWrapGeometryError
 
 
 __all__ = [

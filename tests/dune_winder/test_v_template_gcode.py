@@ -54,9 +54,9 @@ class VTemplateGCodeTests(unittest.TestCase):
                 "N4 (1,1) (------------------STARTING LOOP 1------------------)",
             ],
         )
-        tail_start = len(lines) - 8
+        tail_start = len(lines) - 9
         self.assertEqual(
-            lines[-8:],
+            lines[-9:],
             [
                 "N"
                 + str(tail_start)
@@ -78,7 +78,7 @@ class VTemplateGCodeTests(unittest.TestCase):
                 + str(tail_start + 3)
                 + " "
                 + self.MERGE
-                + "(400,19) X440 Y2315 F300",
+                + "(400,19) X440 Y2250 F300",
                 "N" + str(tail_start + 4) + " (400,20) G206 P0",
                 "N" + str(tail_start + 5) + " " + self.MERGE + "(400,21) X440 Y2335",
                 "N"
@@ -86,7 +86,12 @@ class VTemplateGCodeTests(unittest.TestCase):
                 + " "
                 + self.MERGE
                 + "(400,22) X650 Y2335 G111",
-                "N" + str(tail_start + 7) + " " + self.MERGE + "(400,23) X440 Y2335",
+                "N"
+                + str(tail_start + 7)
+                + " "
+                + self.MERGE
+                + "(400,23) X1200 Y2335 G111",
+                "N" + str(tail_start + 8) + " " + self.MERGE + "(400,24) X440 Y2335",
             ],
         )
 
@@ -153,7 +158,13 @@ class VTemplateGCodeTests(unittest.TestCase):
             + self.MERGE
             + "(1,4) G109 PB1999 PLT G103 PA800 PA799 Z0 PXZ (Top A corner - foot end)",
         )
-        self.assertEqual(lines[8], "N8 (1,5) G206 P0")
+        self.assertEqual(
+            lines[8],
+            "N8 "
+            + self.TOLERANT
+            + "(1,5) G103 PA800 PA799 PY G105 "
+            + self._coord("PY", -Y_PULL_IN),
+        )
         self.assertIn("ZEXTEND PXZ", "\n".join(lines))
 
     def test_offset_vector_maps_to_all_twelve_adjustment_sites(self):
@@ -381,16 +392,16 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
         )
         # foot_a_offset → offsets[2] → AT 3→4 of wrap 1 = BtoA(1999)→BtoA(1200) = A800→A1599
         self.assertTrue(
-            any(
-                "~anchorToTarget(A800,A1599,offset=(0,3.5))" in line for line in lines
-            )
+            any("~anchorToTarget(A800,A1599,offset=(0,3.5))" in line for line in lines)
         )
 
     def test_final_wrap_last_anchor_to_target(self):
         lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
         # wrap 400, n=399: pin 11 = BtoA(0)→A400, pin 12 = BtoA(800)→A1999
         self.assertTrue(
-            lines[-1].endswith("~anchorToTarget(A400,A1999) (Bottom A corner - head end)")
+            lines[-1].endswith(
+                "~anchorToTarget(A400,A1999) (Bottom A corner - head end)"
+            )
         )
 
     def test_iter_primary_sites_returns_empty_for_wrapping(self):

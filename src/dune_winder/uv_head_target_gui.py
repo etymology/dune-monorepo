@@ -175,11 +175,14 @@ def _segments_for_layer(layer: str) -> tuple[_RecipeSegment, ...]:
         wrap_number = (global_index // _SEGMENTS_PER_WRAP) + 1
         segment_number = (global_index % _SEGMENTS_PER_WRAP) + 1
         recipe_site = primary_site_metadata.get((wrap_number, segment_number))
-        adjacent_pin = (
-            primary_sites.get((anchor_pin, wrapped_pin), (None, None))[0]
-            if recipe_site is None
-            else recipe_site[2]
-        )
+        if anchor_pin[:1] != wrapped_pin[:1]:
+            adjacent_pin = None
+        else:
+            adjacent_pin = (
+                primary_sites.get((anchor_pin, wrapped_pin), (None, None))[0]
+                if recipe_site is None
+                else recipe_site[2]
+            )
         segments.append(
             _RecipeSegment(
                 wrap_number=wrap_number,
@@ -1175,14 +1178,14 @@ def _draw_outbound_zoom(canvas: tk.Canvas, result: UvTangentViewResult) -> None:
     else:
         text_lines.append("G108 target: unavailable")
         text_lines.append("Outbound - G108: unavailable")
-    # canvas.create_text(
-    #   10,
-    #   10,
-    #   anchor="nw",
-    #   fill="#222222",
-    #   text="\n".join(text_lines),
-    #   justify="left",
-    # )
+    canvas.create_text(
+        10,
+        10,
+        anchor="nw",
+        fill="#222222",
+        text="\n".join(text_lines),
+        justify="left",
+    )
 
 
 def _build_alternating_canvas_transform(

@@ -36,6 +36,7 @@ from dune_tension.plc_io import is_in_measurable_area
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
+_STRUM_LOOP_INTERVAL_SECONDS = 0.03
 
 
 def _compile_legacy_tension_condition(expr: str) -> Callable[[float], bool]:
@@ -1460,7 +1461,10 @@ class Tensiometer:
         candidate_wires: list[TensionResult] = []
         measured_zone = int(zone) if zone is not None else None
 
+        recording_started_event = threading.Event()
+
         def on_recording_started() -> None:
+            recording_started_event.set()
             self._record_wire_stage(
                 "wait_for_audio_trigger", self._profile_time() - strum_started
             )
@@ -1690,20 +1694,45 @@ class Tensiometer:
                     return None
                 x, y = self.get_current_xy_position()
 
-                # Trigger a valve pulse before capturing audio.
+                # Strum on a regular interval while audio acquisition runs in
+                # a background thread, stopping as soon as the audio trigger
+                # callback fires (or the thread completes).
                 strum_started = self._profile_time()
-                self.strum_func()
-                self._record_wire_stage("strum", self._profile_time() - strum_started)
+                recording_started_event.clear()
+                acquired_audio: list[Any] = []
+                acquired_exc: list[BaseException] = []
+
+                def _audio_worker() -> None:
+                    try:
+                        sample = acquire_audio(
+                            cfg=audio_acquisition_config,
+                            noise_rms=self.noise_threshold / 3,
+                            timeout=max(float(self.config.record_duration), 0.0),
+                        )
+                        acquired_audio.append(sample)
+                    except BaseException as exc:
+                        acquired_exc.append(exc)
+
                 acquire_started = self._profile_time()
-                audio_sample = acquire_audio(
-                    cfg=audio_acquisition_config,
-                    noise_rms=self.noise_threshold / 3,
-                    timeout=max(float(self.config.record_duration), 0.0),
-                )
+                audio_thread = threading.Thread(target=_audio_worker, daemon=True)
+                audio_thread.start()
+
+                while audio_thread.is_alive() and not recording_started_event.is_set():
+                    self.strum_func()
+                    if recording_started_event.wait(
+                        timeout=_STRUM_LOOP_INTERVAL_SECONDS
+                    ):
+                        break
+
+                audio_thread.join()
+                self._record_wire_stage("strum", self._profile_time() - strum_started)
                 self._record_wire_stage(
                     "acquire_audio",
                     self._profile_time() - acquire_started,
                 )
+                if acquired_exc:
+                    raise acquired_exc[0]
+                audio_sample = acquired_audio[0] if acquired_audio else None
 
                 if audio_sample is not None:
                     focus_position = self._get_focus_position()

@@ -247,6 +247,16 @@ class ExpressionEvaluator:
         source = str(expression).strip()
         transformed = re.sub(r"<>", "!=", source)
         transformed = re.sub(r"(?<![<>=!])=(?!=)", "==", transformed)
+        # Rockwell allows function calls without parens where the rest of
+        # the operand is the argument (e.g., "ABS x-y", "SQR dx*dx+dy*dy").
+        # Normalise to the parenthesised form so the identifier pass below
+        # treats it as a function call rather than a tag lookup.
+        for rockwell_name in FORMULA_FUNCTIONS:
+            transformed = re.sub(
+                rf"\b{rockwell_name}\s+(?!\()(.+?)$",
+                rf"{rockwell_name}(\1)",
+                transformed,
+            )
         transformed = IDENTIFIER_PATTERN.sub(
             lambda match: self._replace_identifier(match, transformed),
             transformed,

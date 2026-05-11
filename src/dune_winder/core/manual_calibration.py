@@ -1876,33 +1876,34 @@ class ManualCalibration:
 
         session = self._getSession(layer)
         reference = session.references.get(referenceId)
-        if reference is None:
-            # Use default reference position, applying camera offset to convert
-            # from wire space (physical location) to raw space (camera target)
+        if reference is None or reference.get("source") is None:
+            # No captured/loaded reference: fall back to the wire-space
+            # default, converting to raw camera coordinates with the current
+            # camera-wire offset.
             defaultWireX, defaultWireY = GX_REFERENCE_DEFAULT_WIRE_POSITIONS[
                 referenceId
             ]
-            wireX = defaultWireX - session.cameraOffsetX
-            wireY = defaultWireY - session.cameraOffsetY
+            wireX = float(defaultWireX)
+            wireY = float(defaultWireY)
+            cameraX = wireX - session.cameraOffsetX
+            cameraY = wireY - session.cameraOffsetY
         else:
             wireX = reference.get("wireX")
             wireY = reference.get("wireY")
-
-        if wireX is None or wireY is None:
-            return self._errorResult(
-                "No wire-space target is available for "
-                + GX_REFERENCE_LABELS[referenceId]
-                + "."
-            )
+            if wireX is None or wireY is None:
+                return self._errorResult(
+                    "No wire-space target is available for "
+                    + GX_REFERENCE_LABELS[referenceId]
+                    + "."
+                )
+            # Captured/loaded references are already stored in raw
+            # coordinate space, so they are also the camera target.
+            cameraX = float(wireX)
+            cameraY = float(wireY)
 
         velocityValue = None
         if velocity is not None:
             velocityValue = float(velocity)
-
-        # Stored wireX/wireY are in raw coordinate space already (no
-        # camera-wire offset baked in), so they are also the camera target.
-        cameraX = float(wireX)
-        cameraY = float(wireY)
         isError = self._process.manualSeekXY(cameraX, cameraY, velocityValue)
         if isError:
             return self._errorResult("Move request was rejected.")
