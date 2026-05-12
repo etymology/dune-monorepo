@@ -1343,6 +1343,52 @@ class Tensiometer:
 
     def measure_auto(self) -> None:
         """Measure all missing wires in the current layer/side using Rust core."""
+        from dune_tension.summaries import get_missing_wires
+
+        wires_dict = get_missing_wires(self.config)
+        wires_to_measure = list(map(int, wires_dict.get(self.config.side, [])))
+        if not wires_to_measure:
+            self.estimated_time_callback("0:00:00")
+            LOGGER.info("All wires are already measured.")
+            return
+
+        total = len(wires_to_measure)
+        self.estimated_time_callback("--")
+        progress_lock = threading.Lock()
+        progress_state = {"count": 0}
+        start_time = self._time()
+        stop_progress = threading.Event()
+        original_append = self.repository.append_result
+
+        def counting_append_result(result: TensionResult) -> None:
+            try:
+                original_append(result)
+            finally:
+                with progress_lock:
+                    progress_state["count"] += 1
+
+        def emit_eta() -> None:
+            while not stop_progress.wait(2.0):
+                with progress_lock:
+                    count = progress_state["count"]
+                if count <= 0:
+                    continue
+                remaining = total - count
+                if remaining <= 0:
+                    try:
+                        self.estimated_time_callback("0:00:00")
+                    except Exception:
+                        LOGGER.debug("estimated_time_callback raised", exc_info=True)
+                    return
+                elapsed = self._time() - start_time
+                avg_time = elapsed / count
+                est_remaining = avg_time * remaining
+                eta_text = str(timedelta(seconds=int(est_remaining)))
+                try:
+                    self.estimated_time_callback(eta_text)
+                except Exception:
+                    LOGGER.debug("estimated_time_callback raised", exc_info=True)
+
         import dune_tension_core
 
         def pesto_wrapper(audio, samplerate, expected_frequency):
@@ -1371,12 +1417,26 @@ class Tensiometer:
             harmonic_comb_config=self._harmonic_comb_config,
         )
 
+        self.repository.append_result = counting_append_result  # type: ignore[method-assign]
+        monitor_thread = threading.Thread(
+            target=emit_eta, name="tensiometer-eta-monitor", daemon=True
+        )
+        monitor_thread.start()
         try:
             core.measure_auto()
         except KeyboardInterrupt:
             LOGGER.info("Measurement interrupted by user.")
         except Exception as exc:
             LOGGER.exception("Rust measurement core failed: %s", exc)
+        finally:
+            stop_progress.set()
+            monitor_thread.join(timeout=3.0)
+            try:
+                del self.repository.append_result
+            except AttributeError:
+                self.repository.append_result = original_append  # type: ignore[method-assign]
+            if not check_stop_event(self.stop_event):
+                self.estimated_time_callback("0:00:00")
 
     def measure_list(
         self, wire_list: list[int], preserve_order: bool, profile: bool = False
