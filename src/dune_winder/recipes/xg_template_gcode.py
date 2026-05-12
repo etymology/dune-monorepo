@@ -32,6 +32,11 @@ WRAP_COUNTS = {
     "G": 481,
 }
 
+SPOOL_CHANGE_MIDDLE_WRAPS = {
+    "X": 240,
+    "G": 240,
+}
+
 REFERENCE_IDS = ("head", "foot")
 OFFSET_IDS = ("headA", "headB", "footA", "footB")
 
@@ -188,6 +193,7 @@ def _render_wrap_lines(
     foot_b_offset,
     transfer_pause,
     include_lead_mode,
+    spool_change_pause=False,
 ):
     spacing_offset = (wrap_number - 1) * WIRE_SPACING
     head_a_value = wire_head_y + head_a_offset + spacing_offset
@@ -244,6 +250,21 @@ def _render_wrap_lines(
         emit_callback=emit_wrap_step,
     )
 
+    if spool_change_pause:
+        for index, (_, head_restart) in enumerate(wrap_steps):
+            if head_restart:
+                wrap_steps.insert(
+                    index + 1,
+                    _wrap_step(_line("G111", "(spool change pause)")),
+                )
+                break
+        else:
+            raise ValueError(
+                "No head restart step found in wrap "
+                + str(wrap_number)
+                + " for spool change pause."
+            )
+
     return _annotate_wrap_lines(wrap_number, wrap_steps)
 
 
@@ -279,6 +300,13 @@ def render_xg_template_lines(
             special_inputs.get("include_lead_mode", True),
         )
     )
+    spool_change_pause = bool(
+        special_inputs.get(
+            "spoolChangePause",
+            special_inputs.get("spool_change_pause", False),
+        )
+    )
+    spool_change_middle_wrap = SPOOL_CHANGE_MIDDLE_WRAPS.get(layer)
 
     lines = []
     base_environment = {
@@ -311,6 +339,9 @@ def render_xg_template_lines(
                 foot_b_offset=foot_b_offset,
                 transfer_pause=transfer_pause,
                 include_lead_mode=include_lead_mode,
+                spool_change_pause=(
+                    spool_change_pause and wrap_number == spool_change_middle_wrap
+                ),
             )
         )
 

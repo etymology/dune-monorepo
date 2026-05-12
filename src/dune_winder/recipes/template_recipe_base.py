@@ -68,6 +68,7 @@ class TemplateRecipeBase:
         add_foot_pauses=False,
         include_lead_mode=False,
         strip_g113_params=False,
+        spool_change_pause=False,
         named_inputs=None,
         special_inputs=None,
         archive_directory=None,
@@ -79,6 +80,7 @@ class TemplateRecipeBase:
             transfer_pause,
             add_foot_pauses,
             include_lead_mode,
+            spool_change_pause,
             named_inputs,
             special_inputs,
             archive_directory,
@@ -116,6 +118,7 @@ class TemplateRecipeBase:
         self._addFootPauses = False
         self._includeLeadMode = False
         self._stripG113Params = False
+        self._spoolChangePause = False
         self._dirty = False
         self._generated = {"hashValue": None, "updatedAt": None}
         self._lastGeneratedScriptVariant = None
@@ -263,6 +266,7 @@ class TemplateRecipeBase:
         self._addFootPauses = False
         self._includeLeadMode = False
         self._stripG113Params = False
+        self._spoolChangePause = False
         self._resetExtraState()
         self._dirty = bool(markDirty)
 
@@ -283,6 +287,9 @@ class TemplateRecipeBase:
         self._addFootPauses = bool(data.get("addFootPauses", self._addFootPauses))
         self._includeLeadMode = bool(data.get("includeLeadMode", self._includeLeadMode))
         self._stripG113Params = bool(data.get("stripG113Params", self._stripG113Params))
+        self._spoolChangePause = bool(
+            data.get("spoolChangePause", self._spoolChangePause)
+        )
         self._lastGeneratedScriptVariant = data.get("lastGeneratedScriptVariant")
         self._dirty = bool(data.get("dirty", self._dirty))
         generated = data.get("generated", {})
@@ -327,6 +334,7 @@ class TemplateRecipeBase:
                 "addFootPauses": self._addFootPauses,
                 "includeLeadMode": self._includeLeadMode,
                 "stripG113Params": self._stripG113Params,
+                "spoolChangePause": self._spoolChangePause,
                 "lastGeneratedScriptVariant": self._lastGeneratedScriptVariant,
                 "dirty": self._dirty,
                 "generated": dict(self._generated),
@@ -393,6 +401,7 @@ class TemplateRecipeBase:
             "addFootPauses": self._addFootPauses,
             "includeLeadMode": self._includeLeadMode,
             "stripG113Params": self._stripG113Params,
+            "spoolChangePause": self._spoolChangePause,
             "offsets": dict(self._offsets),
             "lineOffsetOverrides": dict(self._lineOffsetOverrides),
             "lineOffsetOverrideItems": line_offset_override_items(
@@ -589,6 +598,23 @@ class TemplateRecipeBase:
         return self._okResult({"stripG113Params": self._stripG113Params})
 
     # -------------------------------------------------------------------
+    def setSpoolChangePause(self, enabled):
+        self._ensureDraftStateLoaded()
+
+        _, error = self._getActiveLayer()
+        if error is not None:
+            return self._errorResult(error)
+
+        blocked = self._mutationGuard()
+        if blocked is not None:
+            return blocked
+
+        self._spoolChangePause = bool(enabled)
+        self._dirty = True
+        self._persistState()
+        return self._okResult({"spoolChangePause": self._spoolChangePause})
+
+    # -------------------------------------------------------------------
     def resetDraft(self, markDirty=True):
         self._ensureDraftStateLoaded()
 
@@ -609,6 +635,7 @@ class TemplateRecipeBase:
                 "addFootPauses": self._addFootPauses,
                 "includeLeadMode": self._includeLeadMode,
                 "stripG113Params": self._stripG113Params,
+                "spoolChangePause": self._spoolChangePause,
                 "lineOffsetOverrides": dict(self._lineOffsetOverrides),
                 **self._extraPublicState(),
             }
@@ -637,6 +664,7 @@ class TemplateRecipeBase:
             "add_foot_pauses": self._addFootPauses,
             "include_lead_mode": self._includeLeadMode,
             "strip_g113_params": self._stripG113Params,
+            "spool_change_pause": self._spoolChangePause,
             "line_offset_overrides": dict(self._lineOffsetOverrides),
             "archive_directory": self._recipeArchiveDirectory(),
             **self._generationKwargs(),

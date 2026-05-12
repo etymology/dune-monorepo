@@ -869,6 +869,7 @@ function Calibrate(modules)
       false
     )
     $( "#manualCalibrationTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#manualCalibrationSpoolChangePause" ).prop( "checked", !! state.spoolChangePause )
     $( "#manualCalibrationIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#manualCalibrationStripG113Params" ).prop( "checked", !! state.stripG113Params )
     $( "#manualCalibrationGenerateButton" ).text( "Generate " + ( state.layer || "X" ) + "-layer.gc" )
@@ -1071,6 +1072,22 @@ function Calibrate(modules)
     (
       commands.process.manualCalibrationSetStripG113Params,
       { enabled: $( "#manualCalibrationStripG113Params" ).is( ":checked" ) },
+      function()
+      {
+        refreshStateOnce()
+      }
+    )
+  }
+
+  function applySpoolChangePause()
+  {
+    if ( ! lastState || ! lastState.enabled || ! isGXMode() )
+      return
+
+    manualAction
+    (
+      commands.process.manualCalibrationSetSpoolChangePause,
+      { enabled: $( "#manualCalibrationSpoolChangePause" ).is( ":checked" ) },
       function()
       {
         refreshStateOnce()
@@ -1606,6 +1623,7 @@ function Calibrate(modules)
   $( "#manualCalibrationFootAOffset" ).change( function() { applyGXOffsetInput( "footA", "#manualCalibrationFootAOffset" ) } )
   $( "#manualCalibrationFootBOffset" ).change( function() { applyGXOffsetInput( "footB", "#manualCalibrationFootBOffset" ) } )
   $( "#manualCalibrationTransferPause" ).change( applyTransferPause )
+  $( "#manualCalibrationSpoolChangePause" ).change( applySpoolChangePause )
   $( "#manualCalibrationIncludeLeadMode" ).change( applyIncludeLeadMode )
   $( "#manualCalibrationStripG113Params" ).change( applyStripG113Params )
 

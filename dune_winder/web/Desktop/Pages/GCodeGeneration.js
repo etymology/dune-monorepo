@@ -298,6 +298,7 @@ function GCodeGeneration( modules )
     }
 
     $( "#gCodeGenerationVTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#gCodeGenerationVSpoolChangePause" ).prop( "checked", !! state.spoolChangePause )
     $( "#gCodeGenerationVAddFootPauses" ).prop( "checked", !! state.addFootPauses )
     $( "#gCodeGenerationVIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#gCodeGenerationVStripG113Params" ).prop( "checked", !! state.stripG113Params )
@@ -386,6 +387,7 @@ function GCodeGeneration( modules )
     }
 
     $( "#gCodeGenerationUTransferPause" ).prop( "checked", !! state.transferPause )
+    $( "#gCodeGenerationUSpoolChangePause" ).prop( "checked", !! state.spoolChangePause )
     $( "#gCodeGenerationUAddFootPauses" ).prop( "checked", !! state.addFootPauses )
     $( "#gCodeGenerationUIncludeLeadMode" ).prop( "checked", !! state.includeLeadMode )
     $( "#gCodeGenerationUYHover" ).prop( "checked", !! state.pullIns && $.isNumeric( state.pullIns.Y_HOVER ) && parseFloat( state.pullIns.Y_HOVER ) > 0 )
@@ -910,6 +912,12 @@ function GCodeGeneration( modules )
         args: { enabled: $( "#gCodeGenerationVStripG113Params" ).is( ":checked" ) }
       }
     )
+    actions.push(
+      {
+        command: commands.process.vTemplateSetSpoolChangePause,
+        args: { enabled: $( "#gCodeGenerationVSpoolChangePause" ).is( ":checked" ) }
+      }
+    )
 
     return actions
   }
@@ -985,6 +993,12 @@ function GCodeGeneration( modules )
       {
         command: commands.process.uTemplateSetStripG113Params,
         args: { enabled: $( "#gCodeGenerationUStripG113Params" ).is( ":checked" ) }
+      }
+    )
+    actions.push(
+      {
+        command: commands.process.uTemplateSetSpoolChangePause,
+        args: { enabled: $( "#gCodeGenerationUSpoolChangePause" ).is( ":checked" ) }
       }
     )
 
@@ -1126,6 +1140,22 @@ function GCodeGeneration( modules )
     )
   }
 
+  function applyVSpoolChangePause()
+  {
+    if ( activeLayer != "V" || ! lastVState || ! lastVState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.vTemplateSetSpoolChangePause,
+      { enabled: $( "#gCodeGenerationVSpoolChangePause" ).is( ":checked" ) },
+      function()
+      {
+        refreshVStateOnce()
+      }
+    )
+  }
+
   function applyUOffsetInput( offsetId )
   {
     if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
@@ -1229,6 +1259,22 @@ function GCodeGeneration( modules )
     (
       commands.process.uTemplateSetStripG113Params,
       { enabled: $( "#gCodeGenerationUStripG113Params" ).is( ":checked" ) },
+      function()
+      {
+        refreshUStateOnce()
+      }
+    )
+  }
+
+  function applyUSpoolChangePause()
+  {
+    if ( activeLayer != "U" || ! lastUState || ! lastUState.enabled )
+      return
+
+    pageAction
+    (
+      commands.process.uTemplateSetSpoolChangePause,
+      { enabled: $( "#gCodeGenerationUSpoolChangePause" ).is( ":checked" ) },
       function()
       {
         refreshUStateOnce()
@@ -1423,6 +1469,15 @@ function GCodeGeneration( modules )
       }
     )
 
+  $( "#gCodeGenerationVSpoolChangePause" )
+    .change
+    (
+      function()
+      {
+        applyVSpoolChangePause()
+      }
+    )
+
   $( "#gCodeGenerationGXTransferPause" )
     .change
     (
@@ -1474,6 +1529,15 @@ function GCodeGeneration( modules )
       function()
       {
         applyUStripG113Params()
+      }
+    )
+
+  $( "#gCodeGenerationUSpoolChangePause" )
+    .change
+    (
+      function()
+      {
+        applyUSpoolChangePause()
       }
     )
 
