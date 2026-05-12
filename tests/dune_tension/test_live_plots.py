@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import queue
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from pathlib import Path
 import sys
@@ -101,6 +103,15 @@ def _make_manager(monkeypatch) -> LivePlotManager:
     manager._waveform_pending = None
     manager._waveform_in_flight = False
     manager._waveform_last_started_at = None
+    manager._tk_queue = queue.Queue()
+    manager._pump_running = True
+    manager._summary_executor = ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="test-summary"
+    )
+    manager._waveform_executor = ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="test-waveform"
+    )
+    manager._start_tk_pump()
     return manager
 
 
@@ -238,3 +249,96 @@ def test_finish_waveform_refresh_drops_stale_generation(monkeypatch) -> None:
 
 def test_throttle_constant_is_configured() -> None:
     assert WAVEFORM_MIN_RENDER_INTERVAL_S >= 0.05
+
+
+def test_on_tk_thread_does_not_block_when_called_from_worker(monkeypatch) -> None:
+    """A worker thread enqueuing onto _tk_queue must not block on Tcl."""
+
+    manager = _make_manager(monkeypatch)
+
+    received: list[str] = []
+
+    def callback() -> None:
+        received.append("ran")
+
+    started = threading.Event()
+    finished = threading.Event()
+
+    def caller() -> None:
+        started.set()
+        manager._on_tk_thread(callback)
+        finished.set()
+
+    worker = threading.Thread(target=caller, daemon=True)
+    worker.start()
+    assert started.wait(timeout=1.0)
+    assert finished.wait(timeout=0.5), (
+        "_on_tk_thread from a worker thread must not block"
+    )
+
+    # The callback is queued; the FakeRoot pump drains it on its next tick.
+    assert manager.root.drain_until(lambda: bool(received), timeout=2.0)
+    assert received == ["ran"]
+
+
+def test_waveform_render_continues_when_figure_lock_is_held(monkeypatch) -> None:
+    """A hung holder of the figure lock must not stop measurement-side dispatch."""
+
+    manager = _make_manager(monkeypatch)
+
+    from dune_tension._matplotlib_lock import get_figure_lock
+
+    lock = get_figure_lock()
+    lock.acquire()
+    try:
+        worker_unblocked = threading.Event()
+
+        def caller() -> None:
+            manager.publish_waveform(
+                np.array([0.0, 0.1, 0.2], dtype=float), 8000, None
+            )
+            worker_unblocked.set()
+
+        thread = threading.Thread(target=caller, daemon=True)
+        thread.start()
+
+        assert worker_unblocked.wait(timeout=0.5), (
+            "publish_waveform from a worker thread must not block on the figure lock"
+        )
+
+        # The watchdog should fire and surface a "timed out" placeholder.
+        placeholder_text: list[str] = []
+        monkeypatch.setattr(
+            manager.waveform_placeholder,
+            "configure",
+            lambda **kw: placeholder_text.append(kw.get("text", "")),
+        )
+
+        assert manager.root.drain_until(
+            lambda: any("timed out" in t for t in placeholder_text),
+            timeout=live_plots.WAVEFORM_PLOT_TIMEOUT_S + 2.0,
+        ), f"watchdog should produce a 'timed out' placeholder; got {placeholder_text}"
+    finally:
+        lock.release()
+
+
+def test_summary_refresh_does_not_block_caller(monkeypatch) -> None:
+    """request_summary_refresh from a worker thread must return immediately."""
+
+    manager = _make_manager(monkeypatch)
+    config = SimpleNamespace(apa_name="APA", layer="X")
+
+    started = threading.Event()
+    finished = threading.Event()
+
+    def caller() -> None:
+        started.set()
+        manager.request_summary_refresh(config)
+        finished.set()
+
+    thread = threading.Thread(target=caller, daemon=True)
+    thread.start()
+    assert started.wait(timeout=1.0)
+    assert finished.wait(timeout=0.2), (
+        "request_summary_refresh from a worker must not block"
+    )

@@ -1,18 +1,37 @@
-"""Embedded live plot support for the Tkinter GUI."""
+"""Embedded live plot support for the Tkinter GUI.
+
+Two design rules keep the GUI responsive while measurements run:
+
+1. Worker threads **never** call into Tk directly. They push callables onto a
+   ``queue.Queue`` that the Tk main thread drains via a periodic ``root.after``
+   poller. This avoids contention on Tcl's global interpreter lock, which
+   would otherwise stall the measurement worker when the Tk thread is busy.
+
+2. Every plot job is bounded by a watchdog. If a build (or the
+   ``figure_lock``) takes longer than the configured timeout we abandon the
+   result by advancing a generation counter and show a "plot skipped"
+   placeholder. The matplotlib worker thread keeps running until it returns
+   — Python can't preempt threads — but the GUI moves on.
+"""
 
 from __future__ import annotations
 
+import logging
+import queue
 import threading
 import time
-from typing import Any
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable
 import tkinter as tk
 
 import numpy as np
 from matplotlib.figure import Figure
 
-from dune_tension._matplotlib_lock import figure_lock
+from dune_tension._matplotlib_lock import figure_lock_or_skip
 from dune_tension.summaries import build_summary_plot_figure_for_config
 from spectrum_analysis.pitch_compare_config import PitchCompareConfig
+
+LOGGER = logging.getLogger(__name__)
 
 FigureCanvasTkAgg: Any = None
 try:  # pragma: no cover - backend availability depends on the runtime environment
@@ -27,6 +46,12 @@ except Exception:  # pragma: no cover - fall back to text placeholders in tests/
 LIVE_SUMMARY_FIGSIZE = (6.0, 5.6)
 LIVE_WAVEFORM_FIGSIZE = (11.2, 7.0)
 WAVEFORM_MIN_RENDER_INTERVAL_S = 0.2
+
+SUMMARY_PLOT_TIMEOUT_S = 5.0
+WAVEFORM_PLOT_TIMEOUT_S = 3.0
+TK_DRAW_LOCK_TIMEOUT_S = 2.0
+TK_PUMP_INTERVAL_MS = 20
+TK_PUMP_MAX_CALLBACKS_PER_TICK = 32
 
 
 class LivePlotManager:
@@ -64,6 +89,30 @@ class LivePlotManager:
         self._waveform_pending: tuple[np.ndarray, int, Any | None] | None = None
         self._waveform_in_flight = False
         self._waveform_last_started_at: float | None = None
+
+        self._tk_queue: queue.Queue[Callable[[], None]] = queue.Queue()
+        self._pump_running = True
+        self._summary_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="live-plot-summary"
+        )
+        self._waveform_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="live-plot-waveform"
+        )
+        self._start_tk_pump()
+
+    def shutdown(self) -> None:
+        """Stop the Tk pump and the plot executors.
+
+        Safe to call multiple times. After shutdown the manager will silently
+        drop further work — useful during application teardown so threads
+        don't outlive the Tk root.
+        """
+        self._pump_running = False
+        for executor in (self._summary_executor, self._waveform_executor):
+            try:
+                executor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
 
     def publish_waveform(
         self,
@@ -111,29 +160,48 @@ class LivePlotManager:
 
         self._summary_generation += 1
         generation = self._summary_generation
-        worker = threading.Thread(
-            target=self._build_summary_figure_in_background,
-            args=(config, generation),
-            daemon=True,
-        )
-        worker.start()
 
-    def _build_summary_figure_in_background(self, config: Any, generation: int) -> None:
+        timer = self._start_watchdog(
+            "summary",
+            generation,
+            SUMMARY_PLOT_TIMEOUT_S,
+            lambda: self._finish_summary_refresh(generation, None, _PlotTimeout()),
+            lambda: generation == self._summary_generation,
+            lambda: self._invalidate_summary_generation(generation),
+        )
+
+        try:
+            self._summary_executor.submit(
+                self._build_summary_figure_in_background, config, generation, timer
+            )
+        except RuntimeError:
+            timer.cancel()
+
+    def _build_summary_figure_in_background(
+        self, config: Any, generation: int, timer: threading.Timer
+    ) -> None:
         try:
             figure = build_summary_plot_figure_for_config(
                 config,
                 figsize=LIVE_SUMMARY_FIGSIZE,
+                timeout=SUMMARY_PLOT_TIMEOUT_S,
             )
         except Exception as exc:
+            timer.cancel()
             captured_exc = exc
             self._on_tk_thread(
                 lambda: self._finish_summary_refresh(generation, None, captured_exc)
             )
             return
 
+        timer.cancel()
         self._on_tk_thread(
             lambda: self._finish_summary_refresh(generation, figure, None)
         )
+
+    def _invalidate_summary_generation(self, generation: int) -> None:
+        if generation == self._summary_generation:
+            self._summary_generation += 1
 
     def _finish_summary_refresh(
         self,
@@ -147,6 +215,12 @@ class LivePlotManager:
             return
 
         if error is not None:
+            if isinstance(error, _PlotTimeout):
+                self._set_placeholder(
+                    self.summary_placeholder,
+                    "Summary plot skipped (timed out).",
+                )
+                return
             if self.summary_canvas is not None:
                 return
             self._set_placeholder(
@@ -218,12 +292,27 @@ class LivePlotManager:
         generation = self._waveform_generation
         self._waveform_last_started_at = now
 
-        worker = threading.Thread(
-            target=self._build_waveform_figure_in_background,
-            args=(waveform, samplerate, analysis, generation),
-            daemon=True,
+        timer = self._start_watchdog(
+            "waveform",
+            generation,
+            WAVEFORM_PLOT_TIMEOUT_S,
+            lambda: self._finish_waveform_refresh(generation, None, _PlotTimeout()),
+            lambda: generation == self._waveform_generation,
+            lambda: self._invalidate_waveform_generation(generation),
         )
-        worker.start()
+
+        try:
+            self._waveform_executor.submit(
+                self._build_waveform_figure_in_background,
+                waveform,
+                samplerate,
+                analysis,
+                generation,
+                timer,
+            )
+        except RuntimeError:
+            timer.cancel()
+            self._waveform_in_flight = False
 
     def _build_waveform_figure_in_background(
         self,
@@ -231,22 +320,35 @@ class LivePlotManager:
         samplerate: int,
         analysis: Any | None,
         generation: int,
+        timer: threading.Timer,
     ) -> None:
-        try:
-            with figure_lock():
-                figure = self._build_audio_diagnostics_figure(
-                    waveform, samplerate, analysis
+        figure: Figure | None = None
+        error: Exception | None = None
+        with figure_lock_or_skip(WAVEFORM_PLOT_TIMEOUT_S) as acquired:
+            if not acquired:
+                error = _PlotTimeout()
+                LOGGER.warning(
+                    "Waveform plot %d: figure lock busy (>%.1fs); skipping",
+                    generation,
+                    WAVEFORM_PLOT_TIMEOUT_S,
                 )
-        except Exception as exc:
-            captured_exc = exc
-            self._on_tk_thread(
-                lambda: self._finish_waveform_refresh(generation, None, captured_exc)
-            )
-            return
+            else:
+                try:
+                    figure = self._build_audio_diagnostics_figure(
+                        waveform, samplerate, analysis
+                    )
+                except Exception as exc:
+                    error = exc
 
+        timer.cancel()
         self._on_tk_thread(
-            lambda: self._finish_waveform_refresh(generation, figure, None)
+            lambda: self._finish_waveform_refresh(generation, figure, error)
         )
+
+    def _invalidate_waveform_generation(self, generation: int) -> None:
+        if generation == self._waveform_generation:
+            self._waveform_generation += 1
+        self._waveform_in_flight = False
 
     def _finish_waveform_refresh(
         self,
@@ -263,10 +365,16 @@ class LivePlotManager:
             return
 
         if error is not None:
-            self._set_placeholder(
-                self.waveform_placeholder,
-                f"Failed to render waveform plot:\n{error}",
-            )
+            if isinstance(error, _PlotTimeout):
+                self._set_placeholder(
+                    self.waveform_placeholder,
+                    "Waveform plot skipped (timed out).",
+                )
+            else:
+                self._set_placeholder(
+                    self.waveform_placeholder,
+                    f"Failed to render waveform plot:\n{error}",
+                )
             self._dispatch_pending_waveform()
             return
 
@@ -296,15 +404,22 @@ class LivePlotManager:
             placeholder.grid_forget()
 
         canvas = FigureCanvasTkAgg(figure, master=parent)
-        try:
-            with figure_lock():
-                canvas.draw()
-        except KeyboardInterrupt:
-            # GUI interrupted during drawing - safe to ignore
-            pass
-        except Exception:
-            # Other drawing errors - still display the canvas
-            pass
+        with figure_lock_or_skip(TK_DRAW_LOCK_TIMEOUT_S) as acquired:
+            if not acquired:
+                LOGGER.warning(
+                    "%s canvas.draw skipped: figure lock busy (>%.1fs)",
+                    kind,
+                    TK_DRAW_LOCK_TIMEOUT_S,
+                )
+            else:
+                try:
+                    canvas.draw()
+                except KeyboardInterrupt:
+                    # GUI interrupted during drawing - safe to ignore
+                    pass
+                except Exception:
+                    # Other drawing errors - still display the canvas
+                    pass
         canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
         if kind == "summary":
@@ -319,14 +434,71 @@ class LivePlotManager:
         except Exception:
             return
 
-    def _on_tk_thread(self, callback) -> None:
-        try:
-            if threading.current_thread() is threading.main_thread():
+    def _on_tk_thread(self, callback: Callable[[], None]) -> None:
+        if threading.current_thread() is threading.main_thread():
+            try:
                 callback()
-            else:
-                self.root.after(0, callback)
-        except Exception:
+            except Exception as exc:
+                LOGGER.warning("Tk callback failed: %s", exc)
             return
+        try:
+            self._tk_queue.put_nowait(callback)
+        except Exception:
+            pass
+
+    def _start_tk_pump(self) -> None:
+        try:
+            self.root.after(TK_PUMP_INTERVAL_MS, self._drain_tk_queue)
+        except Exception:
+            pass
+
+    def _drain_tk_queue(self) -> None:
+        if not self._pump_running:
+            return
+        for _ in range(TK_PUMP_MAX_CALLBACKS_PER_TICK):
+            try:
+                callback = self._tk_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                callback()
+            except Exception as exc:
+                LOGGER.warning("Tk pump callback failed: %s", exc)
+        try:
+            self.root.after(TK_PUMP_INTERVAL_MS, self._drain_tk_queue)
+        except Exception:
+            pass
+
+    def _start_watchdog(
+        self,
+        kind: str,
+        generation: int,
+        timeout_s: float,
+        on_timeout_tk: Callable[[], None],
+        still_current: Callable[[], bool],
+        invalidate: Callable[[], None],
+    ) -> threading.Timer:
+        """Start a daemon timer that marks the job aborted on timeout."""
+
+        def fire() -> None:
+            if not still_current():
+                return
+            LOGGER.warning(
+                "%s plot generation %d timed out after %.1fs; abandoning",
+                kind,
+                generation,
+                timeout_s,
+            )
+            # Surface the placeholder before invalidating: the finish
+            # callback would otherwise see the bumped generation and bail
+            # without updating the UI.
+            self._on_tk_thread(on_timeout_tk)
+            self._on_tk_thread(invalidate)
+
+        timer = threading.Timer(timeout_s, fire)
+        timer.daemon = True
+        timer.start()
+        return timer
 
     @staticmethod
     def _build_audio_diagnostics_figure(
@@ -676,3 +848,7 @@ class LivePlotManager:
         if not np.isfinite(limit) or limit <= 0.0:
             return float(fallback_max)
         return float(min(fallback_max, limit))
+
+
+class _PlotTimeout(Exception):
+    """Sentinel exception that signals a plot job was abandoned by its watchdog."""

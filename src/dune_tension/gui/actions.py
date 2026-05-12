@@ -78,6 +78,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 FOCUS_X_MM_PER_QUARTER_US = (20.0 / 4000.0) / math.sqrt(3.0)
+MONITOR_PLOT_TIMEOUT_S = 8.0
 
 
 def _current_apa_name(widgets: Any) -> str:
@@ -1922,7 +1923,7 @@ def monitor_tension_logs(ctx: GUIContext) -> None:
             try:
                 from dune_tension.summaries import update_tension_logs
 
-                update_tension_logs(cfg)
+                update_tension_logs(cfg, plot_timeout=MONITOR_PLOT_TIMEOUT_S)
                 _request_live_summary_refresh(ctx, cfg)
                 LOGGER.info(
                     "Updated tension logs for %s layer %s",

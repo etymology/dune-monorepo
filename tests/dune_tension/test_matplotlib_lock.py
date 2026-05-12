@@ -8,15 +8,24 @@ from pathlib import Path
 import sys
 
 
-from dune_tension._matplotlib_lock import figure_lock, get_figure_lock
+from dune_tension._matplotlib_lock import (
+    figure_lock,
+    figure_lock_or_skip,
+    get_figure_lock,
+)
 
 
-def test_figure_lock_is_a_reentrant_lock() -> None:
+def test_figure_lock_or_skip_returns_false_on_contention() -> None:
     lock = get_figure_lock()
-    # RLock supports re-entry from the same thread; a regular Lock would deadlock.
-    with lock:
-        with lock:
-            assert True
+    lock.acquire()
+    try:
+        with figure_lock_or_skip(timeout=0.05) as acquired:
+            assert acquired is False
+    finally:
+        lock.release()
+
+    with figure_lock_or_skip(timeout=0.05) as acquired:
+        assert acquired is True
 
 
 def test_figure_lock_serializes_concurrent_acquirers() -> None:

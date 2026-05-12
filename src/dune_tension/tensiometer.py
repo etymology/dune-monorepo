@@ -38,6 +38,39 @@ LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
 _STRUM_LOOP_INTERVAL_SECONDS = 0.03
+_SUMMARY_REFRESH_GUARD_S = 0.5
+
+
+def _invoke_with_timeout(
+    callback: Callable[..., Any],
+    *args: Any,
+    timeout_s: float,
+    label: str,
+) -> None:
+    """Run ``callback`` in a daemon thread; return after ``timeout_s`` seconds.
+
+    The thread keeps running on its own if the callback hasn't returned; we
+    just stop waiting. This guarantees the wire loop never blocks on a
+    misbehaving callback (e.g. a plot dispatch that has wedged).
+    """
+
+    def _runner() -> None:
+        try:
+            callback(*args)
+        except Exception as exc:  # noqa: BLE001 — callback is user code
+            LOGGER.debug("%s raised: %s", label, exc)
+
+    thread = threading.Thread(
+        target=_runner, name=f"timeout-guard-{label}", daemon=True
+    )
+    thread.start()
+    thread.join(timeout=timeout_s)
+    if thread.is_alive():
+        LOGGER.warning(
+            "%s exceeded %.2fs wall-clock guard; continuing measurement",
+            label,
+            timeout_s,
+        )
 
 
 def _compile_legacy_tension_condition(expr: str) -> Callable[[float], bool]:
@@ -2128,10 +2161,12 @@ class Tensiometer:
         self.repository.append_result(result)
         self._record_wire_stage("append_result", self._profile_time() - append_started)
         refresh_started = self._profile_time()
-        try:
-            self.summary_refresh_callback(self.config)
-        except Exception as exc:
-            LOGGER.debug("Summary refresh callback failed: %s", exc)
+        _invoke_with_timeout(
+            self.summary_refresh_callback,
+            self.config,
+            timeout_s=_SUMMARY_REFRESH_GUARD_S,
+            label="summary_refresh_callback",
+        )
         self._record_wire_stage(
             "summary_refresh",
             self._profile_time() - refresh_started,

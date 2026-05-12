@@ -1,16 +1,19 @@
+import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.figure import Figure
 
-from dune_tension._matplotlib_lock import figure_lock
+from dune_tension._matplotlib_lock import figure_lock, figure_lock_or_skip
 from dune_tension.data_cache import select_dataframe
 from dune_tension.paths import data_path
 from dune_tension.tension_calculation import tension_plausible
 from dune_tension.tensiometer_functions import TensiometerConfig
+
+LOGGER = logging.getLogger(__name__)
 
 
 def get_expected_range(layer: str) -> range:
@@ -157,9 +160,18 @@ def save_plot(
     apa_name: str,
     layer: str,
     output_dir: str,
-) -> None:
+    *,
+    timeout: Optional[float] = None,
+) -> bool:
+    """Render and save the summary plot. Returns True if written, False if skipped.
+
+    When ``timeout`` is None (default) this blocks on the figure lock. When a
+    timeout is supplied and the lock is contended past it, the call returns
+    ``False`` without saving so callers can move on rather than block.
+    """
     os.makedirs(output_dir, exist_ok=True)
-    with figure_lock():
+
+    def _do_save() -> bool:
         figure = build_summary_plot_figure(
             line_data,
             histogram_data,
@@ -167,11 +179,27 @@ def save_plot(
             layer,
         )
         if figure is None:
-            return
+            return False
         figure.savefig(
             os.path.join(output_dir, f"tension_plot_{apa_name}_{layer}.png"),
             dpi=300,
         )
+        return True
+
+    if timeout is None:
+        with figure_lock():
+            return _do_save()
+
+    with figure_lock_or_skip(timeout) as acquired:
+        if not acquired:
+            LOGGER.warning(
+                "save_plot skipped for %s layer %s: figure lock busy (>%.1fs)",
+                apa_name,
+                layer,
+                timeout,
+            )
+            return False
+        return _do_save()
 
 
 def build_summary_plot_figure(
@@ -342,12 +370,36 @@ def build_summary_plot_figure_for_config(
     config: TensiometerConfig,
     *,
     figsize: tuple[float, float] = (14, 5),
+    timeout: Optional[float] = None,
 ) -> Figure | None:
-    """Build the current summary figure for ``config`` from persisted results."""
+    """Build the current summary figure for ``config`` from persisted results.
+
+    Returns ``None`` if the figure lock could not be acquired within
+    ``timeout`` seconds (when supplied).
+    """
 
     measurements = _load_summary_measurements(config)
     _, line_data, histogram_data, _ = _compute_tensions(config, measurements)
-    with figure_lock():
+
+    if timeout is None:
+        with figure_lock():
+            return build_summary_plot_figure(
+                line_data,
+                histogram_data,
+                config.apa_name,
+                config.layer,
+                figsize=figsize,
+            )
+
+    with figure_lock_or_skip(timeout) as acquired:
+        if not acquired:
+            LOGGER.warning(
+                "build_summary_plot_figure_for_config skipped for %s layer %s: figure lock busy (>%.1fs)",
+                config.apa_name,
+                config.layer,
+                timeout,
+            )
+            return None
         return build_summary_plot_figure(
             line_data,
             histogram_data,
@@ -400,8 +452,16 @@ def _order_missing_wires(missing: List[int], measured: List[int]) -> List[int]:
     return ordered
 
 
-def update_tension_logs(config: TensiometerConfig) -> Dict[str, str]:
-    """Generate summary CSV, plot and missing wire log for ``config``."""
+def update_tension_logs(
+    config: TensiometerConfig,
+    *,
+    plot_timeout: Optional[float] = None,
+) -> Dict[str, str]:
+    """Generate summary CSV, plot and missing wire log for ``config``.
+
+    ``plot_timeout`` (seconds) bounds the wait for the matplotlib figure
+    lock; when omitted the plot step blocks until it can acquire the lock.
+    """
     measurements = _load_summary_measurements(config)
 
     tension_series, line_data, histogram_data, missing_wires = _compute_tensions(
@@ -420,7 +480,14 @@ def update_tension_logs(config: TensiometerConfig) -> Dict[str, str]:
     )
 
     write_summary_csv(tension_series, summary_path)
-    save_plot(line_data, histogram_data, config.apa_name, config.layer, output_dir)
+    save_plot(
+        line_data,
+        histogram_data,
+        config.apa_name,
+        config.layer,
+        output_dir,
+        timeout=plot_timeout,
+    )
     write_missing_wires(bad_path, config.apa_name, config.layer, missing_wires)
 
     return {
