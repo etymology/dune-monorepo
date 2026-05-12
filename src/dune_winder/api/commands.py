@@ -636,6 +636,18 @@ def build_command_registry(
         True,
     )
 
+    def manual_calibration_set_spool_change_pause(args):
+        _validateArgs(args, required=("enabled",))
+        return process.manualCalibration.setSpoolChangePause(
+            _asBool(args["enabled"], "enabled")
+        )
+
+    registry.register(
+        "process.manual_calibration.set_spool_change_pause",
+        manual_calibration_set_spool_change_pause,
+        True,
+    )
+
     registry.register(
         "process.manual_calibration.clear_gx_draft",
         lambda args: (_validateArgs(args), process.manualCalibration.clearGXDraft())[1],
@@ -903,6 +915,18 @@ def build_command_registry(
         True,
     )
 
+    def v_template_set_spool_change_pause(args):
+        _validateArgs(args, required=("enabled",))
+        return process.vTemplateRecipe.setSpoolChangePause(
+            _asBool(args["enabled"], "enabled")
+        )
+
+    registry.register(
+        "process.v_template.set_spool_change_pause",
+        v_template_set_spool_change_pause,
+        True,
+    )
+
     def v_template_reset_draft(args):
         _validateArgs(args, optional=("mark_dirty",))
         markDirty = args.get("mark_dirty", True)
@@ -997,6 +1021,18 @@ def build_command_registry(
     registry.register(
         "process.u_template.set_strip_g113_params",
         u_template_set_strip_g113_params,
+        True,
+    )
+
+    def u_template_set_spool_change_pause(args):
+        _validateArgs(args, required=("enabled",))
+        return process.uTemplateRecipe.setSpoolChangePause(
+            _asBool(args["enabled"], "enabled")
+        )
+
+    registry.register(
+        "process.u_template.set_spool_change_pause",
+        u_template_set_spool_change_pause,
         True,
     )
 

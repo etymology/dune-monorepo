@@ -398,6 +398,7 @@ class _ManualCalibrationGXSession:
         self.transferPause = True
         self.includeLeadMode = True
         self.stripG113Params = True
+        self.spoolChangePause = False
         self.generated = {}
         self.dirty = False
 
@@ -597,6 +598,7 @@ class ManualCalibration:
         session.transferPause = bool(data.get("transferPause", True))
         session.includeLeadMode = bool(data.get("includeLeadMode", True))
         session.stripG113Params = bool(data.get("stripG113Params", True))
+        session.spoolChangePause = bool(data.get("spoolChangePause", False))
         session.generated = self._emptyGXGenerated(session)
         generated = data.get("generated", {})
         if generated is not None:
@@ -627,6 +629,7 @@ class ManualCalibration:
                 "transferPause": session.transferPause,
                 "includeLeadMode": session.includeLeadMode,
                 "stripG113Params": session.stripG113Params,
+                "spoolChangePause": session.spoolChangePause,
                 "references": {},
                 "offsets": {},
                 "generated": dict(session.generated),
@@ -1071,6 +1074,7 @@ class ManualCalibration:
         session.transferPause = True
         session.includeLeadMode = True
         session.stripG113Params = True
+        session.spoolChangePause = False
         session.generated = self._emptyGXGenerated(session)
         session.dirty = False
         session.initialized = True
@@ -1463,6 +1467,7 @@ class ManualCalibration:
                 "transferPause": session.transferPause,
                 "includeLeadMode": session.includeLeadMode,
                 "stripG113Params": session.stripG113Params,
+                "spoolChangePause": session.spoolChangePause,
                 "wrapCount": GX_WRAP_COUNTS[layer],
                 "wireSpacing": GX_WIRE_SPACING,
                 "counts": {
@@ -2005,6 +2010,22 @@ class ManualCalibration:
         return self._okResult({"stripG113Params": session.stripG113Params})
 
     # -------------------------------------------------------------------
+    def setSpoolChangePause(self, enabled):
+        layer, error = self._getActiveLayerForMode("gx")
+        if error is not None:
+            return self._errorResult(error)
+
+        blocked = self._mutationGuard()
+        if blocked is not None:
+            return blocked
+
+        session = self._getSession(layer)
+        session.spoolChangePause = bool(enabled)
+        session.dirty = True
+        self._persistSession(session)
+        return self._okResult({"spoolChangePause": session.spoolChangePause})
+
+    # -------------------------------------------------------------------
     def clearGXDraft(self):
         layer, error = self._getActiveLayerForMode("gx")
         if error is not None:
@@ -2068,6 +2089,7 @@ class ManualCalibration:
                 "offsets": session.offsets,
                 "transferPause": session.transferPause,
                 "includeLeadMode": session.includeLeadMode,
+                "spoolChangePause": session.spoolChangePause,
             },
             strip_g113_params=session.stripG113Params,
             archive_directory=self._recipeArchiveDirectory(),
@@ -2105,6 +2127,7 @@ class ManualCalibration:
                 session.transferPause,
                 session.includeLeadMode,
                 session.stripG113Params,
+                session.spoolChangePause,
             ],
         )
         return self._okResult(

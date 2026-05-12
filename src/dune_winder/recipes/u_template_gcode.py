@@ -29,6 +29,7 @@ from dune_winder.recipes.template_gcode_transfers import (
 
 
 WRAP_COUNT = 400
+SPOOL_CHANGE_MIDDLE_WRAP = 200
 Y_PULL_IN = 200.0
 X_PULL_IN = 200.0
 COMB_PULL_FACTOR = 4.0
@@ -182,6 +183,19 @@ def _apply_strip_g113_params(lines):
     return [
         re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
     ]
+
+
+def _insert_spool_change_pause(lines, wrap_start_index, wrap_number):
+    pause_line = _line("G111", "(spool change pause)")
+    for index in range(wrap_start_index, len(lines)):
+        if "(HEAD RESTART)" in lines[index]:
+            lines.insert(index + 1, pause_line)
+            return
+    raise UTemplateInputError(
+        "No head restart line found in wrap "
+        + str(wrap_number)
+        + " for spool change pause."
+    )
 
 
 def _normalize_script_variant(script_variant):
@@ -874,6 +888,7 @@ def render_u_template_lines(
     add_foot_pauses=False,
     include_lead_mode=False,
     strip_g113_params=False,
+    spool_change_pause=False,
     script_variant=SCRIPT_VARIANT_DEFAULT,
     named_inputs=None,
     special_inputs=None,
@@ -936,6 +951,7 @@ def render_u_template_lines(
         ]
 
         for wrap_number in range(1, WRAP_COUNT + 1):
+            wrap_start_index = len(lines)
             lines.extend(
                 _render_wrap_lines(
                     wrap_number,
@@ -945,6 +961,8 @@ def render_u_template_lines(
                     pull_ins,
                 )
             )
+            if spool_change_pause and wrap_number == SPOOL_CHANGE_MIDDLE_WRAP:
+                _insert_spool_change_pause(lines, wrap_start_index, wrap_number)
 
     if add_foot_pauses_value:
         lines = _apply_add_foot_pauses(lines)
@@ -1078,6 +1096,7 @@ def write_u_template_file(
     add_foot_pauses=False,
     include_lead_mode=False,
     strip_g113_params=False,
+    spool_change_pause=False,
     script_variant=SCRIPT_VARIANT_DEFAULT,
     named_inputs=None,
     special_inputs=None,
@@ -1106,6 +1125,7 @@ def write_u_template_file(
         add_foot_pauses=add_foot_pauses,
         include_lead_mode=include_lead_mode,
         strip_g113_params=strip_g113_params,
+        spool_change_pause=spool_change_pause,
         script_variant=resolved_script_variant,
         named_inputs=named_inputs,
         special_inputs=special_inputs,
@@ -1127,6 +1147,7 @@ def write_u_template_file(
         "transferPause": resolved_transfer_pause,
         "addFootPauses": resolved_add_foot_pauses,
         "includeLeadMode": resolved_include_lead_mode,
+        "spoolChangePause": bool(spool_change_pause),
         "pullIns": dict(resolved_pull_ins),
         "scriptVariant": resolved_script_variant,
         "wrapCount": WRAP_COUNT,

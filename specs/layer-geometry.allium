@@ -2,7 +2,8 @@
 -- layer-geometry.allium
 
 -- Scope: Final APA wire geometry for all four detector layers (U, V, X, G).
--- Currently specifies: U/V frame pin systems, A/B pin-side equivalence, board-edge ranges,
+-- Currently specifies: U/V frame pin systems, A/B literal endpoint families,
+--           board-edge ranges,
 --           final wire-segment endpoint formulas, endpoint edge classification,
 --           continuous pin succession for the single applied wire path,
 --           and wrap-side tangent normal signs needed to identify the occupied
@@ -234,11 +235,11 @@ config {
   g_foot: PinRange = { first: 362, last: 481 }
   g_top: PinRange = { first: 0, last: 0 }
 
-  -- U/V segment endpoint formulas (same pin number on A and B sides)
-  u_segment_1_start: Integer = 450
-  u_segment_1_end: Integer = 350
-  v_segment_1_start: Integer = 49
-  v_segment_1_end: Integer = 2350
+  -- U/V segment endpoint formulas
+  u_segment_1_start_b: Integer = 451
+  u_segment_1_end_b: Integer = 351
+  v_segment_1_start_b: Integer = 49
+  v_segment_1_end_b: Integer = 2350
 
   -- Wrap geometry (U/V specific)
   wrap_count: Integer = 400
@@ -374,10 +375,12 @@ rule DefineXgLayerFrames {
     -- wrap paths, and segment details will be added later.
 }
 
-invariant WireSegmentEndpointsSamePinNumber {
+invariant WireSegmentEndpointsUseLiteralFamilyNumbers {
   for segment in WireSegment:
     segment.endpoints_a.start.number = segment.endpoints_b.start.number
       and segment.endpoints_a.end.number = segment.endpoints_b.end.number
+      and segment.endpoints_a.start.side = a
+      and segment.endpoints_a.end.side = a
 }
 
 rule DefineUvWireSegment {
@@ -400,26 +403,36 @@ rule DefineUvWireSegment {
     -- Pin wrapping is inclusive modulo the layer pin count:
     --   wrap(layer, n) = 1 + ((n - 1) mod pin_count(layer))
     --
-    -- Segment endpoints use the same pin NUMBER on both the A and B sides.
-    -- The segment formula computes a physical pin number; "A" or "B" is simply
-    -- the side prefix applied to that same number for calibration lookup.
+    -- Tension-measurement segment endpoints use literal pin numbers on the
+    -- requested side.  For example, B1594 maps to A1594, not to the A-side
+    -- pin at the same physical front/back position.  Opposite-side physical
+    -- translation remains available to wrap-transition geometry, but it is
+    -- not the endpoint mapping for measured A/B tension wires.
     --
-    -- Endpoint formulas:
+    -- Canonical B-side endpoints:
     --   U segment s:
-    --     start = wrap(U, 450 + s - 1)   (same number on A and B)
-    --     end   = wrap(U, 350 - (s - 1)) (same number on A and B)
+    --     start = B wrap(U, 451 + s - 1)
+    --     end   = B wrap(U, 351 - (s - 1))
     --
     --   V segment s:
     --     start = wrap(V, 49 + s - 1)    (same number on A and B)
     --     end   = wrap(V, 2350 - (s - 1))(same number on A and B)
     --
-    -- Representative examples (number is identical for both sides):
-    --   U segment 1    -> pin 450, pin 350
-    --   U segment 8    -> pin 457, pin 343
-    --   U segment 1151 -> pin 1600, pin 1601
-    --   V segment 8    -> pin 56, pin 2343
-    --   V segment 401  -> pin 449, pin 1950
-    --   V segment 1151 -> pin 1199, pin 1200
+    -- Representative examples from the implementation:
+    --   U segment 1    -> B451, B351
+    --   U segment 8    -> B458, B344
+    --   U segment 1146 -> B1596, B1607
+    --   U segment 1151 -> B1601, B1602
+    --   V segment 8    -> B56, B2343
+    --   V segment 401  -> B449, B1950
+    --   V segment 1151 -> B1199, B1200
+    --
+    -- A-side endpoints keep the same literal pin numbers:
+    --   U segment 8    -> A458, A344
+    --   U segment 1146 -> A1596, A1607
+    --   U segment 1151 -> A1601, A1602
+    --   V segment 8    -> A56, A2343
+    --   V segment 1151 -> A1199, A1200
 }
 
 rule DefineXgWireSegment {

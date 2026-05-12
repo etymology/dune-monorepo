@@ -175,10 +175,11 @@ Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, nu
 
 [2026-04-28T14:16:29] starting fault capture pid=78082 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
 
-[2026-04-29T12:21:35] starting fault capture pid=28874 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+[2026-04-28T14:17:24] starting fault capture pid=78334 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
 
-[2026-04-29T12:26:00] starting fault capture pid=30628 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+[2026-04-28T14:37:28] starting fault capture pid=82987 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
 
+<<<<<<< HEAD
 [2026-04-29T12:37:10] starting fault capture pid=33363 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
 
 [2026-04-29T12:37:54] starting fault capture pid=33714 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
@@ -541,3 +542,6 @@ Extension modules: _pydevd_bundle.pydevd_cython, _pydevd_sys_monitoring_cython, 
 [2026-05-12T14:24:29] starting fault capture pid=791869 argv=/home/ben/dune-monorepo/src/dune_tension/main_simple.py
 
 [2026-05-12T14:26:29] starting fault capture pid=792552 argv=/home/ben/dune-monorepo/src/dune_tension/main.py
+=======
+[2026-04-28T14:47:19] starting fault capture pid=85904 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+>>>>>>> 559d1caa4eaf1458824d02d862870809aef162f9

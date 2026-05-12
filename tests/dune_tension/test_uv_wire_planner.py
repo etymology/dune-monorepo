@@ -19,22 +19,15 @@ def test_wire_pin_pair_matches_examples_and_wraparound() -> None:
     assert uv_wire_planner._wire_pin_pair("V", "A", 1151) == ("A1199", "A1200")
     assert uv_wire_planner._wire_pin_pair("V", "B", 1150) == ("B1198", "B1201")
     assert uv_wire_planner._wire_pin_pair("V", "A", 1150) == ("A1198", "A1201")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 1151) == ("B1600", "B1601")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1151) == ("A1600", "A1601")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 1150) == ("B1599", "B1602")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1150) == ("A1599", "A1602")
+    assert uv_wire_planner._wire_pin_pair("U", "B", 1151) == ("B1599", "B1601")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1151) == ("A1599", "A1601")
+    assert uv_wire_planner._wire_pin_pair("U", "B", 1150) == ("B1598", "B1602")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1150) == ("A1598", "A1602")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1146) == ("A1594", "A1606")
     assert uv_wire_planner._wire_pin_pair("V", "B", 8) == ("B56", "B2343")
     assert uv_wire_planner._wire_pin_pair("V", "A", 8) == ("A56", "A2343")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 8) == ("B457", "B343")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A457", "A343")
-
-
-def test_u_b_wire_pin_pair_does_not_apply_front_side_offset() -> None:
-    assert uv_wire_planner._wire_pin_pair("U", "B", 1146) == ("B1595", "B1606")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 1146) != (
-        "B1896",
-        "B1305",
-    )
+    assert uv_wire_planner._wire_pin_pair("U", "B", 8) == ("B456", "B343")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A456", "A343")
 
 
 def test_legacy_uv_provider_uses_planner_for_uv_and_fallback_elsewhere(
@@ -203,6 +196,85 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
     assert planned.midpoint == (6392.5, 500.0)
 
 
+def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "load_layer_calibration_summary",
+        lambda _layer: {
+            "pinDiameterMm": 2.0,
+            "locations": {
+                "B1": {"x": 0.0, "y": 500.0},
+                "B2": {"x": 10.0, "y": 500.0},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "_wire_pin_pair",
+        lambda _layer, _side, _wire_number: ("B1", "B2"),
+    )
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "_solve_tangent_candidates",
+        lambda **_kwargs: [
+            ((0.0, 501.0), (10.0, 501.0)),
+            ((0.0, 499.0), (10.0, 499.0)),
+        ],
+    )
+    monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 5)
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "length_lookup",
+        lambda _layer, _wire_number, _zone, taped=False: 2.0,
+    )
+
+    planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
+
+    assert planned.midpoint == (6392.5, 499.0)
+
+
+def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "load_layer_calibration_summary",
+        lambda _layer: {
+            "pinDiameterMm": 0.0,
+            "locations": {
+                "B1": {"x": 0.0, "y": 500.0},
+                "B2": {"x": 10.0, "y": 500.0},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
+    )
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "_wire_pin_pair",
+        lambda _layer, _side, _wire_number: ("B1", "B2"),
+    )
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "_solve_tangent_candidates",
+        lambda **_kwargs: [((0.0, 500.0), (10.0, 500.0))],
+    )
+    monkeypatch.setattr(
+        uv_wire_planner,
+        "length_lookup",
+        lambda _layer, _wire_number, _zone, taped=False: 2.0,
+    )
+
+    planned = uv_wire_planner.plan_uv_wire("V", "A", 1100, zone=2)
+
+    assert planned.zone == 2
+    assert planned.interval_start == (2230.0, 500.0)
+    assert planned.interval_end == (3420.0, 500.0)
+    assert planned.midpoint == (2825.0, 500.0)
+
+
 def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(
     monkeypatch,
 ) -> None:
@@ -269,7 +341,7 @@ def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(
     assert planned.midpoint == (1147.5, 500.0)
 
 
-def test_plan_uv_wire_uses_same_pin_numbers_for_a_side(monkeypatch) -> None:
+def test_plan_uv_wire_uses_literal_front_pin_family_for_a_side(monkeypatch) -> None:
     centers = []
 
     monkeypatch.setattr(
