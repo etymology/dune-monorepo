@@ -84,6 +84,7 @@ class PLC_Logic:
         3002: "Physical X or Y axis fault",
         3003: "Motion complete, but position is incorrect",
         3004: "Emergency stop - STO active",
+        3005: "XY error didn't reach target position",
         4001: "Z Jog, Master Z Transfer Enable Not Ready",
         4002: "Physical Z axis fault",
         4003: "Latch not in position 2 when retrieving winder head",
