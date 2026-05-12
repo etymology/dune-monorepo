@@ -90,6 +90,10 @@ class Controller:
 
     @staticmethod
     def _candidate_ports(tty_str: str | None):
+        # The Micro Maestro presents two CDC interfaces with identical
+        # descriptions: interface 0 is the command port (Pololu protocol),
+        # interface 2 is a TTL UART passthrough. Sending commands to the TTL
+        # port opens cleanly but silently drops them on the floor.
         return build_candidate_ports(
             preferred_port=tty_str,
             name_substrings=(
@@ -98,6 +102,7 @@ class Controller:
                 "Maestro",
                 "Pololu",
             ),
+            prefer_interface_number=0,
         )
 
     # Cleanup by closing USB serial port

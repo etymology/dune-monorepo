@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -17,22 +18,29 @@ def build_candidate_ports(
     name_substrings: Sequence[str] = (),
     vendor_id: str | None = None,
     product_id: str | None = None,
+    prefer_interface_number: int | None = None,
 ) -> list[str]:
-    """Return serial ports ordered from most to least likely to match."""
+    """Return serial ports ordered from most to least likely to match.
+
+    ``prefer_interface_number`` lets callers tie-break between multiple CDC
+    interfaces of a composite USB device (e.g. the Pololu Maestro exposes
+    interface 0 as a command port and interface 2 as a TTL passthrough — both
+    look identical in description metadata).
+    """
 
     normalized_names = tuple(_normalize(term) for term in name_substrings if term)
     normalized_vendor = _normalize_hex(vendor_id)
     normalized_product = _normalize_hex(product_id)
 
     candidates: list[str] = []
-    matched_by_name: list[str] = []
-    matched_by_ids: list[str] = []
+    matched_by_name: list[tuple[int, int, str]] = []
+    matched_by_ids: list[tuple[int, int, str]] = []
     fallback_ports: list[str] = []
 
     if preferred_port:
         candidates.append(preferred_port)
 
-    for port in _iter_comports():
+    for index, port in enumerate(_iter_comports()):
         device = getattr(port, "device", None)
         if not device:
             continue
@@ -43,18 +51,49 @@ def build_candidate_ports(
             port, vendor_id=normalized_vendor, product_id=normalized_product
         )
 
+        interface_priority = 0
+        if prefer_interface_number is not None:
+            interface_number = _port_interface_number(port)
+            interface_priority = (
+                0 if interface_number == prefer_interface_number else 1
+            )
+
         if name_match:
-            matched_by_name.append(device)
+            matched_by_name.append((interface_priority, index, device))
         elif id_match:
-            matched_by_ids.append(device)
+            matched_by_ids.append((interface_priority, index, device))
         else:
             fallback_ports.append(device)
 
-    for bucket in (matched_by_name, matched_by_ids, fallback_ports):
+    matched_by_name.sort()
+    matched_by_ids.sort()
+
+    for bucket in (
+        [device for _, _, device in matched_by_name],
+        [device for _, _, device in matched_by_ids],
+        fallback_ports,
+    ):
         for candidate in bucket:
             if candidate not in candidates:
                 candidates.append(candidate)
     return candidates
+
+
+def _port_interface_number(port: object) -> int | None:
+    """Extract the USB interface number from a port, or ``None`` if unknown."""
+
+    # On Linux, ``port.location`` is typically ``"3-7.4:1.0"`` where the digit
+    # after the last ``.`` is the interface number.
+    for source in (
+        getattr(port, "location", None),
+        getattr(port, "hwid", None),
+    ):
+        if not source:
+            continue
+        match = re.search(r":\d+\.(\d+)\b", str(source))
+        if match:
+            return int(match.group(1))
+    return None
 
 
 def _iter_comports() -> Iterable[Any]:
