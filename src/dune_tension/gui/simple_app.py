@@ -21,6 +21,7 @@ from dune_tension.gui.actions import (
     interrupt,
     measure_auto,
     measure_calibrate,
+    measure_condition,
     measure_list_button,
     measure_refine_outliers,
     monitor_tension_logs,
@@ -310,9 +311,22 @@ def _create_widgets(
     btn_interrupt = tk.Button(measure_frame, text="Interrupt")
     btn_interrupt.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(3, 0))
 
-    tk.Label(measure_frame, text="ETA:").grid(row=7, column=0, sticky="e", pady=(6, 0))
+    tk.Label(measure_frame, text="Condition (AND/OR):").grid(
+        row=7, column=0, sticky="e", pady=(6, 0)
+    )
+    entry_condition = tk.Entry(measure_frame)
+    entry_condition.grid(row=7, column=1, columnspan=2, sticky="ew", pady=(6, 0))
+
+    tk.Label(measure_frame, text="Legacy Tension:").grid(row=8, column=0, sticky="e")
+    entry_legacy_tension_condition = tk.Entry(measure_frame)
+    entry_legacy_tension_condition.grid(row=8, column=1, columnspan=2, sticky="ew")
+
+    btn_measure_condition = tk.Button(measure_frame, text="Measure Condition")
+    btn_measure_condition.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(3, 0))
+
+    tk.Label(measure_frame, text="ETA:").grid(row=10, column=0, sticky="e", pady=(6, 0))
     tk.Label(measure_frame, textvariable=estimated_time_var).grid(
-        row=7, column=1, columnspan=2, sticky="w", pady=(6, 0)
+        row=10, column=1, columnspan=2, sticky="w", pady=(6, 0)
     )
 
     # Hidden host frame: every widget here is required by GUIWidgets but not
@@ -357,8 +371,6 @@ def _create_widgets(
     entry_wire_list = entry_wire
     entry_wire_zone = tk.Entry(hidden)
     entry_clear_range = tk.Entry(hidden)
-    entry_condition = tk.Entry(hidden)
-    entry_legacy_tension_condition = tk.Entry(hidden)
 
     entry_times_sigma = tk.Entry(hidden)
     entry_times_sigma.insert(0, "2.0")
@@ -448,6 +460,7 @@ def _create_widgets(
         "measure_all": btn_measure_all,
         "refine": btn_refine,
         "interrupt": btn_interrupt,
+        "measure_condition": btn_measure_condition,
         "refresh_plots": btn_refresh_plots,
         "refresh_connections": btn_refresh_connections,
     }
@@ -491,6 +504,7 @@ def _configure_commands(ctx: GUIContext, buttons: dict[str, tk.Button]) -> None:
     buttons["measure_all"].configure(command=lambda: measure_auto(ctx))
     buttons["refine"].configure(command=lambda: measure_refine_outliers(ctx))
     buttons["interrupt"].configure(command=lambda: interrupt(ctx))
+    buttons["measure_condition"].configure(command=lambda: measure_condition(ctx))
     buttons["refresh_plots"].configure(command=lambda: refresh_tension_logs(ctx))
     buttons["refresh_connections"].configure(command=lambda: refresh_connections(ctx))
 
