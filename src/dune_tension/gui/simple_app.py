@@ -7,6 +7,7 @@ All other measurement parameters are fixed at known-good defaults.
 from __future__ import annotations
 
 import logging
+from tkinter import messagebox
 from typing import Any, cast
 import tkinter as tk
 import tkinter.font as tkfont
@@ -20,6 +21,7 @@ from dune_tension.gui.actions import (
     interrupt,
     measure_auto,
     measure_calibrate,
+    measure_list_button,
     measure_refine_outliers,
     monitor_tension_logs,
     refresh_connections,
@@ -284,25 +286,33 @@ def _create_widgets(
     )
 
     # Measurement controls
-    tk.Label(measure_frame, text="Wire Number:").grid(row=0, column=0, sticky="e")
+    tk.Label(measure_frame, text="Wire(s):").grid(row=0, column=0, sticky="e")
     entry_wire = tk.Entry(measure_frame)
     entry_wire.grid(row=0, column=1, columnspan=2, sticky="ew")
 
+    skip_measured_var = tk.BooleanVar(value=True)
+    tk.Checkbutton(
+        measure_frame, text="Skip measured", variable=skip_measured_var
+    ).grid(row=1, column=0, columnspan=3, sticky="w")
+
     btn_measure_calibrate = tk.Button(measure_frame, text="Measure Calibrate")
-    btn_measure_calibrate.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+    btn_measure_calibrate.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+
+    btn_measure_wires = tk.Button(measure_frame, text="Measure Wires")
+    btn_measure_wires.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(3, 0))
 
     btn_measure_all = tk.Button(measure_frame, text="Measure All")
-    btn_measure_all.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(3, 0))
+    btn_measure_all.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(3, 0))
 
     btn_refine = tk.Button(measure_frame, text="Refine")
-    btn_refine.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(3, 0))
+    btn_refine.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 0))
 
     btn_interrupt = tk.Button(measure_frame, text="Interrupt")
-    btn_interrupt.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(3, 0))
+    btn_interrupt.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(3, 0))
 
-    tk.Label(measure_frame, text="ETA:").grid(row=5, column=0, sticky="e", pady=(6, 0))
+    tk.Label(measure_frame, text="ETA:").grid(row=7, column=0, sticky="e", pady=(6, 0))
     tk.Label(measure_frame, textvariable=estimated_time_var).grid(
-        row=5, column=1, columnspan=2, sticky="w", pady=(6, 0)
+        row=7, column=1, columnspan=2, sticky="w", pady=(6, 0)
     )
 
     # Hidden host frame: every widget here is required by GUIWidgets but not
@@ -340,11 +350,11 @@ def _create_widgets(
     use_manual_focus_var = tk.BooleanVar(value=False)
     plot_audio_var = tk.BooleanVar(value=False)
     suppress_wire_preview_var = tk.BooleanVar(value=False)
-    skip_measured_var = tk.BooleanVar(value=True)
     skip_measured_zone_var = tk.BooleanVar(value=True)
     disable_x_compensation_var = tk.BooleanVar(value=False)
 
-    entry_wire_list = tk.Entry(hidden)
+    # entry_wire is reused for both single-wire calibration and list/range measurement.
+    entry_wire_list = entry_wire
     entry_wire_zone = tk.Entry(hidden)
     entry_clear_range = tk.Entry(hidden)
     entry_condition = tk.Entry(hidden)
@@ -434,6 +444,7 @@ def _create_widgets(
 
     buttons = {
         "measure_calibrate": btn_measure_calibrate,
+        "measure_wires": btn_measure_wires,
         "measure_all": btn_measure_all,
         "refine": btn_refine,
         "interrupt": btn_interrupt,
@@ -454,10 +465,29 @@ def _create_widgets(
     )
 
 
+def _measure_calibrate_single(ctx: GUIContext) -> None:
+    """Run measure_calibrate, rejecting list/range entries."""
+
+    text = ctx.widgets.entry_wire.get().strip()
+    try:
+        int(text)
+    except ValueError:
+        messagebox.showerror(
+            "Input Error",
+            "Measure Calibrate requires a single wire number. "
+            "Use Measure Wires for lists or ranges.",
+        )
+        return
+    measure_calibrate(ctx)
+
+
 def _configure_commands(ctx: GUIContext, buttons: dict[str, tk.Button]) -> None:
     """Attach the simplified-GUI callbacks."""
 
-    buttons["measure_calibrate"].configure(command=lambda: measure_calibrate(ctx))
+    buttons["measure_calibrate"].configure(
+        command=lambda: _measure_calibrate_single(ctx)
+    )
+    buttons["measure_wires"].configure(command=lambda: measure_list_button(ctx))
     buttons["measure_all"].configure(command=lambda: measure_auto(ctx))
     buttons["refine"].configure(command=lambda: measure_refine_outliers(ctx))
     buttons["interrupt"].configure(command=lambda: interrupt(ctx))
