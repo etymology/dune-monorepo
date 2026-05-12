@@ -144,7 +144,9 @@ class EmbeddedModuleTests(unittest.TestCase):
             circle = cast(Circle, case["circle"])
             position = cast(Location, case["position"])
             for orientation, expected in results.items():
-                with self.subTest(position=case["position"], orientation=orientation):
+                with self.subTest(
+                    position=str(case["position"]), orientation=orientation
+                ):
                     location = circle.tangentPoint(orientation, position)
                     if expected is None:
                         self.assertIsNone(location)

@@ -1,26 +1,28 @@
-import importlib.util
-from pathlib import Path
 import sys
 import types
 from typing import Any, cast
 
-
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "actions.py"
+from _gui_test_support import (
+    REPO_SRC,
+    install_dune_tension_pkg_shell,
+    load_module_from_path,
 )
 
 
-def _load_actions_module(monkeypatch):
-    dune_pkg = cast(Any, types.ModuleType("dune_tension"))
-    dune_pkg.__path__ = []
-    gui_pkg = cast(Any, types.ModuleType("dune_tension.gui"))
-    gui_pkg.__path__ = []
+MODULE_PATH = REPO_SRC / "gui" / "actions.py"
+APA_NAMING_PATH = REPO_SRC / "apa_naming.py"
 
+
+def _load_actions_module(monkeypatch):
     monkeypatch.setitem(
         sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None)
     )
-    monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
-    monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+    dune_pkg, _gui_pkg = install_dune_tension_pkg_shell(monkeypatch)
+
+    apa_module = load_module_from_path(
+        monkeypatch, "dune_tension.apa_naming", APA_NAMING_PATH
+    )
+    cast(Any, dune_pkg).apa_naming = apa_module
 
     config = cast(Any, types.ModuleType("dune_tension.config"))
     config.GEOMETRY_CONFIG = types.SimpleNamespace(
@@ -77,14 +79,9 @@ def _load_actions_module(monkeypatch):
     state.save_state = lambda _ctx: None
     monkeypatch.setitem(sys.modules, "dune_tension.gui.state", state)
 
-    module_name = "gui_actions_condition_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(
+        monkeypatch, "gui_actions_condition_under_test", MODULE_PATH
+    )
 
 
 def test_condition_parser_supports_and_and_or(monkeypatch):

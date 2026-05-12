@@ -2073,16 +2073,12 @@ class ManualCalibration:
         # so apply the camera-wire offset here before handing them to the
         # template.
         cameraOffsetX = float(session.cameraOffsetX or 0.0)
-        cameraOffsetY = float(session.cameraOffsetY or 0.0)
         wireSpaceReferences = {}
         for referenceId, reference in session.references.items():
             adjusted = dict(reference)
             cameraX = reference.get("wireX")
-            cameraY = reference.get("wireY")
             if cameraX is not None:
                 adjusted["wireX"] = float(cameraX) + cameraOffsetX
-            if cameraY is not None:
-                adjusted["wireY"] = float(cameraY) + cameraOffsetY
             wireSpaceReferences[referenceId] = adjusted
 
         generation = write_xg_template_file(

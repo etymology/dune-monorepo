@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from _template_gcode_test_support import MERGE, TOLERANT, coord
 from dune_winder.recipes.u_template_gcode import (
     DEFAULT_U_TEMPLATE_ROW_COUNT,
     SCRIPT_VARIANT_WRAPPING,
@@ -19,14 +20,11 @@ from dune_winder.recipes.u_template_gcode import (
 
 
 class UTemplateGCodeTests(unittest.TestCase):
-    MERGE = "G113 PPRECISE "
-    TOLERANT = "G113 PTOLERANT "
+    MERGE = MERGE
+    TOLERANT = TOLERANT
 
     def _coord(self, axis, value):
-        text = "{0:.6f}".format(float(value)).rstrip("0").rstrip(".")
-        if text in ("", "-0"):
-            text = "0"
-        return axis + text
+        return coord(axis, value)
 
     def test_pb_pf_tokens_wrap_back_into_valid_pin_range(self):
         self.assertEqual(

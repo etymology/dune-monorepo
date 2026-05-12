@@ -5,7 +5,6 @@ import time
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import dune_tension.audio_runtime as audio_runtime
 from spectrum_analysis import audio_processing, comb_trigger as comb_trigger_module

@@ -9,7 +9,6 @@ from typing import Any
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from dune_tension.gui import live_plots
 from dune_tension.gui.live_plots import (
