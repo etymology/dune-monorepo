@@ -8,6 +8,7 @@ from typing import Any, cast
 import tkinter as tk
 import tkinter.font as tkfont
 
+from dune_tension import apa_naming
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui.actions import (
     adjust_focus_with_x_compensation,
@@ -41,12 +42,9 @@ from dune_tension.gui.crash_logging import (
     install_gui_crash_logging,
     install_tk_exception_logging,
 )
+from dune_tension.gui._layout import configure_root_minimum_size
 from dune_tension.gui.context import GUIContext, GUIWidgets, create_context
-from dune_tension.gui.live_plots import (
-    LIVE_SUMMARY_FIGSIZE,
-    LIVE_WAVEFORM_FIGSIZE,
-    LivePlotManager,
-)
+from dune_tension.gui.live_plots import LivePlotManager
 from dune_tension.gui.logging_panel import configure_gui_logging
 from dune_tension.gui.state import load_state
 from dune_tension.services import build_runtime_bundle, resolve_runtime_options
@@ -145,7 +143,10 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             LOGGER.info("Requesting initial live summary refresh.")
             ctx.live_plot_manager.request_summary_refresh(
                 make_config(
-                    apa_name=ctx.widgets.entry_apa.get(),
+                    apa_name=apa_naming.compose(
+                        ctx.widgets.apa_location_var.get(),
+                        int(ctx.widgets.apa_number_var.get()),
+                    ),
                     layer=ctx.widgets.layer_var.get(),
                     side=ctx.widgets.side_var.get(),
                     flipped=bool(ctx.widgets.flipped_var.get()),
@@ -176,7 +177,14 @@ def _initialise_servo(ctx: GUIContext) -> None:
     except Exception:
         value = 4000
     LOGGER.info("Initialising servo focus command to %s", value)
-    ctx.servo_controller.on_focus_command = partial(update_focus_command_indicator, ctx)
+
+    def _bridge_focus_command(target: int) -> None:
+        try:
+            ctx.root.after(0, lambda: update_focus_command_indicator(ctx, target))
+        except Exception:
+            pass
+
+    ctx.servo_controller.on_focus_command = _bridge_focus_command
     ctx.servo_controller.focus_position = value
     try:
         ctx.servo_controller.focus_target(value)
@@ -354,9 +362,17 @@ def _create_widgets(
     btn_refresh_connections = tk.Button(bottom_frame, text="Refresh Connections")
     btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
 
-    tk.Label(apa_frame, text="APA Name:").grid(row=0, column=0, sticky="e")
-    entry_apa = tk.Entry(apa_frame)
-    entry_apa.grid(row=0, column=1)
+    tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
+    apa_location_var = tk.StringVar(apa_frame, value="US")
+    tk.OptionMenu(apa_frame, apa_location_var, *apa_naming.LOCATIONS).grid(
+        row=0, column=1
+    )
+
+    tk.Label(apa_frame, text="APA Number:").grid(row=0, column=2, sticky="e")
+    apa_number_var = tk.StringVar(apa_frame, value=apa_naming.NUMBER_LABELS[0])
+    tk.OptionMenu(apa_frame, apa_number_var, *apa_naming.NUMBER_LABELS).grid(
+        row=0, column=3
+    )
 
     tk.Label(apa_frame, text="Mode:").grid(row=1, column=0, sticky="e")
     measurement_mode_var = tk.StringVar(apa_frame, value="legacy")
@@ -671,7 +687,8 @@ def _create_widgets(
         pad_buttons.append((button, dx, dy))
 
     widgets = GUIWidgets(
-        entry_apa=entry_apa,
+        apa_location_var=apa_location_var,
+        apa_number_var=apa_number_var,
         measurement_mode_var=measurement_mode_var,
         layer_var=layer_var,
         side_var=side_var,
@@ -739,7 +756,7 @@ def _create_widgets(
         "capture_laser_offset": btn_capture_laser_offset,
     }
 
-    _configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
+    configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
 
     return (
         widgets,
@@ -751,118 +768,6 @@ def _create_widgets(
         summary_plot_frame,
         waveform_plot_frame,
     )
-
-
-def _configure_root_minimum_size(
-    root: tk.Misc,
-    main_frame: tk.Misc,
-    plots_frame: tk.Misc,
-    log_frame: tk.Misc,
-) -> None:
-    """Keep the three-column layout wide enough for controls, plots, and logs."""
-
-    if not hasattr(root, "update_idletasks"):
-        return
-
-    try:
-        root.update_idletasks()
-    except Exception:
-        return
-
-    try:
-        main_width = int(main_frame.winfo_reqwidth())
-        plots_width = int(plots_frame.winfo_reqwidth())
-        log_width = int(log_frame.winfo_reqwidth())
-        main_height = int(main_frame.winfo_reqheight())
-        plots_height = int(plots_frame.winfo_reqheight())
-        log_height = int(log_frame.winfo_reqheight())
-    except Exception:
-        return
-
-    estimated_plot_width = int(
-        max(LIVE_SUMMARY_FIGSIZE[0], LIVE_WAVEFORM_FIGSIZE[0]) * 100
-    )
-    plots_width = max(plots_width, estimated_plot_width)
-
-    screen_width = _safe_screen_dimension(root, "winfo_screenwidth")
-    screen_height = _safe_screen_dimension(root, "winfo_screenheight")
-
-    available_width = max(screen_width - 30, 1) if screen_width is not None else None
-    if available_width is not None:
-        main_width, plots_width, log_width = _fit_column_widths_to_available_space(
-            main_width,
-            plots_width,
-            log_width,
-            available_width,
-        )
-
-    if hasattr(root, "columnconfigure"):
-        try:
-            root.columnconfigure(0, weight=0, minsize=max(main_width, 1))
-            root.columnconfigure(1, weight=1, minsize=max(plots_width, 1))
-            root.columnconfigure(2, weight=1, minsize=max(log_width, 1))
-        except Exception:
-            pass
-
-    total_width = main_width + plots_width + log_width + 40
-    total_height = max(main_height, plots_height, log_height) + 20
-    if screen_width is not None:
-        total_width = min(total_width, screen_width)
-    if screen_height is not None:
-        total_height = min(total_height, screen_height)
-    if total_width <= 0 or total_height <= 0:
-        return
-
-    minsize = getattr(root, "minsize", None)
-    if callable(minsize):
-        try:
-            minsize(total_width, total_height)
-        except Exception:
-            return
-
-
-def _safe_screen_dimension(root: tk.Misc, method_name: str) -> int | None:
-    """Best-effort screen size lookup for sizing constraints."""
-
-    method = getattr(root, method_name, None)
-    if method is None:
-        return None
-    try:
-        value = int(method())
-    except Exception:
-        return None
-    return value if value > 0 else None
-
-
-def _fit_column_widths_to_available_space(
-    main_width: int,
-    plots_width: int,
-    log_width: int,
-    available_width: int,
-) -> tuple[int, int, int]:
-    """Shrink column minimums so the root can fit on screen when maximized."""
-
-    desired_width = main_width + plots_width + log_width
-    if desired_width <= available_width:
-        return main_width, plots_width, log_width
-
-    overflow = desired_width - available_width
-
-    # Shrink logs first, but keep a reasonable minimum
-    log_reduction = min(overflow, max(log_width - 100, 0))
-    log_width -= log_reduction
-    overflow -= log_reduction
-
-    if overflow > 0:
-        # Then shrink plots
-        plots_reduction = min(overflow, max(plots_width - 200, 0))
-        plots_width -= plots_reduction
-        overflow -= plots_reduction
-
-    if overflow > 0:
-        main_width = max(main_width - overflow, 1)
-
-    return main_width, plots_width, log_width
 
 
 def _configure_commands(

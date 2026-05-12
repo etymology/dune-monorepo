@@ -219,16 +219,20 @@ config {
   v_foot: PinRange = { first: 1200, last: 1599 }
   v_top: PinRange = { first: 1600, last: 2399 }
 
-  -- X/G frame edge pin ranges (placeholder)
+  -- X/G frame edge pin ranges. X and G layers do not have a meaningful
+  -- "top" / "bottom" frame-edge pin range distinct from head/foot — the
+  -- wires terminate at head/foot board comb slots. The placeholder ranges
+  -- below are kept for parity with U/V; X/G geometry is finalised in a
+  -- separate revision (see open question below).
   x_head: PinRange = { first: 1, last: 240 }
   x_bottom: PinRange = { first: 241, last: 360 }
   x_foot: PinRange = { first: 361, last: 480 }
-  x_top: PinRange = { first: 481, last: 480 }
+  x_top: PinRange = { first: 0, last: 0 }
 
   g_head: PinRange = { first: 1, last: 240 }
   g_bottom: PinRange = { first: 241, last: 361 }
   g_foot: PinRange = { first: 362, last: 481 }
-  g_top: PinRange = { first: 482, last: 481 }
+  g_top: PinRange = { first: 0, last: 0 }
 
   -- U/V segment endpoint formulas (same pin number on A and B sides)
   u_segment_1_start: Integer = 450

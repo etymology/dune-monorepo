@@ -9,12 +9,19 @@ class: invert
 
 ---
 
-## What happened to APA-UK007
+## Questions
 
-- `~2.25` years of storage and transatlantic shipment
-- Chicago tensions on average lower by `-0.5N` with a spread in difference of `0.4N`
+- How did tensions on APA `UK007` change after `~2.25` years of storage and a transatlantic shipment?
+- What can you do/decide with tension data?
+
+---
+
+## Results
+
+- Chicago tensions on average lower by `-0.5N` with spread of delta of `0.4N`
 - All current Chicago G and U summary values are within the `4.0-8.5 N` spec.
-- No obvious sign of shipping damage
+- No obvious sign of shipping damage.
+- Tension change per wire is not a sensitive acceptance criterion.
 
 ---
 
@@ -32,7 +39,7 @@ class: invert
 
 ---
 
-## Laser tension vs DWA
+## Qualifications
 
 - U layer wires were accessed through a "slit" cut in the G wires.
 - The pose for the G layer is comparable but not the U.
@@ -108,3 +115,7 @@ class: invert
 ---
 
 ![all u wires](/Users/ben/dune-monorepo/dune_tension/data/tension_plots/tension_profile_cloud_U_dunedb_noscale_avgwire_cov0p5_bins40_win5_daresbury.png)
+
+---
+
+![distribution](/Users/ben/dune-monorepo/dune_tension/data/tension_mode_diff_histogram.png)

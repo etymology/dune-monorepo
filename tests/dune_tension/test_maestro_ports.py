@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 import types
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-
 
 def test_controller_scans_named_ports_then_falls_back_exhaustively(monkeypatch):
     serial_stub = types.ModuleType("serial")

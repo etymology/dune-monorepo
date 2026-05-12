@@ -8,6 +8,7 @@ import logging
 import tkinter as tk
 from typing import Any
 
+from dune_tension import apa_naming
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui.context import GUIContext
 
@@ -63,8 +64,15 @@ def save_state(ctx: GUIContext) -> None:
         times_sigma = 2.0
     legacy_tension_condition_widget = getattr(w, "entry_legacy_tension_condition", None)
 
+    try:
+        composed_apa = apa_naming.compose(
+            w.apa_location_var.get(), int(w.apa_number_var.get())
+        )
+    except (ValueError, TypeError):
+        composed_apa = ""
+
     state = _PersistedState(
-        apa_name=w.entry_apa.get(),
+        apa_name=composed_apa,
         measurement_mode=w.measurement_mode_var.get(),
         layer=w.layer_var.get(),
         side=w.side_var.get(),
@@ -142,7 +150,10 @@ def load_state(ctx: GUIContext) -> None:
         return
 
     w = ctx.widgets
-    _set_entry(w.entry_apa, data.get("apa_name", ""))
+    parsed_apa = apa_naming.parse(str(data.get("apa_name", "")))
+    apa_location, apa_number = parsed_apa if parsed_apa else ("US", 1)
+    w.apa_location_var.set(apa_location)
+    w.apa_number_var.set(f"{apa_number:03d}")
     w.measurement_mode_var.set(data.get("measurement_mode", "legacy"))
     w.layer_var.set(data.get("layer", "X"))
     w.side_var.set(data.get("side", "A"))

@@ -41,6 +41,7 @@ from dune_winder.geometry.primitives.segment import Segment
 
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
+from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
 from dune_winder.machine.geometry.uv_wrap_geometry import (
     Point2D,
     Point3D,
@@ -424,11 +425,14 @@ class GCodeHandlerBase:
                 "G-Code request for calibrated move, but no layer calibration to use."
             )
         try:
-            pin = self._layerCalibration.getPinLocation(pin_name)
+            return wire_space_pin_location(
+                self._layerCalibration,
+                self._machineCalibration,
+                pin_name,
+            )
         except KeyError:
             data = [str(pin_name)]
             raise GCodeExecutionError("Unknown pin " + str(pin_name) + ".", data)
-        return pin.add(self._layerCalibration.offset)
 
     # ---------------------------------------------------------------------
     def _normalize_wrap_pin(self, value, *, default_family=None, label="pin"):

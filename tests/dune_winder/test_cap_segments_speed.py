@@ -1,14 +1,19 @@
 """Tests for cap_segments_speed_by_axis_velocity.
 
-Each test queues segments whose nominal speed exceeds at least one axis
-velocity limit, then verifies the capper reduces every segment to a
-speed that keeps axis-projected velocity within bounds.
+The core invariant is: after capping, every segment's axis-projected
+velocity stays within bounds. That invariant is property-fuzzed across
+random sequences of mixed lines and arcs. Edge cases (empty input,
+infinite limits, non-positive limits, degenerate geometry) are kept as
+explicit examples.
 """
 
 import math
 import unittest
 
+from hypothesis import HealthCheck, assume, given, settings, strategies as st
+
 from dune_winder.queued_motion.segment_patterns import (
+    _segment_tangent_component_bounds,
     cap_segments_speed_by_axis_velocity,
 )
 from dune_winder.queued_motion.segment_types import (
@@ -19,9 +24,6 @@ from dune_winder.queued_motion.segment_types import (
     SEG_TYPE_CIRCLE,
     SEG_TYPE_LINE,
 )
-
-
-# ── helpers ──────────────────────────────────────────────────────────────────
 
 
 def _line(seq, x, y, speed=9999.0):
@@ -42,18 +44,9 @@ def _arc(seq, x, y, cx, cy, direction=MCCM_DIR_2D_CCW, speed=9999.0):
     )
 
 
-def _check_capped(test: unittest.TestCase, result, v_x_max, v_y_max, start_xy=None):
-    """Assert every segment's speed satisfies the axis velocity constraints."""
-    from dune_winder.queued_motion.segment_patterns import (
-        _segment_tangent_component_bounds,
-    )
-
-    prev_x = result[0].x if start_xy is None else start_xy[0]
-    prev_y = result[0].y if start_xy is None else start_xy[1]
-    if start_xy is None:
-        prev_x = result[0].x
-        prev_y = result[0].y
-    for seg in result:
+def _assert_within_axis_bounds(test, segments, v_x_max, v_y_max, start_xy):
+    prev_x, prev_y = start_xy
+    for seg in segments:
         max_tx, max_ty = _segment_tangent_component_bounds(prev_x, prev_y, seg)
         if max_tx > 1e-9:
             test.assertLessEqual(
@@ -70,12 +63,86 @@ def _check_capped(test: unittest.TestCase, result, v_x_max, v_y_max, start_xy=No
         prev_x, prev_y = seg.x, seg.y
 
 
-# ── test cases ────────────────────────────────────────────────────────────────
+_coord = st.floats(min_value=-1000.0, max_value=1000.0, allow_nan=False)
+_speed = st.floats(
+    min_value=1.0, max_value=10000.0, allow_nan=False, allow_infinity=False
+)
+_axis_limit = st.floats(
+    min_value=10.0, max_value=2000.0, allow_nan=False, allow_infinity=False
+)
+_direction = st.sampled_from([MCCM_DIR_2D_CCW, MCCM_DIR_2D_CW])
 
 
-class CapSegmentsSpeedTests(unittest.TestCase):
-    # ── edge / guard cases ────────────────────────────────────────────────────
+@st.composite
+def _segment_sequence(draw):
+    n = draw(st.integers(min_value=1, max_value=8))
+    start_xy = (draw(_coord), draw(_coord))
+    segments = []
+    prev_x, prev_y = start_xy
+    for i in range(n):
+        if draw(st.booleans()):
+            ex, ey = draw(_coord), draw(_coord)
+            segments.append(_line(i + 1, ex, ey, speed=draw(_speed)))
+            prev_x, prev_y = ex, ey
+        else:
+            cx, cy = draw(_coord), draw(_coord)
+            radius = math.hypot(prev_x - cx, prev_y - cy)
+            assume(radius > 1.0)  # avoid degenerate arcs
+            angle = draw(st.floats(min_value=0.1, max_value=2 * math.pi - 0.1))
+            direction = draw(_direction)
+            sign = 1.0 if direction == MCCM_DIR_2D_CCW else -1.0
+            start_angle = math.atan2(prev_y - cy, prev_x - cx)
+            end_angle = start_angle + sign * angle
+            ex = cx + radius * math.cos(end_angle)
+            ey = cy + radius * math.sin(end_angle)
+            segments.append(
+                _arc(i + 1, ex, ey, cx, cy, direction=direction, speed=draw(_speed))
+            )
+            prev_x, prev_y = ex, ey
+    return segments, start_xy
 
+
+class CapSegmentsSpeedProperties(unittest.TestCase):
+    @given(seq=_segment_sequence(), v_x_max=_axis_limit, v_y_max=_axis_limit)
+    @settings(
+        max_examples=80, deadline=None, suppress_health_check=[HealthCheck.too_slow]
+    )
+    def test_capped_speeds_satisfy_axis_velocity_bounds(self, seq, v_x_max, v_y_max):
+        segments, start_xy = seq
+        result = cap_segments_speed_by_axis_velocity(
+            segments, v_x_max=v_x_max, v_y_max=v_y_max, start_xy=start_xy
+        )
+        _assert_within_axis_bounds(self, result, v_x_max, v_y_max, start_xy)
+
+    @given(seq=_segment_sequence(), v_x_max=_axis_limit, v_y_max=_axis_limit)
+    @settings(
+        max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow]
+    )
+    def test_capping_is_idempotent(self, seq, v_x_max, v_y_max):
+        segments, start_xy = seq
+        first = cap_segments_speed_by_axis_velocity(
+            segments, v_x_max=v_x_max, v_y_max=v_y_max, start_xy=start_xy
+        )
+        second = cap_segments_speed_by_axis_velocity(
+            first, v_x_max=v_x_max, v_y_max=v_y_max, start_xy=start_xy
+        )
+        for a, b in zip(first, second):
+            self.assertAlmostEqual(a.speed, b.speed, places=6)
+
+    @given(seq=_segment_sequence(), v_x_max=_axis_limit, v_y_max=_axis_limit)
+    @settings(
+        max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow]
+    )
+    def test_capping_never_increases_speed(self, seq, v_x_max, v_y_max):
+        segments, start_xy = seq
+        result = cap_segments_speed_by_axis_velocity(
+            segments, v_x_max=v_x_max, v_y_max=v_y_max, start_xy=start_xy
+        )
+        for original, capped in zip(segments, result):
+            self.assertLessEqual(capped.speed, original.speed + 1e-9)
+
+
+class CapSegmentsSpeedEdgeCases(unittest.TestCase):
     def test_empty_list_returns_empty(self):
         self.assertEqual(cap_segments_speed_by_axis_velocity([]), [])
 
@@ -92,187 +159,19 @@ class CapSegmentsSpeedTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             cap_segments_speed_by_axis_velocity([_line(1, 0.0, 10.0)], v_y_max=-1.0)
 
-    # ── horizontal line: only x-axis matters ─────────────────────────────────
-
-    def test_horizontal_line_capped_by_vx(self):
-        v_x_max = 400.0
-        segs = [_line(1, 200.0, 0.0, speed=9999.0)]
+    def test_zero_length_segment_does_not_produce_nan(self):
+        segs = [_line(1, 0.0, 0.0, speed=9999.0)]
         result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=math.inf,
-            start_xy=(0.0, 0.0),
-        )
-        self.assertLessEqual(result[0].speed, v_x_max + 1e-6)
-
-    def test_horizontal_line_within_limit_unchanged(self):
-        v_x_max = 400.0
-        segs = [_line(1, 200.0, 0.0, speed=100.0)]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=math.inf,
-            start_xy=(0.0, 0.0),
-        )
-        self.assertAlmostEqual(result[0].speed, 100.0)
-
-    # ── vertical line: only y-axis matters ───────────────────────────────────
-
-    def test_vertical_line_capped_by_vy(self):
-        v_y_max = 300.0
-        segs = [_line(1, 0.0, 500.0, speed=9999.0)]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=math.inf,
-            v_y_max=v_y_max,
-            start_xy=(0.0, 0.0),
-        )
-        self.assertLessEqual(result[0].speed, v_y_max + 1e-6)
-
-    # ── diagonal line: both axes constrain ───────────────────────────────────
-
-    def test_diagonal_line_capped_by_tighter_axis(self):
-        v_x_max = 500.0
-        v_y_max = 200.0  # tighter
-        # 45-degree line → max_tx = max_ty = 1/sqrt(2)
-        d = 400.0
-        segs = [_line(1, d, d, speed=9999.0)]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(0.0, 0.0),
-        )
-        _check_capped(self, result, v_x_max, v_y_max, start_xy=(0.0, 0.0))
-
-    # ── multiple lines ────────────────────────────────────────────────────────
-
-    def test_mixed_direction_lines_all_capped(self):
-        v_x_max = 300.0
-        v_y_max = 300.0
-        segs = [
-            _line(1, 200.0, 0.0, speed=9999.0),  # horizontal
-            _line(2, 0.0, 200.0, speed=9999.0),  # diagonal back
-            _line(3, 0.0, 400.0, speed=9999.0),  # vertical
-            _line(4, 200.0, 400.0, speed=9999.0),  # horizontal
-        ]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(0.0, 0.0),
-        )
-        _check_capped(self, result, v_x_max, v_y_max, start_xy=(0.0, 0.0))
-
-    def test_speed_already_within_limit_not_raised(self):
-        v_x_max, v_y_max = 500.0, 500.0
-        original_speed = 10.0
-        segs = [_line(1, 100.0, 100.0, speed=original_speed)]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(0.0, 0.0),
-        )
-        self.assertAlmostEqual(result[0].speed, original_speed)
-
-    # ── circular arcs ─────────────────────────────────────────────────────────
-
-    def test_quarter_arc_capped(self):
-        # Quarter circle, radius 200, CCW: starts at (200,0) ends at (0,200)
-        v_x_max = 250.0
-        v_y_max = 250.0
-        segs = [
-            _arc(
-                1,
-                x=0.0,
-                y=200.0,
-                cx=0.0,
-                cy=0.0,
-                direction=MCCM_DIR_2D_CCW,
-                speed=9999.0,
-            )
-        ]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(200.0, 0.0),
-        )
-        _check_capped(self, result, v_x_max, v_y_max, start_xy=(200.0, 0.0))
-
-    def test_full_circle_arc_capped(self):
-        # Near-full arc (CW), large radius
-        v_x_max = 400.0
-        v_y_max = 400.0
-        r = 300.0
-        segs = [
-            _arc(1, x=r, y=1e-3, cx=0.0, cy=0.0, direction=MCCM_DIR_2D_CW, speed=9999.0)
-        ]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(r, 0.0),
-        )
-        _check_capped(self, result, v_x_max, v_y_max, start_xy=(r, 0.0))
-
-    def test_mixed_line_arc_sequence_all_capped(self):
-        v_x_max = 350.0
-        v_y_max = 350.0
-        r = 150.0
-        segs = [
-            _line(1, r, 0.0, speed=9999.0),  # approach
-            _arc(2, 0.0, r, cx=0.0, cy=0.0, direction=MCCM_DIR_2D_CCW, speed=9999.0),
-            _line(3, 0.0, r + 200.0, speed=9999.0),  # exit
-        ]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(0.0, 0.0),
-        )
-        _check_capped(self, result, v_x_max, v_y_max, start_xy=(0.0, 0.0))
-
-    # ── asymmetric axis limits ────────────────────────────────────────────────
-
-    def test_asymmetric_limits_diagonal(self):
-        v_x_max = 800.0
-        v_y_max = 200.0
-        segs = [_line(1, 500.0, 500.0, speed=9999.0)]
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=v_y_max,
-            start_xy=(0.0, 0.0),
-        )
-        _check_capped(self, result, v_x_max, v_y_max, start_xy=(0.0, 0.0))
-
-    # ── degenerate geometry (zero-length segment) ─────────────────────────────
-
-    def test_zero_length_segment_not_nan(self):
-        segs = [_line(1, 0.0, 0.0, speed=9999.0)]  # start == end
-        result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=500.0,
-            v_y_max=500.0,
-            start_xy=(0.0, 0.0),
+            segs, v_x_max=500.0, v_y_max=500.0, start_xy=(0.0, 0.0)
         )
         self.assertFalse(math.isnan(result[0].speed))
         self.assertFalse(math.isinf(result[0].speed))
 
-    # ── start_xy=None uses first segment start ────────────────────────────────
-
-    def test_no_start_xy_uses_segment_zero_position(self):
+    def test_no_start_xy_uses_conservative_first_segment_cap(self):
         v_x_max = 300.0
-        segs = [
-            _line(1, 100.0, 0.0, speed=9999.0),
-            _line(2, 200.0, 0.0, speed=9999.0),
-        ]
+        segs = [_line(1, 100.0, 0.0, speed=9999.0), _line(2, 200.0, 0.0, speed=9999.0)]
         result = cap_segments_speed_by_axis_velocity(
-            segs,
-            v_x_max=v_x_max,
-            v_y_max=math.inf,
+            segs, v_x_max=v_x_max, v_y_max=math.inf
         )
         for seg in result:
             self.assertLessEqual(seg.speed, v_x_max + 1e-6)

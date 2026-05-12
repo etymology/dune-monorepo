@@ -42,22 +42,121 @@ variant ProgramComment : ProgramItem {
     text: String
 }
 
+-- The full opcode set the recipe runtime executes. Each opcode is a
+-- domain-level instruction that maps to one or more underlying winder
+-- state transitions. Higher-level recipe-template macros
+-- (anchor_to_target, transfer_to_fixed, transfer_to_stage) are
+-- compositions of these opcodes; they are listed last in the enum.
 entity Macro {
-    kind: anchor_to_target | offset | break_point | transfer_to_fixed | transfer_to_stage
+    kind: wrap_anchor | wrap_b | wrap_b_to_a | wrap_goto | wrap_increment | latch | head_location | head_transfer | seek_transfer | pin_center | clip | offset | anchor_point | wire_length | delay | break_point | tension_testing | arm_correct | transfer_correct | queue_merge | anchor_to_target | transfer_to_fixed | transfer_to_stage
 }
 
-variant AnchorToTarget : Macro {
-    anchor: String
-    target: String
+-- Wrap-geometry primitive variants
+
+variant WrapAnchor : Macro {
+    pin: String
+}
+
+variant WrapB : Macro {
+    pin: String
+}
+
+variant WrapBToA : Macro {
+    pin: String
+}
+
+variant WrapGoto : Macro {
+    x: Decimal?
+    y: Decimal?
+}
+
+variant WrapIncrement : Macro {
+    dx: Decimal?
+    dy: Decimal?
+}
+
+-- Latch and head-positioning variants
+
+variant Latch : Macro {
+    -- No parameters: triggers a single PLC latch cycle.
+}
+
+variant HeadLocation : Macro {
+    -- 0 = front, 1 = partial-front, 2 = partial-back, 3 = back
+    location: Integer
+}
+
+variant HeadTransfer : Macro {
+    -- Same encoding as HeadLocation; selects the head side to transfer to.
+    location: Integer
+}
+
+variant SeekTransfer : Macro {
+    -- No parameters: moves toward the nearest legal transfer edge.
+}
+
+-- Pin and frame geometry variants
+
+variant PinCenter : Macro {
+    pins:  List<String>
+    axes:  String        -- "XY", "X", or "Y"
+}
+
+variant Clip : Macro {
+    -- No parameters: clips XY motion to the transfer area.
 }
 
 variant Offset : Macro {
-    dx: Decimal
-    dy: Decimal
+    dx: Decimal?
+    dy: Decimal?
+    dz: Decimal?
+}
+
+variant AnchorPoint : Macro {
+    pin:         String
+    orientation: String   -- e.g. "U_HEAD_1", or "0" when unspecified.
+}
+
+-- Recipe metadata and runtime variants
+
+variant WireLength : Macro {
+    length_mm: Decimal
+}
+
+variant Delay : Macro {
+    milliseconds: Integer
 }
 
 variant BreakPoint : Macro {
     label: String?
+}
+
+variant TensionTesting : Macro {
+    wire_index: Integer
+}
+
+-- Correction variants
+
+variant ArmCorrect : Macro {
+    -- No parameters.
+}
+
+variant TransferCorrect : Macro {
+    axis: String   -- "X" or "Y"
+}
+
+-- Queue-control variant
+
+variant QueueMerge : Macro {
+    -- "PRECISE" or "TOLERANT"
+    mode: String
+}
+
+-- High-level recipe-template compositions
+
+variant AnchorToTarget : Macro {
+    anchor: String
+    target: String
 }
 
 variant TransferToFixed : Macro {

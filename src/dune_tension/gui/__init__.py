@@ -2,6 +2,7 @@
 
 from dune_tension.gui.app import run_app
 from dune_tension.gui.context import GUIContext, GUIWidgets, create_context
+from dune_tension.gui.simple_app import run_simple_app
 from dune_tension.gui.state import load_state, save_state
 
 __all__ = [
@@ -10,5 +11,6 @@ __all__ = [
     "create_context",
     "load_state",
     "run_app",
+    "run_simple_app",
     "save_state",
 ]

@@ -812,12 +812,43 @@ def build_command_registry(
     )
 
     def v_template_set_offset(args):
-        _validateArgs(args, required=("offset_id", "value"))
-        return process.vTemplateRecipe.setOffset(
-            _asString(args["offset_id"], "offset_id"), _asFloat(args["value"], "value")
-        )
+        _validateArgs(args, required=("offset_id",), optional=("value", "x", "y", "z"))
+        offset_id = _asString(args["offset_id"], "offset_id")
+        if "value" in args and args["value"] is not None:
+            return process.vTemplateRecipe.setOffset(
+                offset_id, _asFloat(args["value"], "value")
+            )
+        kwargs = {}
+        for axis in ("x", "y", "z"):
+            if axis in args and args[axis] is not None:
+                kwargs[axis] = _asFloat(args[axis], axis)
+        if not kwargs:
+            raise ValueError(
+                "set_offset requires either 'value' or at least one of 'x', 'y', 'z'."
+            )
+        return process.vTemplateRecipe.setOffset(offset_id, **kwargs)
 
     registry.register("process.v_template.set_offset", v_template_set_offset, True)
+
+    def v_template_preview_jog_calibration(args):
+        _validateArgs(args)
+        return process.vTemplateRecipe.previewJogCalibration()
+
+    registry.register(
+        "process.v_template.preview_jog_calibration",
+        v_template_preview_jog_calibration,
+        False,
+    )
+
+    def v_template_apply_jog_calibration(args):
+        _validateArgs(args)
+        return process.vTemplateRecipe.applyJogCalibration()
+
+    registry.register(
+        "process.v_template.apply_jog_calibration",
+        v_template_apply_jog_calibration,
+        True,
+    )
 
     def v_template_set_pull_in(args):
         _validateArgs(args, required=("pull_in_id", "value"))
@@ -895,6 +926,15 @@ def build_command_registry(
         lambda args: (
             _validateArgs(args),
             process.vTemplateRecipe.generateRecipeFile(scriptVariant="xz"),
+        )[1],
+        True,
+    )
+
+    registry.register(
+        "process.v_template.generate_recipe_file_wrapping",
+        lambda args: (
+            _validateArgs(args),
+            process.vTemplateRecipe.generateRecipeFile(scriptVariant="wrapping"),
         )[1],
         True,
     )

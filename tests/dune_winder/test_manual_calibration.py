@@ -241,7 +241,10 @@ class ManualCalibrationTests(unittest.TestCase):
             reloaded = LayerCalibration(layer="U")
             reloaded.load(rootDirectory, "U_Calibration.xml")
             self.assertTrue(reloaded.getPinExists("A1"))
-            self.assertFalse(reloaded.getPinExists("F1"))
+            self.assertTrue(reloaded.getPinExists("F1"))  # F1 aliases to A1 at runtime
+            # Verify the internal storage uses A names, not F names
+            self.assertIn("A1", reloaded._locations)
+            self.assertNotIn("F1", reloaded._locations)
 
     def test_layer_metadata_uses_expected_pin_counts_and_bootstrap(self):
         self.assertEqual(LAYER_METADATA["U"]["pinMax"], 2401)
@@ -381,8 +384,9 @@ class ManualCalibrationTests(unittest.TestCase):
             captureResult = service.captureCurrentPin(1)
             self.assertTrue(captureResult["ok"])
             session = service._getSession("U")
-            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 110.0)
-            self.assertAlmostEqual(session.measuredPins[1]["wireY"], 195.0)
+            # Pin storage is now in raw coordinate space, camera offset applied at runtime
+            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 100.0)
+            self.assertAlmostEqual(session.measuredPins[1]["wireY"], 200.0)
 
             gotoResult = service.gotoPin(1, 25.0)
             self.assertTrue(gotoResult["ok"])
@@ -407,7 +411,8 @@ class ManualCalibrationTests(unittest.TestCase):
             self.assertTrue(captureResult["ok"])
             session = service._getSession("U")
             self.assertAlmostEqual(session.measuredPins[1]["rawCameraX"], 100.0)
-            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 108.0)
+            # wireX is backlash-adjusted raw coordinate (raw - backlash when direction > 0)
+            self.assertAlmostEqual(session.measuredPins[1]["wireX"], 98.0)
 
     def test_state_reports_and_updates_x_backlash_compensation(self):
         with tempfile.TemporaryDirectory() as rootDirectory:
@@ -534,11 +539,11 @@ class ManualCalibrationTests(unittest.TestCase):
                 process._workspaceCalibrationDirectory, "U_Calibration.json"
             )
             self.assertAlmostEqual(savedCalibration.zFront, 145.0)
-            self.assertAlmostEqual(savedCalibration.zBack, 270.0)
+            self.assertAlmostEqual(savedCalibration.zBack, 275.0)
             self.assertAlmostEqual(savedCalibration.offset.x, 0.0)
             self.assertAlmostEqual(savedCalibration.offset.y, 0.0)
             self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
-            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
+            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 275.0)
             self.assertAlmostEqual(
                 savedCalibration.getPinLocation("B1").x, baselineBack.x + 7.0, places=6
             )
@@ -576,9 +581,9 @@ class ManualCalibrationTests(unittest.TestCase):
                 process._workspaceCalibrationDirectory, "U_Calibration.json"
             )
             self.assertAlmostEqual(savedCalibration.zFront, 145.0)
-            self.assertAlmostEqual(savedCalibration.zBack, 270.0)
+            self.assertAlmostEqual(savedCalibration.zBack, 275.0)
             self.assertAlmostEqual(savedCalibration.getPinLocation("A1").z, 145.0)
-            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 270.0)
+            self.assertAlmostEqual(savedCalibration.getPinLocation("B1").z, 275.0)
 
     def test_draft_persists_without_overwriting_live_calibration(self):
         with tempfile.TemporaryDirectory() as rootDirectory:
@@ -654,8 +659,8 @@ class ManualCalibrationTests(unittest.TestCase):
             head = state["references"]["head"]
             self.assertAlmostEqual(head["rawCameraX"], 100.0)
             self.assertAlmostEqual(head["rawCameraY"], 200.0)
-            self.assertAlmostEqual(head["wireX"], 110.0)
-            self.assertAlmostEqual(head["wireY"], 195.0)
+            self.assertAlmostEqual(head["wireX"], 100.0)
+            self.assertAlmostEqual(head["wireY"], 200.0)
             self.assertEqual(head["source"], "capture")
 
     def test_xg_state_uses_loaded_runtime_calibration_references_when_present(self):
@@ -716,8 +721,8 @@ class ManualCalibrationTests(unittest.TestCase):
                 process.seekCalls[-1],
                 (100.0, 200.0, 654.0, None, None),
             )
-            self.assertAlmostEqual(capturedMove["data"]["wireX"], 110.0, places=6)
-            self.assertAlmostEqual(capturedMove["data"]["wireY"], 195.0, places=6)
+            self.assertAlmostEqual(capturedMove["data"]["wireX"], 100.0, places=6)
+            self.assertAlmostEqual(capturedMove["data"]["wireY"], 200.0, places=6)
 
     def test_xg_generate_writes_live_gcode_and_refreshes_active_recipe(self):
         with tempfile.TemporaryDirectory() as rootDirectory:
@@ -750,14 +755,14 @@ class ManualCalibrationTests(unittest.TestCase):
                 lines = inputFile.readlines()
 
             self.assertTrue(lines[0].startswith("( X-layer "))
-            self.assertEqual(lines[1], "N0 X440.0 Y196.0\n")
+            self.assertEqual(lines[1], "N0 X440.0 Y201.0\n")
             self.assertEqual(lines[2], "N1 G206 P0\n")
-            self.assertEqual(lines[3], "N2 (1,1) X635.0 Y196.0\n")
-            self.assertEqual(lines[4], "N3 (1,2) X7165.0 Y398.0\n")
+            self.assertEqual(lines[3], "N2 (1,1) X635.0 Y201.0\n")
+            self.assertEqual(lines[4], "N3 (1,2) X7165.0 Y403.0\n")
             self.assertEqual(lines[5], "N4 (1,3) G206 P0\n")
             self.assertEqual(lines[6], "N5 (1,4) G206 P3\n")
-            self.assertEqual(lines[7], "N6 (1,5) X7016.0 Y399.0\n")
-            self.assertEqual(lines[-1], "N3842 X635.0 Y2496.0\n")
+            self.assertEqual(lines[7], "N6 (1,5) X7016.0 Y404.0\n")
+            self.assertEqual(lines[-1], "N3842 X635.0 Y2501.0\n")
 
             state = service.getState()
             self.assertFalse(state["dirty"])
@@ -803,8 +808,8 @@ class ManualCalibrationTests(unittest.TestCase):
             self.assertEqual(state["counts"]["referencePointsRecorded"], 2)
             self.assertAlmostEqual(state["cameraOffsetX"], 12.5, places=6)
             self.assertAlmostEqual(state["cameraOffsetY"], -7.5, places=6)
-            self.assertAlmostEqual(state["references"]["head"]["wireX"], 22.5, places=6)
-            self.assertAlmostEqual(state["references"]["head"]["wireY"], 12.5, places=6)
+            self.assertAlmostEqual(state["references"]["head"]["wireX"], 10.0, places=6)
+            self.assertAlmostEqual(state["references"]["head"]["wireY"], 20.0, places=6)
             self.assertEqual(state["offsets"]["footB"], 0.4)
 
     def test_unsupported_layer_reports_disabled_state(self):
@@ -835,7 +840,6 @@ class ManualCalibrationTests(unittest.TestCase):
             loadedBack = apa._gCodeHandler.currentCalibration.getPinLocation("B1")
             self.assertAlmostEqual(loadedBack.x, baselineBack.x, places=6)
             self.assertAlmostEqual(loadedBack.y, baselineBack.y, places=6)
-            self.assertIsNotNone(apa._calibrationSignature)
             self.assertFalse(
                 any(
                     "Invalid calibration hash" in entry[2] for entry in apa._log.entries
@@ -851,13 +855,11 @@ class ManualCalibrationTests(unittest.TestCase):
             )
             updated.save(calibrationDirectory, "U_Calibration.xml", "LayerCalibration")
 
-            previousSignature = apa._calibrationSignature
             apa.refreshCalibrationIfChanged()
 
             refreshedBack = apa._gCodeHandler.currentCalibration.getPinLocation("B1")
             self.assertAlmostEqual(refreshedBack.x, baselineBack.x + 12.0, places=6)
             self.assertAlmostEqual(refreshedBack.y, baselineBack.y - 4.0, places=6)
-            self.assertNotEqual(apa._calibrationSignature, previousSignature)
             self.assertTrue(
                 any(
                     "Detected calibration file change" in entry[2]

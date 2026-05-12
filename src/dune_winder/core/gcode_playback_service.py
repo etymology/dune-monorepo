@@ -154,14 +154,22 @@ class GCodePlaybackService:
         offset_y = float(getattr(offset, "y", 0.0))
         offset_z = float(getattr(offset, "z", 0.0))
 
+        machine_calibration = self._machineCalibrationGetter()
+        camera_offset_x = float(
+            getattr(machine_calibration, "cameraWireOffsetX", None) or 0.0
+        )
+        camera_offset_y = float(
+            getattr(machine_calibration, "cameraWireOffsetY", None) or 0.0
+        )
+
         pins = []
         for pin_name in sorted(calibration.getPinNames(), key=pin_sort_key):
             location = calibration.getPinLocation(pin_name)
             pins.append(
                 {
                     "name": str(pin_name),
-                    "x": float(getattr(location, "x", 0.0)) + offset_x,
-                    "y": float(getattr(location, "y", 0.0)) + offset_y,
+                    "x": float(getattr(location, "x", 0.0)) + offset_x + camera_offset_x,
+                    "y": float(getattr(location, "y", 0.0)) + offset_y + camera_offset_y,
                     "z": float(getattr(location, "z", 0.0)) + offset_z,
                 }
             )
@@ -367,6 +375,15 @@ class GCodePlaybackService:
 
     # -- manual G-code execution ---------------------------------------------
 
+    def _isTransferOk(self, attributeName):
+        signal = getattr(self._io, attributeName, None)
+        if signal is None or not hasattr(signal, "get"):
+            return False
+        try:
+            return bool(signal.get())
+        except Exception:
+            return False
+
     def executeG_CodeLine(self, line: str):
         error = None
         if not self._controlStateMachine.isReadyForMovement():
@@ -563,10 +580,17 @@ class GCodePlaybackService:
                 )
             else:
                 lineToExecute = line
+                zPosition = float(self._io.zAxis.getPosition())
                 if re.match(x_only + "|" + xf + "|" + fx, line):
-                    lineToExecute = line.strip() + " Y" + str(yPosition)
+                    if self._isTransferOk("Y_Transfer_OK"):
+                        lineToExecute = line.strip() + " Z" + str(zPosition)
+                    else:
+                        lineToExecute = line.strip() + " Y" + str(yPosition)
                 elif re.match(y_only + "|" + yf + "|" + fy, line):
-                    lineToExecute = line.strip() + " X" + str(xPosition)
+                    if self._isTransferOk("X_Transfer_OK"):
+                        lineToExecute = line.strip() + " Z" + str(zPosition)
+                    else:
+                        lineToExecute = line.strip() + " X" + str(xPosition)
 
                 errorData = self._gCodeHandler.executeG_CodeLine(
                     lineToExecute,

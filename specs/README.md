@@ -76,6 +76,24 @@ Runtime and PLC state behaviour for the winder. Includes runtime modes, PLC
 states, head-transfer protocol, latch actuator state, Z-axis coordination,
 safety interlocks, queued-motion diagnostics, and operator-facing diagnostics.
 
+### `winder-hardware-interfaces.allium`
+
+The hardware-side port contract: the PLC tag-level interface (switch tags,
+motion command tags, queued-motion tags) and the non-PLC USB-serial
+peripherals used by tension measurement (Pololu Maestro for focus and
+plucking, USB-serial relay for the air valve, USB microphone). Excludes the
+PLC's own ladder logic (physical input pins, latch solenoid, safety relays,
+indicator lamps) and the Cognex camera (handled separately).
+
+### `tension-control.allium`
+
+The narrow set of interactions between non-PLC code and the PLC tension
+system. The PLC owns the wire-tension PID loop, the load-cell linearisation,
+and the overtension/wire-break trips. The winder reads the loop's named
+tags and runs an operator-facing **load-cell calibration session** that
+applies known reference weights, fits a quartic curve, and writes the
+resulting `cal_c1..cal_c4` coefficients back to the PLC.
+
 ## Cross-Spec Sharing Pattern
 
 Shared entities and contracts are managed through a small canonical core spec
@@ -115,6 +133,9 @@ Common exclusions:
 - Use `motion-safety.allium` for queued-motion safety validation and pose invariants.
 - Use `winder-calibration.allium` for the calibration values that workspace and geometry rules consume.
 - Use `winder-macros.allium` for recipe execution semantics.
+- Use `winder-hardware-interfaces.allium` and `tension-control.allium` together
+  as the **port contract** for hardware: a reimplementer who matches them
+  controls the same machine on the same PLC.
 
 ### For Python Implementation
 

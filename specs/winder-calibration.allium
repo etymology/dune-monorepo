@@ -15,6 +15,11 @@
 -- that the geometry and pose invariants in those specs evaluate
 -- identically.
 
+-- The Layer enum is redeclared here to keep this spec self-validating;
+-- it mirrors the canonical definition in core.allium. Update core.allium
+-- first and propagate any change here.
+enum Layer { u | v | x | g }
+
 -- ==========================================================================
 -- Calibration record
 -- ==========================================================================
@@ -25,10 +30,51 @@ value WinderCalibrationRecord {
     apa_height:    Decimal
     apa_thickness: Decimal
 
-    -- APA board cross-section (mm)
-    apa_board_width_z:     Decimal
+    -- APA midplane Z (mm), measured in the machine frame. The per-layer
+    -- Z stack is derived from this value plus the per-layer board width
+    -- (see DeriveLayerZStack below).
+    apa_z_midplane: Decimal
+
+    -- Per-layer board width along Z (mm). Each layer's pin tops are at
+    --   layer_z_front(layer) = apa_z_midplane - board_width_z(layer) / 2   -- A side
+    --   layer_z_back(layer)  = apa_z_midplane + board_width_z(layer) / 2   -- B side
+    board_width_z: Map<Layer, Decimal>
+
+    -- APA board cross-section (mm). Thickness in X and Y carry across all
+    -- layers; the per-layer board width along Z is `board_width_z` above.
     apa_board_thickness_x: Decimal
     apa_board_thickness_y: Decimal
+
+    -- Wire and board geometry (mm)
+    wire_diameter:   Decimal
+    board_thickness: Decimal
+    board_spacing:   Decimal
+
+    -- Head arm and roller geometry (mm). Influences the wire tangent
+    -- geometry of UV wraps; layer-geometry.allium consumes these.
+    head_arm_length:    Decimal
+    head_roller_radius: Decimal
+    head_roller_gap:    Decimal
+
+    -- APA placement in the machine frame (mm). The bottom-left corner of
+    -- the APA's calibration-frame origin sits at (apa_origin_x,
+    -- apa_origin_y, apa_origin_z) in machine coordinates.
+    apa_origin_x: Decimal
+    apa_origin_y: Decimal
+    apa_origin_z: Decimal
+
+    -- Manual layer calibration offsets per layer (mm). These are
+    -- operator-set offsets between the calibration frame and the motion
+    -- frame; how they are produced (camera-derived pin positions or
+    -- otherwise) is out of scope for this spec.
+    manual_calibration_offset_x: Map<Layer, Decimal>
+    manual_calibration_offset_y: Map<Layer, Decimal>
+
+    -- X-axis backlash compensation (mm). Applied with sign opposite to
+    -- the direction of the most recent X motion. The compensated target X
+    -- must remain inside the raw X envelope (see
+    -- winder-states.allium#CompensatedXMustRemainInsideRawLimits).
+    x_backlash_compensation: Decimal
 
     -- Pin and X/G board-slot nominal geometry
     pin_radius:             Decimal
@@ -98,7 +144,9 @@ value WinderCalibrationRecord {
     -- Numerical tolerance shared by geometric checks (mm)
     geometry_epsilon: Decimal
 
-    -- Maximum commanded velocity (mm/s)
+    -- Maximum commanded velocity (mm/s) used by macro-level preflight.
+    -- The PLC enforces additional internal velocity, acceleration,
+    -- deceleration, and jerk limits; those are not part of this record.
     max_velocity: Decimal
 }
 
@@ -118,6 +166,10 @@ contract WinderCalibration {
     pin_position:     (pin: Any) -> Any
     xg_slot_position: (slot: Any) -> Any
 
+    -- Per-layer Z stack derived from apa_z_midplane and board_width_z.
+    layer_z_front: (layer: Layer) -> Decimal
+    layer_z_back:  (layer: Layer) -> Decimal
+
     @invariant CompletelySpecified
         -- Every field on WinderCalibrationRecord must be supplied. Missing
         -- or unparseable values prevent the safety validation surface
@@ -127,11 +179,28 @@ contract WinderCalibration {
         -- Lengths are millimetres in the machine frame; angles are
         -- radians; durations are SI seconds. The X axis runs along the
         -- APA length, Y along the APA height, Z perpendicular to the APA
-        -- plane (positive Z extends toward the APA).
+        -- plane. Z=0 is the retracted Z position; Z increases toward the
+        -- APA. Backlash compensation is applied to commanded X with sign
+        -- opposite to the direction of the most recent X motion; the
+        -- compensated target must remain inside [limit_left, limit_right].
 
     @invariant LookupCoverage
         -- pin_position is defined for every PinName valid under
         -- layer-geometry.allium. xg_slot_position is defined for every
         -- (edge, side, number) with edge in {head, foot}, side in {a, b},
         -- number in 1..480 for X slots and 1..481 for G slots.
+
+    @invariant LayerZStackDerivation
+        -- For every layer:
+        --   layer_z_front(layer) = apa_z_midplane - board_width_z(layer) / 2   -- A side
+        --   layer_z_back(layer)  = apa_z_midplane + board_width_z(layer) / 2   -- B side
+        -- These are the only Z positions the head visits during winding for
+        -- that layer's pins. apa_z_midplane is the same for all layers; the
+        -- per-layer board width determines the offset to the A/B faces.
+
+    @invariant PLCEnforcesMotionLimits
+        -- This record carries max_velocity for macro-level preflight; the
+        -- PLC enforces velocity, acceleration, deceleration, and jerk
+        -- limits internally. Other motion limits are intentionally not
+        -- part of this record.
 }

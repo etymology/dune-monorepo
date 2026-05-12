@@ -39,7 +39,7 @@ COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
 PIN_MIN = 1
 PIN_MAX = 2401
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
-DEFAULT_OFFSETS = (0.0,) * 12
+DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0, "z": 0.0},) * 12
 DEFAULT_U_TEMPLATE_WORKBOOK = None
 DEFAULT_U_TEMPLATE_SHEET = None
 PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN", "Y_HOVER")
@@ -92,6 +92,21 @@ SPECIAL_OFFSET_ALIASES = {
     "head_a_offset": 5,
     "foot_a_offset": 10,
     "foot_b_offset": 11,
+}
+
+OFFSET_NATURAL_AXIS = {
+    "top_b_foot_end": "x",
+    "top_a_foot_end": "x",
+    "bottom_a_head_end": "x",
+    "bottom_b_head_end": "x",
+    "head_b_corner": "y",
+    "head_a_corner": "y",
+    "top_a_head_end": "x",
+    "top_b_head_end": "x",
+    "bottom_b_foot_end": "x",
+    "bottom_a_foot_end": "x",
+    "foot_a_corner": "y",
+    "foot_b_corner": "y",
 }
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
@@ -334,15 +349,27 @@ def _coerce_number(value):
     return template_gcode_common.coerce_number(value, error_type=UTemplateInputError)
 
 
+def _coerce_offset_item(value):
+    if isinstance(value, dict):
+        return template_gcode_common.normalize_offset_value(value)
+    return template_gcode_common.coerce_number(value, error_type=UTemplateInputError)
+
+
 def _coerce_offsets(value):
-    return template_gcode_common.coerce_offsets(
+    raw = template_gcode_common.coerce_offsets(
         value,
         default_offsets=DEFAULT_OFFSETS,
         offset_ids=OFFSET_IDS,
-        coerce_number_fn=_coerce_number,
+        coerce_number_fn=_coerce_offset_item,
         error_type=UTemplateInputError,
         layer_name="U",
     )
+    return [
+        template_gcode_common.normalize_offset_value(
+            entry, natural_axis=OFFSET_NATURAL_AXIS.get(OFFSET_IDS[index], "x")
+        )
+        for index, entry in enumerate(raw)
+    ]
 
 
 def _apply_pull_in_input(key, value, pull_ins):
@@ -443,6 +470,12 @@ def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None
         include_lead_mode,
         pull_ins,
     )
+    offsets = [
+        template_gcode_common.normalize_offset_value(
+            entry, natural_axis=OFFSET_NATURAL_AXIS.get(OFFSET_IDS[index], "x")
+        )
+        for index, entry in enumerate(offsets)
+    ]
     return offsets, transfer_pause, add_foot_pauses, include_lead_mode, pull_ins
 
 
@@ -670,11 +703,17 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
     def a_from_b(pin_number):
         return b_to_a_pin("U", b_pin(pin_number))
 
+    def _scalar_axis(value, axis):
+        if isinstance(value, dict):
+            return float(value.get(axis, 0.0))
+        return float(value)
+
     def anchor_to_target(anchor_pin, target_pin, label=None, offset=None, hover=False):
         call = f"~anchorToTarget({anchor_pin},{target_pin}"
         if offset is not None:
-            offset_x, offset_y = offset
-            if abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9:
+            offset_x = _scalar_axis(offset[0], "x") if not isinstance(offset[0], (int, float)) else float(offset[0])
+            offset_y = _scalar_axis(offset[1], "y") if not isinstance(offset[1], (int, float)) else float(offset[1])
+            if abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9:
                 call += (
                     ",offset=("
                     + _coord("", offset_x)
@@ -1146,13 +1185,19 @@ class UTemplateProgrammaticGenerator:
             "y_pull_in": self.pull_ins["Y_PULL_IN"],
             "x_pull_in": self.pull_ins["X_PULL_IN"],
         }
+        def _scalar_for(idx):
+            entry = self.offsets[idx]
+            if isinstance(entry, dict):
+                return entry.get(OFFSET_NATURAL_AXIS.get(OFFSET_IDS[idx], "x"), 0.0)
+            return entry
+
         for index, offset_id in enumerate(OFFSET_IDS):
-            values[offset_id] = self.offsets[index]
-            values[offset_id + "_offset"] = self.offsets[index]
+            values[offset_id] = _scalar_for(index)
+            values[offset_id + "_offset"] = _scalar_for(index)
         for legacy_name, index in LEGACY_OFFSET_NAMES.items():
-            values[legacy_name] = self.offsets[index]
+            values[legacy_name] = _scalar_for(index)
         for alias_name, index in SPECIAL_OFFSET_ALIASES.items():
-            values[alias_name] = self.offsets[index]
+            values[alias_name] = _scalar_for(index)
         return values
 
     def get_value(self, column_label, row_number):

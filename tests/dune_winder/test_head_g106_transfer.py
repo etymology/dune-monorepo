@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 import unittest
 
 from dune_winder.io.controllers.head import Head
@@ -30,6 +29,17 @@ _MACHINE_SW_BITS_USED_BY_HEAD = [
 ]
 
 
+class _FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, dt):
+        self.now += dt
+
+
 def _build_full_stack(plc):
     polled = PLC.Tag.Attributes()
     polled.canWrite = False
@@ -44,22 +54,23 @@ def _build_full_stack(plc):
     xyAxis = MultiAxisMotor("xyAxis", [xAxis, yAxis])
     logic = PLC_Logic(plc, xyAxis, zAxis)
     head = Head(logic)
+    clock = _FakeClock()
+    head._clock = clock
     logic.poll()
-    return logic, head
+    return logic, head, clock
 
 
 def _poll(plc):
     PLC.Tag.pollAll(plc)
 
 
-def _drive_transfer(plc, head, timeout=6.0):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+def _drive_transfer(plc, head, clock, timeout=6.0, step=0.12):
+    while clock.now < timeout:
         _poll(plc)
         head.update()
         if head._headState in (Head.States.IDLE, Head.States.ERROR):
             return
-        time.sleep(0.12)
+        clock.advance(step)
 
 
 def _snapshot(plc):
@@ -102,10 +113,10 @@ class G206TransferSimulatedTests(unittest.TestCase):
 
     def test_stage_to_fixed_transfer_completes(self):
         plc = self._make_plc(head_pos=0, actuator_pos=1)
-        _logic, head = _build_full_stack(plc)
+        _logic, head, clock = _build_full_stack(plc)
 
         self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 300))
-        _drive_transfer(plc, head)
+        _drive_transfer(plc, head, clock)
 
         snap = _snapshot(plc)
         self.assertEqual(head._headState, Head.States.IDLE, snap)
@@ -116,10 +127,10 @@ class G206TransferSimulatedTests(unittest.TestCase):
 
     def test_fixed_to_stage_transfer_completes(self):
         plc = self._make_plc(head_pos=3, actuator_pos=2)
-        _logic, head = _build_full_stack(plc)
+        _logic, head, clock = _build_full_stack(plc)
 
         self.assertIsNone(head.setTransferPosition(Head.LEVEL_A_SIDE, 300))
-        _drive_transfer(plc, head)
+        _drive_transfer(plc, head, clock)
 
         snap = _snapshot(plc)
         self.assertEqual(head._headState, Head.States.IDLE, snap)
@@ -130,10 +141,10 @@ class G206TransferSimulatedTests(unittest.TestCase):
 
     def test_same_side_stage_move_skips_latching(self):
         plc = self._make_plc(head_pos=0, actuator_pos=1)
-        _logic, head = _build_full_stack(plc)
+        _logic, head, clock = _build_full_stack(plc)
 
         self.assertIsNone(head.setTransferPosition(Head.LEVEL_B_SIDE, 300))
-        _drive_transfer(plc, head, timeout=2.0)
+        _drive_transfer(plc, head, clock, timeout=2.0)
 
         snap = _snapshot(plc)
         self.assertEqual(head._headState, Head.States.IDLE, snap)

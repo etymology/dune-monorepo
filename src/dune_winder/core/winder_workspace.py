@@ -873,8 +873,13 @@ class WinderWorkspace:
         if calibFullPath is None or not os.path.isfile(calibFullPath):
             raise FileNotFoundError(self._missingCalibrationMessage(calibFullPath))
 
+        machineCalibration = getattr(self._gCodeHandler, "_machineCalibration", None)
         try:
-            calibration.load(self._calibrationDirectory, self._calibrationFile)
+            calibration.load(
+                self._calibrationDirectory,
+                self._calibrationFile,
+                machineCalibration=machineCalibration,
+            )
         except LayerCalibration.Error as exception:
             errorString = (
                 "Invalid calibration hash for "
@@ -893,6 +898,7 @@ class WinderWorkspace:
                 self._calibrationDirectory,
                 self._calibrationFile,
                 exceptionForMismatch=False,
+                machineCalibration=machineCalibration,
             )
 
         self._useCalibration(calibration)

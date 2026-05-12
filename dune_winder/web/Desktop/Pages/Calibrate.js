@@ -8,7 +8,6 @@ function Calibrate(modules)
   var fixedVelocity = 1000
   var lastState = null
   var suppressWireRefresh = false
-  var suppressOffsetRefresh = false
   var suppressBacklashRefresh = false
   var boardRoutine =
   {
@@ -582,8 +581,6 @@ function Calibrate(modules)
       .text( "Board " + entry.boardIndex + " / " + capitalize( entry.side ) )
     $( "#manualCalibrationBoardDialogWire" )
       .text( formatPair( entry.predictedWireX, entry.predictedWireY ) )
-    $( "#manualCalibrationBoardDialogCamera" )
-      .text( formatPair( entry.predictedCameraX, entry.predictedCameraY ) )
     $( "#manualCalibrationBoardDialogRemaining" )
       .text( remaining + " pending" )
     $( "#manualCalibrationBoardDialogTag" )
@@ -685,7 +682,6 @@ function Calibrate(modules)
     {
       $( "#manualCalibrationPredictionMode" ).text( "-" )
       $( "#manualCalibrationPredictionBoard" ).text( "-" )
-      $( "#manualCalibrationCameraTarget" ).text( "-" )
       return
     }
 
@@ -705,8 +701,6 @@ function Calibrate(modules)
         $( "#manualCalibrationPredictionMode" ).text( capitalize( prediction.predictionMode ) )
         $( "#manualCalibrationPredictionBoard" )
           .text( capitalize( prediction.side ) + " / Board " + prediction.boardIndex )
-        $( "#manualCalibrationCameraTarget" )
-          .text( formatPair( prediction.cameraCheckX, prediction.cameraCheckY ) )
 
         if ( forceFieldUpdate || ! suppressWireRefresh )
         {
@@ -928,16 +922,6 @@ function Calibrate(modules)
     if ( state.enabled )
     {
       setFieldValueIfIdle(
-        "#manualCalibrationOffsetX",
-        formatNumber( state.cameraOffsetX, 3 ),
-        suppressOffsetRefresh
-      )
-      setFieldValueIfIdle(
-        "#manualCalibrationOffsetY",
-        formatNumber( state.cameraOffsetY, 3 ),
-        suppressOffsetRefresh
-      )
-      setFieldValueIfIdle(
         "#manualCalibrationXBacklashCompensation",
         formatNumber( state.xBacklashCompensationMm, 3 ),
         suppressBacklashRefresh
@@ -984,27 +968,6 @@ function Calibrate(modules)
 
     setControlsDisabled( ! state.enabled || ! state.movementReady )
     renderBoardRoutineSummary()
-  }
-
-  function applyOffsetInputs()
-  {
-    if ( ! lastState || ! lastState.enabled )
-      return
-
-    var xValue = parseFloat( $( "#manualCalibrationOffsetX" ).val() )
-    var yValue = parseFloat( $( "#manualCalibrationOffsetY" ).val() )
-    if ( isNaN( xValue ) || isNaN( yValue ) )
-      return
-
-    manualAction
-    (
-      commands.process.manualCalibrationSetCameraOffset,
-      { x: xValue, y: yValue },
-      function()
-      {
-        refreshStateOnce()
-      }
-    )
   }
 
   function applyXBacklashInput()
@@ -1615,24 +1578,6 @@ function Calibrate(modules)
         refreshPrediction( true )
       }
     )
-
-  $( "#manualCalibrationOffsetX, #manualCalibrationOffsetY" )
-    .focus
-    (
-      function()
-      {
-        suppressOffsetRefresh = true
-      }
-    )
-    .blur
-    (
-      function()
-      {
-        suppressOffsetRefresh = false
-        applyOffsetInputs()
-      }
-    )
-    .change( applyOffsetInputs )
 
   $( "#manualCalibrationXBacklashCompensation" )
     .focus

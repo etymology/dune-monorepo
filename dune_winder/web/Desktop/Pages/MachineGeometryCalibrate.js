@@ -14,6 +14,7 @@ function MachineGeometryCalibrate(modules) {
   var progressPollTimer = null
   var activityEntries = []
   var lastMachineSolveStatusKey = null
+  var suppressCameraOffsetRefresh = false
 
   function commandName(path, fallback) {
     return path || fallback
@@ -465,11 +466,26 @@ function MachineGeometryCalibrate(modules) {
     $("#machineGeometryCaptureBoth").prop("disabled", captureDisabled)
   }
 
+  function setFieldValueIfIdle(selector, value, suppress) {
+    if (suppress) return
+    var element = $(selector)
+    if (element.is(":focus")) return
+    element.val(value)
+  }
+
   function renderMachine() {
     var machine = currentState ? currentState.machine : null
     var live = machine ? machine.live || {} : {}
-    $("#machineGeometryLiveCameraX").text(formatNumber(live.cameraWireOffsetX, 3))
-    $("#machineGeometryLiveCameraY").text(formatNumber(live.cameraWireOffsetY, 3))
+    setFieldValueIfIdle(
+      "#machineGeometryLiveCameraX",
+      formatNumber(live.cameraWireOffsetX, 3),
+      suppressCameraOffsetRefresh
+    )
+    setFieldValueIfIdle(
+      "#machineGeometryLiveCameraY",
+      formatNumber(live.cameraWireOffsetY, 3),
+      suppressCameraOffsetRefresh
+    )
     $("#machineGeometryNominalRollerY").text(formatNumber(live.nominalRollerY, 3))
 
     var rollerRows = ""
@@ -672,6 +688,31 @@ function MachineGeometryCalibrate(modules) {
   $("#machineGeometryRefresh").off("click").on("click", function() {
     loadState(true)
   })
+
+  function applyCameraOffsetInputs() {
+    var xValue = parseFloat($("#machineGeometryLiveCameraX").val())
+    var yValue = parseFloat($("#machineGeometryLiveCameraY").val())
+    if (!$.isNumeric(xValue) || !$.isNumeric(yValue)) {
+      return
+    }
+    callAndRefresh(
+      commandName(commands.process.manualCalibrationSetCameraOffset, "process.manual_calibration.set_camera_offset"),
+      { x: xValue, y: yValue },
+      "Updated camera-wire offset.",
+      true
+    )
+  }
+
+  $("#machineGeometryLiveCameraX, #machineGeometryLiveCameraY")
+    .off("focus.machineGeometryCameraOffset blur.machineGeometryCameraOffset change.machineGeometryCameraOffset")
+    .on("focus.machineGeometryCameraOffset", function() {
+      suppressCameraOffsetRefresh = true
+    })
+    .on("blur.machineGeometryCameraOffset", function() {
+      suppressCameraOffsetRefresh = false
+      applyCameraOffsetInputs()
+    })
+    .on("change.machineGeometryCameraOffset", applyCameraOffsetInputs)
 
   $("#machineGeometryCaptureXY").off("click").on("click", function() {
     callAndRefresh(

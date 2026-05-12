@@ -1,0 +1,60 @@
+<article class="apaJogCalibrationPanel">
+  <h2>Jog Calibration</h2>
+  <p class="jogCalHelp">
+    Run a labeled g-code line, jog the machine to the correct position, then
+    apply the offset to the matching V-template machine-geometry calibration.
+  </p>
+
+  <div class="apaGCodeSubbox">
+    <h3>Last executed line</h3>
+    <p>
+      Line <span id="jogCalLineIndex">-</span> &middot; label
+      <strong id="jogCalLineLabel">-</strong>
+    </p>
+    <p>
+      Offset id: <code id="jogCalOffsetId">-</code>
+    </p>
+    <pre id="jogCalLineText" class="jogCalLineText">-</pre>
+  </div>
+
+  <div class="apaGCodeSubbox">
+    <h3>Position</h3>
+    <table class="jogCalTable">
+      <thead>
+        <tr>
+          <th>Axis</th>
+          <th>Commanded</th>
+          <th>Actual (live)</th>
+          <th>Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>X</th>
+          <td id="jogCalCommandedX">-</td>
+          <td id="jogCalActualX">-</td>
+          <td id="jogCalDeltaX">-</td>
+        </tr>
+        <tr>
+          <th>Y</th>
+          <td id="jogCalCommandedY">-</td>
+          <td id="jogCalActualY">-</td>
+          <td id="jogCalDeltaY">-</td>
+        </tr>
+        <tr>
+          <th>Z</th>
+          <td id="jogCalCommandedZ">-</td>
+          <td id="jogCalActualZ">-</td>
+          <td id="jogCalDeltaZ">-</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="apaGCodeButtonRow">
+    <button type="button" id="jogCalUseCurrentButton">Use current position</button>
+    <button type="button" id="jogCalApplyButton" disabled>Apply &amp; regenerate</button>
+    <button type="button" id="jogCalCancelButton" disabled>Cancel</button>
+  </div>
+  <p id="jogCalStatus" class="jogCalStatus">Idle.</p>
+</article>

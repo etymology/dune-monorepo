@@ -9,7 +9,9 @@ import re
 from dune_winder.recipes.template_recipe_base import TemplateRecipeBase
 from dune_winder.recipes.v_template_gcode import (
     DEFAULT_V_TEMPLATE_ROW_COUNT,
+    LABEL_TO_OFFSET_ID as V_LABEL_TO_OFFSET_ID,
     OFFSET_IDS as V_OFFSET_IDS,
+    OFFSET_NATURAL_AXIS as V_OFFSET_NATURAL_AXIS,
     PULL_IN_IDS as V_PULL_IN_IDS,
     WRAP_COUNT as V_WRAP_COUNT,
     X_PULL_IN as DEFAULT_X_PULL_IN,
@@ -52,6 +54,8 @@ class VTemplateRecipe(TemplateRecipeBase):
     SERVICE_NAME = "VTemplateRecipe"
     OFFSET_IDS = V_OFFSET_IDS
     OFFSET_LABELS = OFFSET_LABELS
+    OFFSET_NATURAL_AXIS = V_OFFSET_NATURAL_AXIS
+    LABEL_TO_OFFSET_ID = V_LABEL_TO_OFFSET_ID
     PULL_IN_IDS = V_PULL_IN_IDS
     PULL_IN_LABELS = PULL_IN_LABELS
     PULL_IN_DEFAULTS = PULL_IN_DEFAULTS

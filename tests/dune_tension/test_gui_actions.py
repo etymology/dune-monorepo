@@ -1,28 +1,30 @@
-import importlib.util
-from pathlib import Path
 import sys
 import threading
 import time
 import types
 from typing import Any, cast
 
-
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "actions.py"
+from _gui_test_support import (
+    REPO_SRC,
+    install_dune_tension_pkg_shell,
+    load_module_from_path,
 )
 
 
-def _load_actions_module(monkeypatch):
-    dune_pkg = types.ModuleType("dune_tension")
-    dune_pkg.__path__ = []
-    gui_pkg = types.ModuleType("dune_tension.gui")
-    gui_pkg.__path__ = []
+MODULE_PATH = REPO_SRC / "gui" / "actions.py"
+APA_NAMING_PATH = REPO_SRC / "apa_naming.py"
 
+
+def _load_actions_module(monkeypatch):
     monkeypatch.setitem(
         sys.modules, "sounddevice", types.SimpleNamespace(stop=lambda: None)
     )
-    monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
-    monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+    dune_pkg, _gui_pkg = install_dune_tension_pkg_shell(monkeypatch)
+
+    apa_module = load_module_from_path(
+        monkeypatch, "dune_tension.apa_naming", APA_NAMING_PATH
+    )
+    cast(Any, dune_pkg).apa_naming = apa_module
 
     tk = cast(Any, types.ModuleType("tkinter"))
     tk.StringVar = lambda **kwargs: types.SimpleNamespace(
@@ -126,14 +128,7 @@ def _load_actions_module(monkeypatch):
     uv_wire_planner.plan_uv_wire_zone = lambda *_args, **_kwargs: 0
     monkeypatch.setitem(sys.modules, "dune_tension.uv_wire_planner", uv_wire_planner)
 
-    module_name = "gui_actions_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(monkeypatch, "gui_actions_under_test", MODULE_PATH)
 
 
 def _wait_for(predicate, timeout=1.0):
@@ -491,6 +486,100 @@ def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
     assert measured_wires == [([30, 40], False)]
 
 
+def test_measure_refine_outliers_remeasures_union(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    residual_calls = []
+    bulk_calls = []
+    measured_wires = []
+
+    def fake_residual(*args, **kwargs):
+        residual_calls.append((args, kwargs))
+        return [10, 20, 30]
+
+    def fake_bulk(*args, **kwargs):
+        bulk_calls.append((args, kwargs))
+        return [20, 30, 40]
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "find_outliers", fake_residual)
+    monkeypatch.setattr(actions, "find_distribution_outliers", fake_bulk)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="2.0",
+        confidence=0.8,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_refine_outliers.__wrapped__(types.SimpleNamespace(), inputs)
+
+    expected_kwargs = {"times_sigma": 2.0, "confidence_threshold": 0.8}
+    assert residual_calls == [(("db.sqlite", "APA", "G", "A"), expected_kwargs)]
+    assert bulk_calls == [(("db.sqlite", "APA", "G", "A"), expected_kwargs)]
+    assert measured_wires == [([10, 20, 30, 40], False)]
+
+
+def test_measure_refine_outliers_skips_when_empty(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    monkeypatch.setattr(actions, "find_outliers", lambda *_a, **_k: [])
+    monkeypatch.setattr(actions, "find_distribution_outliers", lambda *_a, **_k: [])
+
+    tensiometer_built = []
+    monkeypatch.setattr(
+        actions,
+        "create_tensiometer",
+        lambda _ctx, _inputs: tensiometer_built.append(1) or object(),
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="2.0",
+        confidence=0.8,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_refine_outliers.__wrapped__(types.SimpleNamespace(), inputs)
+
+    assert tensiometer_built == []
+
+
 def test_calibrate_background_noise_accepts_float_like_samplerate(monkeypatch):
     actions = _load_actions_module(monkeypatch)
     calls = []
@@ -772,7 +861,9 @@ def test_move_laser_to_pin_uses_saved_offset(monkeypatch):
     assert moves == [(97.5, 201.0)]
 
 
-def test_measure_list_button_enables_route_optimization_for_descending_ranges(monkeypatch):
+def test_measure_list_button_enables_route_optimization_for_descending_ranges(
+    monkeypatch,
+):
     actions = _load_actions_module(monkeypatch)
 
     measured_wires = []
@@ -852,3 +943,150 @@ def test_adjust_focus_with_x_compensation_side_b(monkeypatch):
 
     assert focus_targets == [4200]
     assert moves == [(1000.6, 2000.0)]
+
+
+class _FakeRoot:
+    def __init__(self) -> None:
+        self.after_calls: list[tuple[int, Any]] = []
+        self.cancelled: list[Any] = []
+        self._counter = 0
+
+    def after(self, delay_ms: int, func: Any) -> str:
+        self._counter += 1
+        token = f"after-{self._counter}"
+        self.after_calls.append((int(delay_ms), func))
+        return token
+
+    def after_cancel(self, token: Any) -> None:
+        self.cancelled.append(token)
+
+
+def _make_uv_ctx(layer: str = "U", side: str = "A", mode: str = "legacy") -> Any:
+    laser_offset_frame = types.SimpleNamespace(
+        grid=lambda **_kwargs: None,
+        grid_remove=lambda: None,
+    )
+    laser_offset_pin_menu = {
+        "menu": types.SimpleNamespace(
+            delete=lambda *_a, **_kw: None,
+            add_command=lambda **_kwargs: None,
+        )
+    }
+    widgets = types.SimpleNamespace(
+        layer_var=types.SimpleNamespace(get=lambda: layer),
+        side_var=types.SimpleNamespace(get=lambda: side),
+        measurement_mode_var=types.SimpleNamespace(get=lambda: mode),
+        laser_offset_frame=laser_offset_frame,
+        laser_offset_pin_var=types.SimpleNamespace(
+            get=lambda: "", set=lambda _value: None
+        ),
+        laser_offset_pin_menu=laser_offset_pin_menu,
+        laser_offset_readout_var=types.SimpleNamespace(set=lambda _value: None),
+        btn_seek_pin=types.SimpleNamespace(configure=lambda **_kwargs: None),
+        btn_capture_laser_offset=types.SimpleNamespace(
+            configure=lambda **_kwargs: None
+        ),
+    )
+    return types.SimpleNamespace(root=_FakeRoot(), widgets=widgets)
+
+
+def test_refresh_uv_laser_offset_controls_debounces_rapid_calls(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    ctx = _make_uv_ctx()
+    actions.refresh_uv_laser_offset_controls(ctx)
+    actions.refresh_uv_laser_offset_controls(ctx)
+    actions.refresh_uv_laser_offset_controls(ctx)
+
+    assert len(ctx.root.after_calls) == 3
+    # Each subsequent call cancels the previous after_id.
+    assert ctx.root.cancelled == ["after-1", "after-2"]
+    assert ctx.widgets is not None  # sanity
+
+
+def test_dispatch_uv_offset_refresh_offloads_io_to_thread(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    started_threads: list[Any] = []
+
+    class _SyncThread:
+        def __init__(self, target: Any, args: tuple = (), **_kwargs: Any) -> None:
+            self._target = target
+            self._args = args
+            self._kwargs = _kwargs
+
+        def start(self) -> None:
+            started_threads.append(self._kwargs)
+            self._target(*self._args)
+
+    monkeypatch.setattr(actions, "Thread", _SyncThread)
+
+    bottom_calls: list[tuple[str, str]] = []
+    sync_calls: list[str] = []
+
+    monkeypatch.setattr(
+        actions,
+        "get_bottom_pin_options",
+        lambda layer, side: (
+            bottom_calls.append((layer, side)) or [("Bottom (B400)", "B400")]
+        ),
+    )
+    monkeypatch.setattr(
+        actions,
+        "ensure_layer_calibration_ready",
+        lambda layer: sync_calls.append(layer),
+    )
+    monkeypatch.setattr(actions, "get_laser_offset", lambda _side: None)
+
+    ctx = _make_uv_ctx(layer="V", side="A", mode="legacy")
+    ctx._uv_refresh_generation = 7
+
+    actions._dispatch_uv_offset_refresh(ctx, 7)
+
+    assert started_threads, "expected a worker thread to be started"
+    assert bottom_calls == [("V", "A")]
+    assert sync_calls == ["V"]
+    # Worker schedules the UI-update via root.after(0, ...).
+    assert ctx.root.after_calls
+    delay_ms, _func = ctx.root.after_calls[-1]
+    assert delay_ms == 0
+
+
+def test_dispatch_uv_offset_refresh_skips_when_layer_not_uv(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+    started: list[Any] = []
+    monkeypatch.setattr(
+        actions,
+        "Thread",
+        lambda **kwargs: types.SimpleNamespace(start=lambda: started.append(kwargs)),
+    )
+
+    ctx = _make_uv_ctx(layer="X", mode="legacy")
+    ctx._uv_refresh_generation = 1
+    actions._dispatch_uv_offset_refresh(ctx, 1)
+
+    assert started == []  # X layer ⇒ no I/O work
+
+
+def test_apply_uv_offset_results_drops_stale_generation(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    set_calls: list[Any] = []
+    ctx = _make_uv_ctx()
+    ctx.widgets.laser_offset_readout_var = types.SimpleNamespace(
+        set=lambda value: set_calls.append(value)
+    )
+    ctx._uv_refresh_generation = 9
+
+    # Generation 5 was superseded by 9 — must not write any UI state.
+    actions._apply_uv_offset_results(
+        ctx,
+        generation=5,
+        layer="V",
+        side="A",
+        options=[("L", "B400")],
+        readout="Side A: x=0.0",
+        sync_error=None,
+    )
+
+    assert set_calls == []

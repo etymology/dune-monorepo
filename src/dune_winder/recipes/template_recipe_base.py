@@ -7,6 +7,7 @@
 import datetime
 import json
 import os
+import re
 
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.line_offset_overrides import (
@@ -14,8 +15,28 @@ from dune_winder.recipes.line_offset_overrides import (
     normalize_line_key,
     normalize_line_offset_overrides,
 )
+from dune_winder.recipes.template_gcode_common import normalize_offset_value
 
 from dune_winder.core.process_context import ProcessContext
+
+
+_OFFSET_AXES = ("x", "y", "z")
+_TRAILING_LABEL_RE = re.compile(r"\(([^()]*)\)\s*$")
+
+
+def _zero_offset_3d():
+    return {"x": 0.0, "y": 0.0, "z": 0.0}
+
+
+def _parse_trailing_label(line_text):
+    """Return the trailing parenthesised label of a gcode line (or None)."""
+    if line_text is None:
+        return None
+    match = _TRAILING_LABEL_RE.search(str(line_text).rstrip())
+    if match is None:
+        return None
+    label = match.group(1).strip()
+    return label or None
 
 
 class TemplateRecipeBase:
@@ -23,10 +44,16 @@ class TemplateRecipeBase:
     SERVICE_NAME = None
     OFFSET_IDS = ()
     OFFSET_LABELS = {}
+    OFFSET_NATURAL_AXIS = {}
+    LABEL_TO_OFFSET_ID = {}
     WRAP_COUNT = 0
     DEFAULT_ROW_COUNT = 0
     HEADER_HASH_RE = None
     DRAFT_FILE_NAME = None
+
+    # -------------------------------------------------------------------
+    def _naturalAxis(self, offsetId):
+        return self.OFFSET_NATURAL_AXIS.get(offsetId, "x")
 
     @staticmethod
     def get_recipe_file_name():
@@ -230,7 +257,7 @@ class TemplateRecipeBase:
 
     # -------------------------------------------------------------------
     def _resetState(self, markDirty):
-        self._offsets = {offsetId: 0.0 for offsetId in self.OFFSET_IDS}
+        self._offsets = {offsetId: _zero_offset_3d() for offsetId in self.OFFSET_IDS}
         self._lineOffsetOverrides = {}
         self._transferPause = True
         self._addFootPauses = False
@@ -244,7 +271,10 @@ class TemplateRecipeBase:
         offsets = data.get("offsets", {})
         for offsetId in self.OFFSET_IDS:
             if offsetId in offsets:
-                self._offsets[offsetId] = float(offsets[offsetId])
+                self._offsets[offsetId] = normalize_offset_value(
+                    offsets[offsetId],
+                    natural_axis=self._naturalAxis(offsetId),
+                )
 
         self._lineOffsetOverrides = normalize_line_offset_overrides(
             data.get("lineOffsetOverrides", {})
@@ -370,6 +400,7 @@ class TemplateRecipeBase:
             ),
             "offsetOrder": list(self.OFFSET_IDS),
             "offsetLabels": dict(self.OFFSET_LABELS),
+            "offsetNaturalAxis": dict(self.OFFSET_NATURAL_AXIS),
             "wrapCount": self.WRAP_COUNT,
             "lineCount": self.DEFAULT_ROW_COUNT,
             "generated": self._getGeneratedState(liveFile),
@@ -379,7 +410,13 @@ class TemplateRecipeBase:
         return state
 
     # -------------------------------------------------------------------
-    def setOffset(self, offsetId, value):
+    def setOffset(self, offsetId, value=None, *, x=None, y=None, z=None):
+        """Set a 3D offset for `offsetId`.
+
+        Accepts either a 3D dict via `value`, a legacy scalar via `value`
+        (placed on the natural axis), or per-axis keyword arguments. Any
+        axis omitted in keyword form preserves the existing value.
+        """
         self._ensureDraftStateLoaded()
 
         layer, error = self._getActiveLayer()
@@ -395,11 +432,28 @@ class TemplateRecipeBase:
         except ValueError as exception:
             return self._errorResult(str(exception))
 
-        self._offsets[offsetId] = float(value)
+        if value is not None:
+            if isinstance(value, dict):
+                self._offsets[offsetId] = normalize_offset_value(
+                    value, natural_axis=self._naturalAxis(offsetId)
+                )
+            else:
+                # Legacy scalar: only the natural axis is touched; preserve any
+                # off-axis calibration the operator may have set via jog calibration.
+                current = dict(self._offsets.get(offsetId, _zero_offset_3d()))
+                current[self._naturalAxis(offsetId)] = float(value)
+                self._offsets[offsetId] = current
+        else:
+            current = dict(self._offsets.get(offsetId, _zero_offset_3d()))
+            for axis_key, axis_value in (("x", x), ("y", y), ("z", z)):
+                if axis_value is not None:
+                    current[axis_key] = float(axis_value)
+            self._offsets[offsetId] = current
+
         self._dirty = True
         self._persistState()
         return self._okResult(
-            {"layer": layer, "offsetId": offsetId, "value": self._offsets[offsetId]}
+            {"layer": layer, "offsetId": offsetId, "value": dict(self._offsets[offsetId])}
         )
 
     # -------------------------------------------------------------------
@@ -635,3 +689,148 @@ class TemplateRecipeBase:
                 "recipeReloaded": recipeWasRefreshed,
             }
         )
+
+    # -------------------------------------------------------------------
+    def _collectJogCalibrationSnapshot(self):
+        """Read live jog-calibration inputs without mutating state.
+
+        Returns `{"ok": True, "data": {...}}` on success or
+        `{"ok": False, "error": "..."}` on failure.
+        """
+        self._ensureDraftStateLoaded()
+
+        layer, error = self._getActiveLayer()
+        if error is not None:
+            return {"ok": False, "error": error}
+
+        process = self._process
+        if not process.controlStateMachine.isStopped():
+            return {
+                "ok": False,
+                "error": "Machine must be in STOP state to apply jog calibration.",
+            }
+
+        handler = getattr(process, "gCodeHandler", None)
+        line_index = handler.getLine() if handler is not None else None
+        if line_index is None or line_index < 0:
+            return {
+                "ok": False,
+                "error": "No g-code line has been executed yet.",
+            }
+
+        gCode = getattr(handler, "_gCode", None)
+        if gCode is None or line_index >= gCode.getLineCount():
+            return {
+                "ok": False,
+                "error": "Last g-code line is no longer available.",
+            }
+
+        line_text = gCode.lines[line_index]
+        label = _parse_trailing_label(line_text)
+        if label is None or label not in self.LABEL_TO_OFFSET_ID:
+            return {
+                "ok": False,
+                "error": (
+                    "Last executed line has no calibratable label "
+                    "(parsed: " + repr(label) + ")."
+                ),
+            }
+
+        offset_id = self.LABEL_TO_OFFSET_ID[label]
+        commanded = {
+            "x": float(getattr(handler, "_x", 0.0) or 0.0),
+            "y": float(getattr(handler, "_y", 0.0) or 0.0),
+            "z": float(getattr(handler, "_z", 0.0) or 0.0),
+        }
+        io = process._io
+        actual = {
+            "x": float(io.xAxis.getPosition()),
+            "y": float(io.yAxis.getPosition()),
+            "z": float(io.zAxis.getPosition()) if hasattr(io, "zAxis") else 0.0,
+        }
+        delta = {axis: actual[axis] - commanded[axis] for axis in _OFFSET_AXES}
+        current_offset = dict(self._offsets.get(offset_id, _zero_offset_3d()))
+        new_offset = {axis: current_offset[axis] + delta[axis] for axis in _OFFSET_AXES}
+
+        return {
+            "ok": True,
+            "data": {
+                "layer": layer,
+                "lineIndex": line_index,
+                "lineText": line_text,
+                "label": label,
+                "offsetId": offset_id,
+                "commanded": commanded,
+                "actual": actual,
+                "delta": delta,
+                "currentOffset": current_offset,
+                "newOffset": new_offset,
+            },
+        }
+
+    # -------------------------------------------------------------------
+    def previewJogCalibration(self):
+        """Compute the delta that *would* be applied without mutating state."""
+        snapshot = self._collectJogCalibrationSnapshot()
+        if not snapshot["ok"]:
+            return self._errorResult(snapshot["error"])
+        return self._okResult(snapshot["data"])
+
+    # -------------------------------------------------------------------
+    def applyJogCalibration(self):
+        """Apply the jog-derived delta to the matching machine-geometry offset.
+
+        Adds `actual − commanded` to `_offsets[offset_id]`, persists, regenerates
+        the recipe, and records a `kind="jog_calibration"` measurement in the
+        machine-geometry calibration store.
+        """
+        snapshot = self._collectJogCalibrationSnapshot()
+        if not snapshot["ok"]:
+            return self._errorResult(snapshot["error"])
+
+        blocked = self._mutationGuard()
+        if blocked is not None:
+            return blocked
+
+        data = snapshot["data"]
+        offset_id = data["offsetId"]
+        delta = data["delta"]
+        current_offset = data["currentOffset"]
+        new_offset = {
+            axis: float(current_offset[axis]) + float(delta[axis])
+            for axis in _OFFSET_AXES
+        }
+        self._offsets[offset_id] = new_offset
+        self._dirty = True
+        self._persistState()
+
+        try:
+            self._process.machineGeometryCalibration.recordJogMeasurement(
+                layer=self._layerName(),
+                line_index=data["lineIndex"],
+                gcode_line=data["lineText"],
+                label=data["label"],
+                offset_id=offset_id,
+                commanded=data["commanded"],
+                actual=data["actual"],
+                delta=delta,
+                previous_offset=current_offset,
+                new_offset=new_offset,
+            )
+        except Exception as exception:
+            self._process._log.add(
+                self._serviceName(),
+                "JOG_CAL_LOG_FAIL",
+                "Failed to record jog calibration measurement.",
+                [str(exception)],
+            )
+
+        regen_result = self.generateRecipeFile()
+        regen_ok = bool(regen_result.get("ok"))
+
+        result = dict(data)
+        result["newOffset"] = new_offset
+        result["regenerated"] = regen_ok
+        if not regen_ok:
+            result["regenerationError"] = regen_result.get("error")
+        return self._okResult(result)

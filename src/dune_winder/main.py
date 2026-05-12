@@ -392,11 +392,13 @@ def main():
         # Also stop on SIGTERM (e.g. `kill <pid>` or terminal close on Linux/Mac).
         signal.signal(signal.SIGTERM, signalHandler)
 
+        # Load the single active workspace before starting threads so the web
+        # server cannot accept workspace-dependent requests while it is still
+        # None.
+        process.loadWorkspace()
+
         # Begin operation.
         PrimaryThread.startAllThreads()
-
-        # Load the single active workspace.
-        process.loadWorkspace()
 
         if isStartAPA:
             process.start()

@@ -37,12 +37,16 @@ class TkTextLogHandler(logging.Handler):
         *,
         poll_interval_ms: int = 100,
         max_lines: int = 1000,
+        max_messages_per_tick: int = 200,
+        burst_poll_interval_ms: int = 5,
     ) -> None:
         super().__init__(level=logging.INFO)
         self.root = root
         self.text_widget = text_widget
         self.poll_interval_ms = int(max(1, poll_interval_ms))
         self.max_lines = int(max(1, max_lines))
+        self.max_messages_per_tick = int(max(1, max_messages_per_tick))
+        self.burst_poll_interval_ms = int(max(1, burst_poll_interval_ms))
         self._queue: SimpleQueue[str] = SimpleQueue()
         self._after_id: Any | None = None
         self._closed = False
@@ -69,11 +73,12 @@ class TkTextLogHandler(logging.Handler):
         self._after_id = None
         super().close()
 
-    def _schedule_drain(self) -> None:
+    def _schedule_drain(self, delay_ms: int | None = None) -> None:
         if self._closed:
             return
+        interval = self.poll_interval_ms if delay_ms is None else int(max(1, delay_ms))
         try:
-            self._after_id = self.root.after(self.poll_interval_ms, self._drain_queue)
+            self._after_id = self.root.after(interval, self._drain_queue)
         except Exception:
             self._after_id = None
 
@@ -82,7 +87,7 @@ class TkTextLogHandler(logging.Handler):
             return
 
         messages: list[str] = []
-        while True:
+        while len(messages) < self.max_messages_per_tick:
             try:
                 messages.append(self._queue.get_nowait())
             except Empty:
@@ -91,7 +96,10 @@ class TkTextLogHandler(logging.Handler):
         if messages:
             self._append_messages(messages)
 
-        self._schedule_drain()
+        # If we hit the per-tick cap, more may still be queued — come back
+        # quickly so the panel keeps draining without blocking the Tk loop.
+        more_pending = len(messages) >= self.max_messages_per_tick
+        self._schedule_drain(self.burst_poll_interval_ms if more_pending else None)
 
     def _append_messages(self, messages: list[str]) -> None:
         configure = getattr(self.text_widget, "configure", None)

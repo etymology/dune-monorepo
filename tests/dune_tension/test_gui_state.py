@@ -1,14 +1,18 @@
-import importlib.util
 import json
-from pathlib import Path
 import sys
 import types
+from pathlib import Path
 from typing import Any, cast
 
-
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "dune_tension" / "gui" / "state.py"
+from _gui_test_support import (
+    REPO_SRC,
+    install_dune_tension_pkg_shell,
+    load_module_from_path,
 )
+
+
+MODULE_PATH = REPO_SRC / "gui" / "state.py"
+APA_NAMING_PATH = REPO_SRC / "apa_naming.py"
 
 
 def _load_state_module(monkeypatch):
@@ -17,12 +21,12 @@ def _load_state_module(monkeypatch):
     tk_stub.END = "end"
     monkeypatch.setitem(sys.modules, "tkinter", tk_stub)
 
-    dune_pkg = cast(Any, types.ModuleType("dune_tension"))
-    dune_pkg.__path__ = []
-    gui_pkg = cast(Any, types.ModuleType("dune_tension.gui"))
-    gui_pkg.__path__ = []
-    monkeypatch.setitem(sys.modules, "dune_tension", dune_pkg)
-    monkeypatch.setitem(sys.modules, "dune_tension.gui", gui_pkg)
+    dune_pkg, _gui_pkg = install_dune_tension_pkg_shell(monkeypatch)
+
+    apa_module = load_module_from_path(
+        monkeypatch, "dune_tension.apa_naming", APA_NAMING_PATH
+    )
+    dune_pkg.apa_naming = apa_module
 
     config = cast(Any, types.ModuleType("dune_tension.config"))
     config.MEASUREMENT_WIGGLE_CONFIG = types.SimpleNamespace(
@@ -35,14 +39,7 @@ def _load_state_module(monkeypatch):
     context.GUIContext = object
     monkeypatch.setitem(sys.modules, "dune_tension.gui.context", context)
 
-    module_name = "gui_state_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(monkeypatch, "gui_state_under_test", MODULE_PATH)
 
 
 class _FakeEntry:
@@ -76,7 +73,8 @@ class _FakeScale(_FakeVar):
 
 def _build_widgets(focus_value="4807.0"):
     return types.SimpleNamespace(
-        entry_apa=_FakeEntry("USAPA12"),
+        apa_location_var=_FakeVar("US"),
+        apa_number_var=_FakeVar("012"),
         measurement_mode_var=_FakeVar("legacy"),
         layer_var=_FakeVar("X"),
         side_var=_FakeVar("A"),

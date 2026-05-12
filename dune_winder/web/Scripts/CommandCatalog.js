@@ -83,6 +83,8 @@
       vTemplateSetStripG113Params: "process.v_template.set_strip_g113_params",
       vTemplateResetDraft: "process.v_template.reset_draft",
       vTemplateGenerateRecipeFile: "process.v_template.generate_recipe_file",
+      vTemplatePreviewJogCalibration: "process.v_template.preview_jog_calibration",
+      vTemplateApplyJogCalibration: "process.v_template.apply_jog_calibration",
       uTemplateGetState: "process.u_template.get_state",
       uTemplateSetOffset: "process.u_template.set_offset",
       uTemplateSetPullIn: "process.u_template.set_pull_in",

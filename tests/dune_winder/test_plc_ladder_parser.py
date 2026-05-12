@@ -22,13 +22,13 @@ class PlcLadderParserTests(unittest.TestCase):
         self.structured_codegen = StructuredPythonCodeGenerator()
 
     def test_round_trips_movez_main_routine(self):
-        path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
+        path = PLC_ROOT / "state_5_move_z" / "main" / "pasteable.rll"
         source = path.read_text(encoding="utf-8")
 
         routine = self.parser.parse_routine_text(
             "main",
             source,
-            program="MoveZ_State_4_5",
+            program="state_5_move_z",
             source_path=path,
         )
         emitted = self.emitter.emit_routine(routine)
@@ -39,7 +39,7 @@ class PlcLadderParserTests(unittest.TestCase):
         routine = self.parser.parse_routine_text(
             "main",
             'CMP "Z_axis.ActualPosition>415" OTE MACHINE_SW_STAT[5] \n',
-            program="MainProgram",
+            program="main",
         )
 
         rung = routine.rungs[0]
@@ -53,19 +53,18 @@ class PlcLadderParserTests(unittest.TestCase):
 
     def test_parses_all_targeted_acceptance_routines(self):
         routine_paths = [
-            PLC_ROOT / "MainProgram" / "main" / "pasteable.rll",
-            PLC_ROOT / "Ready_State_1" / "main" / "pasteable.rll",
-            PLC_ROOT / "MoveXY_State_2_3" / "main" / "pasteable.rll",
-            PLC_ROOT / "MoveXY_State_2_3" / "xy_speed_regulator" / "pasteable.rll",
-            PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll",
-            PLC_ROOT / "xz_move" / "main" / "pasteable.rll",
-            PLC_ROOT / "Error_State_10" / "main" / "pasteable.rll",
-            PLC_ROOT / "Initialize" / "main" / "pasteable.rll",
-            PLC_ROOT / "motionQueue" / "main" / "pasteable.rll",
+            PLC_ROOT / "main" / "main" / "pasteable.rll",
+            PLC_ROOT / "state_1_ready" / "main" / "pasteable.rll",
+            PLC_ROOT / "state_3_move_xy" / "main" / "pasteable.rll",
+            PLC_ROOT / "state_3_move_xy" / "xy_speed_regulator" / "pasteable.rll",
+            PLC_ROOT / "state_5_move_z" / "main" / "pasteable.rll",
+            PLC_ROOT / "state_12_move_xz" / "main" / "pasteable.rll",
+            PLC_ROOT / "state_10_error" / "main" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "main" / "pasteable.rll",
         ]
 
         for path in routine_paths:
-            with self.subTest(path=path):
+            with self.subTest(path=str(path)):
                 routine = self.parser.parse_routine_path(
                     path, routine_name=path.parent.name
                 )
@@ -73,7 +72,7 @@ class PlcLadderParserTests(unittest.TestCase):
 
     def test_parses_all_checked_in_pasteable_routines(self):
         for path in sorted(PLC_ROOT.rglob("pasteable.rll")):
-            with self.subTest(path=path):
+            with self.subTest(path=str(path)):
                 routine = self.parser.parse_routine_path(
                     path, routine_name=path.parent.name
                 )
@@ -84,17 +83,17 @@ class PlcLadderParserTests(unittest.TestCase):
                     self.assertEqual(len(routine.rungs), 0)
 
     def test_generates_python_with_rockwell_mnemonics(self):
-        path = PLC_ROOT / "MoveXY_State_2_3" / "main" / "pasteable.rll"
+        path = PLC_ROOT / "state_3_move_xy" / "main" / "pasteable.rll"
         routine = self.parser.parse_routine_text(
             "main",
             path.read_text(encoding="utf-8"),
-            program="MoveXY_State_2_3",
+            program="state_3_move_xy",
             source_path=path,
         )
 
         generated = self.codegen.generate_routine(routine)
 
-        self.assertIn("def MoveXY_State_2_3_main(ctx: ScanContext) -> None:", generated)
+        self.assertIn("def state_3_move_xy_main(ctx: ScanContext) -> None:", generated)
         self.assertIn("api: BoundRoutineAPI = bind_scan_context(ctx)", generated)
         self.assertIn("STATE: IntTag = api.ref('STATE')", generated)
         self.assertIn("X_Y: CoordinateSystemTag = api.ref('X_Y')", generated)
@@ -104,7 +103,9 @@ class PlcLadderParserTests(unittest.TestCase):
         )
         self.assertIn("MCLM: MCLMCallable = api.MCLM", generated)
         self.assertIn("if STATE==2:", generated)
-        self.assertIn("if (not XY_AXIS_STAT[4].IP) and (STATE==3)", generated)
+        self.assertIn(
+            "if (STATE==2) and (not main_xy_move.IP) and (STATE==3)", generated
+        )
         self.assertIn("MCLM(", generated)
         self.assertIn("motion_control=main_xy_move", generated)
         self.assertIn("speed_units='Units per sec'", generated)
@@ -130,11 +131,11 @@ class PlcLadderParserTests(unittest.TestCase):
         )
 
     def test_imperative_codegen_compiles_jump_label_routines(self):
-        path = PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll"
+        path = PLC_ROOT / "queued_motion" / "ArcSweepRad" / "pasteable.rll"
         routine = self.parser.parse_routine_path(
             path,
             routine_name=path.parent.name,
-            program="motionQueue",
+            program="queued_motion",
         )
 
         generated = self.codegen.generate_routine(routine)
@@ -147,7 +148,7 @@ class PlcLadderParserTests(unittest.TestCase):
         routine = self.parser.parse_routine_text(
             "main",
             'BST XIC Local:1:I.Pt04.Data NXB CMP "Z_axis.ActualPosition>415" BND OTE MACHINE_SW_STAT[5] OTE Z_EXTENDED\n',
-            program="MainProgram",
+            program="main",
         )
 
         generated = self.codegen.generate_routine(routine)
@@ -160,11 +161,11 @@ class PlcLadderParserTests(unittest.TestCase):
         compile(generated, "<branch_ote>", "exec")
 
     def test_imperative_codegen_sanitizes_invalid_root_names(self):
-        path = PLC_ROOT / "MainProgram" / "main" / "pasteable.rll"
+        path = PLC_ROOT / "main" / "main" / "pasteable.rll"
         routine = self.parser.parse_routine_path(
             path,
             routine_name="main",
-            program="MainProgram",
+            program="main",
         )
 
         generated = self.codegen.generate_routine(routine)
@@ -177,20 +178,20 @@ class PlcLadderParserTests(unittest.TestCase):
 
     def test_round_trips_motion_queue_helpers_through_structured_python(self):
         helper_paths = [
-            PLC_ROOT / "motionQueue" / "ArcSweepRad" / "pasteable.rll",
-            PLC_ROOT / "motionQueue" / "CapSegSpeed" / "pasteable.rll",
-            PLC_ROOT / "motionQueue" / "CircleCenterForSeg" / "pasteable.rll",
-            PLC_ROOT / "motionQueue" / "MaxAbsCosSweep" / "pasteable.rll",
-            PLC_ROOT / "motionQueue" / "MaxAbsSinSweep" / "pasteable.rll",
-            PLC_ROOT / "motionQueue" / "SegTangentBounds" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "ArcSweepRad" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "CapSegSpeed" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "CircleCenterForSeg" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "MaxAbsCosSweep" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "MaxAbsSinSweep" / "pasteable.rll",
+            PLC_ROOT / "queued_motion" / "SegTangentBounds" / "pasteable.rll",
         ]
 
         for path in helper_paths:
-            with self.subTest(path=path):
+            with self.subTest(path=str(path)):
                 routine = self.parser.parse_routine_path(
                     path,
                     routine_name=path.parent.name,
-                    program="motionQueue",
+                    program="queued_motion",
                 )
                 generated = self.structured_codegen.generate_routine(routine)
                 restored = load_generated_routine(generated)
@@ -203,16 +204,16 @@ class PlcLadderParserTests(unittest.TestCase):
                 )
 
     def test_imperative_codegen_compiles_for_movez_main(self):
-        path = PLC_ROOT / "MoveZ_State_4_5" / "main" / "pasteable.rll"
+        path = PLC_ROOT / "state_5_move_z" / "main" / "pasteable.rll"
         routine = self.parser.parse_routine_path(
             path,
             routine_name="main",
-            program="MoveZ_State_4_5",
+            program="state_5_move_z",
         )
 
         generated = self.codegen.generate_routine(routine)
 
-        self.assertIn("def MoveZ_State_4_5_main(ctx: ScanContext) -> None:", generated)
+        self.assertIn("def state_5_move_z_main(ctx: ScanContext) -> None:", generated)
         self.assertIn("MAM(", generated)
         self.assertIn("motion_control=z_axis_main_move", generated)
         compile(generated, str(path), "exec")

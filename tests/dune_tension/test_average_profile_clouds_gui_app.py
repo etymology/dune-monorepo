@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 import sys
 import types
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -13,6 +12,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     pytest.skip("pandas required", allow_module_level=True)
 
+from _gui_test_support import REPO_SRC, load_module_from_path
 from dune_tension.average_profile_clouds import (
     AverageProfileCloudOptions,
     LayerAnalysisResult,
@@ -24,13 +24,12 @@ from dune_tension.average_profile_clouds import (
 )
 
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "dune_tension"
-    / "gui"
-    / "average_profile_clouds_app.py"
-)
+MODULE_PATH = REPO_SRC / "gui" / "average_profile_clouds_app.py"
+
+
+class _FakeFigure:
+    def clear(self):
+        pass
 
 
 class _FakeVar:
@@ -192,14 +191,9 @@ def _load_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk_module)
     tk_module.ttk = ttk_module
 
-    module_name = "average_profile_clouds_gui_under_test"
-    spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_path(
+        monkeypatch, "average_profile_clouds_gui_under_test", MODULE_PATH
+    )
 
 
 def _make_result(
@@ -321,10 +315,30 @@ def test_apply_refresh_success_updates_status_and_renders(monkeypatch):
     app.global_status_var = _FakeVar(value="")
     app._latest_options = None
     app._latest_results = None
+    app._rendered_layers = set()
     rendered = []
     app._render_layer_results = lambda layer, layer_results, options: rendered.append(
         (layer, len(layer_results), options.layers)
     )
+
+    x_frame = _FakeWidget()
+    g_frame = _FakeWidget()
+    app.notebook = _FakeNotebook()
+    app.notebook.current = str(x_frame)
+    app._tab_state = {
+        "X": module.LayerTabState(
+            frame=x_frame,
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        ),
+        "G": module.LayerTabState(
+            frame=g_frame,
+            status_var=_FakeVar(value=""),
+            scroll_canvas=_FakeCanvas(),
+            content_frame=_FakeWidget(),
+        ),
+    }
 
     options = AverageProfileCloudOptions(layers=("X", "G"))
     results = {"X": [_make_result("X")], "G": [_make_result("G", empty=True)]}
@@ -333,8 +347,9 @@ def test_apply_refresh_success_updates_status_and_renders(monkeypatch):
 
     assert app._latest_options == options
     assert app._latest_results == results
-    assert rendered == [("X", 1, ("X", "G")), ("G", 1, ("X", "G"))]
-    assert app.global_status_var.get() == "Ready. Rendered 1 plot(s)."
+    assert rendered == [("X", 1, ("X", "G"))]
+    assert app._rendered_layers == {"X"}
+    assert app.global_status_var.get() == "Ready. Active tab rendered."
 
 
 def test_apply_refresh_error_sets_all_tab_statuses(monkeypatch):
@@ -450,7 +465,7 @@ def test_render_layer_results_split_by_side_builds_two_figures(monkeypatch):
 
     def _fake_build_layer_figure(_result, **kwargs):
         calls.append(kwargs.get("side_filter"))
-        return object()
+        return _FakeFigure()
 
     monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
 
@@ -481,7 +496,7 @@ def test_render_layer_results_endpoint_categories_ignores_split_by_side(monkeypa
 
     def _fake_build_layer_figure(_result, **kwargs):
         calls.append(kwargs.get("side_filter"))
-        return object()
+        return _FakeFigure()
 
     monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
 
@@ -519,7 +534,7 @@ def test_render_layer_results_passes_plot_mode(monkeypatch):
 
     def _fake_build_layer_figure(_result, **kwargs):
         calls.append((kwargs.get("plot_mode"), kwargs.get("side_filter")))
-        return object()
+        return _FakeFigure()
 
     monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
 
@@ -587,7 +602,9 @@ def test_export_current_writes_exploratory_png_suffix(monkeypatch, tmp_path):
         "_save_figure_with_padding",
         lambda _figure, destination, **kwargs: exported_paths.append(Path(destination)),
     )
-    monkeypatch.setattr(module, "build_layer_figure", lambda *args, **kwargs: object())
+    monkeypatch.setattr(
+        module, "build_layer_figure", lambda *args, **kwargs: _FakeFigure()
+    )
 
     result = _make_result("V")
     result = LayerAnalysisResult(
@@ -634,7 +651,7 @@ def test_export_current_endpoint_categories_ignores_split_by_side(
 
     def _fake_build_layer_figure(*args, **kwargs):
         build_calls.append(kwargs.get("side_filter"))
-        return object()
+        return _FakeFigure()
 
     monkeypatch.setattr(module, "build_layer_figure", _fake_build_layer_figure)
 

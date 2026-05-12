@@ -113,7 +113,8 @@ function RunStatus( modules )
               "Error",         // 10
               "EOT",           // 11
               "XZ seek",       // 12
-              "Queued motion"  // 13
+              "YZ seek",       // 13
+              "HMI stop"       // 14
             ]
 
             var stringValue = stateTranslateTable[ value ]

@@ -349,6 +349,17 @@ entity MachineSwitches {
   frame_lock_foot_mid: Boolean
   frame_lock_foot_bottom: Boolean
 
+  -- Additional PLC tags the winder reads. Each maps to one named PLC tag;
+  -- the underlying physical input pin (Local:N:I.PtNN) lives in the PLC
+  -- ladder logic and is not part of this spec.
+  latch_homed:            Boolean   -- MACHINE_SW_STAT[0]
+  z_spring_comp:          Boolean   -- MACHINE_SW_STAT[11]
+  x_parked:               Boolean   -- MACHINE_SW_STAT[14]; distinct from x_transfer_ok
+  estop_button:           Boolean   -- MACHINE_SW_STAT[23]; raw operator E-stop
+  tension_on_switch:      Boolean   -- TENSION_ON_SWITCH
+  reset_button:           Boolean   -- ResetPB
+  speed_regulator_switch: Boolean   -- speed_regulator_switch (slow-mode bit)
+
   -- Derived from PLC main routine.
   z_retracted:
     (z_retracted_1a or z_retracted_2a) and z_retracted_1b and z_retracted_2b
@@ -1814,11 +1825,24 @@ surface MachineFeedbackInputs {
 -- Error code reference
 -- ==========================================================================
 
+-- The PLC's full ERROR_CODES table (PLC_Logic.ERROR_CODES) contains
+-- additional codes (e.g. 1001 "Rotation lock missing", 2001/2002 XY-jog
+-- variants, 4001-4003 Z-jog variants, 7001/7002 latch-homing, 8000-series
+-- successes) that are not consumed by spec-level rules in this set. They
+-- remain valid PLC codes; the winder's behaviour on those codes is defined
+-- only by the generic "PLC entered error state" path (see rule
+-- TransferCancelledByPLCError).
+--
+-- 2001: "XY Jog, Z is extended"   (legacy XY-jog path, PLC-only)
+-- 2002: "Physical X or Y axis fault" (legacy XY-jog path, PLC-only)
 -- 3001: xy_seek_z_extended, "XY Seek, Z is extended"
 -- 3002: xy_axis_fault, "Physical X or Y axis fault"
 -- 3003: xy_position_acceptance_failed, "Motion complete, but position is incorrect"
 -- 3004: sto_active, "Emergency stop - STO active"
 -- 3005: apa_not_vertical, "APA not vertical for XY motion"
+-- 4001: "Z Jog, Master Z Transfer Enable Not Ready" (legacy Z-jog path)
+-- 4002: "Physical Z axis fault" (legacy Z-jog path)
+-- 4003: "Latch not in position 2 when retrieving winder head" (legacy Z-jog path)
 -- 5001: z_master_transfer_not_ready, "Z Seek, Master Z Transfer Enable Not Ready"
 -- 5002: z_axis_fault, "Physical Z axis fault"
 -- 5003: z_position_acceptance_failed, "Motion complete, but position is incorrect"
@@ -1826,8 +1850,14 @@ surface MachineFeedbackInputs {
 -- 5005: z_eot_during_motion, "Z EOT triggered during Z motion"
 -- 6001: latch_not_enabled, "Latching State, Z Stage not present OR Z Fixed not Present OR Z Not Extended"
 -- 6002: latch_timeout, "Latching State, Latch did not move to next position"
+-- 7001: "Homing Latch State, Z Stage Not Present" (PLC-only, latch-homing deprecated)
+-- 7002: "Homing Latch State, Latch did not move to home position" (PLC-only, latch-homing deprecated)
 -- 8001: wire_break, "Wire broke"
 -- 8002: overtension, "Wire over-tensioned"
+--
+-- Code 1001 "Rotation lock missing" and the corresponding rotation-lock-key
+-- input are intentionally not modelled at the spec level; the operator
+-- hardware is not used by the workflows in this spec set.
 
 -- ==========================================================================
 -- Open questions

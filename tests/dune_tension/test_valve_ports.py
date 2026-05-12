@@ -5,8 +5,6 @@ import types
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-
 
 def test_valve_controller_prefers_matching_name_and_vid_pid(monkeypatch):
     serial_stub = types.ModuleType("serial")
@@ -138,7 +136,9 @@ def test_valve_controller_falls_back_to_all_enumerated_ports(monkeypatch):
     valve_trigger = importlib.reload(valve_trigger)
 
     controller = valve_trigger.ValveController(
-        config=valve_trigger.ValveConfig(device_name_substrings=("definitely-not-present",))
+        config=valve_trigger.ValveConfig(
+            device_name_substrings=("definitely-not-present",)
+        )
     )
 
     assert attempted_ports == ["/dev/ttyS0", "/dev/ttyUSB9"]
@@ -228,7 +228,9 @@ def test_valve_pulse_blocks_between_open_and_close(monkeypatch):
 
     valve_trigger = importlib.import_module("dune_tension.hardware.valve_trigger")
     valve_trigger = importlib.reload(valve_trigger)
-    monkeypatch.setattr(valve_trigger.time, "sleep", lambda duration: sleeps.append(duration))
+    monkeypatch.setattr(
+        valve_trigger.time, "sleep", lambda duration: sleeps.append(duration)
+    )
 
     controller = valve_trigger.ValveController(port="/dev/ttyUSB0")
     controller.pulse(0.01)

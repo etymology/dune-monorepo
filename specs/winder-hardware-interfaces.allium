@@ -1,0 +1,340 @@
+-- allium: 3
+-- winder-hardware-interfaces.allium
+
+-- Scope: The hardware interfaces the winder/tension code drives directly.
+--        Two families:
+--          1. The PLC tag-level interface (what the winder reads/writes on the PLC).
+--          2. Non-PLC USB-serial peripherals (Pololu Maestro servos, air-valve relay,
+--             USB microphone) used by tension measurement.
+--
+-- Excludes:
+--   - The PLC's internal ladder logic. Physical input pins (Local:N:I.PtNN) and
+--     PLC-driven outputs (latch solenoid, safety relays, indicator lamps) are
+--     owned by the PLC and specified by its .rll routines. This spec describes
+--     only the named tags the winder code reads/writes.
+--   - The Cognex camera. Camera triggering, FIFO capture, and pin-image
+--     processing are handled by a separate spec.
+--   - PLC tension PID internals. See tension-control.allium for the narrow
+--     calibration interaction; the loop itself is PLC-owned.
+--   - Audio model internals (KDE, harmonic comb, neural net). See
+--     tension-measurement.allium for the audio capture surface.
+--
+-- Port-correctness note: a reimplementer who matches the tag names and serial
+-- protocols listed here can drive the same hardware without reading Python.
+
+-- ==========================================================================
+-- PLC backend (transport)
+-- ==========================================================================
+
+contract PLCBackend {
+    -- Read/write a list of tags by name. Implementation transports the read
+    -- and write over EtherNet/IP to an Allen-Bradley ControlLogix PLC.
+    read_tags:  (names: List<String>) -> List<Any>
+    write_tag:  (name: String, value: Any) -> Boolean
+
+    @invariant TagsAreCanonical
+        -- All tag names referenced by PLCSwitchTags, PLCMotionTags,
+        -- PLCQueuedMotionTags, and tension-control.allium#PLCTensionTagAccess
+        -- must resolve through this backend. The PLC ladder logic is
+        -- authoritative for which tags exist; this spec only enumerates
+        -- the subset the winder consumes.
+
+    @invariant PollingRateUnspecified
+        -- Polling rate is a runtime concern, not part of the contract.
+        -- The PLC ladder logic is the source of truth for the freshness of
+        -- each tag value.
+}
+
+-- ==========================================================================
+-- PLC sensor / status tags read by the winder
+-- ==========================================================================
+
+-- The winder reads named PLC tags that summarise the machine's discrete
+-- inputs. The mapping from these tags to physical input pins lives in the
+-- PLC's main routine and is not part of this spec.
+
+contract PLCSwitchTags {
+    -- Z-axis transfer state
+    z_retracted_1a:        Boolean   -- MACHINE_SW_STAT[1]
+    z_retracted_1b:        Boolean   -- MACHINE_SW_STAT[2]
+    z_retracted_2a:        Boolean   -- MACHINE_SW_STAT[3]
+    z_retracted_2b:        Boolean   -- MACHINE_SW_STAT[4]
+    z_extended:            Boolean   -- MACHINE_SW_STAT[5]
+    z_stage_latched:       Boolean   -- MACHINE_SW_STAT[6]
+    z_fixed_latched:       Boolean   -- MACHINE_SW_STAT[7]
+    z_eot:                 Boolean   -- MACHINE_SW_STAT[8]
+    z_stage_present:       Boolean   -- MACHINE_SW_STAT[9]
+    z_fixed_present:       Boolean   -- MACHINE_SW_STAT[10]
+    z_spring_comp:         Boolean   -- MACHINE_SW_STAT[11]
+
+    -- Latch actuator
+    latch_actuator_top:    Boolean   -- MACHINE_SW_STAT[12]
+    latch_actuator_mid:    Boolean   -- MACHINE_SW_STAT[13]
+    latch_homed:           Boolean   -- MACHINE_SW_STAT[0]
+    actuator_pos:          Integer   -- ACTUATOR_POS  (0..3, derived in PLC)
+    enable_actuator:       Boolean   -- ENABLE_ACTUATOR (derived in PLC)
+
+    -- Transfer windows
+    x_parked:              Boolean   -- MACHINE_SW_STAT[14]
+    x_transfer_ok:         Boolean   -- X_XFER_OK / MACHINE_SW_STAT[15]
+    y_mount_transfer_ok:   Boolean   -- MACHINE_SW_STAT[16]
+    y_transfer_ok:         Boolean   -- Y_XFER_OK
+
+    -- End-of-travel
+    plus_y_eot:            Boolean   -- MACHINE_SW_STAT[18]
+    minus_y_eot:           Boolean   -- MACHINE_SW_STAT[19]
+    plus_x_eot:            Boolean   -- MACHINE_SW_STAT[20]
+    minus_x_eot:           Boolean   -- MACHINE_SW_STAT[21]
+    all_eot_good:          Boolean   -- ALL_EOT_GOOD (derived)
+
+    -- APA orientation
+    apa_is_vertical:       Boolean   -- MACHINE_SW_STAT[22]
+
+    -- Operator-pressed safety hardware
+    estop_button:          Boolean   -- MACHINE_SW_STAT[23]
+    safety_tripped:        Boolean   -- Safety_Tripped_S
+    reset_button:          Boolean   -- ResetPB
+    speed_regulator_switch: Boolean  -- speed_regulator_switch (operator slow-mode bit)
+
+    -- Frame-support locks (each enables one keepout band)
+    frame_lock_head_top:   Boolean   -- MACHINE_SW_STAT[26]
+    frame_lock_head_mid:   Boolean   -- MACHINE_SW_STAT[27]
+    frame_lock_head_btm:   Boolean   -- MACHINE_SW_STAT[28]
+    frame_lock_foot_top:   Boolean   -- MACHINE_SW_STAT[29]
+    frame_lock_foot_mid:   Boolean   -- MACHINE_SW_STAT[30]
+    frame_lock_foot_btm:   Boolean   -- MACHINE_SW_STAT[31]
+
+    -- Tension supervision (winder reads, PLC writes)
+    tension_on_switch:     Boolean   -- TENSION_ON_SWITCH
+
+    -- Coarse PLC-derived head position
+    head_pos:              Integer   -- HEAD_POS in {-1, 0, 3}
+}
+
+-- ==========================================================================
+-- PLC motion command and status tags
+-- ==========================================================================
+
+-- The winder writes target positions, speeds, and a state request; the PLC
+-- runs the move and reports progress through axis status tags.
+
+contract PLCMotionTags {
+    -- State machine
+    state:                Integer   -- STATE
+    next_state:           Integer   -- NEXTSTATE
+    state_request:        Integer   -- STATE_REQUEST
+    move_type:            Integer   -- MOVE_TYPE  (legacy reset path only)
+    error_code:           Integer   -- ERROR_CODE
+
+    -- Per-axis target writes
+    x_position_target:    Decimal   -- X_POSITION
+    y_position_target:    Decimal   -- Y_POSITION
+    z_position_target:    Decimal   -- Z_POSITION
+    xz_position_target:   List<Decimal>  -- xz_position_target (REAL[2])
+    yz_position_target:   List<Decimal>  -- yz_position_target (REAL[2])
+
+    -- Speed / acceleration writes
+    xy_speed:             Decimal   -- XY_SPEED
+    xy_acceleration:      Decimal   -- XY_ACCELERATION
+    xy_deceleration:      Decimal   -- XY_DECELERATION
+    z_speed:              Decimal   -- Z_SPEED
+    z_acceleration:       Decimal   -- Z_ACCELERATION
+    z_deceleration:       Decimal   -- Z_DECELLERATION
+    x_speed_jog:          Decimal   -- X_SPEED   (jog reuses the same tag)
+    y_speed_jog:          Decimal   -- Y_SPEED
+    z_speed_jog:          Decimal   -- Z_SPEED
+    x_dir:                Integer   -- X_DIR
+    y_dir:                Integer   -- Y_DIR
+    z_dir:                Integer   -- Z_DIR
+
+    -- Per-axis status reads
+    x_actual_position:    Decimal   -- X_axis.ActualPosition
+    y_actual_position:    Decimal   -- Y_axis.ActualPosition
+    z_actual_position:    Decimal   -- Z_axis.ActualPosition
+    x_actual_velocity:    Decimal   -- X_axis.ActualVelocity
+    y_actual_velocity:    Decimal   -- Y_axis.ActualVelocity
+    z_actual_velocity:    Decimal   -- Z_axis.ActualVelocity
+    x_command_acceleration: Decimal -- X_axis.CommandAcceleration
+    y_command_acceleration: Decimal -- Y_axis.CommandAcceleration
+    z_command_acceleration: Decimal -- Z_axis.CommandAcceleration
+    x_coordinated_motion_status: Boolean  -- X_axis.CoordinatedMotionStatus
+    y_coordinated_motion_status: Boolean  -- Y_axis.CoordinatedMotionStatus
+    z_coordinated_motion_status: Boolean  -- Z_axis.CoordinatedMotionStatus
+    x_module_fault:       Boolean   -- X_axis.ModuleFault
+    y_module_fault:       Boolean   -- Y_axis.ModuleFault
+    z_module_fault:       Boolean   -- Z_axis.ModuleFault
+    x_sls_active:         Boolean   -- X_axis.SLSActiveStatus
+
+    @invariant SpeedLimitsArePLCEnforced
+        -- The PLC enforces motion velocity, acceleration, deceleration, and
+        -- jerk limits internally. The winder may write speed values, but the
+        -- PLC clamps and validates them. Spec rules on motion safety
+        -- (motion-safety.allium) describe the geometric envelope; raw
+        -- velocity caps are intentionally not specified at the spec level.
+}
+
+-- ==========================================================================
+-- Queued-motion tags
+-- ==========================================================================
+
+-- The winder streams MotionSegment payloads into a PLC FIFO via a handshake.
+-- The 3D-arc queue uses parallel tags with the suffix "3D".
+
+contract PLCQueuedMotionTags {
+    incoming_seg:         Any       -- IncomingSeg (UDT payload)
+    incoming_seg_req_id:  Integer   -- IncomingSegReqID
+    incoming_seg_ack:     Integer   -- IncomingSegAck
+    last_incoming_req_id: Integer   -- LastIncomingSegReqID
+    start_queued_path:    Boolean   -- StartQueuedPath
+    abort_queue:          Boolean   -- AbortQueue
+    queue_stop_request:   Boolean   -- QueueStopRequest
+    queue_count:          Integer   -- QueueCount
+    cur_issued:           Boolean   -- CurIssued
+    next_issued:          Boolean   -- NextIssued
+    active_seq:           Integer   -- ActiveSeq
+    pending_seq:          Integer   -- PendingSeq
+    motion_fault:         Boolean   -- MotionFault
+    queue_fault:          Boolean   -- QueueFault
+    fault_code:           Integer   -- FaultCode
+    move_a_er:            Integer   -- MoveA.ER
+    move_b_er:            Integer   -- MoveB.ER
+    use_a_as_current:     Boolean   -- UseAasCurrent
+    seg_queue:            Any       -- SegQueue (array, write-correct speed before start)
+
+    -- 3D-arc parallel tags (suffix `3D`)
+    incoming_seg_3d:      Any       -- IncomingSeg3D
+    incoming_req_id_3d:   Integer   -- IncomingSegReqID3D
+    incoming_ack_3d:      Integer   -- IncomingSegAck3D
+    cur_issued_3d:        Boolean   -- CurIssued3D
+    motion_fault_3d:      Boolean   -- MotionFault3D
+    queue_fault_3d:       Boolean   -- QueueFault3D
+    queue_count_3d:       Integer   -- QueueCount3D
+
+    @invariant QueueDepthBoundedByPLC
+        -- The PLC's queue depth (PLC_QUEUE_DEPTH = 32) is owned by the PLC.
+        -- The winder must not enqueue beyond what the queue can hold; it
+        -- consults QueueCount before each write.
+}
+
+-- ==========================================================================
+-- Pololu Maestro (USB serial servo controller)
+-- ==========================================================================
+
+-- A Pololu Micro Maestro 6-channel servo controller, accessed over a USB
+-- serial port. Used by tension measurement only.
+
+contract PololuMaestro {
+    vendor_id:  String          -- "1A86"
+    product_id: String          -- "7523"
+    baud_rate:  Integer         -- platform default; not gated
+    device_index: Integer       -- 0x0C (Pololu protocol device number)
+
+    -- Channel assignments
+    plucking_channel:    Integer = 0
+    focus_channel:       Integer = 1
+
+    -- Pulse-width range for both channels (quarter-µs)
+    target_min_quarter_us: Integer = 4000
+    target_max_quarter_us: Integer = 8000
+
+    -- Focus scaling
+    focus_mm_per_quarter_us:   Decimal = 0.005
+    -- Focus error couples to laser-X (sign opposite for A vs B side)
+    focus_x_mm_per_quarter_us: Decimal = 0.00288675   -- 0.005 / sqrt(3)
+
+    -- Operations
+    set_target:    (channel: Integer, quarter_us: Integer) -> Boolean
+    set_speed:     (channel: Integer, speed: Integer) -> Boolean
+    set_accel:     (channel: Integer, accel: Integer) -> Boolean
+    get_position:  (channel: Integer) -> Integer
+
+    -- Strum mode: alternating 10-ms pulses every 1 s on the plucking channel
+    start_strum:   (context: Any) -> Boolean
+    stop_strum:    (context: Any) -> Boolean
+
+    @invariant FocusMonotonic
+        -- A higher focus quarter_us value moves the focus actuator
+        -- monotonically in one direction; the spec does not pin which
+        -- direction (mechanical orientation), but the laser-X compensation
+        -- sign is opposite for A-side and B-side. See
+        -- tension-measurement.allium for the side-aware compensation rule.
+}
+
+-- ==========================================================================
+-- Air-valve relay (USB serial)
+-- ==========================================================================
+
+-- A USB-serial CH340 relay drives the pneumatic valve that excites the wire
+-- with an air pulse. Used by tension measurement.
+
+contract AirValveRelay {
+    vendor_id:  String          -- "1A86"
+    product_id: String          -- "7523"   (shares CH340 family with Maestro)
+    baud_rate:  Integer = 9600
+    serial_timeout_s: Decimal = 0   -- non-blocking writes
+
+    -- Wire protocol — fixed 4-byte frames:
+    open_command:  List<Integer> = { 0xA0, 0x01, 0x01, 0xA2 }
+    close_command: List<Integer> = { 0xA0, 0x01, 0x00, 0xA1 }
+
+    -- Operations
+    pulse:        (duration_s: Decimal) -> Boolean
+    start_strum:  (context: Any) -> Boolean       -- 10 ms pulse every 1 s
+    stop_strum:   (context: Any) -> Boolean
+
+    @invariant PulsesAreBounded
+        -- Pulse durations are positive and bounded. Continuous valve
+        -- excitation is not part of this spec; strum mode is short pulses
+        -- on a fixed schedule.
+
+    @invariant DiscoveryByDeviceIdentity
+        -- Implementations identify the relay by USB vendor/product ID and a
+        -- substring match on the device description. Multiple candidate
+        -- ports are tried in order; auto-detection is part of the contract.
+}
+
+-- ==========================================================================
+-- Microphone (USB audio input)
+-- ==========================================================================
+
+-- A USB microphone provides the audio used to estimate wire pitch.
+
+contract Microphone {
+    sample_rate_hz: Integer = 44100
+    frame_size:     Integer = 2048
+    hop_size:       Integer = 1024
+
+    -- Operations
+    record:         (duration_s: Decimal) -> List<Decimal>
+    open_stream:    (context: Any) -> Boolean
+    close_stream:   (context: Any) -> Boolean
+    read_window:    (context: Any) -> List<Decimal>
+
+    -- Background noise calibration — produced by recording silence and
+    -- saved to a noise-profile file for later filtering.
+    noise_profile_path: String   -- typically data/noise_filters/noise_filter.npz
+
+    @invariant SamplesAreFloatMono
+        -- The contract is mono float audio at the configured sample rate.
+        -- The audio model (KDE, harmonic comb, neural net) lives in the
+        -- analysis modules and is not part of this contract.
+}
+
+-- ==========================================================================
+-- Notes on PLC-internal hardware (deliberately excluded)
+-- ==========================================================================
+
+-- The following are part of the PLC ladder logic and are NOT part of this
+-- spec. A reimplementer of the winder code does not drive them directly:
+--
+--   * Physical input pins (Local:N:I.PtNN) — the PLC reads them and exposes
+--     summarised state via MACHINE_SW_STAT[*] and named tags.
+--   * Latch solenoid output (Local:3:O.Pt01) — driven by the PLC during the
+--     latching state.
+--   * Safety relay outputs (Local:3:O.Pt11/12) — driven by the PLC from the
+--     safety circuit.
+--   * Indicator lamps (Local:3:O.Pt13/14/15) — driven by the PLC for error,
+--     ready, and warning lamps.
+--   * The Cognex camera trigger and FIFO interface — handled by a separate
+--     spec, even though some of its tag names (CAM_F_*, FIFO_Data[*]) live
+--     on the same PLC.

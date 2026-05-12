@@ -99,6 +99,7 @@ class HeadControllerTests(unittest.TestCase):
         head = Head(plc)
         clock = {"now": 0.0}
         head._clock = lambda: clock["now"]
+        head._latchRetryIntervalSeconds = 0
         original_update = head.update
 
         def update_with_time_sync():

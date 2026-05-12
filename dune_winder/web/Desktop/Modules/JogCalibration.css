@@ -1,0 +1,65 @@
+.apaJogCalibrationPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.apaJogCalibrationPanel .jogCalHelp {
+  font-size: 0.85em;
+  color: #b9c1cc;
+  margin: 0 0 4px 0;
+}
+
+.apaJogCalibrationPanel .jogCalLineText {
+  margin: 4px 0 0 0;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  font-size: 0.78em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 4.5em;
+  overflow-y: auto;
+}
+
+.apaJogCalibrationPanel table.jogCalTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+.apaJogCalibrationPanel table.jogCalTable th,
+.apaJogCalibrationPanel table.jogCalTable td {
+  padding: 2px 6px;
+  text-align: right;
+}
+
+.apaJogCalibrationPanel table.jogCalTable thead th {
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.apaJogCalibrationPanel table.jogCalTable tbody th {
+  text-align: left;
+  font-weight: 500;
+}
+
+.apaJogCalibrationPanel .jogCalDeltaNonZero {
+  color: #f4c869;
+  font-weight: 600;
+}
+
+.apaJogCalibrationPanel .jogCalStatus {
+  margin: 4px 0 0 0;
+  font-size: 0.85em;
+}
+
+.apaJogCalibrationPanel .jogCalStatus.error {
+  color: #f08080;
+}
+
+.apaJogCalibrationPanel .jogCalStatus.success {
+  color: #a3e69b;
+}

@@ -284,9 +284,9 @@ def normalize_calibration(calibration, layer):
     return normalize_layer_calibration_to_absolute(calibration, layer)
 
 
-def build_nominal_calibration(layer):
+def build_nominal_calibration(layer, machine_calibration=None):
     if layer in UV_LAYERS:
-        return build_nominal_uv_calibration(layer)
+        return build_nominal_uv_calibration(layer, machine_calibration)
 
     geometry = create_layer_geometry(layer)
     calibration = LayerCalibration(layer=layer)
@@ -505,6 +505,7 @@ class ManualCalibration:
                 self._draftDirectory(),
                 self._draftBaselineFileName(session.layer),
                 exceptionForMismatch=False,
+                machineCalibration=self._machineCalibration(),
             )
             session.baselineCalibration = normalize_calibration(
                 calibration, session.layer
@@ -577,13 +578,13 @@ class ManualCalibration:
                     and reference["rawCameraX"] is not None
                     and reference["rawCameraY"] is not None
                 ):
+                    # Raw coordinate storage: no camera-wire offset baked in.
                     reference["offsetX"] = session.cameraOffsetX
                     reference["offsetY"] = session.cameraOffsetY
-                    reference["wireX"] = (
-                        self._process._xBacklash.getEffectiveX(reference["rawCameraX"])
-                        + session.cameraOffsetX
+                    reference["wireX"] = self._process._xBacklash.getEffectiveX(
+                        reference["rawCameraX"]
                     )
-                    reference["wireY"] = reference["rawCameraY"] + session.cameraOffsetY
+                    reference["wireY"] = reference["rawCameraY"]
             references[referenceId] = reference
         session.references = references
 
@@ -707,17 +708,16 @@ class ManualCalibration:
                     and measuredPins[pin]["rawCameraX"] is not None
                     and measuredPins[pin]["rawCameraY"] is not None
                 ):
+                    # Recompute the raw pin position from the recorded raw
+                    # camera positions using the *current* X-backlash
+                    # compensation.  No camera-wire offset is added: pin
+                    # storage is raw, and the offset is applied at runtime.
                     measuredPins[pin]["offsetX"] = session.cameraOffsetX
                     measuredPins[pin]["offsetY"] = session.cameraOffsetY
-                    measuredPins[pin]["wireX"] = (
-                        self._process._xBacklash.getEffectiveX(
-                            measuredPins[pin]["rawCameraX"]
-                        )
-                        + session.cameraOffsetX
+                    measuredPins[pin]["wireX"] = self._process._xBacklash.getEffectiveX(
+                        measuredPins[pin]["rawCameraX"]
                     )
-                    measuredPins[pin]["wireY"] = (
-                        measuredPins[pin]["rawCameraY"] + session.cameraOffsetY
-                    )
+                    measuredPins[pin]["wireY"] = measuredPins[pin]["rawCameraY"]
             session.measuredPins = measuredPins
 
             boardChecks = {}
@@ -794,6 +794,9 @@ class ManualCalibration:
                 baselineCalibration = LayerCalibration(layer=session.layer)
                 baselineCalibration.zFront = session.baselineCalibration.zFront
                 baselineCalibration.zBack = session.baselineCalibration.zBack
+                baselineCalibration.coordinateSystem = getattr(
+                    session.baselineCalibration, "coordinateSystem", "raw"
+                )
                 baselineCalibration.offset = SerializableLocation(
                     session.baselineCalibration.offset.x,
                     session.baselineCalibration.offset.y,
@@ -1015,7 +1018,9 @@ class ManualCalibration:
 
     # -------------------------------------------------------------------
     def _resetToNominal(self, session):
-        session.baselineCalibration = build_nominal_calibration(session.layer)
+        session.baselineCalibration = build_nominal_calibration(
+            session.layer, self._machineCalibration()
+        )
         session.baselineSource = "nominal"
         session.measuredPins = {}
         session.boardChecks = {}
@@ -1037,6 +1042,7 @@ class ManualCalibration:
                 self._process._workspaceCalibrationDirectory,
                 self._liveFileName(session.layer),
                 exceptionForMismatch=False,
+                machineCalibration=self._machineCalibration(),
             )
         except Exception as exception:
             if allowFallback:
@@ -1305,12 +1311,16 @@ class ManualCalibration:
         metadata = context["metadata"]
         board = metadata["pinToBoard"][pin]
         wireX, wireY, predictionMode = self._predictBackPin(session, context, pin)
+        # Pin storage is raw, so wireX/wireY here are raw winder XY.  The
+        # camera check position equals the raw position (camera_offset is
+        # applied at runtime by anchorToTarget, not at the camera-target
+        # boundary).
         return {
             "pin": pin,
             "wireX": wireX,
             "wireY": wireY,
-            "cameraCheckX": wireX - session.cameraOffsetX,
-            "cameraCheckY": wireY - session.cameraOffsetY,
+            "cameraCheckX": wireX,
+            "cameraCheckY": wireY,
             "isMeasured": pin in session.measuredPins,
             "predictionMode": predictionMode,
             "boardIndex": board["boardIndex"],
@@ -1329,8 +1339,8 @@ class ManualCalibration:
             "status": status,
             "wireX": wireX,
             "wireY": wireY,
-            "cameraX": wireX - session.cameraOffsetX,
-            "cameraY": wireY - session.cameraOffsetY,
+            "cameraX": wireX,
+            "cameraY": wireY,
             "updatedAt": str(self._process._systemTime.get()),
         }
 
@@ -1788,6 +1798,8 @@ class ManualCalibration:
         rawCameraX = self._process._io.xAxis.getPosition()
         rawCameraY = self._process._io.yAxis.getPosition()
         effectiveCameraX = self._process._xBacklash.getEffectiveX(rawCameraX)
+        # Pin storage is in raw coordinate space; the camera-wire offset is
+        # applied at runtime, not at capture time.
         session.references[referenceId] = {
             "id": referenceId,
             "label": GX_REFERENCE_LABELS[referenceId],
@@ -1796,8 +1808,8 @@ class ManualCalibration:
             "rawCameraY": rawCameraY,
             "offsetX": session.cameraOffsetX,
             "offsetY": session.cameraOffsetY,
-            "wireX": effectiveCameraX + session.cameraOffsetX,
-            "wireY": rawCameraY + session.cameraOffsetY,
+            "wireX": effectiveCameraX,
+            "wireY": rawCameraY,
             "updatedAt": str(self._process._systemTime.get()),
             "source": "capture",
         }
@@ -1863,24 +1875,35 @@ class ManualCalibration:
             return self._errorResult(str(exception))
 
         session = self._getSession(layer)
-        reference = session.references.get(
-            referenceId, self._emptyGXReference(referenceId)
-        )
-        wireX = reference.get("wireX")
-        wireY = reference.get("wireY")
-        if wireX is None or wireY is None:
-            return self._errorResult(
-                "No wire-space target is available for "
-                + GX_REFERENCE_LABELS[referenceId]
-                + "."
-            )
+        reference = session.references.get(referenceId)
+        if reference is None or reference.get("source") is None:
+            # No captured/loaded reference: fall back to the wire-space
+            # default, converting to raw camera coordinates with the current
+            # camera-wire offset.
+            defaultWireX, defaultWireY = GX_REFERENCE_DEFAULT_WIRE_POSITIONS[
+                referenceId
+            ]
+            wireX = float(defaultWireX)
+            wireY = float(defaultWireY)
+            cameraX = wireX - session.cameraOffsetX
+            cameraY = wireY - session.cameraOffsetY
+        else:
+            wireX = reference.get("wireX")
+            wireY = reference.get("wireY")
+            if wireX is None or wireY is None:
+                return self._errorResult(
+                    "No wire-space target is available for "
+                    + GX_REFERENCE_LABELS[referenceId]
+                    + "."
+                )
+            # Captured/loaded references are already stored in raw
+            # coordinate space, so they are also the camera target.
+            cameraX = float(wireX)
+            cameraY = float(wireY)
 
         velocityValue = None
         if velocity is not None:
             velocityValue = float(velocity)
-
-        cameraX = float(wireX) - session.cameraOffsetX
-        cameraY = float(wireY) - session.cameraOffsetY
         isError = self._process.manualSeekXY(cameraX, cameraY, velocityValue)
         if isError:
             return self._errorResult("Move request was rejected.")
@@ -2024,11 +2047,24 @@ class ManualCalibration:
             os.makedirs(outputDirectory)
 
         outputPath = self._liveFilePath(layer)
+        # References store camera-space positions (matching the UV-layer
+        # convention).  The X/G recipe is written in wire-space coordinates,
+        # so apply the camera-wire offset here before handing them to the
+        # template.
+        cameraOffsetX = float(session.cameraOffsetX or 0.0)
+        wireSpaceReferences = {}
+        for referenceId, reference in session.references.items():
+            adjusted = dict(reference)
+            cameraX = reference.get("wireX")
+            if cameraX is not None:
+                adjusted["wireX"] = float(cameraX) + cameraOffsetX
+            wireSpaceReferences[referenceId] = adjusted
+
         generation = write_xg_template_file(
             layer,
             output_path=outputPath,
             special_inputs={
-                "references": session.references,
+                "references": wireSpaceReferences,
                 "offsets": session.offsets,
                 "transferPause": session.transferPause,
                 "includeLeadMode": session.includeLeadMode,
@@ -2157,10 +2193,13 @@ class ManualCalibration:
 
         rawCameraX = self._process._io.xAxis.getPosition()
         rawCameraY = self._process._io.yAxis.getPosition()
-        wireX = (
-            self._process._xBacklash.getEffectiveX(rawCameraX) + session.cameraOffsetX
-        )
-        wireY = rawCameraY + session.cameraOffsetY
+        # Pin storage is in raw coordinate space (winder XY at the moment
+        # the camera was centred on the pin).  The camera-wire offset is
+        # applied at runtime via the wire_space_pin_location helper, not
+        # baked into the stored value, so re-solving the offset on the
+        # Machine Geometry tab does not invalidate prior pin captures.
+        wireX = self._process._xBacklash.getEffectiveX(rawCameraX)
+        wireY = rawCameraY
 
         session.measuredPins[pin] = {
             "pin": pin,

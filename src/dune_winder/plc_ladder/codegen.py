@@ -1258,6 +1258,17 @@ class PythonCodeGenerator:
                 transformed,
             )
 
+        # Rockwell allows function calls without parentheses where the entire
+        # remainder of the operand is the argument (e.g., "ABS x-y" or
+        # "SQR dx*dx+dy*dy").  Wrap any such tail with parens so the rest of
+        # the pipeline (and Python) sees a normal function call.
+        for rockwell_name, python_name in FORMULA_NAME_MAP.items():
+            transformed = re.sub(
+                rf"\b{rockwell_name}\s+(?!\()(.+?)$",
+                rf"{python_name}(\1)",
+                transformed,
+            )
+
         transformed = IDENTIFIER_PATTERN.sub(
             lambda match: self._replace_formula_identifier(match, transformed),
             transformed,

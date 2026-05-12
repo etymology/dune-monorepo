@@ -225,6 +225,7 @@ def _load_machine_calibration(
 def _load_layer_calibration(
     layer: str,
     path: str | Path | None,
+    machine_calibration: MachineCalibration | None = None,
 ) -> tuple[LayerCalibration, Path | None]:
     if path is None:
         resolved_path = _default_layer_calibration_path(layer)
@@ -233,7 +234,10 @@ def _load_layer_calibration(
 
     calibration = LayerCalibration()
     calibration.load(
-        str(resolved_path.parent), resolved_path.name, exceptionForMismatch=False
+        str(resolved_path.parent),
+        resolved_path.name,
+        exceptionForMismatch=False,
+        machineCalibration=machine_calibration,
     )
     return calibration, resolved_path
 
@@ -557,6 +561,7 @@ def build_uv_tangency_report(
         layer_calibration, calibration_path = _load_layer_calibration(
             normalized_layer,
             layer_calibration_path,
+            machine_calibration=machine_calibration,
         )
     elif layer_calibration_path is not None:
         calibration_path = Path(layer_calibration_path).expanduser().resolve()

@@ -17,6 +17,7 @@ from dune_winder.recipes.recipe_template_language import (
     execute_template_script,
 )
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
+from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes.line_offset_overrides import apply_line_offset_overrides
 from dune_winder.recipes import template_gcode_common
@@ -35,7 +36,7 @@ X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 4.0
 PREAMBLE_BOARD_GAP_PULL = 30.0
 COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
-DEFAULT_OFFSETS = (0.0,) * 12
+DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0, "z": 0.0},) * 12
 DEFAULT_V_TEMPLATE_WORKBOOK = None
 DEFAULT_V_TEMPLATE_SHEET = None
 PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN")
@@ -86,6 +87,42 @@ SPECIAL_OFFSET_ALIASES = {
     "head_b_offset": 8,
     "head_a_offset": 9,
 }
+
+# Each scalar offset historically applied to a single axis; this mapping is
+# used when migrating legacy scalar values into the 3D `{x, y, z}` model and
+# when interpreting label-based UI / named-input values that supply only a
+# single number.
+OFFSET_NATURAL_AXIS = {
+    "top_b_foot_end": "x",
+    "top_a_foot_end": "x",
+    "foot_a_corner": "y",
+    "foot_b_corner": "y",
+    "bottom_b_foot_end": "x",
+    "bottom_a_foot_end": "x",
+    "top_a_head_end": "x",
+    "top_b_head_end": "x",
+    "head_b_corner": "y",
+    "head_a_corner": "y",
+    "bottom_a_head_end": "x",
+    "bottom_b_head_end": "x",
+}
+
+# Inverse of the parenthetical labels emitted by the V templates, used by
+# the jog-calibration flow to map an executed line back to an offset id.
+LABEL_TO_OFFSET_ID = {
+    "Top B corner - foot end": "top_b_foot_end",
+    "Top A corner - foot end": "top_a_foot_end",
+    "Foot A corner": "foot_a_corner",
+    "Foot B corner": "foot_b_corner",
+    "Bottom B corner - foot end": "bottom_b_foot_end",
+    "Bottom A corner - foot end": "bottom_a_foot_end",
+    "Top A corner - head end": "top_a_head_end",
+    "Top B corner - head end": "top_b_head_end",
+    "Head B corner": "head_b_corner",
+    "Head A corner": "head_a_corner",
+    "Bottom A corner - head end": "bottom_a_head_end",
+    "Bottom B corner - head end": "bottom_b_head_end",
+}
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
 _PIN_PAIR_RE = re.compile(r"\bG103\s+P[AB](\d+)\s+P[AB](\d+)\b")
@@ -93,37 +130,37 @@ _PIN_PAIR_RE = re.compile(r"\bG103\s+P[AB](\d+)\s+P[AB](\d+)\b")
 V_WRAP_BASE_SCRIPT = compile_template_script(
     (
         "emit (------------------STARTING LOOP ${wrap}------------------)",
-        "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
+        "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset3d(offsets[0])} G102 G108 (Top B corner - foot end)",
         "transfer b_to_a_transfer",
-        "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} PX ${offset('PX', offsets[1])} (Top A corner - foot end)",
-        "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[1])}",
+        "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} PX ${offset3d(offsets[1])} (Top A corner - foot end)",
+        "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset3d(offsets[1])}",
         "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
-        "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Foot A corner)",
+        "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset3d(offsets[2])} G102 G108 (Foot A corner)",
         "transfer a_to_b_transfer",
-        "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PY ${offset('PY', offsets[3])} (Foot B corner)",
-        "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset('PY', offsets[3])}",
-        "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
+        "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PY ${offset3d(offsets[3])} (Foot B corner)",
+        "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset3d(offsets[3])}",
+        "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset3d(offsets[4])} G102 G108 (Bottom B corner - foot end)",
         "transfer b_to_a_transfer",
-        "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} PX ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
-        "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset('PX', offsets[5])}",
-        "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+        "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} PX ${offset3d(offsets[5])} (Bottom A corner - foot end)",
+        "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset3d(offsets[5])}",
+        "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset3d(offsets[6])} G102 G108 (Top A corner - head end)",
         "transfer a_to_b_transfer",
-        "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
-        "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[7])}",
+        "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset3d(offsets[7])} (Top B corner - head end)",
+        "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset3d(offsets[7])}",
         "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
     )
 )
 
 V_WRAP_NORMAL_TAIL_SCRIPT = compile_template_script(
     (
-        "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
+        "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset3d(offsets[8])} G102 G108 (Head B corner)",
         "transfer b_to_a_transfer",
-        "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PXY ${offset('PY', offsets[9])} (Head A corner)",
-        "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset('PY', offsets[9])}",
-        "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
+        "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1} PXY ${offset3d(offsets[9])} (Head A corner)",
+        "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset3d(offsets[9])}",
+        "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset3d(offsets[10])} G102 G108 (Bottom A corner - head end)",
         "transfer a_to_b_transfer",
-        "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} PX ${offset('PX', offsets[11])} (Bottom B corner - head end)",
-        "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset('PX', offsets[11])}",
+        "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} PX ${offset3d(offsets[11])} (Bottom B corner - head end)",
+        "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)} ${offset3d(offsets[11])}",
         "if near_comb(399 + wrap): emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
     )
 )
@@ -143,39 +180,39 @@ V_WRAP_FINAL_TAIL_SCRIPT = compile_template_script(
 V_WRAP_BASE_SCRIPT_XZ = compile_template_script(
     (
         "emit (------------------STARTING LOOP ${wrap}------------------)",
-        "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset('PX', offsets[0])} G102 G108 (Top B corner - foot end)",
+        "emit G113 PPRECISE G109 PB${399 + wrap} PRT G103 PB${1999 - wrap} PB${2000 - wrap} PXY ${offset3d(offsets[0])} G102 G108 (Top B corner - foot end)",
         "emit G206 P2",
-        "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} Z0 PXZ ${offset('PX', offsets[1])}  (Top A corner - foot end)",
+        "emit G113 PPRECISE G109 PB${2000 - wrap} PLT G103 PF${799 + wrap} PF${798 + wrap} Z0 PXZ ${offset3d(offsets[1])}  (Top A corner - foot end)",
         "emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
         "if near_comb(799 + wrap): emit G113 PTOLERANT G103 PF${799 + wrap} PF${798 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
-        "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset('PY', offsets[2])} G102 G108 (Foot A corner)",
+        "emit G113 PPRECISE G109 PF${799 + wrap} PRB G103 PF${1601 - wrap} PF${1600 - wrap} PXY ${offset3d(offsets[2])} G102 G108 (Foot A corner)",
         "emit G206 P1",
         "emit G206 P3",
-        "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[3])}  (Foot B corner)",
-        "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset('PY', offsets[3])}",
-        "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset('PX', offsets[4])} G102 G108 (Bottom B corner - foot end)",
+        "emit G113 PPRECISE G109 PF${1600 - wrap} PBL G103 PB${1199 + wrap} PB${1200 + wrap} PXY ${offset3d(offsets[3])}  (Foot B corner)",
+        "emit G113 PTOLERANT G103 PB${1199 + wrap} PB${1200 + wrap} PX G105 ${coord('PX', -X_PULL_IN)} ${offset3d(offsets[3])}",
+        "emit G113 PPRECISE G109 PB${1199 + wrap} PTR G103 PB${1200 - wrap} PB${1199 - wrap} PXY ${offset3d(offsets[4])} G102 G108 (Bottom B corner - foot end)",
         "emit G206 P2",
-        "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} Z0 PXZ ${offset('PX', offsets[5])} (Bottom A corner - foot end)",
+        "emit G113 PPRECISE G109 PB${1200 - wrap} PBR G103 PF${1598 + wrap} PF${1599 + wrap} Z0 PXZ ${offset3d(offsets[5])} (Bottom A corner - foot end)",
         "emit G113 PTOLERANT G103 PF${1598 + wrap} PF${1599 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-        "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset('PX', offsets[6])} G102 G108 (Top A corner - head end)",
+        "emit G113 PPRECISE G109 PF${1599 + wrap} PLT G103 PF${800 - wrap} PF${799 - wrap} PXY ${offset3d(offsets[6])} G102 G108 (Top A corner - head end)",
         "emit G206 P1",
         "emit G206 P3",
-        "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset('PX', offsets[7])} (Top B corner - head end)",
-        "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset('PX', offsets[7])}",
+        "emit G113 PTOLERANT G109 PF${800 - wrap} PRT G103 PB${1998 + wrap} PB${1999 + wrap} PX ${offset3d(offsets[7])} (Top B corner - head end)",
+        "emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)} ${offset3d(offsets[7])}",
         "if near_comb(1999 + wrap): emit G113 PTOLERANT G103 PB${1998 + wrap} PB${1999 + wrap} PX G105 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)}",
     )
 )
 
 V_WRAP_NORMAL_TAIL_SCRIPT_XZ = compile_template_script(
     (
-        "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[8])} G102 G108 (Head B corner)",
+        "emit G113 PPRECISE (HEAD RESTART) G109 PB${1999 + wrap} PLB G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset3d(offsets[8])} G102 G108 (Head B corner)",
         "emit G206 P2",
         "emit G206 P0",
-        "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1}  PXY ${offset('PY', offsets[9])} (Head A corner)",
-        "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset('PY', offsets[9])}",
-        "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset('PX', offsets[10])} G102 G108 (Bottom A corner - head end)",
+        "emit G113 PTOLERANT G109 PB${400 - wrap} PBR G103 PF${wrap} PF${wrap + 1}  PXY ${offset3d(offsets[9])} (Head A corner)",
+        "emit G113 PTOLERANT G103 PF${wrap} PF${wrap + 1} PX G105 ${coord('PX', X_PULL_IN)} ${offset3d(offsets[9])}",
+        "emit G113 PPRECISE G109 PF${wrap} PTL G103 PF${2399 - wrap} PF${2398 - wrap} PXY ${offset3d(offsets[10])} G102 G108 (Bottom A corner - head end)",
         "emit G206 P1",
-        "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ZEXTEND PXZ ${offset('PX', offsets[11])} (Bottom B corner - head end)",
+        "emit G113 PPRECISE G109 PF${2399 - wrap} PBL G103 PB${399 + wrap} PB${400 + wrap} ZEXTEND PXZ ${offset3d(offsets[11])} (Bottom B corner - head end)",
         "emit G206 P3",
         "emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
         "if near_comb(399 + wrap): emit G113 PTOLERANT G103 PB${399 + wrap} PB${400 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
@@ -196,6 +233,22 @@ V_WRAP_FINAL_TAIL_SCRIPT_XZ = compile_template_script(
 _G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
 SCRIPT_VARIANT_DEFAULT = "default"
 SCRIPT_VARIANT_XZ = "xz"
+SCRIPT_VARIANT_WRAPPING = "wrapping"
+
+WRAPPING_X_PULL_IN = 70.0
+WRAPPING_Y_PULL_IN = 50.0
+WRAPPING_DEFAULT_PULL_INS = {
+    "Y_PULL_IN": WRAPPING_Y_PULL_IN,
+    "X_PULL_IN": WRAPPING_X_PULL_IN,
+}
+WRAPPING_PREAMBLE_X = 440.0
+
+V_NAMED_PINS_BOTTOM_HEAD_END = 400
+V_NAMED_PINS_TOP_FOOT_END = 1600
+V_NAMED_PINS_FOOT_BOTTOM_END = 1200
+V_NAMED_PINS_BOTTOM_FOOT_END = 1199
+V_NAMED_PINS_TOP_HEAD_END = 2399
+V_NAMED_PINS_HEAD_BOTTOM_END = 399
 
 
 def _apply_strip_g113_params(lines):
@@ -293,6 +346,8 @@ def _normalize_script_variant(script_variant):
         return SCRIPT_VARIANT_DEFAULT
     if normalized == SCRIPT_VARIANT_XZ:
         return SCRIPT_VARIANT_XZ
+    if normalized == SCRIPT_VARIANT_WRAPPING:
+        return SCRIPT_VARIANT_WRAPPING
     raise VTemplateInputError("Unsupported V script variant: " + repr(script_variant))
 
 
@@ -331,6 +386,24 @@ def _offset_fragment(axis, value):
     return template_gcode_common.offset_fragment(axis, value, coord_fn=_coord)
 
 
+def _offset3d_fragment(value):
+    return template_gcode_common.offset3d_fragment(value, coord_fn=_coord)
+
+
+def _conditional_offset3d_fragment(condition_value, rendered_value):
+    return template_gcode_common.conditional_offset3d_fragment(
+        condition_value, rendered_value, coord_fn=_coord
+    )
+
+
+def _normalize_offset_value(value, *, offset_id=None, natural_axis=None):
+    if natural_axis is None:
+        natural_axis = (
+            OFFSET_NATURAL_AXIS.get(offset_id, "x") if offset_id is not None else "x"
+        )
+    return template_gcode_common.normalize_offset_value(value, natural_axis=natural_axis)
+
+
 def _g106(mode):
     return g106_line(_line, mode)
 
@@ -347,15 +420,30 @@ def _coerce_number(value):
     return template_gcode_common.coerce_number(value, error_type=VTemplateInputError)
 
 
+def _coerce_offset_item(value):
+    """Coerce a single offset entry to a 3D dict, accepting scalars or dicts."""
+    if isinstance(value, dict):
+        return template_gcode_common.normalize_offset_value(value)
+    return template_gcode_common.coerce_number(
+        value, error_type=VTemplateInputError
+    )
+
+
 def _coerce_offsets(value):
-    return template_gcode_common.coerce_offsets(
+    raw = template_gcode_common.coerce_offsets(
         value,
         default_offsets=DEFAULT_OFFSETS,
         offset_ids=OFFSET_IDS,
-        coerce_number_fn=_coerce_number,
+        coerce_number_fn=_coerce_offset_item,
         error_type=VTemplateInputError,
         layer_name="V",
     )
+    return [
+        template_gcode_common.normalize_offset_value(
+            entry, natural_axis=OFFSET_NATURAL_AXIS.get(OFFSET_IDS[index], "x")
+        )
+        for index, entry in enumerate(raw)
+    ]
 
 
 def _apply_pull_in_input(key, value, pull_ins):
@@ -424,7 +512,12 @@ def _apply_special_input(
     return transfer_pause, add_foot_pauses, include_lead_mode
 
 
-def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None):
+def _resolve_options(
+    named_inputs=None,
+    special_inputs=None,
+    cell_overrides=None,
+    pull_in_defaults=None,
+):
     if cell_overrides:
         raise VTemplateInputError(
             "Cell overrides are not supported by the programmatic V generator."
@@ -434,7 +527,7 @@ def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None
     transfer_pause = False
     add_foot_pauses = False
     include_lead_mode = False
-    pull_ins = dict(DEFAULT_PULL_INS)
+    pull_ins = dict(pull_in_defaults if pull_in_defaults is not None else DEFAULT_PULL_INS)
     transfer_pause, add_foot_pauses, include_lead_mode = _apply_named_input(
         named_inputs,
         offsets,
@@ -451,6 +544,12 @@ def _resolve_options(named_inputs=None, special_inputs=None, cell_overrides=None
         include_lead_mode,
         pull_ins,
     )
+    offsets = [
+        template_gcode_common.normalize_offset_value(
+            entry, natural_axis=OFFSET_NATURAL_AXIS.get(OFFSET_IDS[index], "x")
+        )
+        for index, entry in enumerate(offsets)
+    ]
     return offsets, transfer_pause, add_foot_pauses, include_lead_mode, pull_ins
 
 
@@ -463,6 +562,7 @@ def _resolve_render_state(
     named_inputs=None,
     special_inputs=None,
     cell_overrides=None,
+    pull_in_defaults=None,
 ):
     (
         resolved_offsets,
@@ -474,6 +574,7 @@ def _resolve_render_state(
         named_inputs=named_inputs,
         special_inputs=special_inputs,
         cell_overrides=cell_overrides,
+        pull_in_defaults=pull_in_defaults,
     )
     if offsets is not None:
         for index, value in enumerate(_coerce_offsets(offsets)):
@@ -560,6 +661,10 @@ def iter_v_wrap_primary_sites(
     cell_overrides=None,
     script_variant=SCRIPT_VARIANT_DEFAULT,
 ):
+    normalized_variant = _normalize_script_variant(script_variant)
+    if normalized_variant == SCRIPT_VARIANT_WRAPPING:
+        return ()
+
     (
         resolved_offsets,
         transfer_pause_value,
@@ -572,7 +677,6 @@ def iter_v_wrap_primary_sites(
         cell_overrides=cell_overrides,
     )
 
-    normalized_variant = _normalize_script_variant(script_variant)
     if normalized_variant == SCRIPT_VARIANT_XZ:
         base_script = V_WRAP_BASE_SCRIPT_XZ
         normal_tail_script = V_WRAP_NORMAL_TAIL_SCRIPT_XZ
@@ -604,6 +708,8 @@ def iter_v_wrap_primary_sites(
             "offsets": resolved_offsets,
             "coord": _coord,
             "offset": _offset_fragment,
+            "offset3d": _offset3d_fragment,
+            "conditional_offset3d": _conditional_offset3d_fragment,
             "near_comb": _near_comb,
             "g106": _g106,
             "Y_PULL_IN": pull_ins["Y_PULL_IN"],
@@ -642,6 +748,169 @@ def iter_v_wrap_primary_sites(
     return tuple(segments)
 
 
+def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
+    n = int(wrap_number) - 1
+
+    bh = V_NAMED_PINS_BOTTOM_HEAD_END
+    tf = V_NAMED_PINS_TOP_FOOT_END
+    fb = V_NAMED_PINS_FOOT_BOTTOM_END
+    bf = V_NAMED_PINS_BOTTOM_FOOT_END
+    th = V_NAMED_PINS_TOP_HEAD_END
+    hb = V_NAMED_PINS_HEAD_BOTTOM_END
+
+    y_pull_in = pull_ins["Y_PULL_IN"]
+    x_pull_in = pull_ins["X_PULL_IN"]
+
+    def b_pin(pin_number):
+        return "B" + str(_wrap_pin_number(pin_number))
+
+    def a_from_b(pin_number):
+        return b_to_a_pin("V", b_pin(pin_number))
+
+    def anchor_offset(offset_index):
+        """Return the (x, y) tuple of an offsets[i] entry, accepting dicts or scalars."""
+        entry = offsets[offset_index]
+        if isinstance(entry, dict):
+            return (float(entry.get("x", 0.0)), float(entry.get("y", 0.0)))
+        return (float(entry), 0.0)
+
+    def anchor_to_target(anchor_pin, target_pin, label=None, offset=None):
+        call = f"~anchorToTarget({anchor_pin},{target_pin}"
+        if offset is not None:
+            offset_x, offset_y = offset
+            if abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9:
+                call += (
+                    ",offset=("
+                    + _coord("", offset_x)
+                    + ","
+                    + _coord("", offset_y)
+                    + ")"
+                )
+        call += ")"
+        parts = [call]
+        if label:
+            parts.append("(" + str(label) + ")")
+        return _line(*parts)
+
+    def increment(dx, dy):
+        return _line(
+            "~increment(" + _coord("", dx) + "," + _coord("", dy) + ")"
+        )
+
+    lines = [
+        anchor_to_target(
+            b_pin(bh + n),
+            b_pin(tf + 399 - n),
+            "Top B corner - foot end",
+            offset=anchor_offset(0),
+        ),
+        increment(0, y_pull_in),
+    ]
+    if _near_comb(bh + n):
+        lines.append(
+            increment(y_pull_in * COMB_PULL_FACTOR, 0)
+        )
+
+    lines.extend(
+        [
+            anchor_to_target(
+                b_pin(tf + 399 - n),
+                a_from_b(tf + 399 - n),
+                "Top A corner - foot end",
+                offset=anchor_offset(1),
+            ),
+            increment(0, -y_pull_in),
+        ]
+    )
+    if _near_comb(tf + 399 - n):
+        lines.append(
+            increment(y_pull_in * COMB_PULL_FACTOR, 0)
+        )
+
+    lines.extend(
+        [
+            anchor_to_target(
+                a_from_b(tf + 399 - n),
+                a_from_b(fb + n),
+                "Foot A corner",
+                offset=anchor_offset(2),
+            ),
+            anchor_to_target(
+                a_from_b(fb + n),
+                b_pin(fb + n),
+                "Foot B corner",
+                offset=anchor_offset(3),
+            ),
+            increment(-x_pull_in, 0),
+            anchor_to_target(
+                b_pin(fb + n),
+                b_pin(bf - n),
+                "Bottom B corner - foot end",
+                offset=anchor_offset(4),
+            ),
+            anchor_to_target(
+                b_pin(bf - n),
+                a_from_b(bf - n),
+                "Bottom A corner - foot end",
+                offset=anchor_offset(5),
+            ),
+            increment(0, y_pull_in),
+        ]
+    )
+    if _near_comb(bf - n):
+        lines.append(
+            increment(-y_pull_in * COMB_PULL_FACTOR, 0)
+        )
+
+    lines.extend(
+        [
+            anchor_to_target(
+                a_from_b(bf - n),
+                a_from_b(th - 399 + n),
+                "Top A corner - head end",
+                offset=anchor_offset(6),
+            ),
+            anchor_to_target(
+                a_from_b(th - 399 + n),
+                b_pin(th - 399 + n),
+                "Top B corner - head end",
+                offset=anchor_offset(7),
+            ),
+            increment(0, -y_pull_in),
+        ]
+    )
+    if _near_comb(_wrap_pin_number(th - 399 + n)):
+        lines.append(
+            increment(-y_pull_in * COMB_PULL_FACTOR, 0)
+        )
+
+    lines.extend(
+        [
+            anchor_to_target(
+                b_pin(th - 399 + n),
+                b_pin(hb - n),
+                "Head B corner",
+                offset=anchor_offset(8),
+            ),
+            anchor_to_target(
+                b_pin(hb - n),
+                a_from_b(hb - n),
+                "Head A corner",
+                offset=anchor_offset(9),
+            ),
+            increment(x_pull_in, 0),
+            anchor_to_target(
+                a_from_b(hb - n),
+                a_from_b(bh + n + 1),
+                "Bottom A corner - head end",
+                offset=anchor_offset(10),
+            ),
+        ]
+    )
+
+    return _annotate_wrap_lines(wrap_number, lines)
+
+
 def _render_wrap_lines(
     wrap_number,
     offsets,
@@ -673,6 +942,8 @@ def _render_wrap_lines(
         "offsets": offsets,
         "coord": _coord,
         "offset": _offset_fragment,
+        "offset3d": _offset3d_fragment,
+        "conditional_offset3d": _conditional_offset3d_fragment,
         "near_comb": _near_comb,
         "g106": _g106,
         "Y_PULL_IN": pull_ins["Y_PULL_IN"],
@@ -723,6 +994,13 @@ def render_v_template_lines(
     special_inputs=None,
     cell_overrides=None,
 ):
+    script_variant = _normalize_script_variant(script_variant)
+    pull_in_defaults = (
+        WRAPPING_DEFAULT_PULL_INS
+        if script_variant == SCRIPT_VARIANT_WRAPPING
+        else DEFAULT_PULL_INS
+    )
+
     (
         resolved_offsets,
         transfer_pause_value,
@@ -737,8 +1015,27 @@ def render_v_template_lines(
         named_inputs=named_inputs,
         special_inputs=special_inputs,
         cell_overrides=cell_overrides,
+        pull_in_defaults=pull_in_defaults,
     )
-    script_variant = _normalize_script_variant(script_variant)
+
+    if script_variant == SCRIPT_VARIANT_WRAPPING:
+        lines = [
+            "( V Layer )",
+            _line("~goto(" + _coord("", WRAPPING_PREAMBLE_X) + ",0)"),
+        ]
+        for wrap_number in range(1, WRAP_COUNT + 1):
+            lines.extend(
+                _render_wrapping_wrap_lines(
+                    wrap_number, pull_ins, resolved_offsets
+                )
+            )
+        lines = apply_line_offset_overrides(
+            lines,
+            line_offset_overrides,
+            normalize_line_text_fn=_normalize_generated_line_text,
+        )
+        lines = _number_lines(lines)
+        return lines
 
     lines = [
         "( V Layer )",
@@ -918,6 +1215,11 @@ def write_v_template_file(
     parent_hash=None,
 ):
     resolved_script_variant = _normalize_script_variant(script_variant)
+    pull_in_defaults = (
+        WRAPPING_DEFAULT_PULL_INS
+        if resolved_script_variant == SCRIPT_VARIANT_WRAPPING
+        else DEFAULT_PULL_INS
+    )
     (
         resolved_offsets,
         resolved_transfer_pause,
@@ -931,6 +1233,7 @@ def write_v_template_file(
         include_lead_mode=include_lead_mode,
         named_inputs=named_inputs,
         special_inputs=special_inputs,
+        pull_in_defaults=pull_in_defaults,
     )
     lines = render_v_template_lines(
         offsets=offsets,
@@ -1018,13 +1321,19 @@ class VTemplateProgrammaticGenerator:
             "y_pull_in": self.pull_ins["Y_PULL_IN"],
             "x_pull_in": self.pull_ins["X_PULL_IN"],
         }
+        def _scalar_for(idx):
+            entry = self.offsets[idx]
+            if isinstance(entry, dict):
+                return entry.get(OFFSET_NATURAL_AXIS.get(OFFSET_IDS[idx], "x"), 0.0)
+            return entry
+
         for index, offset_id in enumerate(OFFSET_IDS):
-            values[offset_id] = self.offsets[index]
-            values[offset_id + "_offset"] = self.offsets[index]
+            values[offset_id] = _scalar_for(index)
+            values[offset_id + "_offset"] = _scalar_for(index)
         for legacy_name, index in LEGACY_OFFSET_NAMES.items():
-            values[legacy_name] = self.offsets[index]
+            values[legacy_name] = _scalar_for(index)
         for alias_name, index in SPECIAL_OFFSET_ALIASES.items():
-            values[alias_name] = self.offsets[index]
+            values[alias_name] = _scalar_for(index)
         return values
 
     def get_value(self, column_label, row_number):
@@ -1102,6 +1411,13 @@ def main(argv=None):
         help="Include lead-mode G106 lines during transfer sequences.",
     )
     parser.add_argument(
+        "--script-variant",
+        dest="script_variant",
+        default=SCRIPT_VARIANT_DEFAULT,
+        choices=(SCRIPT_VARIANT_DEFAULT, SCRIPT_VARIANT_XZ, SCRIPT_VARIANT_WRAPPING),
+        help="Which V script variant to render.",
+    )
+    parser.add_argument(
         "--recipe",
         action="store_true",
         help="Write a hashed recipe file with the standard recipe header.",
@@ -1130,12 +1446,14 @@ def main(argv=None):
     if args.recipe:
         write_v_template_file(
             args.output,
+            script_variant=args.script_variant,
             named_inputs=named_inputs,
             special_inputs=special_inputs,
         )
     else:
         write_v_template_text_file(
             args.output,
+            script_variant=args.script_variant,
             named_inputs=named_inputs,
             special_inputs=special_inputs,
         )

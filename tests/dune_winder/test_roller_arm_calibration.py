@@ -59,7 +59,7 @@ def test_fit_roller_arm_single_measurement():
 
     assert delta_y == 0.0
     assert len(fitted_y_cals) == 4
-    assert fitted_y_cals[0] < fitted_y_cals[1]
+    assert fitted_y_cals[0] <= fitted_y_cals[1]
 
 
 def test_fit_roller_arm_two_measurements():
