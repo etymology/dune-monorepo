@@ -141,11 +141,11 @@ def build_command_registry(
             raise ValueError("At least one of 'x' or 'y' is required.")
 
         xPosition = args.get("x")
-        if xPosition is not None:
+        if "x" in args:
             xPosition = _asFloat(xPosition, "x")
 
         yPosition = args.get("y")
-        if yPosition is not None:
+        if "y" in args:
             yPosition = _asFloat(yPosition, "y")
 
         velocity = args.get("velocity")

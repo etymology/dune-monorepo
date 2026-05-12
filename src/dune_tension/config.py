@@ -9,7 +9,7 @@ from dune_winder.machine.geometry.uv_layout import get_uv_layout
 class GeometryConfig:
     measurable_x_min: int = 1050  # 1050
     measurable_x_max: int = 7015
-    measurable_y_min: int = 330
+    measurable_y_min: int = 0
     measurable_y_max: int = 2700
     g_length_m: float = 1.285
     x_length_m: float = 1.273

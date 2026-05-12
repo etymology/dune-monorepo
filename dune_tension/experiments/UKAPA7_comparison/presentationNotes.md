@@ -39,6 +39,7 @@ Everything looks okay, all tensions within final spec, no sign of damage.
 - Residual (change) widths are about `0.4 N` on both sides.
 
 ---
+
 Orange lines are the UK, blue lines are chicago. Left is the A side, right is the B side
 The lines are moving average of 3.
 The wire numberings go from bottom to top on the A side and top to bottom on the B side.

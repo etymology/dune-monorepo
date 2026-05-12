@@ -40,6 +40,24 @@
             }
         },
         {
+            "name": "dune-tension simple (real desktop mode)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "module": "dune_tension.main_simple",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PLC_IO_MODE": "desktop",
+                "DESKTOP_SERVER_URL": "http://192.168.137.1:8080"
+            },
+            "justMyCode": false,
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            }
+        },
+        {
             "name": "dune-tension (real direct PLC)",
             "type": "debugpy",
             "request": "launch",
