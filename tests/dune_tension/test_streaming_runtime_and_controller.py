@@ -201,7 +201,7 @@ def test_streaming_controller_run_sweep_accepts_candidate(tmp_path) -> None:
     runtime = MeasurementRuntime(
         motion=_FakeMotion(),
         servo_controller=_FakeServo(),
-        valve_controller=None,
+        relay_controller=None,
         strum=lambda: None,
         result_repository_factory=lambda _path: _FakeResultRepository(recorded_results),
         streaming_repository_factory=lambda session_id=None: StreamingSessionRepository(
@@ -273,7 +273,7 @@ def test_streaming_controller_run_sweep_uses_manual_focus_when_enabled(
     runtime = MeasurementRuntime(
         motion=_FakeMotion(),
         servo_controller=servo,
-        valve_controller=None,
+        relay_controller=None,
         strum=lambda: None,
         result_repository_factory=lambda _path: _FakeResultRepository(recorded_results),
         streaming_repository_factory=lambda session_id=None: StreamingSessionRepository(
@@ -348,7 +348,7 @@ def test_streaming_controller_run_rescue_uses_manual_focus_when_enabled(
     runtime = MeasurementRuntime(
         motion=_FakeMotion(),
         servo_controller=servo,
-        valve_controller=None,
+        relay_controller=None,
         strum=lambda: None,
         result_repository_factory=lambda _path: _FakeResultRepository(recorded_results),
         streaming_repository_factory=lambda session_id=None: StreamingSessionRepository(

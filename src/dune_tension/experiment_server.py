@@ -225,8 +225,9 @@ def measure_wire():
         motion=runtime.motion,
         audio=runtime.audio,
         servo_controller=runtime.servo_controller,
-        valve_controller=runtime.valve_controller,
+        relay_controller=runtime.relay_controller,
         strum=runtime.strum,
+        sensor_power_session=runtime.sensor_power_session,
         repository_factory=lambda _: repo,
         wire_position_provider=runtime.wire_position_provider,
     )

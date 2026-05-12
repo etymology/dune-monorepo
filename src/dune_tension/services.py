@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 import logging
 import os
 import sqlite3
 from types import SimpleNamespace
-from typing import Any, Callable, Iterator, Mapping, cast
+from typing import Any, Callable, ContextManager, Iterator, Mapping, cast
 
 import dune_tension.data_cache as data_cache
 from dune_tension.paths import audio_path
@@ -264,8 +264,9 @@ class RuntimeBundle:
     motion: MotionService
     audio: AudioCaptureService
     servo_controller: Any
-    valve_controller: Any | None
+    relay_controller: Any | None
     strum: Callable[[], None]
+    sensor_power_session: Callable[[], ContextManager[None]]
     repository_factory: Callable[[str], ResultRepository]
     wire_position_provider: Any | None = None
     audio_store: Any | None = None
@@ -302,22 +303,22 @@ def _create_servo_controller(spoof_servo: bool) -> Any:
     return ServoController(Controller())
 
 
-def _create_valve_controller(spoof_valve: bool) -> Any | None:
+def _create_relay_controller(spoof_valve: bool) -> Any | None:
     if spoof_valve:
         return None
 
     try:
-        from dune_tension.hardware.valve_trigger import (
+        from dune_tension.hardware.usb_relay import (
             DeviceNotFoundError,
-            ValveController,
+            RelayController,
         )
     except Exception:
         return None
 
     try:
-        return ValveController()
+        return RelayController()
     except (DeviceNotFoundError, RuntimeError) as exc:
-        LOGGER.warning("Unable to initialise valve controller: %s", exc)
+        LOGGER.warning("Unable to initialise USB relay controller: %s", exc)
         return None
 
 
@@ -334,6 +335,14 @@ def _make_strum_callback(controller: Any | None) -> Callable[[], None]:
     return _strum
 
 
+def _make_sensor_power_session(
+    controller: Any | None,
+) -> Callable[[], ContextManager[None]]:
+    if controller is None:
+        return lambda: nullcontext()
+    return controller.sensor_power_session
+
+
 def _build_audio_store() -> Any:
     try:
         from dune_tension.audio_store import AudioStore
@@ -345,13 +354,14 @@ def _build_audio_store() -> Any:
 
 def build_runtime_bundle(options: RuntimeOptions | None = None) -> RuntimeBundle:
     active_options = options or resolve_runtime_options()
-    valve_controller = _create_valve_controller(active_options.spoof_valve)
+    relay_controller = _create_relay_controller(active_options.spoof_valve)
     return RuntimeBundle(
         motion=MotionService.build(spoof_movement=active_options.spoof_movement),
         audio=AudioCaptureService.build(spoof=active_options.spoof_audio),
         servo_controller=_create_servo_controller(active_options.spoof_servo),
-        valve_controller=valve_controller,
-        strum=_make_strum_callback(valve_controller),
+        relay_controller=relay_controller,
+        strum=_make_strum_callback(relay_controller),
+        sensor_power_session=_make_sensor_power_session(relay_controller),
         repository_factory=lambda data_path: ResultRepository(data_path),
         wire_position_provider=_build_wire_position_provider(),
         audio_store=_build_audio_store(),

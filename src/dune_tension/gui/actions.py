@@ -1858,7 +1858,7 @@ def _check_connections(ctx: GUIContext) -> dict[str, bool]:
     connections = {
         "plc": check_plc(),
         "servo": not isinstance(ctx.servo_controller.servo, DummyController),
-        "valve": ctx.valve_controller is not None,
+        "valve": ctx.relay_controller is not None,
     }
     return connections
 
@@ -2046,11 +2046,11 @@ def handle_close(ctx: GUIContext) -> None:
             ctx.log_binding.close()
         except Exception:
             LOGGER.exception("Failed to close GUI log binding during shutdown.")
-    if ctx.valve_controller is not None:
+    if ctx.relay_controller is not None:
         try:
-            ctx.valve_controller.close()
+            ctx.relay_controller.close()
         except Exception:
-            LOGGER.exception("Failed to close valve controller during shutdown.")
+            LOGGER.exception("Failed to close USB relay controller during shutdown.")
     try:
         import sounddevice as sd
 

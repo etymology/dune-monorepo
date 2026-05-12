@@ -10,7 +10,7 @@ import tty
 from dataclasses import asdict
 from typing import Iterable
 
-from dune_tension.hardware.valve_trigger import DeviceNotFoundError, ValveController
+from dune_tension.hardware.usb_relay import DeviceNotFoundError, RelayController
 from spectrum_analysis.comb_trigger import HarmonicCombConfig, record_with_harmonic_comb
 from spectrum_analysis.pesto_analysis import estimate_pitch_from_audio
 
@@ -174,7 +174,7 @@ def _format_value(label: str, value: float) -> str:
 
 
 def _handle_trigger(
-    controller: ValveController,
+    controller: RelayController,
     comb_cfg: HarmonicCombConfig,
     *,
     sample_rate: int,
@@ -228,9 +228,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         return 1
 
     try:
-        controller = ValveController(port=args.port)
+        controller = RelayController(port=args.port)
     except DeviceNotFoundError:
-        print("Error: Air valve controller not found.", file=sys.stderr)
+        print("Error: USB relay not found.", file=sys.stderr)
         return 1
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -118,7 +118,7 @@ class AudioStreamService:
 class MeasurementRuntime:
     motion: Any
     servo_controller: Any
-    valve_controller: Any | None
+    relay_controller: Any | None
     strum: Callable[[], None]
     result_repository_factory: Callable[[str], ResultRepository]
     streaming_repository_factory: Callable[[str | None], StreamingSessionRepository]
@@ -147,7 +147,7 @@ def build_measurement_runtime(
     return MeasurementRuntime(
         motion=active_bundle.motion,
         servo_controller=active_bundle.servo_controller,
-        valve_controller=active_bundle.valve_controller,
+        relay_controller=active_bundle.relay_controller,
         strum=active_bundle.strum,
         result_repository_factory=active_bundle.repository_factory,
         streaming_repository_factory=streaming_repository_factory,

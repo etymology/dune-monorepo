@@ -118,7 +118,7 @@ def test_gui_context_uses_runtime_bundle_motion(monkeypatch):
 
     runtime_bundle = types.SimpleNamespace(
         servo_controller=object(),
-        valve_controller=object(),
+        relay_controller=object(),
         motion=types.SimpleNamespace(
             get_xy=lambda: (30.0, 40.0),
             goto_xy=lambda *_args, **_kwargs: True,

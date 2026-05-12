@@ -108,12 +108,12 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
         LOGGER.info("Resolved runtime options: %s", runtime_options)
         runtime_bundle = build_runtime_bundle(runtime_options)
         LOGGER.info(
-            "Runtime bundle ready. motion=%s audio_samplerate=%s servo=%s valve=%s",
+            "Runtime bundle ready. motion=%s audio_samplerate=%s servo=%s relay=%s",
             type(runtime_bundle.motion).__name__,
             getattr(runtime_bundle.audio, "samplerate", "unknown"),
             type(runtime_bundle.servo_controller).__name__,
-            type(runtime_bundle.valve_controller).__name__
-            if runtime_bundle.valve_controller is not None
+            type(runtime_bundle.relay_controller).__name__
+            if runtime_bundle.relay_controller is not None
             else "None",
         )
         ctx = create_context(

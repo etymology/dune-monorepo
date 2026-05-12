@@ -1,10 +1,11 @@
 import ast
 import threading
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import math
-from typing import Any, Optional, Callable
+from typing import Any, ContextManager, Optional, Callable
 import time
 import numpy as np
 from random import gauss
@@ -246,6 +247,7 @@ def build_tensiometer(
         MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us
     ),
     strum: Optional[Callable[[], None]] = None,
+    measurement_session: Optional[Callable[[], ContextManager[Any]]] = None,
     focus_wiggle: Optional[Callable[[float], None]] = None,
     focus_position_getter: Optional[Callable[[], int]] = None,
     focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
@@ -297,6 +299,9 @@ def build_tensiometer(
         active_runtime = build_runtime_bundle(options)
 
     active_strum = strum or active_runtime.strum
+    active_measurement_session = (
+        measurement_session or active_runtime.sensor_power_session
+    )
     active_focus_wiggle = focus_wiggle or getattr(
         active_runtime.servo_controller,
         "nudge_focus",
@@ -396,6 +401,7 @@ def build_tensiometer(
         sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         strum=active_strum,
+        measurement_session=active_measurement_session,
         focus_wiggle=active_focus_wiggle,
         focus_position_getter=active_focus_position_getter,
         focus_range_getter=active_focus_range_getter,
@@ -448,6 +454,7 @@ class Tensiometer:
             MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us
         ),
         strum: Optional[Callable[[], None]] = None,
+        measurement_session: Optional[Callable[[], ContextManager[Any]]] = None,
         focus_wiggle: Optional[Callable[[float], None]] = None,
         focus_position_getter: Optional[Callable[[], int]] = None,
         focus_range_getter: Optional[Callable[[], tuple[int, int] | None]] = None,
@@ -543,6 +550,7 @@ class Tensiometer:
         )
         self.quiet_waiter = quiet_waiter or (lambda: None)
         self.strum_func = strum or (lambda: None)
+        self.measurement_session = measurement_session or (lambda: nullcontext())
         self.estimated_time_callback = estimated_time_callback or (lambda _value: None)
         self.audio_sample_callback = audio_sample_callback or (
             lambda _sample, _samplerate, _analysis: None
@@ -1333,7 +1341,7 @@ class Tensiometer:
                 x, y = xy
                 self.goto_xy_func(x, y)
 
-        with self.repository.run_scope():
+        with self.repository.run_scope(), self.measurement_session():
             return self.goto_collect_wire_data(
                 wire_number=wire_number,
                 wire_x=x,
@@ -1423,7 +1431,8 @@ class Tensiometer:
         )
         monitor_thread.start()
         try:
-            core.measure_auto()
+            with self.measurement_session():
+                core.measure_auto()
         except KeyboardInterrupt:
             LOGGER.info("Measurement interrupted by user.")
         except Exception as exc:
@@ -1459,7 +1468,7 @@ class Tensiometer:
                 self._profile_time() - planning_started
             )
         try:
-            with self.repository.run_scope():
+            with self.repository.run_scope(), self.measurement_session():
                 last_successful_result: TensionResult | None = None
                 last_successful_wire_number: int | None = None
                 for wire_number in ordered_wire_numbers:

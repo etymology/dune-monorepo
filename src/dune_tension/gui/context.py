@@ -73,7 +73,7 @@ class GUIContext:
     runtime: RuntimeBundle
     stop_event: Event
     servo_controller: Any
-    valve_controller: Any | None
+    relay_controller: Any | None
     get_xy: Callable[[], tuple[float, float]]
     goto_xy: Callable[[float, float], bool]
     focus_command_var: tk.StringVar
@@ -118,7 +118,7 @@ def create_context(
         runtime=runtime_bundle,
         stop_event=stop_event,
         servo_controller=runtime_bundle.servo_controller,
-        valve_controller=runtime_bundle.valve_controller,
+        relay_controller=runtime_bundle.relay_controller,
         get_xy=runtime_bundle.motion.get_xy,
         goto_xy=runtime_bundle.motion.goto_xy,
         focus_command_var=focus_command_var,
