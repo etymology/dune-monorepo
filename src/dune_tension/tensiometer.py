@@ -37,7 +37,7 @@ from dune_tension.plc_io import is_in_measurable_area
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
-_STRUM_LOOP_INTERVAL_SECONDS = 0.03
+_STRUM_LOOP_INTERVAL_SECONDS = 0.2
 _SUMMARY_REFRESH_GUARD_S = 0.5
 
 
@@ -157,6 +157,7 @@ class AudioAcquisitionConfig:
     comb_trigger: Any = field(default_factory=_default_harmonic_comb_config)
     recording_started_callback: Callable[[], None] | None = None
     stop_event: threading.Event | None = None
+    discard_leading_seconds: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -1169,43 +1170,12 @@ class Tensiometer:
             return measured_rms
         return measured_rms / reference_rms
 
-    def _is_audio_worth_analyzing(
-        self,
-        audio_sample: Any,
-        expected_frequency: float | None,
-    ) -> bool:
-        """Return True if the sample has enough signal/harmonicity to justify NN analysis.
+    def _is_audio_worth_analyzing(self, audio_sample: Any) -> bool:
+        """Return True if the sample has enough signal to justify NN analysis."""
 
-        This provides a cheap 'gate' before expensive PESTO analysis.
-        """
-
-        # 1. Amplitude gate: is there any signal at all?
         measured_rms = self._sample_rms(audio_sample)
-        # We use a threshold slightly above the noise floor.
         if self.noise_threshold > 0.0 and measured_rms < self.noise_threshold * 1.5:
             return False
-
-        # 2. Harmonic gate: if we know what frequency to expect, is there a peak there?
-        if expected_frequency is not None:
-            # We skip the harmonic gate for very short samples (e.g. in tests)
-            # because harmonic_comb_response needs a minimum frame size.
-            audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
-            if audio_array.size < 1024:
-                return True
-
-            # Re-use the existing harmonic feature extractor.
-            # We use 0.0 for the first frequency to force it to use expected_frequency.
-            features = self._sample_harmonic_features(
-                audio_sample, 0.0, expected_frequency
-            )
-            if not features.valid:
-                return False
-
-            # We use a fraction of the trigger threshold as a safety margin.
-            # If harmonicity is extremely low, PESTO is unlikely to find a good pitch.
-            threshold = self._harmonic_comb_config.harmonicity_threshold()
-            if features.harmonicity < threshold * 0.5:
-                return False
 
         return True
 
@@ -1229,7 +1199,7 @@ class Tensiometer:
         self._last_pitch_triplet_accepted = None
         analysis = None
 
-        if not self._is_audio_worth_analyzing(audio_sample, expected_frequency):
+        if not self._is_audio_worth_analyzing(audio_sample):
             return None, 0.0, 0.0
 
         require_corroboration = False
@@ -1348,6 +1318,7 @@ class Tensiometer:
             LOGGER.debug("Harmonic trigger learning skipped: %s", exc)
 
     def measure_calibrate(self, wire_number: int) -> Optional[TensionResult]:
+        target = None
         if self.config.layer in ["U", "V"]:
             target = self.wire_position_provider.get_pose(
                 self.config,
@@ -1360,19 +1331,8 @@ class Tensiometer:
             x, y = float(target.x), float(target.y)
             self.goto_xy_func(x, y)
         else:
-            xy = self.get_current_xy_position()
-            if xy is None:
-                LOGGER.warning(
-                    "No position data found for wire %s. Using current position.",
-                    wire_number,
-                )
-                (
-                    x,
-                    y,
-                ) = self.get_current_xy_position()
-            else:
-                x, y = xy
-                self.goto_xy_func(x, y)
+            x, y = self.get_current_xy_position()
+            self.goto_xy_func(x, y)
 
         with self.repository.run_scope(), self.measurement_session():
             return self.goto_collect_wire_data(
@@ -1383,7 +1343,13 @@ class Tensiometer:
             )
 
     def measure_auto(self) -> None:
-        """Measure all missing wires in the current layer/side using Rust core."""
+        """Measure all missing wires in the current layer/side.
+
+        U/V layers go through the Rust core; X/G layers fall back to the
+        Python ``measure_list`` path because the Rust planner has no
+        database-snapshot lookup for vertical wires and would otherwise
+        skip every wire.
+        """
         from dune_tension.summaries import get_missing_wires
 
         wires_dict = get_missing_wires(self.config)
@@ -1430,46 +1396,53 @@ class Tensiometer:
                 except Exception:
                     LOGGER.debug("estimated_time_callback raised", exc_info=True)
 
-        import dune_tension_core
-
-        def pesto_wrapper(audio, samplerate, expected_frequency):
-            return analyze_audio_with_pesto(
-                audio,
-                samplerate,
-                expected_frequency=expected_frequency,
-                include_activations=False,
-            )
-
-        core = dune_tension_core.Tensiometer(
-            config=self.config,
-            motion_service=self.motion,
-            goto_xy_func=self._goto_xy_with_reset_recovery,
-            get_current_xy_position=self.get_current_xy_position,
-            focus_wiggle_func=self._apply_focus_wiggle_with_x_compensation,
-            focus_position_getter=self.focus_position_getter,
-            focus_range_getter=self.focus_range_getter,
-            use_manual_focus=self.use_manual_focus,
-            manual_focus_target=self.manual_focus_target,
-            stop_event=self.stop_event,
-            repository=self.repository,
-            audio_service=self.audio,
-            strum_func=self.strum_func,
-            pesto_func=pesto_wrapper,
-            harmonic_comb_config=self._harmonic_comb_config,
-        )
-
         self.repository.append_result = counting_append_result  # type: ignore[method-assign]
         monitor_thread = threading.Thread(
             target=emit_eta, name="tensiometer-eta-monitor", daemon=True
         )
         monitor_thread.start()
         try:
-            with self.measurement_session():
-                core.measure_auto()
-        except KeyboardInterrupt:
-            LOGGER.info("Measurement interrupted by user.")
-        except Exception as exc:
-            LOGGER.exception("Rust measurement core failed: %s", exc)
+            if self.config.layer in ("X", "G"):
+                try:
+                    self.measure_list(wires_to_measure, preserve_order=False)
+                except KeyboardInterrupt:
+                    LOGGER.info("Measurement interrupted by user.")
+            else:
+                import dune_tension_core
+
+                def pesto_wrapper(audio, samplerate, expected_frequency):
+                    return analyze_audio_with_pesto(
+                        audio,
+                        samplerate,
+                        expected_frequency=expected_frequency,
+                        include_activations=False,
+                    )
+
+                core = dune_tension_core.Tensiometer(
+                    config=self.config,
+                    motion_service=self.motion,
+                    goto_xy_func=self._goto_xy_with_reset_recovery,
+                    get_current_xy_position=self.get_current_xy_position,
+                    focus_wiggle_func=self._apply_focus_wiggle_with_x_compensation,
+                    focus_position_getter=self.focus_position_getter,
+                    focus_range_getter=self.focus_range_getter,
+                    use_manual_focus=self.use_manual_focus,
+                    manual_focus_target=self.manual_focus_target,
+                    stop_event=self.stop_event,
+                    repository=self.repository,
+                    audio_service=self.audio,
+                    strum_func=self.strum_func,
+                    pesto_func=pesto_wrapper,
+                    harmonic_comb_config=self._harmonic_comb_config,
+                )
+
+                try:
+                    with self.measurement_session():
+                        core.measure_auto()
+                except KeyboardInterrupt:
+                    LOGGER.info("Measurement interrupted by user.")
+                except Exception as exc:
+                    LOGGER.exception("Rust measurement core failed: %s", exc)
         finally:
             stop_progress.set()
             monitor_thread.join(timeout=3.0)

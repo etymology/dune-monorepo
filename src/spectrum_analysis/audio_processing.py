@@ -564,12 +564,22 @@ def acquire_audio(
             raise
 
     trigger_mode = getattr(cfg, "trigger_mode", "snr")
+    discard_seconds = float(
+        getattr(cfg, "discard_leading_seconds", LEADING_AUDIO_DISCARD_SECONDS)
+    )
+
+    def _post_process(audio: np.ndarray) -> np.ndarray:
+        return remove_clicks(
+            discard_leading_audio(
+                audio, cfg.sample_rate, discard_seconds=discard_seconds
+            )
+        )
 
     if trigger_mode != "harmonic_comb":
         audio = _acquire_audio_snr(cfg, noise_rms, timeout)
         if audio is None:
             return None
-        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
+        return _post_process(audio)
 
     expected_f0 = cfg.expected_f0
     if expected_f0 is None or not np.isfinite(expected_f0) or expected_f0 <= 0.0:
@@ -577,7 +587,7 @@ def acquire_audio(
         audio = _acquire_audio_snr(cfg, noise_rms, timeout)
         if audio is None:
             return None
-        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
+        return _post_process(audio)
 
     try:
         audio = record_with_harmonic_comb(
@@ -595,10 +605,10 @@ def acquire_audio(
         )
         if audio is None:
             return None
-        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
+        return _post_process(audio)
     except ValueError:
         LOGGER.warning("Invalid frequency band; falling back to RMS trigger.")
         audio = _acquire_audio_snr(cfg, noise_rms, timeout)
         if audio is None:
             return None
-        return remove_clicks(discard_leading_audio(audio, cfg.sample_rate))
+        return _post_process(audio)
