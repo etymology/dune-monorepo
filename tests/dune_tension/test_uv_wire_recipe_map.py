@@ -38,7 +38,7 @@ def _clear_recipe_map_caches() -> Generator[None]:
 
 def test_public_wire_pin_pair_matches_requested_sanity_checks() -> None:
     assert uv_wire_planner.wire_segment_to_pin_pair("V", 401) == ("B449", "B1950")
-    assert uv_wire_planner.wire_segment_to_pin_pair("U", 1) == ("B450", "B350")
+    assert uv_wire_planner.wire_segment_to_pin_pair("U", 1) == ("B449", "B350")
 
 
 def test_wrap_to_wire_numbers_has_400_wraps_of_six_entries(monkeypatch) -> None:
@@ -92,7 +92,7 @@ def test_explicit_sanity_checks_and_representative_inversions(monkeypatch) -> No
         uv_wire_planner.wire_segment_to_pin_pair(
             "U", u_maps.wrap_to_wire_numbers[50][2]
         )[0]
-        == "B450"
+        == "B449"
     )
 
     assert v_maps.wire_to_wrap[8].wrap_number == 344
@@ -123,8 +123,8 @@ def test_applied_length_uses_calibrated_pin_distance_not_length_lookup(
     u_maps = uv_wire_recipe_map.build_uv_wire_recipe_maps("U")
 
     assert v_maps.wire_to_applied_length_mm[401] == pytest.approx(1501.0)
-    assert u_maps.wire_to_applied_length_mm[401] == pytest.approx(1501.0)
-    assert u_maps.wire_to_applied_length_mm[8] == pytest.approx(114.0)
+    assert u_maps.wire_to_applied_length_mm[401] == pytest.approx(1502.0)
+    assert u_maps.wire_to_applied_length_mm[8] == pytest.approx(113.0)
 
 
 def test_wire_to_endpoint_sides_uses_manual_calibration_metadata(monkeypatch) -> None:

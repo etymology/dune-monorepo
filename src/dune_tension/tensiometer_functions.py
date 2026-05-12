@@ -10,18 +10,10 @@ import pandas as pd
 
 from dune_tension.config import LAYER_LAYOUTS, GEOMETRY_CONFIG
 from dune_tension.data_cache import select_dataframe
-from dune_tension.geometry import (
-    comb_positions,
-    MEASURABLE_X_MIN,
-    MEASURABLE_X_MAX,
-    MEASURABLE_Y_MIN,
-    MEASURABLE_Y_MAX,
-    refine_position,
-)
+from dune_tension.geometry import refine_position
 from dune_tension.paths import tension_data_db_path
 from dune_tension.plc_io import is_in_measurable_area
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
-from dune_winder.uv_head_target import compute_pin_pair_tangent_geometry
 
 LOGGER = logging.getLogger(__name__)
 CONFIDENCE_SOURCES = ("neural_net", "signal_amplitude")
@@ -288,112 +280,77 @@ class WirePositionProvider:
         self,
         config: TensiometerConfig,
         wire_number: int,
+        *,
+        zone: int | None = None,
     ) -> tuple[float, float] | None:
-        """Find the best measurement pose using pin geometry and comb boundaries."""
+        """Find the U/V measurement pose using the shared tension planner."""
+        planned = self._resolve_uv_plan(config, wire_number, zone=zone)
+        if planned is None:
+            return None
+        return planned.midpoint
+
+    def _resolve_uv_plan(
+        self,
+        config: TensiometerConfig,
+        wire_number: int,
+        *,
+        zone: int | None = None,
+    ):
         if config.layer not in ["U", "V"]:
             return None
 
         try:
-            from dune_tension.layer_calibration import get_local_layer_calibration_path
+            from dune_tension.uv_wire_planner import plan_uv_wire
 
-            from dune_tension.uv_wire_planner import _wire_pin_pair
-
-            pin_a, pin_b = _wire_pin_pair(config.layer, config.side, wire_number)
-            geom = compute_pin_pair_tangent_geometry(
-                layer=config.layer,
-                pin_a=pin_a,
-                pin_b=pin_b,
-                layer_calibration_path=str(
-                    get_local_layer_calibration_path(config.layer)
-                ),
+            planned = plan_uv_wire(
+                str(config.layer).upper(),
+                str(config.side).upper(),
+                int(wire_number),
+                zone=zone,
             )
         except Exception as exc:
             LOGGER.warning(
-                "Geometry planning failed for %s wire %s: %s",
+                "U/V measurement planning failed for %s wire %s: %s",
                 config.layer,
                 wire_number,
                 exc,
             )
             return None
+        return planned
 
-        # Laser center is at (stage_x + laser_offset_x, stage_y + laser_offset_y).
-        # To hit a wire point (wx, wy), the stage must be at:
-        # stage_x = wx - laser_offset_x
-        # stage_y = wy - laser_offset_y
-        from dune_tension.layer_calibration import get_laser_offset
-
-        offset = get_laser_offset(config.side)
-        if offset is None:
-            LOGGER.warning("No laser offset found for side %s", config.side)
+    def _resolve_uv_planned_pose(
+        self,
+        config: TensiometerConfig,
+        wire_number: int,
+        *,
+        zone: int | None = None,
+        current_focus_position: int | None = None,
+    ) -> Optional[PlannedWirePose]:
+        if config.layer not in ["U", "V"]:
             return None
 
-        ox = float(offset["x"])
-        oy = float(offset["y"])
-
-        p1_laser = (geom.tangent_point_a.x - ox, geom.tangent_point_a.y - oy)
-        p2_laser = (geom.tangent_point_b.x - ox, geom.tangent_point_b.y - oy)
-
-        # Line equation in laser/stage space: p(t) = p1_laser + t * (p2_laser - p1_laser)
-        dx = p2_laser[0] - p1_laser[0]
-        dy = p2_laser[1] - p1_laser[1]
-        if math.hypot(dx, dy) < 1e-6:
+        planned = self._resolve_uv_plan(config, wire_number, zone=zone)
+        if planned is None:
             return None
+        x, y = planned.midpoint
 
-        # Find all t values where the line crosses x = comb_position or y = Y_MIN/Y_MAX
-        t_values = [0.0, 1.0]
-
-        # Comb crossings (x-boundaries)
-        for cx in comb_positions:
-            if abs(dx) > 1e-6:
-                t = (cx - p1_laser[0]) / dx
-                if 0 < t < 1:
-                    t_values.append(t)
-
-        # Y-boundary crossings
-        for cy in [MEASURABLE_Y_MIN, MEASURABLE_Y_MAX]:
-            if abs(dy) > 1e-6:
-                t = (cy - p1_laser[1]) / dy
-                if 0 < t < 1:
-                    t_values.append(t)
-
-        t_values.sort()
-
-        # Build segments between crossings and check which are measurable
-        segments: list[tuple[float, float, float]] = []  # (t_start, t_end, length)
-        for i in range(len(t_values) - 1):
-            t_start = t_values[i]
-            t_end = t_values[i + 1]
-            t_mid = (t_start + t_end) / 2.0
-            x_mid = p1_laser[0] + t_mid * dx
-            y_mid = p1_laser[1] + t_mid * dy
-
-            if (
-                MEASURABLE_X_MIN <= x_mid <= MEASURABLE_X_MAX
-                and MEASURABLE_Y_MIN <= y_mid <= MEASURABLE_Y_MAX
-            ):
-                length = (t_end - t_start) * math.hypot(dx, dy)
-                segments.append((t_start, t_end, length))
-
-        if not segments:
-            return None
-
-        # Sort segments by length (longest first)
-        segments.sort(key=lambda s: s[2], reverse=True)
-        best_t_start, best_t_end, best_length = segments[0]
-
-        # Check for segments within 10% of the longest length
-        candidates = [s for s in segments if s[2] >= 0.9 * best_length]
-        if len(candidates) > 1:
-            # Choose the one with the lower midpoint y
-            def midpoint_y(s):
-                t_mid = (s[0] + s[1]) / 2.0
-                return p1_laser[1] + t_mid * dy
-
-            best_t_start, best_t_end, _ = min(candidates, key=midpoint_y)
-
-        # Return the midpoint of the selected segment
-        t_final = (best_t_start + best_t_end) / 2.0
-        return (p1_laser[0] + t_final * dx, p1_laser[1] + t_final * dy)
+        snapshot = self._get_snapshot(config)
+        focus_position = (
+            self._resolve_focus_position(
+                snapshot,
+                float(y),
+                current_focus_position=current_focus_position,
+            )
+            if snapshot is not None
+            else current_focus_position
+        )
+        return PlannedWirePose(
+            wire_number=int(wire_number),
+            x=float(x),
+            y=float(y),
+            focus_position=focus_position,
+            zone=int(planned.zone),
+        )
 
     def _resolve_xy(
         self,
@@ -448,25 +405,12 @@ class WirePositionProvider:
         wire_number: int,
         current_focus_position: int | None = None,
     ) -> Optional[PlannedWirePose]:
-        # Try geometric planning first for U/V layers
         if config.layer in ["U", "V"]:
-            xy = self._resolve_geometry_pose(config, wire_number)
-            if xy is not None:
-                x, y = xy
-                snapshot = self._get_snapshot(config)
-                focus_position = None
-                if snapshot is not None:
-                    focus_position = self._resolve_focus_position(
-                        snapshot,
-                        y,
-                        current_focus_position=current_focus_position,
-                    )
-                return PlannedWirePose(
-                    wire_number=int(wire_number),
-                    x=float(x),
-                    y=float(y),
-                    focus_position=focus_position,
-                )
+            return self._resolve_uv_planned_pose(
+                config,
+                wire_number,
+                current_focus_position=current_focus_position,
+            )
 
         # Fallback to historical data
         snapshot = self._get_snapshot(config)
@@ -508,6 +452,14 @@ class WirePositionProvider:
 
         if not is_wire_in_zone(config.layer, wire_number, zone):
             return None
+
+        if config.layer in ["U", "V"]:
+            return self._resolve_uv_planned_pose(
+                config,
+                wire_number,
+                zone=zone,
+                current_focus_position=current_focus_position,
+            )
 
         snapshot = self._get_snapshot(config)
         if snapshot is None:

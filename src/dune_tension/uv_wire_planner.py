@@ -40,6 +40,7 @@ class _UVPlanGeometryInputs:
     layer: str
     side: str
     wire_number: int
+    requested_zone: int | None
     pin_a: str
     pin_b: str
     center_a: tuple[float, float]
@@ -47,6 +48,8 @@ class _UVPlanGeometryInputs:
     pin_radius_mm: float
     tangent_sign_a: int
     tangent_sign_b: int
+    tangent_y_sign_a: int
+    tangent_y_sign_b: int
     laser_offset_x: float
     laser_offset_y: float
 
@@ -100,10 +103,20 @@ def wire_segment_to_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
 def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
     requested_side = _normalize_side(side)
     requested_layer = _normalize_layer(layer)
-    return _layout_for_layer(requested_layer).wire_segment_endpoints(
+    
+    # We always start from the canonical B-side endpoints.
+    pin_a_b, pin_b_b = _layout_for_layer(requested_layer).wire_segment_endpoints(
         int(wire_number),
-        family=requested_side,
+        family="B",
     )
+    
+    if requested_side == "B":
+        return pin_a_b, pin_b_b
+        
+    # For A-side tension measurement, the convention is to use the same pin numbers
+    # as the B-side segment, but with the A prefix. This is distinct from the
+    # winder's physical wrap-layout translation.
+    return f"A{pin_a_b[1:]}", f"A{pin_b_b[1:]}"
 
 
 def _vector_sub(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]:
@@ -271,13 +284,40 @@ def _solve_tangent_candidates(
     return candidates
 
 
+def _tangent_orientation_score(
+    *,
+    tangent_a: tuple[float, float],
+    tangent_b: tuple[float, float],
+    inputs: _UVPlanGeometryInputs,
+) -> int:
+    """Score how fully a tangent candidate matches both pin wrap orientations."""
+
+    return sum(
+        (
+            _sign(tangent_a[0] - inputs.center_a[0]) == inputs.tangent_sign_a,
+            _sign(tangent_a[1] - inputs.center_a[1]) == inputs.tangent_y_sign_a,
+            _sign(tangent_b[0] - inputs.center_b[0]) == inputs.tangent_sign_b,
+            _sign(tangent_b[1] - inputs.center_b[1]) == inputs.tangent_y_sign_b,
+        )
+    )
+
+
 def plan_uv_wire(
-    layer: str, side: str, wire_number: int, *, taped: bool = False
+    layer: str,
+    side: str,
+    wire_number: int,
+    *,
+    taped: bool = False,
+    zone: int | None = None,
 ) -> PlannedUVWire:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
+    requested_zone = None if zone is None else int(zone)
     geometry = _build_uv_plan_geometry_inputs(
-        requested_layer, requested_side, wire_number
+        requested_layer,
+        requested_side,
+        wire_number,
+        requested_zone=requested_zone,
     )
     planned = _plan_uv_wire_geometry_cached(geometry)
     wire_length_m = length_lookup(
@@ -304,7 +344,10 @@ def plan_uv_wire_zone(layer: str, side: str, wire_number: int) -> int:
     requested_layer = _normalize_layer(layer)
     requested_side = _normalize_side(side)
     geometry = _build_uv_plan_geometry_inputs(
-        requested_layer, requested_side, wire_number
+        requested_layer,
+        requested_side,
+        wire_number,
+        requested_zone=None,
     )
     return int(_plan_uv_wire_geometry_cached(geometry).zone)
 
@@ -313,6 +356,8 @@ def _build_uv_plan_geometry_inputs(
     layer: str,
     side: str,
     wire_number: int,
+    *,
+    requested_zone: int | None,
 ) -> _UVPlanGeometryInputs:
     layout = _layout_for_layer(layer)
     calibration = load_layer_calibration_summary(layer)
@@ -325,20 +370,30 @@ def _build_uv_plan_geometry_inputs(
     center_a = (float(locations[pin_a]["x"]), float(locations[pin_a]["y"]))
     center_b = (float(locations[pin_b]["x"]), float(locations[pin_b]["y"]))
     pin_radius_mm = float(calibration.get("pinDiameterMm", 0.0)) / 2.0
-    tangent_sign_a = layout.wrap_orientation(pin_a).x_sign
-    tangent_sign_b = layout.wrap_orientation(pin_b).x_sign
+    tangent_orientation_a = layout.wrap_orientation(pin_a)
+    tangent_orientation_b = layout.wrap_orientation(pin_b)
+
+    if requested_zone is not None and not (
+        1 <= requested_zone <= GEOMETRY_CONFIG.zone_count
+    ):
+        raise ValueError(
+            f"Zone must be between 1 and {GEOMETRY_CONFIG.zone_count}, got {requested_zone}."
+        )
 
     return _UVPlanGeometryInputs(
         layer=layer,
         side=side,
         wire_number=int(wire_number),
+        requested_zone=requested_zone,
         pin_a=pin_a,
         pin_b=pin_b,
         center_a=center_a,
         center_b=center_b,
         pin_radius_mm=float(pin_radius_mm),
-        tangent_sign_a=int(tangent_sign_a),
-        tangent_sign_b=int(tangent_sign_b),
+        tangent_sign_a=int(tangent_orientation_a.x_sign),
+        tangent_sign_b=int(tangent_orientation_b.x_sign),
+        tangent_y_sign_a=int(tangent_orientation_a.y_sign),
+        tangent_y_sign_b=int(tangent_orientation_b.y_sign),
         laser_offset_x=float(offset["x"]),
         laser_offset_y=float(offset["y"]),
     )
@@ -353,6 +408,8 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
             tuple[float, float],
             float,
             tuple[float, float],
+            int,
+            int,
         ]
     ] = []
     for tangent_a, tangent_b in _solve_tangent_candidates(
@@ -362,6 +419,11 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         tangent_x_sign_b=inputs.tangent_sign_b,
         radius_mm=inputs.pin_radius_mm,
     ):
+        orientation_score = _tangent_orientation_score(
+            tangent_a=tangent_a,
+            tangent_b=tangent_b,
+            inputs=inputs,
+        )
         tangent_a_laser = (
             float(tangent_a[0] - inputs.laser_offset_x),
             float(tangent_a[1] - inputs.laser_offset_y),
@@ -376,26 +438,55 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         for segment in _split_segment_at_combs(*clipped):
             length = _segment_length(segment)
             midpoint = _segment_midpoint(segment)
-            candidate_segments.append((segment, tangent_a, tangent_b, length, midpoint))
+            segment_zone = int(zone_lookup(midpoint[0]))
+            if (
+                inputs.requested_zone is not None
+                and segment_zone != inputs.requested_zone
+            ):
+                continue
+            candidate_segments.append(
+                (
+                    segment,
+                    tangent_a,
+                    tangent_b,
+                    length,
+                    midpoint,
+                    segment_zone,
+                    orientation_score,
+                )
+            )
 
     if not candidate_segments:
+        zone_text = (
+            "" if inputs.requested_zone is None else f" in zone {inputs.requested_zone}"
+        )
         raise ValueError(
-            f"Unable to plan a measurable U/V segment for layer={inputs.layer} side={inputs.side} wire={inputs.wire_number}."
+            f"Unable to plan a measurable U/V segment{zone_text} for layer={inputs.layer} side={inputs.side} wire={inputs.wire_number}."
         )
 
-    best_length = max(candidate[3] for candidate in candidate_segments)
+    best_orientation_score = max(candidate[6] for candidate in candidate_segments)
+    orientation_candidates = [
+        candidate
+        for candidate in candidate_segments
+        if candidate[6] == best_orientation_score
+    ]
+    best_length = max(candidate[3] for candidate in orientation_candidates)
     near_tie_threshold = best_length * (1.0 - _SEGMENT_LENGTH_NEAR_TIE_FRACTION)
     near_tie_candidates = [
         candidate
-        for candidate in candidate_segments
+        for candidate in orientation_candidates
         if candidate[3] + _EPSILON >= near_tie_threshold
     ]
-    best_segment, best_tangent_a, best_tangent_b, _selected_length, midpoint = min(
-        near_tie_candidates,
-        key=lambda candidate: (candidate[4][1], -candidate[3]),
-    )
+    (
+        best_segment,
+        best_tangent_a,
+        best_tangent_b,
+        _selected_length,
+        midpoint,
+        zone,
+        _orientation_score,
+    ) = min(near_tie_candidates, key=lambda candidate: (candidate[4][1], -candidate[3]))
 
-    zone = zone_lookup(midpoint[0])
     return _UVPlanGeometry(
         wire_number=int(inputs.wire_number),
         pin_a=inputs.pin_a,

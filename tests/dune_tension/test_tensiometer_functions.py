@@ -274,38 +274,30 @@ def test_wire_position_provider_ignores_non_legacy_rows_and_falls_back_to_neares
     assert pose.focus_position == 5000
 
 
-def test_wire_position_provider_uses_tension_layer_calibration_path(
+def test_wire_position_provider_uses_shared_uv_planner(
     monkeypatch,
 ) -> None:
-    import dune_tension.layer_calibration as layer_calibration
     import dune_tension.tensiometer_functions as tensiometer_functions
+    import dune_tension.uv_wire_planner as uv_wire_planner
 
-    calibration_path = Path("/tmp/U_Calibration.json")
     calls = []
 
-    monkeypatch.setattr(
-        layer_calibration,
-        "get_local_layer_calibration_path",
-        lambda layer: calibration_path,
-    )
-    monkeypatch.setattr(
-        layer_calibration,
-        "get_laser_offset",
-        lambda side: {"x": 0.0, "y": 0.0},
-    )
-
-    def _compute_geometry(**kwargs):
-        calls.append(kwargs)
+    def _plan_uv_wire(layer, side, wire_number, *, taped=False, zone=None):
+        calls.append(
+            {
+                "layer": layer,
+                "side": side,
+                "wire_number": wire_number,
+                "taped": taped,
+                "zone": zone,
+            }
+        )
         return types.SimpleNamespace(
-            tangent_point_a=types.SimpleNamespace(x=2000.0, y=500.0),
-            tangent_point_b=types.SimpleNamespace(x=2100.0, y=700.0),
+            midpoint=(2000.0, 500.0),
+            zone=4,
         )
 
-    monkeypatch.setattr(
-        tensiometer_functions,
-        "compute_pin_pair_tangent_geometry",
-        _compute_geometry,
-    )
+    monkeypatch.setattr(uv_wire_planner, "plan_uv_wire", _plan_uv_wire)
 
     config = types.SimpleNamespace(layer="U", side="A")
     provider = tensiometer_functions.WirePositionProvider(
@@ -314,32 +306,33 @@ def test_wire_position_provider_uses_tension_layer_calibration_path(
 
     xy = provider._resolve_geometry_pose(config, 1095)
 
-    assert xy is not None
-    assert calls[0]["pin_a"] == "A1544"
-    assert calls[0]["pin_b"] == "A1657"
-    assert calls[0]["layer_calibration_path"] == str(calibration_path)
+    assert xy == (2000.0, 500.0)
+    assert calls == [
+        {
+            "layer": "U",
+            "side": "A",
+            "wire_number": 1095,
+            "taped": False,
+            "zone": None,
+        }
+    ]
 
 
-def test_wire_position_provider_zone_pose_uses_historical_zone_planner_for_uv(
+def test_wire_position_provider_zone_pose_uses_shared_uv_planner_for_uv(
     monkeypatch,
 ) -> None:
     import dune_tension.geometry as geometry
-    import dune_tension.plc_io as plc_io
     import dune_tension.tensiometer_functions as tensiometer_functions
     import dune_tension.uv_wire_planner as uv_wire_planner
 
     uv_planner_calls = []
 
-    def _plan_uv_wire(layer, side, wire_number, *, taped=False):
-        uv_planner_calls.append((layer, side, wire_number, taped))
-        return types.SimpleNamespace(midpoint=(9999.0, 9999.0), zone=3)
+    def _plan_uv_wire(layer, side, wire_number, *, taped=False, zone=None):
+        uv_planner_calls.append((layer, side, wire_number, taped, zone))
+        return types.SimpleNamespace(midpoint=(3500.0, 1500.0), zone=3)
 
     monkeypatch.setattr(uv_wire_planner, "plan_uv_wire", _plan_uv_wire)
     monkeypatch.setattr(geometry, "is_wire_in_zone", lambda *_args: True)
-    monkeypatch.setattr(
-        geometry, "comb_positions", [1000, 2000, 3000, 4000, 5000, 6000]
-    )
-    monkeypatch.setattr(plc_io, "is_in_measurable_area", lambda *_args: True)
 
     config = tensiometer_functions.make_config(apa_name="APA", layer="U", side="A")
     df = pd.DataFrame(
@@ -349,8 +342,8 @@ def test_wire_position_provider_zone_pose_uses_historical_zone_planner_for_uv(
                 "layer": "U",
                 "side": "A",
                 "wire_number": 1095,
-                "x": 3500.0,
-                "y": 1500.0,
+                "x": 111.0,
+                "y": 222.0,
                 "focus_position": 5100,
                 "confidence": 0.9,
                 "measurement_mode": "legacy",
@@ -376,7 +369,7 @@ def test_wire_position_provider_zone_pose_uses_historical_zone_planner_for_uv(
         focus_position=5100,
         zone=3,
     )
-    assert uv_planner_calls == []
+    assert uv_planner_calls == [("U", "A", 1095, False, 3)]
 
 
 def test_wire_position_provider_falls_back_to_current_focus_when_no_saved_focus_exists() -> (

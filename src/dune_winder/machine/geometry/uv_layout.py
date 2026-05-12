@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import re
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 from dune_winder.machine.calibration.defaults import get_layer_z_defaults
 from dune_winder.machine.geometry.factory import create_layer_geometry
@@ -300,10 +300,23 @@ _ENDPOINT_PINS = {
     ),
 }
 
-_LAYOUT_SPECS = {
+
+class _LayoutSpec(TypedDict):
+    wire_segment_1_pin_a: int
+    wire_segment_1_pin_b: int
+    wire_segment_formula_min: int
+    wire_segment_formula_max: int
+    wire_segment_min: int
+    wire_segment_max: int
+    b1_target_xy: tuple[float, float]
+    measurement_dy_sign: dict[str, int]
+    tangent_ranges: tuple[tuple[int, int, bool, bool], ...]
+
+
+_LAYOUT_SPECS: dict[str, _LayoutSpec] = {
     "U": {
-        "wire_segment_1_pin_a": 450,
-        "wire_segment_1_pin_b": 350,
+        "wire_segment_1_pin_a": 451,
+        "wire_segment_1_pin_b": 351,
         "wire_segment_formula_min": 1,
         "wire_segment_formula_max": 1151,
         "wire_segment_min": 8,
@@ -433,7 +446,7 @@ def _bootstrap_pins_for_side(side_boards: list[UvBoard]) -> list[int]:
 class UvLayerLayout:
     def __init__(self, layer: str):
         self.layer = _normalize_layer(layer)
-        self.geometry = create_layer_geometry(self.layer)
+        self.geometry = cast(Any, create_layer_geometry(self.layer))
         self.pin_max = int(self.geometry.pins)
         spec = _LAYOUT_SPECS[self.layer]
         geometry = cast(Any, self.geometry)
@@ -746,8 +759,14 @@ class UvLayerLayout:
         pin_b = _wrap_inclusive(
             self._wire_segment_1_pin_b - (number - 1), 1, self.pin_max
         )
-        # Segment endpoints use the same pin NUMBER on both A and B sides.
-        # Only the side prefix differs; no modular translation is applied.
+        endpoints = (
+            self.format_pin_name("B", pin_a),
+            self.format_pin_name("B", pin_b),
+        )
+        if normalized_family == "B":
+            return endpoints
+        # Final measured segment endpoints use the same literal pin numbers on
+        # either family; translate_pin remains the physical front/back mapping.
         return (
             self.format_pin_name(normalized_family, pin_a),
             self.format_pin_name(normalized_family, pin_b),
