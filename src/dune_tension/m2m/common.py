@@ -2,6 +2,12 @@
 import http.client
 import json
 import socket
+import ssl
+
+# WORKAROUND (2026-05-06): the *.dunedb.org server certificate expired on
+# 2026-05-01. Disabling cert verification lets uploads proceed until the
+# server cert is renewed. Revert this once the cert is fixed.
+_unverified_ssl_context = ssl._create_unverified_context()
 
 # Local Python imports and variables
 from dune_tension.m2m.client_credentials import (
@@ -76,7 +82,7 @@ def ConnectToAPI():
     )
 
     # Set up a connection to the Auth0 domain
-    connection = http.client.HTTPSConnection(auth0_domain)
+    connection = http.client.HTTPSConnection(auth0_domain, context=_unverified_ssl_context)
 
     # Request a response from the domain, using the provided credentials payload and specified headers
     # If the request is successful, continue with the function ... otherwise print any raised exceptions
@@ -119,7 +125,7 @@ def ConnectToAPI():
     if db_domain == "localhost:12313":
         connection = http.client.HTTPConnection(db_domain, timeout=10)
     else:
-        connection = http.client.HTTPSConnection(db_domain, timeout=60)
+        connection = http.client.HTTPSConnection(db_domain, timeout=60, context=_unverified_ssl_context)
 
     return connection, headers
 
