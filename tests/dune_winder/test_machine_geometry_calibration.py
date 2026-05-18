@@ -160,9 +160,11 @@ def test_record_measurement_captures_last_trace_and_current_position(
     assert measurement["projectedY"] == pytest.approx(654.0, abs=1e-9)
 
 
-def test_machine_xy_solver_optimizes_measured_roller_and_keeps_others(
-    monkeypatch, tmp_path
-):
+def test_machine_xy_solver_holds_roller_cals_fixed(monkeypatch, tmp_path):
+    # The solver no longer fits roller-Y calibrations -- it minimizes the
+    # per-line offsets by moving camera X/Y only, leaving roller cals
+    # exactly as passed in.  The Z plane is fit separately (see
+    # solveLayerZ).
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
     real_random = random.Random
@@ -204,15 +206,7 @@ def test_machine_xy_solver_optimizes_measured_roller_and_keeps_others(
         "_projectMeasurement",
         lambda measurement, **kwargs: {
             "projectedX": float(measurement["actualWireX"]) - 10.0,
-            "projectedY": (
-                float(measurement["actualWireY"])
-                + 5.0
-                - (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
-                if measurement["id"] == "m1"
-                else float(measurement["actualWireY"])
-                + 5.0
-                + (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
-            ),
+            "projectedY": float(measurement["actualWireY"]) + 5.0,
         },
     )
 
@@ -226,10 +220,12 @@ def test_machine_xy_solver_optimizes_measured_roller_and_keeps_others(
         initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
     )
 
-    assert evaluation["rollerYCals"][1] == pytest.approx(23.0, abs=0.2)
-    assert evaluation["rollerYCals"][0] == pytest.approx(24.0, abs=1e-9)
-    assert evaluation["rollerYCals"][2] == pytest.approx(18.0, abs=1e-9)
-    assert evaluation["rollerYCals"][3] == pytest.approx(17.0, abs=1e-9)
+    # The projection mock embeds a constant +10/-5 bias that the starting
+    # camera offset (10, -5) already cancels, so the optimum here is to
+    # leave camera offset alone.  Roller cals are untouched regardless.
+    assert evaluation["cameraOffsetX"] == pytest.approx(10.0, abs=1e-9)
+    assert evaluation["cameraOffsetY"] == pytest.approx(-5.0, abs=0.2)
+    assert evaluation["rollerYCals"] == [24.0, 27.0, 18.0, 17.0]
     assert any("m1" in item["measurementIds"] for item in evaluation["siteOffsetItems"])
     assert any("m2" in item["measurementIds"] for item in evaluation["siteOffsetItems"])
 
@@ -281,15 +277,7 @@ def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
         "_projectMeasurement",
         lambda measurement, **kwargs: {
             "projectedX": float(measurement["actualWireX"]) - 10.0,
-            "projectedY": (
-                float(measurement["actualWireY"])
-                + 5.0
-                - (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
-                if measurement["id"] == "m1"
-                else float(measurement["actualWireY"])
-                + 5.0
-                + (float(kwargs["roller_y_cals"][measurement["rollerIndex"]]) - 23.0)
-            ),
+            "projectedY": float(measurement["actualWireY"]) + 5.0,
         },
     )
 
@@ -306,7 +294,7 @@ def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
         ),
     )
 
-    assert evaluation["rollerYCals"][1] == pytest.approx(23.0, abs=0.2)
+    assert evaluation["cameraOffsetX"] == pytest.approx(10.0, abs=1e-9)
     assert projection_batches["count"] < 200
     assert any(
         "totalEvaluations" in fields for _step, _message, fields in progress_events
@@ -452,7 +440,9 @@ def test_machine_xy_solver_groups_site_label_offsets_across_line_keys(
     assert evaluation["siteOffsetItems"][0]["siteLabel"] == "Foot A corner"
 
 
-def test_machine_xy_solver_clamps_camera_and_roller_bounds(monkeypatch, tmp_path):
+def test_machine_xy_solver_clamps_camera_within_bounds(monkeypatch, tmp_path):
+    # Roller calibrations are now held constant; the solver only clamps the
+    # camera offset to its +/- bound.  This used to also clamp roller-Y.
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
     real_random = random.Random
@@ -503,20 +493,14 @@ def test_machine_xy_solver_clamps_camera_and_roller_bounds(monkeypatch, tmp_path
         "_candidateMachineCalibrationPath",
         lambda roller_y_cals, camera_offset=None: "machine.json",
     )
-
-    def project_measurement(measurement, **kwargs):
-        roller = float(kwargs["roller_y_cals"][1])
-        if measurement["id"] == "m0":
-            return {
-                "projectedX": float(measurement["actualWireX"]) - 20.0,
-                "projectedY": float(measurement["actualWireY"]) - 5.0,
-            }
-        return {
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
             "projectedX": float(measurement["actualWireX"]) - 20.0,
-            "projectedY": float(measurement["actualWireY"]) - 33.0 + roller,
-        }
-
-    monkeypatch.setattr(service, "_projectMeasurement", project_measurement)
+            "projectedY": float(measurement["actualWireY"]) - 5.0,
+        },
+    )
 
     evaluation = service._evaluateMachineXY(
         measurements,
@@ -530,7 +514,8 @@ def test_machine_xy_solver_clamps_camera_and_roller_bounds(monkeypatch, tmp_path
 
     assert evaluation["cameraOffsetX"] == pytest.approx(20.0, abs=1e-9)
     assert evaluation["cameraOffsetY"] == pytest.approx(5.0, abs=0.2)
-    assert evaluation["rollerYCals"][1] == pytest.approx(28.0, abs=1e-9)
+    # Roller cals untouched.
+    assert evaluation["rollerYCals"] == [24.0, 23.0, 18.0, 17.0]
     expected_camera_delta_norm = (
         ((evaluation["cameraOffsetX"] - 10.0) ** 2)
         + ((evaluation["cameraOffsetY"] - (-5.0)) ** 2)
@@ -539,7 +524,7 @@ def test_machine_xy_solver_clamps_camera_and_roller_bounds(monkeypatch, tmp_path
         expected_camera_delta_norm,
         abs=1e-9,
     )
-    assert evaluation["score"]["rollerOffsetNorm"] == pytest.approx(5.0, abs=1e-9)
+    assert evaluation["score"]["rollerOffsetNorm"] == pytest.approx(0.0, abs=1e-9)
 
 
 def test_translate_projection_payload_moves_same_side_transfer_edge():

@@ -1313,13 +1313,17 @@ class MachineGeometryCalibration:
             if str(measurement.get("layer")).strip().upper() != normalized:
                 continue
             measurement = dict(measurement)
+            same_side = measurement.get("sameSide")
+            kind = measurement.get("kind")
             measurement["usableForLayerZ"] = (
-                measurement.get("kind") == "same_side"
+                (
+                    kind == "same_side"
+                    or (kind == "jog_calibration" and same_side is True)
+                )
                 and measurement.get("actualZ") is not None
             )
             measurement["usableForMachineXY"] = (
-                measurement.get("kind") != "jog_calibration"
-                and measurement.get("actualWireX") is not None
+                measurement.get("actualWireX") is not None
                 and measurement.get("actualWireY") is not None
                 and measurement.get("lineKey") is not None
                 and measurement.get("gcodeLine")
@@ -1727,15 +1731,18 @@ class MachineGeometryCalibration:
             float(current_camera_offset[1]),
             *[float(value) for value in initial_roller_y_cals[:4]],
         ]
+        # Roller calibrations are now held constant (the solver no longer
+        # optimizes them) -- clamp them tightly to their initial values so
+        # any stray numerical drift is squashed.
         lower_bounds = [
             float(initial_vector[0]) - _CAMERA_OFFSET_BOUND_MM,
             float(initial_vector[1]) - _CAMERA_OFFSET_BOUND_MM,
-            *[float(value) - _ROLLER_Y_BOUND_MM for value in initial_roller_y_cals[:4]],
+            *[float(value) for value in initial_roller_y_cals[:4]],
         ]
         upper_bounds = [
             float(initial_vector[0]) + _CAMERA_OFFSET_BOUND_MM,
             float(initial_vector[1]) + _CAMERA_OFFSET_BOUND_MM,
-            *[float(value) + _ROLLER_Y_BOUND_MM for value in initial_roller_y_cals[:4]],
+            *[float(value) for value in initial_roller_y_cals[:4]],
         ]
 
         def clamp_vector(vector):
@@ -2142,6 +2149,19 @@ class MachineGeometryCalibration:
             best_loss,
             site_label,
         ):
+            # Roller calibrations (axes 2..5) are now held constant -- the
+            # solver minimizes per-line offsets by only varying camera
+            # offset (axes 0, 1).  The Z plane is fit in a separate
+            # closed-form post-step after this routine returns.
+            _ = epoch
+            _ = batch_index
+            _ = batch_count
+            _ = candidate_label
+            _ = learning_rate
+            _ = perturbation
+            _ = best_loss
+            _ = site_label
+            _ = group_measurements
             gradient = [
                 -2.0
                 * sum(
@@ -2153,61 +2173,12 @@ class MachineGeometryCalibration:
                     float(summary["offsetY"])
                     for summary in current_summary["by_measurement"].values()
                 ),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
             ]
-            current_loss = float(current_summary["loss"])
-            for axis_index in range(2, 6):
-                plus_loss = None
-                minus_loss = None
-                if axis_within_bounds(
-                    axis_index, float(vector[axis_index]) + float(perturbation)
-                ):
-                    plus_vector = [float(value) for value in vector]
-                    plus_vector[axis_index] += float(perturbation)
-                    plus_summary = evaluate_batch(
-                        plus_vector,
-                        group_measurements,
-                        step="optimizing_sgd",
-                        message="Evaluating a positive finite-difference perturbation.",
-                        epoch=epoch,
-                        batch_index=batch_index,
-                        batch_count=batch_count,
-                        candidate_label=f"{candidate_label}_axis_{axis_index}_plus",
-                        learning_rate=learning_rate,
-                        perturbation=perturbation,
-                        best_loss=best_loss,
-                        site_label=site_label,
-                    )
-                    plus_loss = float(plus_summary["loss"])
-                if axis_within_bounds(
-                    axis_index, float(vector[axis_index]) - float(perturbation)
-                ):
-                    minus_vector = [float(value) for value in vector]
-                    minus_vector[axis_index] -= float(perturbation)
-                    minus_summary = evaluate_batch(
-                        minus_vector,
-                        group_measurements,
-                        step="optimizing_sgd",
-                        message="Evaluating a negative finite-difference perturbation.",
-                        epoch=epoch,
-                        batch_index=batch_index,
-                        batch_count=batch_count,
-                        candidate_label=f"{candidate_label}_axis_{axis_index}_minus",
-                        learning_rate=learning_rate,
-                        perturbation=perturbation,
-                        best_loss=best_loss,
-                        site_label=site_label,
-                    )
-                    minus_loss = float(minus_summary["loss"])
-                if plus_loss is not None and minus_loss is not None:
-                    gradient.append(
-                        (plus_loss - minus_loss) / (2.0 * float(perturbation))
-                    )
-                elif plus_loss is not None:
-                    gradient.append((plus_loss - current_loss) / float(perturbation))
-                elif minus_loss is not None:
-                    gradient.append((current_loss - minus_loss) / float(perturbation))
-                else:
-                    gradient.append(0.0)
+            _ = vector
             gradient_norm = float(sum(component * component for component in gradient))
             return gradient, gradient_norm
 
@@ -2793,6 +2764,21 @@ class MachineGeometryCalibration:
                 progress_callback=progress,
             )
 
+            # Simultaneously fit the layer Z plane from same-side
+            # measurements that carry a Z observation.  Roller calibrations
+            # are no longer fit; instead the wire-tangent Z plane captures
+            # the frame's actual 3D pose.  solveLayerZ writes its result
+            # into the same draft consumed by applyMachineXY below.
+            progress("solving_z_plane", "Fitting layer Z plane from same-side measurements.")
+            try:
+                self.solveLayerZ(target_layer)
+            except Exception as z_exception:
+                self._log(
+                    "SOLVE_LAYER_Z_FAILED_DURING_MACHINE_XY",
+                    "Layer Z plane fit failed during Machine XY solve.",
+                    [operation_id, target_layer, repr(z_exception)],
+                )
+
             progress("building_draft", "Building line-offset draft and diagnostics.")
             overrides = dict(evaluation.get("lineOffsetOverrides", {}))
             diagnostics = list(evaluation.get("diagnostics", []))
@@ -3066,35 +3052,30 @@ class MachineGeometryCalibration:
         if manual is not None and hasattr(manual, "_applySharedCameraOffset"):
             manual._applySharedCameraOffset(camera_offset_x, camera_offset_y)
 
-        same_side_measurements = [
-            measurement
-            for measurement in self._usableMeasurements(target_layer)
-            if measurement["kind"] == "same_side"
-            and measurement["usableForMachineXY"]
-            and measurement.get("rollerIndex") is not None
-        ]
-        roller_measurements = []
-        for measurement in same_side_measurements:
-            roller_index = int(measurement["rollerIndex"])
-            roller_measurements.append(
-                RollerArmMeasurement(
-                    gcode_line=str(measurement["gcodeLine"]),
-                    layer=target_layer,
-                    actual_x=float(measurement["actualWireX"]),
-                    actual_y=float(measurement["actualWireY"]),
-                    roller_index=roller_index,
-                    y_cal=float(machine_draft["rollerYCals"][roller_index]),
-                )
-            )
-
-        machine_calibration.rollerArmCalibration = RollerArmCalibration(
-            measurements=roller_measurements,
-            fitted_y_cals=tuple(float(value) for value in machine_draft["rollerYCals"]),
-            center_displacement=0.0,
-            arm_tilt_rad=0.0,
-        )
+        # The Machine XY solver no longer fits roller calibrations -- the
+        # rollerArmCalibration on disk is left untouched and only the
+        # camera offset (and Z plane via the layer calibration below) are
+        # updated.
         machine_calibration.save()
         clear_uv_head_target_caches(layer_calibration=False, machine_calibration=True)
+
+        # If the solve also produced a Z-plane draft, commit it to the
+        # layer calibration so the new pin Z values feed downstream
+        # geometry computations.
+        z_plane_dict = draft.get("zPlaneCalibration")
+        applied_z_plane = None
+        if z_plane_dict is not None:
+            fitted_plane = layer_z_plane_calibration_from_dict(z_plane_dict)
+            if has_valid_layer_z_plane_fit(fitted_plane):
+                layer_calibration = self._activeLayerCalibration(target_layer)
+                layer_calibration.zPlaneCalibration = fitted_plane
+                apply_layer_z_plane_calibration(layer_calibration, fitted_plane)
+                layer_calibration.save()
+                clear_uv_head_target_caches(
+                    layer_calibration=True, machine_calibration=False
+                )
+                self._syncLayerCalibrationHandlers(layer_calibration)
+                applied_z_plane = layer_z_plane_calibration_to_dict(fitted_plane)
 
         template_service = self._templateService(target_layer)
         override_result = template_service.replaceLineOffsetOverrides(
@@ -3124,6 +3105,7 @@ class MachineGeometryCalibration:
                     machine_calibration.rollerArmCalibration
                 ),
             },
+            "zPlaneCalibration": applied_z_plane,
             "siteOffsets": dict(machine_draft.get("siteOffsets", {})),
             "siteOffsetItems": list(machine_draft.get("siteOffsetItems", [])),
             "lineOffsetOverrideItems": line_offset_override_items(
