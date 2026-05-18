@@ -270,7 +270,6 @@ class SimulatedPLC(PLC):
         self._tagValues["Z_POSITION"] = 0.0
         self._tagValues["X_SPEED"] = 0.0
         self._tagValues["Y_SPEED"] = 0.0
-        self._tagValues["Z_SPEED"] = 0.0
         self._tagValues["X_DIR"] = 0
         self._tagValues["Y_DIR"] = 0
         self._tagValues["Z_DIR"] = 0
