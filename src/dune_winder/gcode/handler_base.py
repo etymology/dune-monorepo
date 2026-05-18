@@ -1645,7 +1645,7 @@ class GCodeHandlerBase:
         self._functions.append(function)
 
         # Toggle spool latch.
-        if number in list(GCodeHandlerBase.G_CODE_FUNCTION_TABLE.keys()):
+        if number in GCodeHandlerBase.G_CODE_FUNCTION_TABLE:
             GCodeHandlerBase.G_CODE_FUNCTION_TABLE[number](self, function)
         else:
             data = [str(number)]
