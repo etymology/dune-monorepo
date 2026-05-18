@@ -12,6 +12,7 @@ from dune_winder.recipes.recipe_template_language import (
     compile_template_script,
     execute_template_script,
 )
+from dune_winder.recipes.template_gcode_helpers import _apply_strip_g113_params
 from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.recipes.template_gcode_transfers import (
     append_a_to_b_transfer,
@@ -63,15 +64,6 @@ XG_POSTAMBLE_SCRIPT = compile_template_script(
         "emit G113 PPRECISE X${r(HEAD_PULL_FLAT)} Y${r(wire_head_y + head_a_offset + 480.0 * WIRE_SPACING)}",
     )
 )
-
-
-_G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
-
-
-def _apply_strip_g113_params(lines):
-    return [
-        re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
-    ]
 
 
 def _normalize_layer(layer):
