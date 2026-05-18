@@ -324,13 +324,15 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
         lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
 
         self.assertEqual(
-            lines[:5],
+            lines[:7],
             [
                 "N0 ( V Layer )",
                 "N1 ~goto(440,0)",
-                "N2 (1,1) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
-                "N3 (1,2) ~increment(0,50)",
-                "N4 (1,3) ~anchorToTarget(B1999,A800) (Top A corner - foot end)",
+                "N2 G206 P3",
+                "N3 (1,1) ~anchorToTarget(A2399,B400) (Bottom B corner - head end)",
+                "N4 (1,2) ~increment(0,50)",
+                "N5 (1,3) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
+                "N6 (1,4) ~anchorToTarget(B1999,A800) (Top A corner - foot end)",
             ],
         )
 
@@ -343,20 +345,48 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
             self.assertNotIn(" G113 ", " " + line + " ")
             self.assertNotIn("transfer", line)
 
-    def test_eleven_anchor_to_targets_per_wrap(self):
+    def test_twelve_anchor_to_targets_per_normal_wrap_and_eleven_for_final(self):
         lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
         at_count = sum(1 for line in lines if "~anchorToTarget(" in line)
-        self.assertEqual(at_count, 11 * WRAP_COUNT)
+        self.assertEqual(at_count, 12 * (WRAP_COUNT - 1) + 11)
+
+    def test_normal_wrap_emits_pull_in_and_bottom_a_head_end(self):
+        lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
+        bodies = [line.split(" ", 2)[-1] for line in lines]
+        head_a_idx = bodies.index("~anchorToTarget(B399,A1) (Head A corner)")
+        self.assertEqual(
+            bodies[head_a_idx + 1],
+            "~increment(" + str(int(WRAPPING_X_PULL_IN)) + ",0)",
+        )
+        self.assertEqual(
+            bodies[head_a_idx + 2],
+            "~anchorToTarget(A1,A2398) (Bottom A corner - head end)",
+        )
+        self.assertEqual(
+            bodies[head_a_idx + 3],
+            "~anchorToTarget(A2398,B401) (Bottom B corner - head end)",
+        )
+
+    def test_bottom_a_head_end_offset_renders_with_offset_keyword(self):
+        lines = render_v_template_text_lines(
+            script_variant=SCRIPT_VARIANT_WRAPPING,
+            named_inputs={"line 11 (Bottom A corner - head end)": 2.25},
+        )
+        self.assertTrue(
+            any(
+                "~anchorToTarget(A1,A2398,offset=(2.25,0)) (Bottom A corner - head end)"
+                in line
+                for line in lines
+            )
+        )
 
     def test_pull_in_defaults_use_wrapping_values(self):
         self.assertEqual(WRAPPING_Y_PULL_IN, 50.0)
         self.assertEqual(WRAPPING_X_PULL_IN, 70.0)
 
         lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
-        self.assertIn("N3 (1,2) ~increment(0,50)", lines)
-        # +X pull-in after AT 10→11 in wrap 1
-        self.assertTrue(any("~increment(70,0)" in line for line in lines))
-        # −X pull-in after AT 4→11 in wrap 1
+        self.assertIn("N4 (1,2) ~increment(0,50)", lines)
+        # −X pull-in between Foot B corner and Bottom B corner - foot end in wrap 1
         self.assertTrue(any("~increment(-70,0)" in line for line in lines))
 
     def test_named_pull_in_overrides_wrapping_defaults(self):
@@ -365,10 +395,9 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
             named_inputs={"X_PULL_IN": 100, "Y_PULL_IN": 33},
         )
         self.assertTrue(any("~increment(0,33)" in line for line in lines))
-        self.assertTrue(any("~increment(100,0)" in line for line in lines))
         self.assertTrue(any("~increment(-100,0)" in line for line in lines))
         self.assertFalse(any("~increment(0,50)" in line for line in lines))
-        self.assertFalse(any("~increment(70,0)" in line for line in lines))
+        self.assertFalse(any("~increment(-70,0)" in line for line in lines))
 
     def test_offset_keyword_appears_when_offset_non_zero(self):
         lines = render_v_template_text_lines(
@@ -376,7 +405,17 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
             named_inputs={"line 1 (Top B corner - foot end)": 2.0},
         )
         self.assertIn(
-            "N2 (1,1) ~anchorToTarget(B400,B1999,offset=(2,0)) (Top B corner - foot end)",
+            "N5 (1,3) ~anchorToTarget(B400,B1999,offset=(2,0)) (Top B corner - foot end)",
+            lines,
+        )
+
+    def test_offset_keyword_appears_for_bottom_b_head_end(self):
+        lines = render_v_template_text_lines(
+            script_variant=SCRIPT_VARIANT_WRAPPING,
+            named_inputs={"line 12 (Bottom B corner - head end)": 1.5},
+        )
+        self.assertIn(
+            "N3 (1,1) ~anchorToTarget(A2399,B400,offset=(1.5,0)) (Bottom B corner - head end)",
             lines,
         )
 
@@ -392,11 +431,18 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
 
     def test_final_wrap_last_anchor_to_target(self):
         lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
-        # wrap 400, n=399: pin 11 = BtoA(0)→A400, pin 12 = BtoA(800)→A1999
-        self.assertTrue(
-            lines[-1].endswith(
-                "~anchorToTarget(A400,A1999) (Bottom A corner - head end)"
-            )
+        # wrap 400 deviates after step 8 (Top A corner - head end at A1999→A400) into a
+        # custom tail: A400→B2398, increment(0,-y_pull_in), B2398→B1, B1→A399, increment(500,0).
+        tail = [line.split(" ", 2)[-1] for line in lines[-5:]]
+        self.assertEqual(
+            tail,
+            [
+                "~anchorToTarget(A400,B2398) (Wrap 400 tail A400 to B2398)",
+                "~increment(0,-50)",
+                "~anchorToTarget(B2398,B1) (Wrap 400 tail B2398 to B1)",
+                "~anchorToTarget(B1,A399) (Wrap 400 tail B1 to A399)",
+                "~increment(500,0)",
+            ],
         )
 
     def test_iter_primary_sites_returns_empty_for_wrapping(self):
