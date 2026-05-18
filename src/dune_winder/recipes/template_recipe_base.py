@@ -745,6 +745,11 @@ class TemplateRecipeBase:
     def _collectJogCalibrationSnapshot(self):
         """Read live jog-calibration inputs without mutating state.
 
+        Safe to call at any time, including during G-code execution -- the
+        frontend polls this for the auto-updating "last labeled line" panel.
+        The mutation guard for actually applying the offset lives in
+        `applyJogCalibration`.
+
         Returns `{"ok": True, "data": {...}}` on success or
         `{"ok": False, "error": "..."}` on failure.
         """
@@ -755,17 +760,6 @@ class TemplateRecipeBase:
             return {"ok": False, "error": error}
 
         process = self._process
-        is_gcode_active = (
-            bool(process.isGCodeExecutionActive())
-            if hasattr(process, "isGCodeExecutionActive")
-            else False
-        )
-        if is_gcode_active:
-            return {
-                "ok": False,
-                "error": "Stop G-code execution before applying jog calibration.",
-            }
-
         trace = getattr(process, "getLastInstructionTrace", lambda: None)()
         if not isinstance(trace, dict) or not trace.get("line"):
             return {
@@ -817,6 +811,11 @@ class TemplateRecipeBase:
         rendered_offset_x, rendered_offset_y, rendered_offset_z = (
             _parse_rendered_anchor_offset(line_text)
         )
+        rendered_offset = {
+            "x": rendered_offset_x,
+            "y": rendered_offset_y,
+            "z": rendered_offset_z,
+        }
         base = {
             "x": commanded["x"] - rendered_offset_x,
             "y": commanded["y"] - rendered_offset_y,
@@ -849,6 +848,7 @@ class TemplateRecipeBase:
                 "delta": delta,
                 "currentOffset": current_offset,
                 "newOffset": new_offset,
+                "renderedOffset": rendered_offset,
             },
         }
 
@@ -870,6 +870,17 @@ class TemplateRecipeBase:
         the recipe, and records a `kind="jog_calibration"` measurement in the
         machine-geometry calibration store.
         """
+        process = self._process
+        is_gcode_active = (
+            bool(process.isGCodeExecutionActive())
+            if hasattr(process, "isGCodeExecutionActive")
+            else False
+        )
+        if is_gcode_active:
+            return self._errorResult(
+                "Stop G-code execution before applying jog calibration."
+            )
+
         snapshot = self._collectJogCalibrationSnapshot()
         if not snapshot["ok"]:
             return self._errorResult(snapshot["error"])
