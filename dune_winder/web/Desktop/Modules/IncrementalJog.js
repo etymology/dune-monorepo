@@ -111,7 +111,7 @@ function IncrementalJog( modules )
     uiServices.call
     (
       commands.process.manualSeekZ,
-      { z: z, velocity: velocity }
+      { position: z, velocity: velocity }
     )
   }
 
