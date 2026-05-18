@@ -546,6 +546,84 @@ class WrapRuntimeTests(unittest.TestCase):
             io.plcLogic.xy_moves[-1][1], float(plan.final_xy.y), places=3
         )
 
+    def test_anchor_to_target_skips_head_motion_when_head_absent_same_side(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+        io.head.position = -1
+
+        plan = self._expected_explicit_wrap_plan(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B1201",
+            target_pin="B2001",
+            start_x=500.0,
+            start_y=500.0,
+        )
+        self.assertTrue(plan.same_side)
+        initial_z = handler._z
+        initial_head_position = handler._headPosition
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertEqual(io.head.moves, [])
+        self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+        self.assertAlmostEqual(
+            io.plcLogic.xy_moves[-1][0], float(plan.final_xy.x), places=3
+        )
+        self.assertAlmostEqual(
+            io.plcLogic.xy_moves[-1][1], float(plan.final_xy.y), places=3
+        )
+        self.assertEqual(handler._z, initial_z)
+        self.assertEqual(handler._headPosition, initial_head_position)
+
+    def test_anchor_to_target_skips_head_motion_when_head_absent_alternating(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+        io.head.position = -1
+
+        final_xy, plan = self._expected_explicit_wrap_final_xy(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B2001",
+            target_pin="A800",
+            hover=True,
+        )
+        self.assertFalse(plan.same_side)
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B2001,A800,hover=True)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertEqual(io.head.moves, [])
+        self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
+        self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(final_xy.x), places=3)
+        self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(final_xy.y), places=3)
+
+    def test_g206_silently_skips_head_transfer_when_head_absent(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+        io.head.position = -1
+        initial_head_position = handler._headPosition
+
+        error = handler.executeG_CodeLine("G206 P3")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertEqual(io.head.moves, [])
+        self.assertEqual(handler._headPosition, initial_head_position)
+        self.assertFalse(handler.isG_CodeError())
+
 
 if __name__ == "__main__":
     unittest.main()

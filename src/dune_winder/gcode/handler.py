@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 
 from dune_winder.gcode.runtime import GCodeExecutionError, GCodeProgramExecutor
 from dune_winder.gcode.handler_base import GCodeHandlerBase
+from dune_winder.io.controllers.head import Head
 from dune_winder.io.maps.base_io import BaseIO
 from dune_winder.queued_motion.diagnostics import serialize_segment_diagnostics
 from dune_winder.queued_motion.jerk_limits import (
@@ -114,6 +115,10 @@ class GCodeHandler(GCodeHandlerBase):
         if -1 == headPosition:
             return None
         return GCodeHandlerBase._getHeadPosition(self, headPosition)
+
+    # ---------------------------------------------------------------------
+    def _isHeadPresent(self):
+        return self._io.head.readCurrentPosition() != Head.HEAD_ABSENT
 
     # ---------------------------------------------------------------------
     def isDone(self):
@@ -456,13 +461,15 @@ class GCodeHandler(GCodeHandlerBase):
         else:
             velocity = self._commanded_xy_velocity()
 
+        if self._x is None or self._y is None:
+            queueable = False
         preview = _PreviewedQueuedLine(
             line_index=line_index,
             line_text=str(gCode.lines[line_index]),
             queueable=queueable,
             comment_only=no_motion_requests,
-            x=float(self._x),
-            y=float(self._y),
+            x=float(self._x) if self._x is not None else 0.0,
+            y=float(self._y) if self._y is not None else 0.0,
             velocity=velocity,
             merge_mode=self._instruction_queue_merge_mode,
         )
