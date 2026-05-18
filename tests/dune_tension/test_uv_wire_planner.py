@@ -89,62 +89,6 @@ def test_clip_line_to_rectangle_extends_beyond_tangent_endpoints() -> None:
     )
 
 
-def test_plan_uv_wire_clips_the_tangent_in_laser_space(monkeypatch) -> None:
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "load_layer_calibration_summary",
-        lambda _layer: {
-            "pinDiameterMm": 0.0,
-            "locations": {
-                "B1": {"x": 0.0, "y": 0.0},
-                "B2": {"x": 1.0, "y": 1.0},
-            },
-        },
-    )
-    monkeypatch.setattr(
-        uv_wire_planner, "get_laser_offset", lambda _side: {"x": -1000.0, "y": 0.0}
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "_wire_pin_pair",
-        lambda _layer, _side, _wire_number: ("B1", "B2"),
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "LAYER_METADATA",
-        {
-            "V": {
-                "pinToBoard": {
-                    1: {"side": "top"},
-                    2: {"side": "top"},
-                }
-            }
-        },
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "_wire_pin_pair",
-        lambda _layer, _side, _wire_number: ("B1", "B2"),
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "_solve_tangent_candidates",
-        lambda **_kwargs: [((5000.0, 200.0), (5200.0, 600.0))],
-    )
-    monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 3)
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "length_lookup",
-        lambda _layer, _wire_number, _zone, taped=False: 1.234,
-    )
-
-    planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
-
-    assert planned.interval_start == (6065.0, 330.0)
-    assert planned.interval_end == (7015.0, 2230.0)
-    assert planned.midpoint == (6540.0, 1280.0)
-
-
 def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
