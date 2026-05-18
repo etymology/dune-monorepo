@@ -69,7 +69,7 @@ function JogCalibration(modules) {
     $("#jogCalLineIndex").text(
       data.lineIndex !== null && data.lineIndex !== undefined ? data.lineIndex : "-",
     );
-    $("#jogCalLineLabel").text(data.label || "-");
+    $("#jogCalLineLabel").text(data.label || "(unlabeled)");
     if (data.sameSide === true) {
       $("#jogCalSameSide").text("same-side").removeClass("alternating");
     } else if (data.sameSide === false) {
@@ -77,7 +77,14 @@ function JogCalibration(modules) {
     } else {
       $("#jogCalSameSide").text("-").removeClass("alternating");
     }
-    $("#jogCalOffsetId").text(data.offsetId || "-");
+    var offsetLabel = data.offsetId;
+    if (!offsetLabel && data.lineKey) {
+      offsetLabel = "line " + data.lineKey;
+    }
+    if (data.overrideKind === "line") {
+      offsetLabel = (offsetLabel || data.lineKey || "line") + " (per-line override)";
+    }
+    $("#jogCalOffsetId").text(offsetLabel || "-");
     $("#jogCalLineText").text(data.lineText || "-");
     var rendered = data.renderedOffset || {};
     $("#jogCalRenderedX").text(formatNumber(rendered.x));

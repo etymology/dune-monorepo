@@ -11,6 +11,7 @@ import re
 
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.line_offset_overrides import (
+    extract_line_key,
     line_offset_override_items,
     normalize_line_key,
     normalize_line_offset_overrides,
@@ -814,13 +815,40 @@ class TemplateRecipeBase:
             }
 
         line_text = trace["line"]
+        if "~anchorToTarget(" not in str(line_text):
+            return {
+                "available": False,
+                "reason": "Last executed line is not an ~anchorToTarget call.",
+                "layer": layer,
+                "lineText": line_text,
+                "actual": actual,
+            }
+
         label = _parse_trailing_label(line_text)
-        if label is None or label not in self.LABEL_TO_OFFSET_ID:
+        offset_id = (
+            self.LABEL_TO_OFFSET_ID.get(label) if label is not None else None
+        )
+        try:
+            line_key = extract_line_key(line_text)
+        except Exception:
+            line_key = None
+        if line_key is not None:
+            try:
+                line_key = normalize_line_key(line_key)
+            except Exception:
+                line_key = None
+
+        # Either a canonical corner label (then we patch the per-corner offset
+        # that applies to all wraps) or a (wrap,line) key (then we patch a
+        # per-line override on this specific line) is sufficient to calibrate.
+        if offset_id is None and line_key is None:
             return {
                 "available": False,
                 "reason": (
-                    "Last executed line has no calibratable label "
-                    "(parsed: " + repr(label) + ")."
+                    "Anchor line has neither a recognized corner label nor a "
+                    "(wrap,line) identifier (label="
+                    + repr(label)
+                    + ")."
                 ),
                 "layer": layer,
                 "lineText": line_text,
@@ -832,7 +860,6 @@ class TemplateRecipeBase:
         if line_index is None or line_index < 0:
             line_index = None
 
-        offset_id = self.LABEL_TO_OFFSET_ID[label]
         resulting_target = trace.get("resultingTarget") or {}
         commanded = {
             "x": float(resulting_target.get("x") or 0.0),
@@ -857,7 +884,26 @@ class TemplateRecipeBase:
             "z": commanded["z"] - rendered_offset_z,
         }
         delta = {axis: actual[axis] - commanded[axis] for axis in _OFFSET_AXES}
-        current_offset = dict(self._offsets.get(offset_id, _zero_offset_3d()))
+        # Lines whose label maps to a canonical corner update the per-corner
+        # offset (applied to that corner across every wrap).  Anything else --
+        # tail lines, lead-in segments, etc -- falls back to a per-line
+        # override keyed by the wrap identifier.
+        if offset_id is not None:
+            current_offset = dict(self._offsets.get(offset_id, _zero_offset_3d()))
+            override_kind = "corner"
+        else:
+            line_override = (
+                self._lineOffsetOverrides.get(line_key) if line_key else None
+            )
+            if line_override is None:
+                current_offset = _zero_offset_3d()
+            else:
+                current_offset = {
+                    "x": float(line_override.get("x", 0.0)),
+                    "y": float(line_override.get("y", 0.0)),
+                    "z": float(line_override.get("z", 0.0)),
+                }
+            override_kind = "line"
         new_offset = {axis: actual[axis] - base[axis] for axis in _OFFSET_AXES}
 
         # Alternating-side wires cross the frame at a fixed clearance Z
@@ -874,8 +920,10 @@ class TemplateRecipeBase:
             "layer": layer,
             "lineIndex": line_index,
             "lineText": line_text,
+            "lineKey": line_key,
             "label": label,
             "offsetId": offset_id,
+            "overrideKind": override_kind,
             "sameSide": same_side,
             "commanded": commanded,
             "actual": actual,
@@ -930,10 +978,25 @@ class TemplateRecipeBase:
             return blocked
 
         data = snapshot
-        offset_id = data["offsetId"]
+        offset_id = data.get("offsetId")
+        line_key = data.get("lineKey")
+        override_kind = data.get("overrideKind", "corner")
         current_offset = data["currentOffset"]
         new_offset = {axis: float(data["newOffset"][axis]) for axis in _OFFSET_AXES}
-        self._offsets[offset_id] = new_offset
+        if override_kind == "corner" and offset_id is not None:
+            self._offsets[offset_id] = new_offset
+        elif line_key is not None:
+            normalized_key = normalize_line_key(line_key)
+            self._lineOffsetOverrides[normalized_key] = {
+                "x": float(new_offset["x"]),
+                "y": float(new_offset["y"]),
+                "z": float(new_offset["z"]),
+            }
+        else:
+            return self._errorResult(
+                "Cannot apply: anchor line has neither a corner offset id nor a"
+                " (wrap,line) key."
+            )
         self._dirty = True
         self._persistState()
 
