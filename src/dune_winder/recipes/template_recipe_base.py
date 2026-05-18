@@ -61,6 +61,29 @@ def _parse_trailing_label(line_text):
     return label or None
 
 
+_LINE_NUMBER_PREFIX_RE = re.compile(r"^\s*N\d+\s+")
+_WRAP_IDENTIFIER_RE = re.compile(r"\(\d+,\d+\)")
+_ANCHOR_OFFSET_KEYWORD_RE = re.compile(
+    r",\s*offset=\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+"
+    r"(?:\s*,\s*-?\d*\.?\d+)?\s*\)"
+)
+
+
+def _strip_anchor_offset(line_text):
+    """Strip ~anchorToTarget offset= keyword and runner-added prefixes.
+
+    Removes the leading ``Nxx`` line number, any ``(wrap,line)`` wrap
+    identifier, and the ``,offset=(...)`` keyword inside any
+    ``~anchorToTarget(...)`` call.  Trailing labels like
+    ``(Top A corner)`` are preserved for operator readability.
+    """
+    text = str(line_text)
+    text = _LINE_NUMBER_PREFIX_RE.sub("", text)
+    text = _WRAP_IDENTIFIER_RE.sub("", text, count=1)
+    text = _ANCHOR_OFFSET_KEYWORD_RE.sub("", text)
+    return " ".join(text.split())
+
+
 class TemplateRecipeBase:
     LAYER = None
     SERVICE_NAME = None
@@ -742,40 +765,66 @@ class TemplateRecipeBase:
         )
 
     # -------------------------------------------------------------------
+    def _readActualPosition(self):
+        """Sample current motor XYZ position from IO.
+
+        The Z axis motor position is reported even when the head is in the
+        fixed-present mode -- the operator may still be jogging the Z
+        gantry, and the static `extended_z_position` configuration value
+        is not a useful proxy for "where the wire is right now."
+        """
+        process = self._process
+        io = process._io
+        x_pos = float(io.xAxis.getPosition()) if hasattr(io, "xAxis") else 0.0
+        y_pos = float(io.yAxis.getPosition()) if hasattr(io, "yAxis") else 0.0
+        z_pos = float(io.zAxis.getPosition()) if hasattr(io, "zAxis") else 0.0
+        return {"x": x_pos, "y": y_pos, "z": z_pos}
+
+    # -------------------------------------------------------------------
     def _collectJogCalibrationSnapshot(self):
         """Read live jog-calibration inputs without mutating state.
 
-        Safe to call at any time, including during G-code execution -- the
-        frontend polls this for the auto-updating "last labeled line" panel.
-        The mutation guard for actually applying the offset lives in
-        `applyJogCalibration`.
-
-        Returns `{"ok": True, "data": {...}}` on success or
-        `{"ok": False, "error": "..."}` on failure.
+        Safe to call at any time, including during G-code execution.  The
+        frontend polls this for the auto-updating "last labeled line"
+        panel and expects the call to *always* succeed -- a top-level
+        `available` field flags whether a calibratable line is currently
+        in view.  Mutation guards for actually applying the offset live
+        in `applyJogCalibration`.
         """
         self._ensureDraftStateLoaded()
 
-        layer, error = self._getActiveLayer()
-        if error is not None:
-            return {"ok": False, "error": error}
+        actual = self._readActualPosition()
+
+        layer, layer_error = self._getActiveLayer()
+        if layer_error is not None:
+            return {
+                "available": False,
+                "reason": layer_error,
+                "actual": actual,
+            }
 
         process = self._process
         trace = getattr(process, "getLastInstructionTrace", lambda: None)()
         if not isinstance(trace, dict) or not trace.get("line"):
             return {
-                "ok": False,
-                "error": "No g-code line has been executed yet.",
+                "available": False,
+                "reason": "No g-code line has been executed yet.",
+                "layer": layer,
+                "actual": actual,
             }
 
         line_text = trace["line"]
         label = _parse_trailing_label(line_text)
         if label is None or label not in self.LABEL_TO_OFFSET_ID:
             return {
-                "ok": False,
-                "error": (
+                "available": False,
+                "reason": (
                     "Last executed line has no calibratable label "
                     "(parsed: " + repr(label) + ")."
                 ),
+                "layer": layer,
+                "lineText": line_text,
+                "actual": actual,
             }
 
         handler = getattr(process, "gCodeHandler", None)
@@ -793,20 +842,6 @@ class TemplateRecipeBase:
                 if resulting_target.get("pinZ") is not None
                 else resulting_target.get("headZ") or 0.0
             ),
-        }
-        io = process._io
-        head = getattr(io, "head", None)
-        fixed_present = bool(head._fixedPresentTag.get()) if head is not None else False
-        if fixed_present and head is not None:
-            z_actual = float(head._extended_z_position)
-        elif hasattr(io, "zAxis"):
-            z_actual = float(io.zAxis.getPosition())
-        else:
-            z_actual = 0.0
-        actual = {
-            "x": float(io.xAxis.getPosition()),
-            "y": float(io.yAxis.getPosition()),
-            "z": z_actual,
         }
         rendered_offset_x, rendered_offset_y, rendered_offset_z = (
             _parse_rendered_anchor_offset(line_text)
@@ -835,30 +870,33 @@ class TemplateRecipeBase:
             new_offset["z"] = 0.0
 
         return {
-            "ok": True,
-            "data": {
-                "layer": layer,
-                "lineIndex": line_index,
-                "lineText": line_text,
-                "label": label,
-                "offsetId": offset_id,
-                "sameSide": same_side,
-                "commanded": commanded,
-                "actual": actual,
-                "delta": delta,
-                "currentOffset": current_offset,
-                "newOffset": new_offset,
-                "renderedOffset": rendered_offset,
-            },
+            "available": True,
+            "layer": layer,
+            "lineIndex": line_index,
+            "lineText": line_text,
+            "label": label,
+            "offsetId": offset_id,
+            "sameSide": same_side,
+            "commanded": commanded,
+            "actual": actual,
+            "delta": delta,
+            "currentOffset": current_offset,
+            "newOffset": new_offset,
+            "renderedOffset": rendered_offset,
         }
 
     # -------------------------------------------------------------------
     def previewJogCalibration(self):
-        """Compute the delta that *would* be applied without mutating state."""
-        snapshot = self._collectJogCalibrationSnapshot()
-        if not snapshot["ok"]:
-            return self._errorResult(snapshot["error"])
-        return self._okResult(snapshot["data"])
+        """Return the current jog-calibration snapshot.
+
+        Always reports ok=true: an inner `available` field flags whether
+        the snapshot is calibratable (V layer loaded, labeled line in the
+        trace, etc).  When unavailable, the `reason` field tells the
+        operator what's missing.  Keeping a uniformly-successful envelope
+        lets the frontend poll this continuously without the periodic
+        callback infrastructure swallowing the response.
+        """
+        return self._okResult(self._collectJogCalibrationSnapshot())
 
     # -------------------------------------------------------------------
     def applyJogCalibration(self):
@@ -882,14 +920,16 @@ class TemplateRecipeBase:
             )
 
         snapshot = self._collectJogCalibrationSnapshot()
-        if not snapshot["ok"]:
-            return self._errorResult(snapshot["error"])
+        if not snapshot.get("available"):
+            return self._errorResult(
+                snapshot.get("reason", "No calibratable line is currently in view.")
+            )
 
         blocked = self._mutationGuard()
         if blocked is not None:
             return blocked
 
-        data = snapshot["data"]
+        data = snapshot
         offset_id = data["offsetId"]
         current_offset = data["currentOffset"]
         new_offset = {axis: float(data["newOffset"][axis]) for axis in _OFFSET_AXES}
@@ -928,3 +968,52 @@ class TemplateRecipeBase:
         if not regen_ok:
             result["regenerationError"] = regen_result.get("error")
         return self._okResult(result)
+
+    # -------------------------------------------------------------------
+    def runBareJogCalibrationLine(self):
+        """Re-execute the last labeled line with all offsets stripped.
+
+        Lets the operator land at the bare anchor-to-target position so
+        they can jog from there to align the wire by eye.  Strips both
+        the rendered ``offset=(x,y[,z])`` keyword from the anchor call
+        and any leading line-number / wrap-identifier annotations that
+        the recipe runner adds, then dispatches the result through the
+        normal manual G-Code path.
+        """
+        snapshot = self._collectJogCalibrationSnapshot()
+        if not snapshot.get("available"):
+            return self._errorResult(
+                snapshot.get("reason", "No calibratable line is currently in view.")
+            )
+
+        bare_line = _strip_anchor_offset(str(snapshot["lineText"]))
+        if not bare_line.strip():
+            return self._errorResult(
+                "Could not derive a bare g-code line from the last trace."
+            )
+
+        process = self._process
+        execute_fn = getattr(process, "executeG_CodeLine", None)
+        if execute_fn is None:
+            return self._errorResult(
+                "Manual G-Code execution is not available on this process."
+            )
+
+        try:
+            error = execute_fn(bare_line)
+        except Exception as exception:
+            return self._errorResult(
+                "Failed to execute bare line: " + str(exception)
+            )
+
+        if error:
+            return self._errorResult("Failed to execute bare line: " + str(error))
+
+        return self._okResult(
+            {
+                "lineText": snapshot["lineText"],
+                "bareLine": bare_line,
+                "label": snapshot.get("label"),
+                "offsetId": snapshot.get("offsetId"),
+            }
+        )

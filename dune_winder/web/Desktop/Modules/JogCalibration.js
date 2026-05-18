@@ -5,8 +5,9 @@ function JogCalibration(modules) {
   var uiServices = modules.get("UiServices");
   var commands = uiServices.getCommands();
 
-  var pendingPreview = null; // populated after a successful preview call
+  var pendingPreview = null; // last available snapshot, populated for Apply
   var lastRenderedSignature = null; // line+label currently shown
+  var lastReason = null; // last unavailable reason, for status display
   var DECIMALS = 3;
 
   var formatNumber = function (value) {
@@ -31,6 +32,7 @@ function JogCalibration(modules) {
     pendingPreview = null;
     $("#jogCalApplyButton").prop("disabled", true);
     $("#jogCalCancelButton").prop("disabled", true);
+    $("#jogCalRunBareButton").prop("disabled", true);
   };
 
   var resetPreviewState = function () {
@@ -89,6 +91,7 @@ function JogCalibration(modules) {
     setDeltaCell("#jogCalDeltaZ", data.delta && data.delta.z);
     $("#jogCalApplyButton").prop("disabled", false);
     $("#jogCalCancelButton").prop("disabled", false);
+    $("#jogCalRunBareButton").prop("disabled", false);
   };
 
   var previewSignature = function (data) {
@@ -128,17 +131,27 @@ function JogCalibration(modules) {
 
   // ---------------------------------------------------------------------
   // Periodic poll #2: ask the backend for the current jog-calibration
-  // snapshot.  The backend returns ok=true only when the last executed
-  // line carries a calibratable label, so this naturally filters out
-  // unlabeled lines and freezes the card on the last labeled state.
+  // snapshot.  Backend always returns ok=true with an `available` flag
+  // so we can surface the reason in the status bar when nothing is
+  // calibratable yet (no V recipe loaded, no labeled line executed,
+  // etc).
   // ---------------------------------------------------------------------
   winder.addPeriodicCallback(
     commands.process.vTemplatePreviewJogCalibration,
     function (data) {
-      // Backend returns null/error envelope when no calibratable line has
-      // executed yet -- freeze on whatever was last shown rather than
-      // clearing the card.
-      if (!data || !data.label) return;
+      if (!data) {
+        // Periodic infrastructure returns null on transport error.
+        return;
+      }
+      if (!data.available) {
+        var reason = data.reason || "Waiting for a calibratable line.";
+        if (reason !== lastReason) {
+          lastReason = reason;
+          setStatus(reason);
+        }
+        return;
+      }
+      lastReason = null;
       var signature = previewSignature(data);
       if (signature === lastRenderedSignature) {
         // Same line: keep delta cells fresh while operator jogs.
@@ -163,11 +176,40 @@ function JogCalibration(modules) {
       commands.process.vTemplatePreviewJogCalibration,
       {},
       function (data) {
-        renderPreview(data || {});
+        if (!data || !data.available) {
+          setStatus(
+            (data && data.reason) || "No calibratable line in view.",
+            "error",
+          );
+          return;
+        }
+        renderPreview(data);
         onApplyClick();
       },
       function (response) {
         setStatus(extractError(response), "error");
+      },
+    );
+  };
+
+  var onRunBareClick = function () {
+    setStatus("Running bare line (no offset)...");
+    $("#jogCalRunBareButton").prop("disabled", true);
+    uiServices.call(
+      commands.process.vTemplateRunBareJogCalibrationLine,
+      {},
+      function (data) {
+        var bare = (data && data.bareLine) || "(unknown)";
+        setStatus("Bare line dispatched: " + bare, "success");
+        if (pendingPreview) {
+          $("#jogCalRunBareButton").prop("disabled", false);
+        }
+      },
+      function (response) {
+        setStatus(extractError(response), "error");
+        if (pendingPreview) {
+          $("#jogCalRunBareButton").prop("disabled", false);
+        }
       },
     );
   };
@@ -180,6 +222,7 @@ function JogCalibration(modules) {
     setStatus("Applying calibration and regenerating recipe...");
     $("#jogCalApplyButton").prop("disabled", true);
     $("#jogCalCancelButton").prop("disabled", true);
+    $("#jogCalRunBareButton").prop("disabled", true);
     uiServices.call(
       commands.process.vTemplateApplyJogCalibration,
       {},
@@ -211,6 +254,7 @@ function JogCalibration(modules) {
         setStatus(extractError(response), "error");
         $("#jogCalApplyButton").prop("disabled", false);
         $("#jogCalCancelButton").prop("disabled", false);
+        $("#jogCalRunBareButton").prop("disabled", false);
       },
     );
   };
@@ -223,6 +267,7 @@ function JogCalibration(modules) {
   this.initialize = function () {
     resetPreviewState();
     $("#jogCalUseCurrentButton").on("click", onUseCurrentClick);
+    $("#jogCalRunBareButton").on("click", onRunBareClick);
     $("#jogCalApplyButton").on("click", onApplyClick);
     $("#jogCalCancelButton").on("click", onCancelClick);
     setStatus("Idle.");
