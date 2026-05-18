@@ -22,6 +22,28 @@ from dune_winder.core.process_context import ProcessContext
 
 _OFFSET_AXES = ("x", "y", "z")
 _TRAILING_LABEL_RE = re.compile(r"\(([^()]*)\)\s*$")
+_ANCHOR_OFFSET_RE = re.compile(
+    r"offset=\(\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)"
+    r"(?:\s*,\s*(-?\d*\.?\d+))?\s*\)"
+)
+
+
+def _parse_rendered_anchor_offset(line_text):
+    """Extract the (x, y, z) offset that was rendered into an ~anchorToTarget call.
+
+    Accepts both legacy 2-tuple (x, y) and 3-tuple (x, y, z) forms; missing z is 0.
+    """
+    if line_text is None:
+        return (0.0, 0.0, 0.0)
+    match = _ANCHOR_OFFSET_RE.search(str(line_text))
+    if match is None:
+        return (0.0, 0.0, 0.0)
+    z_group = match.group(3)
+    return (
+        float(match.group(1)),
+        float(match.group(2)),
+        float(z_group) if z_group is not None else 0.0,
+    )
 
 
 def _zero_offset_3d():
@@ -483,7 +505,7 @@ class TemplateRecipeBase:
         return self._okResult({"transferPause": self._transferPause})
 
     # -------------------------------------------------------------------
-    def setLineOffsetOverride(self, lineKey, xValue, yValue, extra=None):
+    def setLineOffsetOverride(self, lineKey, xValue, yValue, zValue=0.0, extra=None):
         self._ensureDraftStateLoaded()
 
         _, error = self._getActiveLayer()
@@ -497,6 +519,7 @@ class TemplateRecipeBase:
         entry = dict(extra or {})
         entry["x"] = float(xValue)
         entry["y"] = float(yValue)
+        entry["z"] = float(zValue)
         lineKey = normalize_line_key(lineKey)
         self._lineOffsetOverrides[lineKey] = entry
         self._dirty = True
@@ -732,28 +755,25 @@ class TemplateRecipeBase:
             return {"ok": False, "error": error}
 
         process = self._process
-        if not process.controlStateMachine.isStopped():
+        is_gcode_active = (
+            bool(process.isGCodeExecutionActive())
+            if hasattr(process, "isGCodeExecutionActive")
+            else False
+        )
+        if is_gcode_active:
             return {
                 "ok": False,
-                "error": "Machine must be in STOP state to apply jog calibration.",
+                "error": "Stop G-code execution before applying jog calibration.",
             }
 
-        handler = getattr(process, "gCodeHandler", None)
-        line_index = handler.getLine() if handler is not None else None
-        if line_index is None or line_index < 0:
+        trace = getattr(process, "getLastInstructionTrace", lambda: None)()
+        if not isinstance(trace, dict) or not trace.get("line"):
             return {
                 "ok": False,
                 "error": "No g-code line has been executed yet.",
             }
 
-        gCode = getattr(handler, "_gCode", None)
-        if gCode is None or line_index >= gCode.getLineCount():
-            return {
-                "ok": False,
-                "error": "Last g-code line is no longer available.",
-            }
-
-        line_text = gCode.lines[line_index]
+        line_text = trace["line"]
         label = _parse_trailing_label(line_text)
         if label is None or label not in self.LABEL_TO_OFFSET_ID:
             return {
@@ -764,21 +784,56 @@ class TemplateRecipeBase:
                 ),
             }
 
+        handler = getattr(process, "gCodeHandler", None)
+        line_index = handler.getLine() if handler is not None else None
+        if line_index is None or line_index < 0:
+            line_index = None
+
         offset_id = self.LABEL_TO_OFFSET_ID[label]
+        resulting_target = trace.get("resultingTarget") or {}
         commanded = {
-            "x": float(getattr(handler, "_x", 0.0) or 0.0),
-            "y": float(getattr(handler, "_y", 0.0) or 0.0),
-            "z": float(getattr(handler, "_z", 0.0) or 0.0),
+            "x": float(resulting_target.get("x") or 0.0),
+            "y": float(resulting_target.get("y") or 0.0),
+            "z": float(
+                resulting_target.get("pinZ")
+                if resulting_target.get("pinZ") is not None
+                else resulting_target.get("headZ") or 0.0
+            ),
         }
         io = process._io
+        head = getattr(io, "head", None)
+        fixed_present = bool(head._fixedPresentTag.get()) if head is not None else False
+        if fixed_present and head is not None:
+            z_actual = float(head._extended_z_position)
+        elif hasattr(io, "zAxis"):
+            z_actual = float(io.zAxis.getPosition())
+        else:
+            z_actual = 0.0
         actual = {
             "x": float(io.xAxis.getPosition()),
             "y": float(io.yAxis.getPosition()),
-            "z": float(io.zAxis.getPosition()) if hasattr(io, "zAxis") else 0.0,
+            "z": z_actual,
+        }
+        rendered_offset_x, rendered_offset_y, rendered_offset_z = (
+            _parse_rendered_anchor_offset(line_text)
+        )
+        base = {
+            "x": commanded["x"] - rendered_offset_x,
+            "y": commanded["y"] - rendered_offset_y,
+            "z": commanded["z"] - rendered_offset_z,
         }
         delta = {axis: actual[axis] - commanded[axis] for axis in _OFFSET_AXES}
         current_offset = dict(self._offsets.get(offset_id, _zero_offset_3d()))
-        new_offset = {axis: current_offset[axis] + delta[axis] for axis in _OFFSET_AXES}
+        new_offset = {axis: actual[axis] - base[axis] for axis in _OFFSET_AXES}
+
+        # Alternating-side wires cross the frame at a fixed clearance Z
+        # (z_extended for A targets, z_back for B targets); the operator cannot
+        # meaningfully jog the head in Z, so the Z component of the offset is
+        # not applied to the rendered anchor call.  We still report observed
+        # actual.z and delta.z so the geometry solver can ignore them.
+        same_side = trace.get("sameSide")
+        if same_side is False:
+            new_offset["z"] = 0.0
 
         return {
             "ok": True,
@@ -788,6 +843,7 @@ class TemplateRecipeBase:
                 "lineText": line_text,
                 "label": label,
                 "offsetId": offset_id,
+                "sameSide": same_side,
                 "commanded": commanded,
                 "actual": actual,
                 "delta": delta,
@@ -806,9 +862,11 @@ class TemplateRecipeBase:
 
     # -------------------------------------------------------------------
     def applyJogCalibration(self):
-        """Apply the jog-derived delta to the matching machine-geometry offset.
+        """Apply the jog-derived offset to the matching machine-geometry offset.
 
-        Adds `actual − commanded` to `_offsets[offset_id]`, persists, regenerates
+        The new offset is `actual − base` where `base` is the position that
+        `~anchorToTarget` would have commanded with no offset (recovered by
+        subtracting the offset baked into the executed line).  Persists, regenerates
         the recipe, and records a `kind="jog_calibration"` measurement in the
         machine-geometry calibration store.
         """
@@ -822,12 +880,8 @@ class TemplateRecipeBase:
 
         data = snapshot["data"]
         offset_id = data["offsetId"]
-        delta = data["delta"]
         current_offset = data["currentOffset"]
-        new_offset = {
-            axis: float(current_offset[axis]) + float(delta[axis])
-            for axis in _OFFSET_AXES
-        }
+        new_offset = {axis: float(data["newOffset"][axis]) for axis in _OFFSET_AXES}
         self._offsets[offset_id] = new_offset
         self._dirty = True
         self._persistState()
@@ -841,9 +895,10 @@ class TemplateRecipeBase:
                 offset_id=offset_id,
                 commanded=data["commanded"],
                 actual=data["actual"],
-                delta=delta,
+                delta=data["delta"],
                 previous_offset=current_offset,
                 new_offset=new_offset,
+                same_side=data.get("sameSide"),
             )
         except Exception as exception:
             self._process._log.add(
@@ -853,7 +908,7 @@ class TemplateRecipeBase:
                 [str(exception)],
             )
 
-        regen_result = self.generateRecipeFile()
+        regen_result = self.generateRecipeFile(scriptVariant="wrapping")
         regen_ok = bool(regen_result.get("ok"))
 
         result = dict(data)

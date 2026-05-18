@@ -762,7 +762,7 @@ def iter_v_wrap_primary_sites(
     return tuple(segments)
 
 
-def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
+def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=False):
     n = int(wrap_number) - 1
 
     bh = V_NAMED_PINS_BOTTOM_HEAD_END
@@ -782,24 +782,47 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         return b_to_a_pin("V", b_pin(pin_number))
 
     def anchor_offset(offset_index):
-        """Return the (x, y) tuple of an offsets[i] entry, accepting dicts or scalars."""
+        """Return the (x, y, z) tuple of an offsets[i] entry, accepting dicts or scalars."""
         entry = offsets[offset_index]
         if isinstance(entry, dict):
-            return (float(entry.get("x", 0.0)), float(entry.get("y", 0.0)))
-        return (float(entry), 0.0)
+            return (
+                float(entry.get("x", 0.0)),
+                float(entry.get("y", 0.0)),
+                float(entry.get("z", 0.0)),
+            )
+        return (float(entry), 0.0, 0.0)
 
     def anchor_to_target(anchor_pin, target_pin, label=None, offset=None):
         call = f"~anchorToTarget({anchor_pin},{target_pin}"
         if offset is not None:
-            offset_x, offset_y = offset
-            if abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9:
-                call += (
-                    ",offset=("
-                    + _coord("", offset_x)
-                    + ","
-                    + _coord("", offset_y)
-                    + ")"
-                )
+            if len(offset) >= 3:
+                offset_x, offset_y, offset_z = offset[0], offset[1], offset[2]
+            else:
+                offset_x, offset_y = offset[0], offset[1]
+                offset_z = 0.0
+            non_zero_xy = (
+                abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9
+            )
+            non_zero_z = abs(float(offset_z)) >= 1e-9
+            if non_zero_xy or non_zero_z:
+                if non_zero_z:
+                    call += (
+                        ",offset=("
+                        + _coord("", offset_x)
+                        + ","
+                        + _coord("", offset_y)
+                        + ","
+                        + _coord("", offset_z)
+                        + ")"
+                    )
+                else:
+                    call += (
+                        ",offset=("
+                        + _coord("", offset_x)
+                        + ","
+                        + _coord("", offset_y)
+                        + ")"
+                    )
         call += ")"
         parts = [call]
         if label:
@@ -813,12 +836,18 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
 
     lines = [
         anchor_to_target(
+            a_from_b(bh + n),
+            b_pin(bh + n),
+            "Bottom B corner - head end",
+            offset=anchor_offset(11),
+        ),
+        increment(0, y_pull_in),
+        anchor_to_target(
             b_pin(bh + n),
             b_pin(tf + 399 - n),
             "Top B corner - foot end",
             offset=anchor_offset(0),
         ),
-        increment(0, y_pull_in),
     ]
     if _near_comb(bh + n):
         lines.append(
@@ -876,51 +905,76 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
             increment(-y_pull_in * COMB_PULL_FACTOR, 0)
         )
 
-    lines.extend(
-        [
-            anchor_to_target(
-                a_from_b(bf - n),
-                a_from_b(th - 399 + n),
-                "Top A corner - head end",
-                offset=anchor_offset(6),
-            ),
-            anchor_to_target(
-                a_from_b(th - 399 + n),
-                b_pin(th - 399 + n),
-                "Top B corner - head end",
-                offset=anchor_offset(7),
-            ),
-            increment(0, -y_pull_in),
-        ]
-    )
-    if _near_comb(_wrap_pin_number(th - 399 + n)):
-        lines.append(
-            increment(-y_pull_in * COMB_PULL_FACTOR, 0)
+    lines.append(
+        anchor_to_target(
+            a_from_b(bf - n),
+            a_from_b(th - 399 + n),
+            "Top A corner - head end",
+            offset=anchor_offset(6),
         )
-
-    lines.extend(
-        [
-            anchor_to_target(
-                b_pin(th - 399 + n),
-                b_pin(hb - n),
-                "Head B corner",
-                offset=anchor_offset(8),
-            ),
-            anchor_to_target(
-                b_pin(hb - n),
-                a_from_b(hb - n),
-                "Head A corner",
-                offset=anchor_offset(9),
-            ),
-            increment(x_pull_in, 0),
-            anchor_to_target(
-                a_from_b(hb - n),
-                a_from_b(bh + n + 1),
-                "Bottom A corner - head end",
-                offset=anchor_offset(10),
-            ),
-        ]
     )
+
+    if final_wrap:
+        lines.extend(
+            [
+                anchor_to_target(
+                    a_from_b(th - 399 + n),
+                    b_pin(2398),
+                    "Wrap 400 tail A400 to B2398",
+                ),
+                increment(0, -y_pull_in),
+                anchor_to_target(
+                    b_pin(2398),
+                    b_pin(1),
+                    "Wrap 400 tail B2398 to B1",
+                ),
+                anchor_to_target(
+                    b_pin(1),
+                    a_from_b(1),
+                    "Wrap 400 tail B1 to A399",
+                ),
+                increment(500, 0),
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                anchor_to_target(
+                    a_from_b(th - 399 + n),
+                    b_pin(th - 399 + n),
+                    "Top B corner - head end",
+                    offset=anchor_offset(7),
+                ),
+                increment(0, -y_pull_in),
+            ]
+        )
+        if _near_comb(_wrap_pin_number(th - 399 + n)):
+            lines.append(
+                increment(-y_pull_in * COMB_PULL_FACTOR, 0)
+            )
+        lines.extend(
+            [
+                anchor_to_target(
+                    b_pin(th - 399 + n),
+                    b_pin(hb - n),
+                    "Head B corner",
+                    offset=anchor_offset(8),
+                ),
+                anchor_to_target(
+                    b_pin(hb - n),
+                    a_from_b(hb - n),
+                    "Head A corner",
+                    offset=anchor_offset(9),
+                ),
+                increment(x_pull_in, 0),
+                anchor_to_target(
+                    a_from_b(hb - n),
+                    a_from_b(bh + n + 1),
+                    "Bottom A corner - head end",
+                    offset=anchor_offset(10),
+                ),
+            ]
+        )
 
     return _annotate_wrap_lines(wrap_number, lines)
 
@@ -1037,13 +1091,19 @@ def render_v_template_lines(
         lines = [
             "( V Layer )",
             _line("~goto(" + _coord("", WRAPPING_PREAMBLE_X) + ",0)"),
+            _line("G206 P3"),
         ]
-        for wrap_number in range(1, WRAP_COUNT + 1):
+        for wrap_number in range(1, WRAP_COUNT):
             lines.extend(
                 _render_wrapping_wrap_lines(
                     wrap_number, pull_ins, resolved_offsets
                 )
             )
+        lines.extend(
+            _render_wrapping_wrap_lines(
+                WRAP_COUNT, pull_ins, resolved_offsets, final_wrap=True
+            )
+        )
         lines = apply_line_offset_overrides(
             lines,
             line_offset_overrides,

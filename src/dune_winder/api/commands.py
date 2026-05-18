@@ -525,15 +525,18 @@ def build_command_registry(
     )
 
     def process_machine_geometry_set_line_offset_override(args):
-        _validateArgs(args, required=("line_key", "x", "y"), optional=("layer",))
+        _validateArgs(args, required=("line_key", "x", "y"), optional=("layer", "z"))
         layer = args.get("layer")
         if layer is not None:
             layer = _asString(layer, "layer")
+        z_value = args.get("z")
+        z_value = _asFloat(z_value, "z") if z_value is not None else 0.0
         return process.machineGeometryCalibration.setLineOffsetOverride(
             layer or process.getRecipeLayer(),
             _asString(args["line_key"], "line_key"),
             _asFloat(args["x"], "x"),
             _asFloat(args["y"], "y"),
+            z_value,
         )
 
     registry.register(

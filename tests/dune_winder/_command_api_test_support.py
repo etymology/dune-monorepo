@@ -134,11 +134,17 @@ class DummyMachineGeometryCalibration:
     def applyMachineXY(self, layer=None):
         return {"layer": layer or "V", "applied": True}
 
-    def setLineOffsetOverride(self, layer, line_key, x_value, y_value):
-        self.lastSetLineOffset = (layer, line_key, x_value, y_value)
+    def setLineOffsetOverride(self, layer, line_key, x_value, y_value, z_value=0.0):
+        self.lastSetLineOffset = (layer, line_key, x_value, y_value, z_value)
         return {
             "ok": True,
-            "data": {"layer": layer, "lineKey": line_key, "x": x_value, "y": y_value},
+            "data": {
+                "layer": layer,
+                "lineKey": line_key,
+                "x": x_value,
+                "y": y_value,
+                "z": z_value,
+            },
         }
 
     def deleteLineOffsetOverride(self, layer, line_key):

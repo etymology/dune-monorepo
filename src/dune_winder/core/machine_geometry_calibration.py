@@ -331,7 +331,7 @@ def _project_machine_xy_measurement_payload_inner(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z),
+            float(target_location.z) + float(command.target_offset[2]),
         )
 
     pin_radius = float(machine_calibration.pinDiameter) / 2.0
@@ -1235,6 +1235,7 @@ class MachineGeometryCalibration:
         delta,
         previous_offset=None,
         new_offset=None,
+        same_side=None,
     ):
         """Persist a jog-derived calibration sample alongside camera-trace samples.
 
@@ -1265,6 +1266,7 @@ class MachineGeometryCalibration:
             "wrapLineNumber": wrap_line_number,
             "siteLabel": label,
             "offsetId": offset_id,
+            "sameSide": None if same_side is None else bool(same_side),
             "commandedX": float(commanded["x"]),
             "commandedY": float(commanded["y"]),
             "commandedZ": float(commanded["z"]),
@@ -3133,10 +3135,10 @@ class MachineGeometryCalibration:
         }
 
     # -------------------------------------------------------------------
-    def setLineOffsetOverride(self, layer, line_key, x_value, y_value):
+    def setLineOffsetOverride(self, layer, line_key, x_value, y_value, z_value=0.0):
         self._geometryMutationGuard()
         service = self._templateService(layer)
-        return service.setLineOffsetOverride(line_key, x_value, y_value)
+        return service.setLineOffsetOverride(line_key, x_value, y_value, z_value)
 
     # -------------------------------------------------------------------
     def deleteLineOffsetOverride(self, layer, line_key):

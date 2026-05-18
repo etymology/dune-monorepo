@@ -139,7 +139,7 @@ class CommandValidationTests(unittest.TestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(
             process.machineGeometryCalibration.lastSetLineOffset,
-            ("V", "(12,7)", 1.25, -2.5),
+            ("V", "(12,7)", 1.25, -2.5, 0.0),
         )
 
     def test_machine_geometry_cancel_machine_xy_is_registered(self):

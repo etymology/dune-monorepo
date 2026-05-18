@@ -725,16 +725,45 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
     def anchor_to_target(anchor_pin, target_pin, label=None, offset=None, hover=False):
         call = f"~anchorToTarget({anchor_pin},{target_pin}"
         if offset is not None:
-            offset_x = _scalar_axis(offset[0], "x") if not isinstance(offset[0], (int, float)) else float(offset[0])
-            offset_y = _scalar_axis(offset[1], "y") if not isinstance(offset[1], (int, float)) else float(offset[1])
-            if abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9:
-                call += (
-                    ",offset=("
-                    + _coord("", offset_x)
-                    + ","
-                    + _coord("", offset_y)
-                    + ")"
+            offset_x = (
+                _scalar_axis(offset[0], "x")
+                if not isinstance(offset[0], (int, float))
+                else float(offset[0])
+            )
+            offset_y = (
+                _scalar_axis(offset[1], "y")
+                if not isinstance(offset[1], (int, float))
+                else float(offset[1])
+            )
+            if len(offset) >= 3:
+                offset_z = (
+                    _scalar_axis(offset[2], "z")
+                    if not isinstance(offset[2], (int, float))
+                    else float(offset[2])
                 )
+            else:
+                offset_z = 0.0
+            non_zero_xy = abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9
+            non_zero_z = abs(offset_z) >= 1e-9
+            if non_zero_xy or non_zero_z:
+                if non_zero_z:
+                    call += (
+                        ",offset=("
+                        + _coord("", offset_x)
+                        + ","
+                        + _coord("", offset_y)
+                        + ","
+                        + _coord("", offset_z)
+                        + ")"
+                    )
+                else:
+                    call += (
+                        ",offset=("
+                        + _coord("", offset_x)
+                        + ","
+                        + _coord("", offset_y)
+                        + ")"
+                    )
         if hover:
             call += ",hover=True"
         call += ")"

@@ -163,7 +163,7 @@ class AnchorToTargetCommand:
     raw_text: str
     anchor_pin: str
     target_pin: str
-    target_offset: tuple[float, float] | None
+    target_offset: tuple[float, float, float] | None
     hover: bool
 
 

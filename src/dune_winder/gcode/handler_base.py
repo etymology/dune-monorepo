@@ -197,6 +197,7 @@ class GCodeHandlerBase:
             "pins": list(self._instruction_trace["pins"]),
             "pinCenter": self._instruction_trace.get("pinCenter"),
             "anchorOrientation": self._instruction_trace.get("anchorOrientation"),
+            "sameSide": self._instruction_trace.get("sameSide"),
         }
         LOGGER.info("GCODE_MOTION_TRACE %s", json.dumps(payload, sort_keys=True))
         if self._instruction_trace_callback is not None:
@@ -625,10 +626,11 @@ class GCodeHandlerBase:
         if target_offset is not None:
             offset_x = float(target_offset[0])
             offset_y = float(target_offset[1])
+            offset_z = float(target_offset[2]) if len(target_offset) > 2 else 0.0
             target_location = Location(
                 float(target_location.x) + offset_x,
                 float(target_location.y) + offset_y,
-                float(target_location.z),
+                float(target_location.z) + offset_z,
             )
 
         try:
@@ -685,16 +687,22 @@ class GCodeHandlerBase:
         )
         head_position = 1 if normalized_target.startswith("A") else 2
         clearance_position = 0 if normalized_target.startswith("A") else 3
+        head_present = self._isHeadPresent()
+        self._instruction_trace["sameSide"] = bool(plan.same_side)
 
         final_xy = Point2D(float(plan.final_xy.x), float(plan.final_xy.y))
         if plan.same_side:
             self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
-            self._append_pending_action("head_transfer", head_position=head_position)
+            if head_present:
+                self._append_pending_action(
+                    "head_transfer", head_position=head_position
+                )
             resolved_head_position = head_position
         else:
-            self._append_pending_action(
-                "head_transfer", head_position=clearance_position
-            )
+            if head_present:
+                self._append_pending_action(
+                    "head_transfer", head_position=clearance_position
+                )
             if hover:
                 final_xy = Point2D(
                     float(final_xy.x),
@@ -706,12 +714,14 @@ class GCodeHandlerBase:
 
         self._x = float(final_xy.x)
         self._y = float(final_xy.y)
-        self._z = float(self._getHeadPosition(resolved_head_position))
-        self._headPosition = int(resolved_head_position)
+        if head_present:
+            self._z = float(self._getHeadPosition(resolved_head_position))
+            self._headPosition = int(resolved_head_position)
         self._instruction_contains_x = True
         self._instruction_contains_y = True
         self._instruction_request_xy = True
-        self._instruction_request_head = True
+        if head_present:
+            self._instruction_request_head = True
 
     # ---------------------------------------------------------------------
     def _run_macro_call(self, text):
@@ -773,19 +783,27 @@ class GCodeHandlerBase:
                         ")"
                     ):
                         raise GCodeExecutionError(
-                            "~anchorToTarget offset must be written as offset=(x,y).",
+                            "~anchorToTarget offset must be written as offset=(x,y) or offset=(x,y,z).",
                             [raw_text],
                         )
                     offset_values = self._split_macro_arguments(keyword_value[1:-1])
-                    if len(offset_values) != 2:
+                    if len(offset_values) == 2:
+                        target_offset = (
+                            float(self._eval_numeric_macro_expr(offset_values[0])),
+                            float(self._eval_numeric_macro_expr(offset_values[1])),
+                            0.0,
+                        )
+                    elif len(offset_values) == 3:
+                        target_offset = (
+                            float(self._eval_numeric_macro_expr(offset_values[0])),
+                            float(self._eval_numeric_macro_expr(offset_values[1])),
+                            float(self._eval_numeric_macro_expr(offset_values[2])),
+                        )
+                    else:
                         raise GCodeExecutionError(
-                            "~anchorToTarget offset requires exactly two values.",
+                            "~anchorToTarget offset requires two or three values.",
                             [raw_text],
                         )
-                    target_offset = (
-                        float(self._eval_numeric_macro_expr(offset_values[0])),
-                        float(self._eval_numeric_macro_expr(offset_values[1])),
-                    )
                     continue
                 if keyword_name == "hover":
                     hover_value = keyword_value.lower()
@@ -1063,6 +1081,14 @@ class GCodeHandlerBase:
         return z
 
     # ---------------------------------------------------------------------
+    def _isHeadPresent(self):
+        """
+        Report whether a physical head is mounted. Default True; subclasses
+        with hardware access override to consult the controller.
+        """
+        return True
+
+    # ---------------------------------------------------------------------
     def _getPin(self, pinName):
         """
         Function to fetch specific pin location.
@@ -1291,9 +1317,10 @@ class GCodeHandlerBase:
         """
         Head transfer position.
         """
-        self._headPosition = self._parameterExtract(
-            function, 1, None, int, "head transfer"
-        )
+        target = self._parameterExtract(function, 1, None, int, "head transfer")
+        if not self._isHeadPresent():
+            return
+        self._headPosition = target
         self._request_head_transfer()
 
         if GCodeHandlerBase.DEBUG_UNIT:
