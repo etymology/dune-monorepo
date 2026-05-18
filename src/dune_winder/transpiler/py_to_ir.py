@@ -46,7 +46,17 @@ from .ir import (
     XioCond,
 )
 from .regalloc import RegisterAllocator
-from .types import PLCType, plc_type_from_annotation
+from .types import PLCType, TranspilerError, plc_type_from_annotation
+
+
+def _unsupported(node: ast.AST, what: str) -> TranspilerError:
+    """Build a TranspilerError pinned to the offending AST node."""
+    try:
+        rendered = ast.unparse(node)
+    except Exception:
+        rendered = type(node).__name__
+    lineno = getattr(node, "lineno", "?")
+    return TranspilerError(f"{what} at line {lineno}: {rendered}")
 
 
 # Names of MotionSegment-typed variables within a function
@@ -718,7 +728,7 @@ class PythonToIR(ast.NodeVisitor):
             if sf is not None:
                 field_type = SEG_FIELD_TYPE.get(sf.field, PLCType.REAL)
                 return SegFieldExpr(sf, field_type)
-            return Const(0.0, PLCType.REAL)
+            raise _unsupported(node, "unsupported attribute access")
 
         if isinstance(node, ast.BinOp):
             left = self._conv_expr(node.left, scope)
@@ -762,14 +772,14 @@ class PythonToIR(ast.NodeVisitor):
                     if key in scope.vars:
                         return RegExpr(scope.vars[key])
                 # segments[0].x handled via Attribute (not here)
-            return Const(0.0, PLCType.REAL)
+            raise _unsupported(node, "unsupported subscript")
 
         if isinstance(node, ast.Tuple):
             # (a, b) tuple literal — return first element as fallback
             if node.elts:
                 return self._conv_expr(node.elts[0], scope)
 
-        return Const(0.0, PLCType.REAL)
+        raise _unsupported(node, "unsupported expression")
 
     def _conv_call_expr(self, node: ast.Call, scope: _Scope) -> Expr:
         func_name = self._call_name(node)
