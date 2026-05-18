@@ -19,15 +19,15 @@ def test_wire_pin_pair_matches_examples_and_wraparound() -> None:
     assert uv_wire_planner._wire_pin_pair("V", "A", 1151) == ("A1199", "A1200")
     assert uv_wire_planner._wire_pin_pair("V", "B", 1150) == ("B1198", "B1201")
     assert uv_wire_planner._wire_pin_pair("V", "A", 1150) == ("A1198", "A1201")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 1151) == ("B1599", "B1601")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1151) == ("A1599", "A1601")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 1150) == ("B1598", "B1602")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1150) == ("A1598", "A1602")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 1146) == ("A1594", "A1606")
+    assert uv_wire_planner._wire_pin_pair("U", "B", 1151) == ("B1601", "B1602")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1151) == ("A1601", "A1602")
+    assert uv_wire_planner._wire_pin_pair("U", "B", 1150) == ("B1600", "B1603")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1150) == ("A1600", "A1603")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 1146) == ("A1596", "A1607")
     assert uv_wire_planner._wire_pin_pair("V", "B", 8) == ("B56", "B2343")
     assert uv_wire_planner._wire_pin_pair("V", "A", 8) == ("A56", "A2343")
-    assert uv_wire_planner._wire_pin_pair("U", "B", 8) == ("B456", "B343")
-    assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A456", "A343")
+    assert uv_wire_planner._wire_pin_pair("U", "B", 8) == ("B458", "B344")
+    assert uv_wire_planner._wire_pin_pair("U", "A", 8) == ("A458", "A344")
 
 
 def test_legacy_uv_provider_uses_planner_for_uv_and_fallback_elsewhere(
