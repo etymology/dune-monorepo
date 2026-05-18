@@ -138,7 +138,7 @@ class GCodeHandler(GCodeHandlerBase):
             if -1 != self.runToLine:
                 if 1 == self._direction:
                     endLine = self.runToLine - 1
-            else:
+                else:
                     startLine = self.runToLine - 1
 
             isDone = False
