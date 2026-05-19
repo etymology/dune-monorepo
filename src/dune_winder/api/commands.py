@@ -525,18 +525,15 @@ def build_command_registry(
     )
 
     def process_machine_geometry_set_line_offset_override(args):
-        _validateArgs(args, required=("line_key", "x", "y"), optional=("layer", "z"))
+        _validateArgs(args, required=("line_key", "x", "y"), optional=("layer",))
         layer = args.get("layer")
         if layer is not None:
             layer = _asString(layer, "layer")
-        z_value = args.get("z")
-        z_value = _asFloat(z_value, "z") if z_value is not None else 0.0
         return process.machineGeometryCalibration.setLineOffsetOverride(
             layer or process.getRecipeLayer(),
             _asString(args["line_key"], "line_key"),
             _asFloat(args["x"], "x"),
             _asFloat(args["y"], "y"),
-            z_value,
         )
 
     registry.register(
@@ -827,19 +824,19 @@ def build_command_registry(
     )
 
     def v_template_set_offset(args):
-        _validateArgs(args, required=("offset_id",), optional=("value", "x", "y", "z"))
+        _validateArgs(args, required=("offset_id",), optional=("value", "x", "y"))
         offset_id = _asString(args["offset_id"], "offset_id")
         if "value" in args and args["value"] is not None:
             return process.vTemplateRecipe.setOffset(
                 offset_id, _asFloat(args["value"], "value")
             )
         kwargs = {}
-        for axis in ("x", "y", "z"):
+        for axis in ("x", "y"):
             if axis in args and args[axis] is not None:
                 kwargs[axis] = _asFloat(args[axis], axis)
         if not kwargs:
             raise ValueError(
-                "set_offset requires either 'value' or at least one of 'x', 'y', 'z'."
+                "set_offset requires either 'value' or at least one of 'x', 'y'."
             )
         return process.vTemplateRecipe.setOffset(offset_id, **kwargs)
 

@@ -74,25 +74,14 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
         if keyword_name == "offset":
             if not keyword_value.startswith("(") or not keyword_value.endswith(")"):
                 raise UvHeadTargetError(
-                    "~anchorToTarget offset must be written as offset=(x,y) or offset=(x,y,z)."
+                    "~anchorToTarget offset must be written as offset=(x,y)."
                 )
             offset_values = [part.strip() for part in keyword_value[1:-1].split(",")]
-            if len(offset_values) == 2:
-                target_offset = (
-                    float(offset_values[0]),
-                    float(offset_values[1]),
-                    0.0,
-                )
-            elif len(offset_values) == 3:
-                target_offset = (
-                    float(offset_values[0]),
-                    float(offset_values[1]),
-                    float(offset_values[2]),
-                )
-            else:
+            if len(offset_values) != 2:
                 raise UvHeadTargetError(
-                    "~anchorToTarget offset requires two or three values."
+                    "~anchorToTarget offset requires exactly two values."
                 )
+            target_offset = (float(offset_values[0]), float(offset_values[1]))
             continue
         if keyword_name == "hover":
             hover_value = keyword_value.lower()
@@ -134,7 +123,7 @@ def _cached_compute_uv_anchor_to_target_view(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z) + float(command.target_offset[2]),
+            float(target_location.z),
         )
     raw_result = compute_uv_tangent_view(
         UvTangentViewRequest(
@@ -191,7 +180,7 @@ def compute_uv_anchor_to_target_view(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z) + float(command.target_offset[2]),
+            float(target_location.z),
         )
     raw_result = compute_uv_tangent_view(
         UvTangentViewRequest(

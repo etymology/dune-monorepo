@@ -38,11 +38,11 @@ def coord(axis, value):
     return axis + format_number(value)
 
 
-_OFFSET_AXIS_KEYS = (("PX", "x"), ("PY", "y"), ("PZ", "z"))
+_OFFSET_AXIS_KEYS = (("PX", "x"), ("PY", "y"))
 
 
 def _offset_component(value, axis_key):
-    """Extract one component from a 3D offset dict or treat a scalar as that component."""
+    """Extract one component from a 2D offset dict or treat a scalar as that component."""
     if isinstance(value, dict):
         return float(value.get(axis_key, 0.0))
     return float(value)
@@ -64,7 +64,7 @@ def conditional_offset_fragment(axis, condition_value, rendered_value, *, coord_
 
 
 def offset3d_fragment(value, *, coord_fn):
-    """Emit `G105 PX… PY… PZ…` for a 3D offset dict (omitting any zero axis)."""
+    """Emit `G105 PX… PY…` for an offset dict (omitting any zero axis)."""
     parts = []
     for axis_letter, key in _OFFSET_AXIS_KEYS:
         component = _offset_component(value, key)
@@ -85,18 +85,19 @@ def conditional_offset3d_fragment(condition_value, rendered_value, *, coord_fn):
 
 
 def normalize_offset_value(value, natural_axis="x"):
-    """Coerce a scalar or partial dict to `{x, y, z}` floats.
+    """Coerce a scalar or partial dict to `{x, y}` floats.
 
-    Scalars are placed on `natural_axis` for legacy migration.
+    Scalars are placed on `natural_axis` for legacy migration. Legacy `z`
+    keys are dropped: anchorToTarget never accepted z offsets in the
+    physical sense — pin Z is determined by the A/B target side.
     """
     if isinstance(value, dict):
         return {
             "x": float(value.get("x", 0.0)),
             "y": float(value.get("y", 0.0)),
-            "z": float(value.get("z", 0.0)),
         }
     scalar = float(value)
-    result = {"x": 0.0, "y": 0.0, "z": 0.0}
+    result = {"x": 0.0, "y": 0.0}
     if natural_axis in result:
         result[natural_axis] = scalar
     return result

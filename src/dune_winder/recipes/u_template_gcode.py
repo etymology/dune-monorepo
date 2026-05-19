@@ -40,7 +40,7 @@ COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
 PIN_MIN = 1
 PIN_MAX = 2401
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
-DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0, "z": 0.0},) * 12
+DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0},) * 12
 DEFAULT_U_TEMPLATE_WORKBOOK = None
 DEFAULT_U_TEMPLATE_SHEET = None
 PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN", "Y_HOVER")
@@ -735,35 +735,14 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
                 if not isinstance(offset[1], (int, float))
                 else float(offset[1])
             )
-            if len(offset) >= 3:
-                offset_z = (
-                    _scalar_axis(offset[2], "z")
-                    if not isinstance(offset[2], (int, float))
-                    else float(offset[2])
+            if abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9:
+                call += (
+                    ",offset=("
+                    + _coord("", offset_x)
+                    + ","
+                    + _coord("", offset_y)
+                    + ")"
                 )
-            else:
-                offset_z = 0.0
-            non_zero_xy = abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9
-            non_zero_z = abs(offset_z) >= 1e-9
-            if non_zero_xy or non_zero_z:
-                if non_zero_z:
-                    call += (
-                        ",offset=("
-                        + _coord("", offset_x)
-                        + ","
-                        + _coord("", offset_y)
-                        + ","
-                        + _coord("", offset_z)
-                        + ")"
-                    )
-                else:
-                    call += (
-                        ",offset=("
-                        + _coord("", offset_x)
-                        + ","
-                        + _coord("", offset_y)
-                        + ")"
-                    )
         if hover:
             call += ",hover=True"
         call += ")"

@@ -21,34 +21,25 @@ from dune_winder.recipes.template_gcode_common import normalize_offset_value
 from dune_winder.core.process_context import ProcessContext
 
 
-_OFFSET_AXES = ("x", "y", "z")
+_OFFSET_AXES = ("x", "y")
 _TRAILING_LABEL_RE = re.compile(r"\(([^()]*)\)\s*$")
 _ANCHOR_OFFSET_RE = re.compile(
-    r"offset=\(\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)"
-    r"(?:\s*,\s*(-?\d*\.?\d+))?\s*\)"
+    r"offset=\(\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)\s*\)"
 )
 
 
 def _parse_rendered_anchor_offset(line_text):
-    """Extract the (x, y, z) offset that was rendered into an ~anchorToTarget call.
-
-    Accepts both legacy 2-tuple (x, y) and 3-tuple (x, y, z) forms; missing z is 0.
-    """
+    """Extract the (x, y) offset that was rendered into an ~anchorToTarget call."""
     if line_text is None:
-        return (0.0, 0.0, 0.0)
+        return (0.0, 0.0)
     match = _ANCHOR_OFFSET_RE.search(str(line_text))
     if match is None:
-        return (0.0, 0.0, 0.0)
-    z_group = match.group(3)
-    return (
-        float(match.group(1)),
-        float(match.group(2)),
-        float(z_group) if z_group is not None else 0.0,
-    )
+        return (0.0, 0.0)
+    return (float(match.group(1)), float(match.group(2)))
 
 
-def _zero_offset_3d():
-    return {"x": 0.0, "y": 0.0, "z": 0.0}
+def _zero_offset_2d():
+    return {"x": 0.0, "y": 0.0}
 
 
 def _parse_trailing_label(line_text):
@@ -65,8 +56,7 @@ def _parse_trailing_label(line_text):
 _LINE_NUMBER_PREFIX_RE = re.compile(r"^\s*N\d+\s+")
 _WRAP_IDENTIFIER_RE = re.compile(r"\(\d+,\d+\)")
 _ANCHOR_OFFSET_KEYWORD_RE = re.compile(
-    r",\s*offset=\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+"
-    r"(?:\s*,\s*-?\d*\.?\d+)?\s*\)"
+    r",\s*offset=\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\)"
 )
 
 
@@ -306,7 +296,7 @@ class TemplateRecipeBase:
 
     # -------------------------------------------------------------------
     def _resetState(self, markDirty):
-        self._offsets = {offsetId: _zero_offset_3d() for offsetId in self.OFFSET_IDS}
+        self._offsets = {offsetId: _zero_offset_2d() for offsetId in self.OFFSET_IDS}
         self._lineOffsetOverrides = {}
         self._transferPause = True
         self._addFootPauses = False
@@ -465,12 +455,14 @@ class TemplateRecipeBase:
         return state
 
     # -------------------------------------------------------------------
-    def setOffset(self, offsetId, value=None, *, x=None, y=None, z=None):
-        """Set a 3D offset for `offsetId`.
+    def setOffset(self, offsetId, value=None, *, x=None, y=None):
+        """Set a 2D offset for `offsetId`.
 
-        Accepts either a 3D dict via `value`, a legacy scalar via `value`
-        (placed on the natural axis), or per-axis keyword arguments. Any
-        axis omitted in keyword form preserves the existing value.
+        Pin Z is determined by the A/B side of the target (z_extended for B
+        targets, z_retracted for A targets), so offsets never carry a Z
+        component. Accepts either an `{x, y}` dict via `value`, a legacy
+        scalar (placed on the natural axis), or per-axis keyword arguments.
+        Any axis omitted in keyword form preserves the existing value.
         """
         self._ensureDraftStateLoaded()
 
@@ -493,14 +485,12 @@ class TemplateRecipeBase:
                     value, natural_axis=self._naturalAxis(offsetId)
                 )
             else:
-                # Legacy scalar: only the natural axis is touched; preserve any
-                # off-axis calibration the operator may have set via jog calibration.
-                current = dict(self._offsets.get(offsetId, _zero_offset_3d()))
+                current = dict(self._offsets.get(offsetId, _zero_offset_2d()))
                 current[self._naturalAxis(offsetId)] = float(value)
                 self._offsets[offsetId] = current
         else:
-            current = dict(self._offsets.get(offsetId, _zero_offset_3d()))
-            for axis_key, axis_value in (("x", x), ("y", y), ("z", z)):
+            current = dict(self._offsets.get(offsetId, _zero_offset_2d()))
+            for axis_key, axis_value in (("x", x), ("y", y)):
                 if axis_value is not None:
                     current[axis_key] = float(axis_value)
             self._offsets[offsetId] = current
@@ -529,7 +519,7 @@ class TemplateRecipeBase:
         return self._okResult({"transferPause": self._transferPause})
 
     # -------------------------------------------------------------------
-    def setLineOffsetOverride(self, lineKey, xValue, yValue, zValue=0.0, extra=None):
+    def setLineOffsetOverride(self, lineKey, xValue, yValue, extra=None):
         self._ensureDraftStateLoaded()
 
         _, error = self._getActiveLayer()
@@ -540,10 +530,9 @@ class TemplateRecipeBase:
         if blocked is not None:
             return blocked
 
-        entry = dict(extra or {})
+        entry = {k: v for k, v in (extra or {}).items() if k != "z"}
         entry["x"] = float(xValue)
         entry["y"] = float(yValue)
-        entry["z"] = float(zValue)
         lineKey = normalize_line_key(lineKey)
         self._lineOffsetOverrides[lineKey] = entry
         self._dirty = True
@@ -870,18 +859,14 @@ class TemplateRecipeBase:
                 else resulting_target.get("headZ") or 0.0
             ),
         }
-        rendered_offset_x, rendered_offset_y, rendered_offset_z = (
-            _parse_rendered_anchor_offset(line_text)
-        )
+        rendered_offset_x, rendered_offset_y = _parse_rendered_anchor_offset(line_text)
         rendered_offset = {
             "x": rendered_offset_x,
             "y": rendered_offset_y,
-            "z": rendered_offset_z,
         }
         base = {
             "x": commanded["x"] - rendered_offset_x,
             "y": commanded["y"] - rendered_offset_y,
-            "z": commanded["z"] - rendered_offset_z,
         }
         delta = {axis: actual[axis] - commanded[axis] for axis in _OFFSET_AXES}
         # Lines whose label maps to a canonical corner update the per-corner
@@ -889,31 +874,21 @@ class TemplateRecipeBase:
         # tail lines, lead-in segments, etc -- falls back to a per-line
         # override keyed by the wrap identifier.
         if offset_id is not None:
-            current_offset = dict(self._offsets.get(offset_id, _zero_offset_3d()))
+            current_offset = dict(self._offsets.get(offset_id, _zero_offset_2d()))
             override_kind = "corner"
         else:
             line_override = (
                 self._lineOffsetOverrides.get(line_key) if line_key else None
             )
             if line_override is None:
-                current_offset = _zero_offset_3d()
+                current_offset = _zero_offset_2d()
             else:
                 current_offset = {
                     "x": float(line_override.get("x", 0.0)),
                     "y": float(line_override.get("y", 0.0)),
-                    "z": float(line_override.get("z", 0.0)),
                 }
             override_kind = "line"
         new_offset = {axis: actual[axis] - base[axis] for axis in _OFFSET_AXES}
-
-        # Alternating-side wires cross the frame at a fixed clearance Z
-        # (z_extended for A targets, z_back for B targets); the operator cannot
-        # meaningfully jog the head in Z, so the Z component of the offset is
-        # not applied to the rendered anchor call.  We still report observed
-        # actual.z and delta.z so the geometry solver can ignore them.
-        same_side = trace.get("sameSide")
-        if same_side is False:
-            new_offset["z"] = 0.0
 
         return {
             "available": True,
@@ -924,7 +899,6 @@ class TemplateRecipeBase:
             "label": label,
             "offsetId": offset_id,
             "overrideKind": override_kind,
-            "sameSide": same_side,
             "commanded": commanded,
             "actual": actual,
             "delta": delta,
@@ -990,7 +964,6 @@ class TemplateRecipeBase:
             self._lineOffsetOverrides[normalized_key] = {
                 "x": float(new_offset["x"]),
                 "y": float(new_offset["y"]),
-                "z": float(new_offset["z"]),
             }
         else:
             return self._errorResult(
@@ -1038,7 +1011,7 @@ class TemplateRecipeBase:
 
         Lets the operator land at the bare anchor-to-target position so
         they can jog from there to align the wire by eye.  Strips both
-        the rendered ``offset=(x,y[,z])`` keyword from the anchor call
+        the rendered ``offset=(x,y)`` keyword from the anchor call
         and any leading line-number / wrap-identifier annotations that
         the recipe runner adds, then dispatches the result through the
         normal manual G-Code path.

@@ -32,10 +32,10 @@ def normalize_line_offset_overrides(raw_overrides) -> dict[str, dict]:
         if not isinstance(raw_value, dict):
             continue
         line_key = normalize_line_key(raw_key)
-        entry = dict(raw_value)
-        entry["x"] = float(entry.get("x", 0.0))
-        entry["y"] = float(entry.get("y", 0.0))
-        entry["z"] = float(entry.get("z", 0.0))
+        entry = {
+            "x": float(raw_value.get("x", 0.0)),
+            "y": float(raw_value.get("y", 0.0)),
+        }
         normalized[line_key] = entry
     return normalized
 
@@ -86,12 +86,7 @@ def apply_line_offset_overrides(
         entry = normalized_overrides[line_key]
         delta_x = float(entry.get("x", 0.0))
         delta_y = float(entry.get("y", 0.0))
-        delta_z = float(entry.get("z", 0.0))
-        if (
-            abs(delta_x) < _EPSILON
-            and abs(delta_y) < _EPSILON
-            and abs(delta_z) < _EPSILON
-        ):
+        if abs(delta_x) < _EPSILON and abs(delta_y) < _EPSILON:
             updated.append(line)
             continue
 
@@ -101,7 +96,6 @@ def apply_line_offset_overrides(
                     str(line),
                     delta_x,
                     delta_y,
-                    delta_z,
                     normalize_line_text_fn=normalize_line_text_fn,
                 )
             )
@@ -112,7 +106,6 @@ def apply_line_offset_overrides(
                 str(line),
                 delta_x,
                 delta_y,
-                delta_z,
                 normalize_line_text_fn=normalize_line_text_fn,
             )
         )
@@ -181,7 +174,6 @@ def _apply_anchor_to_target_override(
     line: str,
     delta_x: float,
     delta_y: float,
-    delta_z: float,
     *,
     normalize_line_text_fn,
 ) -> str:
@@ -192,7 +184,6 @@ def _apply_anchor_to_target_override(
 
     current_offset_x = 0.0
     current_offset_y = 0.0
-    current_offset_z = 0.0
     remaining = []
     for token in arguments[2:]:
         if "=" not in token:
@@ -210,42 +201,21 @@ def _apply_anchor_to_target_override(
         if len(values) == 2:
             current_offset_x = float(values[0])
             current_offset_y = float(values[1])
-            current_offset_z = 0.0
-        elif len(values) == 3:
-            current_offset_x = float(values[0])
-            current_offset_y = float(values[1])
-            current_offset_z = float(values[2])
         else:
             remaining.append(token)
             continue
 
     combined_x = current_offset_x + float(delta_x)
     combined_y = current_offset_y + float(delta_y)
-    combined_z = current_offset_z + float(delta_z)
     rebuilt = list(arguments[:2])
-    if (
-        abs(combined_x) >= _EPSILON
-        or abs(combined_y) >= _EPSILON
-        or abs(combined_z) >= _EPSILON
-    ):
-        if abs(combined_z) >= _EPSILON:
-            rebuilt.append(
-                "offset=("
-                + format_number(combined_x)
-                + ","
-                + format_number(combined_y)
-                + ","
-                + format_number(combined_z)
-                + ")"
-            )
-        else:
-            rebuilt.append(
-                "offset=("
-                + format_number(combined_x)
-                + ","
-                + format_number(combined_y)
-                + ")"
-            )
+    if abs(combined_x) >= _EPSILON or abs(combined_y) >= _EPSILON:
+        rebuilt.append(
+            "offset=("
+            + format_number(combined_x)
+            + ","
+            + format_number(combined_y)
+            + ")"
+        )
     rebuilt.extend(remaining)
     rebuilt_call = _ANCHOR_TO_TARGET_NAME + ",".join(rebuilt) + ")"
 
@@ -262,7 +232,6 @@ def _append_offset_fragments(
     line: str,
     delta_x: float,
     delta_y: float,
-    delta_z: float,
     *,
     normalize_line_text_fn,
 ) -> str:
@@ -272,8 +241,6 @@ def _append_offset_fragments(
         fragments.append("G105 PX" + format_number(delta_x))
     if abs(delta_y) >= _EPSILON:
         fragments.append("G105 PY" + format_number(delta_y))
-    if abs(delta_z) >= _EPSILON:
-        fragments.append("G105 PZ" + format_number(delta_z))
     if not fragments:
         return line
     return normalize_line_text_fn(" ".join([body] + fragments + comments))

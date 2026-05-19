@@ -37,7 +37,7 @@ X_PULL_IN = 70.0
 COMB_PULL_FACTOR = 4.0
 PREAMBLE_BOARD_GAP_PULL = 30.0
 COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
-DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0, "z": 0.0},) * 12
+DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0},) * 12
 DEFAULT_V_TEMPLATE_WORKBOOK = None
 DEFAULT_V_TEMPLATE_SHEET = None
 PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN")
@@ -415,7 +415,9 @@ def _normalize_offset_value(value, *, offset_id=None, natural_axis=None):
         natural_axis = (
             OFFSET_NATURAL_AXIS.get(offset_id, "x") if offset_id is not None else "x"
         )
-    return template_gcode_common.normalize_offset_value(value, natural_axis=natural_axis)
+    return template_gcode_common.normalize_offset_value(
+        value, natural_axis=natural_axis
+    )
 
 
 def _g106(mode):
@@ -438,9 +440,7 @@ def _coerce_offset_item(value):
     """Coerce a single offset entry to a 3D dict, accepting scalars or dicts."""
     if isinstance(value, dict):
         return template_gcode_common.normalize_offset_value(value)
-    return template_gcode_common.coerce_number(
-        value, error_type=VTemplateInputError
-    )
+    return template_gcode_common.coerce_number(value, error_type=VTemplateInputError)
 
 
 def _coerce_offsets(value):
@@ -541,7 +541,9 @@ def _resolve_options(
     transfer_pause = False
     add_foot_pauses = False
     include_lead_mode = False
-    pull_ins = dict(pull_in_defaults if pull_in_defaults is not None else DEFAULT_PULL_INS)
+    pull_ins = dict(
+        pull_in_defaults if pull_in_defaults is not None else DEFAULT_PULL_INS
+    )
     transfer_pause, add_foot_pauses, include_lead_mode = _apply_named_input(
         named_inputs,
         offsets,
@@ -782,47 +784,27 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
         return b_to_a_pin("V", b_pin(pin_number))
 
     def anchor_offset(offset_index):
-        """Return the (x, y, z) tuple of an offsets[i] entry, accepting dicts or scalars."""
+        """Return the (x, y) tuple of an offsets[i] entry, accepting dicts or scalars."""
         entry = offsets[offset_index]
         if isinstance(entry, dict):
             return (
                 float(entry.get("x", 0.0)),
                 float(entry.get("y", 0.0)),
-                float(entry.get("z", 0.0)),
             )
-        return (float(entry), 0.0, 0.0)
+        return (float(entry), 0.0)
 
     def anchor_to_target(anchor_pin, target_pin, label=None, offset=None):
         call = f"~anchorToTarget({anchor_pin},{target_pin}"
         if offset is not None:
-            if len(offset) >= 3:
-                offset_x, offset_y, offset_z = offset[0], offset[1], offset[2]
-            else:
-                offset_x, offset_y = offset[0], offset[1]
-                offset_z = 0.0
-            non_zero_xy = (
-                abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9
-            )
-            non_zero_z = abs(float(offset_z)) >= 1e-9
-            if non_zero_xy or non_zero_z:
-                if non_zero_z:
-                    call += (
-                        ",offset=("
-                        + _coord("", offset_x)
-                        + ","
-                        + _coord("", offset_y)
-                        + ","
-                        + _coord("", offset_z)
-                        + ")"
-                    )
-                else:
-                    call += (
-                        ",offset=("
-                        + _coord("", offset_x)
-                        + ","
-                        + _coord("", offset_y)
-                        + ")"
-                    )
+            offset_x, offset_y = offset[0], offset[1]
+            if abs(float(offset_x)) >= 1e-9 or abs(float(offset_y)) >= 1e-9:
+                call += (
+                    ",offset=("
+                    + _coord("", offset_x)
+                    + ","
+                    + _coord("", offset_y)
+                    + ")"
+                )
         call += ")"
         parts = [call]
         if label:
@@ -830,9 +812,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
         return _line(*parts)
 
     def increment(dx, dy):
-        return _line(
-            "~increment(" + _coord("", dx) + "," + _coord("", dy) + ")"
-        )
+        return _line("~increment(" + _coord("", dx) + "," + _coord("", dy) + ")")
 
     lines = [
         anchor_to_target(
@@ -850,9 +830,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
         ),
     ]
     if _near_comb(bh + n):
-        lines.append(
-            increment(y_pull_in * COMB_PULL_FACTOR, 0)
-        )
+        lines.append(increment(y_pull_in * COMB_PULL_FACTOR, 0))
 
     lines.extend(
         [
@@ -866,9 +844,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
         ]
     )
     if _near_comb(tf + 399 - n):
-        lines.append(
-            increment(y_pull_in * COMB_PULL_FACTOR, 0)
-        )
+        lines.append(increment(y_pull_in * COMB_PULL_FACTOR, 0))
 
     lines.extend(
         [
@@ -901,9 +877,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
         ]
     )
     if _near_comb(bf - n):
-        lines.append(
-            increment(-y_pull_in * COMB_PULL_FACTOR, 0)
-        )
+        lines.append(increment(-y_pull_in * COMB_PULL_FACTOR, 0))
 
     lines.append(
         anchor_to_target(
@@ -949,9 +923,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
             ]
         )
         if _near_comb(_wrap_pin_number(th - 399 + n)):
-            lines.append(
-                increment(-y_pull_in * COMB_PULL_FACTOR, 0)
-            )
+            lines.append(increment(-y_pull_in * COMB_PULL_FACTOR, 0))
         lines.extend(
             [
                 anchor_to_target(
@@ -1095,9 +1067,7 @@ def render_v_template_lines(
         ]
         for wrap_number in range(1, WRAP_COUNT):
             lines.extend(
-                _render_wrapping_wrap_lines(
-                    wrap_number, pull_ins, resolved_offsets
-                )
+                _render_wrapping_wrap_lines(wrap_number, pull_ins, resolved_offsets)
             )
         lines.extend(
             _render_wrapping_wrap_lines(
@@ -1402,6 +1372,7 @@ class VTemplateProgrammaticGenerator:
             "y_pull_in": self.pull_ins["Y_PULL_IN"],
             "x_pull_in": self.pull_ins["X_PULL_IN"],
         }
+
         def _scalar_for(idx):
             entry = self.offsets[idx]
             if isinstance(entry, dict):

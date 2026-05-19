@@ -331,7 +331,7 @@ def _project_machine_xy_measurement_payload_inner(
         target_location = Location(
             float(target_location.x) + float(command.target_offset[0]),
             float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z) + float(command.target_offset[2]),
+            float(target_location.z),
         )
 
     pin_radius = float(machine_calibration.pinDiameter) / 2.0
@@ -3117,10 +3117,10 @@ class MachineGeometryCalibration:
         }
 
     # -------------------------------------------------------------------
-    def setLineOffsetOverride(self, layer, line_key, x_value, y_value, z_value=0.0):
+    def setLineOffsetOverride(self, layer, line_key, x_value, y_value):
         self._geometryMutationGuard()
         service = self._templateService(layer)
-        return service.setLineOffsetOverride(line_key, x_value, y_value, z_value)
+        return service.setLineOffsetOverride(line_key, x_value, y_value)
 
     # -------------------------------------------------------------------
     def deleteLineOffsetOverride(self, layer, line_key):
