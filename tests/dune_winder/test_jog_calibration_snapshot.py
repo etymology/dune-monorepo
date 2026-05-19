@@ -81,8 +81,27 @@ class _CalibrationProcess(FakeProcess):
         return False
 
 
-def _trace(line, *, same_side=True, x=0.0, y=0.0, head_z=418.0):
+def _pin(role, x, y, z):
     return {
+        "role": role,
+        "pin": role,
+        "calibrationSpace": {"x": float(x), "y": float(y), "z": float(z)},
+        "wireSpace": {"x": float(x), "y": float(y), "z": float(z)},
+    }
+
+
+def _trace(
+    line,
+    *,
+    same_side=True,
+    x=0.0,
+    y=0.0,
+    head_z=418.0,
+    anchor=None,
+    target=None,
+    wire_target=None,
+):
+    payload = {
         "line": line,
         "sameSide": same_side,
         "resultingTarget": {
@@ -92,6 +111,21 @@ def _trace(line, *, same_side=True, x=0.0, y=0.0, head_z=418.0):
             "headZ": float(head_z),
         },
     }
+    pins = []
+    if anchor is not None:
+        pins.append(_pin("wrapAnchor", *anchor))
+    if target is not None:
+        pins.append(_pin("wrapTarget", *target))
+    if pins:
+        payload["pins"] = pins
+    if wire_target is not None:
+        wx, wy, wz = wire_target
+        payload["resultingWireTarget"] = {
+            "x": float(wx),
+            "y": float(wy),
+            "z": float(wz),
+        }
+    return payload
 
 
 class JogCalibrationSnapshotTests(unittest.TestCase):
@@ -166,6 +200,165 @@ class JogCalibrationSnapshotTests(unittest.TestCase):
             snapshot = service._collectJogCalibrationSnapshot()
 
             self.assertAlmostEqual(snapshot["actual"]["z"], 147.3, places=6)
+
+
+class PinDeltaScalingTests(unittest.TestCase):
+    def test_same_side_xy_scales_by_anchor_target_over_anchor_head(self):
+        # Anchor and target 5 mm apart in Y; wire endpoint sits 85 mm past
+        # the anchor along the same axis. A 1 mm head jog in Y must shrink
+        # to ~0.0588 mm of pin shift.
+        with tempfile.TemporaryDirectory() as root:
+            trace = _trace(
+                "N5 (1,3) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
+                same_side=True,
+                x=572.0,
+                y=250.0,
+                head_z=270.0,
+                anchor=(572.0, 165.0, 270.0),
+                target=(572.0, 170.0, 270.0),
+                wire_target=(572.0, 250.0, 270.0),
+            )
+            process = _CalibrationProcess(
+                "V",
+                root,
+                trace=trace,
+                position=(572.0, 251.0, 270.0),
+                line_number=5,
+            )
+            service = VTemplateRecipe(process)
+
+            snapshot = service._collectJogCalibrationSnapshot()
+
+            self.assertTrue(snapshot["available"])
+            self.assertEqual(snapshot["pinDeltaRatio"]["plane"], "xy")
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], 5.0 / 85.0, places=6)
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], 5.0 / 85.0, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["x"], 0.0, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["y"], 5.0 / 85.0, places=6)
+            self.assertAlmostEqual(snapshot["delta"]["y"], 1.0, places=6)
+
+    def test_alternating_xz_scales_only_in_plane_axis(self):
+        # X-dominant pins => XZ plane. r_x = sqrt(20^2+120^2)/sqrt(0^2+268^2).
+        # Y stays 1:1.
+        with tempfile.TemporaryDirectory() as root:
+            trace = _trace(
+                "N9 (2,4) ~anchorToTarget(B400,A2000) (Wrap 2 alt)",
+                same_side=False,
+                x=120.0,
+                y=200.0,
+                head_z=418.0,
+                anchor=(100.0, 200.0, 150.0),
+                target=(120.0, 200.0, 270.0),
+            )
+            process = _CalibrationProcess(
+                "V",
+                root,
+                trace=trace,
+                position=(121.0, 201.0, 418.0),
+                line_number=9,
+            )
+            service = VTemplateRecipe(process)
+
+            snapshot = service._collectJogCalibrationSnapshot()
+
+            self.assertTrue(snapshot["available"])
+            self.assertEqual(snapshot["pinDeltaRatio"]["plane"], "xz")
+            expected_rx = (
+                ((20.0 ** 2 + 120.0 ** 2) ** 0.5)
+                / ((20.0 ** 2 + 268.0 ** 2) ** 0.5)
+            )
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], expected_rx, places=6)
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], 1.0, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["x"], expected_rx, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["y"], 1.0, places=6)
+
+    def test_alternating_yz_scales_only_in_plane_axis(self):
+        # Y-dominant pins => YZ plane.
+        with tempfile.TemporaryDirectory() as root:
+            trace = _trace(
+                "N9 (2,4) ~anchorToTarget(B400,A2000) (Wrap 2 alt)",
+                same_side=False,
+                x=200.0,
+                y=120.0,
+                head_z=418.0,
+                anchor=(200.0, 100.0, 150.0),
+                target=(200.0, 120.0, 270.0),
+            )
+            process = _CalibrationProcess(
+                "V",
+                root,
+                trace=trace,
+                position=(201.0, 121.0, 418.0),
+                line_number=9,
+            )
+            service = VTemplateRecipe(process)
+
+            snapshot = service._collectJogCalibrationSnapshot()
+
+            self.assertTrue(snapshot["available"])
+            self.assertEqual(snapshot["pinDeltaRatio"]["plane"], "yz")
+            expected_ry = (
+                ((20.0 ** 2 + 120.0 ** 2) ** 0.5)
+                / ((20.0 ** 2 + 268.0 ** 2) ** 0.5)
+            )
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], 1.0, places=6)
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], expected_ry, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["x"], 1.0, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["y"], expected_ry, places=6)
+
+    def test_falls_back_to_1to1_when_head_sits_on_anchor(self):
+        # Degenerate d_AH=0 must not blow up; should report no plane and 1:1.
+        with tempfile.TemporaryDirectory() as root:
+            trace = _trace(
+                "N5 (1,3) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
+                same_side=True,
+                x=572.0,
+                y=165.0,
+                head_z=270.0,
+                anchor=(572.0, 165.0, 270.0),
+                target=(572.0, 170.0, 270.0),
+                wire_target=(572.0, 165.0, 270.0),
+            )
+            process = _CalibrationProcess(
+                "V",
+                root,
+                trace=trace,
+                position=(572.5, 165.5, 270.0),
+                line_number=5,
+            )
+            service = VTemplateRecipe(process)
+
+            snapshot = service._collectJogCalibrationSnapshot()
+
+            self.assertTrue(snapshot["available"])
+            self.assertIsNone(snapshot["pinDeltaRatio"]["plane"])
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], 1.0, places=6)
+            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], 1.0, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["x"], 0.5, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["y"], 0.5, places=6)
+
+    def test_missing_pin_trace_falls_back_to_1to1(self):
+        with tempfile.TemporaryDirectory() as root:
+            trace = _trace(
+                "N5 (1,3) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
+                same_side=True,
+                x=10.0,
+                y=20.0,
+            )
+            process = _CalibrationProcess(
+                "V",
+                root,
+                trace=trace,
+                position=(10.25, 20.5, 150.0),
+                line_number=5,
+            )
+            service = VTemplateRecipe(process)
+
+            snapshot = service._collectJogCalibrationSnapshot()
+
+            self.assertIsNone(snapshot["pinDeltaRatio"]["plane"])
+            self.assertAlmostEqual(snapshot["newOffset"]["x"], 0.25, places=6)
+            self.assertAlmostEqual(snapshot["newOffset"]["y"], 0.5, places=6)
 
 
 if __name__ == "__main__":

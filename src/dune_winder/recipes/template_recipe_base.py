@@ -6,6 +6,7 @@
 
 import datetime
 import json
+import math
 import os
 import re
 
@@ -73,6 +74,103 @@ def _strip_anchor_offset(line_text):
     text = _WRAP_IDENTIFIER_RE.sub("", text, count=1)
     text = _ANCHOR_OFFSET_KEYWORD_RE.sub("", text)
     return " ".join(text.split())
+
+
+_PIN_DELTA_EPSILON = 1.0e-6
+
+
+def _trace_pin_location(trace, role):
+    pins = (trace or {}).get("pins") or []
+    for pin in pins:
+        if str(pin.get("role")) != role:
+            continue
+        location = pin.get("calibrationSpace") or pin.get("wireSpace")
+        if not location:
+            continue
+        return (
+            float(location.get("x", 0.0)),
+            float(location.get("y", 0.0)),
+            float(location.get("z", 0.0)),
+        )
+    return None
+
+
+def _head_delta_to_pin_delta(trace, same_side, head_delta_xy, commanded):
+    """Convert a head-space jog delta into the matching pin-space offset delta.
+
+    The rendered ``offset=(x,y)`` on ``~anchorToTarget`` shifts the *target pin*,
+    so a jog observed at the head has to be scaled by the ratio of the
+    anchor-to-target distance over the anchor-to-head distance in the plane
+    that the wrap actually lives in. See plan: head sweeps a longer lever arm
+    than the pin, so this typically *shrinks* the offset we store.
+    """
+    anchor = _trace_pin_location(trace, "wrapAnchor")
+    target = _trace_pin_location(trace, "wrapTarget")
+    head_delta_x = float(head_delta_xy[0])
+    head_delta_y = float(head_delta_xy[1])
+
+    fallback = {
+        "plane": None,
+        "rx": 1.0,
+        "ry": 1.0,
+        "pinDelta": {"x": head_delta_x, "y": head_delta_y},
+    }
+    if anchor is None or target is None:
+        return fallback
+
+    if bool(same_side):
+        wire_target = (trace or {}).get("resultingWireTarget") or {}
+        head_x = float(wire_target.get("x", commanded["x"]))
+        head_y = float(wire_target.get("y", commanded["y"]))
+        d_at = math.hypot(target[0] - anchor[0], target[1] - anchor[1])
+        d_ah = math.hypot(head_x - anchor[0], head_y - anchor[1])
+        if d_at < _PIN_DELTA_EPSILON or d_ah < _PIN_DELTA_EPSILON:
+            return fallback
+        ratio = d_at / d_ah
+        return {
+            "plane": "xy",
+            "rx": ratio,
+            "ry": ratio,
+            "pinDelta": {
+                "x": head_delta_x * ratio,
+                "y": head_delta_y * ratio,
+            },
+        }
+
+    # Alternating: pick XZ or YZ by which pin-pair axis dominates.
+    dx_pins = abs(target[0] - anchor[0])
+    dy_pins = abs(target[1] - anchor[1])
+    head_z = float(commanded["z"])
+    if dx_pins >= dy_pins:
+        d_at = math.hypot(target[0] - anchor[0], target[2] - anchor[2])
+        d_ah = math.hypot(commanded["x"] - anchor[0], head_z - anchor[2])
+        if d_at < _PIN_DELTA_EPSILON or d_ah < _PIN_DELTA_EPSILON:
+            return fallback
+        ratio = d_at / d_ah
+        return {
+            "plane": "xz",
+            "rx": ratio,
+            "ry": 1.0,
+            "pinDelta": {
+                "x": head_delta_x * ratio,
+                "y": head_delta_y,
+            },
+        }
+
+    d_at = math.hypot(target[1] - anchor[1], target[2] - anchor[2])
+    d_ah = math.hypot(commanded["y"] - anchor[1], head_z - anchor[2])
+    if d_at < _PIN_DELTA_EPSILON or d_ah < _PIN_DELTA_EPSILON:
+        return fallback
+    ratio = d_at / d_ah
+    return {
+        "plane": "yz",
+        "rx": 1.0,
+        "ry": ratio,
+        "pinDelta": {
+            "x": head_delta_x,
+            "y": head_delta_y * ratio,
+        },
+    }
 
 
 class TemplateRecipeBase:
@@ -860,19 +958,25 @@ class TemplateRecipeBase:
             ),
         }
         rendered_offset_x, rendered_offset_y = _parse_rendered_anchor_offset(line_text)
+        # Z is determined by the A/B side of the target pin, not by an
+        # operator-applied offset; the rendered call never carries a Z term.
         rendered_offset = {
             "x": rendered_offset_x,
             "y": rendered_offset_y,
+            "z": 0.0,
         }
         base = {
             "x": commanded["x"] - rendered_offset_x,
             "y": commanded["y"] - rendered_offset_y,
+            "z": commanded["z"],
         }
-        delta = {axis: actual[axis] - commanded[axis] for axis in _OFFSET_AXES}
-        # Lines whose label maps to a canonical corner update the per-corner
-        # offset (applied to that corner across every wrap).  Anything else --
-        # tail lines, lead-in segments, etc -- falls back to a per-line
-        # override keyed by the wrap identifier.
+        # Z delta is reported for the Z-plane solver only; it is not applied
+        # as an offset to the rendered ~anchorToTarget call.
+        delta = {
+            "x": actual["x"] - commanded["x"],
+            "y": actual["y"] - commanded["y"],
+            "z": actual["z"] - commanded["z"],
+        }
         if offset_id is not None:
             current_offset = dict(self._offsets.get(offset_id, _zero_offset_2d()))
             override_kind = "corner"
@@ -888,7 +992,18 @@ class TemplateRecipeBase:
                     "y": float(line_override.get("y", 0.0)),
                 }
             override_kind = "line"
-        new_offset = {axis: actual[axis] - base[axis] for axis in _OFFSET_AXES}
+        same_side = trace.get("sameSide")
+        pin_delta_info = _head_delta_to_pin_delta(
+            trace=trace,
+            same_side=same_side,
+            head_delta_xy=(delta["x"], delta["y"]),
+            commanded=commanded,
+        )
+        pin_delta = pin_delta_info["pinDelta"]
+        new_offset = {
+            "x": float(rendered_offset_x) + float(pin_delta["x"]),
+            "y": float(rendered_offset_y) + float(pin_delta["y"]),
+        }
 
         return {
             "available": True,
@@ -899,12 +1014,18 @@ class TemplateRecipeBase:
             "label": label,
             "offsetId": offset_id,
             "overrideKind": override_kind,
+            "sameSide": same_side,
             "commanded": commanded,
             "actual": actual,
             "delta": delta,
             "currentOffset": current_offset,
             "newOffset": new_offset,
             "renderedOffset": rendered_offset,
+            "pinDeltaRatio": {
+                "plane": pin_delta_info["plane"],
+                "rx": float(pin_delta_info["rx"]),
+                "ry": float(pin_delta_info["ry"]),
+            },
         }
 
     # -------------------------------------------------------------------
