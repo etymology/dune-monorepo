@@ -165,6 +165,7 @@ class AnchorToTargetCommand:
     target_pin: str
     target_offset: tuple[float, float] | None
     hover: bool
+    in_two_moves: bool = False
 
 
 @dataclass(frozen=True)

@@ -329,10 +329,10 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
                 "N0 ( V Layer )",
                 "N1 ~goto(440,0)",
                 "N2 G206 P3",
-                "N3 (1,1) ~anchorToTarget(A2399,B400) (Bottom B corner - head end)",
+                "N3 (1,1) ~anchorToTarget(A2399,B400,inTwoMoves=True) (Bottom B corner - head end)",
                 "N4 (1,2) ~increment(0,50)",
                 "N5 (1,3) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
-                "N6 (1,4) ~anchorToTarget(B1999,A800) (Top A corner - foot end)",
+                "N6 (1,4) ~anchorToTarget(B1999,A800,inTwoMoves=True) (Top A corner - foot end)",
             ],
         )
 
@@ -364,7 +364,7 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
         )
         self.assertEqual(
             bodies[head_a_idx + 3],
-            "~anchorToTarget(A2398,B401) (Bottom B corner - head end)",
+            "~anchorToTarget(A2398,B401,inTwoMoves=True) (Bottom B corner - head end)",
         )
 
     def test_bottom_a_head_end_offset_renders_with_offset_keyword(self):
@@ -415,7 +415,7 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
             named_inputs={"line 12 (Bottom B corner - head end)": 1.5},
         )
         self.assertIn(
-            "N3 (1,1) ~anchorToTarget(A2399,B400,offset=(1.5,0)) (Bottom B corner - head end)",
+            "N3 (1,1) ~anchorToTarget(A2399,B400,offset=(1.5,0),inTwoMoves=True) (Bottom B corner - head end)",
             lines,
         )
 

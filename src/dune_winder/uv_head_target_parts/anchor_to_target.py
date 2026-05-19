@@ -63,6 +63,7 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
     extras = extras[2:]
     target_offset = None
     hover = False
+    in_two_moves = False
     for keyword in extras:
         if "=" not in keyword:
             raise UvHeadTargetError(
@@ -94,8 +95,19 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
             raise UvHeadTargetError(
                 "~anchorToTarget hover must be written as hover=True or hover=False."
             )
+        if keyword_name == "intwomoves":
+            in_two_moves_value = keyword_value.lower()
+            if in_two_moves_value in ("true", "1", "yes", "on"):
+                in_two_moves = True
+                continue
+            if in_two_moves_value in ("false", "0", "no", "off"):
+                in_two_moves = False
+                continue
+            raise UvHeadTargetError(
+                "~anchorToTarget inTwoMoves must be written as inTwoMoves=True or inTwoMoves=False."
+            )
         raise UvHeadTargetError(
-            "~anchorToTarget only supports offset and hover keyword arguments."
+            "~anchorToTarget only supports offset, hover, and inTwoMoves keyword arguments."
         )
     return AnchorToTargetCommand(
         raw_text=raw_text,
@@ -103,6 +115,7 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
         target_pin=target_pin,
         target_offset=target_offset,
         hover=hover,
+        in_two_moves=in_two_moves,
     )
 
 

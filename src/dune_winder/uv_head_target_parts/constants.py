@@ -16,7 +16,10 @@ _ORIENTATION_TOKENS = ("BR", "BL", "LT", "LB", "RT", "RB", "TR", "TL")
 _ANCHOR_TO_TARGET_RE = re.compile(
     r"~anchorToTarget\("
     r"(?P<anchor>[PAB]\d+),(?P<target>[PAB]\d+)"
-    r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}"
+    r"(?:,(?:offset=\([^)]+\)"
+    r"|hover=(?:True|False|1|0|yes|no|on|off)"
+    r"|inTwoMoves=(?:True|False|1|0|yes|no|on|off)"
+    r")){0,3}"
     r"\)",
     re.IGNORECASE,
 )

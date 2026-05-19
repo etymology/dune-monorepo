@@ -605,6 +605,7 @@ class GCodeHandlerBase:
         target_pin,
         target_offset=None,
         hover=False,
+        in_two_moves=False,
     ):
         if self._layerCalibration is None:
             raise GCodeExecutionError(
@@ -708,7 +709,23 @@ class GCodeHandlerBase:
                     float(final_xy.y)
                     + float(alternating_side_hover_y_offset(plan.face)),
                 )
-            self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+            should_split = (
+                bool(in_two_moves)
+                and plan.face is not None
+                and str(plan.face).strip().lower() in ("top", "bottom")
+                and self._y is not None
+            )
+            if should_split:
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(self._y)
+                )
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                )
+            else:
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                )
             resolved_head_position = clearance_position
 
         self._x = float(final_xy.x)
@@ -762,11 +779,12 @@ class GCodeHandlerBase:
         if name == "anchorToTarget":
             if len(arguments) < 2:
                 raise GCodeExecutionError(
-                    "~anchorToTarget requires two pin arguments and optional hover/offset keywords.",
+                    "~anchorToTarget requires two pin arguments and optional hover/offset/inTwoMoves keywords.",
                     [raw_text],
                 )
             target_offset = None
             hover = False
+            in_two_moves = False
             for keyword in arguments[2:]:
                 keyword_text = str(keyword).strip()
                 if "=" not in keyword_text:
@@ -808,8 +826,20 @@ class GCodeHandlerBase:
                         "~anchorToTarget hover must be written as hover=True or hover=False.",
                         [raw_text],
                     )
+                if keyword_name == "intwomoves":
+                    in_two_moves_value = keyword_value.lower()
+                    if in_two_moves_value in ("true", "1", "yes", "on"):
+                        in_two_moves = True
+                        continue
+                    if in_two_moves_value in ("false", "0", "no", "off"):
+                        in_two_moves = False
+                        continue
+                    raise GCodeExecutionError(
+                        "~anchorToTarget inTwoMoves must be written as inTwoMoves=True or inTwoMoves=False.",
+                        [raw_text],
+                    )
                 raise GCodeExecutionError(
-                    "~anchorToTarget only supports offset and hover keyword arguments.",
+                    "~anchorToTarget only supports offset, hover, and inTwoMoves keyword arguments.",
                     [raw_text],
                 )
             self._plan_explicit_wrap_transition(
@@ -817,6 +847,7 @@ class GCodeHandlerBase:
                 self._eval_pin_macro_expr(arguments[1]),
                 target_offset=target_offset,
                 hover=hover,
+                in_two_moves=in_two_moves,
             )
             return
 

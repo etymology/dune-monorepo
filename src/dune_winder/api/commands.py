@@ -1452,14 +1452,17 @@ def build_command_registry(
         match = re.fullmatch(
             r"~anchorToTarget\("
             r"([A-B]\d+),([A-B]\d+)"
-            r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}"
+            r"(?:,(?:offset=\([^)]+\)"
+            r"|hover=(?:True|False|1|0|yes|no|on|off)"
+            r"|inTwoMoves=(?:True|False|1|0|yes|no|on|off)"
+            r")){0,3}"
             r"\)",
             gcode_line,
             flags=re.IGNORECASE,
         )
         if not match:
             raise ValueError(
-                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True])"
+                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,inTwoMoves=True])"
             )
         anchor_pin, target_pin = match.groups()
 

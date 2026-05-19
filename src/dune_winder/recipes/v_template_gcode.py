@@ -793,7 +793,9 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
             )
         return (float(entry), 0.0)
 
-    def anchor_to_target(anchor_pin, target_pin, label=None, offset=None):
+    def anchor_to_target(
+        anchor_pin, target_pin, label=None, offset=None, in_two_moves=False
+    ):
         call = f"~anchorToTarget({anchor_pin},{target_pin}"
         if offset is not None:
             offset_x, offset_y = offset[0], offset[1]
@@ -805,6 +807,8 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
                     + _coord("", offset_y)
                     + ")"
                 )
+        if in_two_moves:
+            call += ",inTwoMoves=True"
         call += ")"
         parts = [call]
         if label:
@@ -820,6 +824,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
             b_pin(bh + n),
             "Bottom B corner - head end",
             offset=anchor_offset(11),
+            in_two_moves=True,
         ),
         increment(0, y_pull_in),
         anchor_to_target(
@@ -839,6 +844,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
                 a_from_b(tf + 399 - n),
                 "Top A corner - foot end",
                 offset=anchor_offset(1),
+                in_two_moves=True,
             ),
             increment(0, -y_pull_in),
         ]
@@ -872,6 +878,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
                 a_from_b(bf - n),
                 "Bottom A corner - foot end",
                 offset=anchor_offset(5),
+                in_two_moves=True,
             ),
             increment(0, y_pull_in),
         ]
@@ -918,6 +925,7 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
                     b_pin(th - 399 + n),
                     "Top B corner - head end",
                     offset=anchor_offset(7),
+                    in_two_moves=True,
                 ),
                 increment(0, -y_pull_in),
             ]

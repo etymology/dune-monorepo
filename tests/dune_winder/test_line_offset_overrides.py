@@ -101,6 +101,30 @@ class AnchorToTargetCommandParseTests(unittest.TestCase):
                 "~anchorToTarget(B400,B1999,offset=(1,2,3,4))"
             )
 
+    def test_parse_in_two_moves_default_false(self):
+        command = parse_anchor_to_target_command("~anchorToTarget(B400,B1999)")
+        self.assertFalse(command.in_two_moves)
+
+    def test_parse_in_two_moves_true(self):
+        command = parse_anchor_to_target_command(
+            "~anchorToTarget(B400,B1999,inTwoMoves=True)"
+        )
+        self.assertTrue(command.in_two_moves)
+
+    def test_parse_in_two_moves_with_offset_and_hover(self):
+        command = parse_anchor_to_target_command(
+            "~anchorToTarget(B400,B1999,offset=(1.5,-2.25),hover=True,inTwoMoves=True)"
+        )
+        self.assertEqual(command.target_offset, (1.5, -2.25))
+        self.assertTrue(command.hover)
+        self.assertTrue(command.in_two_moves)
+
+    def test_parse_in_two_moves_invalid_value_raises(self):
+        with self.assertRaises(UvHeadTargetError):
+            parse_anchor_to_target_command(
+                "~anchorToTarget(B400,B1999,inTwoMoves=bogus)"
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
