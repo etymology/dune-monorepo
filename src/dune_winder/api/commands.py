@@ -856,6 +856,10 @@ def build_command_registry(
         _validateArgs(args)
         return process.vTemplateRecipe.applyJogCalibration()
 
+    def v_template_reset_jog_calibration(args):
+        _validateArgs(args)
+        return process.vTemplateRecipe.resetJogCalibration()
+
     def v_template_run_bare_jog_calibration_line(args):
         _validateArgs(args)
         return process.vTemplateRecipe.runBareJogCalibrationLine()
@@ -863,6 +867,12 @@ def build_command_registry(
     registry.register(
         "process.v_template.apply_jog_calibration",
         v_template_apply_jog_calibration,
+        True,
+    )
+
+    registry.register(
+        "process.v_template.reset_jog_calibration",
+        v_template_reset_jog_calibration,
         True,
     )
 

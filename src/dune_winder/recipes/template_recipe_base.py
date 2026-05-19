@@ -1032,14 +1032,14 @@ class TemplateRecipeBase:
     def previewJogCalibration(self):
         """Return the current jog-calibration snapshot.
 
-        Always reports ok=true: an inner `available` field flags whether
-        the snapshot is calibratable (V layer loaded, labeled line in the
-        trace, etc).  When unavailable, the `reason` field tells the
-        operator what's missing.  Keeping a uniformly-successful envelope
-        lets the frontend poll this continuously without the periodic
-        callback infrastructure swallowing the response.
+        The snapshot itself carries the `available` flag and (when
+        unavailable) a `reason` string, so this command never raises
+        for the "no calibratable line yet" condition. The registry's
+        own `{ok, data}` envelope is the only wrap — do NOT add a
+        second one or the snapshot fields hide one level too deep
+        from the frontend.
         """
-        return self._okResult(self._collectJogCalibrationSnapshot())
+        return self._collectJogCalibrationSnapshot()
 
     # -------------------------------------------------------------------
     def applyJogCalibration(self):
@@ -1058,13 +1058,13 @@ class TemplateRecipeBase:
             else False
         )
         if is_gcode_active:
-            return self._errorResult(
+            raise ValueError(
                 "Stop G-code execution before applying jog calibration."
             )
 
         snapshot = self._collectJogCalibrationSnapshot()
         if not snapshot.get("available"):
-            return self._errorResult(
+            raise ValueError(
                 snapshot.get("reason", "No calibratable line is currently in view.")
             )
 
@@ -1087,7 +1087,7 @@ class TemplateRecipeBase:
                 "y": float(new_offset["y"]),
             }
         else:
-            return self._errorResult(
+            raise ValueError(
                 "Cannot apply: anchor line has neither a corner offset id nor a"
                 " (wrap,line) key."
             )
@@ -1124,53 +1124,126 @@ class TemplateRecipeBase:
         result["regenerated"] = regen_ok
         if not regen_ok:
             result["regenerationError"] = regen_result.get("error")
-        return self._okResult(result)
+        return result
+
+    # -------------------------------------------------------------------
+    def resetJogCalibration(self):
+        """Zero the offset patched by the last calibratable line.
+
+        Mirrors `applyJogCalibration` but writes a zero offset instead of
+        the actual-minus-base delta. Corner-labelled lines reset the
+        per-corner offset that drives every wrap of that corner; any
+        other ~anchorToTarget line deletes its per-line override.
+        Regenerates the recipe afterwards.
+        """
+        process = self._process
+        is_gcode_active = (
+            bool(process.isGCodeExecutionActive())
+            if hasattr(process, "isGCodeExecutionActive")
+            else False
+        )
+        if is_gcode_active:
+            raise ValueError(
+                "Stop G-code execution before resetting jog calibration."
+            )
+
+        snapshot = self._collectJogCalibrationSnapshot()
+        if not snapshot.get("available"):
+            raise ValueError(
+                snapshot.get("reason", "No calibratable line is currently in view.")
+            )
+
+        blocked = self._mutationGuard()
+        if blocked is not None:
+            return blocked
+
+        offset_id = snapshot.get("offsetId")
+        line_key = snapshot.get("lineKey")
+        override_kind = snapshot.get("overrideKind", "corner")
+        zero_offset = _zero_offset_2d()
+
+        if override_kind == "corner" and offset_id is not None:
+            self._offsets[offset_id] = dict(zero_offset)
+        elif line_key is not None:
+            normalized_key = normalize_line_key(line_key)
+            self._lineOffsetOverrides.pop(normalized_key, None)
+        else:
+            raise ValueError(
+                "Cannot reset: anchor line has neither a corner offset id nor a"
+                " (wrap,line) key."
+            )
+        self._dirty = True
+        self._persistState()
+
+        regen_result = self.generateRecipeFile(scriptVariant="wrapping")
+        regen_ok = bool(regen_result.get("ok"))
+
+        result = dict(snapshot)
+        result["newOffset"] = dict(zero_offset)
+        result["regenerated"] = regen_ok
+        if not regen_ok:
+            result["regenerationError"] = regen_result.get("error")
+        return result
 
     # -------------------------------------------------------------------
     def runBareJogCalibrationLine(self):
         """Re-execute the last labeled line with all offsets stripped.
 
         Lets the operator land at the bare anchor-to-target position so
-        they can jog from there to align the wire by eye.  Strips both
-        the rendered ``offset=(x,y)`` keyword from the anchor call
-        and any leading line-number / wrap-identifier annotations that
-        the recipe runner adds, then dispatches the result through the
-        normal manual G-Code path.
+        they can jog from there to align the wire by eye.  Strips the
+        rendered ``offset=(x,y)`` keyword from the anchor call and any
+        leading line-number / wrap-identifier annotations the recipe
+        runner adds, then runs the stripped line through the G-Code
+        handler directly (the playback service's manual path is regex-
+        restricted to bare X/Y/Z moves and would reject ``~anchorToTarget``).
         """
+        from dune_winder.core.control_events import ManualModeEvent
+
         snapshot = self._collectJogCalibrationSnapshot()
         if not snapshot.get("available"):
-            return self._errorResult(
+            raise ValueError(
                 snapshot.get("reason", "No calibratable line is currently in view.")
             )
 
         bare_line = _strip_anchor_offset(str(snapshot["lineText"]))
         if not bare_line.strip():
-            return self._errorResult(
+            raise ValueError(
                 "Could not derive a bare g-code line from the last trace."
             )
 
         process = self._process
-        execute_fn = getattr(process, "executeG_CodeLine", None)
-        if execute_fn is None:
-            return self._errorResult(
-                "Manual G-Code execution is not available on this process."
+        csm = getattr(process, "controlStateMachine", None)
+        if csm is not None and not csm.isReadyForMovement():
+            blocker = getattr(process, "_safety", None)
+            message = (
+                blocker.manual_movement_blocker_message()
+                if blocker is not None
+                else "Machine is not ready for movement."
             )
+            raise ValueError(message)
+
+        handler = getattr(process, "gCodeHandler", None)
+        if handler is None or not hasattr(handler, "executeG_CodeLine"):
+            raise ValueError("G-Code handler is not available on this process.")
 
         try:
-            error = execute_fn(bare_line)
+            error_data = handler.executeG_CodeLine(
+                bare_line, skip_before_execute_callback=True
+            )
         except Exception as exception:
-            return self._errorResult(
-                "Failed to execute bare line: " + str(exception)
+            raise ValueError("Failed to execute bare line: " + str(exception))
+
+        if error_data:
+            raise ValueError(
+                "Failed to execute bare line: " + str(error_data.get("message"))
             )
 
-        if error:
-            return self._errorResult("Failed to execute bare line: " + str(error))
+        if csm is not None:
+            csm.dispatch(ManualModeEvent(executeGCode=True))
 
-        return self._okResult(
-            {
-                "lineText": snapshot["lineText"],
-                "bareLine": bare_line,
-                "label": snapshot.get("label"),
-                "offsetId": snapshot.get("offsetId"),
-            }
-        )
+        return {
+            "lineText": snapshot["lineText"],
+            "bareLine": bare_line,
+            "label": snapshot.get("label"),
+            "offsetId": snapshot.get("offsetId"),
+        }

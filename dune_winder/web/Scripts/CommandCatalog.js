@@ -86,6 +86,7 @@
       vTemplateGenerateRecipeFile: "process.v_template.generate_recipe_file",
       vTemplatePreviewJogCalibration: "process.v_template.preview_jog_calibration",
       vTemplateApplyJogCalibration: "process.v_template.apply_jog_calibration",
+      vTemplateResetJogCalibration: "process.v_template.reset_jog_calibration",
       vTemplateRunBareJogCalibrationLine: "process.v_template.run_bare_jog_calibration_line",
       uTemplateGetState: "process.u_template.get_state",
       uTemplateSetOffset: "process.u_template.set_offset",

@@ -33,6 +33,7 @@ function JogCalibration(modules) {
     $("#jogCalApplyButton").prop("disabled", true);
     $("#jogCalCancelButton").prop("disabled", true);
     $("#jogCalRunBareButton").prop("disabled", true);
+    $("#jogCalResetButton").prop("disabled", true);
   };
 
   var resetPreviewState = function () {
@@ -99,6 +100,7 @@ function JogCalibration(modules) {
     $("#jogCalApplyButton").prop("disabled", false);
     $("#jogCalCancelButton").prop("disabled", false);
     $("#jogCalRunBareButton").prop("disabled", false);
+    $("#jogCalResetButton").prop("disabled", false);
   };
 
   var previewSignature = function (data) {
@@ -266,6 +268,46 @@ function JogCalibration(modules) {
     );
   };
 
+  var onResetClick = function () {
+    if (!pendingPreview) {
+      setStatus("Nothing to reset.", "error");
+      return;
+    }
+    setStatus("Resetting offset and regenerating recipe...");
+    $("#jogCalApplyButton").prop("disabled", true);
+    $("#jogCalCancelButton").prop("disabled", true);
+    $("#jogCalRunBareButton").prop("disabled", true);
+    $("#jogCalResetButton").prop("disabled", true);
+    uiServices.call(
+      commands.process.vTemplateResetJogCalibration,
+      {},
+      function (data) {
+        if (data) {
+          renderPreview(data);
+        }
+        var summary =
+          "Reset. Offset for " +
+          (data && data.offsetId ? data.offsetId : (data && data.lineKey) || "line") +
+          " zeroed.";
+        if (data && data.regenerated === false) {
+          summary += " (Recipe regeneration failed: " + (data.regenerationError || "") + ")";
+          setStatus(summary, "error");
+        } else {
+          summary += " Recipe regenerated.";
+          setStatus(summary, "success");
+        }
+        clearPendingState();
+      },
+      function (response) {
+        setStatus(extractError(response), "error");
+        $("#jogCalApplyButton").prop("disabled", false);
+        $("#jogCalCancelButton").prop("disabled", false);
+        $("#jogCalRunBareButton").prop("disabled", false);
+        $("#jogCalResetButton").prop("disabled", false);
+      },
+    );
+  };
+
   var onCancelClick = function () {
     resetPreviewState();
     setStatus("Cancelled.");
@@ -275,6 +317,7 @@ function JogCalibration(modules) {
     resetPreviewState();
     $("#jogCalUseCurrentButton").on("click", onUseCurrentClick);
     $("#jogCalRunBareButton").on("click", onRunBareClick);
+    $("#jogCalResetButton").on("click", onResetClick);
     $("#jogCalApplyButton").on("click", onApplyClick);
     $("#jogCalCancelButton").on("click", onCancelClick);
     setStatus("Idle.");
