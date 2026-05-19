@@ -5,6 +5,15 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
+class TranspilerError(Exception):
+    """Raised when the transpiler encounters Python it cannot lower.
+
+    Silent fallbacks (e.g. emitting a 0.0 constant for an unrecognized
+    expression) produce ladder logic that compiles but behaves wrong.
+    Raise instead so the build fails loudly with a source location.
+    """
+
+
 class PLCType(Enum):
     BOOL = auto()
     REAL = auto()

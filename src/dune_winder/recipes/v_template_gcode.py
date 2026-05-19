@@ -21,6 +21,12 @@ from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes.line_offset_overrides import apply_line_offset_overrides
 from dune_winder.recipes import template_gcode_common
+from dune_winder.recipes.template_gcode_helpers import (
+    _apply_strip_g113_params,
+    _coord,
+    _extract_primary_site,
+    _offset_fragment,
+)
 from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.recipes.template_gcode_transfers import (
     append_a_to_b_transfer,
@@ -231,7 +237,6 @@ V_WRAP_FINAL_TAIL_SCRIPT_XZ = compile_template_script(
     )
 )
 
-_G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
 SCRIPT_VARIANT_DEFAULT = "default"
 SCRIPT_VARIANT_XZ = "xz"
 SCRIPT_VARIANT_WRAPPING = "wrapping"
@@ -250,12 +255,6 @@ V_NAMED_PINS_FOOT_BOTTOM_END = 1200
 V_NAMED_PINS_BOTTOM_FOOT_END = 1199
 V_NAMED_PINS_TOP_HEAD_END = 2399
 V_NAMED_PINS_HEAD_BOTTOM_END = 399
-
-
-def _apply_strip_g113_params(lines):
-    return [
-        re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
-    ]
 
 
 def _insert_spool_change_pause(lines, wrap_start_index, wrap_number):
@@ -390,14 +389,6 @@ def _line(*parts):
         normalize_pin_tokens_fn=_normalize_pin_tokens,
         normalize_line_text_fn=_normalize_generated_line_text,
     )
-
-
-def _coord(axis, value):
-    return template_gcode_common.coord(axis, value)
-
-
-def _offset_fragment(axis, value):
-    return template_gcode_common.offset_fragment(axis, value, coord_fn=_coord)
 
 
 def _offset3d_fragment(value):
@@ -622,52 +613,6 @@ def _number_lines(lines):
 
 def _token_line(*parts):
     return tuple(_normalize_pin_tokens(str(part)) for part in parts)
-
-
-def _normalize_pin_token(token):
-    normalized = str(token).strip().upper()
-    if normalized.startswith("P"):
-        normalized = normalized[1:]
-    return normalized
-
-
-def _extract_primary_site(tokens):
-    try:
-        g109_index = tokens.index("G109")
-        g103_index = tokens.index("G103")
-    except ValueError:
-        return None
-    if g109_index + 2 >= len(tokens) or g103_index + 2 >= len(tokens):
-        return None
-    anchor_pin = _normalize_pin_token(tokens[g109_index + 1])
-    orientation_token = str(tokens[g109_index + 2]).strip().upper()
-    pin_a = _normalize_pin_token(tokens[g103_index + 1])
-    pin_b = _normalize_pin_token(tokens[g103_index + 2])
-    if not anchor_pin or not pin_a or not pin_b:
-        return None
-    if (
-        anchor_pin[:1] not in ("A", "B")
-        or pin_a[:1] not in ("A", "B")
-        or pin_b[:1] not in ("A", "B")
-    ):
-        return None
-    return (anchor_pin, orientation_token, pin_a, pin_b)
-
-
-def _extract_g103_segment(tokens):
-    try:
-        command_index = tokens.index("G103")
-    except ValueError:
-        return None
-    if command_index + 2 >= len(tokens):
-        return None
-    pin_a = _normalize_pin_token(tokens[command_index + 1])
-    pin_b = _normalize_pin_token(tokens[command_index + 2])
-    if not pin_a or not pin_b:
-        return None
-    if pin_a[:1] not in ("A", "B") or pin_b[:1] not in ("A", "B"):
-        return None
-    return (pin_a, pin_b)
 
 
 def iter_v_wrap_primary_sites(

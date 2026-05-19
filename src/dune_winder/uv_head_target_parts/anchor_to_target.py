@@ -185,42 +185,6 @@ def compute_uv_anchor_to_target_view(
     return _cached_compute_uv_anchor_to_target_view(
         command_text, layer, mc_path, lc_path, roller_arm_y_offsets
     )
-    command = parse_anchor_to_target_command(command_text)
-    machine_calibration = _load_machine_calibration(machine_calibration_path)
-    layer_calibration = _load_layer_calibration(layer, layer_calibration_path)
-    target_location = _wire_space_pin(layer_calibration, command.target_pin)
-    if command.target_offset is not None:
-        target_location = Location(
-            float(target_location.x) + float(command.target_offset[0]),
-            float(target_location.y) + float(command.target_offset[1]),
-            float(target_location.z),
-        )
-    raw_result = compute_uv_tangent_view(
-        UvTangentViewRequest(
-            layer=layer,
-            pin_a=command.anchor_pin,
-            pin_b=command.target_pin,
-        ),
-        machine_calibration_path=machine_calibration_path,
-        layer_calibration_path=layer_calibration_path,
-        pin_b_point_override=_location_to_point3(target_location),
-        roller_arm_y_offsets=roller_arm_y_offsets,
-    )
-    handler = _initial_handler(machine_calibration, layer_calibration)
-    _execute_line(handler, command.raw_text)
-    interpreter_head_point = Point2D(float(handler._x), float(handler._y))
-    interpreter_wire_location = handler._headCompensation.getActualLocation(
-        Location(float(handler._x), float(handler._y), float(handler._z))
-    )
-    interpreter_wire_point = Point2D(
-        float(interpreter_wire_location.x), float(interpreter_wire_location.y)
-    )
-    return AnchorToTargetViewResult(
-        command=command,
-        raw_result=raw_result,
-        interpreter_head_point=interpreter_head_point,
-        interpreter_wire_point=interpreter_wire_point,
-    )
 
 
 def _translated_point2(point: Point2D, delta_x: float, delta_y: float) -> Point2D:
