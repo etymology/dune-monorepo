@@ -170,17 +170,19 @@ def _extract_anchor_to_target_call(line: str) -> tuple[str, str, str]:
     return text[:start].rstrip(), text[start : end + 1], text[end + 1 :].strip()
 
 
-def _apply_anchor_to_target_override(
-    line: str,
-    delta_x: float,
-    delta_y: float,
-    *,
-    normalize_line_text_fn,
-) -> str:
+def _decompose_anchor_to_target(line: str):
+    """Split an ``~anchorToTarget`` line into its addressable parts.
+
+    Returns ``(prefix, suffix, pins, current_offset, remaining)`` where ``pins``
+    is the two leading pin arguments, ``current_offset`` is the ``(x, y)`` carried
+    by an existing ``offset=`` term (``(0.0, 0.0)`` when absent), and ``remaining``
+    is every other keyword argument (``inTwoMoves``, ``hover``, ...) in order.
+    Returns ``None`` when the call has fewer than two pin arguments.
+    """
     prefix, call, suffix = _extract_anchor_to_target_call(line)
     arguments = _split_arguments(call[len(_ANCHOR_TO_TARGET_NAME) : -1])
     if len(arguments) < 2:
-        return line
+        return None
 
     current_offset_x = 0.0
     current_offset_y = 0.0
@@ -203,18 +205,17 @@ def _apply_anchor_to_target_override(
             current_offset_y = float(values[1])
         else:
             remaining.append(token)
-            continue
 
-    combined_x = current_offset_x + float(delta_x)
-    combined_y = current_offset_y + float(delta_y)
-    rebuilt = list(arguments[:2])
-    if abs(combined_x) >= _EPSILON or abs(combined_y) >= _EPSILON:
+    return prefix, suffix, list(arguments[:2]), (current_offset_x, current_offset_y), remaining
+
+
+def _rebuild_anchor_to_target(
+    prefix, suffix, pins, offset_x, offset_y, remaining, *, normalize_line_text_fn
+) -> str:
+    rebuilt = list(pins)
+    if abs(float(offset_x)) >= _EPSILON or abs(float(offset_y)) >= _EPSILON:
         rebuilt.append(
-            "offset=("
-            + format_number(combined_x)
-            + ","
-            + format_number(combined_y)
-            + ")"
+            "offset=(" + format_number(offset_x) + "," + format_number(offset_y) + ")"
         )
     rebuilt.extend(remaining)
     rebuilt_call = _ANCHOR_TO_TARGET_NAME + ",".join(rebuilt) + ")"
@@ -226,6 +227,53 @@ def _apply_anchor_to_target_override(
     if suffix:
         parts.append(suffix)
     return normalize_line_text_fn(" ".join(parts))
+
+
+def set_anchor_to_target_offset(
+    line: str,
+    x: float,
+    y: float,
+    *,
+    normalize_line_text_fn,
+) -> str:
+    """Return ``line`` with its ``~anchorToTarget`` offset set to ``(x, y)``.
+
+    Replaces any existing ``offset=`` term (or inserts one) right after the two
+    pin arguments, leaving the surrounding text and every other keyword argument
+    (``inTwoMoves``, ``hover``, ...) untouched.  An offset of ``(0, 0)`` is
+    dropped entirely rather than rendered as ``offset=(0,0)``.  Unlike
+    :func:`apply_line_offset_overrides`, this sets the offset absolutely rather
+    than adding a delta to whatever is already on the line.
+    """
+    decomposed = _decompose_anchor_to_target(line)
+    if decomposed is None:
+        return line
+    prefix, suffix, pins, _current, remaining = decomposed
+    return _rebuild_anchor_to_target(
+        prefix, suffix, pins, x, y, remaining, normalize_line_text_fn=normalize_line_text_fn
+    )
+
+
+def _apply_anchor_to_target_override(
+    line: str,
+    delta_x: float,
+    delta_y: float,
+    *,
+    normalize_line_text_fn,
+) -> str:
+    decomposed = _decompose_anchor_to_target(line)
+    if decomposed is None:
+        return line
+    prefix, suffix, pins, current, remaining = decomposed
+    return _rebuild_anchor_to_target(
+        prefix,
+        suffix,
+        pins,
+        current[0] + float(delta_x),
+        current[1] + float(delta_y),
+        remaining,
+        normalize_line_text_fn=normalize_line_text_fn,
+    )
 
 
 def _append_offset_fragments(
@@ -253,4 +301,5 @@ __all__ = [
     "normalize_line_key",
     "normalize_line_offset_overrides",
     "parse_line_key",
+    "set_anchor_to_target_offset",
 ]

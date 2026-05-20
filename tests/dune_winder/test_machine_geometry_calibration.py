@@ -1348,6 +1348,190 @@ def test_apply_machine_xy_rejects_inconsistent_draft(monkeypatch, tmp_path):
         service.applyMachineXY()
 
 
+def _install_command_target_fakes(
+    monkeypatch,
+    service,
+    *,
+    live_offsets,
+    site_label="Top B corner - foot end",
+    offset_id="top_b_foot_end",
+    natural_axis="x",
+):
+    """Stub projection + template so head command == cameraOffset + lineOffset.
+
+    The fake projection reads the offset baked into the (synthetic) g-code line
+    by ``_commandTargetHead`` and adds the candidate camera-wire offset, so the
+    commanded head target is exactly ``camera_offset + corner_offset`` on each
+    axis -- letting a test dial the live/drafted camera and corner offsets to
+    engineer an exact match or a deliberate move.
+    """
+    import re
+
+    offset_pattern = re.compile(r"offset=\((-?[0-9.]+),(-?[0-9.]+)\)")
+
+    def project_payload(
+        measurement,
+        *,
+        layer_path,
+        roller_y_cals,
+        cameraWireOffset=(0.0, 0.0),
+        _layer_calibration=None,
+        _machine_calibration=None,
+        **kwargs,
+    ):
+        match = offset_pattern.search(str(measurement["gcodeLine"]))
+        offset_x = float(match.group(1)) if match else 0.0
+        offset_y = float(match.group(2)) if match else 0.0
+        return {
+            "projectedHeadX": float(cameraWireOffset[0]) + offset_x,
+            "projectedHeadY": float(cameraWireOffset[1]) + offset_y,
+        }
+
+    monkeypatch.setattr(
+        machine_geometry_module,
+        "_project_machine_xy_measurement_payload",
+        project_payload,
+    )
+    monkeypatch.setattr(
+        service, "_candidateLayerCalibrationPath", lambda layer: "layer.json"
+    )
+    monkeypatch.setattr(
+        service, "_candidateMachineCalibrationObject", lambda roller_y_cals: None
+    )
+    fake_template = SimpleNamespace(
+        LABEL_TO_OFFSET_ID={site_label: offset_id},
+        OFFSET_NATURAL_AXIS={offset_id: natural_axis},
+        getState=lambda: {"offsets": dict(live_offsets)},
+    )
+    monkeypatch.setattr(service, "_templateService", lambda layer: fake_template)
+    return fake_template
+
+
+def _command_target_measurement():
+    return {
+        "id": "m1",
+        "layer": "U",
+        "kind": "alternating_side",
+        "lineKey": "(1,1)",
+        "siteLabel": "Top B corner - foot end",
+        "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+        "effectiveCameraX": 100.0,
+        "rawCameraY": 200.0,
+        "actualWireX": 110.0,
+        "actualWireY": 195.0,
+    }
+
+
+def test_command_target_check_passes_when_recalibration_preserves_target(
+    monkeypatch, tmp_path
+):
+    # Live calibration: camera (10, -5), corner X = 3 -> head X = 13.
+    # Drafted calibration: camera (11, -5), corner X = 2 -> head X = 13.
+    # The +1 camera shift is cancelled by the -1 corner shift, so the commanded
+    # head target is unchanged and the check passes.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    state = service._loadState()
+    state["measurements"] = [_command_target_measurement()]
+
+    _install_command_target_fakes(
+        monkeypatch, service, live_offsets={"top_b_foot_end": {"x": 3.0, "y": 0.0}}
+    )
+
+    machine_draft = {"cameraWireOffsetX": 11.0, "cameraWireOffsetY": -5.0}
+    overrides = {
+        "(1,1)": {
+            "x": 2.0,
+            "y": 0.0,
+            "siteLabel": "Top B corner - foot end",
+            "measurementIds": ["m1"],
+        }
+    }
+
+    result = service._checkCommandTargetInvariance("U", machine_draft, overrides)
+
+    assert result["ok"] is True
+    assert result["checkedCount"] == 1
+    assert result["discrepancyCount"] == 0
+    assert result["maxDiscrepancyX"] < 0.01
+    assert result["maxDiscrepancyY"] < 0.01
+
+
+def test_command_target_check_fails_when_target_moves(monkeypatch, tmp_path):
+    # Same live calibration (head X = 13) but the drafted corner over-corrects to
+    # 5 (head X = 16): the camera/corner shifts no longer cancel, so the commanded
+    # head target moves 3 mm and the check fails.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    state = service._loadState()
+    state["measurements"] = [_command_target_measurement()]
+
+    _install_command_target_fakes(
+        monkeypatch, service, live_offsets={"top_b_foot_end": {"x": 3.0, "y": 0.0}}
+    )
+
+    machine_draft = {"cameraWireOffsetX": 11.0, "cameraWireOffsetY": -5.0}
+    overrides = {
+        "(1,1)": {
+            "x": 5.0,
+            "y": 0.0,
+            "siteLabel": "Top B corner - foot end",
+            "measurementIds": ["m1"],
+        }
+    }
+
+    result = service._checkCommandTargetInvariance("U", machine_draft, overrides)
+
+    assert result["ok"] is False
+    assert result["checkedCount"] == 1
+    assert result["discrepancyCount"] == 1
+    assert result["maxDiscrepancyX"] == pytest.approx(3.0, abs=1e-6)
+    assert result["maxDiscrepancyY"] < 0.01
+    assert result["discrepancies"][0]["lineKey"] == "(1,1)"
+
+
+def test_apply_machine_xy_rejects_moved_command_target(monkeypatch, tmp_path):
+    """Apply must hard-fail when the draft would move a commanded head target,
+    even if the line-offset sanity check is satisfied."""
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    state = service._loadState()
+    state["measurements"] = [_command_target_measurement()]
+    state["machineDraft"] = {
+        "layer": "U",
+        "cameraWireOffsetX": 11.0,
+        "cameraWireOffsetY": -5.0,
+    }
+    draft = service._layerDraft("U", create=True)
+    draft["lineOffsetOverrides"] = {
+        "(1,1)": {
+            "x": 5.0,
+            "y": 0.0,
+            "siteLabel": "Top B corner - foot end",
+            "measurementIds": ["m1"],
+        }
+    }
+
+    # The line-offset sanity check is a separate gate; pass it so the test
+    # isolates the command-target gate.
+    monkeypatch.setattr(
+        service,
+        "_sanityCheckLineOffsets",
+        lambda *args, **kwargs: {
+            "ok": True,
+            "checkedCount": 1,
+            "maxDiscrepancyX": 0.0,
+            "maxDiscrepancyY": 0.0,
+        },
+    )
+    _install_command_target_fakes(
+        monkeypatch, service, live_offsets={"top_b_foot_end": {"x": 3.0, "y": 0.0}}
+    )
+
+    with pytest.raises(ValueError, match="Command target invariance check failed"):
+        service.applyMachineXY()
+
+
 def test_corner_offset_items_collapses_overrides_to_corners():
     """The solver fans one per-corner offset across several measured lines;
     the page helper must collapse them back to one row per corner, align

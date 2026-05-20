@@ -350,6 +350,27 @@ function MachineGeometryCalibrate(modules) {
           } else {
             showMessage("Solved machine XY draft.")
           }
+          var commandTarget = data && data.commandTargetCheck
+          if (commandTarget && commandTarget.checkedCount > 0) {
+            if (commandTarget.ok) {
+              appendActivity("info",
+                "Command target check: PASSED"
+                + " (" + commandTarget.checkedCount + " line(s), max move "
+                + formatCompactNumber(commandTarget.maxDiscrepancyX, 3)
+                + " / " + formatCompactNumber(commandTarget.maxDiscrepancyY, 3) + "mm)."
+              )
+            } else {
+              showError(
+                "Command target check FAILED: "
+                + commandTarget.discrepancyCount + " line(s) move more than "
+                + formatCompactNumber(commandTarget.toleranceMm || 0.1, 1)
+                + "mm when applying (max "
+                + formatCompactNumber(commandTarget.maxDiscrepancyX, 3)
+                + " / " + formatCompactNumber(commandTarget.maxDiscrepancyY, 3)
+                + "mm). Apply is blocked; re-run the solve."
+              )
+            }
+          }
         }
         loadState(true)
       },
