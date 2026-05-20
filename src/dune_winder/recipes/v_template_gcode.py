@@ -772,15 +772,20 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
             in_two_moves=True,
         ),
         increment(0, y_pull_in),
-        anchor_to_target(
-            b_pin(bh + n),
-            b_pin(tf + 399 - n),
-            "Top B corner - foot end",
-            offset=anchor_offset(0),
-        ),
     ]
     if _near_comb(bh + n):
         lines.append(increment(y_pull_in * COMB_PULL_FACTOR, 0))
+
+    lines.extend(
+        [
+            anchor_to_target(
+                b_pin(bh + n),
+                b_pin(tf + 399 - n),
+                "Top B corner - foot end",
+                offset=anchor_offset(0),
+            ),
+        ]
+    )
 
     lines.extend(
         [
