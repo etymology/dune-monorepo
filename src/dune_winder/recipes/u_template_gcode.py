@@ -19,6 +19,7 @@ from dune_winder.recipes.recipe_template_language import (
 from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes.line_offset_overrides import apply_line_offset_overrides
+from dune_winder.recipes.offset_axis_policy import enforce_offset_natural_axis
 from dune_winder.recipes import template_gcode_common
 from dune_winder.recipes.template_gcode_helpers import (
     _apply_strip_g113_params,
@@ -923,6 +924,7 @@ def render_u_template_lines(
         line_offset_overrides,
         normalize_line_text_fn=normalize_line_text,
     )
+    lines = enforce_offset_natural_axis(lines, layer="U")
     lines = _number_lines(lines)
     if strip_g113_params:
         lines = _apply_strip_g113_params(lines)

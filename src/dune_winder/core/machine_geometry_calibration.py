@@ -47,6 +47,10 @@ from dune_winder.recipes.line_offset_overrides import (
     line_offset_override_items,
     normalize_line_key,
 )
+from dune_winder.recipes.offset_axis_policy import (
+    enforce_offset_axes,
+    natural_axis_for_pin,
+)
 from dune_winder.uv_head_target import (
     clear_uv_head_target_caches,
     compute_pin_pair_tangent_geometry,
@@ -494,6 +498,26 @@ def _measurement_site_label(measurement) -> str | None:
         )
         site = _lookup_recipe_site(str(layer), command.anchor_pin, command.target_pin)
         return str(site.site_label)
+    except Exception:
+        return None
+
+
+def _line_natural_axis(layer, measurement):
+    """Natural offset axis for a measurement's ~anchorToTarget target pin.
+
+    Returns ``"x"``/``"y"`` from the target pin's face, or ``None`` when the
+    command cannot be parsed (the caller then leaves the offset unchanged).
+    """
+    if not measurement:
+        return None
+    command_text = measurement.get("gcodeLine") or measurement.get("traceLine")
+    if not command_text:
+        return None
+    try:
+        command = parse_anchor_to_target_command(
+            _extract_anchor_to_target_command_text(command_text)
+        )
+        return natural_axis_for_pin(layer, command.target_pin)
     except Exception:
         return None
 
@@ -2048,16 +2072,26 @@ class MachineGeometryCalibration:
                 if line_key is None:
                     continue
                 line_key = normalize_line_key(line_key)
-                override = overrides.setdefault(
-                    line_key,
-                    {
-                        "x": float(site_offset["x"]),
-                        "y": float(site_offset["y"]),
+                if line_key not in overrides:
+                    # A solved override may move only along the target pin's
+                    # natural axis (head/foot in Y, top/bottom in X), quantised
+                    # to 0.1 mm; an unknown target leaves the offset untouched.
+                    natural_axis = _line_natural_axis(layer, summary.get("measurement"))
+                    offset_x = float(site_offset["x"])
+                    offset_y = float(site_offset["y"])
+                    if natural_axis in ("x", "y"):
+                        offset_x, offset_y = enforce_offset_axes(
+                            offset_x, offset_y, natural_axis
+                        )
+                    overrides[line_key] = {
+                        "x": offset_x,
+                        "y": offset_y,
                         "siteLabel": site_label,
                         "measurementIds": [],
-                    },
+                    }
+                overrides[line_key].setdefault("measurementIds", []).append(
+                    measurement_id
                 )
-                override.setdefault("measurementIds", []).append(measurement_id)
             return overrides
 
         def progress_fields(**fields):

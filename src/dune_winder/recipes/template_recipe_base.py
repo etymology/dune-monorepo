@@ -18,6 +18,10 @@ from dune_winder.recipes.line_offset_overrides import (
     normalize_line_offset_overrides,
 )
 from dune_winder.recipes.template_gcode_common import normalize_offset_value
+from dune_winder.recipes.offset_axis_policy import (
+    enforce_offset_dict,
+    natural_axis_for_pin,
+)
 
 from dune_winder.core.process_context import ProcessContext
 
@@ -74,6 +78,15 @@ def _strip_anchor_offset(line_text):
     text = _WRAP_IDENTIFIER_RE.sub("", text, count=1)
     text = _ANCHOR_OFFSET_KEYWORD_RE.sub("", text)
     return " ".join(text.split())
+
+
+_ANCHOR_TARGET_RE = re.compile(r"~anchorToTarget\([ABP]\d+,([ABP]\d+)")
+
+
+def _anchor_target_pin(line_text):
+    """Target pin token of an ~anchorToTarget line, or None."""
+    match = _ANCHOR_TARGET_RE.search(str(line_text))
+    return match.group(1) if match is not None else None
 
 
 _PIN_DELTA_EPSILON = 1.0e-6
@@ -409,9 +422,12 @@ class TemplateRecipeBase:
         offsets = data.get("offsets", {})
         for offsetId in self.OFFSET_IDS:
             if offsetId in offsets:
-                self._offsets[offsetId] = normalize_offset_value(
+                # Stored drafts may predate the natural-axis policy (off-axis
+                # components, sub-0.1 mm noise); clean them on load so the page
+                # and any regeneration only ever see allowed values.
+                self._offsets[offsetId] = enforce_offset_dict(
                     offsets[offsetId],
-                    natural_axis=self._naturalAxis(offsetId),
+                    self._naturalAxis(offsetId),
                 )
 
         self._lineOffsetOverrides = normalize_line_offset_overrides(
@@ -592,6 +608,12 @@ class TemplateRecipeBase:
                 if axis_value is not None:
                     current[axis_key] = float(axis_value)
             self._offsets[offsetId] = current
+
+        # A corner offset only moves the pin along its face's natural axis, and
+        # is quantised to 0.1 mm; drop any off-axis component the caller sent.
+        self._offsets[offsetId] = enforce_offset_dict(
+            self._offsets[offsetId], self._naturalAxis(offsetId)
+        )
 
         self._dirty = True
         self._persistState()
@@ -1000,6 +1022,10 @@ class TemplateRecipeBase:
             commanded=commanded,
         )
         pin_delta = pin_delta_info["pinDelta"]
+        # Raw measured delta: the snapshot/preview reports the true pin shift the
+        # operator jogged.  The natural-axis restriction and 0.1 mm quantisation
+        # are a storage policy applied when the offset is committed
+        # (see applyJogCalibration), not part of the measurement.
         new_offset = {
             "x": float(rendered_offset_x) + float(pin_delta["x"]),
             "y": float(rendered_offset_y) + float(pin_delta["y"]),
@@ -1078,8 +1104,20 @@ class TemplateRecipeBase:
         override_kind = data.get("overrideKind", "corner")
         current_offset = data["currentOffset"]
         new_offset = {axis: float(data["newOffset"][axis]) for axis in _OFFSET_AXES}
+        # Restrict the stored offset to the placement's natural axis (a corner
+        # offset id, or the target pin's face for a per-line override) and
+        # quantise to 0.1 mm before committing.
+        natural_axis = (
+            self._naturalAxis(offset_id)
+            if override_kind == "corner" and offset_id is not None
+            else natural_axis_for_pin(
+                self._layerName(), _anchor_target_pin(data.get("lineText"))
+            )
+        )
+        if natural_axis in ("x", "y"):
+            new_offset = enforce_offset_dict(new_offset, natural_axis)
         if override_kind == "corner" and offset_id is not None:
-            self._offsets[offset_id] = new_offset
+            self._offsets[offset_id] = dict(new_offset)
         elif line_key is not None:
             normalized_key = normalize_line_key(line_key)
             self._lineOffsetOverrides[normalized_key] = {

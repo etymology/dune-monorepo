@@ -368,13 +368,15 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
         )
 
     def test_bottom_a_head_end_offset_renders_with_offset_keyword(self):
+        # Bottom corners run in X, so the value lands on the offset's X
+        # component; it is also quantised to the 0.1 mm grid.
         lines = render_v_template_text_lines(
             script_variant=SCRIPT_VARIANT_WRAPPING,
-            named_inputs={"line 11 (Bottom A corner - head end)": 2.25},
+            named_inputs={"line 11 (Bottom A corner - head end)": 2.2},
         )
         self.assertTrue(
             any(
-                "~anchorToTarget(A1,A2398,offset=(2.25,0)) (Bottom A corner - head end)"
+                "~anchorToTarget(A1,A2398,offset=(2.2,0)) (Bottom A corner - head end)"
                 in line
                 for line in lines
             )
