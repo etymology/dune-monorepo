@@ -108,9 +108,9 @@ def near_comb(pin_number, combs, layer):
     normalized_layer = str(layer).upper()
 
     if normalized_layer == "V":
-        return any((comb_pin - 5) < pin_number < (comb_pin + 2) for comb_pin in combs)
+        return any(abs(comb_pin - pin_number) < 5 for comb_pin in combs)
     if normalized_layer == "U":
-        return any((comb_pin - 2) < pin_number < (comb_pin + 5) for comb_pin in combs)
+        return any(abs(comb_pin - pin_number) < 5 for comb_pin in combs)
 
     raise ValueError("Unsupported layer for near_comb: " + repr(layer))
 
