@@ -42,6 +42,12 @@ SUPPORTED_LAYERS = UV_LAYERS + GX_LAYERS
 SIDE_ORDER = UV_FACE_ORDER
 EPSILON = 1e-9
 
+# Max deviation (mm) allowed between a bootstrap-pin capture and the
+# previously calibrated (live) baseline during Recalibrate APA.  If the
+# captured position is further than this in X or Y, the capture is rejected
+# and the baseline location is stored instead.
+BOOTSTRAP_RECALIBRATE_BOUND_MM = 10.0
+
 CAMERA_OFFSET_DEFAULTS = {
     "U": (65.0, -108.2),
     "V": (65.0, -108.2),
@@ -2224,6 +2230,50 @@ class ManualCalibration:
         wireX = self._process._xBacklash.getEffectiveX(rawCameraX)
         wireY = rawCameraY
 
+        source = "capture"
+        fallback = None
+        if (
+            session.baselineSource == "live"
+            and pin in LAYER_METADATA[layer]["bootstrapSet"]
+        ):
+            baseline = self._getBaselineLocation(session, "B", pin)
+            deltaX = wireX - baseline.x
+            deltaY = wireY - baseline.y
+            if (
+                abs(deltaX) > BOOTSTRAP_RECALIBRATE_BOUND_MM
+                or abs(deltaY) > BOOTSTRAP_RECALIBRATE_BOUND_MM
+            ):
+                fallback = {
+                    "capturedWireX": wireX,
+                    "capturedWireY": wireY,
+                    "baselineWireX": baseline.x,
+                    "baselineWireY": baseline.y,
+                    "deltaX": deltaX,
+                    "deltaY": deltaY,
+                    "boundMm": BOOTSTRAP_RECALIBRATE_BOUND_MM,
+                }
+                wireX = baseline.x
+                wireY = baseline.y
+                source = "fallback"
+                self._process._log.add(
+                    "ManualCalibration",
+                    "BOOTSTRAP_FALLBACK",
+                    "Bootstrap pin B"
+                    + str(pin)
+                    + " capture exceeded "
+                    + str(BOOTSTRAP_RECALIBRATE_BOUND_MM)
+                    + " mm bound; reverting to previously calibrated location.",
+                    [
+                        pin,
+                        fallback["capturedWireX"],
+                        fallback["capturedWireY"],
+                        baseline.x,
+                        baseline.y,
+                        deltaX,
+                        deltaY,
+                    ],
+                )
+
         session.measuredPins[pin] = {
             "pin": pin,
             "rawCameraX": rawCameraX,
@@ -2233,7 +2283,7 @@ class ManualCalibration:
             "wireX": wireX,
             "wireY": wireY,
             "updatedAt": str(self._process._systemTime.get()),
-            "source": "capture",
+            "source": source,
         }
 
         if pin in LAYER_METADATA[layer]["endpointInfo"]:
@@ -2241,7 +2291,11 @@ class ManualCalibration:
 
         session.dirty = True
         self._persistSession(session)
-        return self._okResult(self.predictPin(pin))
+        prediction = self.predictPin(pin)
+        if fallback is not None:
+            prediction["bootstrapFallbackApplied"] = True
+            prediction["bootstrapFallback"] = fallback
+        return self._okResult(prediction)
 
     # -------------------------------------------------------------------
     def updateMeasuredPin(self, pin, wireX, wireY):

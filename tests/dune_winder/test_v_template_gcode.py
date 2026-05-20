@@ -297,6 +297,43 @@ class VTemplateGCodeTests(unittest.TestCase):
         self.assertIn("foot", paused_lines[9].lower())
         self.assertNotIn("foot", paused_lines[16].lower())
 
+    def test_wrapping_foot_pauses_mark_foot_board_gap_crossings(self):
+        base_lines = render_v_template_text_lines(
+            script_variant=SCRIPT_VARIANT_WRAPPING
+        )
+        paused_lines = render_v_template_text_lines(
+            script_variant=SCRIPT_VARIANT_WRAPPING,
+            add_foot_pauses=True,
+        )
+
+        def _find(lines, needle):
+            return next(line for line in lines if needle in line)
+
+        # Foot B corner: B1399 ends a board, wraps to the +Y side toward
+        # B1400 across the gap.
+        foot_b = _find(paused_lines, "~anchorToTarget(A1400,B1399)")
+        self.assertIn("G111 (board gap)", foot_b)
+        # Foot A corner: A1399 (physical 1400) starts a board, wraps to the
+        # -Y side toward A1400 (physical 1399) across the gap.
+        foot_a = _find(paused_lines, "~anchorToTarget(A1000,A1399)")
+        self.assertIn("G111 (board gap)", foot_a)
+        # The bottom-foot and foot-top face boundaries pause too, including
+        # the inTwoMoves two-step corner moves.
+        self.assertIn(
+            "G111 (board gap)",
+            _find(paused_lines, "~anchorToTarget(B1600,A1199,inTwoMoves=True)"),
+        )
+
+        # The same lines carry no pause when the option is off, and head
+        # board gaps never pause.
+        self.assertNotIn("G111", _find(base_lines, "~anchorToTarget(A1400,B1399)"))
+        self.assertFalse(
+            any(
+                "G111" in line and "Head" in line and "corner" in line
+                for line in paused_lines
+            )
+        )
+
     def test_add_foot_pauses_is_reported_in_recipe_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             recipe = write_v_template_file(

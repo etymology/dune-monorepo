@@ -70,10 +70,10 @@ class UTemplateGCodeTests(unittest.TestCase):
         self.assertEqual(
             lines[-4:],
             [
-                "N7248 (400,17) ~increment(0,200)",
-                "N7249 (400,18) ~anchorToTarget(A2001,A1201) (Foot A corner)",
-                "N7250 ~anchorToTarget(A1201,B1601)",
-                "N7251 ~increment(200,0)",
+                "N7272 (400,17) ~increment(0,200)",
+                "N7273 (400,18) ~anchorToTarget(A2001,A1201) (Foot A corner)",
+                "N7274 ~anchorToTarget(A1201,B1601)",
+                "N7275 ~increment(200,0)",
             ],
         )
 

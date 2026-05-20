@@ -559,6 +559,92 @@ def test_translate_projection_payload_moves_same_side_transfer_edge():
     assert translated["projectedHeadY"] == pytest.approx(100.0, abs=1e-9)
 
 
+def test_implied_pin_offset_falls_back_without_geometry():
+    # A simplified projection (only wire XY) keeps the plain head-vs-wire
+    # residual so legacy/test projections still behave.
+    offset = machine_geometry_module._implied_pin_offset(
+        100.0, 50.0, {"projectedX": 90.0, "projectedY": 45.0}
+    )
+    assert offset == pytest.approx((10.0, 5.0))
+
+
+def test_implied_pin_offset_uses_head_not_wire_contact():
+    # The observation is a head position; the wire-contact point sits far
+    # away along the arm.  The residual must be measured against the head
+    # target (then scaled), NOT the wire contact -- otherwise the arm
+    # displacement leaks in as a bogus ~80 mm residual (the original bug).
+    projection = {
+        "sameSide": True,
+        "projectedHeadX": 20.0,
+        "projectedHeadY": 0.0,
+        "projectedX": 100.0,  # wire contact, 80 mm off in X from the head
+        "projectedY": 0.0,
+        # anchor->target (100) == anchor->wire (100) => ratio 1.0, so the
+        # head residual passes through unscaled and stays ~0.
+        "anchorPinX": 0.0,
+        "anchorPinY": 0.0,
+        "anchorPinZ": 0.0,
+        "targetPinX": 100.0,
+        "targetPinY": 0.0,
+        "targetPinZ": 0.0,
+        "headZ": 0.0,
+    }
+    # Old (buggy) metric would be observed - projectedX = 20.3 - 100 = -79.7.
+    offset_x, offset_y = machine_geometry_module._implied_pin_offset(
+        20.3, 0.0, projection
+    )
+    assert offset_x == pytest.approx(0.3, abs=1e-6)
+    assert offset_y == pytest.approx(0.0, abs=1e-6)
+
+
+def test_implied_pin_offset_scales_same_side_by_lever_arm():
+    # Head sweeps a longer lever arm than the pin: a 10 mm head error
+    # becomes d_at/d_ah * 10 mm of pin shift.
+    projection = {
+        "sameSide": True,
+        "projectedHeadX": 100.0,
+        "projectedHeadY": 0.0,
+        "projectedX": 100.0,  # anchor->head (wire target) distance = 100
+        "projectedY": 0.0,
+        "anchorPinX": 0.0,
+        "anchorPinY": 0.0,
+        "anchorPinZ": 0.0,
+        "targetPinX": 25.0,  # anchor->target distance = 25 => ratio 0.25
+        "targetPinY": 0.0,
+        "targetPinZ": 0.0,
+        "headZ": 0.0,
+    }
+    offset_x, offset_y = machine_geometry_module._implied_pin_offset(
+        110.0, 4.0, projection
+    )
+    assert offset_x == pytest.approx(2.5, abs=1e-6)
+    assert offset_y == pytest.approx(1.0, abs=1e-6)
+
+
+def test_implied_pin_offset_scales_only_dominant_plane_cross_side():
+    # Cross-side: the pin pair separates mainly in X, so only the X axis is
+    # scaled (in the XZ plane); Y passes through unscaled.
+    projection = {
+        "sameSide": False,
+        "projectedHeadX": 100.0,
+        "projectedHeadY": 200.0,
+        "projectedX": 0.0,
+        "projectedY": 0.0,
+        "anchorPinX": 0.0,
+        "anchorPinY": 0.0,
+        "anchorPinZ": 0.0,
+        "targetPinX": 40.0,  # |dx| dominates => XZ plane
+        "targetPinY": 5.0,
+        "targetPinZ": 30.0,  # d_at = hypot(40, 30) = 50
+        "headZ": 0.0,  # d_ah = hypot(100, 0) = 100 => ratio 0.5
+    }
+    offset_x, offset_y = machine_geometry_module._implied_pin_offset(
+        110.0, 207.0, projection
+    )
+    assert offset_x == pytest.approx(5.0, abs=1e-6)  # (110-100) * 0.5
+    assert offset_y == pytest.approx(7.0, abs=1e-6)  # (207-200), unscaled
+
+
 def test_project_measurement_bypasses_uv_head_target_view(monkeypatch, tmp_path):
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
@@ -628,6 +714,68 @@ def test_machine_xy_solve_records_progress_and_success(monkeypatch, tmp_path):
         entry[1] == "SOLVE_MACHINE_XY_PROGRESS" for entry in process._log.entries
     )
     assert any(entry[1] == "SOLVE_MACHINE_XY_DONE" for entry in process._log.entries)
+
+
+def test_machine_xy_solve_does_not_touch_live_recipe_or_calibration(
+    monkeypatch, tmp_path
+):
+    """The solver must only ever write a *draft*.
+
+    Regenerating the live recipe (G-code) and saving the live machine
+    calibration are reserved for ``applyMachineXY`` -- the explicit
+    "user tells it to" action.  This pins that contract so a future change
+    cannot quietly let a solve mutate live state.
+    """
+    process = _Process(tmp_path)
+
+    recipe_calls = {"generate": 0, "replace": 0}
+
+    def _record_generate(*args, **kwargs):
+        recipe_calls["generate"] += 1
+        return {"ok": True, "data": {}}
+
+    def _record_replace(*args, **kwargs):
+        recipe_calls["replace"] += 1
+        return {"ok": True}
+
+    for recipe in (process.uTemplateRecipe, process.vTemplateRecipe):
+        recipe.generateRecipeFile = _record_generate
+        recipe.replaceLineOffsetOverrides = _record_replace
+
+    service = MachineGeometryCalibration(process)
+    monkeypatch.setattr(
+        service, "_candidateLayerCalibrationPath", lambda layer: "layer.json"
+    )
+
+    def evaluate(measurements, *, progress_callback=None, **kwargs):
+        if progress_callback is not None:
+            progress_callback("test_step", "Test progress update.")
+        return {
+            "cameraOffsetX": 11.0,
+            "cameraOffsetY": -6.0,
+            "rollerYCals": [21.0, 21.0, 21.0, 21.0],
+            "score": {
+                "lineOffsetNorm": 0.0,
+                "rollerOffsetNorm": 0.0,
+                "cameraOffsetDeltaNorm": 2.0,
+            },
+            "summaries": [],
+            "lineOffsetOverrides": {"(1,1)": {"x": 3.0, "y": -1.0}},
+        }
+
+    monkeypatch.setattr(service, "_evaluateMachineXY", evaluate)
+
+    result = service.solveMachineXY()
+
+    # The solve succeeded and staged its result in the draft...
+    assert result["fitError"] is None
+    draft = service._layerDraft("U")
+    assert draft["lineOffsetOverrides"] == {"(1,1)": {"x": 3.0, "y": -1.0}}
+
+    # ...but it must NOT have regenerated the live recipe or saved the live
+    # machine calibration.  Those happen only on apply.
+    assert recipe_calls == {"generate": 0, "replace": 0}
+    assert process._machineCalibration.save_calls == 0
 
 
 def test_machine_xy_solve_records_failure(monkeypatch, tmp_path):
@@ -945,7 +1093,7 @@ def test_machine_xy_solve_rejects_invalid_line_offsets(monkeypatch, tmp_path):
         },
     )
 
-    with pytest.raises(ValueError, match=r"\(1,1\).*offsetX="):
+    with pytest.raises(ValueError, match=r"\(1,1\).*deltaX="):
         service.solveMachineXY()
 
 
@@ -1117,6 +1265,9 @@ def test_sanity_check_fails_with_tampered_line_offsets(monkeypatch, tmp_path):
         service, "_candidateMachineCalibrationObject", lambda roller_y_cals: None
     )
 
+    # B2001 is the "Top B corner - foot end" target, whose natural axis is X.
+    # The X tamper (on-axis) must be caught; the Y tamper is off-axis and is
+    # zeroed by the natural-axis policy on both sides, so it cannot register.
     tampered_overrides = {
         "(1,1)": {"x": 50.0, "y": -40.0},
     }
@@ -1127,7 +1278,7 @@ def test_sanity_check_fails_with_tampered_line_offsets(monkeypatch, tmp_path):
     assert result["checkedCount"] == 1
     assert result["discrepancyCount"] == 1
     assert result["maxDiscrepancyX"] > 1.0
-    assert result["maxDiscrepancyY"] > 1.0
+    assert result["maxDiscrepancyY"] < 0.01
 
 
 def test_apply_machine_xy_rejects_inconsistent_draft(monkeypatch, tmp_path):
@@ -1195,3 +1346,414 @@ def test_apply_machine_xy_rejects_inconsistent_draft(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="Line offset sanity check failed"):
         service.applyMachineXY()
+
+
+def test_corner_offset_items_collapses_overrides_to_corners():
+    """The solver fans one per-corner offset across several measured lines;
+    the page helper must collapse them back to one row per corner, align
+    Current (live) with Draft (solved), drop unmapped sites, and constrain each
+    draft offset to the corner's natural axis (top/bottom -> X, head/foot -> Y,
+    quantised to 0.1 mm) so Draft shows exactly what Apply will write."""
+    template = SimpleNamespace(
+        LABEL_TO_OFFSET_ID={
+            "Top B corner - head end": "top_b_head_end",
+            "Foot A corner": "foot_a_corner",
+        },
+        OFFSET_IDS=("foot_a_corner", "top_b_head_end"),
+        # Top/bottom corners move along X; head/foot corners along Y.
+        OFFSET_NATURAL_AXIS={"top_b_head_end": "x", "foot_a_corner": "y"},
+    )
+    overrides = {
+        "(301,13)": {
+            "x": 7.04,
+            "y": -2.0,
+            "siteLabel": "Top B corner - head end",
+            "measurementIds": ["a"],
+        },
+        "(302,13)": {
+            "x": 7.04,
+            "y": -2.0,
+            "siteLabel": "Top B corner - head end",
+            "measurementIds": ["b"],
+        },
+        "(301,18)": {
+            "x": 0.03,
+            "y": 10.04,
+            "siteLabel": "Foot A corner",
+            "measurementIds": ["c"],
+        },
+        "(301,99)": {"x": 1.0, "y": 1.0, "siteLabel": "Unmapped corner"},
+    }
+    live_offsets = {
+        "top_b_head_end": {"x": 1.1, "y": 0.0},
+        "foot_a_corner": {"x": 0.0, "y": 0.0},
+    }
+
+    current, draft = machine_geometry_module._corner_offset_items(
+        template, overrides, live_offsets
+    )
+
+    # One row per mapped corner, ordered by OFFSET_IDS, unmapped site dropped.
+    assert [item["offsetId"] for item in draft] == ["foot_a_corner", "top_b_head_end"]
+
+    # Top corner: on-axis X quantised to 0.1 mm, off-axis Y zeroed.
+    top_b = next(item for item in draft if item["offsetId"] == "top_b_head_end")
+    assert (top_b["x"], top_b["y"]) == (7.0, 0.0)
+    assert sorted(top_b["measurementIds"]) == ["a", "b"]
+    assert sorted(top_b["lineKeys"]) == ["(301,13)", "(302,13)"]
+
+    # Foot corner: off-axis X zeroed, on-axis Y quantised to 0.1 mm.
+    foot_a = next(item for item in draft if item["offsetId"] == "foot_a_corner")
+    assert (foot_a["x"], foot_a["y"]) == (0.0, 10.0)
+
+    # Current rows align row-for-row with Draft and carry the live offset.
+    assert [item["offsetId"] for item in current] == ["foot_a_corner", "top_b_head_end"]
+    current_top_b = next(
+        item for item in current if item["offsetId"] == "top_b_head_end"
+    )
+    assert (current_top_b["x"], current_top_b["y"]) == (1.1, 0.0)
+
+
+def test_apply_machine_xy_writes_per_corner_offsets(monkeypatch, tmp_path):
+    """Apply must write the solved offset to each *corner* (so it lands on
+    every corner of that kind at regeneration), not as per-line overrides."""
+    process = _Process(tmp_path)
+
+    class _RecordingTemplate:
+        LABEL_TO_OFFSET_ID = {
+            "Top B corner - head end": "top_b_head_end",
+            "Foot A corner": "foot_a_corner",
+        }
+        OFFSET_IDS = ("top_b_head_end", "foot_a_corner")
+
+        def __init__(self):
+            self.offsets = {}
+            self.set_calls = []
+            self.replace_calls = 0
+            self.generate_calls = 0
+            self._lastGeneratedScriptVariant = "default"
+
+        def getState(self):
+            return {"offsets": dict(self.offsets)}
+
+        def setOffset(self, offset_id, value=None, *, x=None, y=None):
+            self.offsets[offset_id] = {"x": float(x), "y": float(y)}
+            self.set_calls.append((offset_id, float(x), float(y)))
+            return {"ok": True}
+
+        def replaceLineOffsetOverrides(self, overrides):
+            self.replace_calls += 1
+            return {"ok": True}
+
+        def generateRecipeFile(self, scriptVariant=None):
+            self.generate_calls += 1
+            return {"ok": True, "data": {}}
+
+    template = _RecordingTemplate()
+    process.uTemplateRecipe = template
+
+    service = MachineGeometryCalibration(process)
+    state = service._loadState()
+    state["machineDraft"] = {
+        "layer": "U",
+        "cameraWireOffsetX": 11.0,
+        "cameraWireOffsetY": -6.0,
+        "siteOffsets": {},
+        "siteOffsetItems": [],
+    }
+    draft = service._layerDraft("U", create=True)
+    draft["lineOffsetOverrides"] = {
+        "(301,13)": {
+            "x": 7.0,
+            "y": -2.0,
+            "siteLabel": "Top B corner - head end",
+            "measurementIds": ["a"],
+        },
+        "(302,13)": {
+            "x": 7.0,
+            "y": -2.0,
+            "siteLabel": "Top B corner - head end",
+            "measurementIds": ["b"],
+        },
+        "(301,18)": {
+            "x": 0.0,
+            "y": 10.0,
+            "siteLabel": "Foot A corner",
+            "measurementIds": ["c"],
+        },
+    }
+
+    monkeypatch.setattr(
+        service,
+        "_sanityCheckLineOffsets",
+        lambda *args, **kwargs: {
+            "ok": True,
+            "checkedCount": 3,
+            "maxDiscrepancyX": 0.0,
+            "maxDiscrepancyY": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        machine_geometry_module, "clear_uv_head_target_caches", lambda **kwargs: None
+    )
+    monkeypatch.setattr(
+        machine_geometry_module,
+        "roller_arm_calibration_to_dict",
+        lambda _calibration: {},
+    )
+
+    service.applyMachineXY()
+
+    # One setOffset per corner (collapsed across the measured lines); the live
+    # per-line override store is left untouched; the recipe regenerates once.
+    assert template.replace_calls == 0
+    assert template.generate_calls == 1
+    assert {
+        offset_id: (x, y) for offset_id, x, y in template.set_calls
+    } == {
+        "top_b_head_end": (7.0, -2.0),
+        "foot_a_corner": (0.0, 10.0),
+    }
+    assert process._machineCalibration.cameraWireOffsetX == 11.0
+
+
+def test_machine_xy_solver_attributes_uniform_shift_to_camera_offset_x(
+    monkeypatch, tmp_path
+):
+    # Every synthetic observation sits exactly (2, 0) away from its
+    # projection at the starting camera offset, regardless of which wrap
+    # or which line within a wrap it belongs to.  The only satisfying
+    # change is to bump cameraOffsetX by +2; per-line overrides must
+    # stay at (0, 0) because there is nothing line-specific to explain.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    real_random = random.Random
+    monkeypatch.setattr(
+        machine_geometry_module.random, "Random", lambda: real_random(0)
+    )
+
+    line_specs = [
+        ("(1,0)", 100.0, 200.0, 1),
+        ("(1,3)", 140.0, 230.0, 2),
+        ("(2,1)", 175.0, 260.0, 3),
+        ("(3,2)", 215.0, 290.0, 1),
+        ("(3,4)", 250.0, 315.0, 2),
+        ("(5,0)", 295.0, 345.0, 3),
+    ]
+    measurements = []
+    for index, (line_key, actual_x, actual_y, roller_index) in enumerate(line_specs):
+        measurements.append(
+            {
+                "id": "m" + str(index + 1),
+                "layer": "U",
+                "kind": "same_side",
+                "rollerIndex": roller_index,
+                "gcodeLine": "~anchorToTarget(B1201,B2001) " + line_key,
+                "lineKey": line_key,
+                "siteLabel": line_key,
+                "effectiveCameraX": actual_x,
+                "rawCameraY": actual_y,
+                "actualWireX": actual_x,
+                "actualWireY": actual_y,
+            }
+        )
+
+    monkeypatch.setattr(
+        service,
+        "_candidateMachineCalibrationPath",
+        lambda roller_y_cals, camera_offset=None: "machine.json",
+    )
+    # The projection sits 12 mm below the observed X (10 mm absorbed by
+    # the starting camera offset + 2 mm uniform residual) and 5 mm above
+    # the observed Y (cancelled exactly by the starting camera offset).
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
+            "projectedX": float(measurement["actualWireX"]) - 12.0,
+            "projectedY": float(measurement["actualWireY"]) + 5.0,
+        },
+    )
+
+    evaluation = service._evaluateMachineXY(
+        measurements,
+        layer="U",
+        operation_id="op-uniform-shift",
+        layer_path="layer.json",
+        nominal_roller_y=21.0,
+        current_camera_offset=(10.0, -5.0),
+        initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+    )
+
+    assert evaluation["cameraOffsetX"] == pytest.approx(12.0, abs=0.1)
+    assert evaluation["cameraOffsetY"] == pytest.approx(-5.0, abs=0.1)
+    assert evaluation["rollerYCals"] == [24.0, 27.0, 18.0, 17.0]
+    assert evaluation["valid"] is True
+
+    overrides = evaluation["lineOffsetOverrides"]
+    expected_keys = {spec[0] for spec in line_specs}
+    assert set(overrides.keys()) == expected_keys
+    for line_key, override in overrides.items():
+        assert override["x"] == pytest.approx(0.0, abs=0.1), line_key
+        assert override["y"] == pytest.approx(0.0, abs=0.1), line_key
+
+
+def test_machine_xy_solver_accepts_reproduction_of_large_live_override(
+    monkeypatch, tmp_path
+):
+    # Cross-side anchor sites carry per-line overrides that are tens to
+    # hundreds of mm wide; the solver writes the full residual back out
+    # as the new override.  When a re-solve reproduces the existing
+    # overrides almost exactly (delta == 0), it must NOT trip the bound
+    # check -- the bound is on the *change* in override, not its size.
+    # Use overrides whose mean is zero so the camera-offset SGD has no
+    # incentive to drift, which keeps the test focused on the validation
+    # gate rather than the optimizer's bound-clamping behavior.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    real_random = random.Random
+    monkeypatch.setattr(
+        machine_geometry_module.random, "Random", lambda: real_random(0)
+    )
+
+    line_specs = [
+        ("(1,16)", "Head A corner", 200.0, +140.0),
+        ("(2,16)", "Head B corner", 250.0, -140.0),
+        ("(79,12)", "Top A corner - head end", 300.0, +95.0),
+        ("(80,12)", "Top B corner - head end", 350.0, -95.0),
+    ]
+    measurements = [
+        {
+            "id": "m" + str(index),
+            "layer": "U",
+            "kind": "cross_side",
+            "rollerIndex": 1 + (index % 4),
+            "gcodeLine": "~anchorToTarget(B1201,B2001) " + line_key,
+            "lineKey": line_key,
+            "siteLabel": site,
+            "effectiveCameraX": x,
+            "rawCameraY": 100.0,
+            "actualWireX": x,
+            "actualWireY": 100.0,
+        }
+        for index, (line_key, site, x, _override_x) in enumerate(line_specs)
+    ]
+    live_line_offsets = {
+        line_key: {"x": override_x, "y": 0.0}
+        for line_key, _site, _x, override_x in line_specs
+    }
+
+    monkeypatch.setattr(
+        service,
+        "_candidateMachineCalibrationPath",
+        lambda roller_y_cals, camera_offset=None: "machine.json",
+    )
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
+            "projectedX": float(measurement["actualWireX"])
+            - float(live_line_offsets[measurement["lineKey"]]["x"]),
+            "projectedY": float(measurement["actualWireY"]),
+        },
+    )
+
+    evaluation = service._evaluateMachineXY(
+        measurements,
+        layer="U",
+        operation_id="op-large-live",
+        layer_path="layer.json",
+        nominal_roller_y=21.0,
+        current_camera_offset=(0.0, 0.0),
+        initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+        live_line_offsets=live_line_offsets,
+    )
+
+    assert evaluation["valid"] is True
+    assert evaluation["violationCount"] == 0
+    overrides = evaluation["lineOffsetOverrides"]
+    for line_key, _site, _x, override_x in line_specs:
+        assert overrides[line_key]["x"] == pytest.approx(
+            override_x, abs=machine_geometry_module._MAX_LINE_OFFSET_DELTA_X_MM
+        ), line_key
+
+
+def test_machine_xy_solver_rejects_excessive_change_from_live_override(
+    monkeypatch, tmp_path
+):
+    # If the residual disagrees with the live override by more than the
+    # delta bound, the solver must raise -- that's a meaningful change
+    # the operator should review, even though the absolute override is
+    # in the same ballpark as the previous one.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    real_random = random.Random
+    monkeypatch.setattr(
+        machine_geometry_module.random, "Random", lambda: real_random(0)
+    )
+
+    state = service._loadState()
+    state["measurements"] = [
+        {
+            "id": "m_drifted",
+            "layer": "U",
+            "kind": "cross_side",
+            "rollerIndex": 1,
+            "lineKey": "(1,16)",
+            "gcodeLine": "~anchorToTarget(B1201,B2001) (1,16)",
+            "siteLabel": "Head A corner",
+            "effectiveCameraX": 200.0,
+            "rawCameraY": 100.0,
+            "actualWireX": 200.0,
+            "actualWireY": 100.0,
+        },
+    ]
+
+    monkeypatch.setattr(
+        service, "_candidateLayerCalibrationPath", lambda layer: "layer.json"
+    )
+    monkeypatch.setattr(
+        service,
+        "_candidateMachineCalibrationPath",
+        lambda roller_y_cals, camera_offset=None: "machine.json",
+    )
+    # Residual is +140 mm in X but the live override is only +100 mm;
+    # the +40 mm delta blows the 8 mm cap.
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
+            "projectedX": float(measurement["actualWireX"]) - 140.0,
+            "projectedY": float(measurement["actualWireY"]),
+        },
+    )
+
+    fake_template_state = {
+        "lineOffsetOverrides": {"(1,16)": {"x": 100.0, "y": 0.0}}
+    }
+
+    class _FakeTemplate:
+        def getState(self):
+            return fake_template_state
+
+    monkeypatch.setattr(
+        service, "_templateService", lambda layer: _FakeTemplate()
+    )
+    # The active sanity check would otherwise re-project against a real
+    # layer calibration that doesn't carry this fixture's synthetic
+    # pins; stub it so the test stays focused on the bound check.
+    monkeypatch.setattr(
+        service,
+        "_sanityCheckLineOffsets",
+        lambda *args, **kwargs: {
+            "ok": True,
+            "checkedCount": 0,
+            "maxDiscrepancyX": 0.0,
+            "maxDiscrepancyY": 0.0,
+            "discrepancyCount": 0,
+            "discrepancies": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match=r"\(1,16\).*deltaX="):
+        service.solveMachineXY()

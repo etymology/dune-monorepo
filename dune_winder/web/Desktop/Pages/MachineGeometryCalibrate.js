@@ -559,28 +559,19 @@ function MachineGeometryCalibrate(modules) {
     )
   }
 
-  function renderLineOffsetTable(bodySelector, items, editable) {
+  function renderCornerOffsetTable(bodySelector, items, showMeasurements) {
+    var columnCount = showMeasurements ? 4 : 3
     var rows = ""
     if (!items || items.length === 0) {
-      rows = '<tr><td colspan="' + (editable ? 4 : 4) + '">None</td></tr>'
+      rows = '<tr><td colspan="' + columnCount + '">None</td></tr>'
     } else {
       items.forEach(function(item) {
         rows +=
           "<tr>"
-          + "<td>" + item.lineKey + "</td>"
+          + "<td>" + (item.siteLabel || item.offsetId || "-") + "</td>"
           + '<td class="numeric">' + formatNumber(item.x, 3) + "</td>"
           + '<td class="numeric">' + formatNumber(item.y, 3) + "</td>"
-        if (editable) {
-          rows +=
-            "<td>"
-            + '<button type="button" class="machineGeometryMiniButton machineGeometryUseOffset"'
-            + ' data-line-key="' + item.lineKey + '"'
-            + ' data-x="' + item.x + '"'
-            + ' data-y="' + item.y + '">Use</button> '
-            + '<button type="button" class="machineGeometryMiniButton machineGeometryDeleteOffsetRow"'
-            + ' data-line-key="' + item.lineKey + '">Delete</button>'
-            + "</td>"
-        } else {
+        if (showMeasurements) {
           rows += "<td>" + ((item.measurementIds || []).length || "-") + "</td>"
         }
         rows += "</tr>"
@@ -601,15 +592,15 @@ function MachineGeometryCalibrate(modules) {
       planeStatus(draftPlane, layerState ? !!layerState.draftZPlaneStale : false)
     )
 
-    renderLineOffsetTable(
+    renderCornerOffsetTable(
       "#machineGeometryCurrentLineOffsets",
-      layerState ? layerState.currentLineOffsetOverrideItems || [] : [],
-      true
-    )
-    renderLineOffsetTable(
-      "#machineGeometryDraftLineOffsets",
-      layerState ? layerState.draftLineOffsetOverrideItems || [] : [],
+      layerState ? layerState.currentCornerOffsetItems || [] : [],
       false
+    )
+    renderCornerOffsetTable(
+      "#machineGeometryDraftLineOffsets",
+      layerState ? layerState.draftCornerOffsetItems || [] : [],
+      true
     )
 
     $("#machineGeometrySolveLayerZ").prop("disabled", !currentState || !currentState.enabled)
@@ -621,14 +612,6 @@ function MachineGeometryCalibrate(modules) {
       || !draftPlane
       || !!draftPlane.fit_error
       || !draftPlane.coefficients
-    )
-    $("#machineGeometrySetLineOffset").prop(
-      "disabled",
-      !currentState || !currentState.enabled || currentState.gcodeExecutionActive
-    )
-    $("#machineGeometryDeleteLineOffset").prop(
-      "disabled",
-      !currentState || !currentState.enabled || currentState.gcodeExecutionActive
     )
   }
 
@@ -674,15 +657,6 @@ function MachineGeometryCalibrate(modules) {
 
   function activeLayer() {
     return currentState && currentState.activeLayer ? currentState.activeLayer : null
-  }
-
-  function requireLineKey() {
-    var lineKey = ($("#machineGeometryLineKey").val() || "").trim()
-    if (!lineKey) {
-      showError("Line key is required.")
-      return null
-    }
-    return lineKey
   }
 
   $("#machineGeometryRefresh").off("click").on("click", function() {
@@ -780,34 +754,6 @@ function MachineGeometryCalibrate(modules) {
     )
   })
 
-  $("#machineGeometrySetLineOffset").off("click").on("click", function() {
-    var lineKey = requireLineKey()
-    if (!lineKey) return
-    var xValue = parseFloat($("#machineGeometryLineOffsetX").val())
-    var yValue = parseFloat($("#machineGeometryLineOffsetY").val())
-    if (!$.isNumeric(xValue) || !$.isNumeric(yValue)) {
-      showError("Both line-offset values are required.")
-      return
-    }
-    callAndRefresh(
-      commandName(commands.process.machineGeometrySetLineOffsetOverride, "process.machine_geometry.set_line_offset_override"),
-      { layer: activeLayer(), line_key: lineKey, x: xValue, y: yValue },
-      "Updated live line offset.",
-      true
-    )
-  })
-
-  $("#machineGeometryDeleteLineOffset").off("click").on("click", function() {
-    var lineKey = requireLineKey()
-    if (!lineKey) return
-    callAndRefresh(
-      commandName(commands.process.machineGeometryDeleteLineOffsetOverride, "process.machine_geometry.delete_line_offset_override"),
-      { layer: activeLayer(), line_key: lineKey },
-      "Deleted live line offset.",
-      true
-    )
-  })
-
   $("#machineGeometryFilterLayer, #machineGeometryFilterKind, #machineGeometryFilterUse")
     .off("change")
     .on("change", function() {
@@ -822,21 +768,6 @@ function MachineGeometryCalibrate(modules) {
         commandName(commands.process.machineGeometryDeleteMeasurement, "process.machine_geometry.delete_measurement"),
         { measurement_id: measurementId },
         "Deleted measurement " + measurementId + ".",
-        true
-      )
-    })
-    .on("click.machineGeometry", ".machineGeometryUseOffset", function() {
-      $("#machineGeometryLineKey").val($(this).data("line-key"))
-      $("#machineGeometryLineOffsetX").val($(this).data("x"))
-      $("#machineGeometryLineOffsetY").val($(this).data("y"))
-    })
-    .on("click.machineGeometry", ".machineGeometryDeleteOffsetRow", function() {
-      var lineKey = $(this).data("line-key")
-      $("#machineGeometryLineKey").val(lineKey)
-      callAndRefresh(
-        commandName(commands.process.machineGeometryDeleteLineOffsetOverride, "process.machine_geometry.delete_line_offset_override"),
-        { layer: activeLayer(), line_key: lineKey },
-        "Deleted live line offset.",
         true
       )
     })

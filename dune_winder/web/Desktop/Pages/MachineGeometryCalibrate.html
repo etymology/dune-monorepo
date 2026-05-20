@@ -156,25 +156,13 @@
         <button type="button" id="machineGeometryApplyLayerZ">Apply Layer Z</button>
       </div>
 
-      <div class="machineGeometrySectionTitle">Per-Line Offsets</div>
-      <div class="machineGeometryFieldRow">
-        <label for="machineGeometryLineKey">Line Key</label>
-        <input type="text" id="machineGeometryLineKey" placeholder="(12,7)" />
-      </div>
-      <div class="machineGeometryInlineFields">
-        <div class="machineGeometryFieldRow">
-          <label for="machineGeometryLineOffsetX">Offset X</label>
-          <input type="number" id="machineGeometryLineOffsetX" step="0.001" />
-        </div>
-        <div class="machineGeometryFieldRow">
-          <label for="machineGeometryLineOffsetY">Offset Y</label>
-          <input type="number" id="machineGeometryLineOffsetY" step="0.001" />
-        </div>
-      </div>
-      <div class="machineGeometryButtonRow">
-        <button type="button" id="machineGeometrySetLineOffset">Set Line Offset</button>
-        <button type="button" id="machineGeometryDeleteLineOffset">Delete Line Offset</button>
-      </div>
+      <div class="machineGeometrySectionTitle">Per-Corner Offsets</div>
+      <p class="machineGeometryHint">
+        The solver fits one offset per corner from the single-line
+        measurements. Applying (via Solve / Apply Machine XY) writes each to the
+        corner-offset store, so it lands on every corner of that kind across all
+        wraps in the regenerated recipe.
+      </p>
 
       <div class="machineGeometryTwoColumn">
         <div>
@@ -182,10 +170,9 @@
           <table class="machineGeometryTable machineGeometrySmallTable">
             <thead>
               <tr>
-                <th>Line</th>
+                <th>Corner</th>
                 <th>X</th>
                 <th>Y</th>
-                <th></th>
               </tr>
             </thead>
             <tbody id="machineGeometryCurrentLineOffsets"></tbody>
@@ -196,7 +183,7 @@
           <table class="machineGeometryTable machineGeometrySmallTable">
             <thead>
               <tr>
-                <th>Line</th>
+                <th>Corner</th>
                 <th>X</th>
                 <th>Y</th>
                 <th>Measurements</th>

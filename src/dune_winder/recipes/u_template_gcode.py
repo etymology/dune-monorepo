@@ -116,6 +116,24 @@ OFFSET_NATURAL_AXIS = {
     "foot_a_corner": "y",
     "foot_b_corner": "y",
 }
+
+# Inverse of the parenthetical labels emitted by the U templates, used to map
+# an executed/measured line back to a corner offset id (jog calibration and the
+# machine-geometry per-corner solve).
+LABEL_TO_OFFSET_ID = {
+    "Top B corner - foot end": "top_b_foot_end",
+    "Top A corner - foot end": "top_a_foot_end",
+    "Bottom A corner - head end": "bottom_a_head_end",
+    "Bottom B corner - head end": "bottom_b_head_end",
+    "Head B corner": "head_b_corner",
+    "Head A corner": "head_a_corner",
+    "Top A corner - head end": "top_a_head_end",
+    "Top B corner - head end": "top_b_head_end",
+    "Bottom B corner - foot end": "bottom_b_foot_end",
+    "Bottom A corner - foot end": "bottom_a_foot_end",
+    "Foot A corner": "foot_a_corner",
+    "Foot B corner": "foot_b_corner",
+}
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
 _PIN_PAIR_RE = re.compile(r"\bG103\s+(P[AB])(\d+)\s+(P[AB])(\d+)\b")

@@ -4,6 +4,7 @@ from typing import Any
 import errno
 import copy
 import json
+import math
 import multiprocessing
 import os
 import random
@@ -72,8 +73,14 @@ _SGD_MAX_ITERATIONS = 40
 _SGD_BACKOFF_STEPS = 4
 _CAMERA_OFFSET_BOUND_MM = 10.0
 _ROLLER_Y_BOUND_MM = 5.0
-_MAX_LINE_OFFSET_X_MM = 8.0
-_MAX_LINE_OFFSET_Y_MM = 5.0
+# Caps on how much a single re-solve is allowed to shift any per-line
+# override from its current live value.  The solver writes the full
+# residual back out as the per-line override, so the residual itself
+# can legitimately be large (cross-side anchor sites carry overrides
+# tens to hundreds of mm wide); what we gate is the *change* relative
+# to the override that's already in production.
+_MAX_LINE_OFFSET_DELTA_X_MM = 8.0
+_MAX_LINE_OFFSET_DELTA_Y_MM = 5.0
 _SANITY_CHECK_TOLERANCE_MM = 1.0
 _CALIBRATION_PATH_CACHE: dict[tuple, str] = {}  # (roller_y_cals,) -> path
 _CALIBRATION_OBJECT_CACHE: dict[
@@ -186,21 +193,36 @@ def _translate_projection_payload(payload, camera_offset):
     base_head_y = float(payload["projectedHeadY"])
     base_wire_x = float(payload["projectedX"])
     base_wire_y = float(payload["projectedY"])
-    if abs(delta_x) <= _EPSILON and abs(delta_y) <= _EPSILON:
+
+    def _result(head_x, head_y, wire_x, wire_y):
+        # The camera-wire offset shifts every wire-space pin by exactly the
+        # offset, so the pin centres translate by delta regardless of side;
+        # only the head/wire targets re-project non-linearly (same-side).
         return {
-            "projectedHeadX": float(base_head_x),
-            "projectedHeadY": float(base_head_y),
-            "projectedX": float(base_wire_x),
-            "projectedY": float(base_wire_y),
+            "sameSide": bool(payload.get("sameSide", False)),
+            "projectedHeadX": float(head_x),
+            "projectedHeadY": float(head_y),
+            "projectedX": float(wire_x),
+            "projectedY": float(wire_y),
+            "headZ": float(payload.get("headZ", 0.0)),
+            "anchorPinX": float(payload.get("anchorPinX", 0.0)) + delta_x,
+            "anchorPinY": float(payload.get("anchorPinY", 0.0)) + delta_y,
+            "anchorPinZ": float(payload.get("anchorPinZ", 0.0)),
+            "targetPinX": float(payload.get("targetPinX", 0.0)) + delta_x,
+            "targetPinY": float(payload.get("targetPinY", 0.0)) + delta_y,
+            "targetPinZ": float(payload.get("targetPinZ", 0.0)),
         }
 
+    if abs(delta_x) <= _EPSILON and abs(delta_y) <= _EPSILON:
+        return _result(base_head_x, base_head_y, base_wire_x, base_wire_y)
+
     if not bool(payload.get("sameSide", False)):
-        return {
-            "projectedHeadX": float(base_head_x) + float(delta_x),
-            "projectedHeadY": float(base_head_y) + float(delta_y),
-            "projectedX": float(base_wire_x) + float(delta_x),
-            "projectedY": float(base_wire_y) + float(delta_y),
-        }
+        return _result(
+            base_head_x + delta_x,
+            base_head_y + delta_y,
+            base_wire_x + delta_x,
+            base_wire_y + delta_y,
+        )
 
     direction_x = float(payload["targetTangentX"]) - float(payload["anchorTangentX"])
     direction_y = float(payload["targetTangentY"]) - float(payload["anchorTangentY"])
@@ -238,12 +260,74 @@ def _translate_projection_payload(payload, camera_offset):
         head_roller_radius=float(payload["headRollerRadius"]),
         head_roller_gap=float(payload["headRollerGap"]),
     )
-    return {
-        "projectedHeadX": float(translated_head_x),
-        "projectedHeadY": float(translated_head_y),
-        "projectedX": float(translated_wire_x),
-        "projectedY": float(translated_wire_y),
-    }
+    return _result(
+        translated_head_x,
+        translated_head_y,
+        translated_wire_x,
+        translated_wire_y,
+    )
+
+
+def _implied_pin_offset(observed_x, observed_y, projection):
+    """Residual between observation and projection as an implied pin shift.
+
+    The operator jogs the *head* until the wire is tangent to the pin, so a
+    measurement records a head position.  An ``~anchorToTarget`` offset, by
+    contrast, shifts the *target pin*: the head sweeps a longer lever arm
+    than the pin, so a head-space error has to be scaled by the
+    anchor->target / anchor->head distance ratio to become the pin-position
+    shift the solver should write back as a per-line override.  This mirrors
+    ``_head_delta_to_pin_delta`` in the jog-calibration path so solver-fitted
+    overrides are in the same units as jog-fitted ones.
+
+    Falls back to the plain head/wire residual when the projection lacks the
+    geometry (e.g. simplified projections from tests that only return
+    ``projectedX``/``projectedY``).
+    """
+    if "projectedHeadX" not in projection:
+        return (
+            float(observed_x) - float(projection["projectedX"]),
+            float(observed_y) - float(projection["projectedY"]),
+        )
+
+    head_dx = float(observed_x) - float(projection["projectedHeadX"])
+    head_dy = float(observed_y) - float(projection["projectedHeadY"])
+    anchor_x = float(projection.get("anchorPinX", 0.0))
+    anchor_y = float(projection.get("anchorPinY", 0.0))
+    anchor_z = float(projection.get("anchorPinZ", 0.0))
+    target_x = float(projection.get("targetPinX", 0.0))
+    target_y = float(projection.get("targetPinY", 0.0))
+    target_z = float(projection.get("targetPinZ", 0.0))
+
+    if bool(projection.get("sameSide", False)):
+        wire_x = float(projection["projectedX"])
+        wire_y = float(projection["projectedY"])
+        d_at = math.hypot(target_x - anchor_x, target_y - anchor_y)
+        d_ah = math.hypot(wire_x - anchor_x, wire_y - anchor_y)
+        if d_at <= _EPSILON or d_ah <= _EPSILON:
+            return (head_dx, head_dy)
+        ratio = d_at / d_ah
+        return (head_dx * ratio, head_dy * ratio)
+
+    # Alternating side: scale only the axis in the dominant pin-pair plane,
+    # measured against the head Z, exactly as the jog path does.
+    head_x = float(projection["projectedHeadX"])
+    head_y = float(projection["projectedHeadY"])
+    head_z = float(projection.get("headZ", 0.0))
+    if abs(target_x - anchor_x) >= abs(target_y - anchor_y):
+        d_at = math.hypot(target_x - anchor_x, target_z - anchor_z)
+        d_ah = math.hypot(head_x - anchor_x, head_z - anchor_z)
+        if d_at <= _EPSILON or d_ah <= _EPSILON:
+            return (head_dx, head_dy)
+        ratio = d_at / d_ah
+        return (head_dx * ratio, head_dy)
+
+    d_at = math.hypot(target_y - anchor_y, target_z - anchor_z)
+    d_ah = math.hypot(head_y - anchor_y, head_z - anchor_z)
+    if d_at <= _EPSILON or d_ah <= _EPSILON:
+        return (head_dx, head_dy)
+    ratio = d_at / d_ah
+    return (head_dx, head_dy * ratio)
 
 
 def _project_machine_xy_measurement_payload(
@@ -402,6 +486,16 @@ def _project_machine_xy_measurement_payload_inner(
         "anchorTangentY": float(plan.anchor_tangent_point.y),
         "targetTangentX": float(plan.target_tangent_point.x),
         "targetTangentY": float(plan.target_tangent_point.y),
+        # Pin centres (raw-camera space; the camera offset is composed on
+        # top in _translate_projection_payload).  Carried so the residual
+        # can be expressed as an implied pin-position shift -- see
+        # _implied_pin_offset / _head_delta_to_pin_delta.
+        "anchorPinX": float(anchor_location.x),
+        "anchorPinY": float(anchor_location.y),
+        "anchorPinZ": float(anchor_location.z),
+        "targetPinX": float(target_location.x),
+        "targetPinY": float(target_location.y),
+        "targetPinZ": float(target_location.z),
         "anchorZ": float(anchor_location.z),
         "headZ": float(projected_head_z),
         "headArmLength": float(machine_calibration.headArmLength),
@@ -520,6 +614,93 @@ def _line_natural_axis(layer, measurement):
         return natural_axis_for_pin(layer, command.target_pin)
     except Exception:
         return None
+
+
+def _corner_offsets_from_overrides(template_service, overrides):
+    """Collapse solved per-line overrides into one entry per corner.
+
+    The machine-XY solver fits a single offset per *corner* (site) and then
+    fans that value out across every measured ``(wrap,line)`` of that corner.
+    Map each override's ``siteLabel`` back to its corner offset id via the
+    template's ``LABEL_TO_OFFSET_ID`` and merge -- entries that share a corner
+    carry identical values, so the first wins and their measurement ids and
+    line keys are unioned.  Returns ``{offset_id: {offsetId, siteLabel, x, y,
+    measurementIds, lineKeys}}``; overrides whose site has no recognised corner
+    id are dropped.
+    """
+    label_to_id = getattr(template_service, "LABEL_TO_OFFSET_ID", {}) or {}
+    by_offset_id: dict[str, dict] = {}
+    for line_key, entry in (overrides or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        offset_id = label_to_id.get(entry.get("siteLabel"))
+        if offset_id is None:
+            continue
+        bucket = by_offset_id.setdefault(
+            offset_id,
+            {
+                "offsetId": offset_id,
+                "siteLabel": entry.get("siteLabel"),
+                "x": float(entry.get("x", 0.0) or 0.0),
+                "y": float(entry.get("y", 0.0) or 0.0),
+                "measurementIds": [],
+                "lineKeys": [],
+            },
+        )
+        for measurement_id in entry.get("measurementIds", []) or []:
+            if measurement_id not in bucket["measurementIds"]:
+                bucket["measurementIds"].append(measurement_id)
+        if line_key not in bucket["lineKeys"]:
+            bucket["lineKeys"].append(line_key)
+    return by_offset_id
+
+
+def _corner_offset_items(template_service, draft_overrides, live_offsets):
+    """Build aligned ``(current, draft)`` per-corner offset rows for the page.
+
+    ``draft`` rows are the solved corner offsets (already natural-axis
+    enforced upstream); ``current`` rows are the live corner offset in effect
+    for the same corner.  Both lists are ordered by ``OFFSET_IDS`` so they line
+    up row-for-row in the UI.
+    """
+    by_offset_id = _corner_offsets_from_overrides(template_service, draft_overrides)
+    offset_ids = list(getattr(template_service, "OFFSET_IDS", ()) or ())
+    order = {offset_id: index for index, offset_id in enumerate(offset_ids)}
+    natural_axis_by_id = getattr(template_service, "OFFSET_NATURAL_AXIS", {}) or {}
+
+    sorted_items = sorted(
+        by_offset_id.values(),
+        key=lambda item: order.get(item["offsetId"], len(order)),
+    )
+    draft_items = []
+    current_items = []
+    for item in sorted_items:
+        offset_id = item["offsetId"]
+        # Show the value that Apply would actually write: it lands the offset on
+        # the corner's natural axis and quantises to 0.1 mm (see setOffset).
+        draft_x, draft_y = enforce_offset_axes(
+            item["x"], item["y"], natural_axis_by_id.get(offset_id, "x")
+        )
+        draft_items.append(
+            {
+                "offsetId": offset_id,
+                "siteLabel": item["siteLabel"],
+                "x": draft_x,
+                "y": draft_y,
+                "measurementIds": list(item.get("measurementIds", [])),
+                "lineKeys": list(item.get("lineKeys", [])),
+            }
+        )
+        live = (live_offsets or {}).get(offset_id) or {}
+        current_items.append(
+            {
+                "offsetId": offset_id,
+                "siteLabel": item["siteLabel"],
+                "x": float(live.get("x", 0.0) or 0.0),
+                "y": float(live.get("y", 0.0) or 0.0),
+            }
+        )
+    return current_items, draft_items
 
 
 def _measurement_site_key(measurement) -> str:
@@ -1688,14 +1869,32 @@ class MachineGeometryCalibration:
                 _machine_calibration=machine_calibration,
             )
             translated = _translate_projection_payload(payload, camera_offset)
-            projected_x = float(translated["projectedX"])
-            projected_y = float(translated["projectedY"])
+            # Same implied-pin-shift residual the solver writes as the
+            # override, so this consistency check compares like with like.
+            residual_x, residual_y = _implied_pin_offset(
+                float(measurement["actualWireX"]),
+                float(measurement["actualWireY"]),
+                translated,
+            )
 
-            residual_x = float(measurement["actualWireX"]) - projected_x
-            residual_y = float(measurement["actualWireY"]) - projected_y
+            override_x = float(override["x"])
+            override_y = float(override["y"])
+            # The stored override is constrained to the corner's natural axis
+            # (off-axis component dropped, on-axis quantised to 0.1 mm).  Apply
+            # the same constraint to the freshly computed residual so the
+            # deliberately-zeroed off-axis component is not mistaken for an
+            # inconsistency -- compare on-axis to on-axis.
+            natural_axis = _line_natural_axis(layer, measurement)
+            if natural_axis in ("x", "y"):
+                residual_x, residual_y = enforce_offset_axes(
+                    residual_x, residual_y, natural_axis
+                )
+                override_x, override_y = enforce_offset_axes(
+                    override_x, override_y, natural_axis
+                )
 
-            dx = abs(residual_x - float(override["x"]))
-            dy = abs(residual_y - float(override["y"]))
+            dx = abs(residual_x - override_x)
+            dy = abs(residual_y - override_y)
 
             checked += 1
             max_discrepancy_x = max(max_discrepancy_x, dx)
@@ -1708,8 +1907,8 @@ class MachineGeometryCalibration:
                         "measurementId": str(measurement["id"]),
                         "residualX": float(residual_x),
                         "residualY": float(residual_y),
-                        "lineOffsetX": float(override["x"]),
-                        "lineOffsetY": float(override["y"]),
+                        "lineOffsetX": float(override_x),
+                        "lineOffsetY": float(override_y),
                         "discrepancyX": float(dx),
                         "discrepancyY": float(dy),
                     }
@@ -1735,6 +1934,7 @@ class MachineGeometryCalibration:
         nominal_roller_y,
         current_camera_offset,
         initial_roller_y_cals,
+        live_line_offsets=None,
         progress_callback=None,
     ):
         measurements = list(measurements)
@@ -1748,6 +1948,24 @@ class MachineGeometryCalibration:
             measurement_site_labels[str(measurement["id"])] = site_label
             if site_label not in site_order:
                 site_order.append(site_label)
+
+        # The bounds check measures how far each new override drifts from
+        # the override that's currently in production.  Lines with no
+        # current override fall back to (0, 0) -- the new override IS the
+        # delta.
+        normalized_live_line_offsets: dict[Any, tuple[float, float]] = {}
+        if live_line_offsets:
+            for raw_key, override in live_line_offsets.items():
+                if override is None:
+                    continue
+                try:
+                    key = normalize_line_key(raw_key)
+                except Exception:
+                    key = str(raw_key)
+                normalized_live_line_offsets[key] = (
+                    float(override.get("x", 0.0) or 0.0),
+                    float(override.get("y", 0.0) or 0.0),
+                )
 
         projection_cache: dict[tuple[str, tuple[float, ...]], dict] = {}
         initial_vector = [
@@ -1805,10 +2023,19 @@ class MachineGeometryCalibration:
                 + str(violation["siteLabel"])
                 + " measurement="
                 + str(violation["measurementId"])
-                + " offsetX="
-                + "{0:.3f}".format(float(violation["offsetX"]))
-                + " offsetY="
-                + "{0:.3f}".format(float(violation["offsetY"]))
+                + " deltaX="
+                + "{0:.3f}".format(float(violation["deltaX"]))
+                + " deltaY="
+                + "{0:.3f}".format(float(violation["deltaY"]))
+                + " (offset="
+                + "{0:.3f},{1:.3f}".format(
+                    float(violation["offsetX"]), float(violation["offsetY"])
+                )
+                + " live="
+                + "{0:.3f},{1:.3f})".format(
+                    float(violation["liveOffsetX"]),
+                    float(violation["liveOffsetY"]),
+                )
             )
 
         def _cached_project(measurement, roller_y_cals, camera_offset):
@@ -1951,10 +2178,16 @@ class MachineGeometryCalibration:
                 else:
                     observed_x = float(measurement["effectiveCameraX"])
                     observed_y = float(measurement["rawCameraY"])
-                offset_x = float(observed_x) - float(projection["projectedX"])
-                offset_y = float(observed_y) - float(projection["projectedY"])
-                excess_x = max(0.0, abs(float(offset_x)) - _MAX_LINE_OFFSET_X_MM)
-                excess_y = max(0.0, abs(float(offset_y)) - _MAX_LINE_OFFSET_Y_MM)
+                offset_x, offset_y = _implied_pin_offset(
+                    observed_x, observed_y, projection
+                )
+                live_x, live_y = normalized_live_line_offsets.get(
+                    line_key, (0.0, 0.0)
+                )
+                delta_x = float(offset_x) - float(live_x)
+                delta_y = float(offset_y) - float(live_y)
+                excess_x = max(0.0, abs(delta_x) - _MAX_LINE_OFFSET_DELTA_X_MM)
+                excess_y = max(0.0, abs(delta_y) - _MAX_LINE_OFFSET_DELTA_Y_MM)
                 summary = {
                     "measurementId": str(measurement["id"]),
                     "siteLabel": site_label,
@@ -1963,6 +2196,10 @@ class MachineGeometryCalibration:
                     "projection": projection,
                     "offsetX": float(offset_x),
                     "offsetY": float(offset_y),
+                    "liveOffsetX": float(live_x),
+                    "liveOffsetY": float(live_y),
+                    "deltaX": float(delta_x),
+                    "deltaY": float(delta_y),
                     "valid": bool(excess_x <= _EPSILON and excess_y <= _EPSILON),
                     "violationMagnitude": float(excess_x + excess_y),
                 }
@@ -1973,6 +2210,10 @@ class MachineGeometryCalibration:
                         "lineKey": line_key,
                         "offsetX": float(offset_x),
                         "offsetY": float(offset_y),
+                        "liveOffsetX": float(live_x),
+                        "liveOffsetY": float(live_y),
+                        "deltaX": float(delta_x),
+                        "deltaY": float(delta_y),
                         "excessX": float(excess_x),
                         "excessY": float(excess_y),
                     }
@@ -1986,7 +2227,7 @@ class MachineGeometryCalibration:
             violations.sort(
                 key=lambda item: (
                     -(float(item["excessX"]) + float(item["excessY"])),
-                    -max(abs(float(item["offsetX"])), abs(float(item["offsetY"]))),
+                    -max(abs(float(item["deltaX"])), abs(float(item["deltaY"]))),
                     str(item["measurementId"]),
                 )
             )
@@ -2577,12 +2818,13 @@ class MachineGeometryCalibration:
                 for item in selected_summary.get("violations", [])[:3]
             ]
             raise RuntimeError(
-                "No valid bounded Machine XY solution found. Residual limits are "
-                + "X <= "
-                + "{0:.3f}".format(_MAX_LINE_OFFSET_X_MM)
+                "No valid bounded Machine XY solution found. Per-line "
+                "override change limits are X <= "
+                + "{0:.3f}".format(_MAX_LINE_OFFSET_DELTA_X_MM)
                 + " mm and Y <= "
-                + "{0:.3f}".format(_MAX_LINE_OFFSET_Y_MM)
-                + " mm. Worst offenders: "
+                + "{0:.3f}".format(_MAX_LINE_OFFSET_DELTA_Y_MM)
+                + " mm (change from current live override). "
+                + "Worst offenders: "
                 + "; ".join(worst_violations)
             )
 
@@ -2795,6 +3037,7 @@ class MachineGeometryCalibration:
                 nominal_roller_y=nominal_roller_y,
                 current_camera_offset=current_camera_offset,
                 initial_roller_y_cals=current_roller_y_cals,
+                live_line_offsets=live_line_offsets,
                 progress_callback=progress,
             )
 
@@ -3112,17 +3355,27 @@ class MachineGeometryCalibration:
                 applied_z_plane = layer_z_plane_calibration_to_dict(fitted_plane)
 
         template_service = self._templateService(target_layer)
-        override_result = template_service.replaceLineOffsetOverrides(
-            draft["lineOffsetOverrides"]
+        # The solver fits one offset per corner (fanned out across the measured
+        # lines of that corner).  Collapse back to per-corner and write each to
+        # the corner-offset store so it applies to *every* corner of that kind
+        # at regeneration -- not just the lines that happened to be measured.
+        corner_offsets = _corner_offsets_from_overrides(
+            template_service, draft["lineOffsetOverrides"]
         )
-        if not override_result.get("ok", False):
-            raise ValueError(
-                str(
-                    override_result.get(
-                        "error", "Failed to apply line offset overrides."
+        if not corner_offsets:
+            raise ValueError("No solved corner offsets are available to apply.")
+        for offset_id, corner in corner_offsets.items():
+            offset_result = template_service.setOffset(
+                offset_id, x=corner["x"], y=corner["y"]
+            )
+            if not offset_result.get("ok", False):
+                raise ValueError(
+                    str(
+                        offset_result.get(
+                            "error", "Failed to apply corner offset."
+                        )
                     )
                 )
-            )
         script_variant = getattr(template_service, "_lastGeneratedScriptVariant", None)
         generation_result = template_service.generateRecipeFile(
             scriptVariant=script_variant
@@ -3193,7 +3446,8 @@ class MachineGeometryCalibration:
 
         layer_state = None
         if enabled:
-            template_state = self._templateService(layer).getState()
+            template_service = self._templateService(layer)
+            template_state = template_service.getState()
             draft = self._layerDraft(layer, create=False) or {
                 "zPlaneCalibration": None,
                 "machineSolve": None,
@@ -3202,6 +3456,15 @@ class MachineGeometryCalibration:
             machine_solve_status = self._reconcileMachineSolveStatus(
                 layer,
                 draft.get("machineSolveStatus"),
+            )
+            # The solver fits one offset per corner; expose Current (live) and
+            # Draft (solved) per-corner rows so the operator compares like with
+            # like.  Applying writes these to the corner-offset store, so they
+            # land on every corner of that kind at regeneration.
+            current_corner_items, draft_corner_items = _corner_offset_items(
+                template_service,
+                draft.get("lineOffsetOverrides", {}),
+                template_state.get("offsets", {}),
             )
             layer_state = {
                 "layer": layer,
@@ -3213,16 +3476,8 @@ class MachineGeometryCalibration:
                     if draft.get("zPlaneSolve")
                     else False
                 ),
-                "currentLineOffsetOverrides": template_state.get(
-                    "lineOffsetOverrides", {}
-                ),
-                "currentLineOffsetOverrideItems": template_state.get(
-                    "lineOffsetOverrideItems", []
-                ),
-                "draftLineOffsetOverrides": draft.get("lineOffsetOverrides", {}),
-                "draftLineOffsetOverrideItems": line_offset_override_items(
-                    draft.get("lineOffsetOverrides", {})
-                ),
+                "currentCornerOffsetItems": current_corner_items,
+                "draftCornerOffsetItems": draft_corner_items,
                 "machineSolve": draft.get("machineSolve"),
                 "machineSolveStatus": machine_solve_status,
             }
