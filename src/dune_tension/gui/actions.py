@@ -133,7 +133,7 @@ def adjust_focus_with_x_compensation(
     delta_x_mm = focus_side_sign(side_name) * delta_focus * FOCUS_X_MM_PER_QUARTER_US
 
     try:
-        cur_x, cur_y = ctx.get_xy()
+        cur_x, cur_y = _current_stage_xy(ctx)
     except Exception as exc:
         LOGGER.warning("Unable to read XY for focus compensation: %s", exc)
         return
