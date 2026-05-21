@@ -709,9 +709,11 @@ class Tensiometer:
         )
 
     def _focus_wiggle_x_sign(self) -> float:
-        """Return focus/X coupling sign: A is negative, B is positive."""
+        """Return focus/X coupling sign for the configured side."""
 
-        return -1.0 if str(self.config.side).upper() == "A" else 1.0
+        from dune_tension.streaming.pose import focus_side_sign
+
+        return focus_side_sign(self.config.side)
 
     def _focus_to_x_delta_mm(self, delta_focus_units: float) -> float:
         """Convert a focus delta in quarter-us to the coupled X delta in mm."""

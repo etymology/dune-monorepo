@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover - fallback for isolated imports
 def focus_side_sign(side: str) -> float:
     """Return the sign for focus-induced X motion on the requested side."""
 
-    return -1.0 if str(side).upper() == "A" else 1.0
+    return 1.0 if str(side).upper() == "A" else -1.0
 
 
 def focus_to_x_delta_mm(delta_focus_units: float, side: str) -> float:

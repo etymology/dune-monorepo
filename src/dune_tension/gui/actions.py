@@ -72,6 +72,7 @@ except ImportError:
     plan_uv_wire_zone = _missing_layer_calibration
 from dune_tension.gui.context import GUIContext
 from dune_tension.gui.state import save_state
+from dune_tension.streaming.pose import focus_side_sign
 
 if TYPE_CHECKING:
     from dune_tension.tensiometer import Tensiometer
@@ -105,12 +106,6 @@ def _safe_int(value: Any, default: int) -> int:
             return default
 
 
-def _focus_side_sign(side: str) -> float:
-    """Return focus/X coupling sign: A is negative, B is positive."""
-
-    return -1.0 if str(side).upper() == "A" else 1.0
-
-
 def adjust_focus_with_x_compensation(
     ctx: GUIContext,
     target: int,
@@ -135,7 +130,7 @@ def adjust_focus_with_x_compensation(
         return
 
     side_name = str(side or ctx.widgets.side_var.get()).upper()
-    delta_x_mm = _focus_side_sign(side_name) * delta_focus * FOCUS_X_MM_PER_QUARTER_US
+    delta_x_mm = focus_side_sign(side_name) * delta_focus * FOCUS_X_MM_PER_QUARTER_US
 
     try:
         cur_x, cur_y = ctx.get_xy()
@@ -572,7 +567,7 @@ def _apply_uv_offset_results(
 
     final_readout = readout
     if sync_error:
-        final_readout = f"{readout} | sync error: {sync_error}"
+        final_readout = f"{readout} |\n sync error: {sync_error}"
     try:
         widgets.laser_offset_readout_var.set(final_readout)
     except Exception:
@@ -1985,6 +1980,45 @@ def manual_goto(ctx: GUIContext) -> None:
         return
     if moved is False:
         LOGGER.warning("Manual goto to %s,%s failed: PLC not available.", x_val, y_val)
+
+
+_GCODE_AXIS_RE = re.compile(r"(?i)([XY])\s*(-?\d+(?:\.\d+)?)")
+
+
+def manual_gcode_move(ctx: GUIContext, command: str) -> None:
+    """Move the winder using a G-code-style command (e.g. ``X430``, ``y3432``, ``x3 y43``).
+
+    Axes that are not specified keep their current position. Parsing is
+    case-insensitive and accepts negative or decimal values.
+    """
+
+    matches = _GCODE_AXIS_RE.findall(command or "")
+    if not matches:
+        LOGGER.warning("No X/Y coordinates found in command: %r", command)
+        return
+    targets: dict[str, float] = {}
+    for axis, value in matches:
+        try:
+            targets[axis.upper()] = float(value)
+        except ValueError:
+            LOGGER.warning("Invalid numeric value in command: %r", command)
+            return
+    try:
+        cur_x, cur_y = ctx.get_xy()
+    except Exception as exc:
+        LOGGER.warning("Cannot move: failed to read current position: %s", exc)
+        return
+    new_x = targets.get("X", cur_x)
+    new_y = targets.get("Y", cur_y)
+    try:
+        moved = ctx.goto_xy(new_x, new_y)
+    except Exception as exc:
+        LOGGER.warning("Manual G-code move failed: %s", exc)
+        return
+    if moved is False:
+        LOGGER.warning(
+            "Manual G-code move to %s,%s failed: PLC not available.", new_x, new_y
+        )
 
 
 def manual_increment(ctx: GUIContext, dx: float, dy: float) -> None:

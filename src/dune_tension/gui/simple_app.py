@@ -17,22 +17,25 @@ from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui._layout import configure_root_minimum_size
 from dune_tension.gui.actions import (
     adjust_focus_with_x_compensation,
+    capture_laser_offset_button,
     handle_close,
     interrupt,
+    manual_gcode_move,
     measure_auto,
     measure_calibrate,
     measure_condition,
     measure_list_button,
     measure_refine_outliers,
     monitor_tension_logs,
+    move_laser_to_pin_button,
     refresh_connections,
     refresh_tension_logs,
     refresh_uv_laser_offset_controls,
+    seek_camera_to_pin,
 )
-from dune_tension.gui.app import _initialise_servo, _schedule_health_logging
+from dune_tension.gui.app import _initialise_servo
 from dune_tension.gui.context import GUIContext, GUIWidgets, create_context
 from dune_tension.gui.crash_logging import (
-    format_process_stats,
     install_gui_crash_logging,
     install_tk_exception_logging,
 )
@@ -51,17 +54,8 @@ def run_simple_app(
     """Launch the simplified Tkinter GUI."""
 
     crash_logging = install_gui_crash_logging()
-    LOGGER.info(
-        "Launching simplified tensiometer GUI. state_file=%s root_provided=%s log_path=%s fault_log_path=%s",
-        state_file,
-        root is not None,
-        crash_logging.log_path,
-        crash_logging.fault_log_path,
-    )
 
     try:
-        if root is None:
-            LOGGER.info("Creating Tk root window.")
         root = cast(tk.Tk, root or tk.Tk())
         install_tk_exception_logging(root)
         root.title("Tensiometer GUI (simplified)")
@@ -76,11 +70,8 @@ def run_simple_app(
             root.columnconfigure(2, weight=1)
         if hasattr(root, "rowconfigure"):
             root.rowconfigure(0, weight=1)
-        LOGGER.info("Tk root ready. %s", format_process_stats())
-
         focus_command_var = tk.StringVar(master=root, value="4000")
         estimated_time_var = tk.StringVar(master=root, value="Not running")
-        LOGGER.info("Creating simplified GUI widgets.")
         (
             widgets,
             focus_canvas,
@@ -89,26 +80,14 @@ def run_simple_app(
             log_text,
             summary_plot_frame,
             waveform_plot_frame,
-        ) = _create_widgets(root, estimated_time_var)
-        log_binding = configure_gui_logging(root, log_text)
-        LOGGER.info(
-            "GUI log panel attached. persistent_log=%s fault_log=%s",
-            crash_logging.log_path,
-            crash_logging.fault_log_path,
-        )
-
+            extras,
+        ) = _create_widgets(root, estimated_time_var, focus_command_var)
         runtime_options = resolve_runtime_options()
-        LOGGER.info("Resolved runtime options: %s", runtime_options)
         runtime_bundle = build_runtime_bundle(runtime_options)
-        LOGGER.info(
-            "Runtime bundle ready. motion=%s audio_samplerate=%s servo=%s relay=%s",
-            type(runtime_bundle.motion).__name__,
-            getattr(runtime_bundle.audio, "samplerate", "unknown"),
-            type(runtime_bundle.servo_controller).__name__,
-            type(runtime_bundle.relay_controller).__name__
-            if runtime_bundle.relay_controller is not None
-            else "None",
-        )
+        log_binding = configure_gui_logging(root, log_text)
+
+        logging.getLogger("dune_tension.tensiometer").setLevel(logging.WARNING)
+
         ctx = create_context(
             root,
             widgets,
@@ -126,14 +105,11 @@ def run_simple_app(
             waveform_plot_frame,
         )
 
-        _configure_commands(ctx, buttons)
-        LOGGER.info("Simplified GUI commands configured.")
+        _configure_commands(ctx, buttons, extras)
 
         load_state(ctx)
-        LOGGER.info("Loaded GUI state from %s", state_file)
         refresh_uv_laser_offset_controls(ctx)
         if ctx.live_plot_manager is not None:
-            LOGGER.info("Requesting initial live summary refresh.")
             ctx.live_plot_manager.request_summary_refresh(
                 make_config(
                     apa_name=apa_naming.compose(
@@ -146,13 +122,10 @@ def run_simple_app(
                 )
             )
         _initialise_servo(ctx)
-        _schedule_health_logging(ctx)
 
         cast(tk.Tk, ctx.root).protocol("WM_DELETE_WINDOW", lambda: handle_close(ctx))
         ctx.root.after(1000, lambda: monitor_tension_logs(ctx))
-        LOGGER.info("Entering Tk mainloop.")
         ctx.root.mainloop()
-        LOGGER.info("Tk mainloop exited.")
     except Exception:
         LOGGER.exception(
             "Simplified tensiometer GUI crashed during startup or runtime. persistent_log=%s fault_log=%s",
@@ -167,6 +140,7 @@ def run_simple_app(
 def _create_widgets(
     root: tk.Misc,
     estimated_time_var: tk.StringVar,
+    focus_command_var: tk.StringVar,
 ) -> tuple[
     GUIWidgets,
     tk.Canvas | None,
@@ -175,6 +149,7 @@ def _create_widgets(
     Any | None,
     tk.Misc,
     tk.Misc,
+    dict[str, Any],
 ]:
     """Build and lay out the simplified GUI widgets."""
 
@@ -250,11 +225,20 @@ def _create_widgets(
     if hasattr(measure_frame, "columnconfigure"):
         measure_frame.columnconfigure(1, weight=1)
 
+    move_frame = tk.LabelFrame(main_frame, text="Manual Move (G-code)")
+    move_frame.grid(row=2, column=0, sticky="ew", pady=3)
+    if hasattr(move_frame, "columnconfigure"):
+        move_frame.columnconfigure(0, weight=1)
+    entry_gcode = tk.Entry(move_frame)
+    entry_gcode.grid(row=0, column=0, sticky="ew", padx=(3, 3), pady=3)
+    btn_move = tk.Button(move_frame, text="Move")
+    btn_move.grid(row=0, column=1, sticky="ew", padx=(0, 3), pady=3)
+
     btn_refresh_plots = tk.Button(main_frame, text="Refresh Plots")
-    btn_refresh_plots.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+    btn_refresh_plots.grid(row=3, column=0, sticky="ew", pady=(6, 0))
 
     btn_refresh_connections = tk.Button(main_frame, text="Refresh Connections")
-    btn_refresh_connections.grid(row=3, column=0, sticky="ew", pady=(3, 0))
+    btn_refresh_connections.grid(row=4, column=0, sticky="ew", pady=(3, 0))
 
     # APA controls
     tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
@@ -329,6 +313,60 @@ def _create_widgets(
         row=10, column=1, columnspan=2, sticky="w", pady=(6, 0)
     )
 
+    laser_offset_frame = tk.LabelFrame(measure_frame, text="Laser Offset")
+    laser_offset_frame.grid(row=11, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+    if hasattr(laser_offset_frame, "columnconfigure"):
+        laser_offset_frame.columnconfigure(1, weight=1)
+    tk.Label(laser_offset_frame, text="Bottom Pin:").grid(row=0, column=0, sticky="e")
+    laser_offset_pin_var = tk.StringVar(laser_offset_frame, value="")
+    laser_offset_pin_menu = tk.OptionMenu(laser_offset_frame, laser_offset_pin_var, "")
+    laser_offset_pin_menu.grid(row=0, column=1, sticky="ew")
+    btn_seek_pin = tk.Button(laser_offset_frame, text="Seek Camera To Pin")
+    btn_seek_pin.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(3, 0))
+    btn_move_laser_to_pin = tk.Button(laser_offset_frame, text="Move Laser To Pin")
+    btn_move_laser_to_pin.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(3, 0))
+    btn_capture_laser_offset = tk.Button(
+        laser_offset_frame, text="Capture Laser Offset"
+    )
+    btn_capture_laser_offset.grid(
+        row=3, column=0, columnspan=2, sticky="ew", pady=(3, 0)
+    )
+    laser_offset_readout_var = tk.StringVar(laser_offset_frame, value="Side A: not set")
+    tk.Label(laser_offset_frame, textvariable=laser_offset_readout_var).grid(
+        row=4, column=0, columnspan=2, sticky="w"
+    )
+    laser_offset_frame.grid_remove()
+
+    focus_frame = tk.LabelFrame(measure_frame, text="Focus")
+    focus_frame.grid(row=12, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+    if hasattr(focus_frame, "columnconfigure"):
+        focus_frame.columnconfigure(1, weight=1)
+
+    tk.Label(focus_frame, text="Focus:").grid(row=0, column=0, sticky="e")
+    focus_slider = tk.Scale(focus_frame, from_=4000, to=8000, orient=tk.HORIZONTAL)
+    focus_slider.set(4000)
+    focus_slider.grid(row=0, column=1, sticky="ew")
+
+    tk.Label(focus_frame, textvariable=focus_command_var).grid(
+        row=1, column=0, sticky="e"
+    )
+    focus_command_canvas: tk.Canvas | None = None
+    focus_command_dot: Any | None = None
+    if hasattr(tk, "Canvas"):
+        focus_command_canvas = tk.Canvas(focus_frame, height=8)
+        focus_command_canvas.grid(row=1, column=1, sticky="ew")
+        focus_command_canvas.create_line(0, 5, int(focus_slider.cget("length")), 5)
+        focus_command_dot = focus_command_canvas.create_oval(
+            0, 0, 0, 0, fill="blue", outline=""
+        )
+
+    use_manual_focus_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        focus_frame,
+        text="Manual Focus",
+        variable=use_manual_focus_var,
+    ).grid(row=2, column=1, sticky="w")
+
     # Hidden host frame: every widget here is required by GUIWidgets but not
     # exposed in the simplified UI. The frame is never gridded, so its children
     # carry their fixed values invisibly.
@@ -361,7 +399,6 @@ def _create_widgets(
         0, str(MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us)
     )
 
-    use_manual_focus_var = tk.BooleanVar(value=False)
     plot_audio_var = tk.BooleanVar(value=False)
     suppress_wire_preview_var = tk.BooleanVar(value=False)
     skip_measured_zone_var = tk.BooleanVar(value=True)
@@ -378,33 +415,11 @@ def _create_widgets(
     entry_set_tension = tk.Entry(hidden)
     entry_xy = tk.Entry(hidden)
 
-    focus_slider = tk.Scale(hidden, from_=4000, to=8000, orient=tk.HORIZONTAL)
-    focus_slider.set(4000)
-
-    focus_command_canvas: tk.Canvas | None = None
-    focus_command_dot: Any | None = None
-    if hasattr(tk, "Canvas"):
-        focus_command_canvas = tk.Canvas(hidden, height=8)
-        focus_command_canvas.create_line(0, 5, int(focus_slider.cget("length")), 5)
-        focus_command_dot = focus_command_canvas.create_oval(
-            0, 0, 0, 0, fill="blue", outline=""
-        )
-
     stream_segment_var = tk.StringVar(hidden, value="Idle")
     stream_comb_var = tk.StringVar(hidden, value="0.00")
     stream_focus_var = tk.StringVar(hidden, value="--")
     stream_pitch_backlog_var = tk.StringVar(hidden, value="0")
     stream_rescue_queue_var = tk.StringVar(hidden, value="0")
-
-    laser_offset_frame = tk.LabelFrame(hidden, text="Laser Offset")
-    laser_offset_pin_var = tk.StringVar(laser_offset_frame, value="")
-    laser_offset_pin_menu = tk.OptionMenu(laser_offset_frame, laser_offset_pin_var, "")
-    btn_seek_pin = tk.Button(laser_offset_frame, text="Seek Camera To Pin")
-    btn_move_laser_to_pin = tk.Button(laser_offset_frame, text="Move Laser To Pin")
-    btn_capture_laser_offset = tk.Button(
-        laser_offset_frame, text="Capture Laser Offset"
-    )
-    laser_offset_readout_var = tk.StringVar(laser_offset_frame, value="Side A: not set")
 
     widgets = GUIWidgets(
         apa_location_var=apa_location_var,
@@ -463,7 +478,12 @@ def _create_widgets(
         "measure_condition": btn_measure_condition,
         "refresh_plots": btn_refresh_plots,
         "refresh_connections": btn_refresh_connections,
+        "seek_pin": btn_seek_pin,
+        "move_laser_to_pin": btn_move_laser_to_pin,
+        "capture_laser_offset": btn_capture_laser_offset,
+        "manual_move": btn_move,
     }
+    extras = {"gcode_entry": entry_gcode}
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
 
@@ -475,6 +495,7 @@ def _create_widgets(
         log_text,
         summary_plot_frame,
         waveform_plot_frame,
+        extras,
     )
 
 
@@ -494,7 +515,9 @@ def _measure_calibrate_single(ctx: GUIContext) -> None:
     measure_calibrate(ctx)
 
 
-def _configure_commands(ctx: GUIContext, buttons: dict[str, tk.Button]) -> None:
+def _configure_commands(
+    ctx: GUIContext, buttons: dict[str, tk.Button], extras: dict[str, Any]
+) -> None:
     """Attach the simplified-GUI callbacks."""
 
     buttons["measure_calibrate"].configure(
@@ -507,11 +530,49 @@ def _configure_commands(ctx: GUIContext, buttons: dict[str, tk.Button]) -> None:
     buttons["measure_condition"].configure(command=lambda: measure_condition(ctx))
     buttons["refresh_plots"].configure(command=lambda: refresh_tension_logs(ctx))
     buttons["refresh_connections"].configure(command=lambda: refresh_connections(ctx))
+    buttons["seek_pin"].configure(command=lambda: seek_camera_to_pin(ctx))
+    buttons["move_laser_to_pin"].configure(
+        command=lambda: move_laser_to_pin_button(ctx)
+    )
+    buttons["capture_laser_offset"].configure(
+        command=lambda: capture_laser_offset_button(ctx)
+    )
+
+    gcode_entry: tk.Entry = extras["gcode_entry"]
+
+    def _run_gcode_move() -> None:
+        manual_gcode_move(ctx, gcode_entry.get())
+
+    buttons["manual_move"].configure(command=_run_gcode_move)
+    gcode_entry.bind("<Return>", lambda _event: _run_gcode_move())
 
     widgets = ctx.widgets
-    widgets.focus_slider.configure(
-        command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
-    )
+
+    # Debounce the focus slider: wait for it to settle before moving the
+    # servo and the winder. Without this, every intermediate value during a
+    # drag fires a focus_target + X-compensation move.
+    pending_focus: dict[str, str] = {}
+
+    def _commit_focus(value: int) -> None:
+        pending_focus.pop("after_id", None)
+        adjust_focus_with_x_compensation(ctx, value)
+
+    def _schedule_focus(val: str) -> None:
+        try:
+            target = int(float(val))
+        except (TypeError, ValueError):
+            return
+        after_id = pending_focus.pop("after_id", None)
+        if after_id is not None:
+            try:
+                ctx.root.after_cancel(after_id)
+            except Exception:
+                pass
+        pending_focus["after_id"] = ctx.root.after(
+            250, lambda: _commit_focus(target)
+        )
+
+    widgets.focus_slider.configure(command=_schedule_focus)
     for variable in (
         widgets.layer_var,
         widgets.side_var,
