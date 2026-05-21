@@ -108,6 +108,10 @@ def run_simple_app(
         _configure_commands(ctx, buttons, extras)
 
         load_state(ctx)
+        # load_state restores suppress_wire_preview from the saved state file,
+        # which would re-enable the preview (it defaults to False when absent).
+        # The simplified app always suppresses the wire preview, so re-assert it.
+        ctx.widgets.suppress_wire_preview_var.set(True)
         refresh_uv_laser_offset_controls(ctx)
         if ctx.live_plot_manager is not None:
             ctx.live_plot_manager.request_summary_refresh(
