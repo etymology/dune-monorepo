@@ -13,7 +13,7 @@ class GeometryConfig:
     measurable_y_max: int = 2700
     g_length_m: float = 1.285
     x_length_m: float = 1.273
-    comb_positions: tuple[int, ...] = (1050, 2230, 3420, 4590, 5770, 7015)
+    comb_positions: tuple[int, ...] = (1050, 2220, 3400, 4580, 5765,7060)
     refine_search_steps: int = 300
     refine_clearance_threshold: float = 400.0
     taped_length_offset_mm: float = 16.0
