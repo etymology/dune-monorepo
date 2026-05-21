@@ -362,8 +362,13 @@ def test_machine_xy_solver_moves_camera_without_candidate_camera_paths(
         initial_roller_y_cals=(24.0, 23.0, 18.0, 17.0),
     )
 
+    # B2001 is an X-natural (top/bottom) corner, so the camera absorbs the
+    # on-axis X residual but leaves the off-axis Y residual alone -- a corner
+    # offset cannot represent it, and pulling the camera off-axis to chase it
+    # would shift that corner's commanded head (the command-target invariance
+    # gate would then reject the apply).
     assert evaluation["cameraOffsetX"] == pytest.approx(10.0, abs=1e-9)
-    assert evaluation["cameraOffsetY"] == pytest.approx(-1.5, abs=0.2)
+    assert evaluation["cameraOffsetY"] == pytest.approx(0.0, abs=1e-9)
 
     assert all(call["camera_offset"] is None for call in candidate_calls)
 
@@ -512,8 +517,13 @@ def test_machine_xy_solver_clamps_camera_within_bounds(monkeypatch, tmp_path):
         initial_roller_y_cals=(24.0, 23.0, 18.0, 17.0),
     )
 
+    # Every measured corner here is X-natural (B2001/B2002), so only the X
+    # residual drives the camera -- it clamps at the +10 mm bound (20.0).  The
+    # off-axis Y residual is not absorbed (it stays at the starting -5.0): a
+    # corner offset cannot represent it and moving the camera off-axis would
+    # break command-target invariance for these corners.
     assert evaluation["cameraOffsetX"] == pytest.approx(20.0, abs=1e-9)
-    assert evaluation["cameraOffsetY"] == pytest.approx(5.0, abs=0.2)
+    assert evaluation["cameraOffsetY"] == pytest.approx(-5.0, abs=1e-9)
     # Roller cals untouched.
     assert evaluation["rollerYCals"] == [24.0, 23.0, 18.0, 17.0]
     expected_camera_delta_norm = (
