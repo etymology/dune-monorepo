@@ -61,6 +61,12 @@ _MOTION_TRACE_FILE_HANDLER = None
 _MOTION_TRACE_FILE_PATH = None
 _MACRO_CALL_RE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\((?P<args>.*)\)$")
 
+# For a same-side ~anchorToTarget move, when the head is already inside the
+# transfer zone and within this per-axis XY tolerance (mm) of the final target,
+# a preparatory head transfer to the origin-side clearance Z is inserted before
+# the XY move so the head clears the just-placed wire.
+_SAME_SIDE_PREP_TRANSFER_XY_TOLERANCE_MM = 25.0
+
 
 def _motion_trace_log_path():
     configured = os.environ.get(_MOTION_TRACE_LOG_ENV)
@@ -692,6 +698,27 @@ class GCodeHandlerBase:
 
         final_xy = Point2D(float(plan.final_xy.x), float(plan.final_xy.y))
         if plan.same_side:
+            prep_transfer = False
+            if head_present and self._x is not None and self._y is not None:
+                in_transfer_zone = (
+                    float(self._machineCalibration.transferLeft)
+                    <= float(self._x)
+                    <= float(self._machineCalibration.transferRight)
+                    and float(self._machineCalibration.transferBottom)
+                    <= float(self._y)
+                    <= float(self._machineCalibration.transferTop)
+                )
+                near_target = (
+                    abs(float(self._x) - float(final_xy.x))
+                    <= _SAME_SIDE_PREP_TRANSFER_XY_TOLERANCE_MM
+                    and abs(float(self._y) - float(final_xy.y))
+                    <= _SAME_SIDE_PREP_TRANSFER_XY_TOLERANCE_MM
+                )
+                prep_transfer = in_transfer_zone and near_target
+            if prep_transfer:
+                self._append_pending_action(
+                    "head_transfer", head_position=clearance_position
+                )
             self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
             if head_present:
                 self._append_pending_action(
