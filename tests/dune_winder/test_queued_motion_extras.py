@@ -38,6 +38,21 @@ _positive_finite = st.floats(
 )
 
 
+def _is_not_floatable(s: str) -> bool:
+    """True when ``float(s)`` raises, i.e. ``s`` is not a parseable number.
+
+    ``float()`` tolerates surrounding whitespace, scientific notation and
+    underscores, so a digit-based heuristic such as ``str.isdigit`` wrongly
+    classifies e.g. ``"1\\r"`` or ``"1e1"`` as non-numeric even though they
+    parse to valid positive jerks. Parse them for real instead.
+    """
+    try:
+        float(s)
+    except ValueError:
+        return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # jerk_limits
 
@@ -52,9 +67,7 @@ def test_normalize_jerk_returns_input_for_positive_finite_numeric(value):
 @given(
     value=st.one_of(
         st.none(),
-        st.text(min_size=1, max_size=4).filter(
-            lambda s: not s.lstrip("-+").replace(".", "", 1).isdigit()
-        ),
+        st.text(min_size=1, max_size=4).filter(_is_not_floatable),
         st.floats(max_value=0.0, allow_nan=False, allow_infinity=False),
         st.just(float("nan")),
         st.just(float("inf")),

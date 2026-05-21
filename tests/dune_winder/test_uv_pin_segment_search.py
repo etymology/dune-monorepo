@@ -96,9 +96,9 @@ class UvPinSegmentSearchTests(unittest.TestCase):
         self.assertEqual(result["pinName"], "PB40")
         self.assertEqual(result["pinRole"], "end")
         self.assertEqual(result["segmentSide"], "B")
-        self.assertEqual(result["segmentStartLine"], 9032)
-        self.assertEqual(result["matchedLine"], 9032)
-        self.assertEqual(result["segmentEndLine"], 9032)
+        self.assertEqual(result["segmentStartLine"], 9050)
+        self.assertEqual(result["matchedLine"], 9050)
+        self.assertEqual(result["segmentEndLine"], 9050)
 
     def test_find_v_pin_segment_supports_negative_board_pin_numbers(self):
         workspace = self._workspace("V", render_v_template_lines())

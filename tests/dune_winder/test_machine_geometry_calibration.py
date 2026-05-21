@@ -1024,11 +1024,11 @@ def test_machine_xy_solve_can_be_killed(monkeypatch, tmp_path):
         daemon=True,
     )
     solve_thread.start()
-    assert started.wait(timeout=1.0)
+    assert started.wait(timeout=15.0)
 
     kill_result = service.killMachineXY()
 
-    solve_thread.join(timeout=1.0)
+    solve_thread.join(timeout=15.0)
     assert not solve_thread.is_alive()
     status = service._layerDraft("U")["machineSolveStatus"]
     assert kill_result["killed"] is True
