@@ -33,6 +33,24 @@ _ONNX_MODEL_CACHE: dict[str, ONNXPestoModel] = {}
 _DEFAULT_MODEL_NAME = "mir-1k_g7"
 
 
+def _onnx_model_cache_maxsize() -> int:
+    """Max distinct ONNX PESTO models kept resident.
+
+    Models are keyed by augmented sample rate, so each wire frequency loads a
+    separate set of InferenceSessions (native, GC-invisible memory). Bound the
+    cache so it cannot grow until the process is OOM-killed. Shares the
+    ``DUNE_PESTO_MODEL_CACHE_SIZE`` knob with the PyTorch backend.
+    """
+
+    import os
+
+    try:
+        value = int(os.environ.get("DUNE_PESTO_MODEL_CACHE_SIZE", "2"))
+    except (TypeError, ValueError):
+        return 2
+    return max(1, value)
+
+
 @dataclass(frozen=True)
 class PestoAnalysisResult:
     """Pitch estimate and optional activation diagnostics for one audio buffer."""
@@ -387,8 +405,12 @@ def load_onnx_model(
         ONNXPestoModel instance, or None if models are not found.
     """
     cache_key = f"{model_name}_{step_size_ms}_{sample_rate}"
-    if cache_key in _ONNX_MODEL_CACHE:
-        return _ONNX_MODEL_CACHE[cache_key]
+    cached = _ONNX_MODEL_CACHE.get(cache_key)
+    if cached is not None:
+        # Refresh recency (delete + reinsert) for the LRU bound below.
+        del _ONNX_MODEL_CACHE[cache_key]
+        _ONNX_MODEL_CACHE[cache_key] = cached
+        return cached
 
     encoder_path = _find_onnx_model_path(model_name, "encoder")
     confidence_path = _find_onnx_model_path(model_name, "confidence")
@@ -413,6 +435,10 @@ def load_onnx_model(
     )
 
     _ONNX_MODEL_CACHE[cache_key] = model
+    # Evict least-recently-used sessions so native memory stays bounded.
+    maxsize = _onnx_model_cache_maxsize()
+    while len(_ONNX_MODEL_CACHE) > maxsize:
+        del _ONNX_MODEL_CACHE[next(iter(_ONNX_MODEL_CACHE))]
     return model
 
 

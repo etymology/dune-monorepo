@@ -23,6 +23,24 @@ LOGGER = logging.getLogger(__name__)
 _ONNX_BACKEND_AVAILABLE = False
 
 
+def _pesto_model_cache_maxsize() -> int:
+    """Max distinct PESTO models kept resident.
+
+    Each model is keyed by (name, step, augmented_sample_rate); the augmented
+    rate is ``sample_rate * 600 / expected_frequency``, so every distinct wire
+    frequency loads a *separate* model of several hundred MB. Without a bound
+    the cache grows once per frequency until the process is OOM-killed (the
+    measurement loop only ever needs the current wire's model). Keep a small
+    LRU window so wire-to-wire switches stay fast without unbounded growth.
+    """
+
+    try:
+        value = int(os.environ.get("DUNE_PESTO_MODEL_CACHE_SIZE", "2"))
+    except (TypeError, ValueError):
+        return 2
+    return max(1, value)
+
+
 def _check_onnx_backend_available() -> bool:
     """Check if ONNX backend is available and should be used.
 
@@ -296,15 +314,26 @@ def _load_pesto_model_cached(
 
     cache_key = (str(model_name), float(step_size_ms), int(sample_rate))
     model = _MODEL_CACHE.get(cache_key)
-    if model is None:
-        model = load_model(
-            model_name,
-            step_size=float(step_size_ms),
-            sampling_rate=int(sample_rate),
-            streaming=False,
-            max_batch_size=1,
-        )
+    if model is not None:
+        # Refresh recency: delete + reinsert moves the key to the end of the
+        # insertion order (works on a plain dict, which is what tests inject).
+        del _MODEL_CACHE[cache_key]
         _MODEL_CACHE[cache_key] = model
+        return model
+
+    model = load_model(
+        model_name,
+        step_size=float(step_size_ms),
+        sampling_rate=int(sample_rate),
+        streaming=False,
+        max_batch_size=1,
+    )
+    _MODEL_CACHE[cache_key] = model
+    # Evict least-recently-used models so the cache cannot grow without bound;
+    # dropping the reference frees each model's several hundred MB of weights.
+    maxsize = _pesto_model_cache_maxsize()
+    while len(_MODEL_CACHE) > maxsize:
+        del _MODEL_CACHE[next(iter(_MODEL_CACHE))]
     return model
 
 

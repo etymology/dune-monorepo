@@ -486,3 +486,36 @@ def test_auto_backend_keeps_pytorch_even_when_onnx_available(monkeypatch):
     )
 
     assert pesto_analysis.use_pytorch_backend() is True
+
+
+def test_model_cache_is_bounded_and_lru(monkeypatch):
+    """Distinct sample rates must not grow the model cache without bound.
+
+    Each PESTO model is keyed by augmented sample rate and weighs hundreds of
+    MB, so an unbounded cache OOM-kills the GUI over a measuring session. The
+    cache must evict least-recently-used models down to the configured size.
+    """
+
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+    monkeypatch.setattr(pesto_analysis, "load_model", lambda *a, **k: object())
+    monkeypatch.setenv("DUNE_PESTO_MODEL_CACHE_SIZE", "2")
+
+    # Load three distinct models (e.g. three wires at different frequencies).
+    m_a = pesto_analysis._load_pesto_model_cached("m", 5.0, 100_000)
+    pesto_analysis._load_pesto_model_cached("m", 5.0, 200_000)
+    pesto_analysis._load_pesto_model_cached("m", 5.0, 300_000)
+
+    # Cache stays at the bound; the oldest (A) was evicted, not B/C.
+    assert len(pesto_analysis._MODEL_CACHE) == 2
+    assert ("m", 5.0, 100_000) not in pesto_analysis._MODEL_CACHE
+    assert ("m", 5.0, 300_000) in pesto_analysis._MODEL_CACHE
+
+    # A hit refreshes recency: re-touching B keeps it alive when D arrives.
+    m_b = pesto_analysis._load_pesto_model_cached("m", 5.0, 200_000)
+    pesto_analysis._load_pesto_model_cached("m", 5.0, 400_000)
+    assert ("m", 5.0, 200_000) in pesto_analysis._MODEL_CACHE
+    assert len(pesto_analysis._MODEL_CACHE) == 2
+
+    # Re-loading an evicted key produces a fresh object, not the stale one.
+    assert pesto_analysis._load_pesto_model_cached("m", 5.0, 100_000) is not m_a
+    assert m_b is not None
