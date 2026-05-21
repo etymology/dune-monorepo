@@ -91,6 +91,43 @@
   grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
 }
 
+.gCodeGenerationOffsetGrid
+{
+  grid-template-columns: 1fr;
+}
+
+.gCodeGenerationOffsetLayout
+{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 10px;
+}
+
+.gCodeGenerationOffsetLayout > .gCodeGenerationOffsetGrid
+{
+  /* Snug to the widest corner label ("Bottom A / head end"); don't stretch. */
+  flex: 0 0 auto;
+  width: 11rem;
+  margin-top: 0;
+}
+
+.gCodeGenerationOffsetSide
+{
+  flex: 1 1 220px;
+}
+
+.gCodeGenerationOffsetSide > :first-child
+{
+  margin-top: 0;
+}
+
+.gCodeGenerationOffsetSide .gCodeGenerationFieldGrid
+{
+  grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
 .gCodeGenerationReferenceGrid
 {
   display: grid;

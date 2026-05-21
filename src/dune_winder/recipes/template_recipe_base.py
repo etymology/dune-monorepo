@@ -6,26 +6,45 @@
 
 import datetime
 import json
+import math
 import os
 import re
 
 from dune_winder.machine.settings import Settings
 from dune_winder.recipes.line_offset_overrides import (
+    extract_line_key,
     line_offset_override_items,
     normalize_line_key,
     normalize_line_offset_overrides,
 )
 from dune_winder.recipes.template_gcode_common import normalize_offset_value
+from dune_winder.recipes.offset_axis_policy import (
+    enforce_offset_dict,
+    natural_axis_for_pin,
+)
 
 from dune_winder.core.process_context import ProcessContext
 
 
-_OFFSET_AXES = ("x", "y", "z")
+_OFFSET_AXES = ("x", "y")
 _TRAILING_LABEL_RE = re.compile(r"\(([^()]*)\)\s*$")
+_ANCHOR_OFFSET_RE = re.compile(
+    r"offset=\(\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)\s*\)"
+)
 
 
-def _zero_offset_3d():
-    return {"x": 0.0, "y": 0.0, "z": 0.0}
+def _parse_rendered_anchor_offset(line_text):
+    """Extract the (x, y) offset that was rendered into an ~anchorToTarget call."""
+    if line_text is None:
+        return (0.0, 0.0)
+    match = _ANCHOR_OFFSET_RE.search(str(line_text))
+    if match is None:
+        return (0.0, 0.0)
+    return (float(match.group(1)), float(match.group(2)))
+
+
+def _zero_offset_2d():
+    return {"x": 0.0, "y": 0.0}
 
 
 def _parse_trailing_label(line_text):
@@ -37,6 +56,134 @@ def _parse_trailing_label(line_text):
         return None
     label = match.group(1).strip()
     return label or None
+
+
+_LINE_NUMBER_PREFIX_RE = re.compile(r"^\s*N\d+\s+")
+_WRAP_IDENTIFIER_RE = re.compile(r"\(\d+,\d+\)")
+_ANCHOR_OFFSET_KEYWORD_RE = re.compile(
+    r",\s*offset=\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\)"
+)
+
+
+def _strip_anchor_offset(line_text):
+    """Strip ~anchorToTarget offset= keyword and runner-added prefixes.
+
+    Removes the leading ``Nxx`` line number, any ``(wrap,line)`` wrap
+    identifier, and the ``,offset=(...)`` keyword inside any
+    ``~anchorToTarget(...)`` call.  Trailing labels like
+    ``(Top A corner)`` are preserved for operator readability.
+    """
+    text = str(line_text)
+    text = _LINE_NUMBER_PREFIX_RE.sub("", text)
+    text = _WRAP_IDENTIFIER_RE.sub("", text, count=1)
+    text = _ANCHOR_OFFSET_KEYWORD_RE.sub("", text)
+    return " ".join(text.split())
+
+
+_ANCHOR_TARGET_RE = re.compile(r"~anchorToTarget\([ABP]\d+,([ABP]\d+)")
+
+
+def _anchor_target_pin(line_text):
+    """Target pin token of an ~anchorToTarget line, or None."""
+    match = _ANCHOR_TARGET_RE.search(str(line_text))
+    return match.group(1) if match is not None else None
+
+
+_PIN_DELTA_EPSILON = 1.0e-6
+
+
+def _trace_pin_location(trace, role):
+    pins = (trace or {}).get("pins") or []
+    for pin in pins:
+        if str(pin.get("role")) != role:
+            continue
+        location = pin.get("calibrationSpace") or pin.get("wireSpace")
+        if not location:
+            continue
+        return (
+            float(location.get("x", 0.0)),
+            float(location.get("y", 0.0)),
+            float(location.get("z", 0.0)),
+        )
+    return None
+
+
+def _head_delta_to_pin_delta(trace, same_side, head_delta_xy, commanded):
+    """Convert a head-space jog delta into the matching pin-space offset delta.
+
+    The rendered ``offset=(x,y)`` on ``~anchorToTarget`` shifts the *target pin*,
+    so a jog observed at the head has to be scaled by the ratio of the
+    anchor-to-target distance over the anchor-to-head distance in the plane
+    that the wrap actually lives in. See plan: head sweeps a longer lever arm
+    than the pin, so this typically *shrinks* the offset we store.
+    """
+    anchor = _trace_pin_location(trace, "wrapAnchor")
+    target = _trace_pin_location(trace, "wrapTarget")
+    head_delta_x = float(head_delta_xy[0])
+    head_delta_y = float(head_delta_xy[1])
+
+    fallback = {
+        "plane": None,
+        "rx": 1.0,
+        "ry": 1.0,
+        "pinDelta": {"x": head_delta_x, "y": head_delta_y},
+    }
+    if anchor is None or target is None:
+        return fallback
+
+    if bool(same_side):
+        wire_target = (trace or {}).get("resultingWireTarget") or {}
+        head_x = float(wire_target.get("x", commanded["x"]))
+        head_y = float(wire_target.get("y", commanded["y"]))
+        d_at = math.hypot(target[0] - anchor[0], target[1] - anchor[1])
+        d_ah = math.hypot(head_x - anchor[0], head_y - anchor[1])
+        if d_at < _PIN_DELTA_EPSILON or d_ah < _PIN_DELTA_EPSILON:
+            return fallback
+        ratio = d_at / d_ah
+        return {
+            "plane": "xy",
+            "rx": ratio,
+            "ry": ratio,
+            "pinDelta": {
+                "x": head_delta_x * ratio,
+                "y": head_delta_y * ratio,
+            },
+        }
+
+    # Alternating: pick XZ or YZ by which pin-pair axis dominates.
+    dx_pins = abs(target[0] - anchor[0])
+    dy_pins = abs(target[1] - anchor[1])
+    head_z = float(commanded["z"])
+    if dx_pins >= dy_pins:
+        d_at = math.hypot(target[0] - anchor[0], target[2] - anchor[2])
+        d_ah = math.hypot(commanded["x"] - anchor[0], head_z - anchor[2])
+        if d_at < _PIN_DELTA_EPSILON or d_ah < _PIN_DELTA_EPSILON:
+            return fallback
+        ratio = d_at / d_ah
+        return {
+            "plane": "xz",
+            "rx": ratio,
+            "ry": 1.0,
+            "pinDelta": {
+                "x": head_delta_x * ratio,
+                "y": head_delta_y,
+            },
+        }
+
+    d_at = math.hypot(target[1] - anchor[1], target[2] - anchor[2])
+    d_ah = math.hypot(commanded["y"] - anchor[1], head_z - anchor[2])
+    if d_at < _PIN_DELTA_EPSILON or d_ah < _PIN_DELTA_EPSILON:
+        return fallback
+    ratio = d_at / d_ah
+    return {
+        "plane": "yz",
+        "rx": 1.0,
+        "ry": ratio,
+        "pinDelta": {
+            "x": head_delta_x,
+            "y": head_delta_y * ratio,
+        },
+    }
 
 
 class TemplateRecipeBase:
@@ -260,7 +407,7 @@ class TemplateRecipeBase:
 
     # -------------------------------------------------------------------
     def _resetState(self, markDirty):
-        self._offsets = {offsetId: _zero_offset_3d() for offsetId in self.OFFSET_IDS}
+        self._offsets = {offsetId: _zero_offset_2d() for offsetId in self.OFFSET_IDS}
         self._lineOffsetOverrides = {}
         self._transferPause = True
         self._addFootPauses = False
@@ -275,9 +422,12 @@ class TemplateRecipeBase:
         offsets = data.get("offsets", {})
         for offsetId in self.OFFSET_IDS:
             if offsetId in offsets:
-                self._offsets[offsetId] = normalize_offset_value(
+                # Stored drafts may predate the natural-axis policy (off-axis
+                # components, sub-0.1 mm noise); clean them on load so the page
+                # and any regeneration only ever see allowed values.
+                self._offsets[offsetId] = enforce_offset_dict(
                     offsets[offsetId],
-                    natural_axis=self._naturalAxis(offsetId),
+                    self._naturalAxis(offsetId),
                 )
 
         self._lineOffsetOverrides = normalize_line_offset_overrides(
@@ -419,12 +569,14 @@ class TemplateRecipeBase:
         return state
 
     # -------------------------------------------------------------------
-    def setOffset(self, offsetId, value=None, *, x=None, y=None, z=None):
-        """Set a 3D offset for `offsetId`.
+    def setOffset(self, offsetId, value=None, *, x=None, y=None):
+        """Set a 2D offset for `offsetId`.
 
-        Accepts either a 3D dict via `value`, a legacy scalar via `value`
-        (placed on the natural axis), or per-axis keyword arguments. Any
-        axis omitted in keyword form preserves the existing value.
+        Pin Z is determined by the A/B side of the target (z_extended for B
+        targets, z_retracted for A targets), so offsets never carry a Z
+        component. Accepts either an `{x, y}` dict via `value`, a legacy
+        scalar (placed on the natural axis), or per-axis keyword arguments.
+        Any axis omitted in keyword form preserves the existing value.
         """
         self._ensureDraftStateLoaded()
 
@@ -447,17 +599,21 @@ class TemplateRecipeBase:
                     value, natural_axis=self._naturalAxis(offsetId)
                 )
             else:
-                # Legacy scalar: only the natural axis is touched; preserve any
-                # off-axis calibration the operator may have set via jog calibration.
-                current = dict(self._offsets.get(offsetId, _zero_offset_3d()))
+                current = dict(self._offsets.get(offsetId, _zero_offset_2d()))
                 current[self._naturalAxis(offsetId)] = float(value)
                 self._offsets[offsetId] = current
         else:
-            current = dict(self._offsets.get(offsetId, _zero_offset_3d()))
-            for axis_key, axis_value in (("x", x), ("y", y), ("z", z)):
+            current = dict(self._offsets.get(offsetId, _zero_offset_2d()))
+            for axis_key, axis_value in (("x", x), ("y", y)):
                 if axis_value is not None:
                     current[axis_key] = float(axis_value)
             self._offsets[offsetId] = current
+
+        # A corner offset only moves the pin along its face's natural axis, and
+        # is quantised to 0.1 mm; drop any off-axis component the caller sent.
+        self._offsets[offsetId] = enforce_offset_dict(
+            self._offsets[offsetId], self._naturalAxis(offsetId)
+        )
 
         self._dirty = True
         self._persistState()
@@ -494,7 +650,7 @@ class TemplateRecipeBase:
         if blocked is not None:
             return blocked
 
-        entry = dict(extra or {})
+        entry = {k: v for k, v in (extra or {}).items() if k != "z"}
         entry["x"] = float(xValue)
         entry["y"] = float(yValue)
         lineKey = normalize_line_key(lineKey)
@@ -719,116 +875,260 @@ class TemplateRecipeBase:
         )
 
     # -------------------------------------------------------------------
+    def _readActualPosition(self):
+        """Sample current motor XYZ position from IO.
+
+        The Z axis motor position is reported even when the head is in the
+        fixed-present mode -- the operator may still be jogging the Z
+        gantry, and the static `extended_z_position` configuration value
+        is not a useful proxy for "where the wire is right now."
+        """
+        process = self._process
+        io = process._io
+        x_pos = float(io.xAxis.getPosition()) if hasattr(io, "xAxis") else 0.0
+        y_pos = float(io.yAxis.getPosition()) if hasattr(io, "yAxis") else 0.0
+        z_pos = float(io.zAxis.getPosition()) if hasattr(io, "zAxis") else 0.0
+        return {"x": x_pos, "y": y_pos, "z": z_pos}
+
+    # -------------------------------------------------------------------
     def _collectJogCalibrationSnapshot(self):
         """Read live jog-calibration inputs without mutating state.
 
-        Returns `{"ok": True, "data": {...}}` on success or
-        `{"ok": False, "error": "..."}` on failure.
+        Safe to call at any time, including during G-code execution.  The
+        frontend polls this for the auto-updating "last labeled line"
+        panel and expects the call to *always* succeed -- a top-level
+        `available` field flags whether a calibratable line is currently
+        in view.  Mutation guards for actually applying the offset live
+        in `applyJogCalibration`.
         """
         self._ensureDraftStateLoaded()
 
-        layer, error = self._getActiveLayer()
-        if error is not None:
-            return {"ok": False, "error": error}
+        actual = self._readActualPosition()
+
+        layer, layer_error = self._getActiveLayer()
+        if layer_error is not None:
+            return {
+                "available": False,
+                "reason": layer_error,
+                "actual": actual,
+            }
 
         process = self._process
-        if not process.controlStateMachine.isStopped():
+        trace = getattr(process, "getLastInstructionTrace", lambda: None)()
+        if not isinstance(trace, dict) or not trace.get("line"):
             return {
-                "ok": False,
-                "error": "Machine must be in STOP state to apply jog calibration.",
+                "available": False,
+                "reason": "No g-code line has been executed yet.",
+                "layer": layer,
+                "actual": actual,
+            }
+
+        line_text = trace["line"]
+        if "~anchorToTarget(" not in str(line_text):
+            return {
+                "available": False,
+                "reason": "Last executed line is not an ~anchorToTarget call.",
+                "layer": layer,
+                "lineText": line_text,
+                "actual": actual,
+            }
+
+        label = _parse_trailing_label(line_text)
+        offset_id = (
+            self.LABEL_TO_OFFSET_ID.get(label) if label is not None else None
+        )
+        try:
+            line_key = extract_line_key(line_text)
+        except Exception:
+            line_key = None
+        if line_key is not None:
+            try:
+                line_key = normalize_line_key(line_key)
+            except Exception:
+                line_key = None
+
+        # Either a canonical corner label (then we patch the per-corner offset
+        # that applies to all wraps) or a (wrap,line) key (then we patch a
+        # per-line override on this specific line) is sufficient to calibrate.
+        if offset_id is None and line_key is None:
+            return {
+                "available": False,
+                "reason": (
+                    "Anchor line has neither a recognized corner label nor a "
+                    "(wrap,line) identifier (label="
+                    + repr(label)
+                    + ")."
+                ),
+                "layer": layer,
+                "lineText": line_text,
+                "actual": actual,
             }
 
         handler = getattr(process, "gCodeHandler", None)
         line_index = handler.getLine() if handler is not None else None
         if line_index is None or line_index < 0:
-            return {
-                "ok": False,
-                "error": "No g-code line has been executed yet.",
-            }
+            line_index = None
 
-        gCode = getattr(handler, "_gCode", None)
-        if gCode is None or line_index >= gCode.getLineCount():
-            return {
-                "ok": False,
-                "error": "Last g-code line is no longer available.",
-            }
-
-        line_text = gCode.lines[line_index]
-        label = _parse_trailing_label(line_text)
-        if label is None or label not in self.LABEL_TO_OFFSET_ID:
-            return {
-                "ok": False,
-                "error": (
-                    "Last executed line has no calibratable label "
-                    "(parsed: " + repr(label) + ")."
-                ),
-            }
-
-        offset_id = self.LABEL_TO_OFFSET_ID[label]
+        resulting_target = trace.get("resultingTarget") or {}
         commanded = {
-            "x": float(getattr(handler, "_x", 0.0) or 0.0),
-            "y": float(getattr(handler, "_y", 0.0) or 0.0),
-            "z": float(getattr(handler, "_z", 0.0) or 0.0),
+            "x": float(resulting_target.get("x") or 0.0),
+            "y": float(resulting_target.get("y") or 0.0),
+            "z": float(
+                resulting_target.get("pinZ")
+                if resulting_target.get("pinZ") is not None
+                else resulting_target.get("headZ") or 0.0
+            ),
         }
-        io = process._io
-        actual = {
-            "x": float(io.xAxis.getPosition()),
-            "y": float(io.yAxis.getPosition()),
-            "z": float(io.zAxis.getPosition()) if hasattr(io, "zAxis") else 0.0,
+        rendered_offset_x, rendered_offset_y = _parse_rendered_anchor_offset(line_text)
+        # Z is determined by the A/B side of the target pin, not by an
+        # operator-applied offset; the rendered call never carries a Z term.
+        rendered_offset = {
+            "x": rendered_offset_x,
+            "y": rendered_offset_y,
+            "z": 0.0,
         }
-        delta = {axis: actual[axis] - commanded[axis] for axis in _OFFSET_AXES}
-        current_offset = dict(self._offsets.get(offset_id, _zero_offset_3d()))
-        new_offset = {axis: current_offset[axis] + delta[axis] for axis in _OFFSET_AXES}
+        base = {
+            "x": commanded["x"] - rendered_offset_x,
+            "y": commanded["y"] - rendered_offset_y,
+            "z": commanded["z"],
+        }
+        # Z delta is reported for the Z-plane solver only; it is not applied
+        # as an offset to the rendered ~anchorToTarget call.
+        delta = {
+            "x": actual["x"] - commanded["x"],
+            "y": actual["y"] - commanded["y"],
+            "z": actual["z"] - commanded["z"],
+        }
+        if offset_id is not None:
+            current_offset = dict(self._offsets.get(offset_id, _zero_offset_2d()))
+            override_kind = "corner"
+        else:
+            line_override = (
+                self._lineOffsetOverrides.get(line_key) if line_key else None
+            )
+            if line_override is None:
+                current_offset = _zero_offset_2d()
+            else:
+                current_offset = {
+                    "x": float(line_override.get("x", 0.0)),
+                    "y": float(line_override.get("y", 0.0)),
+                }
+            override_kind = "line"
+        same_side = trace.get("sameSide")
+        pin_delta_info = _head_delta_to_pin_delta(
+            trace=trace,
+            same_side=same_side,
+            head_delta_xy=(delta["x"], delta["y"]),
+            commanded=commanded,
+        )
+        pin_delta = pin_delta_info["pinDelta"]
+        # Raw measured delta: the snapshot/preview reports the true pin shift the
+        # operator jogged.  The natural-axis restriction and 0.1 mm quantisation
+        # are a storage policy applied when the offset is committed
+        # (see applyJogCalibration), not part of the measurement.
+        new_offset = {
+            "x": float(rendered_offset_x) + float(pin_delta["x"]),
+            "y": float(rendered_offset_y) + float(pin_delta["y"]),
+        }
 
         return {
-            "ok": True,
-            "data": {
-                "layer": layer,
-                "lineIndex": line_index,
-                "lineText": line_text,
-                "label": label,
-                "offsetId": offset_id,
-                "commanded": commanded,
-                "actual": actual,
-                "delta": delta,
-                "currentOffset": current_offset,
-                "newOffset": new_offset,
+            "available": True,
+            "layer": layer,
+            "lineIndex": line_index,
+            "lineText": line_text,
+            "lineKey": line_key,
+            "label": label,
+            "offsetId": offset_id,
+            "overrideKind": override_kind,
+            "sameSide": same_side,
+            "commanded": commanded,
+            "actual": actual,
+            "delta": delta,
+            "currentOffset": current_offset,
+            "newOffset": new_offset,
+            "renderedOffset": rendered_offset,
+            "pinDeltaRatio": {
+                "plane": pin_delta_info["plane"],
+                "rx": float(pin_delta_info["rx"]),
+                "ry": float(pin_delta_info["ry"]),
             },
         }
 
     # -------------------------------------------------------------------
     def previewJogCalibration(self):
-        """Compute the delta that *would* be applied without mutating state."""
-        snapshot = self._collectJogCalibrationSnapshot()
-        if not snapshot["ok"]:
-            return self._errorResult(snapshot["error"])
-        return self._okResult(snapshot["data"])
+        """Return the current jog-calibration snapshot.
+
+        The snapshot itself carries the `available` flag and (when
+        unavailable) a `reason` string, so this command never raises
+        for the "no calibratable line yet" condition. The registry's
+        own `{ok, data}` envelope is the only wrap — do NOT add a
+        second one or the snapshot fields hide one level too deep
+        from the frontend.
+        """
+        return self._collectJogCalibrationSnapshot()
 
     # -------------------------------------------------------------------
     def applyJogCalibration(self):
-        """Apply the jog-derived delta to the matching machine-geometry offset.
+        """Apply the jog-derived offset to the matching machine-geometry offset.
 
-        Adds `actual − commanded` to `_offsets[offset_id]`, persists, regenerates
+        The new offset is `actual − base` where `base` is the position that
+        `~anchorToTarget` would have commanded with no offset (recovered by
+        subtracting the offset baked into the executed line).  Persists, regenerates
         the recipe, and records a `kind="jog_calibration"` measurement in the
         machine-geometry calibration store.
         """
+        process = self._process
+        is_gcode_active = (
+            bool(process.isGCodeExecutionActive())
+            if hasattr(process, "isGCodeExecutionActive")
+            else False
+        )
+        if is_gcode_active:
+            raise ValueError(
+                "Stop G-code execution before applying jog calibration."
+            )
+
         snapshot = self._collectJogCalibrationSnapshot()
-        if not snapshot["ok"]:
-            return self._errorResult(snapshot["error"])
+        if not snapshot.get("available"):
+            raise ValueError(
+                snapshot.get("reason", "No calibratable line is currently in view.")
+            )
 
         blocked = self._mutationGuard()
         if blocked is not None:
             return blocked
 
-        data = snapshot["data"]
-        offset_id = data["offsetId"]
-        delta = data["delta"]
+        data = snapshot
+        offset_id = data.get("offsetId")
+        line_key = data.get("lineKey")
+        override_kind = data.get("overrideKind", "corner")
         current_offset = data["currentOffset"]
-        new_offset = {
-            axis: float(current_offset[axis]) + float(delta[axis])
-            for axis in _OFFSET_AXES
-        }
-        self._offsets[offset_id] = new_offset
+        new_offset = {axis: float(data["newOffset"][axis]) for axis in _OFFSET_AXES}
+        # Restrict the stored offset to the placement's natural axis (a corner
+        # offset id, or the target pin's face for a per-line override) and
+        # quantise to 0.1 mm before committing.
+        natural_axis = (
+            self._naturalAxis(offset_id)
+            if override_kind == "corner" and offset_id is not None
+            else natural_axis_for_pin(
+                self._layerName(), _anchor_target_pin(data.get("lineText"))
+            )
+        )
+        if natural_axis in ("x", "y"):
+            new_offset = enforce_offset_dict(new_offset, natural_axis)
+        if override_kind == "corner" and offset_id is not None:
+            self._offsets[offset_id] = dict(new_offset)
+        elif line_key is not None:
+            normalized_key = normalize_line_key(line_key)
+            self._lineOffsetOverrides[normalized_key] = {
+                "x": float(new_offset["x"]),
+                "y": float(new_offset["y"]),
+            }
+        else:
+            raise ValueError(
+                "Cannot apply: anchor line has neither a corner offset id nor a"
+                " (wrap,line) key."
+            )
         self._dirty = True
         self._persistState()
 
@@ -841,9 +1141,10 @@ class TemplateRecipeBase:
                 offset_id=offset_id,
                 commanded=data["commanded"],
                 actual=data["actual"],
-                delta=delta,
+                delta=data["delta"],
                 previous_offset=current_offset,
                 new_offset=new_offset,
+                same_side=data.get("sameSide"),
             )
         except Exception as exception:
             self._process._log.add(
@@ -853,7 +1154,7 @@ class TemplateRecipeBase:
                 [str(exception)],
             )
 
-        regen_result = self.generateRecipeFile()
+        regen_result = self.generateRecipeFile(scriptVariant="wrapping")
         regen_ok = bool(regen_result.get("ok"))
 
         result = dict(data)
@@ -861,4 +1162,126 @@ class TemplateRecipeBase:
         result["regenerated"] = regen_ok
         if not regen_ok:
             result["regenerationError"] = regen_result.get("error")
-        return self._okResult(result)
+        return result
+
+    # -------------------------------------------------------------------
+    def resetJogCalibration(self):
+        """Zero the offset patched by the last calibratable line.
+
+        Mirrors `applyJogCalibration` but writes a zero offset instead of
+        the actual-minus-base delta. Corner-labelled lines reset the
+        per-corner offset that drives every wrap of that corner; any
+        other ~anchorToTarget line deletes its per-line override.
+        Regenerates the recipe afterwards.
+        """
+        process = self._process
+        is_gcode_active = (
+            bool(process.isGCodeExecutionActive())
+            if hasattr(process, "isGCodeExecutionActive")
+            else False
+        )
+        if is_gcode_active:
+            raise ValueError(
+                "Stop G-code execution before resetting jog calibration."
+            )
+
+        snapshot = self._collectJogCalibrationSnapshot()
+        if not snapshot.get("available"):
+            raise ValueError(
+                snapshot.get("reason", "No calibratable line is currently in view.")
+            )
+
+        blocked = self._mutationGuard()
+        if blocked is not None:
+            return blocked
+
+        offset_id = snapshot.get("offsetId")
+        line_key = snapshot.get("lineKey")
+        override_kind = snapshot.get("overrideKind", "corner")
+        zero_offset = _zero_offset_2d()
+
+        if override_kind == "corner" and offset_id is not None:
+            self._offsets[offset_id] = dict(zero_offset)
+        elif line_key is not None:
+            normalized_key = normalize_line_key(line_key)
+            self._lineOffsetOverrides.pop(normalized_key, None)
+        else:
+            raise ValueError(
+                "Cannot reset: anchor line has neither a corner offset id nor a"
+                " (wrap,line) key."
+            )
+        self._dirty = True
+        self._persistState()
+
+        regen_result = self.generateRecipeFile(scriptVariant="wrapping")
+        regen_ok = bool(regen_result.get("ok"))
+
+        result = dict(snapshot)
+        result["newOffset"] = dict(zero_offset)
+        result["regenerated"] = regen_ok
+        if not regen_ok:
+            result["regenerationError"] = regen_result.get("error")
+        return result
+
+    # -------------------------------------------------------------------
+    def runBareJogCalibrationLine(self):
+        """Re-execute the last labeled line with all offsets stripped.
+
+        Lets the operator land at the bare anchor-to-target position so
+        they can jog from there to align the wire by eye.  Strips the
+        rendered ``offset=(x,y)`` keyword from the anchor call and any
+        leading line-number / wrap-identifier annotations the recipe
+        runner adds, then runs the stripped line through the G-Code
+        handler directly (the playback service's manual path is regex-
+        restricted to bare X/Y/Z moves and would reject ``~anchorToTarget``).
+        """
+        from dune_winder.core.control_events import ManualModeEvent
+
+        snapshot = self._collectJogCalibrationSnapshot()
+        if not snapshot.get("available"):
+            raise ValueError(
+                snapshot.get("reason", "No calibratable line is currently in view.")
+            )
+
+        bare_line = _strip_anchor_offset(str(snapshot["lineText"]))
+        if not bare_line.strip():
+            raise ValueError(
+                "Could not derive a bare g-code line from the last trace."
+            )
+
+        process = self._process
+        csm = getattr(process, "controlStateMachine", None)
+        if csm is not None and not csm.isReadyForMovement():
+            blocker = getattr(process, "_safety", None)
+            message = (
+                blocker.manual_movement_blocker_message()
+                if blocker is not None
+                else "Machine is not ready for movement."
+            )
+            raise ValueError(message)
+
+        handler = getattr(process, "gCodeHandler", None)
+        if handler is None or not hasattr(handler, "executeG_CodeLine"):
+            raise ValueError("G-Code handler is not available on this process.")
+
+        try:
+            error_data = handler.executeG_CodeLine(
+                bare_line, skip_before_execute_callback=True
+            )
+        except Exception as exception:
+            raise ValueError("Failed to execute bare line: " + str(exception))
+
+        if error_data:
+            raise ValueError(
+                "Failed to execute bare line: " + str(error_data.get("message"))
+            )
+
+        if csm is not None:
+            csm.dispatch(ManualModeEvent(executeGCode=True))
+
+        return {
+            "lineText": snapshot["lineText"],
+            "bareLine": bare_line,
+            "label": snapshot.get("label"),
+            "offsetId": snapshot.get("offsetId"),
+        }

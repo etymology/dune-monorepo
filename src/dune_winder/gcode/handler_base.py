@@ -197,6 +197,7 @@ class GCodeHandlerBase:
             "pins": list(self._instruction_trace["pins"]),
             "pinCenter": self._instruction_trace.get("pinCenter"),
             "anchorOrientation": self._instruction_trace.get("anchorOrientation"),
+            "sameSide": self._instruction_trace.get("sameSide"),
         }
         LOGGER.info("GCODE_MOTION_TRACE %s", json.dumps(payload, sort_keys=True))
         if self._instruction_trace_callback is not None:
@@ -604,6 +605,7 @@ class GCodeHandlerBase:
         target_pin,
         target_offset=None,
         hover=False,
+        in_two_moves=False,
     ):
         if self._layerCalibration is None:
             raise GCodeExecutionError(
@@ -685,33 +687,57 @@ class GCodeHandlerBase:
         )
         head_position = 1 if normalized_target.startswith("A") else 2
         clearance_position = 0 if normalized_target.startswith("A") else 3
+        head_present = self._isHeadPresent()
+        self._instruction_trace["sameSide"] = bool(plan.same_side)
 
         final_xy = Point2D(float(plan.final_xy.x), float(plan.final_xy.y))
         if plan.same_side:
             self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
-            self._append_pending_action("head_transfer", head_position=head_position)
+            if head_present:
+                self._append_pending_action(
+                    "head_transfer", head_position=head_position
+                )
             resolved_head_position = head_position
         else:
-            self._append_pending_action(
-                "head_transfer", head_position=clearance_position
-            )
+            if head_present:
+                self._append_pending_action(
+                    "head_transfer", head_position=clearance_position
+                )
             if hover:
                 final_xy = Point2D(
                     float(final_xy.x),
                     float(final_xy.y)
                     + float(alternating_side_hover_y_offset(plan.face)),
                 )
-            self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+            should_split = (
+                bool(in_two_moves)
+                and plan.face is not None
+                and str(plan.face).strip().lower() in ("top", "bottom")
+                and self._y is not None
+            )
+            if should_split:
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(self._y)
+                )
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                )
+            else:
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                )
             resolved_head_position = clearance_position
 
         self._x = float(final_xy.x)
         self._y = float(final_xy.y)
-        self._z = float(self._getHeadPosition(resolved_head_position))
-        self._headPosition = int(resolved_head_position)
+        if head_present:
+            self._z = float(self._getHeadPosition(resolved_head_position))
+            self._headPosition = int(resolved_head_position)
         self._instruction_contains_x = True
         self._instruction_contains_y = True
         self._instruction_request_xy = True
-        self._instruction_request_head = True
+        if head_present:
+            self._instruction_request_head = True
 
     # ---------------------------------------------------------------------
     def _run_macro_call(self, text):
@@ -753,11 +779,12 @@ class GCodeHandlerBase:
         if name == "anchorToTarget":
             if len(arguments) < 2:
                 raise GCodeExecutionError(
-                    "~anchorToTarget requires two pin arguments and optional hover/offset keywords.",
+                    "~anchorToTarget requires two pin arguments and optional hover/offset/inTwoMoves keywords.",
                     [raw_text],
                 )
             target_offset = None
             hover = False
+            in_two_moves = False
             for keyword in arguments[2:]:
                 keyword_text = str(keyword).strip()
                 if "=" not in keyword_text:
@@ -799,8 +826,20 @@ class GCodeHandlerBase:
                         "~anchorToTarget hover must be written as hover=True or hover=False.",
                         [raw_text],
                     )
+                if keyword_name == "intwomoves":
+                    in_two_moves_value = keyword_value.lower()
+                    if in_two_moves_value in ("true", "1", "yes", "on"):
+                        in_two_moves = True
+                        continue
+                    if in_two_moves_value in ("false", "0", "no", "off"):
+                        in_two_moves = False
+                        continue
+                    raise GCodeExecutionError(
+                        "~anchorToTarget inTwoMoves must be written as inTwoMoves=True or inTwoMoves=False.",
+                        [raw_text],
+                    )
                 raise GCodeExecutionError(
-                    "~anchorToTarget only supports offset and hover keyword arguments.",
+                    "~anchorToTarget only supports offset, hover, and inTwoMoves keyword arguments.",
                     [raw_text],
                 )
             self._plan_explicit_wrap_transition(
@@ -808,6 +847,7 @@ class GCodeHandlerBase:
                 self._eval_pin_macro_expr(arguments[1]),
                 target_offset=target_offset,
                 hover=hover,
+                in_two_moves=in_two_moves,
             )
             return
 
@@ -1063,6 +1103,14 @@ class GCodeHandlerBase:
         return z
 
     # ---------------------------------------------------------------------
+    def _isHeadPresent(self):
+        """
+        Report whether a physical head is mounted. Default True; subclasses
+        with hardware access override to consult the controller.
+        """
+        return True
+
+    # ---------------------------------------------------------------------
     def _getPin(self, pinName):
         """
         Function to fetch specific pin location.
@@ -1291,9 +1339,10 @@ class GCodeHandlerBase:
         """
         Head transfer position.
         """
-        self._headPosition = self._parameterExtract(
-            function, 1, None, int, "head transfer"
-        )
+        target = self._parameterExtract(function, 1, None, int, "head transfer")
+        if not self._isHeadPresent():
+            return
+        self._headPosition = target
         self._request_head_transfer()
 
         if GCodeHandlerBase.DEBUG_UNIT:
@@ -1618,7 +1667,7 @@ class GCodeHandlerBase:
         self._functions.append(function)
 
         # Toggle spool latch.
-        if number in list(GCodeHandlerBase.G_CODE_FUNCTION_TABLE.keys()):
+        if number in GCodeHandlerBase.G_CODE_FUNCTION_TABLE:
             GCodeHandlerBase.G_CODE_FUNCTION_TABLE[number](self, function)
         else:
             data = [str(number)]

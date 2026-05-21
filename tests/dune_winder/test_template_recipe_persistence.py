@@ -171,7 +171,10 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
             recipePath = os.path.join(process.workspace._recipeDirectory, "U-layer.gc")
             with open(recipePath, encoding="utf-8") as handle:
                 recipeText = handle.read()
-            self.assertIn("offset=(1.25,-2.5)", recipeText)
+            # Line (1,1) is the Foot B corner (target B1201), whose face runs in
+            # Y, so the natural-axis policy drops the off-axis X component and
+            # keeps the (already 0.1-aligned) Y component.
+            self.assertIn("offset=(0,-2.5)", recipeText)
 
     def test_v_recipe_generation_applies_line_offset_overrides_to_raw_output(self):
         with tempfile.TemporaryDirectory() as rootDirectory:
@@ -193,7 +196,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
             process = FakeProcess("U", rootDirectory)
             service = UTemplateRecipe(process)
 
-            result = service.setOffset("head_a_corner", 1.25)
+            result = service.setOffset("head_a_corner", 1.5)
             self.assertTrue(result["ok"])
             result = service.setTransferPause(False)
             self.assertTrue(result["ok"])
@@ -214,7 +217,7 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
             restarted = UTemplateRecipe(process)
             state = restarted.getState()
             self.assertAlmostEqual(
-                state["offsets"]["head_a_corner"]["y"], 1.25, places=6
+                state["offsets"]["head_a_corner"]["y"], 1.5, places=6
             )
             self.assertFalse(state["transferPause"])
             self.assertTrue(state["addFootPauses"])
@@ -254,6 +257,25 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
             self.assertAlmostEqual(state["pullIns"]["Y_PULL_IN"], 82.5, places=6)
             self.assertAlmostEqual(state["pullIns"]["X_PULL_IN"], 91.5, places=6)
             self.assertTrue(state["dirty"])
+
+    def test_set_offset_restricts_to_natural_axis_and_quantises(self):
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process = FakeProcess("V", rootDirectory)
+            service = VTemplateRecipe(process)
+
+            # head_a_corner runs in Y: an X value (even via keyword) is off-axis
+            # and must be dropped.
+            result = service.setOffset("head_a_corner", x=1.0)
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["data"]["value"], {"x": 0.0, "y": 0.0})
+
+            # An off-grid Y value is quantised to the nearest 0.1 mm.
+            result = service.setOffset("head_a_corner", y=2.34)
+            self.assertEqual(result["data"]["value"], {"x": 0.0, "y": 2.3})
+
+            # A bottom corner runs in X; a sub-0.1 mm value is treated as zero.
+            result = service.setOffset("bottom_b_head_end", {"x": 0.04, "y": 5.0})
+            self.assertEqual(result["data"]["value"], {"x": 0.0, "y": 0.0})
 
     def test_u_recipe_draft_persists_line_offset_overrides_and_last_variant(self):
         with tempfile.TemporaryDirectory() as rootDirectory:

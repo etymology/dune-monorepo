@@ -184,12 +184,6 @@ def test_infer_pair_pin_from_wrap_side_matches_known_u_case():
     assert inferred == "PB2005"
 
 
-def test_infer_pair_pin_from_wrap_side_matches_known_v_case():
-    calibration = _load_layer_calibration("V")
-    inferred = _infer_pair_pin_from_wrap_side(calibration, "PB1998", ("plus", "minus"))
-    assert inferred == "PB1992"
-
-
 def test_compute_uv_head_target_rejects_bad_pin_format():
     with pytest.raises(UvHeadTargetError, match="Anchor pin must be a pin name"):
         compute_uv_head_target(

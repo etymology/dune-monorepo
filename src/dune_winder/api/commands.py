@@ -824,19 +824,19 @@ def build_command_registry(
     )
 
     def v_template_set_offset(args):
-        _validateArgs(args, required=("offset_id",), optional=("value", "x", "y", "z"))
+        _validateArgs(args, required=("offset_id",), optional=("value", "x", "y"))
         offset_id = _asString(args["offset_id"], "offset_id")
         if "value" in args and args["value"] is not None:
             return process.vTemplateRecipe.setOffset(
                 offset_id, _asFloat(args["value"], "value")
             )
         kwargs = {}
-        for axis in ("x", "y", "z"):
+        for axis in ("x", "y"):
             if axis in args and args[axis] is not None:
                 kwargs[axis] = _asFloat(args[axis], axis)
         if not kwargs:
             raise ValueError(
-                "set_offset requires either 'value' or at least one of 'x', 'y', 'z'."
+                "set_offset requires either 'value' or at least one of 'x', 'y'."
             )
         return process.vTemplateRecipe.setOffset(offset_id, **kwargs)
 
@@ -856,9 +856,29 @@ def build_command_registry(
         _validateArgs(args)
         return process.vTemplateRecipe.applyJogCalibration()
 
+    def v_template_reset_jog_calibration(args):
+        _validateArgs(args)
+        return process.vTemplateRecipe.resetJogCalibration()
+
+    def v_template_run_bare_jog_calibration_line(args):
+        _validateArgs(args)
+        return process.vTemplateRecipe.runBareJogCalibrationLine()
+
     registry.register(
         "process.v_template.apply_jog_calibration",
         v_template_apply_jog_calibration,
+        True,
+    )
+
+    registry.register(
+        "process.v_template.reset_jog_calibration",
+        v_template_reset_jog_calibration,
+        True,
+    )
+
+    registry.register(
+        "process.v_template.run_bare_jog_calibration_line",
+        v_template_run_bare_jog_calibration_line,
         True,
     )
 
@@ -1442,14 +1462,17 @@ def build_command_registry(
         match = re.fullmatch(
             r"~anchorToTarget\("
             r"([A-B]\d+),([A-B]\d+)"
-            r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}"
+            r"(?:,(?:offset=\([^)]+\)"
+            r"|hover=(?:True|False|1|0|yes|no|on|off)"
+            r"|inTwoMoves=(?:True|False|1|0|yes|no|on|off)"
+            r")){0,3}"
             r"\)",
             gcode_line,
             flags=re.IGNORECASE,
         )
         if not match:
             raise ValueError(
-                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True])"
+                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,inTwoMoves=True])"
             )
         anchor_pin, target_pin = match.groups()
 

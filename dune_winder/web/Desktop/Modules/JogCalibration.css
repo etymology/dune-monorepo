@@ -63,3 +63,12 @@
 .apaJogCalibrationPanel .jogCalStatus.success {
   color: #a3e69b;
 }
+
+.apaJogCalibrationPanel .jogCalSameSide {
+  font-size: 0.8em;
+  color: #b9c1cc;
+}
+
+.apaJogCalibrationPanel .jogCalSameSide.alternating {
+  color: #f4c869;
+}

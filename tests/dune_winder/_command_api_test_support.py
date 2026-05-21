@@ -138,7 +138,12 @@ class DummyMachineGeometryCalibration:
         self.lastSetLineOffset = (layer, line_key, x_value, y_value)
         return {
             "ok": True,
-            "data": {"layer": layer, "lineKey": line_key, "x": x_value, "y": y_value},
+            "data": {
+                "layer": layer,
+                "lineKey": line_key,
+                "x": x_value,
+                "y": y_value,
+            },
         }
 
     def deleteLineOffsetOverride(self, layer, line_key):

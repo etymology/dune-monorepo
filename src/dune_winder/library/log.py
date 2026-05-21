@@ -53,22 +53,20 @@ class Log:
         Args:
           outputFileName: File to append.
         """
-        self._lock.acquire()
+        with self._lock:
+            # Create the path if it does not exist.
+            path = os.path.dirname(outputFileName)
+            if not os.path.exists(path):
+                os.makedirs(path)
 
-        # Create the path if it does not exist.
-        path = os.path.dirname(outputFileName)
-        if not os.path.exists(path):
-            os.makedirs(path)
+            needsHeader = not os.path.isfile(outputFileName)
+            outputFile = open(outputFileName, "a")
 
-        needsHeader = not os.path.isfile(outputFileName)
-        outputFile = open(outputFileName, "a")
+            if needsHeader:
+                outputFile.write("Time\tModule\tType\tMessage\n")
 
-        if needsHeader:
-            outputFile.write("Time\tModule\tType\tMessage\n")
-
-        self._outputFileList[outputFileName] = outputFile
-        self._outputFiles.append(outputFile)
-        self._lock.release()
+            self._outputFileList[outputFileName] = outputFile
+            self._outputFiles.append(outputFile)
 
     # ---------------------------------------------------------------------
     def detach(self, outputFileName):
@@ -78,12 +76,11 @@ class Log:
         Args:
           outputFileName: Log file previously attached.
         """
-        self._lock.acquire()
-        if outputFileName in self._outputFileList:
-            outputFile = self._outputFileList[outputFileName]
-            self._outputFileList.pop(outputFileName)
-            outputFile.close()
-        self._lock.release()
+        with self._lock:
+            if outputFileName in self._outputFileList:
+                outputFile = self._outputFileList[outputFileName]
+                self._outputFileList.pop(outputFileName)
+                outputFile.close()
 
     # ---------------------------------------------------------------------
     def getRecent(self):
@@ -93,10 +90,8 @@ class Log:
         Returns:
           The most recent lines of the log file.
         """
-        self._lock.acquire()
-        result = list(self._recent)
-        self._lock.release()
-        return result
+        with self._lock:
+            return list(self._recent)
 
     # ---------------------------------------------------------------------
     def _tail(self, inputFile, lines):
@@ -202,12 +197,11 @@ class Log:
             line += "\t" + str(parameter)
 
         # Write the message to each open log file.
-        self._lock.acquire()
-        self._recent.append(line)
-        for _, outputFile in self._outputFileList.items():
-            outputFile.write(line + "\n")
-            outputFile.flush()
-        self._lock.release()
+        with self._lock:
+            self._recent.append(line)
+            for _, outputFile in self._outputFileList.items():
+                outputFile.write(line + "\n")
+                outputFile.flush()
 
         # Local echo if requested.
         if self._localEcho:

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from dune_winder.core.manual_calibration import (
+    BOOTSTRAP_RECALIBRATE_BOUND_MM,
     LAYER_METADATA,
     ManualCalibration,
     _apply_transform,
@@ -413,6 +414,117 @@ class ManualCalibrationTests(unittest.TestCase):
             self.assertAlmostEqual(session.measuredPins[1]["rawCameraX"], 100.0)
             # wireX is backlash-adjusted raw coordinate (raw - backlash when direction > 0)
             self.assertAlmostEqual(session.measuredPins[1]["wireX"], 98.0)
+
+    def test_recalibrate_bootstrap_capture_falls_back_when_beyond_bound(self):
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process = _create_process("U", rootDirectory)
+            service = ManualCalibration(process)
+            self.assertTrue(service.loadPrevious()["ok"])
+
+            session = service._getSession("U")
+            baselinePin = session.baselineCalibration.getPinLocation("B1")
+
+            offset = BOOTSTRAP_RECALIBRATE_BOUND_MM + 5.0
+            process._io.xAxis.position = baselinePin.x + offset
+            process._io.yAxis.position = baselinePin.y
+
+            captureResult = service.captureCurrentPin(1)
+            self.assertTrue(captureResult["ok"])
+            prediction = captureResult["data"]
+            self.assertTrue(prediction.get("bootstrapFallbackApplied"))
+            fallback = prediction["bootstrapFallback"]
+            self.assertAlmostEqual(
+                fallback["capturedWireX"], baselinePin.x + offset, places=6
+            )
+            self.assertAlmostEqual(fallback["baselineWireX"], baselinePin.x, places=6)
+            self.assertAlmostEqual(fallback["deltaX"], offset, places=6)
+            self.assertAlmostEqual(fallback["boundMm"], BOOTSTRAP_RECALIBRATE_BOUND_MM)
+
+            measurement = session.measuredPins[1]
+            self.assertEqual(measurement["source"], "fallback")
+            self.assertAlmostEqual(measurement["wireX"], baselinePin.x, places=6)
+            self.assertAlmostEqual(measurement["wireY"], baselinePin.y, places=6)
+            self.assertAlmostEqual(
+                measurement["rawCameraX"], baselinePin.x + offset, places=6
+            )
+
+    def test_recalibrate_bootstrap_capture_accepted_within_bound(self):
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process = _create_process("U", rootDirectory)
+            service = ManualCalibration(process)
+            self.assertTrue(service.loadPrevious()["ok"])
+
+            session = service._getSession("U")
+            baselinePin = session.baselineCalibration.getPinLocation("B1")
+
+            offset = BOOTSTRAP_RECALIBRATE_BOUND_MM - 1.0
+            process._io.xAxis.position = baselinePin.x + offset
+            process._io.yAxis.position = baselinePin.y - offset
+
+            captureResult = service.captureCurrentPin(1)
+            self.assertTrue(captureResult["ok"])
+            prediction = captureResult["data"]
+            self.assertFalse(prediction.get("bootstrapFallbackApplied", False))
+
+            measurement = session.measuredPins[1]
+            self.assertEqual(measurement["source"], "capture")
+            self.assertAlmostEqual(
+                measurement["wireX"], baselinePin.x + offset, places=6
+            )
+            self.assertAlmostEqual(
+                measurement["wireY"], baselinePin.y - offset, places=6
+            )
+
+    def test_bound_does_not_apply_to_clean_apa_startnew(self):
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process = _create_process("U", rootDirectory)
+            service = ManualCalibration(process)
+            service.startNew()
+
+            session = service._getSession("U")
+            baselinePin = session.baselineCalibration.getPinLocation("B1")
+            offset = BOOTSTRAP_RECALIBRATE_BOUND_MM + 25.0
+            process._io.xAxis.position = baselinePin.x + offset
+            process._io.yAxis.position = baselinePin.y + offset
+
+            captureResult = service.captureCurrentPin(1)
+            self.assertTrue(captureResult["ok"])
+            prediction = captureResult["data"]
+            self.assertFalse(prediction.get("bootstrapFallbackApplied", False))
+
+            measurement = session.measuredPins[1]
+            self.assertEqual(measurement["source"], "capture")
+            self.assertAlmostEqual(
+                measurement["wireX"], baselinePin.x + offset, places=6
+            )
+
+    def test_bound_does_not_apply_to_non_bootstrap_pin(self):
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process = _create_process("U", rootDirectory)
+            service = ManualCalibration(process)
+            self.assertTrue(service.loadPrevious()["ok"])
+
+            nonBootstrapPin = 50
+            self.assertNotIn(nonBootstrapPin, LAYER_METADATA["U"]["bootstrapSet"])
+
+            session = service._getSession("U")
+            baselinePin = session.baselineCalibration.getPinLocation(
+                "B" + str(nonBootstrapPin)
+            )
+            offset = BOOTSTRAP_RECALIBRATE_BOUND_MM + 50.0
+            process._io.xAxis.position = baselinePin.x + offset
+            process._io.yAxis.position = baselinePin.y
+
+            captureResult = service.captureCurrentPin(nonBootstrapPin)
+            self.assertTrue(captureResult["ok"])
+            prediction = captureResult["data"]
+            self.assertFalse(prediction.get("bootstrapFallbackApplied", False))
+
+            measurement = session.measuredPins[nonBootstrapPin]
+            self.assertEqual(measurement["source"], "capture")
+            self.assertAlmostEqual(
+                measurement["wireX"], baselinePin.x + offset, places=6
+            )
 
     def test_state_reports_and_updates_x_backlash_compensation(self):
         with tempfile.TemporaryDirectory() as rootDirectory:

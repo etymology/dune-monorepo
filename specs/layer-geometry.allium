@@ -502,22 +502,28 @@ rule DefineUvContinuousWrapPath {
     --   BtoA(foot_bottom_end + n + 1)
     -- and, after the final wrap, to B(foot_top_end).
     --
-    -- For V, with zero-based wrap n, the pin succession is:
-    --   1.  B(bottom_head_end + n)
-    --   2.  B(top_foot_end + 399 - n)
-    --   3.  BtoA(top_foot_end + 399 - n)
-    --   4.  BtoA(foot_bottom_end + n)
-    --   5.  B(foot_bottom_end + n)
-    --   6.  B(bottom_foot_end - n)
-    --   7.  BtoA(bottom_foot_end - n)
-    --   8.  BtoA(top_head_end - 399 + n)
-    --   9.  B(top_head_end - 399 + n)
-    --   10. B(head_bottom_end - n)
-    --   11. BtoA(head_bottom_end - n)
-    --   12. BtoA(bottom_head_end + n + 1)
+    -- For V, with 1-based wrap n (n = 1..400), the pin succession is:
+    --   1.  BtoA(head_bottom_end + n)
+    --   2.  B(head_bottom_end + n)
+    --   3.  B(top_foot_end + 400 - n)
+    --   4.  BtoA(top_foot_end + 400 - n)
+    --   5.  BtoA(foot_bottom_end + n - 1)
+    --   6.  B(foot_bottom_end + n - 1)
+    --   7.  B(bottom_foot_end - n + 1)
+    --   8.  BtoA(bottom_foot_end - n + 1)
+    --   9.  BtoA(top_head_end + n - 400)
+    --   10. B(top_head_end + n - 400)
+    --   11. B(head_bottom_end - n + 1)
+    --   12. BtoA(head_bottom_end - n + 1)
     --
-    -- The V path then continues from the last point of wrap n to:
-    --   B(bottom_head_end + n + 1)
+    -- The V path then continues from the last point of wrap n to step 1 of
+    -- wrap n+1 — i.e., BtoA(head_bottom_end + n + 1) — which is a wire span
+    -- from BtoA(head_bottom_end - n + 1) to BtoA(head_bottom_end + n + 1).
+    --
+    -- The final wrap n=400 deviates from this structure after step 8: instead
+    -- of steps 9-12, the path runs A400 -> B2398 -> B1 -> A399 (where A400 is
+    -- the A-side equivalent of B-side pin 2399, and A399 is the A-side
+    -- equivalent of B1).
 }
 
 rule ClassifyPinWrapSide {

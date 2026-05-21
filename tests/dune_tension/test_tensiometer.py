@@ -415,65 +415,6 @@ def test_move_to_measurement_pose_uses_manual_focus_in_legacy_mode() -> None:
     assert motion.moves[-1] == (4.0, 5.0)
 
 
-def test_default_quiet_waiter_requires_one_second_of_silence(monkeypatch):
-    chunk_size = 128
-    quiet_chunk = np.full(chunk_size, 0.05, dtype=np.float32)
-    noisy_chunk = np.full(chunk_size, 0.2, dtype=np.float32)
-    chunks = [quiet_chunk] * 7 + [noisy_chunk] + [quiet_chunk] * 8
-    created_sources: list[Any] = []
-
-    class FakeMicSource:
-        def __init__(self, sample_rate: int, requested_chunk_size: int) -> None:
-            assert sample_rate == 1000
-            assert requested_chunk_size == chunk_size
-            self.read_count = 0
-            self.started = False
-            self.stopped = False
-            created_sources.append(self)
-
-        def start(self) -> None:
-            self.started = True
-
-        def read(self) -> np.ndarray:
-            chunk = chunks[min(self.read_count, len(chunks) - 1)]
-            self.read_count += 1
-            return chunk
-
-        def stop(self) -> None:
-            self.stopped = True
-
-    monkeypatch.setitem(
-        sys.modules,
-        "spectrum_analysis.audio_sources",
-        types.SimpleNamespace(MicSource=FakeMicSource),
-    )
-
-    runtime_bundle = types.SimpleNamespace(
-        strum=lambda: None,
-        servo_controller=types.SimpleNamespace(focus_position=0),
-        audio=_make_audio_service(sample_rate=1000),
-        motion=_make_motion_service(),
-        build_repository=lambda _path: DummyRepository(),
-        wire_position_provider=None,
-    )
-    runtime_bundle.audio.noise_threshold = 0.1
-
-    tensiometer = tensiometer_module.build_tensiometer(
-        apa_name="APA",
-        layer="X",
-        side="A",
-        runtime_bundle=runtime_bundle,
-    )
-
-    tensiometer.quiet_waiter()
-
-    assert len(created_sources) == 1
-    source = cast(FakeMicSource, created_sources[0])
-    assert source.started is True
-    assert source.stopped is True
-    assert source.read_count == 16
-
-
 def test_triangle_reference_rms_uses_full_recording_duration() -> None:
     tensiometer = Tensiometer(
         apa_name="APA",

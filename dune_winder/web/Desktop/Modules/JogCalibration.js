@@ -5,7 +5,9 @@ function JogCalibration(modules) {
   var uiServices = modules.get("UiServices");
   var commands = uiServices.getCommands();
 
-  var pendingPreview = null; // populated after a successful preview call
+  var pendingPreview = null; // last available snapshot, populated for Apply
+  var lastRenderedSignature = null; // line+label currently shown
+  var lastReason = null; // last unavailable reason, for status display
   var DECIMALS = 3;
 
   var formatNumber = function (value) {
@@ -26,20 +28,31 @@ function JogCalibration(modules) {
     element.text(text);
   };
 
-  var resetPreviewState = function () {
+  var clearPendingState = function () {
     pendingPreview = null;
+    $("#jogCalApplyButton").prop("disabled", true);
+    $("#jogCalCancelButton").prop("disabled", true);
+    $("#jogCalRunBareButton").prop("disabled", true);
+    $("#jogCalResetButton").prop("disabled", true);
+  };
+
+  var resetPreviewState = function () {
+    clearPendingState();
+    lastRenderedSignature = null;
     $("#jogCalLineIndex").text("-");
     $("#jogCalLineLabel").text("-");
+    $("#jogCalSameSide").text("-");
     $("#jogCalOffsetId").text("-");
     $("#jogCalLineText").text("-");
+    $("#jogCalRenderedX").text("-");
+    $("#jogCalRenderedY").text("-");
+    $("#jogCalRenderedZ").text("-");
     $("#jogCalCommandedX").text("-");
     $("#jogCalCommandedY").text("-");
     $("#jogCalCommandedZ").text("-");
     $("#jogCalDeltaX").text("-").removeClass("jogCalDeltaNonZero");
     $("#jogCalDeltaY").text("-").removeClass("jogCalDeltaNonZero");
     $("#jogCalDeltaZ").text("-").removeClass("jogCalDeltaNonZero");
-    $("#jogCalApplyButton").prop("disabled", true);
-    $("#jogCalCancelButton").prop("disabled", true);
   };
 
   var setDeltaCell = function (selector, value) {
@@ -57,9 +70,27 @@ function JogCalibration(modules) {
     $("#jogCalLineIndex").text(
       data.lineIndex !== null && data.lineIndex !== undefined ? data.lineIndex : "-",
     );
-    $("#jogCalLineLabel").text(data.label || "-");
-    $("#jogCalOffsetId").text(data.offsetId || "-");
+    $("#jogCalLineLabel").text(data.label || "(unlabeled)");
+    if (data.sameSide === true) {
+      $("#jogCalSameSide").text("same-side").removeClass("alternating");
+    } else if (data.sameSide === false) {
+      $("#jogCalSameSide").text("alternating-side (XY only)").addClass("alternating");
+    } else {
+      $("#jogCalSameSide").text("-").removeClass("alternating");
+    }
+    var offsetLabel = data.offsetId;
+    if (!offsetLabel && data.lineKey) {
+      offsetLabel = "line " + data.lineKey;
+    }
+    if (data.overrideKind === "line") {
+      offsetLabel = (offsetLabel || data.lineKey || "line") + " (per-line override)";
+    }
+    $("#jogCalOffsetId").text(offsetLabel || "-");
     $("#jogCalLineText").text(data.lineText || "-");
+    var rendered = data.renderedOffset || {};
+    $("#jogCalRenderedX").text(formatNumber(rendered.x));
+    $("#jogCalRenderedY").text(formatNumber(rendered.y));
+    $("#jogCalRenderedZ").text(formatNumber(rendered.z));
     $("#jogCalCommandedX").text(formatNumber(data.commanded && data.commanded.x));
     $("#jogCalCommandedY").text(formatNumber(data.commanded && data.commanded.y));
     $("#jogCalCommandedZ").text(formatNumber(data.commanded && data.commanded.z));
@@ -68,6 +99,17 @@ function JogCalibration(modules) {
     setDeltaCell("#jogCalDeltaZ", data.delta && data.delta.z);
     $("#jogCalApplyButton").prop("disabled", false);
     $("#jogCalCancelButton").prop("disabled", false);
+    $("#jogCalRunBareButton").prop("disabled", false);
+    $("#jogCalResetButton").prop("disabled", false);
+  };
+
+  var previewSignature = function (data) {
+    return JSON.stringify([
+      data.lineIndex,
+      data.label,
+      data.lineText,
+      data.offsetId,
+    ]);
   };
 
   var extractError = function (response) {
@@ -81,8 +123,9 @@ function JogCalibration(modules) {
   };
 
   // ---------------------------------------------------------------------
-  // Periodic poll: keep the live actual-position cells fresh so the
-  // operator sees their jog moves reflected before clicking the button.
+  // Periodic poll #1: keep the live actual-position cells fresh so the
+  // operator sees their jog moves reflected even when no labeled line
+  // is currently surfaced.
   // ---------------------------------------------------------------------
   winder.addPeriodicCallback(commands.process.getUISnapshot, function (snapshot) {
     if (!snapshot || !snapshot.axes) return;
@@ -96,22 +139,86 @@ function JogCalibration(modules) {
   });
 
   // ---------------------------------------------------------------------
+  // Periodic poll #2: ask the backend for the current jog-calibration
+  // snapshot.  Backend always returns ok=true with an `available` flag
+  // so we can surface the reason in the status bar when nothing is
+  // calibratable yet (no V recipe loaded, no labeled line executed,
+  // etc).
+  // ---------------------------------------------------------------------
+  winder.addPeriodicCallback(
+    commands.process.vTemplatePreviewJogCalibration,
+    function (data) {
+      if (!data) {
+        // Periodic infrastructure returns null on transport error.
+        return;
+      }
+      if (!data.available) {
+        var reason = data.reason || "Waiting for a calibratable line.";
+        if (reason !== lastReason) {
+          lastReason = reason;
+          setStatus(reason);
+        }
+        return;
+      }
+      lastReason = null;
+      var signature = previewSignature(data);
+      if (signature === lastRenderedSignature) {
+        // Same line: keep delta cells fresh while operator jogs.
+        setDeltaCell("#jogCalDeltaX", data.delta && data.delta.x);
+        setDeltaCell("#jogCalDeltaY", data.delta && data.delta.y);
+        setDeltaCell("#jogCalDeltaZ", data.delta && data.delta.z);
+        pendingPreview = data;
+        return;
+      }
+      lastRenderedSignature = signature;
+      renderPreview(data);
+      setStatus("Auto-updated from line " + (data.lineIndex || "-") + ".");
+    },
+  );
+
+  // ---------------------------------------------------------------------
   // Action handlers
   // ---------------------------------------------------------------------
   var onUseCurrentClick = function () {
-    setStatus("Reading positions...");
+    setStatus("Reading positions and applying...");
     uiServices.call(
       commands.process.vTemplatePreviewJogCalibration,
       {},
       function (data) {
-        renderPreview(data || {});
-        setStatus(
-          "Review the delta below, then click Apply to commit and regenerate.",
-        );
+        if (!data || !data.available) {
+          setStatus(
+            (data && data.reason) || "No calibratable line in view.",
+            "error",
+          );
+          return;
+        }
+        renderPreview(data);
+        onApplyClick();
       },
       function (response) {
-        resetPreviewState();
         setStatus(extractError(response), "error");
+      },
+    );
+  };
+
+  var onRunBareClick = function () {
+    setStatus("Running bare line (no offset)...");
+    $("#jogCalRunBareButton").prop("disabled", true);
+    uiServices.call(
+      commands.process.vTemplateRunBareJogCalibrationLine,
+      {},
+      function (data) {
+        var bare = (data && data.bareLine) || "(unknown)";
+        setStatus("Bare line dispatched: " + bare, "success");
+        if (pendingPreview) {
+          $("#jogCalRunBareButton").prop("disabled", false);
+        }
+      },
+      function (response) {
+        setStatus(extractError(response), "error");
+        if (pendingPreview) {
+          $("#jogCalRunBareButton").prop("disabled", false);
+        }
       },
     );
   };
@@ -124,10 +231,14 @@ function JogCalibration(modules) {
     setStatus("Applying calibration and regenerating recipe...");
     $("#jogCalApplyButton").prop("disabled", true);
     $("#jogCalCancelButton").prop("disabled", true);
+    $("#jogCalRunBareButton").prop("disabled", true);
     uiServices.call(
       commands.process.vTemplateApplyJogCalibration,
       {},
       function (data) {
+        if (data) {
+          renderPreview(data);
+        }
         var newOffset = data && data.newOffset;
         var summary =
           "Applied. New offset for " +
@@ -146,12 +257,53 @@ function JogCalibration(modules) {
           summary += " Recipe regenerated.";
           setStatus(summary, "success");
         }
-        resetPreviewState();
+        clearPendingState();
       },
       function (response) {
         setStatus(extractError(response), "error");
         $("#jogCalApplyButton").prop("disabled", false);
         $("#jogCalCancelButton").prop("disabled", false);
+        $("#jogCalRunBareButton").prop("disabled", false);
+      },
+    );
+  };
+
+  var onResetClick = function () {
+    if (!pendingPreview) {
+      setStatus("Nothing to reset.", "error");
+      return;
+    }
+    setStatus("Resetting offset and regenerating recipe...");
+    $("#jogCalApplyButton").prop("disabled", true);
+    $("#jogCalCancelButton").prop("disabled", true);
+    $("#jogCalRunBareButton").prop("disabled", true);
+    $("#jogCalResetButton").prop("disabled", true);
+    uiServices.call(
+      commands.process.vTemplateResetJogCalibration,
+      {},
+      function (data) {
+        if (data) {
+          renderPreview(data);
+        }
+        var summary =
+          "Reset. Offset for " +
+          (data && data.offsetId ? data.offsetId : (data && data.lineKey) || "line") +
+          " zeroed.";
+        if (data && data.regenerated === false) {
+          summary += " (Recipe regeneration failed: " + (data.regenerationError || "") + ")";
+          setStatus(summary, "error");
+        } else {
+          summary += " Recipe regenerated.";
+          setStatus(summary, "success");
+        }
+        clearPendingState();
+      },
+      function (response) {
+        setStatus(extractError(response), "error");
+        $("#jogCalApplyButton").prop("disabled", false);
+        $("#jogCalCancelButton").prop("disabled", false);
+        $("#jogCalRunBareButton").prop("disabled", false);
+        $("#jogCalResetButton").prop("disabled", false);
       },
     );
   };
@@ -164,6 +316,8 @@ function JogCalibration(modules) {
   this.initialize = function () {
     resetPreviewState();
     $("#jogCalUseCurrentButton").on("click", onUseCurrentClick);
+    $("#jogCalRunBareButton").on("click", onRunBareClick);
+    $("#jogCalResetButton").on("click", onResetClick);
     $("#jogCalApplyButton").on("click", onApplyClick);
     $("#jogCalCancelButton").on("click", onCancelClick);
     setStatus("Idle.");

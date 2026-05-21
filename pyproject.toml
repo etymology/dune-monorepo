@@ -78,14 +78,6 @@ dev = [
 dune-rust-audio = { path = "rust/crates/dune-python" }
 dune-tension-core = { path = "rust/crates/dune_tension_core" }
 
-[tool.pytest.ini_options]
-testpaths = ["tests/dune_tension", "tests/dune_winder"]
-addopts = "-m 'not ladder_sim'"
-markers = [
-    "ladder_sim: ladder simulator tests (not in active development)",
-    "integration: integration tests that load real models or external services",
-]
-
 [tool.ruff]
 indent-width = 4
 extend-exclude = ["src/dune_winder/manual_port.py"]

@@ -72,9 +72,10 @@ function GCodeGeneration( modules )
     return value.toFixed( decimals )
   }
 
-  // Offsets are stored server-side as { x, y, z } dicts.  This page edits the
-  // historical natural-axis component; off-axis values set via the jog
-  // calibration panel are preserved by the backend on legacy scalar writes.
+  // Offsets are stored server-side as { x, y } dicts but only ever carry a
+  // value on the placement's natural axis (X for top/bottom, Y for foot/head):
+  // the backend zeroes any off-axis component and quantises to 0.1 mm.  This
+  // page edits that single natural-axis component.
   function offsetNaturalScalar( offsetValue, naturalAxis )
   {
     if ( offsetValue === null || offsetValue === undefined )

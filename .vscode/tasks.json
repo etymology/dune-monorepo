@@ -1,0 +1,22 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "uv sync",
+            "type": "shell",
+            "command": "uv",
+            "args": ["sync"],
+            "options": {
+                "env": {
+                    "PATH": "${env:USERPROFILE}\\.cargo\\bin;${env:PATH}"
+                }
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

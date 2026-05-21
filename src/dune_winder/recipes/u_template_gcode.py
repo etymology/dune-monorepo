@@ -19,7 +19,14 @@ from dune_winder.recipes.recipe_template_language import (
 from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes.line_offset_overrides import apply_line_offset_overrides
+from dune_winder.recipes.offset_axis_policy import enforce_offset_natural_axis
 from dune_winder.recipes import template_gcode_common
+from dune_winder.recipes.template_gcode_helpers import (
+    _apply_strip_g113_params,
+    _coord,
+    _extract_primary_site,
+    _offset_fragment,
+)
 from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.recipes.template_gcode_transfers import (
     append_a_to_b_transfer,
@@ -40,7 +47,7 @@ COMBS = (596, 744, 892, 1040, 1758, 1906, 2054, 2202)
 PIN_MIN = 1
 PIN_MAX = 2401
 PIN_SPAN = PIN_MAX - PIN_MIN + 1
-DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0, "z": 0.0},) * 12
+DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0},) * 12
 DEFAULT_U_TEMPLATE_WORKBOOK = None
 DEFAULT_U_TEMPLATE_SHEET = None
 PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN", "Y_HOVER")
@@ -109,6 +116,24 @@ OFFSET_NATURAL_AXIS = {
     "foot_a_corner": "y",
     "foot_b_corner": "y",
 }
+
+# Inverse of the parenthetical labels emitted by the U templates, used to map
+# an executed/measured line back to a corner offset id (jog calibration and the
+# machine-geometry per-corner solve).
+LABEL_TO_OFFSET_ID = {
+    "Top B corner - foot end": "top_b_foot_end",
+    "Top A corner - foot end": "top_a_foot_end",
+    "Bottom A corner - head end": "bottom_a_head_end",
+    "Bottom B corner - head end": "bottom_b_head_end",
+    "Head B corner": "head_b_corner",
+    "Head A corner": "head_a_corner",
+    "Top A corner - head end": "top_a_head_end",
+    "Top B corner - head end": "top_b_head_end",
+    "Bottom B corner - foot end": "bottom_b_foot_end",
+    "Bottom A corner - foot end": "bottom_a_foot_end",
+    "Foot A corner": "foot_a_corner",
+    "Foot B corner": "foot_b_corner",
+}
 FOOT_PAUSE_MIN_PIN = 1200
 FOOT_PAUSE_MAX_PIN = 1600
 _PIN_PAIR_RE = re.compile(r"\bG103\s+(P[AB])(\d+)\s+(P[AB])(\d+)\b")
@@ -174,15 +199,6 @@ U_WRAP_WRAPPING_SCRIPT = compile_template_script(
         "emit G118 PB${1201 + wrap} (Foot A corner)",
     )
 )
-
-
-_G113_PARAMS_RE = re.compile(r"G113\s+P\w+\s*")
-
-
-def _apply_strip_g113_params(lines):
-    return [
-        re.sub(r"\s{2,}", " ", _G113_PARAMS_RE.sub("", line)).strip() for line in lines
-    ]
 
 
 def _insert_spool_change_pause(lines, wrap_start_index, wrap_number):
@@ -328,14 +344,6 @@ def _line(*parts):
         normalize_pin_tokens_fn=_normalize_pin_tokens,
         normalize_line_text_fn=normalize_line_text,
     )
-
-
-def _coord(axis, value):
-    return template_gcode_common.coord(axis, value)
-
-
-def _offset_fragment(axis, value):
-    return template_gcode_common.offset_fragment(axis, value, coord_fn=_coord)
 
 
 def _g106(mode):
@@ -546,52 +554,6 @@ def _token_line(*parts):
     return tuple(_normalize_pin_tokens(str(part)) for part in parts)
 
 
-def _normalize_pin_token(token):
-    normalized = str(token).strip().upper()
-    if normalized.startswith("P"):
-        normalized = normalized[1:]
-    return normalized
-
-
-def _extract_primary_site(tokens):
-    try:
-        g109_index = tokens.index("G109")
-        g103_index = tokens.index("G103")
-    except ValueError:
-        return None
-    if g109_index + 2 >= len(tokens) or g103_index + 2 >= len(tokens):
-        return None
-    anchor_pin = _normalize_pin_token(tokens[g109_index + 1])
-    orientation_token = str(tokens[g109_index + 2]).strip().upper()
-    pin_a = _normalize_pin_token(tokens[g103_index + 1])
-    pin_b = _normalize_pin_token(tokens[g103_index + 2])
-    if not anchor_pin or not pin_a or not pin_b:
-        return None
-    if (
-        anchor_pin[:1] not in ("A", "B")
-        or pin_a[:1] not in ("A", "B")
-        or pin_b[:1] not in ("A", "B")
-    ):
-        return None
-    return (anchor_pin, orientation_token, pin_a, pin_b)
-
-
-def _extract_g103_segment(tokens):
-    try:
-        command_index = tokens.index("G103")
-    except ValueError:
-        return None
-    if command_index + 2 >= len(tokens):
-        return None
-    pin_a = _normalize_pin_token(tokens[command_index + 1])
-    pin_b = _normalize_pin_token(tokens[command_index + 2])
-    if not pin_a or not pin_b:
-        return None
-    if pin_a[:1] not in ("A", "B") or pin_b[:1] not in ("A", "B"):
-        return None
-    return (pin_a, pin_b)
-
-
 def iter_u_wrap_primary_sites(
     *,
     named_inputs=None,
@@ -725,8 +687,16 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
     def anchor_to_target(anchor_pin, target_pin, label=None, offset=None, hover=False):
         call = f"~anchorToTarget({anchor_pin},{target_pin}"
         if offset is not None:
-            offset_x = _scalar_axis(offset[0], "x") if not isinstance(offset[0], (int, float)) else float(offset[0])
-            offset_y = _scalar_axis(offset[1], "y") if not isinstance(offset[1], (int, float)) else float(offset[1])
+            offset_x = (
+                _scalar_axis(offset[0], "x")
+                if not isinstance(offset[0], (int, float))
+                else float(offset[0])
+            )
+            offset_y = (
+                _scalar_axis(offset[1], "y")
+                if not isinstance(offset[1], (int, float))
+                else float(offset[1])
+            )
             if abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9:
                 call += (
                     ",offset=("
@@ -972,6 +942,7 @@ def render_u_template_lines(
         line_offset_overrides,
         normalize_line_text_fn=normalize_line_text,
     )
+    lines = enforce_offset_natural_axis(lines, layer="U")
     lines = _number_lines(lines)
     if strip_g113_params:
         lines = _apply_strip_g113_params(lines)

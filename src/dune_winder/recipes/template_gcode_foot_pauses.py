@@ -4,15 +4,18 @@ import re
 
 from dune_winder.gcode.renderer import normalize_line_text
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
-from dune_winder.machine.geometry.uv_wrap_geometry import Point2D, b_to_a_pin
+from dune_winder.machine.geometry.uv_wrap_geometry import Point2D
 from dune_winder.machine.geometry.uv_wrap_geometry import tangent_sides
 
 
+# Capture the anchor/target pins only; trailing keyword args (offset=(...),
+# inTwoMoves=True, hover=...) describe how the move runs, not where the wire
+# lands, so the match deliberately stops after the target pin.
 _ANCHOR_TO_TARGET_RE = re.compile(
     r"~anchorToTarget\((?P<anchor>[PAB]\d+),(?P<target>[PAB]\d+)"
-    r"(?:,(?:offset=\([^)]+\)|hover=(?:True|False|1|0|yes|no|on|off))){0,2}\)"
 )
 _SIDE_EPSILON = 1e-9
+_FOOT_FACE = "foot"
 
 
 def _normalize_pin_name(pin_name: str) -> str:
@@ -52,12 +55,6 @@ def _pin_point(layout, pin_name: str) -> Point2D:
     return Point2D(float(point.x), float(point.y))
 
 
-def _physical_endpoint_number(layout, pin_name: str) -> int:
-    normalized_pin = _normalize_pin_name(pin_name)
-    translated_pin = b_to_a_pin(layout.layer, normalized_pin)
-    return int(layout.physical_pin_number(translated_pin))
-
-
 def _is_on_wrap_side(point: Point2D, center: Point2D, axis: str, side: str) -> bool:
     delta = (point.x - center.x) if axis == "x" else (point.y - center.y)
     if side == "plus":
@@ -65,31 +62,65 @@ def _is_on_wrap_side(point: Point2D, center: Point2D, axis: str, side: str) -> b
     return delta < -_SIDE_EPSILON
 
 
-def _is_anchor_adjacent_to_target(layout, anchor_pin: str, target_pin: str) -> bool:
+def _adjacent_pins_on_wrap_y_side(layout, target_pin: str) -> list[str]:
+    """Same-family neighbours (n-1 / n+1) on the target's wrap side in Y.
+
+    After the head wraps the target pin, the wire is laid off the pin on the
+    side picked out by the pin's tangent orientation.  The neighbouring pin
+    sitting on that side in the Y direction is the pin the wire is carried
+    toward; that is the second pin of the "between two pins" the wire ends up
+    spanning.
+    """
+    family = target_pin[:1]
+    number = int(target_pin[1:])
     target_point = _pin_point(layout, target_pin)
-    anchor_point = _pin_point(layout, anchor_pin)
-    target_sides = tangent_sides(layout.layer, _normalize_pin_name(target_pin))
-    return _is_on_wrap_side(
-        anchor_point, target_point, "x", target_sides[0]
-    ) or _is_on_wrap_side(anchor_point, target_point, "y", target_sides[1])
+    y_side = tangent_sides(layout.layer, target_pin)[1]
+    adjacents = []
+    for adjacent_number in (number - 1, number + 1):
+        if adjacent_number < 1 or adjacent_number > layout.pin_max:
+            continue
+        adjacent_pin = f"{family}{adjacent_number}"
+        if _is_on_wrap_side(
+            _pin_point(layout, adjacent_pin), target_point, "y", y_side
+        ):
+            adjacents.append(adjacent_pin)
+    return adjacents
 
 
 def should_add_anchor_to_target_foot_pause(
     layer: str, anchor_pin: str, target_pin: str
 ) -> bool:
+    """Whether an ~anchorToTarget should carry a foot board-gap pause.
+
+    The decision is made entirely from the target pin.  Wrapping it lays the
+    wire toward the neighbour on the pin's tangent Y side.  When the target is
+    a board endpoint and that neighbour belongs to a different board -- with
+    either side of the gap on the foot face -- the wire is placed across a
+    foot board gap and the operator needs a pause.  The anchor pin does not
+    affect where the wire lands and is ignored.
+    """
+    _ = anchor_pin
     layout = get_uv_layout(layer)
-    anchor_normalized = _normalize_pin_name(anchor_pin)
-    target_normalized = _normalize_pin_name(target_pin)
+    target = _normalize_pin_name(target_pin)
 
-    if anchor_normalized == target_normalized:
-        return False
-    if not _is_anchor_adjacent_to_target(layout, anchor_normalized, target_normalized):
+    target_physical = int(layout.physical_pin_number(target))
+    if target_physical not in set(layout.endpoint_pins):
         return False
 
-    endpoint_pins = set(layout.endpoint_pins)
-    anchor_endpoint = _physical_endpoint_number(layout, anchor_normalized)
-    target_endpoint = _physical_endpoint_number(layout, target_normalized)
-    return anchor_endpoint in endpoint_pins and target_endpoint in endpoint_pins
+    pin_to_board = layout.pin_to_board
+    target_board = pin_to_board.get(target_physical)
+    if target_board is None:
+        return False
+
+    for adjacent in _adjacent_pins_on_wrap_y_side(layout, target):
+        adjacent_board = pin_to_board.get(int(layout.physical_pin_number(adjacent)))
+        if adjacent_board is None:
+            continue
+        if adjacent_board.board_index == target_board.board_index:
+            continue
+        if _FOOT_FACE in (target_board.face, adjacent_board.face):
+            return True
+    return False
 
 
 def apply_anchor_to_target_foot_pauses(lines, *, layer: str):
@@ -108,7 +139,9 @@ def apply_anchor_to_target_foot_pauses(lines, *, layer: str):
             anchor_pin,
             target_pin,
         ):
-            updated_lines.append(_append_command_before_trailing_comments(line, "G111"))
+            updated_lines.append(
+                _append_command_before_trailing_comments(line, "G111 (board gap)")
+            )
             continue
 
         updated_lines.append(line)

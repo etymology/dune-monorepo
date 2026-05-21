@@ -38,7 +38,7 @@ from .ir import (
     XicCond,
     XioCond,
 )
-from .types import PLCType
+from .types import PLCType, TranspilerError
 
 _PI = "3.14159265358979"
 _INF = "3.4028235E+38"
@@ -209,7 +209,9 @@ class LDEmitter:
                 # Can't inline — caller should have handled these
                 return f"_{tag.lower()}_result"
             return f"{tag}({args_s})"
-        return "0.0"
+        raise TranspilerError(
+            f"cannot serialise IR expression of type {type(expr).__name__}: {expr!r}"
+        )
 
     # ------------------------------------------------------------------
     # Materialise helper: returns a simple tag string usable in non-CPT

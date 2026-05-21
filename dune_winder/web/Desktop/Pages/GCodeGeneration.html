@@ -69,40 +69,44 @@
       Edit the 12 V-layer line offsets, the V pull-in distances, and optional
       transfer pause, then generate the live <code>V-layer.gc</code> file.
     </p>
-    <div id="gCodeGenerationVFieldGrid" class="gCodeGenerationFieldGrid"></div>
-    <div id="gCodeGenerationVPullInGrid" class="gCodeGenerationFieldGrid"></div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationVTransferPause" checked />
-      <label for="gCodeGenerationVTransferPause">Transfer Pause</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationVSpoolChangePause" />
-      <label for="gCodeGenerationVSpoolChangePause">Spool Change Pause</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationVAddFootPauses" />
-      <label for="gCodeGenerationVAddFootPauses">Add Foot Pauses</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationVIncludeLeadMode" />
-      <label for="gCodeGenerationVIncludeLeadMode">Include Lead Mode</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationVStripG113Params" />
-      <label for="gCodeGenerationVStripG113Params">Strip G113 Params</label>
+    <div class="gCodeGenerationOffsetLayout">
+      <div
+        id="gCodeGenerationVFieldGrid"
+        class="gCodeGenerationFieldGrid gCodeGenerationOffsetGrid"
+      ></div>
+      <div class="gCodeGenerationOffsetSide">
+        <div
+          id="gCodeGenerationVPullInGrid"
+          class="gCodeGenerationFieldGrid"
+        ></div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationVTransferPause" checked />
+          <label for="gCodeGenerationVTransferPause">Transfer Pause</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationVSpoolChangePause" />
+          <label for="gCodeGenerationVSpoolChangePause">Spool Change Pause</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationVAddFootPauses" />
+          <label for="gCodeGenerationVAddFootPauses">Add Foot Pauses</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationVIncludeLeadMode" />
+          <label for="gCodeGenerationVIncludeLeadMode">Include Lead Mode</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationVStripG113Params" />
+          <label for="gCodeGenerationVStripG113Params">Strip G113 Params</label>
+        </div>
+      </div>
     </div>
     <div class="gCodeGenerationButtonRow">
       <button type="button" id="gCodeGenerationVResetButton">
         Reset Defaults
       </button>
-      <button type="button" id="gCodeGenerationVGenerateXZButton">
-        Generate V-layer.gc (XZ Base)
-      </button>
       <button type="button" id="gCodeGenerationVGenerateWrappingButton">
         Generate V-layer.gc (Wrapping)
-      </button>
-      <button type="button" id="gCodeGenerationVGenerateButton">
-        Generate V-layer.gc
       </button>
     </div>
   </article>
@@ -116,31 +120,41 @@
       Edit the 12 U-layer line offsets, the U pull-in distances, and optional
       transfer pause, then generate the live <code>U-layer.gc</code> file.
     </p>
-    <div id="gCodeGenerationUFieldGrid" class="gCodeGenerationFieldGrid"></div>
-    <div id="gCodeGenerationUPullInGrid" class="gCodeGenerationFieldGrid"></div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationUTransferPause" checked />
-      <label for="gCodeGenerationUTransferPause">Transfer Pause</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationUSpoolChangePause" />
-      <label for="gCodeGenerationUSpoolChangePause">Spool Change Pause</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationUAddFootPauses" />
-      <label for="gCodeGenerationUAddFootPauses">Add Foot Pauses</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationUIncludeLeadMode" />
-      <label for="gCodeGenerationUIncludeLeadMode">Include Lead Mode</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationUYHover" />
-      <label for="gCodeGenerationUYHover">Y Hover</label>
-    </div>
-    <div class="gCodeGenerationCheckboxRow">
-      <input type="checkbox" id="gCodeGenerationUStripG113Params" />
-      <label for="gCodeGenerationUStripG113Params">Strip G113 Params</label>
+    <div class="gCodeGenerationOffsetLayout">
+      <div
+        id="gCodeGenerationUFieldGrid"
+        class="gCodeGenerationFieldGrid gCodeGenerationOffsetGrid"
+      ></div>
+      <div class="gCodeGenerationOffsetSide">
+        <div
+          id="gCodeGenerationUPullInGrid"
+          class="gCodeGenerationFieldGrid"
+        ></div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationUTransferPause" checked />
+          <label for="gCodeGenerationUTransferPause">Transfer Pause</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationUSpoolChangePause" />
+          <label for="gCodeGenerationUSpoolChangePause">Spool Change Pause</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationUAddFootPauses" />
+          <label for="gCodeGenerationUAddFootPauses">Add Foot Pauses</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationUIncludeLeadMode" />
+          <label for="gCodeGenerationUIncludeLeadMode">Include Lead Mode</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationUYHover" />
+          <label for="gCodeGenerationUYHover">Y Hover</label>
+        </div>
+        <div class="gCodeGenerationCheckboxRow">
+          <input type="checkbox" id="gCodeGenerationUStripG113Params" />
+          <label for="gCodeGenerationUStripG113Params">Strip G113 Params</label>
+        </div>
+      </div>
     </div>
     <div class="gCodeGenerationButtonRow">
       <button type="button" id="gCodeGenerationUResetButton">
@@ -148,9 +162,6 @@
       </button>
       <button type="button" id="gCodeGenerationUGenerateWrappingButton">
         Generate U-layer.gc (Wrapping)
-      </button>
-      <button type="button" id="gCodeGenerationUGenerateButton">
-        Generate U-layer.gc
       </button>
     </div>
   </article>

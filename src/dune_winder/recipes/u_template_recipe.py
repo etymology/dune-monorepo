@@ -9,6 +9,7 @@ import re
 from dune_winder.recipes.template_recipe_base import TemplateRecipeBase
 from dune_winder.recipes.u_template_gcode import (
     DEFAULT_U_TEMPLATE_ROW_COUNT,
+    LABEL_TO_OFFSET_ID as U_LABEL_TO_OFFSET_ID,
     OFFSET_IDS as U_OFFSET_IDS,
     OFFSET_NATURAL_AXIS as U_OFFSET_NATURAL_AXIS,
     PULL_IN_IDS as U_PULL_IN_IDS,
@@ -57,6 +58,7 @@ class UTemplateRecipe(TemplateRecipeBase):
     OFFSET_IDS = U_OFFSET_IDS
     OFFSET_LABELS = OFFSET_LABELS
     OFFSET_NATURAL_AXIS = U_OFFSET_NATURAL_AXIS
+    LABEL_TO_OFFSET_ID = U_LABEL_TO_OFFSET_ID
     PULL_IN_IDS = U_PULL_IN_IDS
     PULL_IN_LABELS = PULL_IN_LABELS
     PULL_IN_DEFAULTS = PULL_IN_DEFAULTS

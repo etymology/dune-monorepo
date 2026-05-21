@@ -457,9 +457,25 @@ function Calibrate(modules)
     (
       commands.process.manualCalibrationCaptureCurrentPin,
       { pin: pin },
-      function()
+      function( data )
       {
-        setMessage( "Captured B" + pin + ".", "success" )
+        var prediction = data && data.data ? data.data : null
+        if ( prediction && prediction.bootstrapFallbackApplied )
+        {
+          var fallback = prediction.bootstrapFallback || {}
+          var bound = $.isNumeric( fallback.boundMm ) ? fallback.boundMm : 10
+          var deltaText = ""
+          if ( $.isNumeric( fallback.deltaX ) && $.isNumeric( fallback.deltaY ) )
+            deltaText = " (Δ " + formatPair( fallback.deltaX, fallback.deltaY ) + ")"
+          setMessage(
+            "B" + pin + " capture exceeded ±" + bound + " mm; kept previously calibrated point" + deltaText + ".",
+            "error"
+          )
+        }
+        else
+        {
+          setMessage( "Captured B" + pin + ".", "success" )
+        }
         refreshStateOnce
         (
           function()
