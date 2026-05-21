@@ -362,6 +362,9 @@ class DummyProcess:
     def getWrapSeekLine(self, wrap):
         return wrap * 10
 
+    def getWrapForecastLine(self, wrap):
+        return wrap * 10 + 1
+
     def openRecipeInEditor(self, recipeFile=None):
         return recipeFile
 

@@ -76,6 +76,12 @@ class RecipeService:
             return workspace.getWrapSeekLine(wrap)
         return None
 
+    def getWrapForecastLine(self, wrap):
+        workspace = self._workspaceGetter()
+        if workspace:
+            return workspace.getWrapForecastLine(wrap)
+        return None
+
     def _openInEditor(self, filePath):
         try:
             editor = os.environ.get("WINDER_TEXT_EDITOR")

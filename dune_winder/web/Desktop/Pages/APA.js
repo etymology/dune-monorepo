@@ -39,6 +39,11 @@ function APA(modules) {
   var forecastLogRequestId = 0;
   var forecastLogHandledId = 0;
   var forecastPollTimer = null;
+  // Last labeled wind-log line per target wrap for the loaded recipe, keyed by
+  // wrap number.  Refreshed when the recipe changes; the forecast anchors on
+  // these lines instead of estimating positions from the wrap period.
+  var forecastTargetLines = {};
+  var forecastTargetGeneration = 0;
   var lastSegmentLookupLine = null;
 
   //-----------------------------------------------------------------------------
@@ -123,8 +128,10 @@ function APA(modules) {
       forecastPeriodHandledId = forecastPeriodRequestId;
       forecastLogRequestId += 1;
       forecastLogHandledId = forecastLogRequestId;
+      forecastTargetGeneration += 1;
       forecastRecipePeriod = null;
       forecastRecentRows = null;
+      forecastTargetLines = {};
       if ("function" === typeof updateForecast) updateForecast();
 
       // Disable APA interface during loading process.
@@ -291,6 +298,49 @@ function APA(modules) {
     });
   }
 
+  // Look up the last labeled line for each forecast target wrap of the active
+  // layer and cache it so the forecast projects to the real end of the wrap.
+  function refreshForecastTargets() {
+    var activeLayer = $("#layerSelection").val();
+    var targetWraps =
+      "function" === typeof _getForecastTargetWraps
+        ? _getForecastTargetWraps(activeLayer)
+        : [];
+
+    forecastTargetGeneration += 1;
+    var generation = forecastTargetGeneration;
+    forecastTargetLines = {};
+
+    if (targetWraps.length === 0) {
+      if ("function" === typeof updateForecast) updateForecast();
+      return;
+    }
+
+    var done = function (line, wrap) {
+      // Discard responses superseded by a newer recipe/layer change.
+      if (generation !== forecastTargetGeneration) return;
+      if (null !== line && isFinite(line)) {
+        forecastTargetLines[wrap] = Number(line);
+      }
+      if ("function" === typeof updateForecast) updateForecast();
+    };
+
+    for (var i = 0; i < targetWraps.length; i += 1) {
+      (function (wrap) {
+        call(
+          commands.process.getWrapForecastLine,
+          { wrap: wrap },
+          function (line) {
+            done(line, wrap);
+          },
+          function () {
+            done(null, wrap);
+          },
+        );
+      })(targetWraps[i]);
+    }
+  }
+
   //-----------------------------------------------------------------------------
   // Uses:
   //   Load values for and repopulate all lists.
@@ -305,6 +355,8 @@ function APA(modules) {
     // Get the current layer.
     call(commands.process.getRecipeLayer, {}, function (data) {
       $("#layerSelection").val(data);
+      // Forecast targets depend on the active layer, so refresh once it is set.
+      refreshForecastTargets();
     });
 
     refreshRecipePeriod();
@@ -746,12 +798,6 @@ function APA(modules) {
   // Forecast refresh: compute in-browser using the same log stream as RecentLog.
   var forecastRecentRows = null;
   var forecastRecipePeriod = null;
-  var FORECAST_LAYER_CONFIG = {
-    X: { wrap: 480, offset: -1 },
-    G: { wrap: 481, offset: -1 },
-    U: { wrap: 400, offset: 27 },
-    V: { wrap: 400, offset: 11 },
-  };
 
   var _isIntegerText = function (text) {
     return /^-?\d+$/.test(text);
@@ -984,20 +1030,20 @@ function APA(modules) {
   };
 
   var _calculateForecastFromLogs = function (
-    layer,
     rows,
     targetWrap,
+    targetLine,
     recipePeriod,
   ) {
-    var config = FORECAST_LAYER_CONFIG[layer];
-    if (!config) return null;
+    // targetLine is the last labeled wind-log line for this wrap; without it
+    // there is nothing to project to.
+    if (null === targetLine || !isFinite(targetLine)) return null;
     if (!recipePeriod || recipePeriod < 1) return null;
 
     var points = _getLatestWindRunPoints(rows);
     var prepared = _preparePoints(points);
     var numbers = prepared.numbers;
     var seconds = prepared.seconds;
-    var targetLine = targetWrap * recipePeriod - config.offset;
 
     if (numbers.length === 0) return null;
 
@@ -1044,7 +1090,9 @@ function APA(modules) {
   };
 
   var _getForecastTargetWraps = function (layer) {
-    if (layer === "X" || layer === "G") return [240, 480];
+    // Second value is the layer's final wrap; G ends one wrap later than X.
+    if (layer === "X") return [240, 480];
+    if (layer === "G") return [240, 481];
     if (layer === "U" || layer === "V") return [200, 400];
     return [];
   };
@@ -1060,10 +1108,14 @@ function APA(modules) {
 
     var lines = [];
     for (var i = 0; i < targetWraps.length; i += 1) {
+      var targetWrap = targetWraps[i];
+      var targetLine = forecastTargetLines.hasOwnProperty(targetWrap)
+        ? forecastTargetLines[targetWrap]
+        : null;
       var forecastData = _calculateForecastFromLogs(
-        activeLayer,
         forecastRecentRows,
-        targetWraps[i],
+        targetWrap,
+        targetLine,
         forecastRecipePeriod,
       );
       if (forecastData) {
@@ -1083,7 +1135,7 @@ function APA(modules) {
       } else {
         lines.push(
           '<span class="forecastItem forecastFallback">Wrap ' +
-            targetWraps[i] +
+            targetWrap +
             " at -" +
             periodSuffix +
             "</span>",

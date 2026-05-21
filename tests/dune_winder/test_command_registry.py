@@ -235,6 +235,26 @@ class CommandRegistryTests(unittest.TestCase):
         self.assertEqual(response["data"]["pinName"], "PB40")
         self.assertEqual(response["data"]["segmentStartLine"], 12)
 
+    def test_get_wrap_forecast_line_dispatches_to_process(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {"name": "process.get_wrap_forecast_line", "args": {"wrap": 400}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["data"], 4001)
+
+    def test_get_wrap_forecast_line_requires_wrap(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {"name": "process.get_wrap_forecast_line", "args": {}},
+        )
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
+
     def test_jump_to_uv_pin_segment_dispatches_to_workspace(self):
         registry, process, _, _, _, _ = build_registry_fixture()
 

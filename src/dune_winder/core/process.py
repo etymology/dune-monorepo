@@ -483,6 +483,10 @@ class Process:
         return self._recipeService().getWrapSeekLine(wrap)
 
     # ---------------------------------------------------------------------
+    def getWrapForecastLine(self, wrap):
+        return self._recipeService().getWrapForecastLine(wrap)
+
+    # ---------------------------------------------------------------------
     def _getActiveLayerCalibration(self, layer):
         requestedLayer = str(layer).strip().upper()
         activeLayer = self.getRecipeLayer()

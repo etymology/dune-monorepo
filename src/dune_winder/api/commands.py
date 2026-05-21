@@ -1191,6 +1191,14 @@ def build_command_registry(
 
     registry.register("process.get_wrap_seek_line", process_get_wrap_seek_line, False)
 
+    def process_get_wrap_forecast_line(args):
+        _validateArgs(args, required=("wrap",))
+        return process.getWrapForecastLine(_asInt(args["wrap"], "wrap"))
+
+    registry.register(
+        "process.get_wrap_forecast_line", process_get_wrap_forecast_line, False
+    )
+
     def process_open_recipe_in_editor(args):
         _validateArgs(args, optional=("recipe_file",))
         recipeFile = args.get("recipe_file")

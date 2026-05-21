@@ -744,6 +744,40 @@ class WinderWorkspace:
         targetLine = max(1, min(targetLine, len(lines)))
         return targetLine - 2
 
+    def getWrapForecastLine(self, wrap):
+        """Wind-log line number of the last line labeled ``(wrap, *)``.
+
+        The forecast panel projects a finish time for a wrap by anchoring on
+        the last line carrying that wrap's ``(wrap, pin)`` label, rather than
+        estimating the position from the recipe period.  WindMode records each
+        executed line as ``gCodeHandler.getLine() + 2``; ``getLine()`` is the
+        zero-based index into ``getLines()``, so the line at one-based index
+        ``i`` is logged as ``i + 1``.  The returned value is in that same
+        wind-log space so the forecast can interpolate it directly against the
+        wind log.  Returns ``None`` when no line carries the label.
+        """
+        if self._recipe is None:
+            return None
+
+        try:
+            wrap = int(wrap)
+        except (TypeError, ValueError):
+            return None
+
+        if wrap < 1:
+            return None
+
+        expression = re.compile(r"\(\s*" + str(wrap) + r"\s*,\s*\d+", re.IGNORECASE)
+        lastIndex = None
+        for index, line in enumerate(self._recipe.getLines(), start=1):
+            if expression.search(line):
+                lastIndex = index
+
+        if lastIndex is None:
+            return None
+
+        return lastIndex + 1
+
     def _getWrapLabeledLine(self, wrap, label):
         if self._recipe is None:
             return None
