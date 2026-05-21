@@ -128,6 +128,12 @@ def _load_actions_module(monkeypatch):
     uv_wire_planner.plan_uv_wire_zone = lambda *_args, **_kwargs: 0
     monkeypatch.setitem(sys.modules, "dune_tension.uv_wire_planner", uv_wire_planner)
 
+    streaming = cast(Any, types.ModuleType("dune_tension.streaming"))
+    monkeypatch.setitem(sys.modules, "dune_tension.streaming", streaming)
+    streaming_pose = cast(Any, types.ModuleType("dune_tension.streaming.pose"))
+    streaming_pose.focus_side_sign = lambda side: 1.0 if str(side).upper() == "A" else -1.0
+    monkeypatch.setitem(sys.modules, "dune_tension.streaming.pose", streaming_pose)
+
     return load_module_from_path(monkeypatch, "gui_actions_under_test", MODULE_PATH)
 
 
@@ -903,7 +909,11 @@ def test_adjust_focus_with_x_compensation_side_a(monkeypatch):
     )
     ctx = types.SimpleNamespace(
         servo_controller=servo_controller,
-        get_xy=lambda: (1000.0, 2000.0),
+        # Stale cached value: must not be used as the compensation base.
+        get_xy=lambda: (5000.0, 5000.0),
+        runtime=types.SimpleNamespace(
+            motion=types.SimpleNamespace(get_live_xy=lambda: (1000.0, 2000.0))
+        ),
         goto_xy=lambda x, y: moves.append((x, y)) or True,
         widgets=types.SimpleNamespace(
             side_var=types.SimpleNamespace(get=lambda: "A"),
@@ -914,7 +924,8 @@ def test_adjust_focus_with_x_compensation_side_a(monkeypatch):
     actions.adjust_focus_with_x_compensation(ctx, 4400)
 
     assert focus_targets == [4400]
-    assert moves == [(998.8, 2000.0)]
+    # Side A couples focus to +X (focus_side_sign("A") == +1).
+    assert moves == [(1001.2, 2000.0)]
 
 
 def test_adjust_focus_with_x_compensation_side_b(monkeypatch):
@@ -931,7 +942,11 @@ def test_adjust_focus_with_x_compensation_side_b(monkeypatch):
     )
     ctx = types.SimpleNamespace(
         servo_controller=servo_controller,
-        get_xy=lambda: (1000.0, 2000.0),
+        # Stale cached value: must not be used as the compensation base.
+        get_xy=lambda: (5000.0, 5000.0),
+        runtime=types.SimpleNamespace(
+            motion=types.SimpleNamespace(get_live_xy=lambda: (1000.0, 2000.0))
+        ),
         goto_xy=lambda x, y: moves.append((x, y)) or True,
         widgets=types.SimpleNamespace(
             side_var=types.SimpleNamespace(get=lambda: "B"),
@@ -942,7 +957,8 @@ def test_adjust_focus_with_x_compensation_side_b(monkeypatch):
     actions.adjust_focus_with_x_compensation(ctx, 4200)
 
     assert focus_targets == [4200]
-    assert moves == [(1000.6, 2000.0)]
+    # Side B couples focus to -X (focus_side_sign("B") == -1).
+    assert moves == [(999.4, 2000.0)]
 
 
 class _FakeRoot:

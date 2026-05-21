@@ -1347,10 +1347,12 @@ class Tensiometer:
     def measure_auto(self) -> None:
         """Measure all missing wires in the current layer/side.
 
-        U/V layers go through the Rust core; X/G layers fall back to the
-        Python ``measure_list`` path because the Rust planner has no
-        database-snapshot lookup for vertical wires and would otherwise
-        skip every wire.
+        All layers go through the Python ``measure_list`` path. It strums the
+        wire continuously while audio acquisition runs in a background thread,
+        which is the only capture path that works reliably on the instrument
+        (the Rust cpal capture backend contends with the audio device and
+        stalls). The ETA monitor below wraps ``append_result`` regardless of
+        which wires are measured.
         """
         from dune_tension.summaries import get_missing_wires
 
@@ -1404,47 +1406,10 @@ class Tensiometer:
         )
         monitor_thread.start()
         try:
-            if self.config.layer in ("X", "G"):
-                try:
-                    self.measure_list(wires_to_measure, preserve_order=False)
-                except KeyboardInterrupt:
-                    LOGGER.info("Measurement interrupted by user.")
-            else:
-                import dune_tension_core
-
-                def pesto_wrapper(audio, samplerate, expected_frequency):
-                    return analyze_audio_with_pesto(
-                        audio,
-                        samplerate,
-                        expected_frequency=expected_frequency,
-                        include_activations=False,
-                    )
-
-                core = dune_tension_core.Tensiometer(
-                    config=self.config,
-                    motion_service=self.motion,
-                    goto_xy_func=self._goto_xy_with_reset_recovery,
-                    get_current_xy_position=self.get_current_xy_position,
-                    focus_wiggle_func=self._apply_focus_wiggle_with_x_compensation,
-                    focus_position_getter=self.focus_position_getter,
-                    focus_range_getter=self.focus_range_getter,
-                    use_manual_focus=self.use_manual_focus,
-                    manual_focus_target=self.manual_focus_target,
-                    stop_event=self.stop_event,
-                    repository=self.repository,
-                    audio_service=self.audio,
-                    strum_func=self.strum_func,
-                    pesto_func=pesto_wrapper,
-                    harmonic_comb_config=self._harmonic_comb_config,
-                )
-
-                try:
-                    with self.measurement_session():
-                        core.measure_auto()
-                except KeyboardInterrupt:
-                    LOGGER.info("Measurement interrupted by user.")
-                except Exception as exc:
-                    LOGGER.exception("Rust measurement core failed: %s", exc)
+            try:
+                self.measure_list(wires_to_measure, preserve_order=False)
+            except KeyboardInterrupt:
+                LOGGER.info("Measurement interrupted by user.")
         finally:
             stop_progress.set()
             monitor_thread.join(timeout=3.0)

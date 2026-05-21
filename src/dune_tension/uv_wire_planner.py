@@ -432,10 +432,7 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
             float(tangent_b[0] - inputs.laser_offset_x),
             float(tangent_b[1] - inputs.laser_offset_y),
         )
-        clipped = _clip_line_to_rectangle(tangent_a_laser, tangent_b_laser)
-        if clipped is None:
-            continue
-        for segment in _split_segment_at_combs(*clipped):
+        for segment in _split_segment_at_combs(tangent_a_laser, tangent_b_laser):
             length = _segment_length(segment)
             midpoint = _segment_midpoint(segment)
             segment_zone = int(zone_lookup(midpoint[0]))

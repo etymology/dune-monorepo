@@ -1,5 +1,8 @@
 #[cfg(any(feature = "cpal-capture", test))]
 use std::collections::VecDeque;
+use std::sync::atomic::AtomicBool;
+#[cfg(feature = "cpal-capture")]
+use std::sync::atomic::Ordering;
 #[cfg(feature = "cpal-capture")]
 use std::sync::mpsc;
 #[cfg(feature = "cpal-capture")]
@@ -39,14 +42,20 @@ pub struct AudioAcquisitionConfig {
     pub comb: HarmonicCombCaptureConfig,
 }
 
+/// Acquire one audio recording.
+///
+/// When `recording_started` is supplied, it is set to `true` as soon as the
+/// trigger fires. Callers that strum the wire concurrently use this to stop
+/// strumming once the recording has begun (see the measurement orchestrator).
 pub fn acquire_audio(
     cfg: &AudioAcquisitionConfig,
     noise_rms: f64,
     timeout_seconds: Option<f64>,
+    recording_started: Option<&AtomicBool>,
 ) -> Result<Option<Vec<f32>>> {
     #[cfg(not(feature = "cpal-capture"))]
     {
-        let _ = (cfg, noise_rms, timeout_seconds);
+        let _ = (cfg, noise_rms, timeout_seconds, recording_started);
         return Err(anyhow!(
             "Rust audio capture was built without the cpal-capture feature"
         ));
@@ -55,12 +64,20 @@ pub fn acquire_audio(
     #[cfg(feature = "cpal-capture")]
     {
         let captured = match cfg.trigger_mode {
-            TriggerMode::Snr => acquire_audio_snr(cfg, noise_rms, timeout_seconds)?,
+            TriggerMode::Snr => {
+                acquire_audio_snr(cfg, noise_rms, timeout_seconds, recording_started)?
+            }
             TriggerMode::HarmonicComb => match cfg.expected_f0 {
                 Some(expected_f0) if expected_f0.is_finite() && expected_f0 > 0.0 => {
-                    acquire_audio_harmonic_comb(cfg, expected_f0, noise_rms, timeout_seconds)?
+                    acquire_audio_harmonic_comb(
+                        cfg,
+                        expected_f0,
+                        noise_rms,
+                        timeout_seconds,
+                        recording_started,
+                    )?
                 }
-                _ => acquire_audio_snr(cfg, noise_rms, timeout_seconds)?,
+                _ => acquire_audio_snr(cfg, noise_rms, timeout_seconds, recording_started)?,
             },
         };
 
@@ -159,6 +176,7 @@ fn acquire_audio_snr(
     cfg: &AudioAcquisitionConfig,
     noise_rms: f64,
     timeout_seconds: Option<f64>,
+    recording_started: Option<&AtomicBool>,
 ) -> Result<Option<Vec<f32>>> {
     let hop = ((cfg.sample_rate as f64 * 0.01).round() as usize).max(128);
     let mut source = CpalInputSource::start(cfg.sample_rate, hop)?;
@@ -179,7 +197,13 @@ fn acquire_audio_snr(
         if chunk.is_empty() {
             continue;
         }
-        if state.push_chunk(&chunk) {
+        let reached_capacity = state.push_chunk(&chunk);
+        if let Some(flag) = recording_started {
+            if state.recording_started() {
+                flag.store(true, Ordering::Relaxed);
+            }
+        }
+        if reached_capacity {
             break;
         }
     }
@@ -345,6 +369,7 @@ fn acquire_audio_harmonic_comb(
     expected_f0: f64,
     noise_rms: f64,
     timeout_seconds: Option<f64>,
+    recording_started: Option<&AtomicBool>,
 ) -> Result<Option<Vec<f32>>> {
     let comb = &cfg.comb;
     let frame_size = comb.frame_size.max(1);
@@ -420,6 +445,9 @@ fn acquire_audio_harmonic_comb(
 
             match trigger_state.observe(response, frame_rms) {
                 HarmonicTriggerEvent::StartRecording => {
+                    if let Some(flag) = recording_started {
+                        flag.store(true, Ordering::Relaxed);
+                    }
                     chunk_included = true;
                     for recent in recent_chunks.drain(..) {
                         collected.extend_from_slice(&recent);

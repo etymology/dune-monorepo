@@ -124,7 +124,7 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
         "_solve_tangent_candidates",
-        lambda **_kwargs: [((0.0, 500.0), (10.0, 500.0))],
+        lambda **_kwargs: [((0.0, 500.0), (8000.0, 500.0))],
     )
     monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 5)
     monkeypatch.setattr(
@@ -135,9 +135,9 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
 
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
 
-    assert planned.interval_start == (5770.0, 500.0)
-    assert planned.interval_end == (7015.0, 500.0)
-    assert planned.midpoint == (6392.5, 500.0)
+    assert planned.interval_start == (5765.0, 500.0)
+    assert planned.interval_end == (7060.0, 500.0)
+    assert planned.midpoint == (6412.5, 500.0)
 
 
 def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
@@ -164,8 +164,8 @@ def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
         uv_wire_planner,
         "_solve_tangent_candidates",
         lambda **_kwargs: [
-            ((0.0, 501.0), (10.0, 501.0)),
-            ((0.0, 499.0), (10.0, 499.0)),
+            ((0.0, 501.0), (8000.0, 501.0)),
+            ((0.0, 499.0), (8000.0, 499.0)),
         ],
     )
     monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 5)
@@ -177,7 +177,7 @@ def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
 
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
 
-    assert planned.midpoint == (6392.5, 499.0)
+    assert planned.midpoint == (6412.5, 499.0)
 
 
 def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
@@ -203,7 +203,7 @@ def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
         "_solve_tangent_candidates",
-        lambda **_kwargs: [((0.0, 500.0), (10.0, 500.0))],
+        lambda **_kwargs: [((0.0, 500.0), (8000.0, 500.0))],
     )
     monkeypatch.setattr(
         uv_wire_planner,
@@ -214,9 +214,9 @@ def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1100, zone=2)
 
     assert planned.zone == 2
-    assert planned.interval_start == (2230.0, 500.0)
-    assert planned.interval_end == (3420.0, 500.0)
-    assert planned.midpoint == (2825.0, 500.0)
+    assert planned.interval_start == (2220.0, 500.0)
+    assert planned.interval_end == (3400.0, 500.0)
+    assert planned.midpoint == (2810.0, 500.0)
 
 
 def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(

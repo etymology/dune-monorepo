@@ -34,11 +34,13 @@ impl Tensiometer {
         use_manual_focus=false, 
         manual_focus_target=None, 
         stop_event=None, 
-        repository=None, 
+        repository=None,
         audio_service=None,
         strum_func=None,
         pesto_func=None,
-        harmonic_comb_config=None
+        harmonic_comb_config=None,
+        a_taped=false,
+        b_taped=false
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -58,6 +60,8 @@ impl Tensiometer {
         strum_func: Option<Py<PyAny>>,
         pesto_func: Option<Py<PyAny>>,
         harmonic_comb_config: Option<Py<PyAny>>,
+        a_taped: bool,
+        b_taped: bool,
     ) -> PyResult<Self> {
         let rust_config = if let Some(ref cfg) = config {
             Some(TensiometerConfig::from_py(py, cfg.clone_ref(py))?)
@@ -88,6 +92,8 @@ impl Tensiometer {
                 strum.clone_ref(py),
                 pesto.clone_ref(py),
                 harmonic_comb_config.as_ref().map(|c| c.clone_ref(py)),
+                a_taped,
+                b_taped,
             ))
         } else {
             None
