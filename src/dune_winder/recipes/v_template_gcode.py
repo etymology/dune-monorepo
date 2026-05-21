@@ -910,7 +910,8 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets, *, final_wrap=Fa
                 anchor_to_target(
                     a_from_b(th - 399 + n),
                     b_pin(2398),
-                    "Wrap 400 tail A400 to B2398",
+                    offset=(-10, 0),
+                    label="Wrap 400 tail A400 to B2398",
                 ),
                 increment(0, -y_pull_in),
                 anchor_to_target(
