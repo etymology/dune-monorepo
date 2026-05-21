@@ -382,13 +382,13 @@ def _create_widgets(
     use_harmonic_comb_trigger_var = tk.BooleanVar(value=True)
 
     entry_confidence = tk.Entry(hidden)
-    entry_confidence.insert(0, "0.5")
+    entry_confidence.insert(0, "0.75")
 
     entry_record_duration = tk.Entry(hidden)
-    entry_record_duration.insert(0, "0.5")
+    entry_record_duration.insert(0, "0.2")
 
     entry_measuring_duration = tk.Entry(hidden)
-    entry_measuring_duration.insert(0, "10")
+    entry_measuring_duration.insert(0, "20")
 
     entry_wiggle_y_sigma = tk.Entry(hidden)
     entry_wiggle_y_sigma.insert(0, str(MEASUREMENT_WIGGLE_CONFIG.y_sigma_mm))
