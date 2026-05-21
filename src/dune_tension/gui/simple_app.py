@@ -400,7 +400,7 @@ def _create_widgets(
     )
 
     plot_audio_var = tk.BooleanVar(value=False)
-    suppress_wire_preview_var = tk.BooleanVar(value=False)
+    suppress_wire_preview_var = tk.BooleanVar(value=True)
     skip_measured_zone_var = tk.BooleanVar(value=True)
     disable_x_compensation_var = tk.BooleanVar(value=False)
 
