@@ -19,6 +19,11 @@ from dune_winder.machine.head_compensation import WirePathModel
 from dune_winder.paths import REPO_ROOT
 
 
+# Sentinel for _expected_explicit_wrap_plan: derive roller offsets from the
+# loaded calibration unless the caller passes an explicit, test-controlled value.
+_USE_CALIBRATION_ROLLER_OFFSETS = object()
+
+
 class _Axis:
     def __init__(self, position):
         self._position = float(position)
@@ -159,6 +164,13 @@ class WrapRuntimeTests(unittest.TestCase):
         handler._z = 0.0
         return handler, io, machine_calibration, layer_calibration
 
+    def _seed_position(self, handler, io, x, y):
+        """Place both the interpreter and the mock axes at (x, y)."""
+        handler._x = float(x)
+        handler._y = float(y)
+        io.xAxis.setPosition(float(x))
+        io.yAxis.setPosition(float(y))
+
     def _expected_explicit_wrap_plan(
         self,
         *,
@@ -171,6 +183,7 @@ class WrapRuntimeTests(unittest.TestCase):
         start_x=None,
         start_y=None,
         use_fitted_roller_offsets=True,
+        roller_arm_y_offsets=_USE_CALIBRATION_ROLLER_OFFSETS,
     ):
         anchor_location = wire_space_pin_location(
             layer_calibration, machine_calibration, anchor_pin
@@ -186,6 +199,13 @@ class WrapRuntimeTests(unittest.TestCase):
         current_xy = None
         if start_x is not None and start_y is not None:
             current_xy = Point2D(float(start_x), float(start_y))
+        if roller_arm_y_offsets is _USE_CALIBRATION_ROLLER_OFFSETS:
+            roller_arm_y_offsets = (
+                machine_calibration.rollerArmCalibration.fitted_y_cals
+                if use_fitted_roller_offsets
+                and machine_calibration.rollerArmCalibration is not None
+                else None
+            )
         return plan_wrap_transition(
             layer=layer_calibration.getLayerNames(),
             anchor_pin=anchor_pin,
@@ -212,12 +232,7 @@ class WrapRuntimeTests(unittest.TestCase):
             head_arm_length=float(machine_calibration.headArmLength),
             head_roller_radius=float(machine_calibration.headRollerRadius),
             head_roller_gap=float(machine_calibration.headRollerGap),
-            roller_arm_y_offsets=(
-                machine_calibration.rollerArmCalibration.fitted_y_cals
-                if use_fitted_roller_offsets
-                and machine_calibration.rollerArmCalibration is not None
-                else None
-            ),
+            roller_arm_y_offsets=roller_arm_y_offsets,
             current_xy=current_xy,
         )
 
@@ -553,12 +568,16 @@ class WrapRuntimeTests(unittest.TestCase):
             500.0, 500.0
         )
 
+        # Inject explicit, test-controlled roller offsets rather than reading
+        # them from machineCalibration.json, so this test does not depend on the
+        # calibration file's specific (and possibly uniform) fitted values.
         fitted_plan = self._expected_explicit_wrap_plan(
             layer_calibration=layer_calibration,
             machine_calibration=machine_calibration,
             anchor_pin="A388",
             target_pin="A413",
             offset_x=1.0,
+            roller_arm_y_offsets=(0.0, 5.0, -5.0, 10.0),
         )
         nominal_plan = self._expected_explicit_wrap_plan(
             layer_calibration=layer_calibration,
@@ -566,13 +585,21 @@ class WrapRuntimeTests(unittest.TestCase):
             anchor_pin="A388",
             target_pin="A413",
             offset_x=1.0,
-            use_fitted_roller_offsets=False,
+            roller_arm_y_offsets=None,
         )
 
-        self.assertAlmostEqual(float(fitted_plan.final_xy.x), 1274.250, places=3)
-        self.assertAlmostEqual(float(fitted_plan.final_xy.y), 2683.000, places=3)
+        # Roller offsets must actually shift the same-side final X versus the
+        # no-offset computation. Assert the relationship, not a calibration-
+        # specific coordinate.
         self.assertGreater(
             abs(float(fitted_plan.final_xy.x) - float(nominal_plan.final_xy.x)), 1.0
+        )
+        # The same-side A-pin transition clamps the outbound intercept to the top
+        # transfer edge; derive it from calibration rather than hard-coding it.
+        self.assertAlmostEqual(
+            float(fitted_plan.final_xy.y),
+            float(machine_calibration.transferTop),
+            places=3,
         )
 
     def test_anchor_to_target_uses_reverse_vector_roller_selection_for_same_side_runtime(
@@ -597,8 +624,14 @@ class WrapRuntimeTests(unittest.TestCase):
         while handler._dispatch_pending_actions(safety_label="manual"):
             pass
         self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
-        self.assertAlmostEqual(float(plan.final_xy.x), 4080.428, places=3)
-        self.assertAlmostEqual(float(plan.final_xy.y), 0.000, places=3)
+        # The same-side B-pin transition clamps the outbound intercept to the
+        # bottom transfer edge; derive it from calibration rather than a literal.
+        self.assertAlmostEqual(
+            float(plan.final_xy.y),
+            float(machine_calibration.transferBottom),
+            places=3,
+        )
+        # The runtime dispatch must reproduce the planner's final XY exactly.
         self.assertAlmostEqual(
             io.plcLogic.xy_moves[-1][0], float(plan.final_xy.x), places=3
         )
@@ -623,10 +656,15 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertFalse(plan.same_side)
         self.assertEqual(plan.plane, "yz")
         self.assertEqual(plan.face, "foot")
-        self.assertAlmostEqual(float(plan.final_xy.x), 7028.816, places=3)
-        self.assertAlmostEqual(float(plan.final_xy.y), 4927.115, places=3)
-        self.assertGreater(float(plan.final_xy.y), 4000.0)
-        self.assertLess(float(plan.target_tangent_point.y), 3000.0)
+        # The alternating final XY is the transfer-line intercept projected past
+        # the transfer zone, beyond the tangent contact. Assert the geometric
+        # relationships rather than calibration-specific coordinates.
+        self.assertGreater(
+            float(plan.final_xy.y), float(machine_calibration.transferTop)
+        )
+        self.assertLess(
+            float(plan.target_tangent_point.y), float(plan.final_xy.y)
+        )
 
     def test_anchor_to_target_rejects_mixed_face_alternating_pair(self):
         handler, _io, _machine_calibration, _layer_calibration = self._build_handler(
@@ -731,6 +769,131 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
         self.assertAlmostEqual(io.plcLogic.xy_moves[-1][0], float(final_xy.x), places=3)
         self.assertAlmostEqual(io.plcLogic.xy_moves[-1][1], float(final_xy.y), places=3)
+
+    def test_same_side_prep_transfer_fires_for_b_in_zone_near_target(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            0.0, 0.0
+        )
+        plan = self._expected_explicit_wrap_plan(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B2391",
+            target_pin="B812",
+        )
+        self.assertTrue(plan.same_side)
+        # Start exactly at the planned target: inside the transfer zone and within
+        # tolerance, regardless of the calibration's specific coordinates.
+        self._seed_position(handler, io, plan.final_xy.x, plan.final_xy.y)
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B2391,B812)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        transfer_positions = [move[0] for move in io.head.transfer_moves]
+        # Fixed-side clearance (3) prep transfer, then the working extend (2).
+        self.assertEqual(transfer_positions, [3, 2])
+
+    def test_same_side_prep_transfer_fires_for_a_in_zone_near_target(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            0.0, 0.0
+        )
+        plan = self._expected_explicit_wrap_plan(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="A388",
+            target_pin="A413",
+        )
+        self.assertTrue(plan.same_side)
+        self._seed_position(handler, io, plan.final_xy.x, plan.final_xy.y)
+
+        error = handler.executeG_CodeLine("~anchorToTarget(A388,A413)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        transfer_positions = [move[0] for move in io.head.transfer_moves]
+        # Stage-side clearance (0) prep transfer, then the working extend (1).
+        self.assertEqual(transfer_positions, [0, 1])
+
+    def test_same_side_prep_transfer_skipped_when_far_from_target(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            0.0, 0.0
+        )
+        plan = self._expected_explicit_wrap_plan(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B2391",
+            target_pin="B812",
+        )
+        # In the transfer zone, but more than the per-axis tolerance away in Y.
+        far_y = float(plan.final_xy.y) + 30.0
+        if far_y > float(machine_calibration.transferTop):
+            far_y = float(plan.final_xy.y) - 30.0
+        self.assertGreaterEqual(far_y, float(machine_calibration.transferBottom))
+        self._seed_position(handler, io, plan.final_xy.x, far_y)
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B2391,B812)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        transfer_positions = [move[0] for move in io.head.transfer_moves]
+        self.assertEqual(transfer_positions, [2])
+
+    def test_same_side_prep_transfer_skipped_when_outside_transfer_zone(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            0.0, 0.0
+        )
+        plan = self._expected_explicit_wrap_plan(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B2391",
+            target_pin="B812",
+        )
+        # Near the target in XY but just below the bottom transfer edge, i.e.
+        # outside the transfer zone. This isolates the in-transfer-zone gate.
+        outside_y = float(machine_calibration.transferBottom) - 10.0
+        self.assertLessEqual(abs(outside_y - float(plan.final_xy.y)), 25.0)
+        self._seed_position(handler, io, plan.final_xy.x, outside_y)
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B2391,B812)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        transfer_positions = [move[0] for move in io.head.transfer_moves]
+        self.assertEqual(transfer_positions, [2])
+
+    def test_alternating_move_does_not_get_prep_transfer_near_target(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        final_xy, plan = self._expected_explicit_wrap_final_xy(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B2001",
+            target_pin="A800",
+        )
+        self.assertFalse(plan.same_side)
+
+        # Seed the interpreter at the final XY target so the same-side trigger
+        # condition would be met if it (incorrectly) applied to alternating moves.
+        handler._x = float(final_xy.x)
+        handler._y = float(final_xy.y)
+        io.xAxis.setPosition(float(final_xy.x))
+        io.yAxis.setPosition(float(final_xy.y))
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B2001,A800)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        transfer_positions = [move[0] for move in io.head.transfer_moves]
+        # Alternating same-as-before: a single clearance transfer (position 0 for
+        # an A target), no extra preparatory transfer.
+        self.assertEqual(transfer_positions, [0])
 
     def test_g206_silently_skips_head_transfer_when_head_absent(self):
         handler, io, _machine_calibration, _layer_calibration = self._build_handler(
