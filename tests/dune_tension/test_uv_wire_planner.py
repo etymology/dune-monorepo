@@ -124,7 +124,7 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
         "_solve_tangent_candidates",
-        lambda **_kwargs: [((0.0, 500.0), (10.0, 500.0))],
+        lambda **_kwargs: [((0.0, 500.0), (8000.0, 500.0))],
     )
     monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 5)
     monkeypatch.setattr(
@@ -164,8 +164,8 @@ def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
         uv_wire_planner,
         "_solve_tangent_candidates",
         lambda **_kwargs: [
-            ((0.0, 501.0), (10.0, 501.0)),
-            ((0.0, 499.0), (10.0, 499.0)),
+            ((0.0, 501.0), (8000.0, 501.0)),
+            ((0.0, 499.0), (8000.0, 499.0)),
         ],
     )
     monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 5)
@@ -203,7 +203,7 @@ def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
     monkeypatch.setattr(
         uv_wire_planner,
         "_solve_tangent_candidates",
-        lambda **_kwargs: [((0.0, 500.0), (10.0, 500.0))],
+        lambda **_kwargs: [((0.0, 500.0), (8000.0, 500.0))],
     )
     monkeypatch.setattr(
         uv_wire_planner,
