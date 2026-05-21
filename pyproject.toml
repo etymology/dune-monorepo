@@ -48,6 +48,7 @@ dune-tension-fit-focus = "dune_tension.streaming.cli:main_fit_focus"
 dune-tension-stream-replay = "dune_tension.streaming.cli:main_stream_replay"
 dune-tension-average-profile-clouds = "dune_tension.average_profile_clouds:main"
 dune-tension-average-profile-clouds-gui = "dune_tension.gui.average_profile_clouds_app:main"
+dune-tension-upload-gui = "dune_tension.gui.upload_tensions_app:main"
 dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
 dune-spectrum-scroller = "spectrum_analysis.cli:main"
 
