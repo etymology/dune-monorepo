@@ -220,7 +220,7 @@ fn acquire_audio<'py>(
             ..default_comb
         },
     };
-    acquire_audio_core(&cfg, noise_rms, timeout)
+    acquire_audio_core(&cfg, noise_rms, timeout, None)
         .map(|maybe_audio| maybe_audio.map(|audio| audio.into_pyarray(py)))
         .map_err(runtime_error)
 }
