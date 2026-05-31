@@ -1,4 +1,4 @@
-.PHONY: sync test test-python test-rust lint lint-python lint-rust lint-md format format-python format-rust format-md typecheck build-rust clean-rust
+.PHONY: sync test test-python test-rust lint lint-python lint-rust lint-md format format-python format-rust format-md typecheck build-rust clean-rust dc-build dc-up dc-shell dc-claude
 
 sync:
 	uv sync
@@ -41,3 +41,20 @@ build-rust:
 
 clean-rust:
 	cargo clean --manifest-path rust/Cargo.toml
+
+# --- Dev container (sandboxed agentic dev) ---------------------------------
+# Drive the firewalled .devcontainer from the host via the devcontainer CLI.
+DEVCONTAINER ?= npx --yes @devcontainers/cli
+
+dc-build:
+	$(DEVCONTAINER) build --workspace-folder .
+
+dc-up:
+	$(DEVCONTAINER) up --workspace-folder .
+
+dc-shell: dc-up
+	$(DEVCONTAINER) exec --workspace-folder . bash
+
+# Open Claude in bypass mode inside the sandbox.
+dc-claude: dc-up
+	$(DEVCONTAINER) exec --workspace-folder . claude --dangerously-skip-permissions

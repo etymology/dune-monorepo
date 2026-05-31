@@ -1,0 +1,44 @@
+{
+  // "lite" variant: same toolchain image, but WITHOUT the egress firewall and
+  // network capabilities. Faster start, open network. Only use this when you
+  // are NOT running bypass mode, or you accept an unsandboxed network.
+  // Pick it via VS Code "Reopen in Container" -> choose the "lite" config.
+  "name": "dune-monorepo (lite, no firewall)",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "args": {
+      "PYTHON_VERSION": "3.12"
+    }
+  },
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "node",
+
+  "mounts": [
+    "source=dune-bashhistory,target=/commandhistory,type=volume",
+    "source=dune-claude-config,target=/home/node/.claude,type=volume",
+    "source=dune-venv,target=/home/node/.dune-venv,type=volume",
+    "source=dune-cargo-target,target=/home/node/.cargo-target,type=volume",
+    "source=dune-uv-cache,target=/home/node/.cache/uv,type=volume",
+    "source=dune-cargo-registry,target=/home/node/.cargo/registry,type=volume"
+  ],
+
+  "remoteEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "rust-lang.rust-analyzer",
+        "ms-python.python",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}

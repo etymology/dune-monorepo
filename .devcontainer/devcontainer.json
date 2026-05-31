@@ -1,0 +1,46 @@
+{
+  "name": "dune-monorepo",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      // Bump if a dependency needs a newer interpreter; must satisfy requires-python >=3.12.
+      "PYTHON_VERSION": "3.12"
+    }
+  },
+
+  // NET_ADMIN/NET_RAW let the start-up firewall configure iptables/ipset.
+  "runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "node",
+
+  // Named volumes: persist auth/history and keep heavy build caches off the bind mount
+  // so they survive rebuilds and never touch the host's .venv / rust/target.
+  "mounts": [
+    "source=dune-bashhistory,target=/commandhistory,type=volume",
+    "source=dune-claude-config,target=/home/node/.claude,type=volume",
+    "source=dune-venv,target=/home/node/.dune-venv,type=volume",
+    "source=dune-cargo-target,target=/home/node/.cargo-target,type=volume",
+    "source=dune-uv-cache,target=/home/node/.cache/uv,type=volume",
+    "source=dune-cargo-registry,target=/home/node/.cargo/registry,type=volume"
+  ],
+
+  "remoteEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "rust-lang.rust-analyzer",
+        "ms-python.python",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}
