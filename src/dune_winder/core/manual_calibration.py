@@ -459,31 +459,16 @@ class ManualCalibration:
         session.initialized = True
 
     # -------------------------------------------------------------------
-    def _persistGXSession(self, session):
+    def _writeDraftFile(self, session, data):
+        """Atomically write a session's draft JSON.
+
+        Logs and returns False on failure; returns True on success. Shared by
+        the UV and GX persistence paths, which differ only in the data they
+        build."""
         try:
             draftDirectory = self._draftDirectory()
             if not os.path.isdir(draftDirectory):
                 os.makedirs(draftDirectory)
-
-            data = {
-                "layer": session.layer,
-                "cameraOffsetX": session.cameraOffsetX,
-                "cameraOffsetY": session.cameraOffsetY,
-                "dirty": session.dirty,
-                "transferPause": session.transferPause,
-                "includeLeadMode": session.includeLeadMode,
-                "stripG113Params": session.stripG113Params,
-                "spoolChangePause": session.spoolChangePause,
-                "references": {},
-                "offsets": {},
-                "generated": dict(session.generated),
-            }
-
-            for referenceId in GX_REFERENCE_IDS:
-                data["references"][referenceId] = dict(session.references[referenceId])
-
-            for offsetId in GX_OFFSET_IDS:
-                data["offsets"][offsetId] = session.offsets[offsetId]
 
             temporaryPath = self._draftFilePath(session.layer) + ".tmp"
             with open(temporaryPath, "w", encoding="utf-8") as outputFile:
@@ -501,6 +486,30 @@ class ManualCalibration:
             return False
 
         return True
+
+    # -------------------------------------------------------------------
+    def _persistGXSession(self, session):
+        data = {
+            "layer": session.layer,
+            "cameraOffsetX": session.cameraOffsetX,
+            "cameraOffsetY": session.cameraOffsetY,
+            "dirty": session.dirty,
+            "transferPause": session.transferPause,
+            "includeLeadMode": session.includeLeadMode,
+            "stripG113Params": session.stripG113Params,
+            "spoolChangePause": session.spoolChangePause,
+            "references": {},
+            "offsets": {},
+            "generated": dict(session.generated),
+        }
+
+        for referenceId in GX_REFERENCE_IDS:
+            data["references"][referenceId] = dict(session.references[referenceId])
+
+        for offsetId in GX_OFFSET_IDS:
+            data["offsets"][offsetId] = session.offsets[offsetId]
+
+        return self._writeDraftFile(session, data)
 
     # -------------------------------------------------------------------
     def _loadPersistedSession(self, session):
@@ -623,13 +632,10 @@ class ManualCalibration:
         return True
 
     # -------------------------------------------------------------------
-    def _persistSession(self, session, persistBaseline=False):
-        if session.mode == "gx":
-            return self._persistGXSession(session)
+    def _saveDraftBaseline(self, session, persistBaseline):
+        """Write the draft baseline calibration file when missing or forced.
 
-        if session.baselineCalibration is None:
-            return False
-
+        Logs and returns False on failure, matching the draft-save error path."""
         try:
             draftDirectory = self._draftDirectory()
             if not os.path.isdir(draftDirectory):
@@ -665,28 +671,6 @@ class ManualCalibration:
                     self._draftBaselineFileName(session.layer),
                     "LayerCalibration",
                 )
-
-            data = {
-                "layer": session.layer,
-                "baselineSource": session.baselineSource,
-                "cameraOffsetX": session.cameraOffsetX,
-                "cameraOffsetY": session.cameraOffsetY,
-                "dirty": session.dirty,
-                "skipWrapPins": session.skipWrapPins,
-                "measuredPins": {},
-                "boardChecks": {},
-            }
-
-            for pin in sorted(session.measuredPins):
-                data["measuredPins"][str(pin)] = dict(session.measuredPins[pin])
-
-            for pin in sorted(session.boardChecks):
-                data["boardChecks"][str(pin)] = dict(session.boardChecks[pin])
-
-            temporaryPath = self._draftFilePath(session.layer) + ".tmp"
-            with open(temporaryPath, "w", encoding="utf-8") as outputFile:
-                json.dump(data, outputFile, indent=2, sort_keys=True)
-            os.replace(temporaryPath, self._draftFilePath(session.layer))
         except Exception as exception:
             self._process._log.add(
                 "ManualCalibration",
@@ -699,6 +683,36 @@ class ManualCalibration:
             return False
 
         return True
+
+    # -------------------------------------------------------------------
+    def _persistSession(self, session, persistBaseline=False):
+        if session.mode == "gx":
+            return self._persistGXSession(session)
+
+        if session.baselineCalibration is None:
+            return False
+
+        if not self._saveDraftBaseline(session, persistBaseline):
+            return False
+
+        data = {
+            "layer": session.layer,
+            "baselineSource": session.baselineSource,
+            "cameraOffsetX": session.cameraOffsetX,
+            "cameraOffsetY": session.cameraOffsetY,
+            "dirty": session.dirty,
+            "skipWrapPins": session.skipWrapPins,
+            "measuredPins": {},
+            "boardChecks": {},
+        }
+
+        for pin in sorted(session.measuredPins):
+            data["measuredPins"][str(pin)] = dict(session.measuredPins[pin])
+
+        for pin in sorted(session.boardChecks):
+            data["boardChecks"][str(pin)] = dict(session.boardChecks[pin])
+
+        return self._writeDraftFile(session, data)
 
     # -------------------------------------------------------------------
     def _getActiveLayer(self):
