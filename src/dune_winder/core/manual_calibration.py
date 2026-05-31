@@ -4,7 +4,6 @@
 # Date: 2026-03-02
 ###############################################################################
 
-import math
 import os
 import json
 
@@ -34,13 +33,18 @@ from dune_winder.machine.geometry.layer_functions import LayerFunctions
 from dune_winder.machine.settings import Settings
 
 from dune_winder.core.process_context import ProcessContext
+from dune_winder.core.calibration_transform import (
+    _apply_transform,
+    _cyclic_pin_distance,
+    _interpolate_residual,
+    build_transform,
+)
 
 
 UV_LAYERS = ("U", "V")
 GX_LAYERS = ("X", "G")
 SUPPORTED_LAYERS = UV_LAYERS + GX_LAYERS
 SIDE_ORDER = UV_FACE_ORDER
-EPSILON = 1e-9
 
 # Max deviation (mm) allowed between a bootstrap-pin capture and the
 # previously calibrated (live) baseline during Recalibrate APA.  If the
@@ -80,13 +84,6 @@ LAYER_ENDPOINTS = {
 }
 
 
-def _pairwise(values):
-    pairs = []
-    for index in range(0, len(values), 2):
-        pairs.append((values[index], values[index + 1]))
-    return pairs
-
-
 def _layer_offset_key(layer, axis):
     return "manualCalibrationOffset" + layer + axis
 
@@ -116,165 +113,6 @@ def _normalize_pin(pin):
         pin = int(pin)
 
     return pin
-
-
-def _apply_transform(transform, xValue, yValue):
-    return (
-        transform["a"] * xValue + transform["b"] * yValue + transform["c"],
-        transform["d"] * xValue + transform["e"] * yValue + transform["f"],
-    )
-
-
-def _solve_linear_system(matrix, vector):
-    size = len(vector)
-    augmented = []
-    for rowIndex in range(size):
-        row = list(matrix[rowIndex])
-        row.append(vector[rowIndex])
-        augmented.append(row)
-
-    for column in range(size):
-        pivotRow = max(
-            range(column, size), key=lambda rowIndex: abs(augmented[rowIndex][column])
-        )
-        pivotValue = augmented[pivotRow][column]
-        if abs(pivotValue) < EPSILON:
-            return None
-
-        if pivotRow != column:
-            augmented[column], augmented[pivotRow] = (
-                augmented[pivotRow],
-                augmented[column],
-            )
-
-        pivotValue = augmented[column][column]
-        for rowIndex in range(column + 1, size):
-            scale = augmented[rowIndex][column] / pivotValue
-            for valueIndex in range(column, size + 1):
-                augmented[rowIndex][valueIndex] -= scale * augmented[column][valueIndex]
-
-    result = [0.0] * size
-    for rowIndex in range(size - 1, -1, -1):
-        value = augmented[rowIndex][size]
-        for column in range(rowIndex + 1, size):
-            value -= augmented[rowIndex][column] * result[column]
-
-        pivotValue = augmented[rowIndex][rowIndex]
-        if abs(pivotValue) < EPSILON:
-            return None
-
-        result[rowIndex] = value / pivotValue
-
-    return result
-
-
-def _translation_transform(pair):
-    sourceX, sourceY, targetX, targetY = pair
-    return {
-        "a": 1.0,
-        "b": 0.0,
-        "c": targetX - sourceX,
-        "d": 0.0,
-        "e": 1.0,
-        "f": targetY - sourceY,
-    }
-
-
-def _rigid_transform(pairs):
-    if len(pairs) < 2:
-        return None
-
-    count = float(len(pairs))
-    sourceCenterX = sum(pair[0] for pair in pairs) / count
-    sourceCenterY = sum(pair[1] for pair in pairs) / count
-    targetCenterX = sum(pair[2] for pair in pairs) / count
-    targetCenterY = sum(pair[3] for pair in pairs) / count
-
-    dot = 0.0
-    cross = 0.0
-    sourceSpread = 0.0
-    for sourceX, sourceY, targetX, targetY in pairs:
-        centeredSourceX = sourceX - sourceCenterX
-        centeredSourceY = sourceY - sourceCenterY
-        centeredTargetX = targetX - targetCenterX
-        centeredTargetY = targetY - targetCenterY
-        dot += centeredSourceX * centeredTargetX + centeredSourceY * centeredTargetY
-        cross += centeredSourceX * centeredTargetY - centeredSourceY * centeredTargetX
-        sourceSpread += (
-            centeredSourceX * centeredSourceX + centeredSourceY * centeredSourceY
-        )
-
-    if sourceSpread < EPSILON:
-        return _translation_transform(pairs[0])
-
-    rotation = math.atan2(cross, dot)
-    cosine = math.cos(rotation)
-    sine = math.sin(rotation)
-
-    return {
-        "a": cosine,
-        "b": -sine,
-        "c": targetCenterX - cosine * sourceCenterX + sine * sourceCenterY,
-        "d": sine,
-        "e": cosine,
-        "f": targetCenterY - sine * sourceCenterX - cosine * sourceCenterY,
-    }
-
-
-def _farthest_pair(pairs):
-    farthest = None
-    farthestDistance = -1.0
-    for firstIndex in range(len(pairs)):
-        sourceAX = pairs[firstIndex][0]
-        sourceAY = pairs[firstIndex][1]
-        for secondIndex in range(firstIndex + 1, len(pairs)):
-            sourceBX = pairs[secondIndex][0]
-            sourceBY = pairs[secondIndex][1]
-            distance = (sourceBX - sourceAX) ** 2 + (sourceBY - sourceAY) ** 2
-            if distance > farthestDistance:
-                farthestDistance = distance
-                farthest = (pairs[firstIndex], pairs[secondIndex])
-
-    return farthest
-
-
-def build_transform(pairs):
-    if len(pairs) == 0:
-        return (
-            {"a": 1.0, "b": 0.0, "c": 0.0, "d": 0.0, "e": 1.0, "f": 0.0},
-            "identity",
-        )
-
-    if len(pairs) == 1:
-        return (_translation_transform(pairs[0]), "translation")
-
-    transform = _rigid_transform(pairs)
-    if transform is not None:
-        return (transform, "rigid")
-
-    farthest = _farthest_pair(pairs)
-    if farthest is not None:
-        fallback = _rigid_transform([farthest[0], farthest[1]])
-        if fallback is not None:
-            return (fallback, "rigid")
-
-    return (_translation_transform(pairs[0]), "translation")
-
-
-def _cyclic_pin_distance(pinA, pinB, pinMax):
-    delta = abs(pinA - pinB)
-    return min(delta, pinMax - delta)
-
-
-def _interpolate_residual(pinA, residualA, pinB, residualB, pinValue):
-    if pinA == pinB:
-        return residualA
-
-    fraction = float(pinValue - pinA) / float(pinB - pinA)
-    return (
-        residualA[0] + (residualB[0] - residualA[0]) * fraction,
-        residualA[1] + (residualB[1] - residualA[1]) * fraction,
-    )
 
 
 def _absolute_location(calibration, pinName):
