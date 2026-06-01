@@ -147,53 +147,6 @@ def _sign(value: float) -> int:
     return 0
 
 
-def _clip_line_to_rectangle(
-    point_a: tuple[float, float],
-    point_b: tuple[float, float],
-) -> tuple[tuple[float, float], tuple[float, float]] | None:
-    x0, y0 = float(point_a[0]), float(point_a[1])
-    x1, y1 = float(point_b[0]), float(point_b[1])
-    dx = x1 - x0
-    dy = y1 - y0
-    if abs(dx) <= _EPSILON and abs(dy) <= _EPSILON:
-        return None
-
-    t0 = float("-inf")
-    t1 = float("inf")
-
-    def _update(p: float, q: float) -> bool:
-        nonlocal t0, t1
-        if abs(p) <= _EPSILON:
-            return q >= 0.0
-        r = q / p
-        if p < 0.0:
-            if r > t1:
-                return False
-            if r > t0:
-                t0 = r
-            return True
-        if r < t0:
-            return False
-        if r < t1:
-            t1 = r
-        return True
-
-    if not _update(-dx, x0 - GEOMETRY_CONFIG.measurable_x_min):
-        return None
-    if not _update(dx, GEOMETRY_CONFIG.measurable_x_max - x0):
-        return None
-    if not _update(-dy, y0 - GEOMETRY_CONFIG.measurable_y_min):
-        return None
-    if not _update(dy, GEOMETRY_CONFIG.measurable_y_max - y0):
-        return None
-    if t1 < t0:
-        return None
-    return (
-        (x0 + (dx * t0), y0 + (dy * t0)),
-        (x0 + (dx * t1), y0 + (dy * t1)),
-    )
-
-
 def _split_segment_at_combs(
     start: tuple[float, float],
     end: tuple[float, float],
@@ -435,6 +388,11 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         for segment in _split_segment_at_combs(tangent_a_laser, tangent_b_laser):
             length = _segment_length(segment)
             midpoint = _segment_midpoint(segment)
+            if midpoint[0] < GEOMETRY_CONFIG.comb_positions[0] - _EPSILON:
+                # The wire region on the negative side of the first comb
+                # (x < comb_positions[0]) is unreachable by the tensiometer,
+                # so it cannot be selected as a measurement target.
+                continue
             segment_zone = int(zone_lookup(midpoint[0]))
             if (
                 inputs.requested_zone is not None
