@@ -12,7 +12,7 @@ from random import gauss
 
 from dune_tension.audio_store import AudioRecordingMeta, AudioStore
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
-from dune_tension.geometry import zone_lookup, length_lookup, refine_position
+from dune_tension.geometry import zone_lookup, length_lookup
 from dune_tension.results import TensionResult
 from dune_tension.services import (
     AudioCaptureService,
@@ -32,7 +32,6 @@ from dune_tension.tensiometer_functions import (
     normalize_confidence_source,
     plan_measurement_poses,
 )
-from dune_tension.plc_io import is_in_measurable_area
 
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
@@ -903,26 +902,6 @@ class Tensiometer:
         target_y = float(last_successful_result.y) + (
             wire_delta * float(self.config.dy)
         )
-
-        if self.config.layer in ["V", "U"]:
-            refined = refine_position(
-                target_x, target_y, self.config.dx, self.config.dy
-            )
-            if refined is not None:
-                target_x, target_y = refined
-
-        if not is_in_measurable_area(target_x, target_y):
-            LOGGER.warning(
-                "Auto-step pose %s,%s for wire %s is outside the measurable area; falling back to provider.",
-                target_x,
-                target_y,
-                wire_number,
-            )
-            return self.wire_position_provider.get_pose(
-                self.config,
-                wire_number,
-                self._get_focus_position(),
-            )
 
         focus_position = last_successful_result.focus_position
         if focus_position is None:

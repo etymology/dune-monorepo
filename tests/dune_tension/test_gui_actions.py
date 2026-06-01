@@ -48,10 +48,6 @@ def _load_actions_module(monkeypatch):
     config = cast(Any, types.ModuleType("dune_tension.config"))
     config.GEOMETRY_CONFIG = types.SimpleNamespace(
         comb_positions=[],
-        measurable_x_min=0.0,
-        measurable_x_max=0.0,
-        measurable_y_min=0.0,
-        measurable_y_max=0.0,
         zone_count=5,
     )
     config.LAYER_LAYOUTS = {}

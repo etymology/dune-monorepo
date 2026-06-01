@@ -8,11 +8,6 @@ import pandas as pd
 
 from dune_tension.config import GEOMETRY_CONFIG
 
-MEASURABLE_X_MIN: int = GEOMETRY_CONFIG.measurable_x_min
-MEASURABLE_X_MAX: int = GEOMETRY_CONFIG.measurable_x_max
-MEASURABLE_Y_MIN: int = GEOMETRY_CONFIG.measurable_y_min
-MEASURABLE_Y_MAX: int = GEOMETRY_CONFIG.measurable_y_max
-
 G_LENGTH: float = GEOMETRY_CONFIG.g_length_m
 X_LENGTH: float = GEOMETRY_CONFIG.x_length_m
 
@@ -23,10 +18,9 @@ COMB_SPACING: float = GEOMETRY_CONFIG.comb_spacing
 def zone_lookup(x: float) -> int:
     """Return zone index in ``[1, 5]`` for coordinate ``x``.
 
-    Zones are defined by the five segments between comb boundaries:
-    ``[MEASURABLE_X_MIN, 2230)``, ``[2230, 3420)``, ``[3420, 4590)``, ``[4590, 5770)``,
-    and ``[5770, MEASURABLE_X_MAX]``.
-    Coordinates outside ``[MEASURABLE_X_MIN, MEASURABLE_X_MAX]`` are clamped to the nearest edge.
+    Zones are the segments between consecutive comb boundaries in
+    :data:`comb_positions`.  Coordinates outside the comb span are clamped
+    to the nearest comb boundary.
     """
 
     boundaries = comb_positions
@@ -49,58 +43,6 @@ def _load_wire_length_lut(layer: str):
         return pd.read_csv(file_path, index_col=0)
     except FileNotFoundError as exc:
         raise FileNotFoundError(f"File {file_path} not found") from exc
-
-
-def refine_position(
-    x: float, y: float, dx: float, dy: float
-) -> tuple[float, float] | None:
-    """Refine ``(x, y)`` along ``(dx, dy)`` staying in bounds.
-
-    The function searches in both ``+n`` and ``-n`` directions for a
-    position that is inside the allowed geometry and as far as possible
-    from the comb and ``Y`` limits.  Among all valid candidates the one
-    that maximises the minimal distance to the lines ``x = c`` for
-    ``c`` in :data:`comb_positions` and ``y = Y_MIN``/``Y_MAX`` is
-    chosen.  If no candidate is valid the original coordinates are
-    returned unchanged.
-    """
-
-    def is_in_bounds(x_val: float, y_val: float) -> bool:
-        return (
-            MEASURABLE_X_MIN <= x_val <= MEASURABLE_X_MAX
-            and MEASURABLE_Y_MIN <= y_val <= MEASURABLE_Y_MAX
-        )
-
-    def score(pos: tuple[float, float]) -> float:
-        """Return the minimal distance of ``pos`` to any limiting line."""
-        px, py = pos
-        distances: list[float] = [abs(px - c) for c in comb_positions]
-        distances.append(abs(py - MEASURABLE_Y_MAX))
-        distances.append(abs(py - MEASURABLE_Y_MIN))
-        return min(distances)
-
-    candidates: list[tuple[float, float]] = []
-
-    for n in range(GEOMETRY_CONFIG.refine_search_steps):
-        # Generate forward and reverse candidates
-        x1, y1 = x + n * dx, y - n * dy
-        x2, y2 = x - n * dx, y + n * dy
-
-        if is_in_bounds(x1, y1):
-            candidates.append((x1, y1))
-        if is_in_bounds(x2, y2):
-            candidates.append((x2, y2))
-    if not candidates:
-        return (x, y)
-
-    low_candidates: list[tuple[float, float]] = [
-        c for c in candidates if score(c) > GEOMETRY_CONFIG.refine_clearance_threshold
-    ]
-    if low_candidates:
-        # Choose the low candidate with the lowest y value.
-        return min(low_candidates, key=lambda c: c[1])
-
-    return max(candidates, key=score)
 
 
 def length_lookup(

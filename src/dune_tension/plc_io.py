@@ -7,13 +7,7 @@ from typing import Any
 
 import requests
 
-from dune_tension.geometry import (
-    MEASURABLE_X_MAX,
-    MEASURABLE_X_MIN,
-    MEASURABLE_Y_MAX,
-    MEASURABLE_Y_MIN,
-    comb_positions,
-)
+from dune_tension.geometry import comb_positions
 from dune_tension.plc_direct import (
     PLCCommunicationError,
     PLCTagReadError,
@@ -220,18 +214,6 @@ def _write_required(tag_name: str, value: Any) -> bool:
     return True
 
 
-def is_in_measurable_area(x_target: float, y_target: float) -> bool:
-    """Return whether ``(x_target, y_target)`` falls within the area reachable by the tension measurement system.
-
-    This is distinct from the machine's physical motion limits, which are enforced by dune_winder.
-    """
-
-    return (
-        MEASURABLE_X_MIN <= float(x_target) <= MEASURABLE_X_MAX
-        and MEASURABLE_Y_MIN <= float(y_target) <= MEASURABLE_Y_MAX
-    )
-
-
 def _read_tag_server(tag_name: str) -> Any:
     """Read a PLC tag through the HTTP tension server."""
     url = f"{get_tension_server_url()}/tags/{tag_name}"
@@ -342,12 +324,6 @@ def _ensure_tracked_xy() -> tuple[float, float]:
     return x, y
 
 
-def _clamp_measurable_x(x_value: float) -> float:
-    """Clamp an X coordinate to the measurable envelope for path planning."""
-
-    return min(max(float(x_value), float(MEASURABLE_X_MIN)), float(MEASURABLE_X_MAX))
-
-
 def get_cached_xy() -> tuple[float, float]:
     """Return the internally tracked XY position.
 
@@ -416,7 +392,6 @@ def goto_xy(
     *,
     speed: float = 300,
     check_comb: bool = True,
-    allow_outside_measurable: bool = False,
     idle_timeout: float = IDLE_WAIT_TIMEOUT,
     move_timeout: float = MOVE_WAIT_TIMEOUT,
     wait_for_completion: bool = True,
@@ -428,8 +403,7 @@ def goto_xy(
     _ensure_tracked_xy()
 
     if check_comb:
-        cur_x = _ensure_tracked_xy()[0]
-        path_x = _clamp_measurable_x(cur_x)
+        path_x = _ensure_tracked_xy()[0]
         crosses = any(
             (path_x < c < x_target) or (x_target < c < path_x) for c in comb_positions
         )
@@ -440,7 +414,6 @@ def goto_xy(
                 transit_y,
                 speed=speed,
                 check_comb=False,
-                allow_outside_measurable=True,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
                 wait_for_completion=wait_for_completion,
@@ -451,7 +424,6 @@ def goto_xy(
                 transit_y,
                 speed=speed,
                 check_comb=False,
-                allow_outside_measurable=True,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
                 wait_for_completion=wait_for_completion,
@@ -462,23 +434,12 @@ def goto_xy(
                 y_target,
                 speed=speed,
                 check_comb=False,
-                allow_outside_measurable=allow_outside_measurable,
                 idle_timeout=idle_timeout,
                 move_timeout=move_timeout,
                 wait_for_completion=wait_for_completion,
             )
 
     with _MOTION_LOCK:
-        if not allow_outside_measurable and not is_in_measurable_area(
-            x_target, y_target
-        ):
-            LOGGER.warning(
-                "Target %s,%s is outside the measurable area. Please enter a valid position.",
-                x_target,
-                y_target,
-            )
-            return False
-
         if get_plc_io_mode() == "desktop":
             from dune_tension.plc_desktop import desktop_seek_xy as _desktop_seek_xy
 
@@ -659,11 +620,6 @@ def spoof_get_xy() -> tuple[float, float]:
 
 def spoof_goto_xy(x_target: float, y_target: float, **_: object) -> bool:
     """Pretend to move the winder and update the spoofed position."""
-    if not is_in_measurable_area(x_target, y_target):
-        LOGGER.warning(
-            "[spoof] Target %s,%s is outside the measurable area.", x_target, y_target
-        )
-
     LOGGER.info("[spoof] Moving to %s,%s", x_target, y_target)
     _SPOOF_XY[0] = x_target
     _SPOOF_XY[1] = y_target
