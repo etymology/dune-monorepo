@@ -17,7 +17,10 @@ from dune_winder.machine.geometry.uv_layout import get_uv_layout
 LOGGER = logging.getLogger(__name__)
 
 _EPSILON = 1e-9
-_SEGMENT_LENGTH_NEAR_TIE_FRACTION = 0.10
+# Preferred maximum midpoint y (mm) for a measurement segment. Segments whose
+# midpoint falls below this threshold are preferred over those above it; length
+# is used to choose within each group.
+_MEASUREMENT_Y_THRESHOLD = 1000.0
 LAYER_METADATA: dict[str, object] = {}
 
 
@@ -425,13 +428,11 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         for candidate in candidate_segments
         if candidate[6] == best_orientation_score
     ]
-    best_length = max(candidate[3] for candidate in orientation_candidates)
-    near_tie_threshold = best_length * (1.0 - _SEGMENT_LENGTH_NEAR_TIE_FRACTION)
-    near_tie_candidates = [
-        candidate
-        for candidate in orientation_candidates
-        if candidate[3] + _EPSILON >= near_tie_threshold
-    ]
+    # Selection preference: first prefer a segment whose midpoint y is below
+    # _MEASUREMENT_Y_THRESHOLD, then prefer the longest segment. The boolean key
+    # is 0 for below-threshold segments and 1 otherwise, so min() takes a
+    # below-threshold segment whenever one exists; -length then selects the
+    # longest within the chosen group.
     (
         best_segment,
         best_tangent_a,
@@ -440,7 +441,13 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         midpoint,
         zone,
         _orientation_score,
-    ) = min(near_tie_candidates, key=lambda candidate: (candidate[4][1], -candidate[3]))
+    ) = min(
+        orientation_candidates,
+        key=lambda candidate: (
+            0 if candidate[4][1] < _MEASUREMENT_Y_THRESHOLD else 1,
+            -candidate[3],
+        ),
+    )
 
     return _UVPlanGeometry(
         wire_number=int(inputs.wire_number),
