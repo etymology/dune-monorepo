@@ -121,8 +121,8 @@ def test_plan_uv_wire_uses_the_longest_comb_free_interval(monkeypatch) -> None:
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
 
     assert planned.interval_start == (5765.0, 500.0)
-    assert planned.interval_end == (8000.0, 500.0)
-    assert planned.midpoint == (6882.5, 500.0)
+    assert planned.interval_end == (7060.0, 500.0)
+    assert planned.midpoint == (6412.5, 500.0)
 
 
 def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
@@ -162,7 +162,7 @@ def test_plan_uv_wire_prefers_full_wrap_orientation_match(monkeypatch) -> None:
 
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
 
-    assert planned.midpoint == (6882.5, 499.0)
+    assert planned.midpoint == (6412.5, 499.0)
 
 
 def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
@@ -204,58 +204,37 @@ def test_plan_uv_wire_can_select_requested_zone(monkeypatch) -> None:
     assert planned.midpoint == (2810.0, 500.0)
 
 
-def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(
+def test_plan_uv_wire_prefers_longest_segment_below_y_threshold(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "load_layer_calibration_summary",
-        lambda _layer: {
-            "pinDiameterMm": 0.0,
-            "locations": {
-                "B1": {"x": 0.0, "y": 0.0},
-                "B2": {"x": 10.0, "y": 10.0},
-            },
-        },
-    )
-    monkeypatch.setattr(
-        uv_wire_planner, "get_laser_offset", lambda _side: {"x": 0.0, "y": 0.0}
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "_wire_pin_pair",
-        lambda _layer, _side, _wire_number: ("B1", "B2"),
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "LAYER_METADATA",
-        {
-            "V": {
-                "pinToBoard": {
-                    1: {"side": "top"},
-                    2: {"side": "top"},
-                }
-            }
-        },
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "_solve_tangent_candidates",
-        lambda **_kwargs: [((0.0, 0.0), (10.0, 10.0))],
-    )
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "_split_segment_at_combs",
-        lambda *_args: [
+    # Both segments sit below the measurement y threshold, so the longer one
+    # wins even though it is not the lowest in y.
+    _patch_single_tangent_wire(
+        monkeypatch,
+        [
             ((1100.0, 900.0), (1200.0, 900.0)),
             ((1100.0, 500.0), (1195.0, 500.0)),
         ],
     )
-    monkeypatch.setattr(uv_wire_planner, "zone_lookup", lambda _x: 1)
-    monkeypatch.setattr(
-        uv_wire_planner,
-        "length_lookup",
-        lambda _layer, _wire_number, _zone, taped=False: 2.0,
+
+    planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
+
+    assert planned.interval_start == (1100.0, 900.0)
+    assert planned.interval_end == (1200.0, 900.0)
+    assert planned.midpoint == (1150.0, 900.0)
+
+
+def test_plan_uv_wire_prefers_below_threshold_segment_over_longer_one_above(
+    monkeypatch,
+) -> None:
+    # The longest segment lies above the measurement y threshold; a shorter
+    # segment below the threshold is preferred over it.
+    _patch_single_tangent_wire(
+        monkeypatch,
+        [
+            ((1100.0, 1500.0), (1400.0, 1500.0)),
+            ((1100.0, 500.0), (1195.0, 500.0)),
+        ],
     )
 
     planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
@@ -263,6 +242,26 @@ def test_plan_uv_wire_prefers_lowest_segment_within_ten_percent_of_longest(
     assert planned.interval_start == (1100.0, 500.0)
     assert planned.interval_end == (1195.0, 500.0)
     assert planned.midpoint == (1147.5, 500.0)
+
+
+def test_plan_uv_wire_prefers_lowest_segment_when_none_below_threshold(
+    monkeypatch,
+) -> None:
+    # No segment is below the measurement y threshold, so the segment with the
+    # lowest midpoint y is chosen even though it is the shorter one.
+    _patch_single_tangent_wire(
+        monkeypatch,
+        [
+            ((1100.0, 1500.0), (1400.0, 1500.0)),
+            ((1100.0, 1300.0), (1195.0, 1300.0)),
+        ],
+    )
+
+    planned = uv_wire_planner.plan_uv_wire("V", "A", 1100)
+
+    assert planned.interval_start == (1100.0, 1300.0)
+    assert planned.interval_end == (1195.0, 1300.0)
+    assert planned.midpoint == (1147.5, 1300.0)
 
 
 def _patch_single_tangent_wire(monkeypatch, segments) -> None:

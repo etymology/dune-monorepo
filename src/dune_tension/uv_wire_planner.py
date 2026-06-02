@@ -20,7 +20,7 @@ _EPSILON = 1e-9
 # Preferred maximum midpoint y (mm) for a measurement segment. Segments whose
 # midpoint falls below this threshold are preferred over those above it; length
 # is used to choose within each group.
-_MEASUREMENT_Y_THRESHOLD = 1000.0
+_MEASUREMENT_Y_THRESHOLD = 1200.0
 LAYER_METADATA: dict[str, object] = {}
 
 
@@ -429,10 +429,18 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         if candidate[6] == best_orientation_score
     ]
     # Selection preference: first prefer a segment whose midpoint y is below
-    # _MEASUREMENT_Y_THRESHOLD, then prefer the longest segment. The boolean key
-    # is 0 for below-threshold segments and 1 otherwise, so min() takes a
-    # below-threshold segment whenever one exists; -length then selects the
-    # longest within the chosen group.
+    # _MEASUREMENT_Y_THRESHOLD; among those, prefer the longest segment. If no
+    # segment is below the threshold, fall back to the segment with the lowest
+    # midpoint y. The leading 0/1 key keeps below-threshold segments ahead of
+    # above-threshold ones, while the second key differs per group: -length
+    # (longest first) below the threshold, +y (lowest first) above it.
+    def _selection_key(candidate):
+        midpoint_y = candidate[4][1]
+        length = candidate[3]
+        if midpoint_y < _MEASUREMENT_Y_THRESHOLD:
+            return (0, -length)
+        return (1, midpoint_y)
+
     (
         best_segment,
         best_tangent_a,
@@ -441,13 +449,7 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         midpoint,
         zone,
         _orientation_score,
-    ) = min(
-        orientation_candidates,
-        key=lambda candidate: (
-            0 if candidate[4][1] < _MEASUREMENT_Y_THRESHOLD else 1,
-            -candidate[3],
-        ),
-    )
+    ) = min(orientation_candidates, key=_selection_key)
 
     return _UVPlanGeometry(
         wire_number=int(inputs.wire_number),
