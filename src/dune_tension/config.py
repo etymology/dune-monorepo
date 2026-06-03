@@ -7,15 +7,9 @@ from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 @dataclass(frozen=True)
 class GeometryConfig:
-    measurable_x_min: int = 1050  # 1050
-    measurable_x_max: int = 7015
-    measurable_y_min: int = 0
-    measurable_y_max: int = 2700
     g_length_m: float = 1.285
     x_length_m: float = 1.273
-    comb_positions: tuple[int, ...] = (1050, 2220, 3400, 4580, 5765,7060)
-    refine_search_steps: int = 300
-    refine_clearance_threshold: float = 400.0
+    comb_positions: tuple[int, ...] = (1050, 2220, 3400, 4580, 5765, 7060)
     taped_length_offset_mm: float = 16.0
     valid_layers: tuple[str, ...] = ("U", "V", "X", "G")
     wire_number_min: int = 1

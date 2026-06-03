@@ -8,9 +8,6 @@ import pandas as pd
 import pytest
 
 
-from dune_tension.config import GEOMETRY_CONFIG
-
-
 def _load_module(monkeypatch):
     data_cache = cast(Any, types.ModuleType("dune_tension.data_cache"))
     data_cache.get_dataframe = lambda _path: None
@@ -18,20 +15,13 @@ def _load_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "dune_tension.data_cache", data_cache)
 
     plc_io = cast(Any, types.ModuleType("dune_tension.plc_io"))
-    plc_io.is_motion_target_in_bounds = lambda x, y: (
-        GEOMETRY_CONFIG.measurable_x_min <= float(x) <= GEOMETRY_CONFIG.measurable_x_max
-        and GEOMETRY_CONFIG.measurable_y_min
-        <= float(y)
-        <= GEOMETRY_CONFIG.measurable_y_max
-    )
-    plc_io.is_in_measurable_area = plc_io.is_motion_target_in_bounds
     monkeypatch.setitem(sys.modules, "dune_tension.plc_io", plc_io)
 
     sys.modules.pop("dune_tension.tensiometer_functions", None)
     return importlib.import_module("dune_tension.tensiometer_functions")
 
 
-def test_plan_measurement_triplets_filters_illegal_targets_and_orders_greedily(
+def test_plan_measurement_triplets_orders_greedily_without_box_filtering(
     monkeypatch, caplog
 ):
     tensiometer_functions = _load_module(monkeypatch)
@@ -52,15 +42,14 @@ def test_plan_measurement_triplets_filters_illegal_targets_and_orders_greedily(
         preserve_order=False,
     )
 
+    # No position is forbidden for being outside a box; every wire is planned.
     assert planned == [
         (4, 4200.0, 1495.0),
         (1, 4010.0, 1460.0),
         (3, 4000.0, 1460.0),
+        (2, 4076.5, -1816.9),
     ]
-    assert (
-        "Skipping wire 2 because position 4076.5,-1816.9 is outside the measurable area."
-        in caplog.text
-    )
+    assert "outside the measurable area" not in caplog.text
 
 
 def test_measure_list_uses_shared_planner_output(monkeypatch):

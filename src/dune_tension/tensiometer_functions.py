@@ -10,9 +10,7 @@ import pandas as pd
 
 from dune_tension.config import LAYER_LAYOUTS, GEOMETRY_CONFIG
 from dune_tension.data_cache import select_dataframe
-from dune_tension.geometry import refine_position
 from dune_tension.paths import tension_data_db_path
-from dune_tension.plc_io import is_in_measurable_area
 from dune_winder.machine.geometry.uv_layout import get_uv_layout
 
 LOGGER = logging.getLogger(__name__)
@@ -370,8 +368,6 @@ class WirePositionProvider:
         x = float(snapshot.xs[idx_closest])
         y = float(snapshot.ys[idx_closest] + dy_offset)
 
-        if config.layer in ["V", "U"]:
-            return refine_position(x, y, config.dx, config.dy) or (x, y)
         return x, y
 
     def _resolve_focus_position(
@@ -444,8 +440,6 @@ class WirePositionProvider:
     ) -> Optional[PlannedWirePose]:
         """Resolve wire coordinates for a specific zone."""
         from dune_tension.geometry import (
-            MEASURABLE_Y_MAX,
-            MEASURABLE_Y_MIN,
             comb_positions,
             is_wire_in_zone,
         )
@@ -481,21 +475,8 @@ class WirePositionProvider:
             x = base_x + n * config.dx
             y = base_y - n * config.dy
 
-        # Clamp y and adjust x to stay on the wire
-        if y < MEASURABLE_Y_MIN:
-            y = float(MEASURABLE_Y_MIN)
-            if abs(config.dy) > 1e-6:
-                n = (base_y - y) / config.dy
-                x = base_x + n * config.dx
-        elif y > MEASURABLE_Y_MAX:
-            y = float(MEASURABLE_Y_MAX)
-            if abs(config.dy) > 1e-6:
-                n = (base_y - y) / config.dy
-                x = base_x + n * config.dx
-
-        # Final check if x is still in zone
+        # Keep x within the requested zone, adjusting y to stay on the wire.
         if not (target_min_x <= x <= target_max_x):
-            # If not at center, try to at least be in the zone
             if x < target_min_x:
                 x = float(target_min_x)
             elif x > target_max_x:
@@ -504,12 +485,6 @@ class WirePositionProvider:
             if abs(config.dx) > 1e-6:
                 n = (x - base_x) / config.dx
                 y = base_y - n * config.dy
-
-        # Check if resulting position is valid
-        from dune_tension.plc_io import is_in_measurable_area
-
-        if not is_in_measurable_area(x, y):
-            return None
 
         focus_position = self._resolve_focus_position(
             snapshot,
@@ -618,15 +593,6 @@ def plan_measurement_poses(
         pose = get_pose_from_file_func(config, wire_number, current_focus_position)
         if pose is None:
             LOGGER.warning("No position data found for wire %s", wire_number)
-            continue
-
-        if not is_in_measurable_area(pose.x, pose.y):
-            LOGGER.warning(
-                "Skipping wire %s because position %s,%s is outside the measurable area.",
-                wire_number,
-                pose.x,
-                pose.y,
-            )
             continue
 
         poses.append(pose)

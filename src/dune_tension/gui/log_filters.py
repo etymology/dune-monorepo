@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-IGNORED_MESSAGE_FRAGMENTS = ("outside the measurable area.",)
+IGNORED_MESSAGE_FRAGMENTS: tuple[str, ...] = ()
 
 
 class IgnoredMessageFilter(logging.Filter):

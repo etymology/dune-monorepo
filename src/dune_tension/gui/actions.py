@@ -602,13 +602,10 @@ def _move_laser_to_pin(ctx: GUIContext, layer: str, side: str, pin_name: str) ->
     target_y = float(pin_y) - float(offset["y"])
     goto_xy = cast(Any, getattr(ctx.runtime.motion, "goto_xy", ctx.goto_xy))
     try:
-        result = goto_xy(target_x, target_y, allow_outside_measurable=True)
+        result = goto_xy(target_x, target_y, speed=None)
     except TypeError:
         # Fallback for old motion service versions
-        try:
-            result = goto_xy(target_x, target_y, speed=None)
-        except TypeError:
-            result = goto_xy(target_x, target_y)
+        result = goto_xy(target_x, target_y)
     return result is not False
 
 
@@ -654,26 +651,10 @@ def _show_uv_wire_preview(
     axis.set_title(f"U/V wire {wire_number} preview")
     axis.set_xlabel("X (mm)")
     axis.set_ylabel("Y (mm)")
-    axis.set_xlim(
-        float(GEOMETRY_CONFIG.measurable_x_min),
-        float(GEOMETRY_CONFIG.measurable_x_max),
-    )
-    axis.set_ylim(
-        float(GEOMETRY_CONFIG.measurable_y_min),
-        float(GEOMETRY_CONFIG.measurable_y_max),
-    )
-    axis.set_aspect("equal", adjustable="box")
+    axis.set_aspect("equal", adjustable="datalim")
     axis.grid(True, linestyle=":", linewidth=0.5, color="#888888")
 
-    axis.fill_between(
-        [GEOMETRY_CONFIG.measurable_x_min, GEOMETRY_CONFIG.measurable_x_max],
-        [GEOMETRY_CONFIG.measurable_y_min, GEOMETRY_CONFIG.measurable_y_min],
-        [GEOMETRY_CONFIG.measurable_y_max, GEOMETRY_CONFIG.measurable_y_max],
-        color="#f1f1f1",
-        alpha=0.55,
-        label="Measurable area",
-    )
-    for comb_x in GEOMETRY_CONFIG.comb_positions[1:-1]:
+    for comb_x in GEOMETRY_CONFIG.comb_positions:
         axis.axvline(float(comb_x), color="#bbbbbb", linestyle="--", linewidth=0.8)
 
     axis.plot(

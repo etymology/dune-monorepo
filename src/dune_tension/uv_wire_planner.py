@@ -17,7 +17,10 @@ from dune_winder.machine.geometry.uv_layout import get_uv_layout
 LOGGER = logging.getLogger(__name__)
 
 _EPSILON = 1e-9
-_SEGMENT_LENGTH_NEAR_TIE_FRACTION = 0.10
+# Preferred maximum midpoint y (mm) for a measurement segment. Segments whose
+# midpoint falls below this threshold are preferred over those above it; length
+# is used to choose within each group.
+_MEASUREMENT_Y_THRESHOLD = 1200.0
 LAYER_METADATA: dict[str, object] = {}
 
 
@@ -145,53 +148,6 @@ def _sign(value: float) -> int:
     if value < -_EPSILON:
         return -1
     return 0
-
-
-def _clip_line_to_rectangle(
-    point_a: tuple[float, float],
-    point_b: tuple[float, float],
-) -> tuple[tuple[float, float], tuple[float, float]] | None:
-    x0, y0 = float(point_a[0]), float(point_a[1])
-    x1, y1 = float(point_b[0]), float(point_b[1])
-    dx = x1 - x0
-    dy = y1 - y0
-    if abs(dx) <= _EPSILON and abs(dy) <= _EPSILON:
-        return None
-
-    t0 = float("-inf")
-    t1 = float("inf")
-
-    def _update(p: float, q: float) -> bool:
-        nonlocal t0, t1
-        if abs(p) <= _EPSILON:
-            return q >= 0.0
-        r = q / p
-        if p < 0.0:
-            if r > t1:
-                return False
-            if r > t0:
-                t0 = r
-            return True
-        if r < t0:
-            return False
-        if r < t1:
-            t1 = r
-        return True
-
-    if not _update(-dx, x0 - GEOMETRY_CONFIG.measurable_x_min):
-        return None
-    if not _update(dx, GEOMETRY_CONFIG.measurable_x_max - x0):
-        return None
-    if not _update(-dy, y0 - GEOMETRY_CONFIG.measurable_y_min):
-        return None
-    if not _update(dy, GEOMETRY_CONFIG.measurable_y_max - y0):
-        return None
-    if t1 < t0:
-        return None
-    return (
-        (x0 + (dx * t0), y0 + (dy * t0)),
-        (x0 + (dx * t1), y0 + (dy * t1)),
-    )
 
 
 def _split_segment_at_combs(
@@ -435,6 +391,11 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         for segment in _split_segment_at_combs(tangent_a_laser, tangent_b_laser):
             length = _segment_length(segment)
             midpoint = _segment_midpoint(segment)
+            if midpoint[0] < GEOMETRY_CONFIG.comb_positions[0] - _EPSILON:
+                # The wire region on the negative side of the first comb
+                # (x < comb_positions[0]) is unreachable by the tensiometer,
+                # so it cannot be selected as a measurement target.
+                continue
             segment_zone = int(zone_lookup(midpoint[0]))
             if (
                 inputs.requested_zone is not None
@@ -467,13 +428,19 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         for candidate in candidate_segments
         if candidate[6] == best_orientation_score
     ]
-    best_length = max(candidate[3] for candidate in orientation_candidates)
-    near_tie_threshold = best_length * (1.0 - _SEGMENT_LENGTH_NEAR_TIE_FRACTION)
-    near_tie_candidates = [
-        candidate
-        for candidate in orientation_candidates
-        if candidate[3] + _EPSILON >= near_tie_threshold
-    ]
+    # Selection preference: first prefer a segment whose midpoint y is below
+    # _MEASUREMENT_Y_THRESHOLD; among those, prefer the longest segment. If no
+    # segment is below the threshold, fall back to the segment with the lowest
+    # midpoint y. The leading 0/1 key keeps below-threshold segments ahead of
+    # above-threshold ones, while the second key differs per group: -length
+    # (longest first) below the threshold, +y (lowest first) above it.
+    def _selection_key(candidate):
+        midpoint_y = candidate[4][1]
+        length = candidate[3]
+        if midpoint_y < _MEASUREMENT_Y_THRESHOLD:
+            return (0, -length)
+        return (1, midpoint_y)
+
     (
         best_segment,
         best_tangent_a,
@@ -482,7 +449,7 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         midpoint,
         zone,
         _orientation_score,
-    ) = min(near_tie_candidates, key=lambda candidate: (candidate[4][1], -candidate[3]))
+    ) = min(orientation_candidates, key=_selection_key)
 
     return _UVPlanGeometry(
         wire_number=int(inputs.wire_number),
