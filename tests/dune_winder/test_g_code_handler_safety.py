@@ -108,6 +108,19 @@ class GCodeHandlerSafetyTests(unittest.TestCase):
         self.assertEqual(len(io.plcLogic.moves), 1)
         self.assertEqual(io.plcLogic.moves[0][:2], (502.0, 200.0))
 
+    def test_execute_manual_xy_line_runs_while_head_not_ready(self):
+        # Head in an unknown/intermediate latch state reports not-ready. A plain
+        # XY line touches neither Z nor the latch, so it must still dispatch
+        # instead of being silently withheld behind head readiness.
+        handler, io = self._handler(400.0, 100.0)
+        io.head.isReady = lambda: False
+
+        error = handler.executeG_CodeLine("X500 Y200")
+
+        self.assertIsNone(error)
+        self.assertEqual(len(io.plcLogic.moves), 1)
+        self.assertEqual(io.plcLogic.moves[0][:2], (500.0, 200.0))
+
 
 if __name__ == "__main__":
     unittest.main()

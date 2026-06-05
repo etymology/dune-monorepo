@@ -1113,6 +1113,23 @@ class GCodeHandler(GCodeHandlerBase):
         )
 
     # ---------------------------------------------------------------------
+    def _pending_actions_are_xy_only(self):
+        """
+        True when every queued action for the current line is a plain XY move.
+
+        XY moves don't touch Z, the head, or the latch, so they may proceed even
+        when the head controller is not in a ready (known-latch) state. This lets
+        a bare ``X.. Y..`` line execute while the head sits in an unknown latch
+        position instead of being silently withheld behind head readiness.
+        """
+        if not self._pending_actions:
+            return False
+        return all(
+            self._pending_action_kind(action) == "xy"
+            for action in self._pending_actions
+        )
+
+    # ---------------------------------------------------------------------
     def _apply_head_controller_error(self):
         head = getattr(self._io, "head", None)
         if head is None or not hasattr(head, "hasError") or not head.hasError():
@@ -1161,7 +1178,9 @@ class GCodeHandler(GCodeHandlerBase):
         if self._apply_head_controller_error():
             return True
 
-        if self._io.plcLogic.isReady() and headReady:
+        if self._io.plcLogic.isReady() and (
+            headReady or self._pending_actions_are_xy_only()
+        ):
             moving = False
 
             if not moving:
@@ -1359,7 +1378,11 @@ class GCodeHandler(GCodeHandlerBase):
                 if self._apply_head_controller_error():
                     headReady = True
 
-            if self._io.plcLogic.isReady() and headReady and not self._isG_CodeError:
+            if (
+                self._io.plcLogic.isReady()
+                and (headReady or self._pending_actions_are_xy_only())
+                and not self._isG_CodeError
+            ):
                 self._dispatch_pending_actions(safety_label="manual")
             if self._isG_CodeError:
                 errorData = {
