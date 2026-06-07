@@ -7,7 +7,7 @@ from scipy.stats import gaussian_kde
 import os
 
 # Connect to the database
-db_path = "dune_tension/data/experiment_measurements.db"
+db_path = "tension/data/experiment_measurements.db"
 conn = sqlite3.connect(db_path)
 
 # Load data into a DataFrame, ordering by ROWID to maintain time sequence
@@ -166,7 +166,7 @@ plot_dist(
 plt.tight_layout()
 
 # Save the plot
-output_path = "dune_tension/data/tension_analysis_plots.png"
+output_path = "tension/data/tension_analysis_plots.png"
 plt.savefig(output_path)
 print(f"Plots saved to {output_path}")
 print(f"Raw Stats: {stats_raw}")

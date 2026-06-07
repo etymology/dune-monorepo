@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Connect to the database
-db_path = "dune_tension/data/experiment_measurements.db"
+db_path = "tension/data/experiment_measurements.db"
 conn = sqlite3.connect(db_path)
 
 # Load data into a DataFrame including 'time'
@@ -73,6 +73,6 @@ axes[1, 1].grid(True, linestyle="--", alpha=0.7)
 plt.tight_layout()
 
 # Save the plot
-output_path = "dune_tension/data/tension_smoothing_comparison.png"
+output_path = "tension/data/tension_smoothing_comparison.png"
 plt.savefig(output_path)
 print(f"Time-sorted comparison plots saved to {output_path}")

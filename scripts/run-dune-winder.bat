@@ -2,7 +2,8 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-for %%I in ("%SCRIPT_DIR%.") do set "WORKSPACE=%%~fI"
+rem Script lives in scripts/; the workspace is its parent directory.
+for %%I in ("%SCRIPT_DIR%..") do set "WORKSPACE=%%~fI"
 
 set "PYTHONPATH=%WORKSPACE%\src"
 set "PLC_SHADOW_MODE=False"

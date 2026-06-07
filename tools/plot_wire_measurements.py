@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Connect to database
-conn = sqlite3.connect("dune_tension/data/experiment_measurements.db")
+conn = sqlite3.connect("tension/data/experiment_measurements.db")
 cursor = conn.cursor()
 
 cursor.execute(
@@ -102,7 +102,7 @@ ax2.text(
 
 plt.suptitle("Wire 1000 - Measurement Analysis", fontsize=16, fontweight="bold")
 plt.tight_layout()
-output = "dune_tension/data/wire_1000_analysis.png"
+output = "tension/data/wire_1000_analysis.png"
 plt.savefig(output, dpi=150, bbox_inches="tight")
 print(f"Saved to {output}")
 print("\nWire 1000 Summary:")

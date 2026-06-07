@@ -162,9 +162,9 @@ class TensionAnalysisApp:
             layer_filter = self.layer_var.get()
 
             databases = [
-                "dune_tension/data/tension_data/tension_data.db",
-                "dune_tension/data/tension_measurements.db",
-                "dune_tension/data/experiment_measurements.db",
+                "tension/data/tension_data/tension_data.db",
+                "tension/data/tension_measurements.db",
+                "tension/data/experiment_measurements.db",
             ]
 
             all_diffs = []
@@ -255,7 +255,7 @@ class TensionAnalysisApp:
 
     def save_plot(self):
         if self.current_fig:
-            output_path = "dune_tension/data/tension_mode_diff_gui_output.png"
+            output_path = "tension/data/tension_mode_diff_gui_output.png"
             self.current_fig.savefig(output_path)
             messagebox.showinfo("Saved", f"Plot saved to {output_path}")
 

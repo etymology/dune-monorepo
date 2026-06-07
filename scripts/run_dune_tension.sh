@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Run from the repo root regardless of where the script is invoked from.
+cd "$(dirname "$0")/.."
+
 echo "--- Building dune-tension-core (Rust) ---"
 uv run maturin build --manifest-path rust/crates/dune_tension_core/Cargo.toml
 

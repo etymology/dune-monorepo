@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Run from the repo root regardless of where the script is invoked from.
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 MODULE="dune_tension.gui.upload_tensions_app"
 
