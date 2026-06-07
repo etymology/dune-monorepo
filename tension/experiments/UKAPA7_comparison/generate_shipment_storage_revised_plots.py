@@ -35,14 +35,14 @@ from dune_tension.ukapa7_comparison.compare_tension_sources import (  # noqa: E4
 )
 
 
-EXPERIMENT_DIR = ROOT / "dune_tension/experiments/UKAPA7_comparison"
-G_ACTION_JSON = ROOT / "dune_tension/apa_uk7g.json"
-U_ACTION_JSON = ROOT / "dune_tension/UKAPA7U.json"
+EXPERIMENT_DIR = ROOT / "tension/experiments/UKAPA7_comparison"
+G_ACTION_JSON = ROOT / "tension/apa_uk7g.json"
+U_ACTION_JSON = ROOT / "tension/UKAPA7U.json"
 G_SUMMARY_CSV = (
-    ROOT / "dune_tension/data/tension_summaries/tension_summary_UKAPA7_G.csv"
+    ROOT / "tension/data/tension_summaries/tension_summary_UKAPA7_G.csv"
 )
 U_SUMMARY_CSV = (
-    ROOT / "dune_tension/data/tension_summaries/tension_summary_UKAPA7_U.csv"
+    ROOT / "tension/data/tension_summaries/tension_summary_UKAPA7_U.csv"
 )
 
 SPEC_LOW = 4.0

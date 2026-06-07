@@ -20,7 +20,7 @@ lint-rust:
 	cargo clippy --workspace --manifest-path rust/Cargo.toml --all-targets
 
 lint-md:
-	npm run markdown:lint -- README.md AGENTS.md dune_tension/README.md rust/README.md
+	npm run markdown:lint -- README.md AGENTS.md tension/README.md rust/README.md
 
 format: format-python format-rust format-md
 
@@ -31,7 +31,7 @@ format-rust:
 	cargo fmt --manifest-path rust/Cargo.toml --all
 
 format-md:
-	npm run markdown:fix -- README.md AGENTS.md dune_tension/README.md rust/README.md
+	npm run markdown:fix -- README.md AGENTS.md tension/README.md rust/README.md
 
 typecheck:
 	uv run ty check

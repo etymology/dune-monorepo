@@ -262,7 +262,7 @@ def main() -> int:
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for ONNX models (default: dune_tension/data/pesto_onnx)",
+        help="Output directory for ONNX models (default: tension/data/pesto_onnx)",
     )
     parser.add_argument(
         "--opset-version",
@@ -287,7 +287,7 @@ def main() -> int:
     if args.output_dir is None:
         script_dir = Path(__file__).resolve().parent
         repo_root = script_dir.parent.parent
-        args.output_dir = str(repo_root / "dune_tension" / "data" / "pesto_onnx")
+        args.output_dir = str(repo_root / "tension" / "data" / "pesto_onnx")
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

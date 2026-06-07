@@ -116,12 +116,12 @@ def _find_onnx_model_path(model_name: str, model_type: str) -> Optional[Path]:
 
     candidate_paths = [
         Path(__file__).resolve().parent.parent.parent
-        / "dune_tension"
+        / "tension"
         / "data"
         / "pesto_onnx"
         / filename,
         Path(__file__).resolve().parent / "pesto_onnx" / filename,
-        Path("dune_tension") / "data" / "pesto_onnx" / filename,
+        Path("tension") / "data" / "pesto_onnx" / filename,
     ]
 
     for path in candidate_paths:
@@ -137,12 +137,12 @@ def _find_onnx_manifest_path(model_name: str) -> Optional[Path]:
     filename = f"{model_name}_manifest.json"
     candidate_paths = [
         Path(__file__).resolve().parent.parent.parent
-        / "dune_tension"
+        / "tension"
         / "data"
         / "pesto_onnx"
         / filename,
         Path(__file__).resolve().parent / "pesto_onnx" / filename,
-        Path("dune_tension") / "data" / "pesto_onnx" / filename,
+        Path("tension") / "data" / "pesto_onnx" / filename,
     ]
     for path in candidate_paths:
         if path.exists():

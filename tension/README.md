@@ -133,10 +133,10 @@ SPOOF_AUDIO=1 SPOOF_PLC=1 SPOOF_SERVO=1 SPOOF_VALVE=1 dune-tension-gui
 
 Default runtime paths include:
 
-- Measurement DB: `dune_tension/data/tension_data/tension_data.db`
-- Summaries: `dune_tension/data/tension_summaries/`
-- Plots: `dune_tension/data/tension_plots/`
-- Missing/bad wires: `dune_tension/data/badwires/`
+- Measurement DB: `tension/data/tension_data/tension_data.db`
+- Summaries: `tension/data/tension_summaries/`
+- Plots: `tension/data/tension_plots/`
+- Missing/bad wires: `tension/data/badwires/`
 
 ## Rust Audio Backend
 

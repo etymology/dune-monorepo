@@ -384,9 +384,9 @@ def analyze_pesto_onnx(
 def find_pesto_onnx_paths(model_name: str) -> tuple[Path, Path, Path] | None:
     filename_prefix = str(model_name)
     candidates = [
-        Path(__file__).resolve().parents[2] / "dune_tension" / "data" / "pesto_onnx",
+        Path(__file__).resolve().parents[2] / "tension" / "data" / "pesto_onnx",
         Path(__file__).resolve().parent / "pesto_onnx",
-        Path.cwd() / "dune_tension" / "data" / "pesto_onnx",
+        Path.cwd() / "tension" / "data" / "pesto_onnx",
     ]
     for directory in candidates:
         encoder = directory / f"{filename_prefix}_encoder.onnx"

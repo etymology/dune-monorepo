@@ -4,7 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src" / "dune_winder"
-PACKAGE_ROOT = REPO_ROOT / "dune_winder"
+PACKAGE_ROOT = REPO_ROOT / "winder"
 WEB_ROOT = PACKAGE_ROOT / "web"
 PLC_ROOT = PACKAGE_ROOT / "plc"
 CONFIGURATION_PATH = PACKAGE_ROOT / "configuration.toml"

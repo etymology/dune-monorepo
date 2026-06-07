@@ -18,7 +18,7 @@ from dune_tension.summaries import build_summary_plot_figure_for_config
 from dune_tension.tensiometer_functions import TensiometerConfig, make_config
 from dune_tension.paths import data_path
 
-app = Flask(__name__, static_folder="../../dune_tension/web", static_url_path="")
+app = Flask(__name__, static_folder="../../tension/web", static_url_path="")
 
 EXPERIMENT_DB_PATH = str(data_path("experiment_measurements.db"))
 RAW_AUDIO_DIR = data_path("experiment_audio")

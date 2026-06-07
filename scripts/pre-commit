@@ -54,7 +54,7 @@ if [ -n "$STAGED_RLLSCRAP" ]; then
   echo "plc-sync: regenerating pasteable.rll + manifest from staged .rllscrap…"
   uv run plc-sync --offline
   # Re-stage regenerated pasteable.rll files and the refreshed manifest.
-  git add 'dune_winder/plc/**/pasteable.rll' 'dune_winder/plc/manifest.json' 2>/dev/null || true
+  git add 'winder/plc/**/pasteable.rll' 'winder/plc/manifest.json' 2>/dev/null || true
 fi
 
 # ── Markdown ──────────────────────────────────────────────────────────────────

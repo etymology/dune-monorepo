@@ -80,7 +80,7 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/dune_winder/tools/vscode-plc-rll"
+                "--extensionDevelopmentPath=${workspaceFolder}/winder/tools/vscode-plc-rll"
             ]
         },
         {
