@@ -471,12 +471,13 @@ class VTemplateWrappingVariantTests(unittest.TestCase):
     def test_final_wrap_last_anchor_to_target(self):
         lines = render_v_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
         # wrap 400 deviates after step 8 (Top A corner - head end at A1999→A400) into a
-        # custom tail: A400→B2398, increment(0,-y_pull_in), B2398→B1, B1→A399, increment(500,0).
+        # custom tail: A400→B2398 (offset=(-10,0)), increment(0,-y_pull_in),
+        # B2398→B1, B1→A399, increment(500,0).
         tail = [line.split(" ", 2)[-1] for line in lines[-5:]]
         self.assertEqual(
             tail,
             [
-                "~anchorToTarget(A400,B2398) (Wrap 400 tail A400 to B2398)",
+                "~anchorToTarget(A400,B2398,offset=(-10,0)) (Wrap 400 tail A400 to B2398)",
                 "~increment(0,-50)",
                 "~anchorToTarget(B2398,B1) (Wrap 400 tail B2398 to B1)",
                 "~anchorToTarget(B1,A399) (Wrap 400 tail B1 to A399)",

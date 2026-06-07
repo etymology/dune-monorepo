@@ -1014,7 +1014,7 @@ def test_focus_wiggle_compensates_x_side_a():
     tensiometer._apply_focus_wiggle_with_x_compensation(400.0)
 
     assert focus_deltas == [400]
-    assert motion.moves == [(998.8, 2000.0)]
+    assert motion.moves == [(1001.2, 2000.0)]
 
 
 def test_focus_wiggle_compensates_x_side_b():
@@ -1033,7 +1033,7 @@ def test_focus_wiggle_compensates_x_side_b():
     tensiometer._apply_focus_wiggle_with_x_compensation(400.0)
 
     assert focus_deltas == [400]
-    assert motion.moves == [(1001.2, 2000.0)]
+    assert motion.moves == [(998.8, 2000.0)]
 
 
 def test_focus_wiggle_without_callback_does_not_adjust_x():
@@ -1098,7 +1098,7 @@ def test_goto_collect_wire_data_applies_planned_focus_before_xy_move(monkeypatch
 
     assert measured is result
     assert focus_deltas == [200]
-    assert motion.moves == [(9.4, 2.0), (11.0, 2.0)]
+    assert motion.moves == [(10.6, 2.0), (11.0, 2.0)]
 
 
 def test_goto_collect_wire_data_resets_plc_and_retries_failed_measurement_move(
@@ -1337,9 +1337,9 @@ def test_optimizer_focus_step_uses_coupled_x_shift(monkeypatch):
     )
 
     assert focus_deltas == [100]
-    assert motion.moves[0][0] == pytest.approx(999.7113, abs=0.02)
+    assert motion.moves[0][0] == pytest.approx(1000.2887, abs=0.02)
     assert motion.moves[0][1] == pytest.approx(2000.0, abs=0.02)
-    assert motion.moves[1][0] == pytest.approx(1009.7113, abs=0.02)
+    assert motion.moves[1][0] == pytest.approx(1010.2887, abs=0.02)
     assert motion.moves[1][1] == pytest.approx(2000.1, abs=0.02)
 
 
