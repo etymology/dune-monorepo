@@ -116,13 +116,12 @@ docker compose up -d          # start Grafana + InfluxDB
 - CLI: `uv run python -m dune_winder.transpiler <file.py> [function_name ...]`
 - Output: pasteable ladder text → check in under `plc/<program>/<subroutine>/pasteable.rll`
 
-### RLL rung transform (`plc-rung-transform-hs`)
+### RLL rung transform (`plc-rung-transform`)
 
 Converts Studio 5000 copy-paste `.rllscrap` → pasteable `.rll` format.
 
 ```bash
-cabal run plc-rung-transform-hs -- < input.rllscrap > output.rll
-uv run plc-rung-transform                                          # Python equivalent
+uv run plc-rung-transform input.rllscrap -o output.rll
 ```
 
 ### PLC artifact layout

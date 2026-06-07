@@ -7,8 +7,5 @@ cache/
 .venv
 .DS_Store
 src/dune_winder.egg-info/*
-*.hi
-*.o
-.ghc.environment.
 config/APA/
 gc_files/
