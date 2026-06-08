@@ -168,6 +168,18 @@
       getOutput: "low_level_io.get_output",
       getTag: "low_level_io.get_tag",
     },
+    loadcellCalibration:
+    {
+      getState: "loadcell_calibration.get_state",
+      readLive: "loadcell_calibration.read_live",
+      captureSample: "loadcell_calibration.capture_sample",
+      addSample: "loadcell_calibration.add_sample",
+      deleteSample: "loadcell_calibration.delete_sample",
+      clearSamples: "loadcell_calibration.clear_samples",
+      setFixIntercept: "loadcell_calibration.set_fix_intercept",
+      setMaxDegree: "loadcell_calibration.set_max_degree",
+      apply: "loadcell_calibration.apply",
+    },
     system:
     {
       getTime: "system.get_time",

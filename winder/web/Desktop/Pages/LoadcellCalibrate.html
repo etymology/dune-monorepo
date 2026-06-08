@@ -1,0 +1,121 @@
+<section id="loadcellCalibratePage">
+  <section class="loadcellCalibrateLayout">
+    <div class="loadcellCalibrateColumn loadcellCalibrateColumnLeft">
+      <article class="loadcellCalibrateCard">
+        <h2>Load Cell Calibration</h2>
+        <p class="loadcellCalibrateHint">
+          Hang a known weight from the load cell, wait for the reading to settle,
+          and capture a sample. Each sample pairs the raw
+          <code>tension_tag</code> with the weight converted to newtons. The
+          fit degree is the lowest the samples support (capped below), so the
+          PLC math stays simple; unused coefficients are written as zero. The
+          lever has a dead zone below ~1.5&nbsp;N and saturates near ~11&nbsp;N,
+          so calibrate within that working range and leave the intercept free.
+        </p>
+
+        <div class="loadcellCalibrateLive">
+          <div class="loadcellCalibrateLiveItem">
+            <span class="loadcellCalibrateLiveLabel">Live tension_tag</span>
+            <span id="loadcellLiveTensionTag" class="loadcellCalibrateLiveValue">-</span>
+          </div>
+          <div class="loadcellCalibrateLiveItem">
+            <span class="loadcellCalibrateLiveLabel">Live tension (N)</span>
+            <span id="loadcellLiveTension" class="loadcellCalibrateLiveValue">-</span>
+          </div>
+        </div>
+
+        <div class="loadcellCalibrateFieldRow">
+          <label for="loadcellGrams">Hung weight (grams)</label>
+          <input type="number" id="loadcellGrams" step="1" min="0" placeholder="e.g. 500" />
+        </div>
+
+        <div class="loadcellCalibrateButtonRow">
+          <button type="button" id="loadcellCaptureButton" class="loadcellCalibrateButton">
+            Capture sample (auto-settle)
+          </button>
+        </div>
+
+        <div class="loadcellCalibrateFieldRow loadcellCalibrateManualRow">
+          <label for="loadcellManualTag">Manual tension_tag</label>
+          <input type="number" id="loadcellManualTag" step="0.0001" placeholder="raw value" />
+          <button type="button" id="loadcellAddManualButton" class="loadcellCalibrateButton loadcellCalibrateInlineButton">
+            Add manual sample
+          </button>
+        </div>
+
+        <div class="loadcellCalibrateFieldRow">
+          <label for="loadcellMaxDegree">Max fit degree</label>
+          <select id="loadcellMaxDegree">
+            <option value="1">1 &mdash; linear (simplest)</option>
+            <option value="2">2 &mdash; quadratic</option>
+            <option value="3">3 &mdash; cubic</option>
+            <option value="4">4 &mdash; quartic</option>
+          </select>
+        </div>
+
+        <label class="loadcellCalibrateCheckRow">
+          <input type="checkbox" id="loadcellFixIntercept" />
+          Force fit through origin (a0 = 0)
+        </label>
+
+        <div id="loadcellCalibrateMessage" class="loadcellCalibrateMessage hidden"></div>
+        <div id="loadcellCalibrateError" class="loadcellCalibrateError hidden"></div>
+      </article>
+
+      <article class="loadcellCalibrateCard">
+        <h2>Samples</h2>
+        <p id="loadcellSampleCount">No samples recorded.</p>
+        <table id="loadcellSamplesTable" class="loadcellCalibrateTable hidden">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Weight (g)</th>
+              <th>Force (N)</th>
+              <th>tension_tag</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="loadcellSamplesBody"></tbody>
+        </table>
+        <div class="loadcellCalibrateButtonRow">
+          <button type="button" id="loadcellClearButton" class="loadcellCalibrateButton">
+            Clear all samples
+          </button>
+        </div>
+      </article>
+
+      <article class="loadcellCalibrateCard">
+        <h2>Fit</h2>
+        <table class="loadcellCalibrateFitTable">
+          <thead>
+            <tr>
+              <th>Coefficient</th>
+              <th>Current PLC</th>
+              <th>New fit</th>
+            </tr>
+          </thead>
+          <tbody id="loadcellFitBody"></tbody>
+        </table>
+        <p id="loadcellFitStats" class="loadcellCalibrateFitStats">No fit yet.</p>
+        <div class="loadcellCalibrateButtonRow">
+          <button type="button" id="loadcellApplyButton" class="loadcellCalibrateButton loadcellCalibratePrimary">
+            Apply new fit to PLC
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <div class="loadcellCalibrateColumn loadcellCalibrateColumnRight">
+      <article class="loadcellCalibrateCard loadcellCalibratePlotCard">
+        <h2>tension_tag &rarr; tension</h2>
+        <canvas id="loadcellPlot" width="900" height="648"></canvas>
+        <div class="loadcellCalibrateLegend">
+          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchSamples"></span>Samples</span>
+          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchCurrent"></span>Current PLC fit</span>
+          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchNew"></span>New fit</span>
+          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchLive"></span>Live tension_tag</span>
+        </div>
+      </article>
+    </div>
+  </section>
+</section>
