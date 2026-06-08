@@ -7,7 +7,6 @@ import json
 import math
 import multiprocessing
 import os
-import random
 import pathlib
 import queue
 import threading
@@ -24,6 +23,7 @@ from dune_winder.machine.calibration.roller_arm import (
     RollerArmCalibration,
     RollerArmMeasurement,
     roller_arm_calibration_to_dict,
+    roller_y_cal_from_measurement,
 )
 from dune_winder.machine.calibration.z_plane import (
     LayerZPlaneMeasurement,
@@ -64,14 +64,6 @@ from dune_winder.uv_head_target import (
 _SUPPORTED_LAYERS = ("U", "V")
 _TRACE_LINE_REQUIRES = "~anchorToTarget("
 _EPSILON = 1e-9
-_SGD_MIN_LEARNING_RATE = 0.01
-_SGD_MAX_LEARNING_RATE = 0.75
-_SGD_MIN_PERTURBATION = 0.01
-_SGD_MAX_PERTURBATION = 2.0
-_SGD_MIN_BATCH_SIZE = 1
-_SGD_MAX_BATCH_SIZE = 16
-_SGD_MAX_ITERATIONS = 40
-_SGD_BACKOFF_STEPS = 4
 _CAMERA_OFFSET_BOUND_MM = 10.0
 _ROLLER_Y_BOUND_MM = 5.0
 # Caps on how much a single re-solve is allowed to shift any per-line
@@ -83,12 +75,19 @@ _ROLLER_Y_BOUND_MM = 5.0
 _MAX_LINE_OFFSET_DELTA_X_MM = 8.0
 _MAX_LINE_OFFSET_DELTA_Y_MM = 5.0
 _SANITY_CHECK_TOLERANCE_MM = 1.0
-# A recalibration only re-expresses the same physical wrap geometry: the
-# camera-wire offset shift should be cancelled by the per-corner offset shift
-# for every measured line, leaving the commanded head target essentially
-# unchanged.  Any line whose end-to-end head command moves more than this when
-# swapping the live calibration for the drafted one is flagged.
-_COMMAND_TARGET_TOLERANCE_MM = 0.2
+# A recalibration re-expresses the same physical wrap geometry: the camera-wire
+# offset shift is cancelled by the per-corner offset shift, leaving the
+# commanded head target nearly unchanged.  Any line whose end-to-end head
+# command moves more than this when swapping the live calibration for the
+# drafted one is flagged.  The floor on how unchanged that target can be is set
+# by the winder's backlash: the X axis has a 0.4 mm reversal zone, so a jog
+# measurement can place the wire up to ~0.4 mm either side of the true target
+# depending on approach direction, and a re-solve will fan that into the
+# per-corner offset.  The bound therefore sits above the backlash reversal zone
+# (0.4 mm) plus the global camera-offset fit (~0.15 mm) and 0.1 mm offset
+# quantisation, so it still catches gross regressions (multi-mm, e.g. a dropped
+# live offset) without blocking moves that are really just backlash.
+_COMMAND_TARGET_TOLERANCE_MM = 0.5
 _CALIBRATION_PATH_CACHE: dict[tuple, str] = {}  # (roller_y_cals,) -> path
 _CALIBRATION_OBJECT_CACHE: dict[
     tuple, MachineCalibration
@@ -556,10 +555,6 @@ def _error_text(exception):
     return repr(exception)
 
 
-def _machine_xy_rng():
-    return random.Random()
-
-
 def _clamp(value, minimum, maximum):
     return max(float(minimum), min(float(maximum), float(value)))
 
@@ -581,6 +576,26 @@ def _extract_anchor_to_target_command_text(command_text) -> str:
             if depth == 0:
                 return line_text[start : index + 1]
     return line_text[start:]
+
+
+def _baked_anchor_to_target_offset(command_text) -> tuple[float, float]:
+    """Offset already present in a measured ``~anchorToTarget`` line.
+
+    Measurements are recorded against the live recipe, so each line carries the
+    live per-corner offset (e.g. ``offset=(0,-2.5)``).  Returns ``(0.0, 0.0)``
+    when the line has no offset term or cannot be parsed.
+    """
+    if not command_text:
+        return (0.0, 0.0)
+    try:
+        command = parse_anchor_to_target_command(
+            _extract_anchor_to_target_command_text(command_text)
+        )
+    except Exception:
+        return (0.0, 0.0)
+    if command.target_offset is None:
+        return (0.0, 0.0)
+    return (float(command.target_offset[0]), float(command.target_offset[1]))
 
 
 def _measurement_site_label(measurement) -> str | None:
@@ -727,6 +742,30 @@ def _group_measurements_by_site_label(measurements):
         key = _measurement_site_key(measurement)
         grouped.setdefault(key, []).append(measurement)
     return grouped
+
+
+def _most_recent_per_corner(measurements):
+    """Keep only the newest measurement for each corner (site label).
+
+    Measurements accumulate over time against an evolving recipe: an older
+    sample for a corner can carry a per-corner offset (baked into its
+    ``~anchorToTarget`` line) that no longer matches the live calibration.
+    Averaging such a stale sample with a fresh one pulls the solved corner away
+    from its live value and trips the command-target invariance gate.  For each
+    corner we therefore keep only the most recent sample (by ``timestamp``);
+    samples whose corner cannot be resolved fall back to a per-measurement key
+    so they are always retained.  Original order is preserved for determinism.
+    """
+    best: dict[str, tuple] = {}
+    for index, measurement in enumerate(measurements):
+        label = _measurement_site_label(measurement)
+        key = label or ("\x00id\x00" + str(measurement.get("id") or index))
+        sort_key = (str(measurement.get("timestamp") or ""), index)
+        existing = best.get(key)
+        if existing is None or sort_key > existing[0]:
+            best[key] = (sort_key, index, measurement)
+    kept = sorted(best.values(), key=lambda item: item[1])
+    return [measurement for _sort_key, _index, measurement in kept]
 
 
 def _parameter_vector_to_calibration(vector):
@@ -1980,11 +2019,13 @@ class MachineGeometryCalibration:
         measurements or none of them map to a solved corner offset.
         """
         normalized_layer = _normalize_layer(layer)
-        usable = [
-            measurement
-            for measurement in self._usableMeasurements(normalized_layer)
-            if measurement["usableForMachineXY"]
-        ]
+        usable = _most_recent_per_corner(
+            [
+                measurement
+                for measurement in self._usableMeasurements(normalized_layer)
+                if measurement["usableForMachineXY"]
+            ]
+        )
         empty = {
             "ok": True,
             "checkedCount": 0,
@@ -2097,6 +2138,60 @@ class MachineGeometryCalibration:
         }
 
     # -------------------------------------------------------------------
+    def _fitRollersFromMeasurements(
+        self, measurements, *, layer_path, initial_roller_y_cals
+    ):
+        """Closed-form per-roller y-cal fit from same-side measurements.
+
+        Each same-side measurement back-solves its roller's y-offset in closed
+        form (``roller_y_cal_from_measurement``); values are grouped by roller
+        index and averaged.  Rollers with no measurement keep their initial
+        (live/nominal) value.  The back-solve is independent of the camera
+        offset and of the roller y-cals themselves, so this runs once up front
+        with no iteration.
+        """
+        machine_calibration = self._machineCalibration()
+        machine_path = self._machineCalibrationPath()
+        head_arm_length = float(machine_calibration.headArmLength)
+        head_roller_radius = float(machine_calibration.headRollerRadius)
+        by_index: dict[int, list[float]] = {}
+        for measurement in measurements:
+            actual_x = measurement.get("actualWireX")
+            actual_y = measurement.get("actualWireY")
+            if actual_x is None or actual_y is None:
+                continue
+            try:
+                command = parse_anchor_to_target_command(
+                    _extract_anchor_to_target_command_text(measurement["gcodeLine"])
+                )
+            except Exception:
+                continue
+            if str(command.anchor_pin)[:1] != str(command.target_pin)[:1]:
+                # Alternating-side measurements carry no roller contact.
+                continue
+            try:
+                roller_index, y_cal = roller_y_cal_from_measurement(
+                    layer=str(measurement["layer"]),
+                    anchor_pin=command.anchor_pin,
+                    target_pin=command.target_pin,
+                    actual_x=float(actual_x),
+                    actual_y=float(actual_y),
+                    head_arm_length=head_arm_length,
+                    head_roller_radius=head_roller_radius,
+                    machine_calibration_path=machine_path,
+                    layer_calibration_path=layer_path,
+                )
+            except Exception:
+                continue
+            if 0 <= int(roller_index) < 4:
+                by_index.setdefault(int(roller_index), []).append(float(y_cal))
+        fitted = [float(value) for value in initial_roller_y_cals[:4]]
+        for index, values in by_index.items():
+            if values:
+                fitted[index] = float(sum(values) / len(values))
+        return tuple(fitted)
+
+    # -------------------------------------------------------------------
     def _evaluateMachineXY(
         self,
         measurements,
@@ -2109,6 +2204,7 @@ class MachineGeometryCalibration:
         initial_roller_y_cals,
         live_line_offsets=None,
         progress_callback=None,
+        fit_rollers=False,
     ):
         measurements = list(measurements)
         measurement_order = [str(measurement["id"]) for measurement in measurements]
@@ -2117,6 +2213,14 @@ class MachineGeometryCalibration:
         # cached once so summarize_results can project residuals without re-parsing
         # the command on every SGD evaluation.
         measurement_natural_axes = {}
+        # Offset already baked into each measured ~anchorToTarget line.  The
+        # measurement is recorded against the *live* recipe, so the line carries
+        # the live per-corner offset (e.g. ``offset=(0,-2.5)``).  The projection
+        # runs through that offset, so the residual it yields is only the
+        # *leftover* correction; the absolute offset we must write back is this
+        # baked (live) offset plus that residual.  Parsed once here so
+        # summarize_results need not re-parse on every evaluation.
+        measurement_baked_offsets: dict[str, tuple[float, float]] = {}
         site_order = []
         for measurement in measurements:
             site_label = _measurement_site_label(measurement)
@@ -2126,26 +2230,29 @@ class MachineGeometryCalibration:
             measurement_natural_axes[str(measurement["id"])] = _line_natural_axis(
                 layer, measurement
             )
+            measurement_baked_offsets[str(measurement["id"])] = (
+                _baked_anchor_to_target_offset(measurement.get("gcodeLine"))
+            )
             if site_label not in site_order:
                 site_order.append(site_label)
 
-        # The bounds check measures how far each new override drifts from
-        # the override that's currently in production.  Lines with no
-        # current override fall back to (0, 0) -- the new override IS the
-        # delta.
-        normalized_live_line_offsets: dict[Any, tuple[float, float]] = {}
-        if live_line_offsets:
-            for raw_key, override in live_line_offsets.items():
-                if override is None:
-                    continue
-                try:
-                    key = normalize_line_key(raw_key)
-                except Exception:
-                    key = str(raw_key)
-                normalized_live_line_offsets[key] = (
-                    float(override.get("x", 0.0) or 0.0),
-                    float(override.get("y", 0.0) or 0.0),
-                )
+        # The live per-corner offset baseline now comes from the offset baked
+        # into each measured line (see measurement_baked_offsets) rather than the
+        # separate per-line override store, so the recorded recipe state is the
+        # single source of truth for "what is live".  The ``live_line_offsets``
+        # argument is retained for API compatibility but no longer consulted.
+        _ = live_line_offsets
+
+        # Optional roller fit (Block 0): when enabled, back-solve each roller's
+        # y-cal from its same-side measurements in closed form and freeze the
+        # result for the camera-offset solve below.  When disabled (default),
+        # the live/nominal rollers pass through unchanged.
+        if fit_rollers and measurements:
+            initial_roller_y_cals = self._fitRollersFromMeasurements(
+                measurements,
+                layer_path=layer_path,
+                initial_roller_y_cals=initial_roller_y_cals,
+            )
 
         projection_cache: dict[tuple[str, tuple[float, ...]], dict] = {}
         initial_vector = [
@@ -2153,9 +2260,9 @@ class MachineGeometryCalibration:
             float(current_camera_offset[1]),
             *[float(value) for value in initial_roller_y_cals[:4]],
         ]
-        # Roller calibrations are now held constant (the solver no longer
-        # optimizes them) -- clamp them tightly to their initial values so
-        # any stray numerical drift is squashed.
+        # Roller calibrations are held constant during the camera-offset solve
+        # (either frozen at the live value, or at the Block 0 fit above) --
+        # clamp them tightly to their value so any stray drift is squashed.
         lower_bounds = [
             float(initial_vector[0]) - _CAMERA_OFFSET_BOUND_MM,
             float(initial_vector[1]) - _CAMERA_OFFSET_BOUND_MM,
@@ -2358,10 +2465,23 @@ class MachineGeometryCalibration:
                 else:
                     observed_x = float(measurement["effectiveCameraX"])
                     observed_y = float(measurement["rawCameraY"])
-                offset_x, offset_y = _implied_pin_offset(
+                residual_x, residual_y = _implied_pin_offset(
                     observed_x, observed_y, projection
                 )
-                live_x, live_y = normalized_live_line_offsets.get(line_key, (0.0, 0.0))
+                # The projection runs through the offset already baked into the
+                # measured line (the live per-corner offset), so the implied
+                # residual is only the leftover correction.  The absolute offset
+                # we write back is that baked (live) offset plus the residual --
+                # writing the residual alone would drop the live offset and move
+                # every commanded head by its magnitude, which is exactly what
+                # the command-target invariance gate catches.  The live baseline
+                # for the change/violation checks is therefore the baked offset.
+                baked_x, baked_y = measurement_baked_offsets.get(
+                    str(measurement["id"]), (0.0, 0.0)
+                )
+                offset_x = float(baked_x) + float(residual_x)
+                offset_y = float(baked_y) + float(residual_y)
+                live_x, live_y = float(baked_x), float(baked_y)
                 # A corner offset can only ever be written along its target pin's
                 # natural axis -- the off-axis component is dropped at apply (see
                 # enforce_offset_axes).  Project the residual onto that axis
@@ -2418,7 +2538,13 @@ class MachineGeometryCalibration:
                     violations.append(violation)
                 by_measurement[str(measurement["id"])] = summary
                 by_site_label.setdefault(site_label, []).append(summary)
-                total_loss += (offset_x * offset_x) + (offset_y * offset_y)
+                # Loss is the squared *change from the live offset* (see
+                # newton_axis): the camera solve and the baseline-vs-solved
+                # selection both score how far the recalibration moves the
+                # per-corner offsets, not their absolute size, so a solve that
+                # merely confirms the current placement scores zero and the
+                # camera stays put.
+                total_loss += (delta_x * delta_x) + (delta_y * delta_y)
             violations.sort(
                 key=lambda item: (
                     -(float(item["excessX"]) + float(item["excessY"])),
@@ -2565,92 +2691,22 @@ class MachineGeometryCalibration:
                 return
             progress_callback(step, message, **progress_fields(**fields))
 
-        def evaluate_batch(
-            vector,
-            group_measurements,
-            *,
-            step,
-            message,
-            epoch,
-            batch_index,
-            batch_count,
-            candidate_label,
-            learning_rate,
-            perturbation,
-            best_loss,
-            gradient_norm=None,
-            current_loss=None,
-            site_label=None,
-        ):
+        def evaluate_full(vector, *, step, message, candidate_label=""):
             camera_offset = (float(vector[0]), float(vector[1]))
             roller_y_cals = [float(value) for value in vector[2:6]]
             publish(
                 step,
                 message,
-                epoch=int(epoch),
-                batchIndex=int(batch_index),
-                batchCount=int(batch_count),
-                batchSize=len(group_measurements),
                 candidateLabel=candidate_label,
-                learningRate=float(learning_rate),
-                perturbation=float(perturbation),
-                bestLoss=(None if best_loss is None else float(best_loss)),
-                loss=(None if current_loss is None else float(current_loss)),
-                gradientNorm=(None if gradient_norm is None else float(gradient_norm)),
+                loss=None,
+                bestLoss=None,
                 parameters=_format_machine_xy_parameters(vector),
                 bestParameters=None,
-                siteLabel=site_label,
+                siteLabel=None,
             )
-            results = project_group(group_measurements, roller_y_cals, camera_offset)
+            results = project_group(measurements, roller_y_cals, camera_offset)
             progress_state["completed"] += 1
             return summarize_results(results, camera_offset)
-
-        def gradient_from_finite_differences(
-            vector,
-            group_measurements,
-            *,
-            current_summary,
-            epoch,
-            batch_index,
-            batch_count,
-            candidate_label,
-            learning_rate,
-            perturbation,
-            best_loss,
-            site_label,
-        ):
-            # Roller calibrations (axes 2..5) are now held constant -- the
-            # solver minimizes per-line offsets by only varying camera
-            # offset (axes 0, 1).  The Z plane is fit in a separate
-            # closed-form post-step after this routine returns.
-            _ = epoch
-            _ = batch_index
-            _ = batch_count
-            _ = candidate_label
-            _ = learning_rate
-            _ = perturbation
-            _ = best_loss
-            _ = site_label
-            _ = group_measurements
-            gradient = [
-                -2.0
-                * sum(
-                    float(summary["offsetX"])
-                    for summary in current_summary["by_measurement"].values()
-                ),
-                -2.0
-                * sum(
-                    float(summary["offsetY"])
-                    for summary in current_summary["by_measurement"].values()
-                ),
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ]
-            _ = vector
-            gradient_norm = float(sum(component * component for component in gradient))
-            return gradient, gradient_norm
 
         if not measurements:
             camera_offset = (
@@ -2703,235 +2759,109 @@ class MachineGeometryCalibration:
             machineCalibration=self._machineCalibration(),
         )
 
-        working_vector = list(initial_vector)
-        batch_size = min(
-            len(measurements),
-            max(
-                _SGD_MIN_BATCH_SIZE,
-                min(_SGD_MAX_BATCH_SIZE, max(1, int(round(len(measurements) ** 0.5)))),
-            ),
-        )
-        batch_count = max(1, min(_SGD_MAX_ITERATIONS, max(12, len(measurements))))
-        progress_state["total"] = int(
-            2 + (batch_count * ((2 * 4) + 1 + _SGD_BACKOFF_STEPS)) + 2
-        )
+        # ---- Closed-form camera-offset solve --------------------------------
+        # With the rollers fixed, the projection is computed once per measurement
+        # and then translated analytically by the candidate camera offset (see
+        # _translate_projection_payload), so the loss Sum_i (offsetX_i^2 +
+        # offsetY_i^2) is a (near-)quadratic in the 2-vector (cameraX, cameraY):
+        # alternating-side residuals are exactly affine in the offset, same-side
+        # residuals add a mild smooth nonlinearity.  We take coordinate-wise
+        # Newton steps -- each axis' optimum is
+        #   c* = c - Sum_i(slope_i * r_i) / Sum_i(slope_i^2)
+        # with the per-measurement slope dr_i/dc read numerically from one small
+        # probe through the cached translate -- and iterate a few times to absorb
+        # any same-side coupling.  No RNG and no mini-batching: every evaluation
+        # is over the full measurement set, so the result is deterministic.
+        _MAX_REFINEMENTS = 3
+        progress_state["total"] = int(1 + (_MAX_REFINEMENTS * 3))
 
-        baseline_summary = evaluate_batch(
-            working_vector,
-            measurements,
+        baseline_summary = evaluate_full(
+            initial_vector,
             step="baseline",
             message="Evaluating the current machine XY candidate.",
-            epoch=0,
-            batch_index=0,
-            batch_count=batch_count,
             candidate_label="baseline",
-            learning_rate=0.0,
-            perturbation=_SGD_MIN_PERTURBATION,
-            best_loss=None,
-            current_loss=None,
-        )
-        current_loss = float(baseline_summary["loss"])
-        best_loss = float(current_loss)
-        best_vector = list(working_vector)
-        best_summary = baseline_summary
-
-        baseline_max_abs = max(
-            [
-                abs(float(summary["offsetX"]))
-                for summary in baseline_summary["by_measurement"].values()
-            ]
-            + [
-                abs(float(summary["offsetY"]))
-                for summary in baseline_summary["by_measurement"].values()
-            ]
-        )
-        learning_rate = _clamp(
-            max(0.05, baseline_max_abs * 0.05),
-            _SGD_MIN_LEARNING_RATE,
-            _SGD_MAX_LEARNING_RATE,
-        )
-        perturbation = _clamp(
-            max(_SGD_MIN_PERTURBATION, baseline_max_abs * 0.1),
-            _SGD_MIN_PERTURBATION,
-            _SGD_MAX_PERTURBATION,
         )
 
-        rng = _machine_xy_rng()
-        last_gradient_norm = 0.0
+        camera_probe = 0.02  # mm: small step for the numerical per-axis slope
 
-        for epoch in range(1, batch_count + 1):
-            self._raiseIfMachineSolveCancelled(layer, operation_id)
-            batch_measurements = (
-                list(measurements)
-                if batch_size >= len(measurements)
-                else rng.sample(measurements, batch_size)
+        def newton_axis(center_vector, center_summary, axis):
+            probe_vector = list(center_vector)
+            probe_vector[axis] = float(probe_vector[axis]) + camera_probe
+            probe_summary = evaluate_full(
+                probe_vector,
+                step="solving",
+                message="Probing the machine XY loss gradient.",
+                candidate_label="probe",
             )
-            if not batch_measurements:
-                continue
-            batch_site_labels = sorted(
-                {
-                    _measurement_site_key(measurement)
-                    for measurement in batch_measurements
-                }
-            )
-            dominant_site_label = batch_site_labels[0] if batch_site_labels else None
-            batch_index = epoch
-            current_batch_summary = evaluate_batch(
-                working_vector,
-                batch_measurements,
-                step="optimizing_sgd",
-                message="Evaluating the current machine XY batch.",
-                epoch=epoch,
-                batch_index=batch_index,
-                batch_count=batch_count,
-                candidate_label="current",
-                learning_rate=learning_rate,
-                perturbation=perturbation,
-                best_loss=best_loss,
-                gradient_norm=last_gradient_norm,
-                current_loss=current_loss,
-                site_label=dominant_site_label,
-            )
-            gradient, gradient_norm = gradient_from_finite_differences(
-                working_vector,
-                batch_measurements,
-                current_summary=current_batch_summary,
-                epoch=epoch,
-                batch_index=batch_index,
-                batch_count=batch_count,
-                candidate_label="batch",
-                learning_rate=learning_rate,
-                perturbation=perturbation,
-                best_loss=best_loss,
-                site_label=dominant_site_label,
-            )
-            last_gradient_norm = float(gradient_norm)
-            current_batch_loss = float(current_batch_summary["loss"])
-            accepted = False
-            candidate_loss = current_batch_loss
-            candidate_summary = current_batch_summary
-            candidate_learning_rate = float(learning_rate)
-            for backoff_index in range(_SGD_BACKOFF_STEPS):
-                self._raiseIfMachineSolveCancelled(layer, operation_id)
-                unclamped_trial_vector = [
-                    float(value) - (float(candidate_learning_rate) * float(component))
-                    for value, component in zip(working_vector, gradient)
-                ]
-                trial_vector = clamp_vector(unclamped_trial_vector)
-                if all(
-                    abs(float(a) - float(b)) <= 1e-12
-                    for a, b in zip(trial_vector, working_vector)
-                ):
-                    candidate_learning_rate *= 0.5
+            key = "offsetX" if axis == 0 else "offsetY"
+            delta_key = "deltaX" if axis == 0 else "deltaY"
+            numerator = 0.0
+            denominator = 0.0
+            probe_by_measurement = probe_summary["by_measurement"]
+            for measurement_id, center in center_summary["by_measurement"].items():
+                probe = probe_by_measurement.get(measurement_id)
+                if probe is None:
                     continue
-                trial_summary = evaluate_batch(
-                    trial_vector,
-                    batch_measurements,
-                    step="optimizing_sgd",
-                    message="Testing an SGD update step.",
-                    epoch=epoch,
-                    batch_index=batch_index,
-                    batch_count=batch_count,
-                    candidate_label=f"update_{backoff_index}",
-                    learning_rate=candidate_learning_rate,
-                    perturbation=perturbation,
-                    best_loss=best_loss,
-                    gradient_norm=gradient_norm,
-                    current_loss=current_batch_loss,
-                    site_label=dominant_site_label,
-                )
-                trial_loss = float(trial_summary["loss"])
-                if objective_better(trial_summary, candidate_summary):
-                    working_vector = list(trial_vector)
-                    current_loss = float(trial_loss)
-                    candidate_loss = float(trial_loss)
-                    candidate_summary = trial_summary
-                    learning_rate = _clamp(
-                        candidate_learning_rate * 1.05,
-                        _SGD_MIN_LEARNING_RATE,
-                        _SGD_MAX_LEARNING_RATE,
-                    )
-                    accepted = True
-                    break
-                candidate_learning_rate *= 0.5
+                # Drive the *change from the live offset* to zero, not the
+                # absolute offset.  Camera offset and per-corner offset are a
+                # redundant (gauge) pair: any camera shift can be cancelled by an
+                # equal-and-opposite per-corner shift, leaving the placement
+                # unchanged.  Minimising the absolute offset anchors that gauge at
+                # "all corners zero", which forces the global camera offset to
+                # absorb whatever per-corner offsets the live recipe already
+                # carries -- moving every commanded head by roughly the live
+                # offset magnitude and tripping the command-target invariance
+                # gate.  Minimising the delta anchors the gauge at "corners
+                # unchanged", so the camera only moves to absorb a genuine
+                # common-mode error and a recalibration that merely confirms the
+                # current placement is a no-op.  The slope d(offset)/d(camera) is
+                # unchanged by the constant live term, so only the residual moves.
+                residual = float(center[delta_key])
+                slope = (float(probe[key]) - float(center[key])) / camera_probe
+                numerator += slope * residual
+                denominator += slope * slope
+            if denominator <= _EPSILON:
+                return float(center_vector[axis])
+            return float(center_vector[axis]) - (numerator / denominator)
 
-            if not accepted:
-                learning_rate = _clamp(
-                    learning_rate * 0.5,
-                    _SGD_MIN_LEARNING_RATE,
-                    _SGD_MAX_LEARNING_RATE,
-                )
-            if objective_better(candidate_summary, best_summary):
-                best_loss = float(candidate_loss)
-                best_vector = list(working_vector)
-                best_summary = candidate_summary
-            publish(
-                "optimizing",
-                "Running stochastic gradient descent for Machine XY.",
-                epoch=epoch,
-                batchIndex=batch_index,
-                batchCount=batch_count,
-                batchSize=len(batch_measurements),
-                candidateLabel="accepted" if accepted else "rejected",
-                learningRate=learning_rate,
-                perturbation=perturbation,
-                loss=current_loss,
-                bestLoss=best_loss,
-                gradientNorm=last_gradient_norm,
-                parameters=_format_machine_xy_parameters(working_vector),
-                bestParameters=_format_machine_xy_parameters(best_vector),
-                siteLabel=dominant_site_label,
+        working_vector = list(initial_vector)
+        current_summary = baseline_summary
+        for _refinement in range(_MAX_REFINEMENTS):
+            self._raiseIfMachineSolveCancelled(layer, operation_id)
+            new_x = newton_axis(working_vector, current_summary, 0)
+            new_y = newton_axis(working_vector, current_summary, 1)
+            candidate_vector = clamp_vector([new_x, new_y, *working_vector[2:6]])
+            step_size = max(
+                abs(float(candidate_vector[0]) - float(working_vector[0])),
+                abs(float(candidate_vector[1]) - float(working_vector[1])),
             )
-            perturbation = _clamp(
-                perturbation * 0.98,
-                _SGD_MIN_PERTURBATION,
-                _SGD_MAX_PERTURBATION,
+            working_vector = candidate_vector
+            current_summary = evaluate_full(
+                working_vector,
+                step="solving",
+                message="Solving machine XY camera offset.",
+                candidate_label="solve",
             )
+            if step_size < 1e-4:
+                break
 
-        full_summary_current = evaluate_batch(
-            working_vector,
-            measurements,
-            step="finalizing",
-            message="Evaluating the final current Machine XY parameters.",
-            epoch=batch_count + 1,
-            batch_index=batch_count + 1,
-            batch_count=batch_count,
-            candidate_label="current_final",
-            learning_rate=learning_rate,
-            perturbation=perturbation,
-            best_loss=best_loss,
-            gradient_norm=last_gradient_norm,
-            current_loss=current_loss,
-            site_label=None,
+        # Never return something worse than the starting point on the
+        # lexicographic objective (violationCount, violationMagnitude, loss).
+        if objective_better(baseline_summary, current_summary):
+            selected_vector = list(initial_vector)
+            selected_summary = baseline_summary
+        else:
+            selected_vector = list(working_vector)
+            selected_summary = current_summary
+
+        publish(
+            "finalizing",
+            "Finalizing machine XY solution.",
+            loss=float(selected_summary["loss"]),
+            bestLoss=float(selected_summary["loss"]),
+            parameters=_format_machine_xy_parameters(selected_vector),
+            bestParameters=_format_machine_xy_parameters(selected_vector),
         )
-        full_summary_best = full_summary_current
-        best_full_vector = list(working_vector)
-        if any(
-            abs(float(a) - float(b)) > 1e-12
-            for a, b in zip(best_vector, working_vector)
-        ):
-            candidate_full_summary = evaluate_batch(
-                best_vector,
-                measurements,
-                step="finalizing",
-                message="Evaluating the best tracked Machine XY parameters.",
-                epoch=batch_count + 1,
-                batch_index=batch_count + 2,
-                batch_count=batch_count,
-                candidate_label="best_final",
-                learning_rate=learning_rate,
-                perturbation=perturbation,
-                best_loss=best_loss,
-                gradient_norm=last_gradient_norm,
-                current_loss=current_loss,
-                site_label=None,
-            )
-            if objective_better(candidate_full_summary, full_summary_best):
-                full_summary_best = candidate_full_summary
-                best_full_vector = list(best_vector)
-
-        selected_vector = best_full_vector
-        selected_summary = full_summary_best
         site_offsets, site_offset_items = build_site_offsets(
             selected_summary["by_site_label"]
         )
@@ -3056,7 +2986,7 @@ class MachineGeometryCalibration:
         }
 
     # -------------------------------------------------------------------
-    def solveMachineXY(self, layer=None):
+    def solveMachineXY(self, layer=None, *, fit_rollers=False):
         target_layer = self._resolvedLayer(layer)
         operation_id = uuid.uuid4().hex
         _CALIBRATION_OBJECT_CACHE.clear()
@@ -3133,11 +3063,13 @@ class MachineGeometryCalibration:
             )
 
         try:
-            usable_measurements = [
-                measurement
-                for measurement in self._usableMeasurements(target_layer)
-                if measurement["usableForMachineXY"]
-            ]
+            usable_measurements = _most_recent_per_corner(
+                [
+                    measurement
+                    for measurement in self._usableMeasurements(target_layer)
+                    if measurement["usableForMachineXY"]
+                ]
+            )
             self._log(
                 "SOLVE_MACHINE_XY_START",
                 "Machine XY solve started.",
@@ -3234,6 +3166,7 @@ class MachineGeometryCalibration:
                 initial_roller_y_cals=current_roller_y_cals,
                 live_line_offsets=live_line_offsets,
                 progress_callback=progress,
+                fit_rollers=fit_rollers,
             )
 
             # Simultaneously fit the layer Z plane from same-side

@@ -277,6 +277,7 @@ function MachineGeometryCalibrate(modules) {
       "process.machine_geometry.solve_machine_xy"
     )
     var layer = activeLayer()
+    var fitRollers = $("#machineGeometryFitRollers").prop("checked") === true
     activeOperation = "machine_xy"
     clearStatus()
     setActivityStatus("Machine XY solve: starting.")
@@ -286,7 +287,11 @@ function MachineGeometryCalibrate(modules) {
       totalEvaluations: 0,
       phase: "starting"
     })
-    appendActivity("info", "Starting Machine XY solve for layer " + (layer || "-") + ".")
+    appendActivity(
+      "info",
+      "Starting Machine XY solve for layer " + (layer || "-") +
+        (fitRollers ? " (joint arm solve)." : ".")
+    )
     $("#machineGeometrySolveMachineXY").prop("disabled", true)
     $("#machineGeometryCancelMachineXY").prop("disabled", false)
     $("#machineGeometryKillMachineXY").prop("disabled", false)
@@ -301,7 +306,7 @@ function MachineGeometryCalibrate(modules) {
 
     uiServices.call(
       command,
-      { layer: layer },
+      { layer: layer, fit_rollers: fitRollers },
       function(data) {
         stopProgressPoll()
         if (data && data.killed) {
@@ -556,6 +561,10 @@ function MachineGeometryCalibrate(modules) {
       stopProgressPoll()
     }
     $("#machineGeometrySolveMachineXY").prop(
+      "disabled",
+      !currentState || !currentState.enabled || machineSolveRunning
+    )
+    $("#machineGeometryFitRollers").prop(
       "disabled",
       !currentState || !currentState.enabled || machineSolveRunning
     )

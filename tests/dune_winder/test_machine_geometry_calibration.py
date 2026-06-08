@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import random
 import threading
 import time
 from types import SimpleNamespace
@@ -167,10 +166,6 @@ def test_machine_xy_solver_holds_roller_cals_fixed(monkeypatch, tmp_path):
     # solveLayerZ).
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
     measurements = [
         {
             "id": "m1",
@@ -230,13 +225,215 @@ def test_machine_xy_solver_holds_roller_cals_fixed(monkeypatch, tmp_path):
     assert any("m2" in item["measurementIds"] for item in evaluation["siteOffsetItems"])
 
 
+def _machine_xy_solver_measurements():
+    return [
+        {
+            "id": "m1",
+            "layer": "U",
+            "kind": "same_side",
+            "rollerIndex": 1,
+            "gcodeLine": "~anchorToTarget(B1201,B2001) (1,1)",
+            "effectiveCameraX": 100.0,
+            "rawCameraY": 200.0,
+            "actualWireX": 110.0,
+            "actualWireY": 195.0,
+        },
+        {
+            "id": "m2",
+            "layer": "U",
+            "kind": "same_side",
+            "rollerIndex": 1,
+            "gcodeLine": "~anchorToTarget(B1202,B2002) (1,2)",
+            "effectiveCameraX": 120.0,
+            "rawCameraY": 260.0,
+            "actualWireX": 130.0,
+            "actualWireY": 255.0,
+        },
+    ]
+
+
+def test_most_recent_per_corner_keeps_newest_and_dedupes():
+    # Measurements accumulate over time against an evolving recipe; an older
+    # sample for a corner can carry a stale baked offset.  Only the newest
+    # sample per corner survives, corners with a single sample pass through, and
+    # samples whose corner cannot be resolved are always retained.  Original
+    # order is preserved.
+    measurements = [
+        {"id": "a-old", "siteLabel": "Top A corner - head end", "timestamp": "2026-06-05 20:00:00"},
+        {"id": "b", "siteLabel": "Foot B corner", "timestamp": "2026-06-05 20:05:00"},
+        {"id": "a-new", "siteLabel": "Top A corner - head end", "timestamp": "2026-06-05 21:00:00"},
+        {"id": "unlabeled-1", "timestamp": "2026-06-05 20:01:00"},
+        {"id": "unlabeled-2", "timestamp": "2026-06-05 20:02:00"},
+    ]
+    kept = machine_geometry_module._most_recent_per_corner(measurements)
+    kept_ids = [m["id"] for m in kept]
+    # The stale Top A sample is dropped in favour of the newer one.
+    assert "a-old" not in kept_ids
+    assert "a-new" in kept_ids
+    # Single-sample corner and both unlabeled samples are retained.
+    assert "b" in kept_ids
+    assert "unlabeled-1" in kept_ids and "unlabeled-2" in kept_ids
+    # Surviving measurements stay in their original relative order.
+    assert kept_ids == sorted(kept_ids, key=lambda i: [m["id"] for m in measurements].index(i))
+
+
+def test_machine_xy_solver_is_deterministic(monkeypatch, tmp_path):
+    # The closed-form solve has no RNG and no mini-batching, so identical
+    # inputs must produce byte-identical output across runs.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    measurements = _machine_xy_solver_measurements()
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
+            "projectedX": float(measurement["actualWireX"]) - 10.0,
+            "projectedY": float(measurement["actualWireY"]) + 5.0,
+        },
+    )
+
+    def solve(operation_id):
+        return service._evaluateMachineXY(
+            measurements,
+            layer="U",
+            operation_id=operation_id,
+            layer_path="layer.json",
+            nominal_roller_y=21.0,
+            current_camera_offset=(2.0, 1.0),
+            initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+        )
+
+    first = solve("op-det-1")
+    second = solve("op-det-2")
+    assert first["cameraOffsetX"] == second["cameraOffsetX"]
+    assert first["cameraOffsetY"] == second["cameraOffsetY"]
+    assert first["rollerYCals"] == second["rollerYCals"]
+    assert first["score"]["loss"] == second["score"]["loss"]
+
+
+def test_machine_xy_solver_preserves_baked_offset_when_measurement_confirms(
+    monkeypatch, tmp_path
+):
+    # A measurement is recorded against the live recipe, so its ~anchorToTarget
+    # line carries the live per-corner offset (offset=(8,0) here).  The
+    # projection runs through that offset, so when the measurement confirms the
+    # live placement the residual is zero.  The solver must then write the offset
+    # back *unchanged* (baked + residual = 8 + 0) rather than dropping it to the
+    # residual alone (0), and must not move the camera to absorb it -- otherwise
+    # every commanded head shifts by the offset magnitude and the command-target
+    # invariance gate fails.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    measurements = [
+        {
+            "id": "m1",
+            "layer": "U",
+            "kind": "same_side",
+            "rollerIndex": 1,
+            "gcodeLine": "~anchorToTarget(B1201,B2001,offset=(8,0)) (1,1)",
+            "lineKey": "(1,1)",
+            "actualWireX": 110.0,
+            "actualWireY": 195.0,
+        },
+        {
+            "id": "m2",
+            "layer": "U",
+            "kind": "same_side",
+            "rollerIndex": 1,
+            "gcodeLine": "~anchorToTarget(B1202,B2002,offset=(8,0)) (1,2)",
+            "lineKey": "(1,2)",
+            "actualWireX": 130.0,
+            "actualWireY": 255.0,
+        },
+    ]
+    # With this projection the camera offset is added on top by the solver, so at
+    # the initial camera (2.0, 1.0) the projected wire lands exactly on the
+    # observation: the residual is zero and the recalibration is a confirmed
+    # no-op.
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
+            "projectedX": float(measurement["actualWireX"]) - 2.0,
+            "projectedY": float(measurement["actualWireY"]) - 1.0,
+        },
+    )
+
+    evaluation = service._evaluateMachineXY(
+        measurements,
+        layer="U",
+        operation_id="op-baked",
+        layer_path="layer.json",
+        nominal_roller_y=21.0,
+        current_camera_offset=(2.0, 1.0),
+        initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+    )
+
+    # Camera offset must not run off to absorb the live (baked) per-corner offset.
+    assert evaluation["cameraOffsetX"] == pytest.approx(2.0, abs=1e-6)
+    assert evaluation["cameraOffsetY"] == pytest.approx(1.0, abs=1e-6)
+    # The solved per-corner offset is the baked live offset, not the bare
+    # residual -- the natural axis for B2001/B2002 is x.
+    for item in evaluation["siteOffsetItems"]:
+        assert item["x"] == pytest.approx(8.0, abs=1e-6)
+
+
+def test_machine_xy_solver_fits_rollers_when_enabled(monkeypatch, tmp_path):
+    # With the opt-in toggle on, the closed-form roller back-solve result
+    # flows straight into the draft rollerYCals; with it off (the default),
+    # the rollers pass through untouched and the fitter is never called.
+    process = _Process(tmp_path)
+    service = MachineGeometryCalibration(process)
+    measurements = _machine_xy_solver_measurements()
+    monkeypatch.setattr(
+        service,
+        "_projectMeasurement",
+        lambda measurement, **kwargs: {
+            "projectedX": float(measurement["actualWireX"]) - 10.0,
+            "projectedY": float(measurement["actualWireY"]) + 5.0,
+        },
+    )
+
+    fitted = (22.0, 23.0, 24.0, 25.0)
+    calls = []
+
+    def fake_fit(measurements_arg, *, layer_path, initial_roller_y_cals):
+        calls.append((len(measurements_arg), layer_path, initial_roller_y_cals))
+        return fitted
+
+    monkeypatch.setattr(service, "_fitRollersFromMeasurements", fake_fit)
+
+    enabled = service._evaluateMachineXY(
+        measurements,
+        layer="U",
+        operation_id="op-roll-on",
+        layer_path="layer.json",
+        nominal_roller_y=21.0,
+        current_camera_offset=(10.0, -5.0),
+        initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+        fit_rollers=True,
+    )
+    assert len(calls) == 1
+    assert tuple(enabled["rollerYCals"]) == fitted
+
+    calls.clear()
+    disabled = service._evaluateMachineXY(
+        measurements,
+        layer="U",
+        operation_id="op-roll-off",
+        layer_path="layer.json",
+        nominal_roller_y=21.0,
+        current_camera_offset=(10.0, -5.0),
+        initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
+        fit_rollers=False,
+    )
+    assert calls == []
+    assert tuple(disabled["rollerYCals"]) == (24.0, 27.0, 18.0, 17.0)
+
+
 def test_machine_xy_solver_reports_bounded_progress(monkeypatch, tmp_path):
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
     measurements = [
         {
             "id": "m1",
@@ -311,10 +508,6 @@ def test_machine_xy_solver_moves_camera_without_candidate_camera_paths(
 ):
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
     measurements = [
         {
             "id": "m1",
@@ -378,10 +571,6 @@ def test_machine_xy_solver_groups_site_label_offsets_across_line_keys(
 ):
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
     measurements = [
         {
             "id": "m1",
@@ -450,10 +639,6 @@ def test_machine_xy_solver_clamps_camera_within_bounds(monkeypatch, tmp_path):
     # camera offset to its +/- bound.  This used to also clamp roller-Y.
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
     measurements = [
         {
             "id": "m0",
@@ -1721,10 +1906,6 @@ def test_machine_xy_solver_attributes_uniform_shift_to_camera_offset_x(
     # stay at (0, 0) because there is nothing line-specific to explain.
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
 
     line_specs = [
         ("(1,0)", 100.0, 200.0, 1),
@@ -1795,20 +1976,16 @@ def test_machine_xy_solver_attributes_uniform_shift_to_camera_offset_x(
 def test_machine_xy_solver_accepts_reproduction_of_large_live_override(
     monkeypatch, tmp_path
 ):
-    # Cross-side anchor sites carry per-line overrides that are tens to
-    # hundreds of mm wide; the solver writes the full residual back out
-    # as the new override.  When a re-solve reproduces the existing
-    # overrides almost exactly (delta == 0), it must NOT trip the bound
-    # check -- the bound is on the *change* in override, not its size.
-    # Use overrides whose mean is zero so the camera-offset SGD has no
-    # incentive to drift, which keeps the test focused on the validation
-    # gate rather than the optimizer's bound-clamping behavior.
+    # Cross-side anchor sites carry per-corner offsets that are tens to
+    # hundreds of mm wide, baked into each measured ~anchorToTarget line
+    # (offset=...).  The solver writes the baked (live) offset plus the residual
+    # back out as the new override.  When a re-solve reproduces the existing
+    # offsets almost exactly (residual == 0, so delta == 0), it must NOT trip the
+    # bound check -- the bound is on the *change* in override, not its size.
+    # Use offsets whose mean is zero so the camera solve has no incentive to
+    # drift, which keeps the test focused on the validation gate.
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
 
     line_specs = [
         ("(1,16)", "Head A corner", 200.0, +140.0),
@@ -1822,7 +1999,12 @@ def test_machine_xy_solver_accepts_reproduction_of_large_live_override(
             "layer": "U",
             "kind": "cross_side",
             "rollerIndex": 1 + (index % 4),
-            "gcodeLine": "~anchorToTarget(B1201,B2001) " + line_key,
+            "gcodeLine": (
+                "~anchorToTarget(B1201,B2001,offset=("
+                + repr(override_x)
+                + ",0)) "
+                + line_key
+            ),
             "lineKey": line_key,
             "siteLabel": site,
             "effectiveCameraX": x,
@@ -1830,24 +2012,21 @@ def test_machine_xy_solver_accepts_reproduction_of_large_live_override(
             "actualWireX": x,
             "actualWireY": 100.0,
         }
-        for index, (line_key, site, x, _override_x) in enumerate(line_specs)
+        for index, (line_key, site, x, override_x) in enumerate(line_specs)
     ]
-    live_line_offsets = {
-        line_key: {"x": override_x, "y": 0.0}
-        for line_key, _site, _x, override_x in line_specs
-    }
 
     monkeypatch.setattr(
         service,
         "_candidateMachineCalibrationPath",
         lambda roller_y_cals, camera_offset=None: "machine.json",
     )
+    # The projection runs through the baked offset and lands on the observation,
+    # so the residual is zero and the re-solve reproduces the baked offset.
     monkeypatch.setattr(
         service,
         "_projectMeasurement",
         lambda measurement, **kwargs: {
-            "projectedX": float(measurement["actualWireX"])
-            - float(live_line_offsets[measurement["lineKey"]]["x"]),
+            "projectedX": float(measurement["actualWireX"]),
             "projectedY": float(measurement["actualWireY"]),
         },
     )
@@ -1860,7 +2039,6 @@ def test_machine_xy_solver_accepts_reproduction_of_large_live_override(
         nominal_roller_y=21.0,
         current_camera_offset=(0.0, 0.0),
         initial_roller_y_cals=(24.0, 27.0, 18.0, 17.0),
-        live_line_offsets=live_line_offsets,
     )
 
     assert evaluation["valid"] is True
@@ -1881,10 +2059,6 @@ def test_machine_xy_solver_rejects_excessive_change_from_live_override(
     # in the same ballpark as the previous one.
     process = _Process(tmp_path)
     service = MachineGeometryCalibration(process)
-    real_random = random.Random
-    monkeypatch.setattr(
-        machine_geometry_module.random, "Random", lambda: real_random(0)
-    )
 
     state = service._loadState()
     state["measurements"] = [

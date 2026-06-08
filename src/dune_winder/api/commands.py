@@ -473,11 +473,14 @@ def build_command_registry(
     )
 
     def process_machine_geometry_solve_machine_xy(args):
-        _validateArgs(args, optional=("layer",))
+        _validateArgs(args, optional=("layer", "fit_rollers"))
         layer = args.get("layer")
         if layer is not None:
             layer = _asString(layer, "layer")
-        return process.machineGeometryCalibration.solveMachineXY(layer=layer)
+        fit_rollers = bool(args.get("fit_rollers", False))
+        return process.machineGeometryCalibration.solveMachineXY(
+            layer=layer, fit_rollers=fit_rollers
+        )
 
     registry.register(
         "process.machine_geometry.solve_machine_xy",
@@ -1501,12 +1504,8 @@ def build_command_registry(
     )
 
     def machine_compute_roller_y_cal(args):
-        from dune_winder.machine.geometry.uv_tangency import (
-            compute_pin_pair_tangent_geometry,
-            Point2D,
-        )
         from dune_winder.machine.calibration.roller_arm import (
-            compute_roller_y_cal as compute_y_cal,
+            roller_y_cal_from_measurement,
         )
         import re
 
@@ -1534,25 +1533,16 @@ def build_command_registry(
             )
         anchor_pin, target_pin = match.groups()
 
-        geom = compute_pin_pair_tangent_geometry(
+        roller_index, y_cal = roller_y_cal_from_measurement(
             layer=layer,
-            pin_a=anchor_pin,
-            pin_b=target_pin,
-        )
-
-        roller_index = geom.roller_index
-        y_sign = -1 if roller_index in (0, 2) else 1
-
-        y_cal = compute_y_cal(
-            actual_pos=Point2D(actual_x, actual_y),
-            tangent_point_a=geom.tangent_point_a,
-            unit_direction=geom.unit_direction,
-            normal=geom.normal,
-            roller_index=roller_index,
+            anchor_pin=anchor_pin,
+            target_pin=target_pin,
+            actual_x=actual_x,
+            actual_y=actual_y,
             head_arm_length=float(machineCalibration.headArmLength),
             head_roller_radius=float(machineCalibration.headRollerRadius),
-            y_sign=y_sign,
         )
+        y_sign = -1 if roller_index in (0, 2) else 1
 
         nominal_y = (float(machineCalibration.headRollerGap) / 2.0) + float(
             machineCalibration.headRollerRadius

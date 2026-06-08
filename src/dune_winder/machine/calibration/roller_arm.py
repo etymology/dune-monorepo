@@ -56,6 +56,52 @@ def compute_roller_y_cal(
     return numerator / denominator
 
 
+def roller_y_cal_from_measurement(
+    *,
+    layer: str,
+    anchor_pin: str,
+    target_pin: str,
+    actual_x: float,
+    actual_y: float,
+    head_arm_length: float,
+    head_roller_radius: float,
+    machine_calibration_path: str | None = None,
+    layer_calibration_path: str | None = None,
+) -> tuple[int, float]:
+    """Back-solve the active roller index and its y-offset from one same-side
+    head measurement.
+
+    Shared by the jog calibration command and the machine-geometry solver so
+    both express a roller y-cal in identical units.  The tangent geometry is
+    pure pin geometry (independent of the roller y-cals), so this never needs
+    to iterate against a projection.
+    """
+    from dune_winder.machine.geometry.uv_tangency import (
+        compute_pin_pair_tangent_geometry,
+    )
+
+    geom = compute_pin_pair_tangent_geometry(
+        layer=layer,
+        pin_a=anchor_pin,
+        pin_b=target_pin,
+        machine_calibration_path=machine_calibration_path,
+        layer_calibration_path=layer_calibration_path,
+    )
+    roller_index = int(geom.roller_index)
+    y_sign = -1 if roller_index in (0, 2) else 1
+    y_cal = compute_roller_y_cal(
+        actual_pos=Point2D(float(actual_x), float(actual_y)),
+        tangent_point_a=geom.tangent_point_a,
+        unit_direction=geom.unit_direction,
+        normal=geom.normal,
+        roller_index=roller_index,
+        head_arm_length=float(head_arm_length),
+        head_roller_radius=float(head_roller_radius),
+        y_sign=y_sign,
+    )
+    return roller_index, float(y_cal)
+
+
 def fit_roller_arm(
     measurements: list[RollerArmMeasurement],
     *,
