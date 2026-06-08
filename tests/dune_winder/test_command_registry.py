@@ -255,6 +255,17 @@ class CommandRegistryTests(unittest.TestCase):
         self.assertFalse(response["ok"])
         self.assertEqual(response["error"]["code"], "VALIDATION_ERROR")
 
+    def test_get_support_collision_forecast_dispatches_to_process(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {"name": "process.get_support_collision_forecast", "args": {}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["data"]["headBtm"], True)
+        self.assertEqual(response["data"]["headTop"], False)
+
     def test_jump_to_uv_pin_segment_dispatches_to_workspace(self):
         registry, process, _, _, _, _ = build_registry_fixture()
 

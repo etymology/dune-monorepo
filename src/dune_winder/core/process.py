@@ -487,6 +487,10 @@ class Process:
         return self._recipeService().getWrapForecastLine(wrap)
 
     # ---------------------------------------------------------------------
+    def getSupportCollisionForecast(self):
+        return self._recipeService().getSupportCollisionForecast()
+
+    # ---------------------------------------------------------------------
     def _getActiveLayerCalibration(self, layer):
         requestedLayer = str(layer).strip().upper()
         activeLayer = self.getRecipeLayer()

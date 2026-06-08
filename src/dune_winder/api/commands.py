@@ -1199,6 +1199,16 @@ def build_command_registry(
         "process.get_wrap_forecast_line", process_get_wrap_forecast_line, False
     )
 
+    def process_get_support_collision_forecast(args):
+        _validateArgs(args)
+        return process.getSupportCollisionForecast()
+
+    registry.register(
+        "process.get_support_collision_forecast",
+        process_get_support_collision_forecast,
+        False,
+    )
+
     def process_open_recipe_in_editor(args):
         _validateArgs(args, optional=("recipe_file",))
         recipeFile = args.get("recipe_file")

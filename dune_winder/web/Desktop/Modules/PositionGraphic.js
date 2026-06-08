@@ -37,6 +37,9 @@ function PositionGraphic(modules) {
   var HEAD_ANGLE_Y = 60;
   var HEAD_ANGLE_RADIUS = 50;
 
+  // Half-period (ms) of the frame-support collision blink.
+  var SUPPORT_BLINK_PERIOD_MS = 400;
+
   var winder;
   var motorStatus;
   var runStatus;
@@ -81,6 +84,21 @@ function PositionGraphic(modules) {
 
   var machineCaliration;
   var inputs;
+
+  // Per-support forecast flags (headTop/headMid/headBtm/footTop/footMid/footBtm)
+  // for the current and next wrap: true when an upcoming same-side anchorToTarget
+  // transfer ends in that support's collision box.
+  var supportForecast = {};
+
+  //---------------------------------------------------------------------------
+  // Uses:
+  //   Read a numeric value from the machine calibration, falling back to a
+  //   default when it is missing or non-numeric.
+  //---------------------------------------------------------------------------
+  var calNumber = function (key, fallback) {
+    var value = machineCaliration ? parseFloat(machineCaliration[key]) : NaN;
+    return isFinite(value) ? value : fallback;
+  };
 
   //---------------------------------------------------------------------------
   // Uses:
@@ -229,6 +247,15 @@ function PositionGraphic(modules) {
     $("#zStatusCanvas")
       .attr("width", Z_GRAPHIC_X + "px")
       .attr("height", Z_GRAPHIC_Y + "px");
+
+    // Forecast which supports the current/next wrap will transfer into, so the
+    // bars can blink ahead of the move regardless of the live position.
+    winder.addPeriodicCallback(
+      commands.process.getSupportCollisionForecast,
+      function (data) {
+        supportForecast = data || {};
+      },
+    );
 
     // Image position
     winder.addPeriodicEndCallback(
@@ -394,50 +421,113 @@ function PositionGraphic(modules) {
         var xyStatusCanvas = getCanvas("xyStatusCanvas");
         xyStatusCanvas.clearRect(0, 0, baseGraphicWidth, sideGraphicHeight);
 
+        // Frame-support bars blink while the winder is parked in that support's
+        // collision box: the current X inside a transfer zone (head or foot) and
+        // the current Y inside the support's band.  This depends only on the live
+        // position - it applies equally whether the machine is static or moving.
+        // The bar keeps its active(red)/clear(green) colour; on blink-off frames
+        // it is simply not drawn, which reads as a flash at the redraw rate.
+        var blinkVisible =
+          0 === Math.floor(Date.now() / SUPPORT_BLINK_PERIOD_MS) % 2;
+
+        var headInTransfer =
+          xPosition >= calNumber("transferZoneHeadMinX", 400.0) &&
+          xPosition <= calNumber("transferZoneHeadMaxX", 500.0);
+        var footInTransfer =
+          xPosition >= calNumber("transferZoneFootMinX", 7100.0) &&
+          xPosition <= calNumber("transferZoneFootMaxX", 7200.0);
+
+        var inBand = function (minKey, maxKey, minFallback, maxFallback) {
+          return (
+            yPosition >= calNumber(minKey, minFallback) &&
+            yPosition <= calNumber(maxKey, maxFallback)
+          );
+        };
+        var inBottom = inBand(
+          "supportCollisionBottomMinY",
+          "supportCollisionBottomMaxY",
+          80.0,
+          450.0,
+        );
+        var inMiddle = inBand(
+          "supportCollisionMiddleMinY",
+          "supportCollisionMiddleMaxY",
+          1050.0,
+          1550.0,
+        );
+        var inTop = inBand(
+          "supportCollisionTopMinY",
+          "supportCollisionTopMaxY",
+          2200.0,
+          2650.0,
+        );
+
+        // A support blinks when the live position sits in its box OR the wrap
+        // forecast lands an upcoming same-side transfer in it.
+        var supportBar = function (
+          x,
+          y,
+          lockInput,
+          forecastKey,
+          inZone,
+          inSupportBand,
+        ) {
+          var blink =
+            (inZone && inSupportBand) || true === supportForecast[forecastKey];
+          if (blink && !blinkVisible) return;
+          statusLightBar(xyStatusCanvas, x, y, !inputs[lockInput], true);
+        };
+
         // Head Locking Pins
-        statusLightBar(
-          xyStatusCanvas,
+        supportBar(
           250,
           100,
-          !inputs["FrameLockHeadTop"],
-          true,
+          "FrameLockHeadTop",
+          "headTop",
+          headInTransfer,
+          inTop,
         );
-        statusLightBar(
-          xyStatusCanvas,
+        supportBar(
           250,
           250,
-          !inputs["FrameLockHeadMid"],
-          true,
+          "FrameLockHeadMid",
+          "headMid",
+          headInTransfer,
+          inMiddle,
         );
-        statusLightBar(
-          xyStatusCanvas,
+        supportBar(
           250,
           400,
-          !inputs["FrameLockHeadBtm"],
-          true,
+          "FrameLockHeadBtm",
+          "headBtm",
+          headInTransfer,
+          inBottom,
         );
 
         // Foot Locking Pins
-        statusLightBar(
-          xyStatusCanvas,
+        supportBar(
           1150,
           100,
-          !inputs["FrameLockFootTop"],
-          true,
+          "FrameLockFootTop",
+          "footTop",
+          footInTransfer,
+          inTop,
         );
-        statusLightBar(
-          xyStatusCanvas,
+        supportBar(
           1150,
           250,
-          !inputs["FrameLockFootMid"],
-          true,
+          "FrameLockFootMid",
+          "footMid",
+          footInTransfer,
+          inMiddle,
         );
-        statusLightBar(
-          xyStatusCanvas,
+        supportBar(
           1150,
           400,
-          !inputs["FrameLockFootBtm"],
-          true,
+          "FrameLockFootBtm",
+          "footBtm",
+          footInTransfer,
+          inBottom,
         );
 
         statusLight(xyStatusCanvas, 1250, 440, inputs["Light_Curtain"]);
@@ -698,16 +788,12 @@ function PositionGraphic(modules) {
   var startSetup = function () {
     // Scaling can take place after machine calibration has been read.
     // So read the calibration and start the setup when we have this data.
-    uiServices.call(
-      commands.machine.getCalibration,
-      {},
-      function (data) {
-        if (data) {
-          machineCaliration = data;
-          setupCallback();
-        }
-      },
-    );
+    uiServices.call(commands.machine.getCalibration, {}, function (data) {
+      if (data) {
+        machineCaliration = data;
+        setupCallback();
+      }
+    });
   };
 
   //-----------------------------------------------------------------------------

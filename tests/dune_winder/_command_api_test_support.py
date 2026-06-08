@@ -365,6 +365,16 @@ class DummyProcess:
     def getWrapForecastLine(self, wrap):
         return wrap * 10 + 1
 
+    def getSupportCollisionForecast(self):
+        return {
+            "headTop": False,
+            "headMid": False,
+            "headBtm": True,
+            "footTop": False,
+            "footMid": False,
+            "footBtm": False,
+        }
+
     def openRecipeInEditor(self, recipeFile=None):
         return recipeFile
 

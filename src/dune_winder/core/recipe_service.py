@@ -82,6 +82,15 @@ class RecipeService:
             return workspace.getWrapForecastLine(wrap)
         return None
 
+    def getSupportCollisionForecast(self):
+        workspace = self._workspaceGetter()
+        if workspace:
+            return workspace.getSupportCollisionForecast()
+
+        from dune_winder.core.support_collision_forecast import empty_forecast
+
+        return empty_forecast()
+
     def _openInEditor(self, filePath):
         try:
             editor = os.environ.get("WINDER_TEXT_EDITOR")

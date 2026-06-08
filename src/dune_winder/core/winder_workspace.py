@@ -163,6 +163,8 @@ class WinderWorkspace:
         self._lineHistory = {}
         self._loadedTime = 0
         self._windTime = 0
+        self._supportForecastCacheKey = None
+        self._supportForecastCache = None
 
         for var, value in self._defaultState().items():
             setattr(self, var, value)
@@ -777,6 +779,139 @@ class WinderWorkspace:
             return None
 
         return lastIndex + 1
+
+    def getSupportCollisionForecast(self):
+        """Which frame-support keepouts the current and next wrap will enter.
+
+        Looks ahead from the current gcode line's ``(n, m)`` wrap label to the
+        same-side ``~anchorToTarget`` transfers in wraps ``n`` and ``n + 1`` and
+        reports, per support bar, whether one of them ends inside that support's
+        transfer-zone collision box.  Cached per ``(layer, wrap)`` because the
+        per-command geometry is expensive and the wrap changes slowly.
+        """
+        from dune_winder.core.support_collision_forecast import (
+            compute_support_collision_forecast,
+            current_wrap_number,
+            empty_forecast,
+        )
+
+        if self._recipe is None or self._layer not in ("U", "V"):
+            return empty_forecast()
+
+        lines = self._recipe.getLines()
+        currentLine = self._gCodeHandler.getLine()
+        wrap = current_wrap_number(lines, currentLine)
+        if wrap is None:
+            return empty_forecast()
+
+        cacheKey = (self._layer, wrap)
+        if self._supportForecastCacheKey == cacheKey and self._supportForecastCache:
+            return dict(self._supportForecastCache)
+
+        machineCalibration = getattr(self._gCodeHandler, "_machineCalibration", None)
+        transferZones = self._supportForecastTransferZones(machineCalibration)
+        supportBands = self._supportForecastBands(machineCalibration)
+        headPointFn = self._supportForecastHeadPointFn(machineCalibration)
+
+        flags = compute_support_collision_forecast(
+            lines,
+            currentLine,
+            head_point_fn=headPointFn,
+            transfer_zones=transferZones,
+            support_bands=supportBands,
+            wraps_ahead=1,
+        )
+
+        self._supportForecastCacheKey = cacheKey
+        self._supportForecastCache = flags
+        return dict(flags)
+
+    @staticmethod
+    def _supportForecastNumber(calibration, key, fallback):
+        value = getattr(calibration, key, None) if calibration is not None else None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(fallback)
+
+    def _supportForecastTransferZones(self, calibration):
+        number = self._supportForecastNumber
+        return {
+            "head": (
+                number(calibration, "transferZoneHeadMinX", 400.0),
+                number(calibration, "transferZoneHeadMaxX", 500.0),
+            ),
+            "foot": (
+                number(calibration, "transferZoneFootMinX", 7100.0),
+                number(calibration, "transferZoneFootMaxX", 7200.0),
+            ),
+        }
+
+    def _supportForecastBands(self, calibration):
+        number = self._supportForecastNumber
+        return {
+            "Btm": (
+                number(calibration, "supportCollisionBottomMinY", 80.0),
+                number(calibration, "supportCollisionBottomMaxY", 450.0),
+            ),
+            "Mid": (
+                number(calibration, "supportCollisionMiddleMinY", 1050.0),
+                number(calibration, "supportCollisionMiddleMaxY", 1550.0),
+            ),
+            "Top": (
+                number(calibration, "supportCollisionTopMinY", 2200.0),
+                number(calibration, "supportCollisionTopMaxY", 2650.0),
+            ),
+        }
+
+    def _supportForecastHeadPointFn(self, calibration):
+        from dune_winder.uv_head_target_parts.anchor_to_target import (
+            compute_uv_anchor_to_target_view,
+        )
+
+        layer = self._layer
+        layerCalibrationPath = self.getCalibrationFullPath()
+        machineCalibrationPath = self._supportForecastMachineCalibrationPath(
+            calibration
+        )
+        rollerOffsets = self._supportForecastRollerOffsets(calibration)
+
+        def headPoint(commandText):
+            try:
+                view = compute_uv_anchor_to_target_view(
+                    commandText,
+                    layer=layer,
+                    machine_calibration_path=machineCalibrationPath,
+                    layer_calibration_path=layerCalibrationPath,
+                    roller_arm_y_offsets=rollerOffsets,
+                )
+                head = view.interpreter_head_point
+                return (float(head.x), float(head.y))
+            except Exception:
+                return None
+
+        return headPoint
+
+    @staticmethod
+    def _supportForecastMachineCalibrationPath(calibration):
+        outputPath = getattr(calibration, "_outputFilePath", None)
+        outputName = getattr(calibration, "_outputFileName", None)
+        if outputPath is None or outputName is None:
+            return None
+        return str(pathlib.Path(outputPath) / outputName)
+
+    @staticmethod
+    def _supportForecastRollerOffsets(calibration):
+        rollerArm = getattr(calibration, "rollerArmCalibration", None)
+        if rollerArm is None:
+            return None
+        offsets = getattr(rollerArm, "fitted_y_cals", None)
+        if offsets is None:
+            return None
+        try:
+            return tuple(float(value) for value in offsets[:4])
+        except (TypeError, ValueError):
+            return None
 
     def _getWrapLabeledLine(self, wrap, label):
         if self._recipe is None:
