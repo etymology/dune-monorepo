@@ -59,21 +59,21 @@ class UTemplateGCodeTests(unittest.TestCase):
                 "N0 ( U Layer )",
                 "N1 ~goto(7174,0)",
                 "N2 (1,1) ~anchorToTarget(A1601,B1201) (Foot B corner)",
-                "N3 (1,2) ~increment(-200,0)",
+                "N3 (1,2) ~increment(-70,0)",
                 "N4 (1,3) ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
             ],
         )
         self.assertIn("~anchorToTarget(B2001,A801,hover=True)", lines[5])
         self.assertTrue(lines[-2].endswith("~anchorToTarget(A1201,B1601)"))
-        self.assertTrue(lines[-1].endswith("~increment(200,0)"))
+        self.assertTrue(lines[-1].endswith("~increment(70,0)"))
         self.assertTrue(all("G103" not in line and "G11" not in line for line in lines))
         self.assertEqual(
             lines[-4:],
             [
-                "N7272 (400,17) ~increment(0,200)",
+                "N7272 (400,17) ~increment(0,60)",
                 "N7273 (400,18) ~anchorToTarget(A2001,A1201) (Foot A corner)",
                 "N7274 ~anchorToTarget(A1201,B1601)",
-                "N7275 ~increment(200,0)",
+                "N7275 ~increment(70,0)",
             ],
         )
 

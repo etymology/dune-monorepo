@@ -37,9 +37,9 @@ from dune_winder.recipes.template_gcode_transfers import (
 
 WRAP_COUNT = 400
 SPOOL_CHANGE_MIDDLE_WRAP = 200
-Y_PULL_IN = 200.0
-X_PULL_IN = 200.0
-COMB_PULL_FACTOR = 4.0
+Y_PULL_IN = 60.0
+X_PULL_IN = 70.0
+HEAD_ARM_LENGTH = template_gcode_common.EFFECTIVE_HEAD_ARM_LENGTH
 PREAMBLE_X = 7174.0
 PREAMBLE_Y = 60.0
 PREAMBLE_BOARD_GAP_PULL = -50.0
@@ -50,20 +50,26 @@ PIN_SPAN = PIN_MAX - PIN_MIN + 1
 DEFAULT_OFFSETS = ({"x": 0.0, "y": 0.0},) * 12
 DEFAULT_U_TEMPLATE_WORKBOOK = None
 DEFAULT_U_TEMPLATE_SHEET = None
-PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN", "Y_HOVER")
+PULL_IN_IDS = ("Y_PULL_IN", "X_PULL_IN", "Y_HOVER", "HEAD_ARM_LENGTH")
 DEFAULT_PULL_INS = {
     "Y_PULL_IN": Y_PULL_IN,
     "X_PULL_IN": X_PULL_IN,
     "Y_HOVER": 5.0,
+    "HEAD_ARM_LENGTH": HEAD_ARM_LENGTH,
 }
 PULL_IN_NAME_ALIASES = {
     "Y_PULL_IN": "Y_PULL_IN",
     "X_PULL_IN": "X_PULL_IN",
     "Y_HOVER": "Y_HOVER",
+    "HEAD_ARM_LENGTH": "HEAD_ARM_LENGTH",
     "y_pull_in": "Y_PULL_IN",
     "x_pull_in": "X_PULL_IN",
     "y_hover": "Y_HOVER",
+    "head_arm_length": "HEAD_ARM_LENGTH",
 }
+
+
+comb_pull = template_gcode_common.comb_pull
 
 OFFSET_IDS = (
     "top_b_foot_end",
@@ -147,12 +153,12 @@ U_WRAP_SCRIPT = compile_template_script(
         "transfer b_to_a_transfer",
         "emit G113 PPRECISE G109 PB${2002 - wrap} PLT G103 PA${800 + wrap} PA${801 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[1], offsets[1])} (Top A corner - foot end)",
         "emit G113 PTOLERANT G103 PA${800 + wrap} PA${801 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-        "if near_comb(800 + wrap): emit G113 PTOLERANT G103 PA${800 + wrap} PA${801 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+        "if near_comb(800 + wrap): emit G113 PTOLERANT G103 PA${800 + wrap} PA${801 + wrap} PX G105 ${coord('PX-', COMB_PULL)}",
         "emit G113 PPRECISE G109 PA${800 + wrap} PLB G103 PA${2402 - wrap} PA${2403 - wrap} PXY ${offset('PX', offsets[2])} G102 G108 (Bottom A corner - head end)",
         "transfer a_to_b_transfer",
         "emit G113 PPRECISE G109 PA${2402 - wrap} PBR G103 PB${400 + wrap} PB${401 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[3])} (Bottom B corner - head end, rewind)",
         "emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-        "if near_comb(400 + wrap): emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PX-', Y_PULL_IN * COMB_PULL_FACTOR)}",
+        "if near_comb(400 + wrap): emit G113 PTOLERANT G103 PB${400 + wrap} PB${401 + wrap} PX G105 ${coord('PX-', COMB_PULL)}",
         "emit G113 PPRECISE (HEAD RESTART) G109 PB${400 + wrap} PLT G103 PB${401 - wrap} PB${400 - wrap} PXY ${offset('PY', offsets[4])} G102 G108 (Head B corner)",
         "transfer b_to_a_transfer",
         "emit G113 PTOLERANT G109 PB${401 - wrap} PLT G103 PA${wrap} PA${2400 + wrap} PXY ${offset('PY', offsets[5])} (Head A corner, rewind)",
@@ -161,12 +167,12 @@ U_WRAP_SCRIPT = compile_template_script(
         "transfer a_to_b_transfer",
         "emit G113 PPRECISE G109 PA${800 - wrap} PRT G103 PB${2002 + wrap} PB${2003 + wrap} PXY G105 ${coord('PY', Y_HOVER)} ${conditional_offset('PX', offsets[7], offsets[7])} (Top B corner - head end)",
         "emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PY G105 ${coord('PY', -Y_PULL_IN)}",
-        "if near_comb(2002 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)}",
+        "if near_comb(2002 + wrap): emit G113 PTOLERANT G103 PB${2002 + wrap} PB${2003 + wrap} PX G105 ${coord('PX', COMB_PULL)}",
         "emit G113 PPRECISE G109 PB${2001 + wrap} PRB G103 PB${1201 - wrap} PB${1202 - wrap} PXY ${offset('PX', offsets[8])} G102 G108 (Bottom B corner - foot end)",
         "transfer b_to_a_transfer",
         "emit G113 PPRECISE G109 PB${1199 + wrap} PBL G103 PA${1601 + wrap} PA${1602 + wrap} PXY G105 ${coord('PY', -Y_HOVER)} ${offset('PX', offsets[9])} (Bottom A corner - foot end, rewind)",
         "emit G113 PTOLERANT G103 PA${1601 + wrap} PA${1602 + wrap} PY G105 ${coord('PY', Y_PULL_IN)}",
-        "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PA${1601 + wrap} PA${1602 + wrap} PX G105 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)}",
+        "if near_comb(1601 + wrap): emit G113 PTOLERANT G103 PA${1601 + wrap} PA${1602 + wrap} PX G105 ${coord('PX', COMB_PULL)}",
         "emit G113 PPRECISE G109 PA${1601 + wrap} PRT G103 PA${1601 - wrap} PA${1600 - wrap} PXY ${offset('PY', offsets[10])} G102 G108 (Foot A corner)",
         "transfer a_to_b_transfer",
         "emit G113 PPRECISE G109 PA${1601 - wrap} PRT G103 PB${1201 + wrap} PB${1200 + wrap} PXY ${offset('PY', offsets[11])} (Foot B corner, rewind)",
@@ -180,22 +186,22 @@ U_WRAP_WRAPPING_SCRIPT = compile_template_script(
         "emit G117 PB${2002 - wrap} (Top B corner - foot end)",
         "emit G118 PB${2002 - wrap} (Top A corner - foot end)",
         "emit G115 ${coord('PX', 0)} ${coord('PY', -Y_PULL_IN)}",
-        "if near_comb(2002 - wrap): emit G115 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+        "if near_comb(2002 - wrap): emit G115 ${coord('PX', -COMB_PULL)} ${coord('PY', 0)} (comb pull)",
         "emit G118 PB${400 + wrap} (Bottom A corner - head end)",
         "emit G117 PB${400 + wrap} (Bottom B corner - head end)",
         "emit G115 ${coord('PX', 0)} ${coord('PY', Y_PULL_IN)}",
-        "if near_comb(400 + wrap): emit G115 ${coord('PX', -Y_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+        "if near_comb(400 + wrap): emit G115 ${coord('PX', -COMB_PULL)} ${coord('PY', 0)} (comb pull)",
         "emit G117 PB${401 - wrap} (Head B corner)",
         "emit G118 PB${401 - wrap} (Head A corner)",
         "emit G115 ${coord('PX', X_PULL_IN)} ${coord('PY', 0)}",
         "emit G118 PB${2001 + wrap} (Top A corner - head end)",
         "emit G117 PB${2001 + wrap} (Top B corner - head end)",
         "emit G115 ${coord('PX', 0)} ${coord('PY', -Y_PULL_IN)}",
-        "if near_comb(2001 + wrap): emit G115 ${coord('PX', Y_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+        "if near_comb(2001 + wrap): emit G115 ${coord('PX', COMB_PULL)} ${coord('PY', 0)} (comb pull)",
         "emit G117 PB${1201 - wrap} (Bottom B corner - foot end)",
         "emit G118 PB${1201 - wrap} (Bottom A corner - foot end)",
         "emit G115 ${coord('PX', 0)} ${coord('PY', Y_PULL_IN)}",
-        "if near_comb(1201 - wrap): emit G115 ${coord('PX', X_PULL_IN * COMB_PULL_FACTOR)} ${coord('PY', 0)} (comb pull)",
+        "if near_comb(1201 - wrap): emit G115 ${coord('PX', COMB_PULL)} ${coord('PY', 0)} (comb pull)",
         "emit G118 PB${1201 + wrap} (Foot A corner)",
     )
 )
@@ -599,7 +605,7 @@ def iter_u_wrap_primary_sites(
             "Y_PULL_IN": pull_ins["Y_PULL_IN"],
             "X_PULL_IN": pull_ins["X_PULL_IN"],
             "Y_HOVER": pull_ins["Y_HOVER"],
-            "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
+            "COMB_PULL": comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"]),
         }
         execute_template_script(
             U_WRAP_SCRIPT,
@@ -656,7 +662,7 @@ def _render_wrap_lines(
         "Y_PULL_IN": pull_ins["Y_PULL_IN"],
         "X_PULL_IN": pull_ins["X_PULL_IN"],
         "Y_HOVER": pull_ins["Y_HOVER"],
-        "COMB_PULL_FACTOR": COMB_PULL_FACTOR,
+        "COMB_PULL": comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"]),
     }
 
     execute_template_script(
@@ -740,7 +746,9 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         lines.append(
             _line(
                 "~increment("
-                + _coord("", -(pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR))
+                + _coord(
+                    "", -comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
+                )
                 + ",0)",
                 "(comb pull)",
             )
@@ -767,7 +775,9 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         lines.append(
             _line(
                 "~increment("
-                + _coord("", -(pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR))
+                + _coord(
+                    "", -comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
+                )
                 + ",0)",
                 "(comb pull)",
             )
@@ -807,7 +817,9 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         lines.append(
             _line(
                 "~increment("
-                + _coord("", (pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR))
+                + _coord(
+                    "", comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
+                )
                 + ",0)",
                 "(comb pull)",
             )
@@ -834,7 +846,9 @@ def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
         lines.append(
             _line(
                 "~increment("
-                + _coord("", (pull_ins["Y_PULL_IN"] * COMB_PULL_FACTOR))
+                + _coord(
+                    "", comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
+                )
                 + ",0)",
                 "(comb pull)",
             )
@@ -1177,6 +1191,7 @@ class UTemplateProgrammaticGenerator:
             "y_pull_in": self.pull_ins["Y_PULL_IN"],
             "x_pull_in": self.pull_ins["X_PULL_IN"],
         }
+
         def _scalar_for(idx):
             entry = self.offsets[idx]
             if isinstance(entry, dict):

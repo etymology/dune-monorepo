@@ -38,6 +38,26 @@ def coord(axis, value):
     return axis + format_number(value)
 
 
+# Vertical (along the wrap, 5.75 mm) and horizontal (8 mm) pin pitches shared
+# by both the V and U layers, plus the default physical head-arm length (mm).
+COMB_PULL_VERTICAL_PITCH = 5.75
+COMB_PULL_HORIZONTAL_PITCH = 8.0
+EFFECTIVE_HEAD_ARM_LENGTH = 70.0
+
+
+def comb_pull(y_pull_in, head_arm_length=EFFECTIVE_HEAD_ARM_LENGTH):
+    """Comb-pull clearance distance for a wrap that lands near a comb.
+
+    Converts the Y pull-in (measured on the 5.75 mm vertical pitch) into the
+    equivalent distance on the 8 mm horizontal pitch shared by the U and V
+    layers, then adds the physical head-arm length.
+    """
+    return (
+        y_pull_in / COMB_PULL_VERTICAL_PITCH * COMB_PULL_HORIZONTAL_PITCH
+        + head_arm_length
+    )
+
+
 _OFFSET_AXIS_KEYS = (("PX", "x"), ("PY", "y"))
 
 
