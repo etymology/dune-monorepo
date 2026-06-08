@@ -59,7 +59,7 @@ uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
 cargo test --workspace --manifest-path rust/Cargo.toml
 cargo clippy --workspace --manifest-path rust/Cargo.toml --all-targets
 cargo fmt --manifest-path rust/Cargo.toml --all
-npm run markdown:lint -- README.md AGENTS.md dune_tension/README.md rust/README.md
+npm run markdown:lint -- README.md AGENTS.md tension/README.md rust/README.md
 make test                           # shorthand via Makefile
 ```
 
@@ -80,8 +80,8 @@ inference, with the workspace laid out for a broader future rewrite.
 
 Data artifacts stay in their own subdirectories and are **not** Python packages:
 
-- `dune_winder/` — PLC ladder programs, machine config, web UI, Grafana/InfluxDB
-- `dune_tension/` — measurement DB, tension summaries, plots, streaming runs, audio fixtures
+- `winder/` — PLC ladder programs, machine config, web UI, Grafana/InfluxDB
+- `tension/` — measurement DB, tension summaries, plots, streaming runs, audio fixtures
 
 Tests live under [`tests/`](tests/): `dune_tension/` and `dune_winder/`.
 
@@ -89,8 +89,8 @@ Docs live under [`docs/`](docs/): `dune_tension/` and `dune_winder/`.
 
 Package-specific operational details:
 
-- [dune_winder/README.md](dune_winder/README.md)
-- [dune_tension/README.md](dune_tension/README.md)
+- [winder/README.md](winder/README.md)
+- [tension/README.md](tension/README.md)
 
 ---
 
@@ -99,12 +99,12 @@ Package-specific operational details:
 The winder pushes PLC tag data to InfluxDB at ~10 Hz; Grafana visualises it in real time. Both run as Docker containers.
 
 ```bash
-docker compose up -d          # start Grafana + InfluxDB
+docker compose -f winder/docker-compose.yml up -d   # start Grafana + InfluxDB
 ```
 
 - Grafana: `http://localhost:3000` — login `admin` / `dune_winder`
 - InfluxDB: `http://localhost:8086` — org `dune`, bucket `winder`
-- Config: `docker-compose.yml` and `grafana/` / `influxdb/` provisioning dirs at repo root
+- Config: `winder/docker-compose.yml`; Grafana/InfluxDB provisioning under `config/`
 
 ---
 
@@ -116,13 +116,12 @@ docker compose up -d          # start Grafana + InfluxDB
 - CLI: `uv run python -m dune_winder.transpiler <file.py> [function_name ...]`
 - Output: pasteable ladder text → check in under `plc/<program>/<subroutine>/pasteable.rll`
 
-### RLL rung transform (`plc-rung-transform-hs`)
+### RLL rung transform (`plc-rung-transform`)
 
 Converts Studio 5000 copy-paste `.rllscrap` → pasteable `.rll` format.
 
 ```bash
-cabal run plc-rung-transform-hs -- < input.rllscrap > output.rll
-uv run plc-rung-transform                                          # Python equivalent
+uv run plc-rung-transform input.rllscrap -o output.rll
 ```
 
 ### PLC artifact layout

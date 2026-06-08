@@ -96,7 +96,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--plc-root",
         type=Path,
         default=PLC_ROOT,
-        help="plc/ directory to populate. Defaults to dune_winder/plc/.",
+        help="plc/ directory to populate. Defaults to winder/plc/.",
     )
     parser.add_argument(
         "--main-routine-map",

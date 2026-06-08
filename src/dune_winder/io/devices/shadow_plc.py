@@ -368,7 +368,7 @@ class ShadowPLC(PLC):
                 _logger.warning(
                     "Shadow: stale rllscrap for %s (state=%s) — "
                     "shadow comparison may not reflect the current PLC program; "
-                    "run plc-rung-transform-hs to regenerate .rll files",
+                    "run plc-rung-transform to regenerate .rll files",
                     row.location,
                     row.state,
                 )

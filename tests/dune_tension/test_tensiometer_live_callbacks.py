@@ -146,6 +146,10 @@ def test_collect_samples_strums_until_audio_recording_starts(monkeypatch) -> Non
         return audio_sample
 
     monkeypatch.setattr(tensiometer_module, "acquire_audio", fake_acquire_audio)
+    # Strum interval well below the fake's 0.08s recording-start delay so the
+    # loop strums several times before recording begins (independent of the
+    # production interval constant).
+    monkeypatch.setattr(tensiometer_module, "_STRUM_LOOP_INTERVAL_SECONDS", 0.01)
     monkeypatch.setattr(
         tensiometer_module,
         "wire_equation",

@@ -9,7 +9,7 @@ __pycache__/
 */__pycache__/
 *.egg-info/
 *.pyc
-dune_tension/data/streaming_runs/*
+tension/data/streaming_runs/*
 *gui_state.json
 shadow_plc_errors.log
 .DS_Store
@@ -24,7 +24,7 @@ src/dune_tension/_rust_audio*.so
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
-dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
-dune_tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
+tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
+tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
 .claude/settings.local.json
-dune_tension/data/experiment_audio/*
+tension/data/experiment_audio/*

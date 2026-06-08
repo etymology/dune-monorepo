@@ -2155,13 +2155,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=str(data_path("tension_data")),
         help=(
             "Directory containing legacy tension_data_*.csv exports "
-            "(used in legacy mode, default: dune_tension/data/tension_data)."
+            "(used in legacy mode, default: tension/data/tension_data)."
         ),
     )
     parser.add_argument(
         "--output-dir",
         default=str(data_path("tension_plots")),
-        help="Directory for output PNGs (default: dune_tension/data/tension_plots).",
+        help="Directory for output PNGs (default: tension/data/tension_plots).",
     )
     parser.add_argument(
         "--bins",

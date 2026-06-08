@@ -48,7 +48,7 @@ uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml --feat
 ## PESTO ONNX Artifacts
 
 The runtime uses the checked-in `mir-1k_g7` artifacts in
-`dune_tension/data/pesto_onnx/`. Regenerate them with:
+`tension/data/pesto_onnx/`. Regenerate them with:
 
 ```bash
 uv run python -m spectrum_analysis.export_pesto_onnx --model-name mir-1k_g7 --step-size 5.0 --sampling-rate 44100

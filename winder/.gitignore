@@ -1,0 +1,11 @@
+*.pyc
+.mypy_cache
+.ruff_cache
+*.bak
+*.bat
+cache/
+.venv
+.DS_Store
+src/dune_winder.egg-info/*
+config/APA/
+gc_files/

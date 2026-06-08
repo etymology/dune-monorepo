@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PACKAGE_ROOT = REPO_ROOT / "dune_tension"
+PACKAGE_ROOT = REPO_ROOT / "tension"
 DATA_ROOT = PACKAGE_ROOT / "data"
 AUDIO_ROOT = PACKAGE_ROOT / "audio"
 

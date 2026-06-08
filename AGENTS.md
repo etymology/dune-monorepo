@@ -67,7 +67,7 @@ The pre-commit hook handles staged `.md` files automatically.
 - Packages: `dune_winder`, `dune_tension` (root `pyproject.toml`)
 - Source: `src/dune_winder/`, `src/dune_tension/`, `src/spectrum_analysis/`
 - Tests: `tests/dune_tension/`, `tests/dune_winder/`
-- Data (not packages): `dune_winder/plc/`, `dune_tension/data/`
+- Data (not packages): `winder/plc/`, `tension/data/`
 - Lockfiles (commit both): `uv.lock`, `rust/Cargo.lock`
 - Python ≥ 3.12; Rust ≥ 1.83 for `_rust_audio`
 
@@ -96,7 +96,7 @@ fix: correct off-by-one in winder segment counter
 chore: update uv.lock after dependency bump
 ```
 
-## PLC code (`dune_winder/plc/`)
+## PLC code (`winder/plc/`)
 
 Studio 5000 ControlLogix program for the winder. Two-format workflow forced by vendor:
 
@@ -156,13 +156,13 @@ Never hide a tag addition inside the rung diff — Studio 5000 rejects pastes re
 
 ### References
 
-- Instruction reference: `dune_winder/plc/instruction_set.md`
-- File-format guide (rllscrap vs. rll, branches, formulas, quoting, joint programming protocol): `dune_winder/plc/RLL_FORMAT.md`
+- Instruction reference: `winder/plc/instruction_set.md`
+- File-format guide (rllscrap vs. rll, branches, formulas, quoting, joint programming protocol): `winder/plc/RLL_FORMAT.md`
 
 ### Artifact layout
 
 ```text
-dune_winder/plc/
+winder/plc/
 ├── controller_level_tags.json          ← controller-scope tags + live values
 ├── manifest.json                       ← hashes + timestamps
 ├── instruction_set.md

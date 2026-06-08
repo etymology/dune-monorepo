@@ -365,7 +365,7 @@ invariant ActiveFrameLockKeepoutsRespected {
 -- The PLC computes a single boolean MASTER_Z_GO at state_5_move_z that
 -- gates all Z motion. It is the conjunction of three named conditions
 -- (no_latch_collision, no_apa_collision, no_supports_collision) and
--- mirrors the rung in dune_winder/plc/state_5_move_z/main/pasteable.rll.
+-- mirrors the rung in winder/plc/state_5_move_z/main/pasteable.rll.
 --
 -- The names below match the PLC tags so the spec and ladder logic line
 -- up symbol-for-symbol. NoZMotionWhileFloating in winder-states.allium
