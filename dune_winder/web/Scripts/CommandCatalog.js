@@ -92,6 +92,11 @@
       vTemplateRunBareJogCalibrationLine: "process.v_template.run_bare_jog_calibration_line",
       uTemplateGetState: "process.u_template.get_state",
       uTemplateSetOffset: "process.u_template.set_offset",
+      uTemplatePreviewJogCalibration: "process.u_template.preview_jog_calibration",
+      uTemplateApplyJogCalibration: "process.u_template.apply_jog_calibration",
+      uTemplateResetJogCalibration: "process.u_template.reset_jog_calibration",
+      uTemplateRunBareJogCalibrationLine:
+        "process.u_template.run_bare_jog_calibration_line",
       uTemplateSetPullIn: "process.u_template.set_pull_in",
       uTemplateSetTransferPause: "process.u_template.set_transfer_pause",
       uTemplateSetAddFootPauses: "process.u_template.set_add_foot_pauses",

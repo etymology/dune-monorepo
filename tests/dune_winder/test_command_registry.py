@@ -129,6 +129,29 @@ class CommandRegistryTests(unittest.TestCase):
             "wrapping",
         )
 
+    def test_u_template_jog_calibration_commands_dispatch(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+
+        for command in (
+            "process.u_template.preview_jog_calibration",
+            "process.u_template.apply_jog_calibration",
+            "process.u_template.reset_jog_calibration",
+            "process.u_template.run_bare_jog_calibration_line",
+        ):
+            response = registry.executeRequest({"name": command, "args": {}})
+            self.assertTrue(response["ok"], command)
+            self.assertIsNone(response["error"], command)
+
+    def test_u_template_preview_jog_calibration_returns_snapshot(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {"name": "process.u_template.preview_jog_calibration", "args": {}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertFalse(response["data"]["available"])
+
     def test_get_layer_calibration_command_dispatches(self):
         registry, _, _, _, _, _ = build_registry_fixture()
 

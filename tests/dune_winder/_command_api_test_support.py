@@ -57,6 +57,18 @@ class DummyTemplateRecipe:
     def setOffset(self, offsetId, value):
         return {"ok": True, "data": {"offsetId": offsetId, "value": value}}
 
+    def previewJogCalibration(self):
+        return {"available": False, "reason": "No g-code line has been executed yet."}
+
+    def applyJogCalibration(self):
+        return {"applied": True, "regenerated": True}
+
+    def resetJogCalibration(self):
+        return {"reset": True, "regenerated": True}
+
+    def runBareJogCalibrationLine(self):
+        return {"bareLine": "~anchorToTarget(B400,B1999)"}
+
     def setPullIn(self, pullInId, value):
         self.lastPullIn = (pullInId, value)
         return {"ok": True, "data": {"pullInId": pullInId, "value": value}}

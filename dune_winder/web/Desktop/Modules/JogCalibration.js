@@ -10,6 +10,30 @@ function JogCalibration(modules) {
   var lastReason = null; // last unavailable reason, for status display
   var DECIMALS = 3;
 
+  // Jog calibration is implemented identically for every template layer
+  // (the backend logic lives in TemplateRecipeBase); only the command
+  // namespace differs.  Track the active layer and dispatch to the matching
+  // command family so the panel works for both U and V recipes.
+  var activeLayer = null;
+  var COMMAND_SETS = {
+    V: {
+      preview: commands.process.vTemplatePreviewJogCalibration,
+      apply: commands.process.vTemplateApplyJogCalibration,
+      reset: commands.process.vTemplateResetJogCalibration,
+      runBare: commands.process.vTemplateRunBareJogCalibrationLine,
+    },
+    U: {
+      preview: commands.process.uTemplatePreviewJogCalibration,
+      apply: commands.process.uTemplateApplyJogCalibration,
+      reset: commands.process.uTemplateResetJogCalibration,
+      runBare: commands.process.uTemplateRunBareJogCalibrationLine,
+    },
+  };
+
+  var currentCommandSet = function () {
+    return COMMAND_SETS[activeLayer] || null;
+  };
+
   var formatNumber = function (value) {
     if (value === null || value === undefined || isNaN(value)) {
       return "-";
@@ -139,50 +163,85 @@ function JogCalibration(modules) {
   });
 
   // ---------------------------------------------------------------------
-  // Periodic poll #2: ask the backend for the current jog-calibration
+  // Periodic poll #2: track the active recipe layer so the panel can
+  // dispatch to the matching (U or V) command family and surface a clear
+  // message when jog calibration is not available for the loaded layer.
+  // ---------------------------------------------------------------------
+  winder.addPeriodicCallback(commands.process.getRecipeLayer, function (layer) {
+    if (layer === activeLayer) {
+      return;
+    }
+    activeLayer = layer;
+    // Drop any preview surfaced for the previous layer so stale data never
+    // lingers after a layer switch.
+    resetPreviewState();
+    lastRenderedSignature = null;
+    lastReason = null;
+    if (!currentCommandSet()) {
+      setStatus("Jog calibration is only available for U or V layers.");
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // Periodic poll #3: ask the backend for the current jog-calibration
   // snapshot.  Backend always returns ok=true with an `available` flag
   // so we can surface the reason in the status bar when nothing is
-  // calibratable yet (no V recipe loaded, no labeled line executed,
-  // etc).
+  // calibratable yet (no recipe loaded, no labeled line executed, etc).
+  // One poll is registered per layer; each ignores ticks that do not
+  // belong to the active layer (the inactive layer's command always
+  // reports a layer mismatch).
   // ---------------------------------------------------------------------
-  winder.addPeriodicCallback(
-    commands.process.vTemplatePreviewJogCalibration,
-    function (data) {
-      if (!data) {
-        // Periodic infrastructure returns null on transport error.
-        return;
+  var handlePreview = function (layer, data) {
+    if (activeLayer !== layer) {
+      // Ignore polls for the layer that is not currently loaded.
+      return;
+    }
+    if (!data) {
+      // Periodic infrastructure returns null on transport error.
+      return;
+    }
+    if (!data.available) {
+      var reason = data.reason || "Waiting for a calibratable line.";
+      if (reason !== lastReason) {
+        lastReason = reason;
+        setStatus(reason);
       }
-      if (!data.available) {
-        var reason = data.reason || "Waiting for a calibratable line.";
-        if (reason !== lastReason) {
-          lastReason = reason;
-          setStatus(reason);
-        }
-        return;
-      }
-      lastReason = null;
-      var signature = previewSignature(data);
-      if (signature === lastRenderedSignature) {
-        // Same line: keep delta cells fresh while operator jogs.
-        setDeltaCell("#jogCalDeltaX", data.delta && data.delta.x);
-        setDeltaCell("#jogCalDeltaY", data.delta && data.delta.y);
-        setDeltaCell("#jogCalDeltaZ", data.delta && data.delta.z);
-        pendingPreview = data;
-        return;
-      }
-      lastRenderedSignature = signature;
-      renderPreview(data);
-      setStatus("Auto-updated from line " + (data.lineIndex || "-") + ".");
-    },
-  );
+      return;
+    }
+    lastReason = null;
+    var signature = previewSignature(data);
+    if (signature === lastRenderedSignature) {
+      // Same line: keep delta cells fresh while operator jogs.
+      setDeltaCell("#jogCalDeltaX", data.delta && data.delta.x);
+      setDeltaCell("#jogCalDeltaY", data.delta && data.delta.y);
+      setDeltaCell("#jogCalDeltaZ", data.delta && data.delta.z);
+      pendingPreview = data;
+      return;
+    }
+    lastRenderedSignature = signature;
+    renderPreview(data);
+    setStatus("Auto-updated from line " + (data.lineIndex || "-") + ".");
+  };
+
+  winder.addPeriodicCallback(COMMAND_SETS.V.preview, function (data) {
+    handlePreview("V", data);
+  });
+  winder.addPeriodicCallback(COMMAND_SETS.U.preview, function (data) {
+    handlePreview("U", data);
+  });
 
   // ---------------------------------------------------------------------
   // Action handlers
   // ---------------------------------------------------------------------
   var onUseCurrentClick = function () {
+    var commandSet = currentCommandSet();
+    if (!commandSet) {
+      setStatus("Jog calibration is only available for U or V layers.", "error");
+      return;
+    }
     setStatus("Reading positions and applying...");
     uiServices.call(
-      commands.process.vTemplatePreviewJogCalibration,
+      commandSet.preview,
       {},
       function (data) {
         if (!data || !data.available) {
@@ -202,10 +261,15 @@ function JogCalibration(modules) {
   };
 
   var onRunBareClick = function () {
+    var commandSet = currentCommandSet();
+    if (!commandSet) {
+      setStatus("Jog calibration is only available for U or V layers.", "error");
+      return;
+    }
     setStatus("Running bare line (no offset)...");
     $("#jogCalRunBareButton").prop("disabled", true);
     uiServices.call(
-      commands.process.vTemplateRunBareJogCalibrationLine,
+      commandSet.runBare,
       {},
       function (data) {
         var bare = (data && data.bareLine) || "(unknown)";
@@ -228,12 +292,17 @@ function JogCalibration(modules) {
       setStatus("Nothing to apply.", "error");
       return;
     }
+    var commandSet = currentCommandSet();
+    if (!commandSet) {
+      setStatus("Jog calibration is only available for U or V layers.", "error");
+      return;
+    }
     setStatus("Applying calibration and regenerating recipe...");
     $("#jogCalApplyButton").prop("disabled", true);
     $("#jogCalCancelButton").prop("disabled", true);
     $("#jogCalRunBareButton").prop("disabled", true);
     uiServices.call(
-      commands.process.vTemplateApplyJogCalibration,
+      commandSet.apply,
       {},
       function (data) {
         if (data) {
@@ -273,13 +342,18 @@ function JogCalibration(modules) {
       setStatus("Nothing to reset.", "error");
       return;
     }
+    var commandSet = currentCommandSet();
+    if (!commandSet) {
+      setStatus("Jog calibration is only available for U or V layers.", "error");
+      return;
+    }
     setStatus("Resetting offset and regenerating recipe...");
     $("#jogCalApplyButton").prop("disabled", true);
     $("#jogCalCancelButton").prop("disabled", true);
     $("#jogCalRunBareButton").prop("disabled", true);
     $("#jogCalResetButton").prop("disabled", true);
     uiServices.call(
-      commands.process.vTemplateResetJogCalibration,
+      commandSet.reset,
       {},
       function (data) {
         if (data) {

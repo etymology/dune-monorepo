@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from dune_winder.recipes.template_recipe_base import _strip_anchor_offset
+from dune_winder.recipes.u_template_recipe import UTemplateRecipe
 from dune_winder.recipes.v_template_recipe import VTemplateRecipe
 
 from test_template_recipe_persistence import FakeProcess
@@ -148,6 +149,29 @@ class JogCalibrationSnapshotTests(unittest.TestCase):
             self.assertEqual(snapshot["offsetId"], "top_b_foot_end")
             self.assertEqual(snapshot["lineKey"], "(1,3)")
             self.assertAlmostEqual(snapshot["actual"]["z"], 150.0, places=6)
+
+    def test_u_layer_canonical_corner_label_uses_corner_offset(self):
+        # The jog-calibration logic is shared in TemplateRecipeBase; confirm
+        # it resolves a U corner label to the matching U offset id just as it
+        # does for V.
+        with tempfile.TemporaryDirectory() as root:
+            trace = _trace(
+                "N5 (1,3) ~anchorToTarget(B400,B1999) (Top B corner - foot end)",
+                x=10.0,
+                y=20.0,
+            )
+            process = _CalibrationProcess(
+                "U", root, trace=trace, position=(10.5, 20.5, 150.0), line_number=5
+            )
+            service = UTemplateRecipe(process)
+
+            snapshot = service._collectJogCalibrationSnapshot()
+
+            self.assertTrue(snapshot["available"])
+            self.assertEqual(snapshot["layer"], "U")
+            self.assertEqual(snapshot["overrideKind"], "corner")
+            self.assertEqual(snapshot["offsetId"], "top_b_foot_end")
+            self.assertEqual(snapshot["lineKey"], "(1,3)")
 
     def test_unlabeled_anchor_falls_back_to_line_override(self):
         with tempfile.TemporaryDirectory() as root:

@@ -991,6 +991,46 @@ def build_command_registry(
 
     registry.register("process.u_template.set_offset", u_template_set_offset, True)
 
+    def u_template_preview_jog_calibration(args):
+        _validateArgs(args)
+        return process.uTemplateRecipe.previewJogCalibration()
+
+    registry.register(
+        "process.u_template.preview_jog_calibration",
+        u_template_preview_jog_calibration,
+        False,
+    )
+
+    def u_template_apply_jog_calibration(args):
+        _validateArgs(args)
+        return process.uTemplateRecipe.applyJogCalibration()
+
+    def u_template_reset_jog_calibration(args):
+        _validateArgs(args)
+        return process.uTemplateRecipe.resetJogCalibration()
+
+    def u_template_run_bare_jog_calibration_line(args):
+        _validateArgs(args)
+        return process.uTemplateRecipe.runBareJogCalibrationLine()
+
+    registry.register(
+        "process.u_template.apply_jog_calibration",
+        u_template_apply_jog_calibration,
+        True,
+    )
+
+    registry.register(
+        "process.u_template.reset_jog_calibration",
+        u_template_reset_jog_calibration,
+        True,
+    )
+
+    registry.register(
+        "process.u_template.run_bare_jog_calibration_line",
+        u_template_run_bare_jog_calibration_line,
+        True,
+    )
+
     def u_template_set_pull_in(args):
         _validateArgs(args, required=("pull_in_id", "value"))
         return process.uTemplateRecipe.setPullIn(
