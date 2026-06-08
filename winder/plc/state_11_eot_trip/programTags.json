@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_11_eot_trip",
   "main_routine_name": "main",
@@ -193,8 +193,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "eot_entry_ob",
@@ -210,8 +209,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "eot_stop_xy",
@@ -227,25 +225,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "eot_stop_xz",
@@ -261,25 +241,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "eot_stop_x",
@@ -295,25 +257,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "eot_stop_y",
@@ -329,25 +273,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "eot_stop_z",
@@ -363,25 +289,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "eot_stops_done",
@@ -397,8 +305,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_jog_start_ob",
@@ -414,8 +321,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_jog_cmd",
@@ -431,25 +337,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "x_minus_jog_timer",
@@ -465,14 +353,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 10000,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "x_minus_clear_ob",
@@ -488,8 +369,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_jog_stop",
@@ -505,25 +385,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "x_minus_mrp_start_ob",
@@ -539,8 +401,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_mrp_cmd",
@@ -556,25 +417,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 2,
-        "STATE": 3,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "x_plus_jog_start_ob",
@@ -590,8 +433,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_jog_cmd",
@@ -607,25 +449,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 536870912,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "x_plus_jog_timer",
@@ -641,14 +465,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 10000,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "x_plus_clear_ob",
@@ -664,8 +481,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_jog_active",
@@ -681,8 +497,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_jog_stop",
@@ -698,25 +513,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_minus_jog_start_ob",
@@ -732,8 +529,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_jog_cmd",
@@ -749,25 +545,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_minus_jog_timer",
@@ -783,14 +561,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 10000,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "y_minus_clear_ob",
@@ -806,8 +577,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_jog_active",
@@ -823,8 +593,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_jog_stop",
@@ -840,25 +609,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_minus_stop_req",
@@ -874,8 +625,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_mrp_start_ob",
@@ -891,8 +641,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_mrp_cmd",
@@ -908,25 +657,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 2,
-        "STATE": 3,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_minus_cleared",
@@ -942,8 +673,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_jog_start_ob",
@@ -959,8 +689,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_jog_active",
@@ -976,8 +705,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_jog_cmd",
@@ -993,25 +721,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_plus_jog_timer",
@@ -1027,14 +737,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 10000,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "y_plus_clear_ob",
@@ -1050,8 +753,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_jog_stop",
@@ -1067,25 +769,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "z_zero_start_ob",
@@ -1101,8 +785,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_stop_req",
@@ -1118,8 +801,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "z_zero_cmd",
@@ -1135,25 +817,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "z_recover_started",
@@ -1169,8 +833,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "eot_recovery_done",
@@ -1186,8 +849,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_jog_active",
@@ -1203,8 +865,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_stop_req",
@@ -1220,8 +881,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_cleared",
@@ -1237,8 +897,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_stop_req",
@@ -1254,8 +913,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_timeout",
@@ -1271,8 +929,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_timeout",
@@ -1288,8 +945,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_timeout",
@@ -1305,8 +961,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_timeout",
@@ -1322,8 +977,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "eot_recover_ready",
@@ -1339,8 +993,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "z_trip",
@@ -1356,8 +1009,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_trip",
@@ -1373,8 +1025,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_trip",
@@ -1390,8 +1041,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_trip",
@@ -1407,8 +1057,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_trip",
@@ -1424,8 +1073,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "z_zero_start_sb",
@@ -1441,8 +1089,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_clear_sb",
@@ -1458,8 +1105,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_plus_jog_start_sb",
@@ -1475,8 +1121,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_mrp_start_sb",
@@ -1492,8 +1137,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_clear_sb",
@@ -1509,8 +1153,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "y_minus_jog_start_sb",
@@ -1526,8 +1169,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_clear_sb",
@@ -1543,8 +1185,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_plus_jog_start_sb",
@@ -1560,8 +1201,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_mrp_start_sb",
@@ -1577,8 +1217,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_clear_sb",
@@ -1594,8 +1233,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_minus_jog_start_sb",
@@ -1611,8 +1249,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "eot_entry_sb",
@@ -1628,9 +1265,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

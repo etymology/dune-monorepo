@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_5_move_z",
   "main_routine_name": "main",
@@ -155,25 +155,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 134217728,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "oneshotob",
@@ -188,8 +170,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "state_5_move_z",
-      "value": false
+      "program": "state_5_move_z"
     },
     {
       "name": "STATE5_IND",
@@ -205,8 +186,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "z_axis_mso",
@@ -222,25 +202,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 570425344,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 1,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "z_accel_jerk",
@@ -255,8 +217,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "state_5_move_z",
-      "value": 500
+      "program": "state_5_move_z"
     },
     {
       "name": "z_move_success",
@@ -272,8 +233,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "eot_stop",
@@ -289,25 +249,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "z_decel_jerk",
@@ -322,8 +264,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "state_5_move_z",
-      "value": 3000
+      "program": "state_5_move_z"
     },
     {
       "name": "z_axis_fast_move",
@@ -339,26 +280,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

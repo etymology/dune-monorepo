@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "queued_motion",
   "main_routine_name": "main",
@@ -327,8 +327,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "StartNextB_ONS",
@@ -344,8 +343,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "CheckCurSeg",
@@ -361,8 +359,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "UseAasCurrent",
@@ -378,8 +375,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": true
+      "bit_position": 0
     },
     {
       "name": "QueueCtl",
@@ -395,19 +391,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "CONTROL",
-      "value": {
-        "LEN": 32,
-        "POS": 0,
-        "EN": false,
-        "EU": false,
-        "DN": false,
-        "EM": true,
-        "ER": false,
-        "UL": false,
-        "IN": false,
-        "FD": false
-      }
+      "udt_name": "CONTROL"
     },
     {
       "name": "FaultCode",
@@ -422,8 +406,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "QueueEmpty",
@@ -439,8 +422,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": true
+      "bit_position": 0
     },
     {
       "name": "CheckNextSeg",
@@ -456,8 +438,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "CurSeg",
@@ -473,28 +454,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "MotionSeg",
-      "value": {
-        "Valid": false,
-        "SegType": 1,
-        "XY": [
-          6344.578125,
-          2683.0
-        ],
-        "Speed": 600.0,
-        "Accel": 2000.0,
-        "Decel": 2000.0,
-        "JerkAccel": 1500.0,
-        "JerkDecel": 1500.0,
-        "TermType": 0,
-        "Seq": 0,
-        "CircleType": 1,
-        "ViaCenter": [
-          0.0,
-          0.0
-        ],
-        "Direction": 1
-      }
+      "udt_name": "MotionSeg"
     },
     {
       "name": "NextSeg",
@@ -510,28 +470,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "MotionSeg",
-      "value": {
-        "Valid": false,
-        "SegType": 1,
-        "XY": [
-          5807.32421875,
-          2683.0
-        ],
-        "Speed": 600.0,
-        "Accel": 2000.0,
-        "Decel": 2000.0,
-        "JerkAccel": 1500.0,
-        "JerkDecel": 1500.0,
-        "TermType": 0,
-        "Seq": 0,
-        "CircleType": 1,
-        "ViaCenter": [
-          0.0,
-          0.0
-        ],
-        "Direction": 1
-      }
+      "udt_name": "MotionSeg"
     },
     {
       "name": "StartCurONS",
@@ -547,8 +486,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "RotateONS_AtoB",
@@ -564,8 +502,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "EnqueueReq",
@@ -581,8 +518,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "LoadCurReq",
@@ -598,8 +534,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "LoadNextReq",
@@ -615,8 +550,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "IssueCurPulse",
@@ -632,8 +566,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "PrepNextMove",
@@ -649,8 +582,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "PrepCurMove",
@@ -666,8 +598,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "IssueNextPulse",
@@ -683,8 +614,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "RotateMoves",
@@ -700,8 +630,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "SegValidLine",
@@ -717,8 +646,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "SegValidArc",
@@ -734,8 +662,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "CmdA_SegType",
@@ -750,8 +677,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     },
     {
       "name": "SegValid",
@@ -767,8 +693,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "CmdA_XY",
@@ -783,8 +708,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": 5807.32421875
+      "program": "queued_motion"
     },
     {
       "name": "CmdTolerance",
@@ -799,8 +723,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 100
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_Speed",
@@ -815,8 +738,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 600.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_Accel",
@@ -831,8 +753,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 2000.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_Decel",
@@ -847,8 +768,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 2000.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_JerkAccel",
@@ -863,8 +783,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1500.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_JerkDecel",
@@ -879,8 +798,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1500.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_TermType",
@@ -895,8 +813,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_XY",
@@ -911,8 +828,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": 6344.578125
+      "program": "queued_motion"
     },
     {
       "name": "RotateONS_BtoA",
@@ -928,8 +844,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "CmdB_Speed",
@@ -944,8 +859,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 600.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_Accel",
@@ -960,8 +874,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 2000.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_Decel",
@@ -976,8 +889,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 2000.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_JerkAccel",
@@ -992,8 +904,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1500.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_JerkDecel",
@@ -1008,8 +919,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1500.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_TermType",
@@ -1024,8 +934,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_SegType",
@@ -1040,8 +949,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_CircleType",
@@ -1056,8 +964,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     },
     {
       "name": "MoveA",
@@ -1073,25 +980,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "MoveB",
@@ -1107,25 +996,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "FlipToB",
@@ -1141,8 +1012,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "FlipToA",
@@ -1158,8 +1028,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "DoneONS_A",
@@ -1175,8 +1044,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "DoneONS_B",
@@ -1192,8 +1060,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "CmdB_CircleType",
@@ -1208,8 +1075,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_ViaCenter",
@@ -1224,8 +1090,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": 0.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_ViaCenter",
@@ -1240,8 +1105,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": 0.0
+      "program": "queued_motion"
     },
     {
       "name": "CmdA_Direction",
@@ -1256,8 +1120,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     },
     {
       "name": "CmdB_Direction",
@@ -1272,8 +1135,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     },
     {
       "name": "AbortActive",
@@ -1289,8 +1151,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "WaitCurAxisOn",
@@ -1306,8 +1167,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_axis_mso",
@@ -1323,25 +1183,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_axis_mso",
@@ -1357,25 +1199,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "WaitNextAxisOn",
@@ -1391,8 +1215,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "QueueStopReqONS",
@@ -1408,8 +1231,7 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "REALS",
@@ -1424,8 +1246,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": 0.0
+      "program": "queued_motion"
     },
     {
       "name": "DINTS",
@@ -1440,8 +1261,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "BOOLS",
@@ -1456,8 +1276,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion",
-      "value": false
+      "program": "queued_motion"
     },
     {
       "name": "idx_0",
@@ -1472,8 +1291,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "idx_1",
@@ -1488,8 +1306,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "idx_2",
@@ -1504,8 +1321,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 0
+      "program": "queued_motion"
     },
     {
       "name": "idx_3",
@@ -1520,9 +1336,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion",
-      "value": 1
+      "program": "queued_motion"
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

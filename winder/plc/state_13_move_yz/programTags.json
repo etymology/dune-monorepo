@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_13_move_yz",
   "main_routine_name": "main",
@@ -155,8 +155,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "yz_main_move",
@@ -172,25 +171,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "yz_stop",
@@ -206,25 +187,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "xy_stop",
@@ -240,25 +203,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "x_axis_stop",
@@ -274,25 +219,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "yz_target_collision_bttm",
@@ -308,8 +235,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "yz_target_collision_mid",
@@ -325,8 +251,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "yz_target_collision_top",
@@ -342,8 +267,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_in_head_transfer_zone",
@@ -359,8 +283,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_in_foot_transfer_zone",
@@ -376,8 +299,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "yz_target_support_collision",
@@ -393,8 +315,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "null",
@@ -410,8 +331,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "state_13_entry_osr",
@@ -427,9 +347,39 @@
       ],
       "array_dimensions": 0,
       "program": "state_13_move_yz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
+    },
+    {
+      "name": "oneshotsb_yz_trigger",
+      "fully_qualified_name": "Program:state_13_move_yz.oneshotsb_yz_trigger",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0
+    },
+    {
+      "name": "oneshotob_yz_trigger",
+      "fully_qualified_name": "Program:state_13_move_yz.oneshotob_yz_trigger",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "alias": false,
+      "external_access": "Read/Write",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_13_move_yz",
+      "bit_position": 0
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

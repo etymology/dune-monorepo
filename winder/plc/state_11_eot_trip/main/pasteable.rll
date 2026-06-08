@@ -22,7 +22,7 @@ XIC STATE11_IND XIC eot_stops_done XIO X_axis.MoveStatus XIO Y_axis.MoveStatus X
 XIC STATE11_IND XIC eot_recover_ready XIC x_minus_trip XIO MINUS_X_EOT XIO X_axis.StoppingStatus XIO x_minus_jog_active XIO x_minus_timeout XIO x_minus_jog_cmd.IP XIO x_plus_trip XIO x_plus_stop_req OSR x_minus_jog_start_sb x_minus_jog_start_ob 
 XIC x_minus_jog_start_ob OTL x_minus_jog_active 
 XIC x_minus_jog_start_ob MAJ X_axis x_minus_jog_cmd 0 1 "Units per sec" 1 "Units per sec2" 1 "Units per sec2" Trapezoidal 100 100 "% of Time" Disabled Programmed 0 None 
-XIC x_minus_jog_active TON x_minus_jog_timer 10000 0 
+XIC x_minus_jog_active TON x_minus_jog_timer ? ? 
 XIC x_minus_trip XIC x_minus_jog_active XIO x_minus_timeout XIC MINUS_X_EOT OSR x_minus_clear_sb x_minus_clear_ob 
 XIC x_minus_clear_ob OTL x_minus_cleared 
 BST XIC x_minus_clear_ob NXB XIC x_minus_jog_active XIC x_minus_jog_timer.DN BND OTL x_minus_stop_req OTU x_minus_jog_active 
@@ -35,7 +35,7 @@ XIC x_minus_mrp_cmd.DN OTU x_minus_cleared OTU x_minus_trip
 XIC STATE11_IND XIC eot_recover_ready XIC x_plus_trip XIO PLUS_X_EOT XIO X_axis.StoppingStatus XIO x_plus_jog_active XIO x_plus_timeout XIO x_plus_jog_cmd.IP XIO x_minus_trip XIO x_minus_stop_req XIO x_minus_cleared OSR x_plus_jog_start_sb x_plus_jog_start_ob 
 XIC x_plus_jog_start_ob OTL x_plus_jog_active 
 XIC x_plus_jog_start_ob MAJ X_axis x_plus_jog_cmd 1 1 "Units per sec" 1 "Units per sec2" 1 "Units per sec2" Trapezoidal 100 100 "% of Time" Disabled Programmed 0 None 
-XIC x_plus_jog_active TON x_plus_jog_timer 10000 0 
+XIC x_plus_jog_active TON x_plus_jog_timer ? ? 
 XIC x_plus_trip XIC x_plus_jog_active XIO x_plus_timeout XIC PLUS_X_EOT OSR x_plus_clear_sb x_plus_clear_ob 
 BST XIC x_plus_clear_ob NXB XIC x_plus_jog_active XIC x_plus_jog_timer.DN BND OTL x_plus_stop_req OTU x_plus_jog_active 
 XIC x_plus_jog_active XIC x_plus_jog_timer.DN OTL x_plus_timeout 
@@ -44,7 +44,7 @@ XIC x_plus_stop_req XIC x_plus_jog_stop.DN OTU x_plus_stop_req OTU x_plus_trip
 XIC STATE11_IND XIC eot_recover_ready XIC y_minus_trip XIO MINUS_Y_EOT XIO Y_axis.StoppingStatus XIO y_minus_jog_active XIO y_minus_timeout XIO y_minus_jog_cmd.IP XIO y_plus_trip XIO y_plus_stop_req OSR y_minus_jog_start_sb y_minus_jog_start_ob 
 XIC y_minus_jog_start_ob OTL y_minus_jog_active 
 XIC y_minus_jog_start_ob MAJ Y_axis y_minus_jog_cmd 0 1 "Units per sec" 1 "Units per sec2" 1 "Units per sec2" Trapezoidal 100 100 "% of Time" Disabled Programmed 0 None 
-XIC y_minus_jog_active TON y_minus_jog_timer 10000 0 
+XIC y_minus_jog_active TON y_minus_jog_timer ? ? 
 XIC y_minus_trip XIC y_minus_jog_active XIO y_minus_timeout XIC MINUS_Y_EOT OSR y_minus_clear_sb y_minus_clear_ob 
 XIC y_minus_clear_ob OTL y_minus_cleared 
 BST XIC y_minus_clear_ob NXB XIC y_minus_jog_active XIC y_minus_jog_timer.DN BND OTL y_minus_stop_req OTU y_minus_jog_active 
@@ -57,7 +57,7 @@ XIC y_minus_mrp_cmd.DN OTU y_minus_cleared OTU y_minus_trip
 XIC STATE11_IND XIC eot_recover_ready XIC y_plus_trip XIO PLUS_Y_EOT XIO Y_axis.StoppingStatus XIO y_plus_jog_active XIO y_plus_timeout XIO y_plus_jog_cmd.IP XIO y_minus_trip XIO y_minus_stop_req XIO y_minus_cleared OSR y_plus_jog_start_sb y_plus_jog_start_ob 
 XIC y_plus_jog_start_ob OTL y_plus_jog_active 
 XIC y_plus_jog_start_ob MAJ Y_axis y_plus_jog_cmd 1 1 "Units per sec" 1 "Units per sec2" 1 "Units per sec2" Trapezoidal 100 100 "% of Time" Disabled Programmed 0 None 
-XIC y_plus_jog_active TON y_plus_jog_timer 10000 0 
+XIC y_plus_jog_active TON y_plus_jog_timer ? ? 
 XIC y_plus_trip XIC y_plus_jog_active XIO y_plus_timeout XIC PLUS_Y_EOT OSR y_plus_clear_sb y_plus_clear_ob 
 BST XIC y_plus_clear_ob NXB XIC y_plus_jog_active XIC y_plus_jog_timer.DN BND OTL y_plus_stop_req OTU y_plus_jog_active 
 XIC y_plus_jog_active XIC y_plus_jog_timer.DN OTL y_plus_timeout 
