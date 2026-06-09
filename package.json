@@ -5,6 +5,8 @@
     "skills:install": "skills experimental_install"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.9.2",
     "markdownlint-cli2": "^0.22.1",
     "skills": "^1.5.1"
   }
