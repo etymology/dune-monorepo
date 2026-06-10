@@ -6732,3 +6732,137 @@
 2026-06-10 14:54:46,430 INFO [pid=169345 Thread-6836 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
 2026-06-10 14:54:46,574 INFO [pid=169345 Thread-6836 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
 2026-06-10 14:54:47,342 WARNING [pid=169345 Thread-6836 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:47,685 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50: measured frequency 120.68 Hz {'length': 0.48360000000000003, 'frequency': 120.6756691738197, 'tension': 2.0985651308082343} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:47,687 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50 tension 2.10 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:47,751 INFO [pid=169345 Thread-6837 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:47,895 INFO [pid=169345 Thread-6837 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:48,060 WARNING [pid=169345 Thread-6835 dune_tension.gui.live_plots] waveform plot generation 2072 timed out after 3.0s; abandoning
+2026-06-10 14:54:48,237 WARNING [pid=169345 Thread-6837 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:48,574 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50: measured frequency 120.36 Hz {'length': 0.48360000000000003, 'frequency': 120.36476943393743, 'tension': 2.087765888430649} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:48,575 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50 tension 2.09 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:48,635 INFO [pid=169345 Thread-6838 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:48,770 INFO [pid=169345 Thread-6838 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:49,112 WARNING [pid=169345 Thread-6838 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:49,337 WARNING [pid=169345 MainThread dune_tension.gui.live_plots] summary canvas.draw skipped: figure lock busy (>2.0s)
+2026-06-10 14:54:49,827 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50: measured frequency 119.76 Hz {'length': 0.48360000000000003, 'frequency': 119.76097450246424, 'tension': 2.066872387953799} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:49,829 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50 tension 2.07 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:49,957 INFO [pid=169345 Thread-6841 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:50,097 INFO [pid=169345 Thread-6841 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:50,436 WARNING [pid=169345 Thread-6841 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:51,243 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50: measured frequency 119.99 Hz {'length': 0.48360000000000003, 'frequency': 119.9887093342039, 'tension': 2.074740499794493} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:51,244 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50 tension 2.07 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:51,330 INFO [pid=169345 Thread-6843 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:51,489 INFO [pid=169345 Thread-6843 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:51,855 WARNING [pid=169345 Thread-6843 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:52,561 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 50: measured frequency 207.96 Hz {'length': 0.48360000000000003, 'frequency': 207.9643047624496, 'tension': 6.232476046488906} with confidence 0.21 (amp=0.0000, harm=0.1075)
+2026-06-10 14:54:53,636 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Result: wire 50 length 483.6 mm tension 6.2 N frequency 208.0 Hz confidence 0.21 at 1233.4093017578125,2490.67138671875 focus 5057. Took 12.26 seconds.
+2026-06-10 14:54:53,680 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Timing profile for list wire 50: total=14.79s stages=[wire_total_wall=14.79s, collect_samples=12.19s, strum=6.34s, acquire_audio=6.34s, analyze_audio=3.94s, move_to_measurement_pose=2.47s, wait_for_audio_trigger=1.63s, reset_plc_after_collect=0.07s, reset_plc_before_persist=0.03s, reset_plc_before_move=0.01s, append_result=0.01s, summary_refresh=0.00s, plan_measurement_pose=0.00s, merge_results=0.00s]
+2026-06-10 14:54:53,681 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Measuring wire 51 at 1237.4038101758954,2488.8193395835606 focus=5057
+2026-06-10 14:54:53,757 INFO [pid=169345 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure auto focus=6136 threads=6 vmsize=8244104 kB vmhwm=2535692 kB vmrss=2140420 kB
+2026-06-10 14:54:55,757 INFO [pid=169345 Thread-6848 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:55,933 INFO [pid=169345 Thread-6848 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:56,240 WARNING [pid=169345 Thread-6848 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:57,035 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 44.29 Hz {'length': 0.4935, 'frequency': 44.28690494960712, 'tension': 0.29433059661387007} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:57,037 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 0.29 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:57,099 INFO [pid=169345 Thread-6849 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:57,152 INFO [pid=169345 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APA-UK-008 layer U
+2026-06-10 14:54:57,242 INFO [pid=169345 Thread-6849 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:57,583 WARNING [pid=169345 Thread-6849 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:58,293 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 120.56 Hz {'length': 0.4935, 'frequency': 120.56494128928682, 'tension': 2.181357405458157} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:58,296 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.18 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:58,389 INFO [pid=169345 Thread-6851 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:58,527 INFO [pid=169345 Thread-6851 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:54:58,874 WARNING [pid=169345 Thread-6851 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:54:59,491 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 128.83 Hz {'length': 0.4935, 'frequency': 128.82578708572257, 'tension': 2.4905218695661735} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:54:59,496 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.49 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:54:59,603 INFO [pid=169345 Thread-6854 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:54:59,779 INFO [pid=169345 Thread-6854 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:00,110 WARNING [pid=169345 Thread-6854 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:00,782 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 120.62 Hz {'length': 0.4935, 'frequency': 120.62452023742313, 'tension': 2.1835138381640546} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:00,793 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.18 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:00,906 INFO [pid=169345 Thread-6856 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:01,036 INFO [pid=169345 Thread-6856 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:01,384 WARNING [pid=169345 Thread-6856 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:02,104 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 133.24 Hz {'length': 0.4935, 'frequency': 133.23967786156152, 'tension': 2.6641084412482066} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:02,106 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.66 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:02,170 INFO [pid=169345 Thread-6858 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:02,893 INFO [pid=169345 Thread-6858 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:03,087 WARNING [pid=169345 Thread-6858 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:03,569 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 129.41 Hz {'length': 0.4935, 'frequency': 129.41217045609937, 'tension': 2.5132459581758515} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:03,574 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.51 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:03,825 INFO [pid=169345 Thread-6860 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:03,966 INFO [pid=169345 Thread-6860 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:04,302 WARNING [pid=169345 Thread-6860 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:05,116 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 120.49 Hz {'length': 0.4935, 'frequency': 120.49202976198585, 'tension': 2.1787198558216496} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:05,117 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.18 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:05,202 INFO [pid=169345 Thread-6862 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:05,346 INFO [pid=169345 Thread-6862 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:05,692 WARNING [pid=169345 Thread-6862 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:06,264 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 119.31 Hz {'length': 0.4935, 'frequency': 119.31479774658824, 'tension': 2.136354743839263} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:06,266 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51 tension 2.14 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:06,365 INFO [pid=169345 Thread-6864 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:06,506 INFO [pid=169345 Thread-6864 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:06,887 WARNING [pid=169345 Thread-6864 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:07,474 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 51: measured frequency 202.90 Hz {'length': 0.4935, 'frequency': 202.90024750607822, 'tension': 6.1780284540258394} with confidence 0.06 (amp=0.0000, harm=0.0195)
+2026-06-10 14:55:08,501 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Result: wire 51 length 493.5 mm tension 6.2 N frequency 202.9 Hz confidence 0.06 at 1237.40185546875,2487.8125 focus 5057. Took 12.83 seconds.
+2026-06-10 14:55:08,528 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Timing profile for list wire 51: total=14.85s stages=[wire_total_wall=14.85s, collect_samples=12.80s, strum=7.30s, acquire_audio=7.30s, analyze_audio=3.57s, wait_for_audio_trigger=2.39s, move_to_measurement_pose=1.96s, reset_plc_before_move=0.03s, reset_plc_after_collect=0.02s, reset_plc_before_persist=0.01s, append_result=0.01s, summary_refresh=0.00s, plan_measurement_pose=0.00s, merge_results=0.00s]
+2026-06-10 14:55:08,530 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Measuring wire 52 at 1241.3980294425855,2485.9550913300864 focus=5057
+2026-06-10 14:55:08,775 INFO [pid=169345 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure auto focus=6136 threads=8 vmsize=8244136 kB vmhwm=2535692 kB vmrss=2140420 kB
+2026-06-10 14:55:10,540 INFO [pid=169345 gui-monitor-tension-logs dune_tension.gui.actions] Updated tension logs for APA-UK-008 layer U
+2026-06-10 14:55:11,676 INFO [pid=169345 Thread-6870 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:11,790 INFO [pid=169345 Thread-6870 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:12,136 WARNING [pid=169345 Thread-6870 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:13,723 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 119.16 Hz {'length': 0.5033, 'frequency': 119.16386497502302, 'tension': 2.2164271369424178} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:13,724 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.22 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:13,857 INFO [pid=169345 Thread-6872 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:13,989 INFO [pid=169345 Thread-6872 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:14,351 WARNING [pid=169345 Thread-6872 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:15,025 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 120.55 Hz {'length': 0.5033, 'frequency': 120.55232147942891, 'tension': 2.268378139945577} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:15,034 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.27 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:15,144 INFO [pid=169345 Thread-6874 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:15,326 INFO [pid=169345 Thread-6874 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:15,652 WARNING [pid=169345 Thread-6874 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:16,149 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 199.17 Hz {'length': 0.5033, 'frequency': 199.1696670852174, 'tension': 6.191711212749512} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:16,240 INFO [pid=169345 Thread-6875 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:16,403 INFO [pid=169345 Thread-6875 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:16,758 WARNING [pid=169345 Thread-6875 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:17,544 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 122.54 Hz {'length': 0.5033, 'frequency': 122.54091754488644, 'tension': 2.3438323980769837} with confidence 0.00 (amp=0.0000, harm=0.0243)
+2026-06-10 14:55:17,546 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.34 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:17,642 INFO [pid=169345 Thread-6878 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:17,804 INFO [pid=169345 Thread-6878 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:18,143 WARNING [pid=169345 Thread-6878 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:18,729 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 120.80 Hz {'length': 0.5033, 'frequency': 120.7980460134797, 'tension': 2.277634937844906} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:18,730 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.28 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:18,840 INFO [pid=169345 Thread-6879 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:18,982 INFO [pid=169345 Thread-6879 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:19,324 WARNING [pid=169345 Thread-6879 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:21,362 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 116.14 Hz {'length': 0.5033, 'frequency': 116.13683075320868, 'tension': 2.10525272536339} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:21,370 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.11 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:21,504 INFO [pid=169345 Thread-6881 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:21,653 INFO [pid=169345 Thread-6881 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:21,995 WARNING [pid=169345 Thread-6881 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:22,630 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 124.04 Hz {'length': 0.5033, 'frequency': 124.0411866043289, 'tension': 2.4015748211364802} with confidence 0.05 (amp=0.0000, harm=0.0322)
+2026-06-10 14:55:22,631 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.40 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:22,742 INFO [pid=169345 Thread-6883 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:22,891 INFO [pid=169345 Thread-6883 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:23,225 WARNING [pid=169345 Thread-6883 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:23,962 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 120.49 Hz {'length': 0.5033, 'frequency': 120.49222279342693, 'tension': 2.2661170044882755} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:23,963 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.27 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:24,100 INFO [pid=169345 Thread-6885 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:24,253 INFO [pid=169345 Thread-6885 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:24,593 WARNING [pid=169345 Thread-6885 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:24,790 INFO [pid=169345 MainThread dune_tension.gui.app] GUI heartbeat. measurement_active=True active_measurement=measure auto focus=6136 threads=8 vmsize=8260528 kB vmhwm=2535692 kB vmrss=2140484 kB
+2026-06-10 14:55:25,343 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 120.18 Hz {'length': 0.5033, 'frequency': 120.18201024500796, 'tension': 2.2544635883450876} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:25,345 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.25 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:25,532 INFO [pid=169345 Thread-6887 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:25,678 INFO [pid=169345 Thread-6887 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:26,019 WARNING [pid=169345 Thread-6887 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:26,616 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 120.12 Hz {'length': 0.5033, 'frequency': 120.12124654762911, 'tension': 2.2521844633382004} with confidence 0.00 (amp=0.0000, harm=0.0000)
+2026-06-10 14:55:26,617 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52 tension 2.25 did not satisfy legacy tension condition '4<t<8'; continuing.
+2026-06-10 14:55:26,716 INFO [pid=169345 Thread-6889 (_audio_worker) spectrum_analysis.audio_processing] Listening for audio events (RMS trigger)...
+2026-06-10 14:55:26,880 INFO [pid=169345 Thread-6889 (_audio_worker) spectrum_analysis.audio_processing] Recording started.
+2026-06-10 14:55:27,207 WARNING [pid=169345 Thread-6889 (_audio_worker) spectrum_analysis.audio_processing] Max recording length reached.
+2026-06-10 14:55:27,679 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Sample of wire 52: measured frequency 199.73 Hz {'length': 0.5033, 'frequency': 199.72992508130977, 'tension': 6.226594383453406} with confidence 0.33 (amp=0.0000, harm=0.0863)
+2026-06-10 14:55:28,749 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Result: wire 52 length 503.3 mm tension 6.2 N frequency 199.7 Hz confidence 0.33 at 1241.7982177734375,2484.948486328125 focus 5057. Took 17.25 seconds.
+2026-06-10 14:55:28,792 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Timing profile for list wire 52: total=20.26s stages=[wire_total_wall=20.26s, collect_samples=17.22s, strum=8.74s, acquire_audio=8.74s, analyze_audio=6.41s, move_to_measurement_pose=2.95s, wait_for_audio_trigger=2.39s, append_result=0.03s, reset_plc_after_collect=0.02s, reset_plc_before_move=0.02s, reset_plc_before_persist=0.01s, summary_refresh=0.00s, plan_measurement_pose=0.00s, merge_results=0.00s]
+2026-06-10 14:55:28,794 INFO [pid=169345 gui-measure_auto dune_tension.tensiometer] Measuring wire 53 at 1245.3922481364505,2483.0904647014686 focus=5057
