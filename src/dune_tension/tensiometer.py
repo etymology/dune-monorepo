@@ -39,6 +39,18 @@ FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
 _STRUM_LOOP_INTERVAL_SECONDS = 0.2
 _SUMMARY_REFRESH_GUARD_S = 0.5
 
+# Live outlier detection during ``measure_list``. A fresh measurement is flagged
+# as an outlier (and remeasured once) when, relative to nearby wires already
+# measured in the same run, it differs from their mean by more than
+# ``_OUTLIER_ABS_NEWTONS`` newtons OR by more than ``_OUTLIER_SIGMA`` standard
+# deviations (the residual metric). "Nearby" means wires whose number is within
+# ``_OUTLIER_WINDOW`` of the current wire; the check is skipped until at least
+# ``_OUTLIER_MIN_NEIGHBORS`` such neighbors exist.
+_OUTLIER_ABS_NEWTONS = 0.5
+_OUTLIER_SIGMA = 1
+_OUTLIER_WINDOW = 10
+_OUTLIER_MIN_NEIGHBORS = 5
+
 
 def _invoke_with_timeout(
     callback: Callable[..., Any],
@@ -1374,6 +1386,36 @@ class Tensiometer:
             if not check_stop_event(self.stop_event):
                 self.estimated_time_callback("0:00:00")
 
+    @staticmethod
+    def _is_outlier_tension(
+        wire_number: int,
+        tension: float,
+        measured_tensions: dict[int, float],
+    ) -> bool:
+        """Return True when ``tension`` is an outlier versus nearby measured wires.
+
+        "Nearby" wires are those within ``_OUTLIER_WINDOW`` wire numbers of
+        ``wire_number`` that have already been measured this run. The tension is
+        an outlier if it differs from the neighbour mean by more than
+        ``_OUTLIER_ABS_NEWTONS`` newtons, or by more than ``_OUTLIER_SIGMA``
+        standard deviations of the neighbour spread (the residual metric).
+        """
+        neighbors = [
+            value
+            for number, value in measured_tensions.items()
+            if number != wire_number
+            and abs(number - wire_number) <= _OUTLIER_WINDOW
+            and float(value) > 0.0
+        ]
+        if len(neighbors) < _OUTLIER_MIN_NEIGHBORS:
+            return False
+        mean = float(np.mean(neighbors))
+        residual = abs(float(tension) - mean)
+        if residual > _OUTLIER_ABS_NEWTONS:
+            return True
+        std = float(np.std(neighbors))
+        return std > 0.0 and residual > _OUTLIER_SIGMA * std
+
     def measure_list(
         self, wire_list: list[int], preserve_order: bool, profile: bool = False
     ) -> None:
@@ -1398,6 +1440,7 @@ class Tensiometer:
             with self.repository.run_scope(), self.measurement_session():
                 last_successful_result: TensionResult | None = None
                 last_successful_wire_number: int | None = None
+                measured_tensions: dict[int, float] = {}
                 for wire_number in ordered_wire_numbers:
                     if check_stop_event(self.stop_event):
                         return
@@ -1434,10 +1477,38 @@ class Tensiometer:
                         zone=target.zone,
                         return_to_center=False,
                     )
+                    if (
+                        result is not None
+                        and float(result.frequency) > 0.0
+                        and self._is_outlier_tension(
+                            int(target.wire_number),
+                            float(result.tension),
+                            measured_tensions,
+                        )
+                    ):
+                        LOGGER.warning(
+                            "Wire %s tension %.2f N flagged as an outlier versus nearby "
+                            "wires; remeasuring and keeping only the second measurement.",
+                            target.wire_number,
+                            result.tension,
+                        )
+                        repeat = self.goto_collect_wire_data(
+                            wire_number=target.wire_number,
+                            wire_x=target.x,
+                            wire_y=target.y,
+                            focus_position=target.focus_position,
+                            zone=target.zone,
+                            return_to_center=False,
+                        )
+                        if repeat is not None and float(repeat.frequency) > 0.0:
+                            result = repeat
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
                         last_successful_result = result
                         last_successful_wire_number = int(target.wire_number)
+                        measured_tensions[int(target.wire_number)] = float(
+                            result.tension
+                        )
         finally:
             self._finish_batch_profile()
 
