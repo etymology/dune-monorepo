@@ -14,8 +14,6 @@ tension/data/streaming_runs/*
 shadow_plc_errors.log
 .DS_Store
 node_modules/
-rust/target/
-src/dune_tension/_rust_audio*.so
 
 # LibreOffice temporary lock files
 ~$*.ods
@@ -35,3 +33,5 @@ tension/data/experiment_audio/*
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+dune_tension/audio/*

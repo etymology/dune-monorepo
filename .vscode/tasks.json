@@ -6,11 +6,6 @@
             "type": "shell",
             "command": "uv",
             "args": ["sync"],
-            "options": {
-                "env": {
-                    "PATH": "${env:USERPROFILE}\\.cargo\\bin;${env:PATH}"
-                }
-            },
             "presentation": {
                 "reveal": "silent",
                 "panel": "shared",

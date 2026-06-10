@@ -806,6 +806,93 @@ def test_measure_list_steps_from_last_successful_measurement(monkeypatch):
     ]
 
 
+def test_is_outlier_tension_flags_absolute_and_sigma_deviations():
+    neighbors = {1: 5.0, 2: 5.1, 3: 4.9, 4: 5.05, 5: 4.95, 6: 5.0}
+
+    # More than one newton above the neighbour mean -> outlier.
+    assert Tensiometer._is_outlier_tension(7, 6.5, neighbors) is True
+    # Within one newton but more than two sigma of the tight neighbour spread.
+    assert Tensiometer._is_outlier_tension(7, 5.4, neighbors) is True
+    # Close to the neighbour mean -> not an outlier.
+    assert Tensiometer._is_outlier_tension(7, 5.05, neighbors) is False
+
+
+def test_is_outlier_tension_skips_without_enough_neighbors():
+    # Only four nearby wires (< _OUTLIER_MIN_NEIGHBORS) -> never flagged.
+    neighbors = {1: 5.0, 2: 5.0, 3: 5.0, 4: 5.0}
+    assert Tensiometer._is_outlier_tension(7, 99.0, neighbors) is False
+
+
+def test_is_outlier_tension_ignores_distant_wires():
+    # All measured wires are outside the +/- window of wire 100.
+    neighbors = {1: 5.0, 2: 5.0, 3: 5.0, 4: 5.0, 5: 5.0, 6: 5.0}
+    assert Tensiometer._is_outlier_tension(100, 99.0, neighbors) is False
+
+
+def _measure_list_outlier_setup(monkeypatch, wire_frequencies):
+    """Run ``measure_list`` over wires 1..7 and return per-wire call counts.
+
+    ``wire_frequencies`` maps wire number -> list of frequencies returned on
+    successive ``goto_collect_wire_data`` calls for that wire.
+    """
+    _patch_result_physics(monkeypatch)
+    provider = _StubWirePositionProvider(
+        {n: PlannedWirePose(n, 100.0 + n, 200.0, 4300) for n in range(1, 8)}
+    )
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=_make_motion_service(),
+        audio=_make_audio_service(),
+        repository=DummyRepository(),
+        wire_position_provider=provider,
+    )
+    calls: dict[int, int] = {}
+
+    def _collect(*, wire_number, **_kwargs):
+        index = calls.get(wire_number, 0)
+        calls[wire_number] = index + 1
+        freqs = wire_frequencies[wire_number]
+        frequency = freqs[min(index, len(freqs) - 1)]
+        return TensionResult.from_measurement(
+            apa_name="APA",
+            layer="X",
+            side="A",
+            wire_number=wire_number,
+            frequency=frequency,
+            confidence=0.95,
+            x=100.0,
+            y=200.0,
+            focus_position=4300,
+            time=datetime(2026, 3, 15, 12, 0, 0),
+        )
+
+    tensiometer.goto_collect_wire_data = _collect
+    tensiometer.measure_list(list(range(1, 8)), preserve_order=True)
+    return calls
+
+
+def test_measure_list_remeasures_outlier_once(monkeypatch):
+    # Wires 1-6 sit near 5.0 N (frequency 50); wire 7's first read of 8.0 N
+    # (frequency 80) is an outlier and is remeasured once back to 5.1 N.
+    freqs = {n: [50.0] for n in range(1, 7)}
+    freqs[7] = [80.0, 51.0]
+    calls = _measure_list_outlier_setup(monkeypatch, freqs)
+
+    assert calls == {1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 2}
+
+
+def test_measure_list_accepts_second_measurement_even_if_still_outlier(monkeypatch):
+    # The repeat is accepted unconditionally: even when the second read is also
+    # an outlier, the wire is measured exactly twice (no third attempt).
+    freqs = {n: [50.0] for n in range(1, 7)}
+    freqs[7] = [80.0, 80.0]
+    calls = _measure_list_outlier_setup(monkeypatch, freqs)
+
+    assert calls[7] == 2
+
+
 def test_measure_list_logs_timing_profile_summary(caplog):
     provider = _StubWirePositionProvider(
         {
@@ -1050,6 +1137,140 @@ def test_focus_wiggle_without_callback_does_not_adjust_x():
     tensiometer._apply_focus_wiggle_with_x_compensation(400.0)
 
     assert motion.moves == []
+
+
+def test_collect_samples_sweeping_wiggle_refocuses_after_bad_sweep(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: [1.0])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+
+    confidences = iter([0.5])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "estimate_pitch_from_audio",
+        lambda *_args: (5.0, next(confidences, 0.95)),
+    )
+
+    def _raise_analysis(*_args, **_kwargs):
+        raise RuntimeError("fallback to simple pitch estimate")
+
+    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+
+    motion = _make_motion_service(start_x=1.0, start_y=2.0)
+    focus_state = {"value": 5000}
+    focus_deltas: list[int] = []
+
+    def _focus_wiggle(delta: int) -> None:
+        focus_state["value"] += int(delta)
+        focus_deltas.append(int(delta))
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_threshold=0.9,
+        measuring_duration=5.0,
+        sweeping_wiggle=True,
+        sweeping_wiggle_span_mm=1.0,
+        focus_wiggle_sigma_quarter_us=100,
+        focus_wiggle=_focus_wiggle,
+        focus_position_getter=lambda: focus_state["value"],
+        gauss_func=lambda mu, sigma: mu + sigma,
+        datetime_provider=lambda: datetime(2026, 6, 10, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert samples is not None
+    assert [round(s.confidence, 2) for s in samples] == [0.5, 0.95]
+    # The low-confidence first sweep triggers one gaussian focus nudge
+    # (best 5000 + sigma 100) before the second sweep succeeds.
+    assert focus_deltas == [100]
+    assert focus_state["value"] == 5100
+    # Side A couples +focus to +X; the compensation shifts the sweep center
+    # from 1.0 to 1.3 and the final return-to-center lands there.
+    expected_center_x = round(
+        1.0 + 100 * tensiometer_module.FOCUS_X_MM_PER_QUARTER_US, 1
+    )
+    assert motion.moves[-1] == (expected_center_x, 2.0)
+
+
+def test_collect_samples_sweeping_wiggle_skips_refocus_without_callback(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: [1.0])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+
+    confidences = iter([0.5])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "estimate_pitch_from_audio",
+        lambda *_args: (5.0, next(confidences, 0.95)),
+    )
+
+    def _raise_analysis(*_args, **_kwargs):
+        raise RuntimeError("fallback to simple pitch estimate")
+
+    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+
+    motion = _make_motion_service(start_x=1.0, start_y=2.0)
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_threshold=0.9,
+        measuring_duration=5.0,
+        sweeping_wiggle=True,
+        sweeping_wiggle_span_mm=1.0,
+        gauss_func=lambda mu, sigma: mu + sigma,
+        datetime_provider=lambda: datetime(2026, 6, 10, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert samples is not None
+    assert [round(s.confidence, 2) for s in samples] == [0.5, 0.95]
+    # Without a focus wiggle callback the sweep center never shifts.
+    assert motion.moves[-1] == (1.0, 2.0)
 
 
 def test_goto_collect_wire_data_applies_planned_focus_before_xy_move(monkeypatch):

@@ -39,6 +39,18 @@ FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
 _STRUM_LOOP_INTERVAL_SECONDS = 0.2
 _SUMMARY_REFRESH_GUARD_S = 0.5
 
+# Live outlier detection during ``measure_list``. A fresh measurement is flagged
+# as an outlier (and remeasured once) when, relative to nearby wires already
+# measured in the same run, it differs from their mean by more than
+# ``_OUTLIER_ABS_NEWTONS`` newtons OR by more than ``_OUTLIER_SIGMA`` standard
+# deviations (the residual metric). "Nearby" means wires whose number is within
+# ``_OUTLIER_WINDOW`` of the current wire; the check is skipped until at least
+# ``_OUTLIER_MIN_NEIGHBORS`` such neighbors exist.
+_OUTLIER_ABS_NEWTONS = 0.5
+_OUTLIER_SIGMA = 1
+_OUTLIER_WINDOW = 10
+_OUTLIER_MIN_NEIGHBORS = 5
+
 
 def _invoke_with_timeout(
     callback: Callable[..., Any],
@@ -1088,16 +1100,6 @@ class Tensiometer:
         audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
         if audio_array.size == 0:
             return 0.0
-        try:
-            from dune_tension import rust_audio
-
-            if rust_audio.should_use_audio_backend():
-                return rust_audio.rms(audio_array)
-        except Exception:
-            import os
-
-            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
-                raise
         audio_float = audio_array.astype(np.float64, copy=False)
         return float(np.sqrt(np.mean(np.square(audio_float))))
 
@@ -1117,21 +1119,6 @@ class Tensiometer:
             return float("nan")
         if not np.isfinite(frequency) or frequency <= 0.0:
             return float("nan")
-        try:
-            from dune_tension import rust_audio
-
-            if rust_audio.should_use_audio_backend():
-                return rust_audio.triangle_reference_rms(
-                    sample_rate,
-                    duration,
-                    frequency,
-                )
-        except Exception:
-            import os
-
-            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
-                raise
-
         sample_count = max(int(round(duration * sample_rate)), 1)
         times = np.arange(sample_count, dtype=np.float64) / float(sample_rate)
         phase = np.mod(times * frequency, 1.0)
@@ -1399,6 +1386,36 @@ class Tensiometer:
             if not check_stop_event(self.stop_event):
                 self.estimated_time_callback("0:00:00")
 
+    @staticmethod
+    def _is_outlier_tension(
+        wire_number: int,
+        tension: float,
+        measured_tensions: dict[int, float],
+    ) -> bool:
+        """Return True when ``tension`` is an outlier versus nearby measured wires.
+
+        "Nearby" wires are those within ``_OUTLIER_WINDOW`` wire numbers of
+        ``wire_number`` that have already been measured this run. The tension is
+        an outlier if it differs from the neighbour mean by more than
+        ``_OUTLIER_ABS_NEWTONS`` newtons, or by more than ``_OUTLIER_SIGMA``
+        standard deviations of the neighbour spread (the residual metric).
+        """
+        neighbors = [
+            value
+            for number, value in measured_tensions.items()
+            if number != wire_number
+            and abs(number - wire_number) <= _OUTLIER_WINDOW
+            and float(value) > 0.0
+        ]
+        if len(neighbors) < _OUTLIER_MIN_NEIGHBORS:
+            return False
+        mean = float(np.mean(neighbors))
+        residual = abs(float(tension) - mean)
+        if residual > _OUTLIER_ABS_NEWTONS:
+            return True
+        std = float(np.std(neighbors))
+        return std > 0.0 and residual > _OUTLIER_SIGMA * std
+
     def measure_list(
         self, wire_list: list[int], preserve_order: bool, profile: bool = False
     ) -> None:
@@ -1423,6 +1440,7 @@ class Tensiometer:
             with self.repository.run_scope(), self.measurement_session():
                 last_successful_result: TensionResult | None = None
                 last_successful_wire_number: int | None = None
+                measured_tensions: dict[int, float] = {}
                 for wire_number in ordered_wire_numbers:
                     if check_stop_event(self.stop_event):
                         return
@@ -1459,10 +1477,38 @@ class Tensiometer:
                         zone=target.zone,
                         return_to_center=False,
                     )
+                    if (
+                        result is not None
+                        and float(result.frequency) > 0.0
+                        and self._is_outlier_tension(
+                            int(target.wire_number),
+                            float(result.tension),
+                            measured_tensions,
+                        )
+                    ):
+                        LOGGER.warning(
+                            "Wire %s tension %.2f N flagged as an outlier versus nearby "
+                            "wires; remeasuring and keeping only the second measurement.",
+                            target.wire_number,
+                            result.tension,
+                        )
+                        repeat = self.goto_collect_wire_data(
+                            wire_number=target.wire_number,
+                            wire_x=target.x,
+                            wire_y=target.y,
+                            focus_position=target.focus_position,
+                            zone=target.zone,
+                            return_to_center=False,
+                        )
+                        if repeat is not None and float(repeat.frequency) > 0.0:
+                            result = repeat
                     self._complete_wire_profile()
                     if result is not None and float(result.frequency) > 0.0:
                         last_successful_result = result
                         last_successful_wire_number = int(target.wire_number)
+                        measured_tensions[int(target.wire_number)] = float(
+                            result.tension
+                        )
         finally:
             self._finish_batch_profile()
 
@@ -1700,10 +1746,74 @@ class Tensiometer:
 
             return float(target_x), float(target_y), int(target_focus)
 
+        sweep_center_x = float(wire_x)
+        sweep_center_y = float(wire_y)
+
+        def _adjust_sweep_focus() -> None:
+            """Refocus (with X compensation) after a sweep without a good recording.
+
+            The sweep thread owns the gantry while it runs, so it is stopped
+            before the focus/X compensation move and restarted around the
+            compensated center.
+            """
+            nonlocal sweep_center_x, sweep_center_y, focus_step_quarter_us
+
+            if (
+                not self._has_focus_wiggle_callback
+                or self.use_manual_focus
+                or focus_step_quarter_us <= 0
+            ):
+                return
+
+            target_focus = self._clamp_focus_position(
+                int(round(self._gauss(best_focus, focus_step_quarter_us)))
+            )
+            delta_focus = int(target_focus - self._get_focus_position())
+            focus_step_quarter_us = max(
+                min_focus_step_quarter_us,
+                int(focus_step_quarter_us * 0.85),
+            )
+            if delta_focus == 0:
+                return
+
+            self._stop_sweeping_wiggle(return_to_center=False)
+
+            prior_x: float | None = None
+            try:
+                prior_x, _prior_y = self.get_current_xy_position()
+            except Exception:
+                prior_x = None
+
+            compensated_x = self._apply_focus_wiggle_with_x_compensation(delta_focus)
+            focus_x_delta = self._focus_to_x_delta_mm(delta_focus)
+            if compensated_x is not None and prior_x is not None:
+                focus_x_delta = float(compensated_x) - float(prior_x)
+
+            sweep_center_x = float(sweep_center_x + focus_x_delta)
+            diagonal_geometry = (
+                abs(float(self.config.dx)) > 1e-9 and abs(float(self.config.dy)) > 1e-9
+            )
+            if diagonal_geometry:
+                y_per_x = -float(self.config.dy) / float(self.config.dx)
+                sweep_center_y = float(sweep_center_y + (focus_x_delta * y_per_x))
+
+            LOGGER.info(
+                "Sweeping wiggle refocus for wire %s: focus delta %s, new center %.3f,%.3f",
+                wire_number,
+                delta_focus,
+                sweep_center_x,
+                sweep_center_y,
+            )
+            self._start_sweeping_wiggle(
+                center_x=sweep_center_x,
+                center_y=sweep_center_y,
+                focus_target=target_focus,
+            )
+
         if self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0:
             self._start_sweeping_wiggle(
-                center_x=float(wire_x),
-                center_y=float(wire_y),
+                center_x=sweep_center_x,
+                center_y=sweep_center_y,
                 focus_target=best_focus,
             )
 
@@ -1884,6 +1994,7 @@ class Tensiometer:
                     break
 
                 if self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0:
+                    _adjust_sweep_focus()
                     continue
 
                 target_x, target_y, target_focus = _next_pose()
@@ -1911,8 +2022,8 @@ class Tensiometer:
             self._stop_sweeping_wiggle(
                 return_to_center=return_to_center
                 and bool(self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0),
-                center_x=float(wire_x),
-                center_y=float(wire_y),
+                center_x=sweep_center_x,
+                center_y=sweep_center_y,
                 focus_target=best_focus,
             )
 

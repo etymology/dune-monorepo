@@ -4,21 +4,6 @@ set -e
 # Run from the repo root regardless of where the script is invoked from.
 cd "$(dirname "$0")/.."
 
-echo "--- Building dune-tension-core (Rust) ---"
-uv run maturin build --manifest-path rust/crates/dune_tension_core/Cargo.toml
-
-# Copy the built library to the site-packages if on Darwin (macOS)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "--- Installing extension (macOS) ---"
-    cp rust/target/debug/libdune_tension_core.dylib ./.venv/lib/python3.13/site-packages/dune_tension_core/dune_tension_core.abi3.so
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    echo "--- Installing extension (Linux) ---"
-    cp rust/target/debug/libdune_tension_core.so ./.venv/lib/python3.13/site-packages/dune_tension_core/dune_tension_core.abi3.so
-fi
-
-echo "--- Running Rust/Python Surface Tests ---"
-uv run python tests/dune_tension/test_rust_surface.py
-
 echo "--- Launching dune-tension Interface (Spoofed) ---"
 if [[ "$*" == *"--gui"* ]]; then
     echo "Starting full GUI..."
@@ -43,4 +28,4 @@ print('Initialization successful.')
 "
 fi
 
-echo "Build, Run, and Test sequence completed successfully."
+echo "Run sequence completed successfully."

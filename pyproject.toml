@@ -23,8 +23,6 @@ dependencies = [
     "ty>=0.0.32",
     "scikit-learn>=1.8.0",
     "anthropic>=0.97.0",
-    "dune-rust-audio",
-    "dune-tension-core",
     "pytest-xdist>=3.8.0",
 ]
 
@@ -51,6 +49,9 @@ dune-tension-average-profile-clouds-gui = "dune_tension.gui.average_profile_clou
 dune-tension-upload-gui = "dune_tension.gui.upload_tensions_app:main"
 dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
 dune-spectrum-scroller = "spectrum_analysis.cli:main"
+dune-spectrum-recording-stats = "spectrum_analysis.recordings_pitch_stats:main"
+dune-spectrum-tune-hct = "spectrum_analysis.tune_hct:main"
+dune-spectrum-trigger-gui = "spectrum_analysis.trigger_capture_gui:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -67,17 +68,12 @@ spectrum_analysis = ["*.json"]
 [dependency-groups]
 dev = [
     "hypothesis>=6.112.0",
-    "maturin>=1.13.1",
     "onnx>=1.21.0",
     "onnxscript>=0.7.0",
     "pytest>=9.0.2",
     "pytest-xdist>=3.6",
     "ruff>=0.9.9",
 ]
-
-[tool.uv.sources]
-dune-rust-audio = { path = "rust/crates/dune-python" }
-dune-tension-core = { path = "rust/crates/dune_tension_core" }
 
 [tool.ruff]
 indent-width = 4

@@ -32,12 +32,12 @@ class StreamingAnalysisConfig:
     hop_size: int = 1024
     candidate_count: int = 48
     harmonic_weight_count: int = 8
-    min_harmonics: int = 3
+    min_harmonics: int = 1
     min_frequency_hz: float = 40.0
     max_frequency_hz: float = 1800.0
-    comb_threshold: float = 0.08
-    flatness_threshold: float = 0.65
-    min_rms: float = 0.001
+    comb_threshold: float = 0.0105
+    flatness_threshold: float = 0.745
+    min_rms: float = 0.0482
     expected_frequency_ratio: float = 0.08
     voiced_window_min_frames: int = 2
     voiced_window_gap_frames: int = 1

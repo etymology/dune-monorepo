@@ -2,8 +2,6 @@
 
 This script exports the Resnet1d encoder and ConfidenceClassifier from PESTO to ONNX,
 which can then be used with ONNX Runtime for faster inference.
-
-The Rust runtime reproduces the HCQT preprocessing from the exported manifest.
 """
 
 from __future__ import annotations
