@@ -122,7 +122,7 @@ Common exclusions:
 
 ## Using These Specs
 
-### For Rust Port
+### For a Port to Another Language
 
 - Start with `tension-measurement.allium` for measurement contracts.
 - Use `tension-physics.allium` for resonance equations and thresholds.

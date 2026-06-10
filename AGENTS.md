@@ -23,19 +23,6 @@ uv run dune-tension-gui          # wire tension GUI
 
 Make shorthands: `make test`, `make test-python`, `make lint`, `make format`, `make typecheck`.
 
-## Rust — root Cargo workspace
-
-Manifest: `rust/Cargo.toml`. Lockfile: `rust/Cargo.lock` (commit on dep changes). Run from monorepo root with explicit manifest path:
-
-```bash
-cargo test --workspace --manifest-path rust/Cargo.toml
-cargo clippy --workspace --manifest-path rust/Cargo.toml --all-targets
-cargo fmt --manifest-path rust/Cargo.toml --all
-uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
-```
-
-The PyO3 extension installs as `dune_tension._rust_audio`; build via `uv run maturin` so it lands in `.venv`.
-
 ## Type checking
 
 Run `uv run ty check` before considering a task complete. Report failures with `file:line` and error code.
@@ -48,7 +35,7 @@ Lives at `scripts/pre-commit`. Install once per clone:
 cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
 
-Runs on staged files: ruff format + check --fix + ty check (Python); cargo fmt + clippy --all-targets (Rust); markdownlint-cli2 --fix (Markdown). Re-stages auto-fixed files. Idempotent — sections skip if no matching files staged.
+Runs on staged files: ruff format + check --fix + ty check (Python); markdownlint-cli2 --fix (Markdown). Re-stages auto-fixed files. Idempotent — sections skip if no matching files staged.
 
 ## Markdown
 
@@ -68,13 +55,12 @@ The pre-commit hook handles staged `.md` files automatically.
 - Source: `src/dune_winder/`, `src/dune_tension/`, `src/spectrum_analysis/`
 - Tests: `tests/dune_tension/`, `tests/dune_winder/`
 - Data (not packages): `winder/plc/`, `tension/data/`
-- Lockfiles (commit both): `uv.lock`, `rust/Cargo.lock`
-- Python ≥ 3.12; Rust ≥ 1.83 for `_rust_audio`
+- Lockfile (commit): `uv.lock`
+- Python ≥ 3.12
 
 ```bash
 uv run pytest tests/dune_tension
 uv run pytest tests/dune_winder
-cargo test --workspace --manifest-path rust/Cargo.toml
 ```
 
 ## Commits

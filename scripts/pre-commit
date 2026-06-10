@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Pre-commit hook: format/lint staged Python files with ruff, type-check them
-# with ty, format/lint staged Rust files with cargo, and lint staged Markdown
-# files with markdownlint-cli2.
+# with ty, and lint staged Markdown files with markdownlint-cli2.
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 set -euo pipefail
@@ -24,22 +23,6 @@ if [ -n "$STAGED_PY" ]; then
 
   echo "ty: type-checking staged Python files…"
   uv run ty check
-fi
-
-# ── Rust ──────────────────────────────────────────────────────────────────────
-STAGED_RUST=$(git diff --cached --name-only --diff-filter=ACM \
-  | grep -E '(^rust/.*\.rs$|^rust/Cargo\.toml$|^rust/.*/Cargo\.toml$|^rust/Cargo\.lock$)' \
-  || true)
-
-if [ -n "$STAGED_RUST" ]; then
-  echo "cargo fmt: formatting Rust workspace…"
-  cargo fmt --manifest-path rust/Cargo.toml --all
-
-  # Re-stage any files rustfmt modified.
-  echo "$STAGED_RUST" | xargs git add
-
-  echo "cargo clippy: linting Rust workspace…"
-  cargo clippy --workspace --manifest-path rust/Cargo.toml --all-targets
 fi
 
 # ── PLC studio_copy.rllscrap → pasteable.rll ─────────────────────────────────

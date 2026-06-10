@@ -5,7 +5,6 @@ Wire-tension measurement tooling for DUNE APA work, including:
 - A Tk GUI for guided measurements (`dune_tension`)
 - Spectrum/pitch analysis CLIs (`spectrum_analysis`)
 - PLC/servo/valve control integration
-- Optional Rust audio/DSP/ONNX backend exposed through `dune_tension._rust_audio`
 - Logging, summaries, plots, and M2M upload utilities
 
 The supported setup and development workflow starts at the monorepo root.
@@ -24,7 +23,6 @@ debug commands. This README keeps package-specific operational detail only.
 ## Requirements
 
 - Python `>=3.12`
-- Rust `>=1.83` when building the optional Rust audio extension
 - macOS/Linux with audio input support
 - Optional hardware:
   - PLC reachable either directly via `pycomm3` or through `src/dune_tension/tension_server.py`
@@ -32,8 +30,6 @@ debug commands. This README keeps package-specific operational detail only.
   - Supported valve trigger device
 
 Project dependencies are declared in [pyproject.toml](pyproject.toml).
-Rust crates and dependency versions are declared in [../rust/Cargo.toml](../rust/Cargo.toml)
-and locked by [../rust/Cargo.lock](../rust/Cargo.lock).
 
 ## Entry Points
 
@@ -138,22 +134,12 @@ Default runtime paths include:
 - Plots: `tension/data/tension_plots/`
 - Missing/bad wires: `tension/data/badwires/`
 
-## Rust Audio Backend
+## PESTO Backend Selection
 
-The optional Rust extension accelerates audio DSP helpers and exposes an ONNX
-PESTO path. Build it into the root `.venv` with:
-
-```bash
-uv run maturin develop --manifest-path rust/crates/dune-python/Cargo.toml
-```
-
+PESTO pitch inference runs in pure Python with either PyTorch or ONNX Runtime.
 Runtime selection is controlled by:
 
-- `DUNE_AUDIO_BACKEND=auto|rust|python`
-- `PESTO_BACKEND=auto|rust_onnx|onnx|pytorch`
-
-See [../rust/README.md](../rust/README.md) for crate layout, feature flags, and
-Rust-specific test commands.
+- `PESTO_BACKEND=auto|onnx|pytorch`
 
 ## Spectrum / Pitch Tools
 
