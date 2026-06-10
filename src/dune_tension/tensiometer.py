@@ -1746,10 +1746,74 @@ class Tensiometer:
 
             return float(target_x), float(target_y), int(target_focus)
 
+        sweep_center_x = float(wire_x)
+        sweep_center_y = float(wire_y)
+
+        def _adjust_sweep_focus() -> None:
+            """Refocus (with X compensation) after a sweep without a good recording.
+
+            The sweep thread owns the gantry while it runs, so it is stopped
+            before the focus/X compensation move and restarted around the
+            compensated center.
+            """
+            nonlocal sweep_center_x, sweep_center_y, focus_step_quarter_us
+
+            if (
+                not self._has_focus_wiggle_callback
+                or self.use_manual_focus
+                or focus_step_quarter_us <= 0
+            ):
+                return
+
+            target_focus = self._clamp_focus_position(
+                int(round(self._gauss(best_focus, focus_step_quarter_us)))
+            )
+            delta_focus = int(target_focus - self._get_focus_position())
+            focus_step_quarter_us = max(
+                min_focus_step_quarter_us,
+                int(focus_step_quarter_us * 0.85),
+            )
+            if delta_focus == 0:
+                return
+
+            self._stop_sweeping_wiggle(return_to_center=False)
+
+            prior_x: float | None = None
+            try:
+                prior_x, _prior_y = self.get_current_xy_position()
+            except Exception:
+                prior_x = None
+
+            compensated_x = self._apply_focus_wiggle_with_x_compensation(delta_focus)
+            focus_x_delta = self._focus_to_x_delta_mm(delta_focus)
+            if compensated_x is not None and prior_x is not None:
+                focus_x_delta = float(compensated_x) - float(prior_x)
+
+            sweep_center_x = float(sweep_center_x + focus_x_delta)
+            diagonal_geometry = (
+                abs(float(self.config.dx)) > 1e-9 and abs(float(self.config.dy)) > 1e-9
+            )
+            if diagonal_geometry:
+                y_per_x = -float(self.config.dy) / float(self.config.dx)
+                sweep_center_y = float(sweep_center_y + (focus_x_delta * y_per_x))
+
+            LOGGER.info(
+                "Sweeping wiggle refocus for wire %s: focus delta %s, new center %.3f,%.3f",
+                wire_number,
+                delta_focus,
+                sweep_center_x,
+                sweep_center_y,
+            )
+            self._start_sweeping_wiggle(
+                center_x=sweep_center_x,
+                center_y=sweep_center_y,
+                focus_target=target_focus,
+            )
+
         if self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0:
             self._start_sweeping_wiggle(
-                center_x=float(wire_x),
-                center_y=float(wire_y),
+                center_x=sweep_center_x,
+                center_y=sweep_center_y,
                 focus_target=best_focus,
             )
 
@@ -1930,6 +1994,7 @@ class Tensiometer:
                     break
 
                 if self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0:
+                    _adjust_sweep_focus()
                     continue
 
                 target_x, target_y, target_focus = _next_pose()
@@ -1957,8 +2022,8 @@ class Tensiometer:
             self._stop_sweeping_wiggle(
                 return_to_center=return_to_center
                 and bool(self.sweeping_wiggle and self.sweeping_wiggle_span_mm > 0.0),
-                center_x=float(wire_x),
-                center_y=float(wire_y),
+                center_x=sweep_center_x,
+                center_y=sweep_center_y,
                 focus_target=best_focus,
             )
 

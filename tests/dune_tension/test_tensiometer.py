@@ -1139,6 +1139,140 @@ def test_focus_wiggle_without_callback_does_not_adjust_x():
     assert motion.moves == []
 
 
+def test_collect_samples_sweeping_wiggle_refocuses_after_bad_sweep(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: [1.0])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+
+    confidences = iter([0.5])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "estimate_pitch_from_audio",
+        lambda *_args: (5.0, next(confidences, 0.95)),
+    )
+
+    def _raise_analysis(*_args, **_kwargs):
+        raise RuntimeError("fallback to simple pitch estimate")
+
+    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+
+    motion = _make_motion_service(start_x=1.0, start_y=2.0)
+    focus_state = {"value": 5000}
+    focus_deltas: list[int] = []
+
+    def _focus_wiggle(delta: int) -> None:
+        focus_state["value"] += int(delta)
+        focus_deltas.append(int(delta))
+
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_threshold=0.9,
+        measuring_duration=5.0,
+        sweeping_wiggle=True,
+        sweeping_wiggle_span_mm=1.0,
+        focus_wiggle_sigma_quarter_us=100,
+        focus_wiggle=_focus_wiggle,
+        focus_position_getter=lambda: focus_state["value"],
+        gauss_func=lambda mu, sigma: mu + sigma,
+        datetime_provider=lambda: datetime(2026, 6, 10, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert samples is not None
+    assert [round(s.confidence, 2) for s in samples] == [0.5, 0.95]
+    # The low-confidence first sweep triggers one gaussian focus nudge
+    # (best 5000 + sigma 100) before the second sweep succeeds.
+    assert focus_deltas == [100]
+    assert focus_state["value"] == 5100
+    # Side A couples +focus to +X; the compensation shifts the sweep center
+    # from 1.0 to 1.3 and the final return-to-center lands there.
+    expected_center_x = round(
+        1.0 + 100 * tensiometer_module.FOCUS_X_MM_PER_QUARTER_US, 1
+    )
+    assert motion.moves[-1] == (expected_center_x, 2.0)
+
+
+def test_collect_samples_sweeping_wiggle_skips_refocus_without_callback(monkeypatch):
+    _patch_result_physics(monkeypatch)
+    repository = DummyRepository()
+
+    monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: [1.0])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "wire_equation",
+        lambda *, length, frequency=None: {
+            "frequency": 5.0,
+            "tension": 0.5 if frequency is not None else 0.0,
+        },
+    )
+    monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
+
+    confidences = iter([0.5])
+    monkeypatch.setattr(
+        tensiometer_module,
+        "estimate_pitch_from_audio",
+        lambda *_args: (5.0, next(confidences, 0.95)),
+    )
+
+    def _raise_analysis(*_args, **_kwargs):
+        raise RuntimeError("fallback to simple pitch estimate")
+
+    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+
+    motion = _make_motion_service(start_x=1.0, start_y=2.0)
+    tensiometer = Tensiometer(
+        apa_name="APA",
+        layer="X",
+        side="A",
+        motion=motion,
+        audio=_make_audio_service(),
+        repository=repository,
+        confidence_threshold=0.9,
+        measuring_duration=5.0,
+        sweeping_wiggle=True,
+        sweeping_wiggle_span_mm=1.0,
+        gauss_func=lambda mu, sigma: mu + sigma,
+        datetime_provider=lambda: datetime(2026, 6, 10, 12, 0, 0),
+    )
+    tensiometer.strum_func = lambda: None
+
+    samples = tensiometer._collect_samples(
+        wire_number=1,
+        length=1.0,
+        start_time=time.time(),
+        wire_y=2.0,
+        wire_x=1.0,
+    )
+
+    assert samples is not None
+    assert [round(s.confidence, 2) for s in samples] == [0.5, 0.95]
+    # Without a focus wiggle callback the sweep center never shifts.
+    assert motion.moves[-1] == (1.0, 2.0)
+
+
 def test_goto_collect_wire_data_applies_planned_focus_before_xy_move(monkeypatch):
     _patch_result_physics(monkeypatch)
     motion = _make_motion_service(start_x=10.0, start_y=2.0)
