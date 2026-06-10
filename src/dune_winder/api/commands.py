@@ -1807,6 +1807,114 @@ def build_command_registry(
 
     registry.register("sim_plc.clear_error", sim_plc_clear_error, True)
 
+    # ---------------------------------------------------------------------------
+    # Load-cell calibration (tension_tag -> tension quartic fit).
+    # ---------------------------------------------------------------------------
+    from pathlib import Path as _Path
+
+    from dune_winder.machine.calibration import loadcell as loadcell_module
+    from dune_winder.machine.settings import Settings as _Settings
+
+    _loadcell_calibration = loadcell_module.LoadcellCalibration(
+        _Path(_Settings.MACHINE_CALIBRATION_PATH) / "loadcell_calibration.json"
+    )
+
+    def _loadcell_plc():
+        return getattr(io, "plc", None)
+
+    def loadcell_calibration_get_state(args):
+        _validateArgs(args)
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.get_state", loadcell_calibration_get_state, False
+    )
+
+    def loadcell_calibration_read_live(args):
+        _validateArgs(args)
+        return loadcell_module.read_live(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.read_live", loadcell_calibration_read_live, False
+    )
+
+    def loadcell_calibration_capture_sample(args):
+        _validateArgs(args, required=("grams",))
+        grams = _asFloat(args["grams"], "grams")
+        capture = loadcell_module.capture_stable_tension(_loadcell_plc())
+        _loadcell_calibration.add_sample(grams, capture["tensionTag"])
+        state = _loadcell_calibration.state(_loadcell_plc())
+        state["capture"] = capture
+        return state
+
+    registry.register(
+        "loadcell_calibration.capture_sample", loadcell_calibration_capture_sample, True
+    )
+
+    def loadcell_calibration_add_sample(args):
+        _validateArgs(args, required=("grams", "tension_tag"))
+        _loadcell_calibration.add_sample(
+            _asFloat(args["grams"], "grams"),
+            _asFloat(args["tension_tag"], "tension_tag"),
+        )
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.add_sample", loadcell_calibration_add_sample, True
+    )
+
+    def loadcell_calibration_delete_sample(args):
+        _validateArgs(args, required=("id",))
+        _loadcell_calibration.delete_sample(_asInt(args["id"], "id"))
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.delete_sample", loadcell_calibration_delete_sample, True
+    )
+
+    def loadcell_calibration_clear_samples(args):
+        _validateArgs(args)
+        _loadcell_calibration.clear()
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.clear_samples", loadcell_calibration_clear_samples, True
+    )
+
+    def loadcell_calibration_set_fix_intercept(args):
+        _validateArgs(args, required=("enabled",))
+        _loadcell_calibration.set_fix_intercept(_asBool(args["enabled"], "enabled"))
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.set_fix_intercept",
+        loadcell_calibration_set_fix_intercept,
+        True,
+    )
+
+    def loadcell_calibration_set_max_degree(args):
+        _validateArgs(args, required=("max_degree",))
+        _loadcell_calibration.set_max_degree(_asInt(args["max_degree"], "max_degree"))
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.set_max_degree",
+        loadcell_calibration_set_max_degree,
+        True,
+    )
+
+    def loadcell_calibration_apply(args):
+        _validateArgs(args)
+        fit = _loadcell_calibration.fit()
+        if fit is None:
+            raise ValueError("Not enough samples to fit the quartic.")
+        if "error" in fit:
+            raise ValueError(fit["error"])
+        loadcell_module.write_plc_coefficients(_loadcell_plc(), fit["coefficients"])
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register("loadcell_calibration.apply", loadcell_calibration_apply, True)
+
     if systemTime is not None:
         registry.register(
             "system.get_time",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "Camera",
   "main_routine_name": "CameraControl",
@@ -265,8 +265,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": 0.0
+      "program": "Camera"
     },
     {
       "name": "Cam_F_InspectionRes_1",
@@ -281,8 +280,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": 0.0
+      "program": "Camera"
     },
     {
       "name": "Cam_F_InspectionRes_2",
@@ -297,8 +295,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": 0.0
+      "program": "Camera"
     },
     {
       "name": "Cam_F_InspectionRes_3",
@@ -313,8 +310,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": 0.0
+      "program": "Camera"
     },
     {
       "name": "FIFO_CTRL",
@@ -330,19 +326,7 @@
       ],
       "array_dimensions": 1,
       "program": "Camera",
-      "udt_name": "CONTROL",
-      "value": {
-        "LEN": 10,
-        "POS": 0,
-        "EN": false,
-        "EU": false,
-        "DN": false,
-        "EM": true,
-        "ER": false,
-        "UL": false,
-        "IN": false,
-        "FD": false
-      }
+      "udt_name": "CONTROL"
     },
     {
       "name": "foundIt",
@@ -358,8 +342,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "LightRing",
@@ -375,14 +358,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 100,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "Manual_Trig",
@@ -398,8 +374,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "osob",
@@ -414,8 +389,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": false
+      "program": "Camera"
     },
     {
       "name": "ossb",
@@ -430,8 +404,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": false
+      "program": "Camera"
     },
     {
       "name": "Pos_trigger",
@@ -447,8 +420,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0,
-      "value": true
+      "bit_position": 0
     },
     {
       "name": "RegistrationData",
@@ -464,153 +436,7 @@
       ],
       "array_dimensions": 1,
       "program": "Camera",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": [
-        {
-          "FLAGS": -1845493760,
-          "EN": true,
-          "DN": false,
-          "ER": true,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 3,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": -1845493760,
-          "EN": true,
-          "DN": false,
-          "ER": true,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 3,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": 0,
-          "EN": false,
-          "DN": false,
-          "ER": false,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 0,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": 0,
-          "EN": false,
-          "DN": false,
-          "ER": false,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 0,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": 0,
-          "EN": false,
-          "DN": false,
-          "ER": false,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 0,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": 0,
-          "EN": false,
-          "DN": false,
-          "ER": false,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 0,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": 0,
-          "EN": false,
-          "DN": false,
-          "ER": false,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 0,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        },
-        {
-          "FLAGS": 0,
-          "EN": false,
-          "DN": false,
-          "ER": false,
-          "PC": false,
-          "IP": false,
-          "AC": false,
-          "ACCEL": false,
-          "DECEL": false,
-          "TrackingMaster": false,
-          "CalculatedDataAvailable": false,
-          "ERR": 0,
-          "STATUS": 0,
-          "STATE": 0,
-          "SEGMENT": 0,
-          "EXERR": 0
-        }
-      ]
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "triggerOneShotOB",
@@ -626,8 +452,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "triggerOneShotSB",
@@ -643,8 +468,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0,
-      "value": true
+      "bit_position": 0
     },
     {
       "name": "TriggerResetTimer1",
@@ -660,14 +484,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 100,
-        "ACC": 5,
-        "EN": true,
-        "TT": true,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "TriggerResetTimer2",
@@ -683,14 +500,7 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 100,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
-        "DN": false
-      }
+      "udt_name": "TIMER"
     },
     {
       "name": "X_axis_Cam_F_Pos",
@@ -705,8 +515,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": 0.0
+      "program": "Camera"
     },
     {
       "name": "X_axis_Cam_F_Position",
@@ -721,8 +530,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera",
-      "value": -5.179965496063232
+      "program": "Camera"
     },
     {
       "name": "x_pos",
@@ -737,8 +545,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera",
-      "value": 564.0050048828125
+      "program": "Camera"
     },
     {
       "name": "x_pos_next",
@@ -753,8 +560,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera",
-      "value": 564.0050048828125
+      "program": "Camera"
     },
     {
       "name": "Y_axis_Cam_F_Pos",
@@ -769,8 +575,7 @@
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera",
-      "value": 0.0
+      "program": "Camera"
     },
     {
       "name": "Y_axis_Cam_F_Position",
@@ -785,8 +590,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera",
-      "value": 12.123627662658691
+      "program": "Camera"
     },
     {
       "name": "y_pos",
@@ -801,8 +605,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera",
-      "value": 2465.83984375
+      "program": "Camera"
     },
     {
       "name": "y_pos_next",
@@ -817,9 +620,7 @@
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera",
-      "value": 2465.83984375
+      "program": "Camera"
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

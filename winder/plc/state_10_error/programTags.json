@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_10_error",
   "main_routine_name": "main",
@@ -155,8 +155,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "STATE10_IND",
@@ -172,8 +171,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "error_entry_sb",
@@ -189,8 +187,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "error_entry_ob",
@@ -206,8 +203,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "xy_error_stop_control",
@@ -223,25 +219,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "z_axis_error_stop_control",
@@ -257,25 +235,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "error_axes_stopped_sb",
@@ -291,8 +251,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "error_axes_stopped_ob",
@@ -308,8 +267,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "x_axis_msf",
@@ -325,25 +283,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_axis_msf",
@@ -359,25 +299,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "z_axis_msf",
@@ -393,25 +315,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "error_servoed_off_sb",
@@ -427,8 +331,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "error_servoed_off_ob",
@@ -444,8 +347,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "z_axis_mafr",
@@ -461,25 +363,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_axis_mafr",
@@ -495,25 +379,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "x_axis_mafr",
@@ -529,26 +395,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_10_error",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 0,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

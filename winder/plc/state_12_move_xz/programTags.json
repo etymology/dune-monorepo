@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-04T17:09:12.013385+00:00",
+  "generated_at": "2026-06-08T19:07:46.280187+00:00",
   "plc_path": "192.168.140.13",
   "program_name": "state_12_move_xz",
   "main_routine_name": "main",
@@ -155,25 +155,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_12_move_xz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 671088640,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "STATE12_IND",
@@ -189,8 +171,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_12_move_xz",
-      "bit_position": 0,
-      "value": false
+      "bit_position": 0
     },
     {
       "name": "xz_stop",
@@ -206,25 +187,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_12_move_xz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "xy_stop",
@@ -240,25 +203,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_12_move_xz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 33554432,
-        "EN": false,
-        "DN": false,
-        "ER": false,
-        "PC": false,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     },
     {
       "name": "y_axis_stop",
@@ -274,26 +219,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_12_move_xz",
-      "udt_name": "MOTION_INSTRUCTION",
-      "value": {
-        "FLAGS": 704643072,
-        "EN": false,
-        "DN": true,
-        "ER": false,
-        "PC": true,
-        "IP": false,
-        "AC": false,
-        "ACCEL": false,
-        "DECEL": false,
-        "TrackingMaster": false,
-        "CalculatedDataAvailable": false,
-        "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
-        "SEGMENT": 0,
-        "EXERR": 0
-      }
+      "udt_name": "MOTION_INSTRUCTION"
     }
-  ],
-  "values_generated_at": "2026-05-04T17:09:30.994502+00:00"
+  ]
 }

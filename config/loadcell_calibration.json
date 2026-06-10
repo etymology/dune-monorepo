@@ -1,0 +1,55 @@
+{
+  "fixIntercept": false,
+  "maxDegree": 1,
+  "nextId": 25,
+  "samples": [
+    {
+      "id": 1,
+      "grams": 750.0,
+      "tensionTag": 7.028712272644043,
+      "createdAt": 1781020484.9908695
+    },
+    {
+      "id": 2,
+      "grams": 650.0,
+      "tensionTag": 6.036468744277954,
+      "createdAt": 1781020515.5504107
+    },
+    {
+      "id": 3,
+      "grams": 550.0,
+      "tensionTag": 5.083403015136719,
+      "createdAt": 1781020538.7680387
+    },
+    {
+      "id": 4,
+      "grams": 400.0,
+      "tensionTag": 3.6496463060379027,
+      "createdAt": 1781020577.5413265
+    },
+    {
+      "id": 6,
+      "grams": 900.0,
+      "tensionTag": 8.482101440429688,
+      "createdAt": 1781020654.1848624
+    },
+    {
+      "id": 8,
+      "grams": 1000.0,
+      "tensionTag": 9.33693332672119,
+      "createdAt": 1781020911.2185903
+    },
+    {
+      "id": 9,
+      "grams": 950.0,
+      "tensionTag": 8.929535961151123,
+      "createdAt": 1781020955.986115
+    },
+    {
+      "id": 23,
+      "grams": 350.0,
+      "tensionTag": 3.1570867538452148,
+      "createdAt": 1781022605.5344768
+    }
+  ]
+}
