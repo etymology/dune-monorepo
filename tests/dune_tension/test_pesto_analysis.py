@@ -204,13 +204,6 @@ def test_auto_backend_uses_pytorch_inference(monkeypatch):
 
         return fake_model
 
-    from dune_tension import rust_audio
-
-    monkeypatch.setattr(
-        rust_audio,
-        "analyze_pesto_onnx",
-        lambda *_args, **_kwargs: pytest.fail("auto should not use Rust ONNX"),
-    )
     monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
     monkeypatch.setattr(pesto_analysis, "load_model", fake_load_model)
     monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
@@ -459,10 +452,6 @@ def test_onnx_backend_selected_via_env(monkeypatch):
 def test_backend_selection_without_env(monkeypatch):
     """Test backend selection when PESTO_BACKEND is not set."""
     monkeypatch.delenv("PESTO_BACKEND", raising=False)
-    from dune_tension import rust_audio
-
-    monkeypatch.setattr(rust_audio, "is_available", lambda: False)
-    monkeypatch.setattr(rust_audio, "find_pesto_onnx_paths", lambda *_args: None)
 
     def fake_check_available():
         return False

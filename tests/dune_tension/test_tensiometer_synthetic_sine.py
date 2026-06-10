@@ -22,13 +22,6 @@ from test_tensiometer import (
 def _pesto_available() -> bool:
     """Return True if any PESTO backend can plausibly run inference."""
     try:
-        from dune_tension import rust_audio
-
-        if rust_audio.should_try_rust_pesto():
-            return True
-    except Exception:
-        pass
-    try:
         from spectrum_analysis import pesto_onnx  # noqa: F401
 
         if pesto_analysis._check_onnx_backend_available():

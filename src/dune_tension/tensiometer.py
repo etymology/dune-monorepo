@@ -1088,16 +1088,6 @@ class Tensiometer:
         audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
         if audio_array.size == 0:
             return 0.0
-        try:
-            from dune_tension import rust_audio
-
-            if rust_audio.should_use_audio_backend():
-                return rust_audio.rms(audio_array)
-        except Exception:
-            import os
-
-            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
-                raise
         audio_float = audio_array.astype(np.float64, copy=False)
         return float(np.sqrt(np.mean(np.square(audio_float))))
 
@@ -1117,21 +1107,6 @@ class Tensiometer:
             return float("nan")
         if not np.isfinite(frequency) or frequency <= 0.0:
             return float("nan")
-        try:
-            from dune_tension import rust_audio
-
-            if rust_audio.should_use_audio_backend():
-                return rust_audio.triangle_reference_rms(
-                    sample_rate,
-                    duration,
-                    frequency,
-                )
-        except Exception:
-            import os
-
-            if os.environ.get("DUNE_AUDIO_BACKEND", "").strip().lower() == "rust":
-                raise
-
         sample_count = max(int(round(duration * sample_rate)), 1)
         times = np.arange(sample_count, dtype=np.float64) / float(sample_rate)
         phase = np.mod(times * frequency, 1.0)
