@@ -49,6 +49,9 @@ dune-tension-average-profile-clouds-gui = "dune_tension.gui.average_profile_clou
 dune-tension-upload-gui = "dune_tension.gui.upload_tensions_app:main"
 dune-spectrum-compare = "spectrum_analysis.compare_pitch_cli:main"
 dune-spectrum-scroller = "spectrum_analysis.cli:main"
+dune-spectrum-recording-stats = "spectrum_analysis.recordings_pitch_stats:main"
+dune-spectrum-tune-hct = "spectrum_analysis.tune_hct:main"
+dune-spectrum-trigger-gui = "spectrum_analysis.trigger_capture_gui:main"
 
 [build-system]
 requires = ["setuptools>=68"]

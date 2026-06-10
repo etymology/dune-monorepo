@@ -278,8 +278,14 @@ def record_with_harmonic_comb(
     comb_cfg: HarmonicCombConfig = HarmonicCombConfig(),
     recording_started_callback: Callable[[], None] | None = None,
     stop_event: threading.Event | None = None,
+    frame_callback: Callable[[float, float, float, bool, bool], None] | None = None,
 ) -> np.ndarray | None:
-    """Record audio using the harmonic comb trigger."""
+    """Record audio using the harmonic comb trigger.
+
+    ``frame_callback`` (if given) receives
+    ``(elapsed_seconds, comb_score, spectral_flatness, harmonic_valid, triggered)``
+    for every analysis frame, so callers can trace the trigger behaviour.
+    """
     start_time = time.time()
     if timeout_seconds is None:
         timeout_seconds = max_record_seconds
@@ -359,6 +365,11 @@ def record_with_harmonic_comb(
                     min_harmonics,
                 )
                 frame_buffer = frame_buffer[hop:]
+
+                if frame_callback is not None:
+                    frame_callback(
+                        time.time() - start_time, r_value, sfm, valid, triggered
+                    )
 
                 if not triggered:
                     if (
