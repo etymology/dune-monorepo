@@ -42,7 +42,11 @@ from dune_tension.gui.crash_logging import (
     install_gui_crash_logging,
     install_tk_exception_logging,
 )
-from dune_tension.gui._layout import configure_root_minimum_size
+from dune_tension.gui._layout import (
+    configure_fixed_fullscreen,
+    configure_root_minimum_size,
+    freeze_frame_sizes,
+)
 from dune_tension.gui.context import GUIContext, GUIWidgets, create_context
 from dune_tension.gui.live_plots import LivePlotManager
 from dune_tension.gui.logging_panel import configure_gui_logging
@@ -757,6 +761,8 @@ def _create_widgets(
     }
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
+    configure_fixed_fullscreen(root)
+    freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
 
     return (
         widgets,

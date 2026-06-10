@@ -115,3 +115,64 @@ def configure_root_minimum_size(
             minsize(total_width, total_height)
         except Exception:
             return
+
+
+def configure_fixed_fullscreen(root: tk.Misc) -> None:
+    """Pin the root window to the full screen and disable resizing.
+
+    A fixed window keeps the outer grid geometry constant so regenerated plot
+    canvases can never trigger a window-level resize.
+    """
+
+    screen_width = safe_screen_dimension(root, "winfo_screenwidth")
+    screen_height = safe_screen_dimension(root, "winfo_screenheight")
+    if screen_width is None or screen_height is None:
+        return
+
+    geometry = getattr(root, "geometry", None)
+    if callable(geometry):
+        try:
+            geometry(f"{screen_width}x{screen_height}+0+0")
+        except Exception:
+            return
+
+    resizable = getattr(root, "resizable", None)
+    if callable(resizable):
+        try:
+            resizable(False, False)
+        except Exception:
+            pass
+
+
+def freeze_frame_sizes(root: tk.Misc, *frames: tk.Misc) -> None:
+    """Lock each frame at its currently allocated size.
+
+    With geometry propagation switched off, replacing a frame's children
+    (e.g. swapping a placeholder label for a freshly rendered matplotlib
+    canvas) no longer changes the frame's requested size, so plot refreshes
+    cannot reflow the surrounding layout.
+    """
+
+    update = getattr(root, "update", None)
+    if callable(update):
+        try:
+            # A full update maps the window so winfo_width/height report the
+            # real allocated sizes rather than the pre-layout default of 1.
+            update()
+        except Exception:
+            return
+
+    for frame in frames:
+        configure = getattr(frame, "configure", None)
+        if not callable(configure):
+            continue
+        try:
+            width = int(frame.winfo_width())
+            height = int(frame.winfo_height())
+            if width <= 1 or height <= 1:
+                width = max(width, int(frame.winfo_reqwidth()))
+                height = max(height, int(frame.winfo_reqheight()))
+            configure(width=max(width, 1), height=max(height, 1))
+            frame.grid_propagate(False)
+        except Exception:
+            continue

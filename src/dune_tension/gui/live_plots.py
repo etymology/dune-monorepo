@@ -403,6 +403,18 @@ class LivePlotManager:
         else:
             placeholder.grid_forget()
 
+        # Match the figure to the frozen parent frame before the canvas is
+        # built so the first paint is already at the final size; otherwise the
+        # canvas draws at the default figsize and snaps on the next resize.
+        try:
+            width_px = int(parent.winfo_width())
+            height_px = int(parent.winfo_height())
+            if width_px > 1 and height_px > 1:
+                dpi = float(figure.get_dpi())
+                figure.set_size_inches(width_px / dpi, height_px / dpi, forward=False)
+        except Exception:
+            pass
+
         canvas = FigureCanvasTkAgg(figure, master=parent)
         with figure_lock_or_skip(TK_DRAW_LOCK_TIMEOUT_S) as acquired:
             if not acquired:

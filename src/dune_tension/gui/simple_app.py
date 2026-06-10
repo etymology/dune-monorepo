@@ -14,7 +14,11 @@ import tkinter.font as tkfont
 
 from dune_tension import apa_naming
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
-from dune_tension.gui._layout import configure_root_minimum_size
+from dune_tension.gui._layout import (
+    configure_fixed_fullscreen,
+    configure_root_minimum_size,
+    freeze_frame_sizes,
+)
 from dune_tension.gui.actions import (
     adjust_focus_with_x_compensation,
     capture_laser_offset_button,
@@ -490,6 +494,8 @@ def _create_widgets(
     extras = {"gcode_entry": entry_gcode}
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
+    configure_fixed_fullscreen(root)
+    freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
 
     return (
         widgets,
@@ -572,9 +578,7 @@ def _configure_commands(
                 ctx.root.after_cancel(after_id)
             except Exception:
                 pass
-        pending_focus["after_id"] = ctx.root.after(
-            250, lambda: _commit_focus(target)
-        )
+        pending_focus["after_id"] = ctx.root.after(250, lambda: _commit_focus(target))
 
     widgets.focus_slider.configure(command=_schedule_focus)
     for variable in (
