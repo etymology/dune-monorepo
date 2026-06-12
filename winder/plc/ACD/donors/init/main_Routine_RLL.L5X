@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 11:36:18 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="DUNEW2PLC1">
+<Programs Use="Context">
+<Program Use="Context" Name="init" Class="Standard">
+<Routines Use="Context">
+<Routine Use="Target" Name="main" Type="RLL"/>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

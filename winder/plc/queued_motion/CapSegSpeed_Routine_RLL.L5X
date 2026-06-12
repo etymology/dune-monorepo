@@ -1,0 +1,317 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="CapSegSpeed" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 14:10:57 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="DUNEW2PLC1">
+<Programs Use="Context">
+<Program Use="Context" Name="queued_motion" Class="Standard">
+<Routines Use="Context">
+<Routine Use="Target" Name="CapSegSpeed" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[NEQ(DINTS[5],0)JMP(lbl_else_46);]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[JMP(lbl_CapSegSpeed_end);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_46)[LEQ(REALS[38],0.0) ,LEQ(REALS[39],0.0) ]OTL(BOOLS[901]);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[GRT(REALS[38],0.0)GRT(REALS[39],0.0)JMP(lbl_else_48);]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[OTL(BOOLS[8]);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[JMP(lbl_CapSegSpeed_end);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_48)[LES(REALS[38],3.4028235E+38) ,LES(REALS[39],3.4028235E+38) ]OTL(BOOLS[902]);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Text>
+<![CDATA[XIC(BOOLS[902])JMP(lbl_else_50);]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[JMP(lbl_CapSegSpeed_end);]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_50)XIC(BOOLS[7])JMP(lbl_else_52);]]>
+</Text>
+</Rung>
+<Rung Number="10" Type="N">
+<Text>
+<![CDATA[MOV(SegQueue[0].XY[0],REALS[42]);]]>
+</Text>
+</Rung>
+<Rung Number="11" Type="N">
+<Text>
+<![CDATA[MOV(SegQueue[0].XY[1],REALS[43]);]]>
+</Text>
+</Rung>
+<Rung Number="12" Type="N">
+<Text>
+<![CDATA[OTL(BOOLS[9]);]]>
+</Text>
+</Rung>
+<Rung Number="13" Type="N">
+<Text>
+<![CDATA[JMP(lbl_end_53);]]>
+</Text>
+</Rung>
+<Rung Number="14" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_52)MOV(REALS[40],REALS[42]);]]>
+</Text>
+</Rung>
+<Rung Number="15" Type="N">
+<Text>
+<![CDATA[MOV(REALS[41],REALS[43]);]]>
+</Text>
+</Rung>
+<Rung Number="16" Type="N">
+<Text>
+<![CDATA[OTU(BOOLS[9]);]]>
+</Text>
+</Rung>
+<Rung Number="17" Type="N">
+<Text>
+<![CDATA[LBL(lbl_end_53)MOV(0,idx_3);]]>
+</Text>
+</Rung>
+<Rung Number="18" Type="N">
+<Text>
+<![CDATA[LBL(lbl_loop_54)GEQ(idx_3,DINTS[5])JMP(lbl_loop_end_55);]]>
+</Text>
+</Rung>
+<Rung Number="19" Type="N">
+<Text>
+<![CDATA[[NEQ(idx_3,0) ,XIO(BOOLS[9]) ]OTL(BOOLS[903]);]]>
+</Text>
+</Rung>
+<Rung Number="20" Type="N">
+<Text>
+<![CDATA[XIC(BOOLS[903])JMP(lbl_else_56);]]>
+</Text>
+</Rung>
+<Rung Number="21" Type="N">
+<Text>
+<![CDATA[LES(REALS[38],REALS[39])JMP(lbl_min_a_58);]]>
+</Text>
+</Rung>
+<Rung Number="22" Type="N">
+<Text>
+<![CDATA[MOV(REALS[39],REALS[44])JMP(lbl_min_end_59);]]>
+</Text>
+</Rung>
+<Rung Number="23" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_a_58)MOV(REALS[38],REALS[44]);]]>
+</Text>
+</Rung>
+<Rung Number="24" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_end_59)MOV(1.0,REALS[45]);]]>
+</Text>
+</Rung>
+<Rung Number="25" Type="N">
+<Text>
+<![CDATA[MOV(1.0,REALS[46]);]]>
+</Text>
+</Rung>
+<Rung Number="26" Type="N">
+<Text>
+<![CDATA[JMP(lbl_end_57);]]>
+</Text>
+</Rung>
+<Rung Number="27" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_56)MOV(REALS[42],REALS[20]);]]>
+</Text>
+</Rung>
+<Rung Number="28" Type="N">
+<Text>
+<![CDATA[MOV(REALS[43],REALS[21]);]]>
+</Text>
+</Rung>
+<Rung Number="29" Type="N">
+<Text>
+<![CDATA[MOV(idx_3,idx_2);]]>
+</Text>
+</Rung>
+<Rung Number="30" Type="N">
+<Text>
+<![CDATA[JSR(SegTangentBounds,0);]]>
+</Text>
+</Rung>
+<Rung Number="31" Type="N">
+<Text>
+<![CDATA[MOV(REALS[22],REALS[45]);]]>
+</Text>
+</Rung>
+<Rung Number="32" Type="N">
+<Text>
+<![CDATA[MOV(REALS[23],REALS[46]);]]>
+</Text>
+</Rung>
+<Rung Number="33" Type="N">
+<Text>
+<![CDATA[GRT(REALS[45],0.000000001)JMP(lbl_else_60);]]>
+</Text>
+</Rung>
+<Rung Number="34" Type="N">
+<Text>
+<![CDATA[MOV(3.4028235E+38,REALS[47]);]]>
+</Text>
+</Rung>
+<Rung Number="35" Type="N">
+<Text>
+<![CDATA[JMP(lbl_end_61);]]>
+</Text>
+</Rung>
+<Rung Number="36" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_60)CPT(REALS[47],REALS[38]/REALS[45]);]]>
+</Text>
+</Rung>
+<Rung Number="37" Type="N">
+<Text>
+<![CDATA[LBL(lbl_end_61)GRT(REALS[46],0.000000001)JMP(lbl_else_62);]]>
+</Text>
+</Rung>
+<Rung Number="38" Type="N">
+<Text>
+<![CDATA[MOV(3.4028235E+38,REALS[48]);]]>
+</Text>
+</Rung>
+<Rung Number="39" Type="N">
+<Text>
+<![CDATA[JMP(lbl_end_63);]]>
+</Text>
+</Rung>
+<Rung Number="40" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_62)CPT(REALS[48],REALS[39]/REALS[46]);]]>
+</Text>
+</Rung>
+<Rung Number="41" Type="N">
+<Text>
+<![CDATA[LBL(lbl_end_63)LES(REALS[47],REALS[48])JMP(lbl_min_a_64);]]>
+</Text>
+</Rung>
+<Rung Number="42" Type="N">
+<Text>
+<![CDATA[MOV(REALS[48],REALS[44])JMP(lbl_min_end_65);]]>
+</Text>
+</Rung>
+<Rung Number="43" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_a_64)MOV(REALS[47],REALS[44]);]]>
+</Text>
+</Rung>
+<Rung Number="44" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_end_65)NOP();]]>
+</Text>
+</Rung>
+<Rung Number="45" Type="N">
+<Text>
+<![CDATA[LBL(lbl_end_57)LES(SegQueue[idx_3].Speed,REALS[44])JMP(lbl_min_a_66);]]>
+</Text>
+</Rung>
+<Rung Number="46" Type="N">
+<Text>
+<![CDATA[MOV(REALS[44],REALS[49])JMP(lbl_min_end_67);]]>
+</Text>
+</Rung>
+<Rung Number="47" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_a_66)MOV(SegQueue[idx_3].Speed,REALS[49]);]]>
+</Text>
+</Rung>
+<Rung Number="48" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_end_67)GRT(REALS[49],0.0)JMP(lbl_else_68);]]>
+</Text>
+</Rung>
+<Rung Number="49" Type="N">
+<Text>
+<![CDATA[OTL(BOOLS[8]);]]>
+</Text>
+</Rung>
+<Rung Number="50" Type="N">
+<Text>
+<![CDATA[JMP(lbl_CapSegSpeed_end);]]>
+</Text>
+</Rung>
+<Rung Number="51" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_68)MOV(REALS[49],SegQueue[idx_3].Speed);]]>
+</Text>
+</Rung>
+<Rung Number="52" Type="N">
+<Text>
+<![CDATA[MOV(SegQueue[idx_3].XY[0],REALS[42]);]]>
+</Text>
+</Rung>
+<Rung Number="53" Type="N">
+<Text>
+<![CDATA[MOV(SegQueue[idx_3].XY[1],REALS[43]);]]>
+</Text>
+</Rung>
+<Rung Number="54" Type="N">
+<Text>
+<![CDATA[ADD(idx_3,1,idx_3);]]>
+</Text>
+</Rung>
+<Rung Number="55" Type="N">
+<Text>
+<![CDATA[JMP(lbl_loop_54);]]>
+</Text>
+</Rung>
+<Rung Number="56" Type="N">
+<Text>
+<![CDATA[LBL(lbl_loop_end_55)JMP(lbl_CapSegSpeed_end);]]>
+</Text>
+</Rung>
+<Rung Number="57" Type="N">
+<Text>
+<![CDATA[LBL(lbl_CapSegSpeed_end)NOP();]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+<Routine Use="Reference" Name="MaxAbsSinSweep">
+</Routine>
+<Routine Use="Reference" Name="CircleCenterForSeg">
+</Routine>
+<Routine Use="Reference" Name="ArcSweepRad">
+</Routine>
+<Routine Use="Reference" Name="MaxAbsCosSweep">
+</Routine>
+<Routine Use="Reference" Name="SegTangentBounds">
+</Routine>
+<Routine Use="Reference" Name="main">
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

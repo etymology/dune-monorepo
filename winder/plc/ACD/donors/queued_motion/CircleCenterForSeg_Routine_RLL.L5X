@@ -1,0 +1,920 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="CircleCenterForSeg" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 11:37:00 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="DUNEW2PLC1">
+<DataTypes Use="Context">
+<DataType Name="MotionSeg" Family="NoFamily" Class="User">
+<Description>
+<![CDATA[motion segments for move queue, lines or arcs]]>
+</Description>
+<Members>
+<Member Name="ZZZZZZZZZZMotionSeg0" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="Valid" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZMotionSeg0" BitNumber="0" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[segment valid flag]]>
+</Description>
+</Member>
+<Member Name="SegType" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[1=line, 2=arc]]>
+</Description>
+</Member>
+<Member Name="XY" DataType="REAL" Dimension="2" Radix="Float" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[end xy]]>
+</Description>
+</Member>
+<Member Name="Speed" DataType="REAL" Dimension="0" Radix="Float" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[>0]]>
+</Description>
+</Member>
+<Member Name="Accel" DataType="REAL" Dimension="0" Radix="Float" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[>0]]>
+</Description>
+</Member>
+<Member Name="Decel" DataType="REAL" Dimension="0" Radix="Float" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[>0]]>
+</Description>
+</Member>
+<Member Name="JerkAccel" DataType="REAL" Dimension="0" Radix="Float" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="JerkDecel" DataType="REAL" Dimension="0" Radix="Float" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="TermType" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[0 to 6]]>
+</Description>
+</Member>
+<Member Name="Seq" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Sequence/ack id]]>
+</Description>
+</Member>
+<Member Name="CircleType" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[0,1,2,3 per MCCM enum]]>
+</Description>
+</Member>
+<Member Name="ViaCenter" DataType="REAL" Dimension="2" Radix="Float" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[[0]=x [1]=y]]>
+</Description>
+</Member>
+<Member Name="Direction" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[0..3 per mmcm enum]]>
+</Description>
+</Member>
+</Members>
+</DataType>
+</DataTypes>
+<Tags Use="Context">
+<Tag Name="SegQueue" Class="Standard" TagType="Base" DataType="MotionSeg" Dimensions="32" Constant="false" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000
+		,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000
+		],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000
+		,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000
+		],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000
+		,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000
+		],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000
+		,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000
+		],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000
+		,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000
+		],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000
+		,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000
+		,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000
+		],0],[0,0,[0.00000000e+000,0.00000000e+000],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000
+		,0.00000000e+000,0,0,0,[0.00000000e+000,0.00000000e+000],0],[0,0,[0.00000000e+000,0.00000000e+000
+		],0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0.00000000e+000,0,0,0,[0.00000000e+000
+		,0.00000000e+000],0]]]]>
+</Data>
+<Data Format="Decorated">
+<Array DataType="MotionSeg" Dimensions="32">
+<Element Index="[0]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[3]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[4]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[5]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[6]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[7]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[8]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[9]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[10]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[11]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[12]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[13]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[14]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[15]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[16]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[17]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[18]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[19]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[20]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[21]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[22]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[23]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[24]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[25]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[26]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[27]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[28]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[29]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[30]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[31]">
+<Structure DataType="MotionSeg">
+<DataValueMember Name="Valid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="SegType" DataType="SINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="XY" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Speed" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Accel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Decel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkAccel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="JerkDecel" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="TermType" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Seq" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="CircleType" DataType="DINT" Radix="Decimal" Value="0"/>
+<ArrayMember Name="ViaCenter" DataType="REAL" Dimensions="2" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+</ArrayMember>
+<DataValueMember Name="Direction" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+</Array>
+</Data>
+</Tag>
+</Tags>
+<Programs Use="Context">
+<Program Use="Context" Name="queued_motion" Class="Standard">
+<Tags Use="Context">
+<Tag Name="idx_0" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+</Tags>
+<Routines Use="Context">
+<Routine Use="Target" Name="CircleCenterForSeg" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[NEQ(SegQueue[idx_0].CircleType,1)JMP(lbl_else_26);]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[JMP(lbl_CircleCenterForSeg_end);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_26)NEQ(SegQueue[idx_0].CircleType,3)JMP(lbl_else_28);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[JMP(lbl_CircleCenterForSeg_end);]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_28)JMP(lbl_CircleCenterForSeg_end);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[LBL(lbl_CircleCenterForSeg_end)NOP();]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

@@ -165,7 +165,6 @@ XIC AbortActive OTU PrepCurMove
 XIC AbortActive OTU PrepNextMove 
 XIC AbortActive OTU IssueCurPulse 
 XIC AbortActive OTU IssueNextPulse 
-XIC AbortActive OTU WaitCurAxisOn 
 XIC AbortActive OTU WaitNextAxisOn 
 XIC AbortActive OTU QueueStopRequest 
 XIC AbortActive OTU AbortQueue 

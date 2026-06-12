@@ -35,3 +35,6 @@ tension/data/experiment_audio/*
 /playwright/.auth/
 
 dune_tension/audio/*
+winder/plc/ACD/*.Sem
+winder/plc/ACD/*.Wrk
+winder/plc/ACD/*.BAK*.acd

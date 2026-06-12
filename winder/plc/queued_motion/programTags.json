@@ -1,10 +1,20 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-08T19:07:46.280187+00:00",
+  "generated_at": "2026-06-12T14:10:57",
   "plc_path": "192.168.140.13",
+  "source_acd": {
+    "file": "DUNEW2PLC1_py3.ACD",
+    "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
+    "sha256": "66b4ddeacc22bb19fd9f7ec854e3d540cecf423fa28da3e4de9a25abc2555fc2",
+    "size": 4683198,
+    "mtime": "2026-06-12T14:10:10",
+    "last_saved": "2026-06-12 14:10:10.419",
+    "studio_version": "V33.00.00/3805.000",
+    "save_log_entries": 137
+  },
   "program_name": "queued_motion",
   "main_routine_name": "main",
-  "main_routine_name_source": "casefold_name_match",
+  "main_routine_name_source": "named_main",
   "routines": [
     "ArcSweepRad",
     "CapSegSpeed",
@@ -27,6 +37,13 @@
       "name": "CONTROL",
       "fields": [
         {
+          "name": "Control",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0,
+          "hidden": true
+        },
+        {
           "name": "LEN",
           "tag_type": "atomic",
           "data_type_name": "DINT",
@@ -42,186 +59,57 @@
           "name": "EN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 3
+          "offset": 0,
+          "bit": 31
         },
         {
           "name": "EU",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 6,
-          "offset": 3
+          "offset": 0,
+          "bit": 30
         },
         {
           "name": "DN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 5,
-          "offset": 3
+          "offset": 0,
+          "bit": 29
         },
         {
           "name": "EM",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 4,
-          "offset": 3
+          "offset": 0,
+          "bit": 28
         },
         {
           "name": "ER",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 3,
-          "offset": 3
+          "offset": 0,
+          "bit": 27
         },
         {
           "name": "UL",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 2,
-          "offset": 3
+          "offset": 0,
+          "bit": 26
         },
         {
           "name": "IN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 1,
-          "offset": 3
+          "offset": 0,
+          "bit": 25
         },
         {
           "name": "FD",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 0,
-          "offset": 3
-        }
-      ]
-    },
-    {
-      "name": "MOTION_INSTRUCTION",
-      "fields": [
-        {
-          "name": "FLAGS",
-          "tag_type": "atomic",
-          "data_type_name": "DINT",
-          "offset": 0
-        },
-        {
-          "name": "EN",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 3
-        },
-        {
-          "name": "DN",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 5,
-          "offset": 3
-        },
-        {
-          "name": "ER",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 4,
-          "offset": 3
-        },
-        {
-          "name": "PC",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 3,
-          "offset": 3
-        },
-        {
-          "name": "IP",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 2,
-          "offset": 3
-        },
-        {
-          "name": "AC",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 2
-        },
-        {
-          "name": "ACCEL",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 0,
-          "offset": 0
-        },
-        {
-          "name": "DECEL",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 1,
-          "offset": 0
-        },
-        {
-          "name": "TrackingMaster",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 2,
-          "offset": 0
-        },
-        {
-          "name": "CalculatedDataAvailable",
-          "tag_type": "atomic",
-          "data_type_name": "BOOL",
-          "bit": 3,
-          "offset": 0
-        },
-        {
-          "name": "ERR",
-          "tag_type": "atomic",
-          "data_type_name": "INT",
-          "offset": 4
-        },
-        {
-          "name": "STATUS",
-          "tag_type": "atomic",
-          "data_type_name": "SINT",
-          "offset": 6
-        },
-        {
-          "name": "STATE",
-          "tag_type": "atomic",
-          "data_type_name": "SINT",
-          "offset": 7
-        },
-        {
-          "name": "SEGMENT",
-          "tag_type": "atomic",
-          "data_type_name": "DINT",
-          "offset": 8
-        },
-        {
-          "name": "EXERR",
-          "tag_type": "atomic",
-          "data_type_name": "SINT",
-          "offset": 12
-        },
-        {
-          "name": "DEAD_ZONE1",
-          "tag_type": "atomic",
-          "data_type_name": "SINT",
-          "offset": 13
-        },
-        {
-          "name": "DEAD_ZONE2",
-          "tag_type": "atomic",
-          "data_type_name": "SINT",
-          "offset": 14
-        },
-        {
-          "name": "DEAD_ZONE3",
-          "tag_type": "atomic",
-          "data_type_name": "SINT",
-          "offset": 15
+          "offset": 0,
+          "bit": 24
         }
       ]
     },
@@ -229,11 +117,18 @@
       "name": "MotionSeg",
       "fields": [
         {
+          "name": "ZZZZZZZZZZMotionSeg0",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 0,
+          "hidden": true
+        },
+        {
           "name": "Valid",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 0,
-          "offset": 0
+          "offset": 0,
+          "bit": 0
         },
         {
           "name": "SegType",
@@ -245,8 +140,8 @@
           "name": "XY",
           "tag_type": "atomic",
           "data_type_name": "REAL",
-          "array_length": 2,
-          "offset": 4
+          "offset": 4,
+          "array_length": 2
         },
         {
           "name": "Speed",
@@ -300,8 +195,8 @@
           "name": "ViaCenter",
           "tag_type": "atomic",
           "data_type_name": "REAL",
-          "array_length": 2,
-          "offset": 44
+          "offset": 44,
+          "array_length": 2
         },
         {
           "name": "Direction",
@@ -310,840 +205,146 @@
           "offset": 52
         }
       ]
+    },
+    {
+      "name": "MOTION_INSTRUCTION",
+      "fields": [
+        {
+          "name": "FLAGS",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0
+        },
+        {
+          "name": "EN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 31
+        },
+        {
+          "name": "DN",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 29
+        },
+        {
+          "name": "ER",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 28
+        },
+        {
+          "name": "PC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 27
+        },
+        {
+          "name": "IP",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 26
+        },
+        {
+          "name": "AC",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 23
+        },
+        {
+          "name": "ACCEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 0
+        },
+        {
+          "name": "DECEL",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 1
+        },
+        {
+          "name": "TrackingMaster",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 2
+        },
+        {
+          "name": "CalculatedDataAvailable",
+          "tag_type": "atomic",
+          "data_type_name": "BOOL",
+          "offset": 0,
+          "bit": 3
+        },
+        {
+          "name": "ERR",
+          "tag_type": "atomic",
+          "data_type_name": "INT",
+          "offset": 4
+        },
+        {
+          "name": "STATUS",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 6
+        },
+        {
+          "name": "STATE",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 7
+        },
+        {
+          "name": "SEGMENT",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 8
+        },
+        {
+          "name": "EXERR",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 12
+        },
+        {
+          "name": "DEAD_ZONE1",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 13,
+          "hidden": true
+        },
+        {
+          "name": "DEAD_ZONE2",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 14,
+          "hidden": true
+        },
+        {
+          "name": "DEAD_ZONE3",
+          "tag_type": "atomic",
+          "data_type_name": "SINT",
+          "offset": 15,
+          "hidden": true
+        }
+      ]
     }
   ],
   "program_tags": [
-    {
-      "name": "StartNextA_ONS",
-      "fully_qualified_name": "Program:queued_motion.StartNextA_ONS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "StartNextB_ONS",
-      "fully_qualified_name": "Program:queued_motion.StartNextB_ONS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CheckCurSeg",
-      "fully_qualified_name": "Program:queued_motion.CheckCurSeg",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "UseAasCurrent",
-      "fully_qualified_name": "Program:queued_motion.UseAasCurrent",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "QueueCtl",
-      "fully_qualified_name": "Program:queued_motion.QueueCtl",
-      "tag_type": "struct",
-      "data_type_name": "CONTROL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "CONTROL"
-    },
-    {
-      "name": "FaultCode",
-      "fully_qualified_name": "Program:queued_motion.FaultCode",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "QueueEmpty",
-      "fully_qualified_name": "Program:queued_motion.QueueEmpty",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CheckNextSeg",
-      "fully_qualified_name": "Program:queued_motion.CheckNextSeg",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CurSeg",
-      "fully_qualified_name": "Program:queued_motion.CurSeg",
-      "tag_type": "struct",
-      "data_type_name": "MotionSeg",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "MotionSeg"
-    },
-    {
-      "name": "NextSeg",
-      "fully_qualified_name": "Program:queued_motion.NextSeg",
-      "tag_type": "struct",
-      "data_type_name": "MotionSeg",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "MotionSeg"
-    },
-    {
-      "name": "StartCurONS",
-      "fully_qualified_name": "Program:queued_motion.StartCurONS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "RotateONS_AtoB",
-      "fully_qualified_name": "Program:queued_motion.RotateONS_AtoB",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "EnqueueReq",
-      "fully_qualified_name": "Program:queued_motion.EnqueueReq",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "LoadCurReq",
-      "fully_qualified_name": "Program:queued_motion.LoadCurReq",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "LoadNextReq",
-      "fully_qualified_name": "Program:queued_motion.LoadNextReq",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "IssueCurPulse",
-      "fully_qualified_name": "Program:queued_motion.IssueCurPulse",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "PrepNextMove",
-      "fully_qualified_name": "Program:queued_motion.PrepNextMove",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "PrepCurMove",
-      "fully_qualified_name": "Program:queued_motion.PrepCurMove",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "IssueNextPulse",
-      "fully_qualified_name": "Program:queued_motion.IssueNextPulse",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "RotateMoves",
-      "fully_qualified_name": "Program:queued_motion.RotateMoves",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "SegValidLine",
-      "fully_qualified_name": "Program:queued_motion.SegValidLine",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "SegValidArc",
-      "fully_qualified_name": "Program:queued_motion.SegValidArc",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CmdA_SegType",
-      "fully_qualified_name": "Program:queued_motion.CmdA_SegType",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "SegValid",
-      "fully_qualified_name": "Program:queued_motion.SegValid",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CmdA_XY",
-      "fully_qualified_name": "Program:queued_motion.CmdA_XY",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        2,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdTolerance",
-      "fully_qualified_name": "Program:queued_motion.CmdTolerance",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_Speed",
-      "fully_qualified_name": "Program:queued_motion.CmdA_Speed",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_Accel",
-      "fully_qualified_name": "Program:queued_motion.CmdA_Accel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_Decel",
-      "fully_qualified_name": "Program:queued_motion.CmdA_Decel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_JerkAccel",
-      "fully_qualified_name": "Program:queued_motion.CmdA_JerkAccel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_JerkDecel",
-      "fully_qualified_name": "Program:queued_motion.CmdA_JerkDecel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_TermType",
-      "fully_qualified_name": "Program:queued_motion.CmdA_TermType",
-      "tag_type": "atomic",
-      "data_type_name": "SINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_XY",
-      "fully_qualified_name": "Program:queued_motion.CmdB_XY",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        2,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "queued_motion"
-    },
-    {
-      "name": "RotateONS_BtoA",
-      "fully_qualified_name": "Program:queued_motion.RotateONS_BtoA",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CmdB_Speed",
-      "fully_qualified_name": "Program:queued_motion.CmdB_Speed",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_Accel",
-      "fully_qualified_name": "Program:queued_motion.CmdB_Accel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_Decel",
-      "fully_qualified_name": "Program:queued_motion.CmdB_Decel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_JerkAccel",
-      "fully_qualified_name": "Program:queued_motion.CmdB_JerkAccel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_JerkDecel",
-      "fully_qualified_name": "Program:queued_motion.CmdB_JerkDecel",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_TermType",
-      "fully_qualified_name": "Program:queued_motion.CmdB_TermType",
-      "tag_type": "atomic",
-      "data_type_name": "SINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_SegType",
-      "fully_qualified_name": "Program:queued_motion.CmdB_SegType",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_CircleType",
-      "fully_qualified_name": "Program:queued_motion.CmdA_CircleType",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "MoveA",
-      "fully_qualified_name": "Program:queued_motion.MoveA",
-      "tag_type": "struct",
-      "data_type_name": "MOTION_INSTRUCTION",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION"
-    },
-    {
-      "name": "MoveB",
-      "fully_qualified_name": "Program:queued_motion.MoveB",
-      "tag_type": "struct",
-      "data_type_name": "MOTION_INSTRUCTION",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION"
-    },
-    {
-      "name": "FlipToB",
-      "fully_qualified_name": "Program:queued_motion.FlipToB",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "FlipToA",
-      "fully_qualified_name": "Program:queued_motion.FlipToA",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "DoneONS_A",
-      "fully_qualified_name": "Program:queued_motion.DoneONS_A",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "DoneONS_B",
-      "fully_qualified_name": "Program:queued_motion.DoneONS_B",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "CmdB_CircleType",
-      "fully_qualified_name": "Program:queued_motion.CmdB_CircleType",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_ViaCenter",
-      "fully_qualified_name": "Program:queued_motion.CmdA_ViaCenter",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        2,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_ViaCenter",
-      "fully_qualified_name": "Program:queued_motion.CmdB_ViaCenter",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        2,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdA_Direction",
-      "fully_qualified_name": "Program:queued_motion.CmdA_Direction",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
-    {
-      "name": "CmdB_Direction",
-      "fully_qualified_name": "Program:queued_motion.CmdB_Direction",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion"
-    },
     {
       "name": "AbortActive",
       "fully_qualified_name": "Program:queued_motion.AbortActive",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
@@ -1151,192 +352,1044 @@
       ],
       "array_dimensions": 0,
       "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "WaitCurAxisOn",
-      "fully_qualified_name": "Program:queued_motion.WaitCurAxisOn",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "x_axis_mso",
-      "fully_qualified_name": "Program:queued_motion.x_axis_mso",
-      "tag_type": "struct",
-      "data_type_name": "MOTION_INSTRUCTION",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION"
-    },
-    {
-      "name": "y_axis_mso",
-      "fully_qualified_name": "Program:queued_motion.y_axis_mso",
-      "tag_type": "struct",
-      "data_type_name": "MOTION_INSTRUCTION",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "udt_name": "MOTION_INSTRUCTION"
-    },
-    {
-      "name": "WaitNextAxisOn",
-      "fully_qualified_name": "Program:queued_motion.WaitNextAxisOn",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "QueueStopReqONS",
-      "fully_qualified_name": "Program:queued_motion.QueueStopReqONS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "queued_motion",
-      "bit_position": 0
-    },
-    {
-      "name": "REALS",
-      "fully_qualified_name": "Program:queued_motion.REALS",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        1024,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "queued_motion"
-    },
-    {
-      "name": "DINTS",
-      "fully_qualified_name": "Program:queued_motion.DINTS",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
-      "dimensions": [
-        1024,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "queued_motion"
+      "value": false
     },
     {
       "name": "BOOLS",
       "fully_qualified_name": "Program:queued_motion.BOOLS",
       "tag_type": "atomic",
       "data_type_name": "DWORD",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         32,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "queued_motion"
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "CheckCurSeg",
+      "fully_qualified_name": "Program:queued_motion.CheckCurSeg",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "CheckNextSeg",
+      "fully_qualified_name": "Program:queued_motion.CheckNextSeg",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "CmdA_Accel",
+      "fully_qualified_name": "Program:queued_motion.CmdA_Accel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdA_CircleType",
+      "fully_qualified_name": "Program:queued_motion.CmdA_CircleType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "CmdA_Decel",
+      "fully_qualified_name": "Program:queued_motion.CmdA_Decel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdA_Direction",
+      "fully_qualified_name": "Program:queued_motion.CmdA_Direction",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "CmdA_JerkAccel",
+      "fully_qualified_name": "Program:queued_motion.CmdA_JerkAccel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdA_JerkDecel",
+      "fully_qualified_name": "Program:queued_motion.CmdA_JerkDecel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdA_SegType",
+      "fully_qualified_name": "Program:queued_motion.CmdA_SegType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "CmdA_Speed",
+      "fully_qualified_name": "Program:queued_motion.CmdA_Speed",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 600.0
+    },
+    {
+      "name": "CmdA_TermType",
+      "fully_qualified_name": "Program:queued_motion.CmdA_TermType",
+      "tag_type": "atomic",
+      "data_type_name": "SINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 0
+    },
+    {
+      "name": "CmdA_ViaCenter",
+      "fully_qualified_name": "Program:queued_motion.CmdA_ViaCenter",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "queued_motion",
+      "value": 0.0
+    },
+    {
+      "name": "CmdA_XY",
+      "fully_qualified_name": "Program:queued_motion.CmdA_XY",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "queued_motion",
+      "value": 5807.32421875
+    },
+    {
+      "name": "CmdB_Accel",
+      "fully_qualified_name": "Program:queued_motion.CmdB_Accel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdB_CircleType",
+      "fully_qualified_name": "Program:queued_motion.CmdB_CircleType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "CmdB_Decel",
+      "fully_qualified_name": "Program:queued_motion.CmdB_Decel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 2000.0
+    },
+    {
+      "name": "CmdB_Direction",
+      "fully_qualified_name": "Program:queued_motion.CmdB_Direction",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "CmdB_JerkAccel",
+      "fully_qualified_name": "Program:queued_motion.CmdB_JerkAccel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdB_JerkDecel",
+      "fully_qualified_name": "Program:queued_motion.CmdB_JerkDecel",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1500.0
+    },
+    {
+      "name": "CmdB_SegType",
+      "fully_qualified_name": "Program:queued_motion.CmdB_SegType",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "CmdB_Speed",
+      "fully_qualified_name": "Program:queued_motion.CmdB_Speed",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 600.0
+    },
+    {
+      "name": "CmdB_TermType",
+      "fully_qualified_name": "Program:queued_motion.CmdB_TermType",
+      "tag_type": "atomic",
+      "data_type_name": "SINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 0
+    },
+    {
+      "name": "CmdB_ViaCenter",
+      "fully_qualified_name": "Program:queued_motion.CmdB_ViaCenter",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "queued_motion",
+      "value": 0.0
+    },
+    {
+      "name": "CmdB_XY",
+      "fully_qualified_name": "Program:queued_motion.CmdB_XY",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        2,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "queued_motion",
+      "value": 6344.578125
+    },
+    {
+      "name": "CmdTolerance",
+      "fully_qualified_name": "Program:queued_motion.CmdTolerance",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 100
+    },
+    {
+      "name": "CurSeg",
+      "fully_qualified_name": "Program:queued_motion.CurSeg",
+      "tag_type": "struct",
+      "data_type_name": "MotionSeg",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MotionSeg",
+      "program": "queued_motion",
+      "value": {
+        "Valid": false,
+        "SegType": 1,
+        "XY": [
+          6344.578125,
+          2683.0
+        ],
+        "Speed": 600.0,
+        "Accel": 2000.0,
+        "Decel": 2000.0,
+        "JerkAccel": 1500.0,
+        "JerkDecel": 1500.0,
+        "TermType": 0,
+        "Seq": 0,
+        "CircleType": 1,
+        "ViaCenter": [
+          0.0,
+          0.0
+        ],
+        "Direction": 1
+      }
+    },
+    {
+      "name": "DINTS",
+      "fully_qualified_name": "Program:queued_motion.DINTS",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        1024,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "queued_motion",
+      "value": 0
+    },
+    {
+      "name": "DoneONS_A",
+      "fully_qualified_name": "Program:queued_motion.DoneONS_A",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "DoneONS_B",
+      "fully_qualified_name": "Program:queued_motion.DoneONS_B",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "EnqueueReq",
+      "fully_qualified_name": "Program:queued_motion.EnqueueReq",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "FaultCode",
+      "fully_qualified_name": "Program:queued_motion.FaultCode",
+      "tag_type": "atomic",
+      "data_type_name": "DINT",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": 0
+    },
+    {
+      "name": "FlipToA",
+      "fully_qualified_name": "Program:queued_motion.FlipToA",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "FlipToB",
+      "fully_qualified_name": "Program:queued_motion.FlipToB",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
     },
     {
       "name": "idx_0",
       "fully_qualified_name": "Program:queued_motion.idx_0",
       "tag_type": "atomic",
       "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion"
+      "program": "queued_motion",
+      "value": 0
     },
     {
       "name": "idx_1",
       "fully_qualified_name": "Program:queued_motion.idx_1",
       "tag_type": "atomic",
       "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion"
+      "program": "queued_motion",
+      "value": 0
     },
     {
       "name": "idx_2",
       "fully_qualified_name": "Program:queued_motion.idx_2",
       "tag_type": "atomic",
       "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion"
+      "program": "queued_motion",
+      "value": 0
     },
     {
       "name": "idx_3",
       "fully_qualified_name": "Program:queued_motion.idx_3",
       "tag_type": "atomic",
       "data_type_name": "DINT",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "queued_motion"
+      "program": "queued_motion",
+      "value": 1
+    },
+    {
+      "name": "IssueCurPulse",
+      "fully_qualified_name": "Program:queued_motion.IssueCurPulse",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "IssueNextPulse",
+      "fully_qualified_name": "Program:queued_motion.IssueNextPulse",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "LoadCurReq",
+      "fully_qualified_name": "Program:queued_motion.LoadCurReq",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "LoadNextReq",
+      "fully_qualified_name": "Program:queued_motion.LoadNextReq",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "MoveA",
+      "fully_qualified_name": "Program:queued_motion.MoveA",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "queued_motion",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "MoveB",
+      "fully_qualified_name": "Program:queued_motion.MoveB",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "queued_motion",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "NextSeg",
+      "fully_qualified_name": "Program:queued_motion.NextSeg",
+      "tag_type": "struct",
+      "data_type_name": "MotionSeg",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MotionSeg",
+      "program": "queued_motion",
+      "value": {
+        "Valid": false,
+        "SegType": 1,
+        "XY": [
+          5807.32421875,
+          2683.0
+        ],
+        "Speed": 600.0,
+        "Accel": 2000.0,
+        "Decel": 2000.0,
+        "JerkAccel": 1500.0,
+        "JerkDecel": 1500.0,
+        "TermType": 0,
+        "Seq": 0,
+        "CircleType": 1,
+        "ViaCenter": [
+          0.0,
+          0.0
+        ],
+        "Direction": 1
+      }
+    },
+    {
+      "name": "PrepCurMove",
+      "fully_qualified_name": "Program:queued_motion.PrepCurMove",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "PrepNextMove",
+      "fully_qualified_name": "Program:queued_motion.PrepNextMove",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "QueueCtl",
+      "fully_qualified_name": "Program:queued_motion.QueueCtl",
+      "tag_type": "struct",
+      "data_type_name": "CONTROL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "CONTROL",
+      "program": "queued_motion",
+      "value": {
+        "LEN": 32,
+        "POS": 0,
+        "EN": false,
+        "EU": false,
+        "DN": false,
+        "EM": true,
+        "ER": false,
+        "UL": false,
+        "IN": false,
+        "FD": false
+      }
+    },
+    {
+      "name": "QueueEmpty",
+      "fully_qualified_name": "Program:queued_motion.QueueEmpty",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": true
+    },
+    {
+      "name": "QueueStopReqONS",
+      "fully_qualified_name": "Program:queued_motion.QueueStopReqONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "REALS",
+      "fully_qualified_name": "Program:queued_motion.REALS",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        1024,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "queued_motion",
+      "value": 0.0
+    },
+    {
+      "name": "RotateMoves",
+      "fully_qualified_name": "Program:queued_motion.RotateMoves",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "RotateONS_AtoB",
+      "fully_qualified_name": "Program:queued_motion.RotateONS_AtoB",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "RotateONS_BtoA",
+      "fully_qualified_name": "Program:queued_motion.RotateONS_BtoA",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "SegValid",
+      "fully_qualified_name": "Program:queued_motion.SegValid",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "SegValidArc",
+      "fully_qualified_name": "Program:queued_motion.SegValidArc",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "SegValidLine",
+      "fully_qualified_name": "Program:queued_motion.SegValidLine",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "StartCurONS",
+      "fully_qualified_name": "Program:queued_motion.StartCurONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "StartNextA_ONS",
+      "fully_qualified_name": "Program:queued_motion.StartNextA_ONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "StartNextB_ONS",
+      "fully_qualified_name": "Program:queued_motion.StartNextB_ONS",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "UseAasCurrent",
+      "fully_qualified_name": "Program:queued_motion.UseAasCurrent",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": true
+    },
+    {
+      "name": "WaitCurAxisOn",
+      "fully_qualified_name": "Program:queued_motion.WaitCurAxisOn",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "WaitNextAxisOn",
+      "fully_qualified_name": "Program:queued_motion.WaitNextAxisOn",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "queued_motion",
+      "value": false
+    },
+    {
+      "name": "x_axis_mso",
+      "fully_qualified_name": "Program:queued_motion.x_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "queued_motion",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "y_axis_mso",
+      "fully_qualified_name": "Program:queued_motion.y_axis_mso",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "queued_motion",
+      "value": {
+        "FLAGS": 33554432,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     }
-  ]
+  ],
+  "values_generated_at": "2026-06-12T19:11:09.055295+00:00"
 }

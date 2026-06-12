@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="xy_speed_regulator" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 14:10:57 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="DUNEW2PLC1">
+<Programs Use="Context">
+<Program Use="Context" Name="state_3_move_xy" Class="Standard">
+<Routines Use="Context">
+<Routine Use="Target" Name="xy_speed_regulator" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[XIC(trigger_xy_move)MCLM(X_Y,main_xy_move,0,X_POSITION,v_max,Units per sec,xy_regulated_acceleration,Units per sec2,xy_regulated_deceleration,Units per sec2,S-Curve,xy_regulated_accel_jerk,xy_decel_jerk,Units per sec3,0,Disabled,Programmed,50,0,None,0,0);]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[XIC(trigger_xy_move)MOV(xy_dt,regulator_loop_timer.PRE)MOV(xy_d_dt,xy_d_timer.PRE)MOV(0,xy_i_term);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[XIO(regulator_loop_timer.DN)TON(regulator_loop_timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[XIO(xy_d_timer.DN)TON(xy_d_timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[XIC(xy_d_timer.DN)CPT(d_raw,xy_kd*(xy_error-xy_error_prev)/xy_d_dt*100)CPT(xy_d_term,xy_d_alpha*d_raw+(1-xy_d_alpha)*xy_d_term_prev)MOV(xy_error,xy_error_prev)MOV(xy_d_term,xy_d_term_prev);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[CPT(xy_error,speed_tension_setpoint-tension);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[XIC(regulator_loop_timer.DN)CPT(xy_p_term,xy_kp*xy_error);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Text>
+<![CDATA[XIC(regulator_loop_timer.DN)[LES(regulated_speed,v_max) ,LES(xy_error,0) ][GRT(regulated_speed,min_regulated_speed) ,GRT(xy_error,0) ]CPT(xy_i_term,xy_i_term+(xy_ki*xy_error*xy_dt/1000))[LES(xy_i_term,min_integral) MOV(min_integral,xy_i_term) ,GRT(xy_i_term,max_integral) MOV(max_integral,xy_i_term) ];]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[XIC(regulator_loop_timer.DN)CPT(regulated_speed,xy_default_speed+xy_p_term+xy_i_term+xy_d_term)[LES(v_max,regulated_speed) MOV(v_max,regulated_speed) ,LES(regulated_speed,min_regulated_speed) MOV(min_regulated_speed,regulated_speed) ];]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+<Routine Use="Reference" Name="main">
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

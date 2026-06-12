@@ -1,0 +1,342 @@
+{
+  "controller": "DUNEW2PLC1",
+  "software_revision": "33.00",
+  "source_acd": {
+    "file": "DUNEW2PLC1_py3.ACD",
+    "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
+    "sha256": "66b4ddeacc22bb19fd9f7ec854e3d540cecf423fa28da3e4de9a25abc2555fc2",
+    "size": 4683198,
+    "mtime": "2026-06-12T14:10:10",
+    "last_saved": "2026-06-12 14:10:10.419",
+    "studio_version": "V33.00.00/3805.000",
+    "save_log_entries": 137
+  },
+  "generated_at": "2026-06-12T14:11:09",
+  "data_types": 272,
+  "controller_tags": 302,
+  "programs": {
+    "main": {
+      "tags": 5,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 63,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "Camera": {
+      "tags": 29,
+      "main_routine": "main",
+      "routines": {
+        "CameraControl": {
+          "type": "RLL",
+          "rungs": 36,
+          "pending_edit_rungs": 0
+        },
+        "main": {
+          "type": "RLL",
+          "rungs": 0,
+          "pending_edit_rungs": 63
+        }
+      }
+    },
+    "init": {
+      "tags": 5,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 0,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "Safety": {
+      "tags": 2,
+      "main_routine": "Safety",
+      "routines": {
+        "Safety": {
+          "type": "RLL",
+          "rungs": 9,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_3_move_xy": {
+      "tags": 59,
+      "main_routine": "main",
+      "routines": {
+        "xy_speed_regulator": {
+          "type": "RLL",
+          "rungs": 9,
+          "pending_edit_rungs": 0
+        },
+        "main": {
+          "type": "RLL",
+          "rungs": 23,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_10_error": {
+      "tags": 16,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 30,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_11_eot_trip": {
+      "tags": 68,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 71,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_1_ready": {
+      "tags": 1,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 9,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "queued_motion": {
+      "tags": 66,
+      "main_routine": "main",
+      "routines": {
+        "MaxAbsSinSweep": {
+          "type": "RLL",
+          "rungs": 26,
+          "pending_edit_rungs": 0
+        },
+        "CircleCenterForSeg": {
+          "type": "RLL",
+          "rungs": 6,
+          "pending_edit_rungs": 0
+        },
+        "ArcSweepRad": {
+          "type": "RLL",
+          "rungs": 20,
+          "pending_edit_rungs": 0
+        },
+        "MaxAbsCosSweep": {
+          "type": "RLL",
+          "rungs": 26,
+          "pending_edit_rungs": 0
+        },
+        "SegTangentBounds": {
+          "type": "RLL",
+          "rungs": 69,
+          "pending_edit_rungs": 0
+        },
+        "main": {
+          "type": "RLL",
+          "rungs": 275,
+          "pending_edit_rungs": 0
+        },
+        "CapSegSpeed": {
+          "type": "RLL",
+          "rungs": 58,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_9_unservo": {
+      "tags": 15,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 12,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_5_move_z": {
+      "tags": 9,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 18,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_6_latch": {
+      "tags": 12,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 25,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_12_move_xz": {
+      "tags": 5,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 7,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "tension_pid": {
+      "tags": 22,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 18,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "transfer": {
+      "tags": 0,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 0,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_14_hmi_stop": {
+      "tags": 8,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 10,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_13_move_yz": {
+      "tags": 15,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 17,
+          "pending_edit_rungs": 0
+        }
+      }
+    }
+  },
+  "files": {
+    "Camera/CameraControl/pasteable.rll": "62f2b0b3264f5a5bfe540b5e4341045bd2e8ff251a8ae6131c6a74cdff742db2",
+    "Camera/CameraControl/studio_copy.rllscrap": "eed1e6841f51f7ca931933272a9aa0641be29ab847018b9ac5782f14b2d335bd",
+    "Camera/CameraControl_Routine_RLL.L5X": "fd6e30ac1244c7d36adcc234ba31830b8e4d004904516eeb00c9a5979b32d031",
+    "Camera/main/pasteable.rll": "1ac2dcbfc68b479c27f7f6f68dee9aad880dcb00266dec56755cc1f5bfc30f6d",
+    "Camera/main/studio_copy.rllscrap": "f0f1cc0ac74b2e954d2c1eb57c3afd6d45aa063c66283dff524be82c2d0bfe22",
+    "Camera/main_Routine_RLL.L5X": "237a98e22feeaea42f888bb4c588be020d14e3b0ba119db6f35336b4810c36b3",
+    "Camera/programTags.json": "2bfd6041a9888531b1098e998468fd77de49f414cd235487f0b2a29d22bf67f5",
+    "controller_level_tags.json": "3a3ec8afb5675ce5bf90cd9fae47a2751928a5cabef9000ac7fdf806607699a0",
+    "init/main/pasteable.rll": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "init/main/studio_copy.rllscrap": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "init/main_Routine_RLL.L5X": "f25233c21300ad8b9a3ad529a5be591635f1b858581bc190584a1cb0acce038b",
+    "init/programTags.json": "d703f09063decfff413ebbfc1f918645ad59dcd1e6f2d86a90cca73a0299c761",
+    "main/main/pasteable.rll": "1ac2dcbfc68b479c27f7f6f68dee9aad880dcb00266dec56755cc1f5bfc30f6d",
+    "main/main/studio_copy.rllscrap": "f0f1cc0ac74b2e954d2c1eb57c3afd6d45aa063c66283dff524be82c2d0bfe22",
+    "main/main_Routine_RLL.L5X": "9832c836190f6baaf13978228ffa5348ac0755fe5f4be3d604b50eb529cb6f00",
+    "main/programTags.json": "c3baee2b414cf7dc4561f5792a2d8cc7aaa50d3f3c66f747219159f89d297ada",
+    "manifest.json": "590406dee8fce9063e3bb4a0c5fbdf1e7924f13e507e68b2a13ff9300c83aecd",
+    "queued_motion/ArcSweepRad/pasteable.rll": "83b17aed690ad06a288d535d035a21e7f58c60d0e0c84c80dae945c036ca7365",
+    "queued_motion/ArcSweepRad/studio_copy.rllscrap": "1611f32236142a15e9909de07d05a503349d05c5afe26e484c7a543adbc2293e",
+    "queued_motion/ArcSweepRad_Routine_RLL.L5X": "d018747eaeb59a057f468a6267d7ddb50fe6f5b76b6d3694290d12ebf6bb1d65",
+    "queued_motion/CapSegSpeed/pasteable.rll": "6f70faeae81aa321ae3f2e1568d584d24beee0d1f0de4054c23ff1f725bf6165",
+    "queued_motion/CapSegSpeed/studio_copy.rllscrap": "192972b03fb9885def9ebc12ad3023e51264c3bd1780983f7282cc9699fe5a4a",
+    "queued_motion/CapSegSpeed_Routine_RLL.L5X": "ba945bd51efea294029e9ee75f8b03962950588fe1bfde126367882921a1635c",
+    "queued_motion/CircleCenterForSeg/pasteable.rll": "c623d72c419043f557f009538704c7ab91e1aca86b7aa78c69a5f79333a6d5ea",
+    "queued_motion/CircleCenterForSeg/studio_copy.rllscrap": "4e936f259b8fec38dc42a66d1d90e73c8a160e3c4e5e772d23dc1a97f161da9d",
+    "queued_motion/CircleCenterForSeg_Routine_RLL.L5X": "3ea0feae32acddd6c522e30933b2979649df9b7ff13b20476dd95a896c26cbec",
+    "queued_motion/main/pasteable.rll": "2be230ba8606f79a73731e77255b69d6d167770879a8f44a588b73085c610e0b",
+    "queued_motion/main/studio_copy.rllscrap": "dc1e99422f2fbc72591911ead5c45bdd6e39ef701986f72c9e4bda40d5ba68b9",
+    "queued_motion/main_Routine_RLL.L5X": "b46a31afe7689f10357eecb70c724aa4e012b6a63875cfc32971600e8312ff93",
+    "queued_motion/MaxAbsCosSweep/pasteable.rll": "a587828a2d152f97651530de67fe4b6334c8a904eb5f0bc87dfa6b5fb7dd7ae1",
+    "queued_motion/MaxAbsCosSweep/studio_copy.rllscrap": "ce004ee1133e2cff4b6d705a9d779e512d7116536b0c8a068c0ed6d4c32bf987",
+    "queued_motion/MaxAbsCosSweep_Routine_RLL.L5X": "00e94034425ede8a55b9cba070c37051a3057fdb93f94df40aef1d234481757b",
+    "queued_motion/MaxAbsSinSweep/pasteable.rll": "1bd7962f0736490b5b4e24780ea11b677ca84468fa5a715210fbc07c9094d54a",
+    "queued_motion/MaxAbsSinSweep/studio_copy.rllscrap": "8c3422e0f848a8d3279277233b9a0859d0230d4b9c4bc22084316a12b0307884",
+    "queued_motion/MaxAbsSinSweep_Routine_RLL.L5X": "4e6218df4fd3891d9f49ec4e10dc205ec35298029734c58958964951c966b0ac",
+    "queued_motion/programTags.json": "ddca73907ade1f673d3dbeb452844d7afba46cc5034d104863cffe2e105722c1",
+    "queued_motion/SegTangentBounds/pasteable.rll": "5d871a344a70cb8a66e3ecee64ed2ee3b6fe682639d1af07049fbbd81ba56d8f",
+    "queued_motion/SegTangentBounds/studio_copy.rllscrap": "f79e62d08fcb49363762a20a5cfd306f84fdfcaada74409c4c18b20ba04c19f1",
+    "queued_motion/SegTangentBounds_Routine_RLL.L5X": "dae481957baa5da03ac781b228526903550522dedcbb468ab42f81604998bf63",
+    "Safety/main/pasteable.rll": "b8e0bad85568bf762dac786b611b68e4438ba65b54787d519fd6c432910ca4af",
+    "Safety/main/studio_copy.rllscrap": "b764217b292566457de0e3167600bff4c2de3672a5ee19f52c866b6d2f84b7ab",
+    "Safety/programTags.json": "23c7018da8a7fae6096cf6e2051bc94f87ba689303ccb8583f18332735e26358",
+    "Safety/Safety_Routine_RLL.L5X": "fbdeee89f81f8b46935cb76899a9c83a734baef953fd9118273bf28a32ea2e57",
+    "state_10_error/main/pasteable.rll": "db5fd293c8aad1f0314e9772ad43ac0275ee74f80ade2c7d99f7665efd40a38e",
+    "state_10_error/main/studio_copy.rllscrap": "4e315279cb32923e15ea5a14d5cd571e284e57defbb61473571b1a3e0cb04d2c",
+    "state_10_error/main_Routine_RLL.L5X": "ae5fb0d484d77bf1429ed6fe1095b0dd72650a3b1dfa47ca2ed3d5ff587278a5",
+    "state_10_error/programTags.json": "dee0d6431928ed3e530a2d4fb8ccfb3bf8faa4c26a19c6e10798a6fccacfcfb9",
+    "state_11_eot_trip/main/pasteable.rll": "198bc8f7da5d478a5d1700dd2cd915e730e80f39de7e215b61a390b66342c81e",
+    "state_11_eot_trip/main/studio_copy.rllscrap": "901d5d5f32af237b4e84df8c2438ed33051445efde5621b925053d9b6db833b9",
+    "state_11_eot_trip/main_Routine_RLL.L5X": "a643a1b482778e166f99e89531dcdc5f374b252968a0423ba274e5dc28ea9399",
+    "state_11_eot_trip/programTags.json": "a954d33bd7f03c924d8ea79395b07f4118c4f57d5037b5336b13551a4c93106b",
+    "state_12_move_xz/main/pasteable.rll": "aaf7d2fa0157b2c0eb43797d5adc8f886ee427b256c0c3ecdc0e87a2ec04b4ac",
+    "state_12_move_xz/main/studio_copy.rllscrap": "28026f80c4def3359cddf93c2d765a6815ab7a8f72921f7b97d69512985cd818",
+    "state_12_move_xz/main_Routine_RLL.L5X": "0df02d4d2c465d112fe43b9682284e6dffb4992bcba18b4ed2b82848f956b64d",
+    "state_12_move_xz/programTags.json": "26be8870f649bfd69f9b40765286f6d8cfe05f9b4c70d9a872fc4b29df978781",
+    "state_13_move_yz/main/pasteable.rll": "792bbe5faf5a6aa2070f636273bd800da5703e8cc442b5aa457bf1044421e924",
+    "state_13_move_yz/main/studio_copy.rllscrap": "e4a1f0e1d429cad45ed2a9fe286d29764d15517a73635bfa57c3e11575e62ae8",
+    "state_13_move_yz/main_Routine_RLL.L5X": "a2a8970265842ab865191aa6a76a33588176846040301a5d3eeb5ac53a4f3130",
+    "state_13_move_yz/programTags.json": "e3192966908cadf5194d14988af71d562c752505e613aa1b7d3bf118c9e658e8",
+    "state_14_hmi_stop/main/pasteable.rll": "c5dcd62981124741219bd7f1e3eaa39ba24ae94e3c8b70ebcffb0a1bf69a6046",
+    "state_14_hmi_stop/main/studio_copy.rllscrap": "4d1b58b64876d65ace233dd8b81b4cc9476459390bcd60fabaebd68cb0704c8a",
+    "state_14_hmi_stop/main_Routine_RLL.L5X": "838ae55ff739b957b645337f0e20706c4440f6cb3a9837572c93cf20ff7bba38",
+    "state_14_hmi_stop/programTags.json": "e731d9e30c87aa28d18fcac30bfe65f4f326da838ff4369369e3c0b24638f326",
+    "state_1_ready/main/pasteable.rll": "7704b42db860c3d23c1379ebbb09876c8becb86514c8122dbf930136be356639",
+    "state_1_ready/main/studio_copy.rllscrap": "26a58f759f5aa1b929a71eb97e6e3fa087a2581c11f44d8020b13db353c99e75",
+    "state_1_ready/main_Routine_RLL.L5X": "d485e5f6f7d18b046a733807a67971755e1dea7c3187c9db220cc9c02d80cbd1",
+    "state_1_ready/programTags.json": "558d050bad7639bf13a1af424b7e9cb39d397cfe814742278020cfa8430a5dca",
+    "state_3_move_xy/main/pasteable.rll": "fb46680301e04f45363379a71eaf97b6614b7895f9168441e813ce97db355f21",
+    "state_3_move_xy/main/studio_copy.rllscrap": "e239b82791948767dbcb5c9bf8ed80f022c411be8bfa1e209a192ca9437050af",
+    "state_3_move_xy/main_Routine_RLL.L5X": "9f2a9acab75baf9e0e140888d0fba9d0919d069cbffc0cc3296932173361c172",
+    "state_3_move_xy/programTags.json": "c359d627e6d655d3fba654b48fd4e661854a955d56910eb1fbeeb07a07a34782",
+    "state_3_move_xy/xy_speed_regulator/pasteable.rll": "a37b7a1c211d91457b8240d4b836639e6ac563498b8c1aa717f0a86882198d77",
+    "state_3_move_xy/xy_speed_regulator/studio_copy.rllscrap": "cff13e4852c107978f44514a4a56285c425e27d39a6f6f9acefafe13772bad5f",
+    "state_3_move_xy/xy_speed_regulator_Routine_RLL.L5X": "e86b6b130b61c7c726b43ad8dfa3c976ec0c3c8d12ad53266260019a851c088f",
+    "state_5_move_z/main/pasteable.rll": "f0c92dae60ecc649f0bca28d147be9ec830156d118253e6c39bfd2eedf419aa3",
+    "state_5_move_z/main/studio_copy.rllscrap": "9cfa68898a3f8ae5d4b8cb08d3be3f71394279964fce279f6bd57f958bce4529",
+    "state_5_move_z/main_Routine_RLL.L5X": "4426204f3d4ec312a27bfbc42493844aa4c582003c494ebfb9655a94612b7482",
+    "state_5_move_z/programTags.json": "6b3cd9b97e8060ebcc09dc1712a20de33cb0b9485b39446ba7a6831bcc7753aa",
+    "state_6_latch/main/pasteable.rll": "e6398cfc50f2c042d915f28cddfde5f741c523735ea6098c78a135d5d9ad2c61",
+    "state_6_latch/main/studio_copy.rllscrap": "24627e36cce3c15584196b99fcc46e10cc22caca8de9dc6aa7daf512e9424553",
+    "state_6_latch/main_Routine_RLL.L5X": "67fc323b405f91b8fde44fcbe2a72e2660d1b7e0f2d34fbc48f805eb194a747e",
+    "state_6_latch/programTags.json": "b1932ee3cf4680ab28f52c54a0b2ec44c470e9b76fe6a218bea9c1a19cfbc212",
+    "state_9_unservo/main/pasteable.rll": "78be3c25af94cfff93afcd1d8133eb7c4f77768f4697703c07b8889de77dfaf4",
+    "state_9_unservo/main/studio_copy.rllscrap": "dba49e64d80e79d397b1c325fb6f8458e517e9d32ec1acfba7b7eab431fbc890",
+    "state_9_unservo/main_Routine_RLL.L5X": "fbce46aa1c4a6a5d34d7910705ca1f708ac72ccbbe29e5faa89793387efc9335",
+    "state_9_unservo/programTags.json": "24d4b4ccfc3ac2248e9dcc83d757e36b276f5212aa308b1ccca9c584bac0ae99",
+    "tension_pid/main/pasteable.rll": "77aa3de2efb3662dce5b4bc8ccb455eb215f56e48fd49ebba7ef08ca8221b7c6",
+    "tension_pid/main/studio_copy.rllscrap": "cf2e25c7ede53440358321cf7d20bb04860e86cae3275f551a9f173bc6e47d07",
+    "tension_pid/main_Routine_RLL.L5X": "9da43b4540e2045d4704e628c40a63a792dad0a8025f6b081d5eacafe34707a3",
+    "tension_pid/programTags.json": "730549860309e49a690add873d5f1d79cfdfd5696cbb89a0f5e5af72b55ef942",
+    "transfer/main/pasteable.rll": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "transfer/main/studio_copy.rllscrap": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "transfer/main_Routine_RLL.L5X": "c3fef11088e2e7269d9b0c7f68ed734b4a3ab14693a0ce46b94dc2d73b5354b2",
+    "transfer/programTags.json": "caf329ccb96cc874429bc91a3c38bf399307ba9f810084ffc51094237b2806af"
+  }
+}

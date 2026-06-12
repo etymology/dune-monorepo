@@ -1,0 +1,330 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 14:10:57 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="DUNEW2PLC1">
+<Programs Use="Context">
+<Program Use="Context" Name="main" Class="Standard">
+<Routines Use="Context">
+<Routine Use="Target" Name="main" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[XIC(Local:1:I.Pt00.Data)OTE(MACHINE_SW_STAT[1])OTE(Z_RETRACTED_1A);]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[[XIO(DUNEW2PLC2:1:I.Pt02Data) ,XIO(DUNEW2PLC2:1:I.Pt03Data) ,XIO(DUNEW2PLC2:1:I.Pt04Data) ]OTE(MACHINE_SW_STAT[23]);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[XIO(Local:1:I.Pt01.Data)OTE(MACHINE_SW_STAT[2])OTE(Z_RETRACTED_1B);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[XIC(Local:1:I.Pt02.Data)OTE(MACHINE_SW_STAT[3])OTE(Z_RETRACTED_2A);]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[XIO(Local:1:I.Pt03.Data)OTE(MACHINE_SW_STAT[4])OTE(Z_RETRACTED_2B);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[[XIC(Z_RETRACTED_1A) ,XIC(Z_RETRACTED_2A) ]XIC(Z_RETRACTED_1B)XIC(Z_RETRACTED_2B)OTE(Z_RETRACTED);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[[XIC(Local:1:I.Pt04.Data) ,CMP(Z_axis.ActualPosition>415) ]OTE(MACHINE_SW_STAT[5])OTE(Z_EXTENDED);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Text>
+<![CDATA[XIC(Local:1:I.Pt11.Data)OTE(MACHINE_SW_STAT[6])OTE(Z_STAGE_LATCHED);]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt01.Data)OTE(MACHINE_SW_STAT[7])OTE(Z_FIXED_LATCHED);]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[[XIC(Local:1:I.Pt07.Data) ,XIC(z_eot_bypass) ]OTE(MACHINE_SW_STAT[8])OTE(Z_EOT);]]>
+</Text>
+</Rung>
+<Rung Number="10" Type="N">
+<Text>
+<![CDATA[XIC(Local:1:I.Pt06.Data)OTE(MACHINE_SW_STAT[18])OTE(PLUS_Y_EOT);]]>
+</Text>
+</Rung>
+<Rung Number="11" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt12.Data)OTE(MACHINE_SW_STAT[19])OTE(MINUS_Y_EOT);]]>
+</Text>
+</Rung>
+<Rung Number="12" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt06.Data)OTE(TENSION_ON_SWITCH);]]>
+</Text>
+</Rung>
+<Rung Number="13" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt08.Data)OTE(MACHINE_SW_STAT[20])OTE(PLUS_X_EOT);]]>
+</Text>
+</Rung>
+<Rung Number="14" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt10.Data)OTE(MACHINE_SW_STAT[21])OTE(MINUS_X_EOT);]]>
+</Text>
+</Rung>
+<Rung Number="15" Type="N">
+<Text>
+<![CDATA[XIC(Z_EOT)XIC(PLUS_Y_EOT)XIC(MINUS_Y_EOT)XIC(PLUS_X_EOT)XIC(MINUS_X_EOT)OTE(ALL_EOT_GOOD);]]>
+</Text>
+</Rung>
+<Rung Number="16" Type="N">
+<Text>
+<![CDATA[XIO(Local:1:I.Pt10.Data)OTE(MACHINE_SW_STAT[9])OTE(Z_STAGE_PRESENT);]]>
+</Text>
+</Rung>
+<Rung Number="17" Type="N">
+<Text>
+<![CDATA[XIO(Local:2:I.Pt02.Data)OTE(MACHINE_SW_STAT[10])OTE(Z_FIXED_PRESENT);]]>
+</Text>
+</Rung>
+<Rung Number="18" Type="N">
+<Text>
+<![CDATA[XIC(Local:1:I.Pt12.Data)OTE(MACHINE_SW_STAT[17])OTE(Y_XFER_OK);]]>
+</Text>
+</Rung>
+<Rung Number="19" Type="N">
+<Text>
+<![CDATA[XIC(Local:1:I.Pt13.Data)OTE(MACHINE_SW_STAT[16])OTE(Y_MOUNT_XFER_OK);]]>
+</Text>
+</Rung>
+<Rung Number="20" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt00.Data)OTE(MACHINE_SW_STAT[15])OTE(X_XFER_OK);]]>
+</Text>
+</Rung>
+<Rung Number="21" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt04.Data)OTE(MACHINE_SW_STAT[14])OTE(X_PARKED);]]>
+</Text>
+</Rung>
+<Rung Number="22" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt14.Data)OTE(MACHINE_SW_STAT[22])OTE(APA_IS_VERTICAL);]]>
+</Text>
+</Rung>
+<Rung Number="23" Type="N">
+<Text>
+<![CDATA[XIC(DUNEW2PLC2:1:I.Pt00Data)XIC(DUNEW2PLC2:1:I.Pt01Data)OTE(MACHINE_SW_STAT[25]);]]>
+</Text>
+</Rung>
+<Rung Number="24" Type="N">
+<Text>
+<![CDATA[XIC(Local:6:I.Pt00.Data)OTE(MACHINE_SW_STAT[26])OTE(FRAME_LOC_HD_TOP);]]>
+</Text>
+</Rung>
+<Rung Number="25" Type="N">
+<Text>
+<![CDATA[XIC(Local:6:I.Pt01.Data)OTE(MACHINE_SW_STAT[27])OTE(FRAME_LOC_HD_MID);]]>
+</Text>
+</Rung>
+<Rung Number="26" Type="N">
+<Text>
+<![CDATA[XIC(Local:6:I.Pt02.Data)OTE(MACHINE_SW_STAT[28])OTE(FRAME_LOC_HD_BTM);]]>
+</Text>
+</Rung>
+<Rung Number="27" Type="N">
+<Text>
+<![CDATA[XIC(Local:6:I.Pt03.Data)OTE(MACHINE_SW_STAT[29])OTE(FRAME_LOC_FT_TOP);]]>
+</Text>
+</Rung>
+<Rung Number="28" Type="N">
+<Text>
+<![CDATA[XIC(Local:6:I.Pt04.Data)OTE(MACHINE_SW_STAT[30])OTE(FRAME_LOC_FT_MID);]]>
+</Text>
+</Rung>
+<Rung Number="29" Type="N">
+<Text>
+<![CDATA[XIC(Local:6:I.Pt05.Data)OTE(MACHINE_SW_STAT[31])OTE(FRAME_LOC_FT_BTM);]]>
+</Text>
+</Rung>
+<Rung Number="30" Type="N">
+<Text>
+<![CDATA[LIM(btm_support_collision_ymin,Y_axis.ActualPosition,btm_support_collision_ymax)OTE(support_collision_window_bttm);]]>
+</Text>
+</Rung>
+<Rung Number="31" Type="N">
+<Text>
+<![CDATA[LIM(mid_support_collision_ymin,Y_axis.ActualPosition,mid_support_collision_ymax)OTE(support_collision_window_mid);]]>
+</Text>
+</Rung>
+<Rung Number="32" Type="N">
+<Text>
+<![CDATA[LIM(top_support_collision_ymin,Y_axis.ActualPosition,top_support_collision_ymax)OTE(support_collision_window_top);]]>
+</Text>
+</Rung>
+<Rung Number="33" Type="N">
+<Text>
+<![CDATA[XIO(Safety_Tripped_S)TON(T01,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="34" Type="N">
+<Text>
+<![CDATA[XIC(Safety_Tripped_S)[OTE(Local:3:O.Pt11.Data) ,OTE(Local:3:O.Pt12.Data) ];]]>
+</Text>
+</Rung>
+<Rung Number="35" Type="N">
+<Text>
+<![CDATA[[XIC(blink_on.TT) [XIC(T01.TT) ,NEQ(ERROR_CODE,0) ] ,XIC(X_axis.SLSActiveStatus) ]OTE(Local:3:O.Pt13.Data);]]>
+</Text>
+</Rung>
+<Rung Number="36" Type="N">
+<Text>
+<![CDATA[XIC(blink_on.TT)XIC(T01.TT)OTE(Local:3:O.Pt15.Data);]]>
+</Text>
+</Rung>
+<Rung Number="37" Type="N">
+<Text>
+<![CDATA[[XIC(T01.TT) ,XIC(T01.DN) ]OTE(Local:3:O.Pt14.Data);]]>
+</Text>
+</Rung>
+<Rung Number="38" Type="N">
+<Text>
+<![CDATA[TON(blink_on,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="39" Type="N">
+<Text>
+<![CDATA[XIC(blink_on.DN)TON(blink_off,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="40" Type="N">
+<Text>
+<![CDATA[XIC(blink_off.DN)RES(blink_on);]]>
+</Text>
+</Rung>
+<Rung Number="41" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=0)CPT(STATE,0);]]>
+</Text>
+</Rung>
+<Rung Number="42" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=1)CPT(STATE,1);]]>
+</Text>
+</Rung>
+<Rung Number="43" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=2)CPT(STATE,2);]]>
+</Text>
+</Rung>
+<Rung Number="44" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=3)CPT(STATE,3);]]>
+</Text>
+</Rung>
+<Rung Number="45" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=4)CPT(STATE,4);]]>
+</Text>
+</Rung>
+<Rung Number="46" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=5)CPT(STATE,5);]]>
+</Text>
+</Rung>
+<Rung Number="47" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=6)CPT(STATE,6);]]>
+</Text>
+</Rung>
+<Rung Number="48" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=7)CPT(STATE,7);]]>
+</Text>
+</Rung>
+<Rung Number="49" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=8)CPT(STATE,8);]]>
+</Text>
+</Rung>
+<Rung Number="50" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=9)CPT(STATE,9);]]>
+</Text>
+</Rung>
+<Rung Number="51" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=10)CPT(STATE,10);]]>
+</Text>
+</Rung>
+<Rung Number="52" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=11)CPT(STATE,11);]]>
+</Text>
+</Rung>
+<Rung Number="53" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=12)CPT(STATE,12);]]>
+</Text>
+</Rung>
+<Rung Number="54" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=13)CPT(STATE,13);]]>
+</Text>
+</Rung>
+<Rung Number="55" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)CMP(NEXTSTATE=14)CPT(STATE,14);]]>
+</Text>
+</Rung>
+<Rung Number="56" Type="N">
+<Text>
+<![CDATA[XIC(Local:2:I.Pt13.Data)OTE(ResetPB);]]>
+</Text>
+</Rung>
+<Rung Number="57" Type="N">
+<Text>
+<![CDATA[CPT(v_xyz,SQR(X_axis.ActualVelocity*X_axis.ActualVelocity+Y_axis.ActualVelocity*Y_axis.ActualVelocity)+SQR(Z_axis.ActualVelocity*Z_axis.ActualVelocity));]]>
+</Text>
+</Rung>
+<Rung Number="58" Type="N">
+<Text>
+<![CDATA[CPT(v_xy,SQR(X_axis.ActualVelocity*X_axis.ActualVelocity+Y_axis.ActualVelocity*Y_axis.ActualVelocity));]]>
+</Text>
+</Rung>
+<Rung Number="59" Type="N">
+<Text>
+<![CDATA[NEQ(v_xy,0)CPT(accel_xy,(X_axis.ActualVelocity*X_axis.CommandAcceleration+Y_axis.ActualVelocity*Y_axis.CommandAcceleration)/v_xy);]]>
+</Text>
+</Rung>
+<Rung Number="60" Type="N">
+<Text>
+<![CDATA[XIO(DUNEW2PLC2:1:I.Pt06Data)OTE(speed_regulator_switch);]]>
+</Text>
+</Rung>
+<Rung Number="61" Type="N">
+<Text>
+<![CDATA[[[XIC(Z_STAGE_LATCHED) ,XIC(Z_FIXED_LATCHED) EQU(ACTUATOR_POS,3) ] CPT(HEAD_POS,0) ,XIC(Z_FIXED_LATCHED) EQU(ACTUATOR_POS,2) CPT(HEAD_POS,3) ,XIO(Z_STAGE_LATCHED) XIO(Z_FIXED_LATCHED) CPT(HEAD_POS,-1) ];]]>
+</Text>
+</Rung>
+<Rung Number="62" Type="N">
+<Text>
+<![CDATA[XIC(INIT_DONE)OTE(test_tag);]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

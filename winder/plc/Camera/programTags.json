@@ -1,18 +1,38 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-08T19:07:46.280187+00:00",
+  "generated_at": "2026-06-12T14:10:57",
   "plc_path": "192.168.140.13",
+  "source_acd": {
+    "file": "DUNEW2PLC1_py3.ACD",
+    "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
+    "sha256": "66b4ddeacc22bb19fd9f7ec854e3d540cecf423fa28da3e4de9a25abc2555fc2",
+    "size": 4683198,
+    "mtime": "2026-06-12T14:10:10",
+    "last_saved": "2026-06-12 14:10:10.419",
+    "studio_version": "V33.00.00/3805.000",
+    "save_log_entries": 137
+  },
   "program_name": "Camera",
-  "main_routine_name": "CameraControl",
-  "main_routine_name_source": "single_routine",
+  "main_routine_name": "main",
+  "main_routine_name_source": "named_main",
   "routines": [
+    "CameraControl",
+    "main"
+  ],
+  "subroutines": [
     "CameraControl"
   ],
-  "subroutines": [],
   "udts": [
     {
       "name": "CONTROL",
       "fields": [
+        {
+          "name": "Control",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0,
+          "hidden": true
+        },
         {
           "name": "LEN",
           "tag_type": "atomic",
@@ -29,57 +49,57 @@
           "name": "EN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 3
+          "offset": 0,
+          "bit": 31
         },
         {
           "name": "EU",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 6,
-          "offset": 3
+          "offset": 0,
+          "bit": 30
         },
         {
           "name": "DN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 5,
-          "offset": 3
+          "offset": 0,
+          "bit": 29
         },
         {
           "name": "EM",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 4,
-          "offset": 3
+          "offset": 0,
+          "bit": 28
         },
         {
           "name": "ER",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 3,
-          "offset": 3
+          "offset": 0,
+          "bit": 27
         },
         {
           "name": "UL",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 2,
-          "offset": 3
+          "offset": 0,
+          "bit": 26
         },
         {
           "name": "IN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 1,
-          "offset": 3
+          "offset": 0,
+          "bit": 25
         },
         {
           "name": "FD",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 0,
-          "offset": 3
+          "offset": 0,
+          "bit": 24
         }
       ]
     },
@@ -96,71 +116,71 @@
           "name": "EN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 3
+          "offset": 0,
+          "bit": 31
         },
         {
           "name": "DN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 5,
-          "offset": 3
+          "offset": 0,
+          "bit": 29
         },
         {
           "name": "ER",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 4,
-          "offset": 3
+          "offset": 0,
+          "bit": 28
         },
         {
           "name": "PC",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 3,
-          "offset": 3
+          "offset": 0,
+          "bit": 27
         },
         {
           "name": "IP",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 2,
-          "offset": 3
+          "offset": 0,
+          "bit": 26
         },
         {
           "name": "AC",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 2
+          "offset": 0,
+          "bit": 23
         },
         {
           "name": "ACCEL",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 0,
-          "offset": 0
+          "offset": 0,
+          "bit": 0
         },
         {
           "name": "DECEL",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 1,
-          "offset": 0
+          "offset": 0,
+          "bit": 1
         },
         {
           "name": "TrackingMaster",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 2,
-          "offset": 0
+          "offset": 0,
+          "bit": 2
         },
         {
           "name": "CalculatedDataAvailable",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 3,
-          "offset": 0
+          "offset": 0,
+          "bit": 3
         },
         {
           "name": "ERR",
@@ -196,25 +216,35 @@
           "name": "DEAD_ZONE1",
           "tag_type": "atomic",
           "data_type_name": "SINT",
-          "offset": 13
+          "offset": 13,
+          "hidden": true
         },
         {
           "name": "DEAD_ZONE2",
           "tag_type": "atomic",
           "data_type_name": "SINT",
-          "offset": 14
+          "offset": 14,
+          "hidden": true
         },
         {
           "name": "DEAD_ZONE3",
           "tag_type": "atomic",
           "data_type_name": "SINT",
-          "offset": 15
+          "offset": 15,
+          "hidden": true
         }
       ]
     },
     {
       "name": "TIMER",
       "fields": [
+        {
+          "name": "Control",
+          "tag_type": "atomic",
+          "data_type_name": "DINT",
+          "offset": 0,
+          "hidden": true
+        },
         {
           "name": "PRE",
           "tag_type": "atomic",
@@ -231,22 +261,22 @@
           "name": "EN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 7,
-          "offset": 3
+          "offset": 0,
+          "bit": 31
         },
         {
           "name": "TT",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 6,
-          "offset": 3
+          "offset": 0,
+          "bit": 30
         },
         {
           "name": "DN",
           "tag_type": "atomic",
           "data_type_name": "BOOL",
-          "bit": 5,
-          "offset": 3
+          "offset": 0,
+          "bit": 29
         }
       ]
     }
@@ -257,84 +287,88 @@
       "fully_qualified_name": "Program:Camera.Cam_F_InspectionRes_0",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         32,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 0.0
     },
     {
       "name": "Cam_F_InspectionRes_1",
       "fully_qualified_name": "Program:Camera.Cam_F_InspectionRes_1",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         10,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 0.0
     },
     {
       "name": "Cam_F_InspectionRes_2",
       "fully_qualified_name": "Program:Camera.Cam_F_InspectionRes_2",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         10,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 0.0
     },
     {
       "name": "Cam_F_InspectionRes_3",
       "fully_qualified_name": "Program:Camera.Cam_F_InspectionRes_3",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         10,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 0.0
     },
     {
       "name": "FIFO_CTRL",
       "fully_qualified_name": "Program:Camera.FIFO_CTRL",
       "tag_type": "struct",
       "data_type_name": "CONTROL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         6,
         0,
         0
       ],
       "array_dimensions": 1,
+      "udt_name": "CONTROL",
       "program": "Camera",
-      "udt_name": "CONTROL"
+      "value": {
+        "LEN": 10,
+        "POS": 0,
+        "EN": false,
+        "EU": false,
+        "DN": false,
+        "EM": true,
+        "ER": false,
+        "UL": false,
+        "IN": false,
+        "FD": false
+      }
     },
     {
       "name": "foundIt",
       "fully_qualified_name": "Program:Camera.foundIt",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
@@ -342,31 +376,34 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0
+      "value": false
     },
     {
       "name": "LightRing",
       "fully_qualified_name": "Program:Camera.LightRing",
       "tag_type": "struct",
       "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
+      "udt_name": "TIMER",
       "program": "Camera",
-      "udt_name": "TIMER"
+      "value": {
+        "PRE": 100,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
     },
     {
       "name": "Manual_Trig",
       "fully_qualified_name": "Program:Camera.Manual_Trig",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
@@ -374,45 +411,41 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0
+      "value": false
     },
     {
       "name": "osob",
       "fully_qualified_name": "Program:Camera.osob",
       "tag_type": "atomic",
       "data_type_name": "DWORD",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         1,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": false
     },
     {
       "name": "ossb",
       "fully_qualified_name": "Program:Camera.ossb",
       "tag_type": "atomic",
       "data_type_name": "DWORD",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         1,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": false
     },
     {
       "name": "Pos_trigger",
       "fully_qualified_name": "Program:Camera.Pos_trigger",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
@@ -420,31 +453,188 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0
+      "value": true
     },
     {
       "name": "RegistrationData",
       "fully_qualified_name": "Program:Camera.RegistrationData",
       "tag_type": "struct",
       "data_type_name": "MOTION_INSTRUCTION",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         8,
         0,
         0
       ],
       "array_dimensions": 1,
+      "udt_name": "MOTION_INSTRUCTION",
       "program": "Camera",
-      "udt_name": "MOTION_INSTRUCTION"
+      "value": [
+        {
+          "FLAGS": -1845493760,
+          "EN": true,
+          "DN": false,
+          "ER": true,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 3,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": -1845493760,
+          "EN": true,
+          "DN": false,
+          "ER": true,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 3,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        },
+        {
+          "FLAGS": 0,
+          "EN": false,
+          "DN": false,
+          "ER": false,
+          "PC": false,
+          "IP": false,
+          "AC": false,
+          "ACCEL": false,
+          "DECEL": false,
+          "TrackingMaster": false,
+          "CalculatedDataAvailable": false,
+          "ERR": 0,
+          "STATUS": 0,
+          "STATE": 0,
+          "SEGMENT": 0,
+          "EXERR": 0
+        }
+      ]
+    },
+    {
+      "name": "test_tag",
+      "fully_qualified_name": "Program:Camera.test_tag",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Camera",
+      "description": "Demo tag added to show how Studio creates new tags on routine import",
+      "value": false
     },
     {
       "name": "triggerOneShotOB",
       "fully_qualified_name": "Program:Camera.triggerOneShotOB",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
@@ -452,15 +642,13 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0
+      "value": false
     },
     {
       "name": "triggerOneShotSB",
       "fully_qualified_name": "Program:Camera.triggerOneShotSB",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
@@ -468,31 +656,69 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "bit_position": 0
+      "value": true
     },
     {
       "name": "TriggerResetTimer1",
       "fully_qualified_name": "Program:Camera.TriggerResetTimer1",
       "tag_type": "struct",
       "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
+      "udt_name": "TIMER",
       "program": "Camera",
-      "udt_name": "TIMER"
+      "value": {
+        "PRE": 100,
+        "ACC": 5,
+        "EN": true,
+        "TT": true,
+        "DN": false
+      }
     },
     {
       "name": "TriggerResetTimer2",
       "fully_qualified_name": "Program:Camera.TriggerResetTimer2",
       "tag_type": "struct",
       "data_type_name": "TIMER",
-      "alias": false,
-      "external_access": "Read Only",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "TIMER",
+      "program": "Camera",
+      "value": {
+        "PRE": 100,
+        "ACC": 0,
+        "EN": false,
+        "TT": false,
+        "DN": false
+      }
+    },
+    {
+      "name": "X_axis_Cam_F_Pos",
+      "fully_qualified_name": "Program:Camera.X_axis_Cam_F_Pos",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
+      "dimensions": [
+        10,
+        0,
+        0
+      ],
+      "array_dimensions": 1,
+      "program": "Camera",
+      "value": 0.0
+    },
+    {
+      "name": "X_axis_Cam_F_Position",
+      "fully_qualified_name": "Program:Camera.X_axis_Cam_F_Position",
+      "tag_type": "atomic",
+      "data_type_name": "REAL",
       "dimensions": [
         0,
         0,
@@ -500,127 +726,148 @@
       ],
       "array_dimensions": 0,
       "program": "Camera",
-      "udt_name": "TIMER"
-    },
-    {
-      "name": "X_axis_Cam_F_Pos",
-      "fully_qualified_name": "Program:Camera.X_axis_Cam_F_Pos",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        10,
-        0,
-        0
-      ],
-      "array_dimensions": 1,
-      "program": "Camera"
-    },
-    {
-      "name": "X_axis_Cam_F_Position",
-      "fully_qualified_name": "Program:Camera.X_axis_Cam_F_Position",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "Camera"
+      "value": -5.179965496063232
     },
     {
       "name": "x_pos",
       "fully_qualified_name": "Program:Camera.x_pos",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 564.0050048828125
     },
     {
       "name": "x_pos_next",
       "fully_qualified_name": "Program:Camera.x_pos_next",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 564.0050048828125
     },
     {
       "name": "Y_axis_Cam_F_Pos",
       "fully_qualified_name": "Program:Camera.Y_axis_Cam_F_Pos",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         10,
         0,
         0
       ],
       "array_dimensions": 1,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 0.0
     },
     {
       "name": "Y_axis_Cam_F_Position",
       "fully_qualified_name": "Program:Camera.Y_axis_Cam_F_Position",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read Only",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 12.123627662658691
     },
     {
       "name": "y_pos",
       "fully_qualified_name": "Program:Camera.y_pos",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 2465.83984375
     },
     {
       "name": "y_pos_next",
       "fully_qualified_name": "Program:Camera.y_pos_next",
       "tag_type": "atomic",
       "data_type_name": "REAL",
-      "alias": false,
-      "external_access": "Read/Write",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "program": "Camera"
+      "program": "Camera",
+      "value": 2465.83984375
+    },
+    {
+      "name": "Z_RETRACTED_1A",
+      "fully_qualified_name": "Program:Camera.Z_RETRACTED_1A",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Camera",
+      "value": true
+    },
+    {
+      "name": "Z_RETRACTED_1B",
+      "fully_qualified_name": "Program:Camera.Z_RETRACTED_1B",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Camera",
+      "value": true
+    },
+    {
+      "name": "Z_RETRACTED_2A",
+      "fully_qualified_name": "Program:Camera.Z_RETRACTED_2A",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Camera",
+      "value": true
+    },
+    {
+      "name": "Z_RETRACTED_2B",
+      "fully_qualified_name": "Program:Camera.Z_RETRACTED_2B",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "Camera",
+      "value": true
     }
-  ]
+  ],
+  "values_generated_at": "2026-06-12T19:11:09.055295+00:00"
 }

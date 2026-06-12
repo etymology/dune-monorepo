@@ -1,14 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-08T19:07:46.280187+00:00",
+  "generated_at": "2026-06-12T14:10:57",
   "plc_path": "192.168.140.13",
+  "source_acd": {
+    "file": "DUNEW2PLC1_py3.ACD",
+    "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
+    "sha256": "66b4ddeacc22bb19fd9f7ec854e3d540cecf423fa28da3e4de9a25abc2555fc2",
+    "size": 4683198,
+    "mtime": "2026-06-12T14:10:10",
+    "last_saved": "2026-06-12 14:10:10.419",
+    "studio_version": "V33.00.00/3805.000",
+    "save_log_entries": 137
+  },
   "program_name": "transfer",
   "main_routine_name": "main",
-  "main_routine_name_source": "single_routine",
+  "main_routine_name_source": "named_main",
   "routines": [
     "main"
   ],
   "subroutines": [],
   "udts": [],
-  "program_tags": []
+  "program_tags": [],
+  "values_generated_at": "2026-06-12T19:11:09.055295+00:00"
 }

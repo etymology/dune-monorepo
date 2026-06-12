@@ -1,0 +1,157 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="MaxAbsCosSweep" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 14:10:57 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="DUNEW2PLC1">
+<Programs Use="Context">
+<Program Use="Context" Name="queued_motion" Class="Standard">
+<Routines Use="Context">
+<Routine Use="Target" Name="MaxAbsCosSweep" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[CPT(REALS[10],REALS[7]+REALS[8]);]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[LES(REALS[7],REALS[10])JMP(lbl_min_a_9);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[MOV(REALS[10],REALS[11])JMP(lbl_min_end_10);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_a_9)MOV(REALS[7],REALS[11]);]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[LBL(lbl_min_end_10)GRT(REALS[7],REALS[10])JMP(lbl_max_a_11);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[MOV(REALS[10],REALS[12])JMP(lbl_max_end_12);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[LBL(lbl_max_a_11)MOV(REALS[7],REALS[12]);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Text>
+<![CDATA[LBL(lbl_max_end_12)CPT(REALS[905],ABS(COS(REALS[7])));]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[CPT(REALS[906],ABS(COS(REALS[10])));]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[GRT(REALS[905],REALS[906])JMP(lbl_max_a_13);]]>
+</Text>
+</Rung>
+<Rung Number="10" Type="N">
+<Text>
+<![CDATA[MOV(REALS[906],REALS[13])JMP(lbl_max_end_14);]]>
+</Text>
+</Rung>
+<Rung Number="11" Type="N">
+<Text>
+<![CDATA[LBL(lbl_max_a_13)MOV(REALS[905],REALS[13]);]]>
+</Text>
+</Rung>
+<Rung Number="12" Type="N">
+<Text>
+<![CDATA[LBL(lbl_max_end_14)CPT(REALS[907],REALS[11]/3.14159265358979);]]>
+</Text>
+</Rung>
+<Rung Number="13" Type="N">
+<Text>
+<![CDATA[TRN(REALS[907],DINTS[901]);]]>
+</Text>
+</Rung>
+<Rung Number="14" Type="N">
+<Text>
+<![CDATA[MOV(DINTS[901],REALS[908]);]]>
+</Text>
+</Rung>
+<Rung Number="15" Type="N">
+<Text>
+<![CDATA[GEQ(REALS[908],REALS[907])JMP(lbl_ceil_done_15);]]>
+</Text>
+</Rung>
+<Rung Number="16" Type="N">
+<Text>
+<![CDATA[ADD(DINTS[901],1,DINTS[901]);]]>
+</Text>
+</Rung>
+<Rung Number="17" Type="N">
+<Text>
+<![CDATA[LBL(lbl_ceil_done_15)MOV(DINTS[901],DINTS[2]);]]>
+</Text>
+</Rung>
+<Rung Number="18" Type="N">
+<Text>
+<![CDATA[CPT(REALS[909],REALS[12]/3.14159265358979);]]>
+</Text>
+</Rung>
+<Rung Number="19" Type="N">
+<Text>
+<![CDATA[TRN(REALS[909],DINTS[3]);]]>
+</Text>
+</Rung>
+<Rung Number="20" Type="N">
+<Text>
+<![CDATA[GRT(DINTS[2],DINTS[3])JMP(lbl_else_16);]]>
+</Text>
+</Rung>
+<Rung Number="21" Type="N">
+<Text>
+<![CDATA[MOV(1.0,REALS[9]);]]>
+</Text>
+</Rung>
+<Rung Number="22" Type="N">
+<Text>
+<![CDATA[JMP(lbl_MaxAbsCosSweep_end);]]>
+</Text>
+</Rung>
+<Rung Number="23" Type="N">
+<Text>
+<![CDATA[LBL(lbl_else_16)MOV(REALS[13],REALS[9]);]]>
+</Text>
+</Rung>
+<Rung Number="24" Type="N">
+<Text>
+<![CDATA[JMP(lbl_MaxAbsCosSweep_end);]]>
+</Text>
+</Rung>
+<Rung Number="25" Type="N">
+<Text>
+<![CDATA[LBL(lbl_MaxAbsCosSweep_end)NOP();]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+<Routine Use="Reference" Name="MaxAbsSinSweep">
+</Routine>
+<Routine Use="Reference" Name="CircleCenterForSeg">
+</Routine>
+<Routine Use="Reference" Name="ArcSweepRad">
+</Routine>
+<Routine Use="Reference" Name="SegTangentBounds">
+</Routine>
+<Routine Use="Reference" Name="main">
+</Routine>
+<Routine Use="Reference" Name="CapSegSpeed">
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

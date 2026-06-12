@@ -103,8 +103,10 @@ class PlcLadderParserTests(unittest.TestCase):
         )
         self.assertIn("MCLM: MCLMCallable = api.MCLM", generated)
         self.assertIn("if STATE==2:", generated)
+        # Rungs 0 and 1 are separate in the ACD-extracted ladder (the old
+        # hand-copied rllscrap had accidentally merged them into one rung).
         self.assertIn(
-            "if (STATE==2) and (not main_xy_move.IP) and (STATE==3)", generated
+            "if (not main_xy_move.IP) and (STATE==3)", generated
         )
         self.assertIn("MCLM(", generated)
         self.assertIn("motion_control=main_xy_move", generated)
