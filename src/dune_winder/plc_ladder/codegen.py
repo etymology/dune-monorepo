@@ -234,6 +234,7 @@ NAMED_ARGUMENTS = {
         "fault_status",
     ),
     "TON": ("timer_tag", "preset", "accum", "rung_in"),
+    "TOF": ("timer_tag", "preset", "accum", "rung_in"),
 }
 
 REFERENCE_ARGUMENT_NAMES = {
@@ -767,7 +768,7 @@ class PythonCodeGenerator:
             if len(operands) > 1:
                 self._collect_path_root(operands[1], roots)
             return
-        if opcode == "TON":
+        if opcode in {"TON", "TOF"}:
             self._collect_path_root(operands[0], roots)
             return
         if opcode == "COP":
@@ -1030,7 +1031,7 @@ class PythonCodeGenerator:
             lines.extend(self._indent(indent) + line for line in call_lines[1:])
             return lines, [pulse_name]
 
-        if opcode == "TON":
+        if opcode in {"TON", "TOF"}:
             call_lines = self._render_call_lines(
                 opcode,
                 keyword_items=(

@@ -66,6 +66,7 @@ OPERAND_COUNTS = {
     "RES": 1,
     "SFX": 14,
     "SLS": 11,
+    "TOF": 3,
     "TON": 3,
     "TRN": 2,
     "XIC": 1,

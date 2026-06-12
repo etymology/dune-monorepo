@@ -422,6 +422,17 @@ class TONCallable(Protocol):
     ) -> Any: ...
 
 
+class TOFCallable(Protocol):
+    def __call__(
+        self,
+        *,
+        timer_tag: Any,
+        preset: Any = None,
+        accum: Any = None,
+        rung_in: Any,
+    ) -> Any: ...
+
+
 class TRNCallable(Protocol):
     def __call__(self, *, source: Any, dest: Any) -> Any: ...
 
@@ -1281,6 +1292,22 @@ class BoundRoutineAPI:
             rung_in=rung_in,
         )
 
+    def TOF(
+        self,
+        *,
+        timer_tag: Any,
+        preset: Any = None,
+        accum: Any = None,
+        rung_in: Any,
+    ) -> Any:
+        return self._execute(
+            "TOF",
+            self._normalize_reference(timer_tag),
+            self._normalize_value(preset),
+            self._normalize_value(accum),
+            rung_in=rung_in,
+        )
+
     def TRN(self, *, source: Any, dest: Any) -> Any:
         return self.set_tag(dest, math.trunc(float(source)))
 
@@ -1411,6 +1438,7 @@ __all__ = [
     "TagRef",
     "TagPathOperand",
     "TimerTag",
+    "TOFCallable",
     "TONCallable",
     "TRNCallable",
     "bind_scan_context",

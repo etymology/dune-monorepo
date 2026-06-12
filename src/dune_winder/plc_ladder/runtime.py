@@ -410,6 +410,9 @@ class RoutineExecutor:
         if opcode == "TON":
             self._execute_ton(operands[0], bool(condition_in), ctx)
             return bool(condition_in)
+        if opcode == "TOF":
+            self._execute_tof(operands[0], bool(condition_in), ctx)
+            return bool(condition_in)
         if opcode == "PID":
             if condition_in:
                 self._execute_pid(operands, ctx)
@@ -600,6 +603,29 @@ class RoutineExecutor:
             timer["ACC"] = 0
             timer["TT"] = False
             timer["DN"] = False
+        ctx.set_value(timer_path, timer)
+
+    def _execute_tof(self, timer_path: str, condition_in: bool, ctx: ScanContext):
+        raw = ctx.get_value(timer_path)
+        timer = (
+            _deep_copy(raw)
+            if isinstance(raw, dict)
+            else {"PRE": 10, "ACC": 0, "EN": False, "TT": False, "DN": False}
+        )
+        timer["EN"] = bool(condition_in)
+        if condition_in:
+            timer["ACC"] = 0
+            timer["TT"] = False
+            timer["DN"] = True
+        else:
+            timer["ACC"] = int(timer.get("ACC", 0)) + int(
+                ctx.runtime_state.scan_time_ms
+            )
+            done = int(timer.get("ACC", 0)) >= int(timer.get("PRE", 0))
+            if done:
+                timer["ACC"] = max(int(timer.get("ACC", 0)), int(timer.get("PRE", 0)))
+            timer["DN"] = not done
+            timer["TT"] = not done
         ctx.set_value(timer_path, timer)
 
     def _execute_ctu(self, counter_path: str, condition_in: bool, ctx: ScanContext):
@@ -1440,6 +1466,7 @@ class InstructionRuntime:
     _execute_osr = RoutineExecutor._execute_osr
     _execute_osf = RoutineExecutor._execute_osf
     _execute_ton = RoutineExecutor._execute_ton
+    _execute_tof = RoutineExecutor._execute_tof
     _execute_pid = RoutineExecutor._execute_pid
     _reset_structure = RoutineExecutor._reset_structure
     _read_block = RoutineExecutor._read_block
