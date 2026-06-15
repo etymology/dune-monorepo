@@ -1,0 +1,76 @@
+routine state_6_latch/main
+
+uses ACTUATOR_POS, delay_mid_position, ENABLE_ACTUATOR, ERROR_CODE, LATCH_ACTUATOR_MID  # controller scope
+uses LATCH_ACTUATOR_TOP, latching_in_progress, MACHINE_SW_STAT, MOVE_TYPE, NEXTSTATE, STATE  # controller scope
+uses STATE_REQUEST, Z_EXTENDED, Z_FIXED_PRESENT, Z_RETRACTED, Z_STAGE_LATCHED, Z_STAGE_PRESENT  # controller scope
+uses delay_stage_latched, head_between_stage_and_fixed, latch_in_free_space  # program scope
+uses Latching_pulse_duration, Latching_pulse_interval, latching_signal, LatchingTimeoutCounter  # program scope
+uses manual_toggle_latch, one_second_timer, PREV_ACT_POS  # program scope
+uses Local:1:I, Local:3:O  # module I/O
+
+MACHINE_SW_STAT[12] = not Local:1:I.Pt08.Data
+
+LATCH_ACTUATOR_TOP = not Local:1:I.Pt08.Data
+
+MACHINE_SW_STAT[13] = not Local:1:I.Pt09.Data
+
+LATCH_ACTUATOR_MID = not Local:1:I.Pt09.Data
+
+ACTUATOR_POS = 3 when LATCH_ACTUATOR_TOP and not LATCH_ACTUATOR_MID
+
+start_timer delay_mid_position when LATCH_ACTUATOR_TOP and LATCH_ACTUATOR_MID  # preset 200 ms
+
+ACTUATOR_POS = 2 when LATCH_ACTUATOR_TOP and LATCH_ACTUATOR_MID and delay_mid_position.DN
+
+ACTUATOR_POS = 0 when not LATCH_ACTUATOR_TOP and not LATCH_ACTUATOR_MID and not Z_STAGE_LATCHED
+
+start_timer delay_stage_latched when Z_STAGE_LATCHED  # preset 150 ms
+
+ACTUATOR_POS = 1 when Z_STAGE_LATCHED and delay_stage_latched.DN
+
+head_between_stage_and_fixed = Z_STAGE_PRESENT and Z_FIXED_PRESENT and Z_EXTENDED
+
+latch_in_free_space = not Z_STAGE_PRESENT and Z_RETRACTED
+
+ENABLE_ACTUATOR = head_between_stage_and_fixed or latch_in_free_space
+
+latching_in_progress = STATE == 6 and ENABLE_ACTUATOR
+
+when STATE == 6 and not ENABLE_ACTUATOR:
+    ERROR_CODE = 6001
+    NEXTSTATE = 10
+
+on rising latching_in_progress:
+    PREV_ACT_POS = ACTUATOR_POS
+    reset LatchingTimeoutCounter
+
+start_timer Latching_pulse_duration when latching_in_progress and Latching_pulse_interval.DN  # preset 25 ms
+
+start_timer Latching_pulse_interval when latching_in_progress  # preset 300 ms
+
+reset Latching_pulse_interval when latching_in_progress and Latching_pulse_duration.DN
+
+Local:3:O.Pt01.Data = Latching_pulse_duration.TT or manual_toggle_latch
+
+latching_signal = Latching_pulse_duration.TT or manual_toggle_latch
+
+when latching_in_progress and head_between_stage_and_fixed and (PREV_ACT_POS == 1 and ACTUATOR_POS == 3 or PREV_ACT_POS == 3 and ACTUATOR_POS == 2 or PREV_ACT_POS == 2 and ACTUATOR_POS == 1 or PREV_ACT_POS == 0 and ACTUATOR_POS != 0):
+    MOVE_TYPE = 0
+    STATE_REQUEST = 0
+    NEXTSTATE = 1
+
+when latching_in_progress and latch_in_free_space and (PREV_ACT_POS == 0 and ACTUATOR_POS == 3 or PREV_ACT_POS == 3 and ACTUATOR_POS == 2 or PREV_ACT_POS == 2 and ACTUATOR_POS == 0):
+    MOVE_TYPE = 0
+    STATE_REQUEST = 0
+    NEXTSTATE = 1
+
+start_timer one_second_timer when latching_in_progress and not LatchingTimeoutCounter.DN  # preset 1000 ms
+
+when latching_in_progress and not LatchingTimeoutCounter.DN and one_second_timer.DN:
+    reset one_second_timer
+    count_up LatchingTimeoutCounter  # preset 20
+
+when LatchingTimeoutCounter.DN and latching_in_progress:
+    ERROR_CODE = 6002
+    NEXTSTATE = 10
+    reset LatchingTimeoutCounter

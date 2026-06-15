@@ -1,0 +1,130 @@
+routine state_3_move_xy/main
+
+uses accel_xy, ALL_EOT_GOOD, APA_IS_VERTICAL, check_tension_stable, ERROR_CODE, gamma, J  # controller scope
+uses MAX_TOLERABLE_Z, MCCD_X_Y_Axis1, MOVE_TYPE, NEXTSTATE, speed_regulator_switch, STATE  # controller scope
+uses STATE_REQUEST, TENSION_CONTROL_OK, tension_stable_timer, v_0, v_x_max, v_xyz, v_y_max  # controller scope
+uses X_axis, X_POSITION, X_Y, XY_ACCELERATION, XY_DECELERATION, XY_SPEED, XY_SPEED_REQ, Y_axis  # controller scope
+uses Y_POSITION, Z_axis, Z_RETRACTED  # controller scope
+uses dx, dy, k, main_xy_move, main_xy_move_completed, main_xy_move_completed_sb  # program scope
+uses move_xy_entry_ob, move_xy_entry_sb, near_ending, speed_regulator_off_ob  # program scope
+uses speed_regulator_off_sb, starting_x, starting_y, STATE3_IND, stopping_distance  # program scope
+uses stopping_ratio, trigger_xy_move, v_max, x_axis_mso, x_dist_to_target, x_time, xy_accel_jerk  # program scope
+uses xy_axes_servoed_on_ob, xy_axes_servoed_on_sb, xy_decel_jerk, xy_dist_to_target  # program scope
+uses xy_eot_stop_control, xy_move_error_ob, xy_move_error_sb, xy_move_trigger_sb, y_axis_mso  # program scope
+uses y_dist_to_target, y_time, z_axis_mso, z_axis_pre_xy_retract  # program scope
+
+NEXTSTATE = 1 when STATE == 2
+
+when not main_xy_move.IP and STATE == 3 and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK) and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z):
+    ERROR_CODE = 3001
+    NEXTSTATE = 10
+
+when not main_xy_move.IP and STATE == 3 and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK) and Z_RETRACTED and not APA_IS_VERTICAL:
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+
+STATE3_IND = not main_xy_move.IP and STATE == 3 and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK) and Z_RETRACTED
+
+OSR(move_xy_entry_sb, move_xy_entry_ob) when STATE3_IND
+
+ERROR_CODE = 3002 when STATE3_IND and X_Y.PhysicalAxisFault
+
+ERROR_CODE = 3004 when STATE3_IND and (X_axis.SafeTorqueOffInhibit or Y_axis.SafeTorqueOffInhibit)
+
+NEXTSTATE = 10 when STATE3_IND and (X_Y.PhysicalAxisFault or X_axis.SafeTorqueOffInhibit or Y_axis.SafeTorqueOffInhibit)
+
+when move_xy_entry_ob:
+    servo_on X_axis using x_axis_mso
+    servo_on Y_axis using y_axis_mso
+    servo_on Z_axis using z_axis_mso
+
+when z_axis_mso.DN:
+    z_axis_pre_xy_retract.FLAGS = 0
+    move_axis Z_axis using z_axis_pre_xy_retract:
+        type     = absolute
+        position = 0
+        speed    = 1000 units/s
+        accel    = 10000 units/s2
+        decel    = 10000 units/s2
+        profile  = s-curve
+        jerk     = 10000
+    z_axis_mso.FLAGS = 0
+
+OSR(xy_axes_servoed_on_sb, xy_axes_servoed_on_ob) when x_axis_mso.DN and y_axis_mso.DN
+
+OSR(xy_move_trigger_sb, trigger_xy_move) when xy_axes_servoed_on_ob or x_axis_mso.DN and y_axis_mso.DN and move_xy_entry_ob
+
+when trigger_xy_move:
+    starting_x = X_axis.ActualPosition
+    starting_y = Y_axis.ActualPosition
+
+when trigger_xy_move:
+    dx = abs(starting_x - X_POSITION)
+    dy = abs(starting_y - Y_POSITION)
+    x_time = v_x_max / dx
+    y_time = v_y_max / dy
+
+k = x_time when trigger_xy_move and x_time < y_time
+
+k = y_time when trigger_xy_move and y_time <= x_time
+
+v_max = k * sqr(dx * dx + dy * dy) when trigger_xy_move and (x_time < y_time or y_time <= x_time)
+
+XY_SPEED_REQ = v_max when trigger_xy_move and (x_time < y_time or y_time <= x_time) and v_max < XY_SPEED
+
+XY_SPEED_REQ = XY_SPEED when trigger_xy_move and (x_time < y_time or y_time <= x_time) and XY_SPEED <= v_max
+
+always:
+    x_dist_to_target = X_axis.ActualPosition - X_POSITION
+    y_dist_to_target = Y_axis.ActualPosition - Y_POSITION
+    xy_dist_to_target = sqr(x_dist_to_target * x_dist_to_target + y_dist_to_target * y_dist_to_target)
+
+always:
+    J = xy_decel_jerk
+    v_0 = v_xyz
+    gamma = sqr(accel_xy * accel_xy + 4 * J * v_0)
+    stopping_distance = (accel_xy + gamma) * (accel_xy + gamma) * (accel_xy + gamma) / (6 * J * J)
+
+near_ending = xy_dist_to_target < stopping_distance * 1
+
+stopping_ratio = stopping_distance / xy_dist_to_target when STATE3_IND
+
+call xy_speed_regulator when TENSION_CONTROL_OK and speed_regulator_switch
+
+when (not TENSION_CONTROL_OK or TENSION_CONTROL_OK and not speed_regulator_switch) and trigger_xy_move:
+    coordinated_move X_Y using main_xy_move:
+        type        = absolute
+        target      = X_POSITION
+        speed       = XY_SPEED_REQ units/s
+        accel       = XY_ACCELERATION units/s2
+        decel       = XY_DECELERATION units/s2
+        profile     = s-curve
+        termination = programmed
+
+OSF(speed_regulator_off_sb, speed_regulator_off_ob) when speed_regulator_switch
+
+MCCD(X_Y, MCCD_X_Y_Axis1, "Coordinated Move", Yes, XY_SPEED_REQ, "Units per sec", Yes, XY_ACCELERATION, "Units per sec2", Yes, XY_DECELERATION, "Units per sec2", No, xy_accel_jerk, No, xy_decel_jerk, "Units per sec3", "Active Motion") when speed_regulator_off_ob and not near_ending
+
+OSR(main_xy_move_completed_sb, main_xy_move_completed) when main_xy_move.PC or main_xy_move.ER and X_POSITION - X_axis.ActualPosition < 0.1 and Y_POSITION - Y_axis.ActualPosition < 0.1
+
+when main_xy_move.ER and X_POSITION - X_axis.ActualPosition > 0.1 and Y_POSITION - Y_axis.ActualPosition > 0.1:
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    MOVE_TYPE = 0
+    STATE_REQUEST = 0
+    main_xy_move.FLAGS = 0
+
+OSR(xy_move_error_sb, xy_move_error_ob) when main_xy_move.ER
+
+NEXTSTATE = 14 when main_xy_move.IP and STATE_REQUEST == 14
+
+on rising main_xy_move.IP and not ALL_EOT_GOOD:
+    MCS(X_Y, xy_eot_stop_control, All, Yes, 10000, "Units per sec2", Yes, 1000, "Units per sec3")
+    NEXTSTATE = 11
+    STATE_REQUEST = 0
+
+when main_xy_move_completed:
+    NEXTSTATE = 1
+    MOVE_TYPE = 0
+    STATE_REQUEST = 0
+    main_xy_move.FLAGS = 0

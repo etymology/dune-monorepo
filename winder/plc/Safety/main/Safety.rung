@@ -1,0 +1,30 @@
+routine Safety/Safety
+
+uses MORE_STATS_S, resetPB_S, Safety_System_Healthy, Safety_Tripped_S, X_Axis_SFX, X_Axis_SLS  # controller scope
+uses DUNEW2PLC2:1:I, DUNEW2SERVO1:SI, DUNEW2SERVO1:SO, DUNEW2SERVO2:SO  # module I/O
+
+Safety_System_Healthy = DUNEW2PLC2:1:I.Pt02Data and DUNEW2PLC2:1:I.Pt03Data and DUNEW2PLC2:1:I.Pt04Data
+
+X_Axis_SLS.Request = not DUNEW2PLC2:1:I.Pt05Data or not DUNEW2PLC2:1:I.Pt00Data or not DUNEW2PLC2:1:I.Pt01Data
+
+MORE_STATS_S[0] = DUNEW2PLC2:1:I.Pt05Data
+
+latch Safety_Tripped_S when not Safety_System_Healthy
+
+DUNEW2SERVO1:SO.STOOutput1 = not Safety_Tripped_S
+
+DUNEW2SERVO1:SO.STOOutput2 = not Safety_Tripped_S
+
+DUNEW2SERVO2:SO.STOOutput1 = not Safety_Tripped_S
+
+unlatch Safety_Tripped_S when resetPB_S and Safety_System_Healthy
+
+X_Axis_SFX.Reset = resetPB_S and Safety_System_Healthy
+
+X_Axis_SLS.Reset = resetPB_S and Safety_System_Healthy
+
+SFX(X_Axis_SFX, Seconds, 512.0, 512, 512, 0.0, DUNEW2SERVO1:SI.FeedbackPosition1, DUNEW2SERVO1:SI.FeedbackVelocity1, DUNEW2SERVO1:SI.PrimaryFeedbackValid1, DUNEW2SERVO1:SI.ConnectionFaulted, X_Axis_SFX.HomeTrigger, X_Axis_SFX.Reset, DUNEW2SERVO1:SO.SFHomed1, DUNEW2SERVO1:SO.SFXFault1) when not DUNEW2PLC2:1:I.Pt06Data and DUNEW2SERVO1:SI.PrimaryFeedbackValid1
+
+SLS(X_Axis_SLS, AUTOMATIC, AUTOMATIC, 3000, X_Axis_SLS.ActiveLimit, X_Axis_SFX, X_Axis_SLS.Request, X_Axis_SLS.Reset, DUNEW2SERVO1:SO.SLSActive1, DUNEW2SERVO1:SO.SLSLimit1, DUNEW2SERVO1:SO.SLSFault1) when not DUNEW2PLC2:1:I.Pt06Data
+
+MORE_STATS_S[1] = DUNEW2SERVO1:SO.SLSActive1
