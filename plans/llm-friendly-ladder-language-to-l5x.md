@@ -1,8 +1,36 @@
 # LLM-friendly ladder language ↔ L5X
 
-Status: proposed (rev 2 — reoriented around `plc-acd-export` and L5X routine import)
+Status: **implemented** 2026-06-12 (M0 confirmed by hand; M1–M5 in
+`src/dune_winder/rung_lang/`; M6 branch factoring not needed — the
+renderer maps NNF boolean structure onto nested series/branch directly,
+so no SOP blow-up exists to factor)
 Author: Ben (with Claude)
 Scope: `winder/plc/`, new package under `src/dune_winder/`
+
+Implementation deltas vs. this plan:
+
+- `pasteable.rll` and `manifest.json` retired immediately (not deferred to
+  post-M3); the ladder simulator derives paste-dialect text from
+  `studio_copy.rllscrap` in memory.
+- §3.7 comment carry-forward dropped entirely (decision: Comments.Dat can
+  go away). `#` comments compile-side only; re-export does not preserve
+  them.
+- Surface additions beyond §3: `always:` (unconditional multi-output
+  rung), `label <name>` / generic `JMP(...)` for the queued_motion
+  jump/label routines, verbatim uppercase instruction calls as
+  actions/condition atoms (the escape hatch below `raw`), `on falling`,
+  module-I/O paths (`Local:1:I.Pt05.Data`).
+- `let` is accepted and substituted at parse time but the renderer does
+  not emit it (rendered guards are spelled out per statement).
+- TON/TOF/CTU `?` placeholders resolve from tag-JSON PRE/ACC into the
+  emitted rllscrap/L5X (`rung_lang/timer_args.py`).
+- Raw density across the tree: 5 of ~900 non-pending rungs (0.6%), all
+  write-then-read-condition rungs that cannot be split safely. CI gate:
+  `tests/dune_winder/test_rung_roundtrip.py` (< 2%).
+- Verification gates: the §6.1 random-valuation checker, plus an
+  independent oracle — the `plc_ladder` simulator executes original vs
+  round-tripped ladder (`tests/dune_winder/test_rung_simulator_equiv.py`).
+- Language reference for agents: `winder/plc/RUNG_FORMAT.md`.
 
 ## Goal
 

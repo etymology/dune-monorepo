@@ -65,6 +65,12 @@ class ZMovePathTests(_TagIsolationTestCase):
 
     def test_z_seek_stalls_when_tension_gate_never_opens(self):
         plc = LadderSimulatedPLC("SIM")
+        # Tension control must actually be healthy for the stability gate to
+        # matter: drive the physical tension-on switch and the wire-present
+        # input, otherwise the ladder takes the "tension control off" escape
+        # leg (or trips the wire-break watchdog) and the gate never engages.
+        plc.set_tag("Local:2:I.Pt06.Data", True)
+        plc.set_tag("Local:1:I.Pt15.Data", True)
         plc.set_tag("check_tension_stable", True)
         plc.set_tag("tension_stable_tolerance", 0.0)
         plc.write(("Z_POSITION", 43.0))
@@ -208,6 +214,9 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
 
     def test_manual_mode_stays_manual_when_z_seek_stalls_in_state_5(self):
         io, machine = self._build_machine()
+        # Healthy, active tension control (see the ZMovePathTests stall test).
+        io.plc.set_tag("Local:2:I.Pt06.Data", True)
+        io.plc.set_tag("Local:1:I.Pt15.Data", True)
         io.plc.set_tag("check_tension_stable", True)
         io.plc.set_tag("tension_stable_tolerance", 0.0)
         self._advance_machine_until(

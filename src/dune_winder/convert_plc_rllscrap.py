@@ -56,13 +56,17 @@ def build_argument_parser():
     return parser
 
 
-TIMER_COUNTER_PATTERN = re.compile(r"(TON|CTU) (\S+) \? \?")
+TIMER_COUNTER_PATTERN = re.compile(
+    r"\b(?P<instruction>TON|TOF|RTO|CTU|CTD)(?P<open>\(|\s+)"
+    r"(?P<tag>[^,\s)]+)(?P<sep1>,|\s+)\?(?P<sep2>,|\s+)\?"
+)
 
 
 def _resolve_tag_arguments(match, plc_metadata, program):
-    """Replace TON/CTU placeholder args with actual PRE/ACC values from tag definitions."""
-    instruction = match.group(1)
-    tag_name = match.group(2)
+    """Replace timer/counter placeholders with PRE/ACC values from tag definitions."""
+    instruction = match.group("instruction")
+    open_ = match.group("open")
+    tag_name = match.group("tag")
     tag = plc_metadata.get_tag_definition(tag_name, program=program)
     if tag is None or not isinstance(tag.value, dict):
         return match.group(0)
@@ -70,6 +74,8 @@ def _resolve_tag_arguments(match, plc_metadata, program):
     acc = tag.value.get("ACC")
     if pre is None or acc is None:
         return match.group(0)
+    if open_ == "(":
+        return f"{instruction}({tag_name},{pre},{acc}"
     return f"{instruction} {tag_name} {pre} {acc}"
 
 

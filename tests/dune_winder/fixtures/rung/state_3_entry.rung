@@ -1,0 +1,17 @@
+routine state_3_move_xy/main
+
+uses main_xy_move, STATE, tension_stable_timer, check_tension_stable, TENSION_CONTROL_OK
+uses Z_RETRACTED, Z_axis, MAX_TOLERABLE_Z, ERROR_CODE, NEXTSTATE, APA_IS_VERTICAL, STATE3_IND
+
+let entry_ok = not main_xy_move.IP and STATE == 3
+               and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK)
+
+when entry_ok and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z):
+    ERROR_CODE = 3001
+    NEXTSTATE  = 10
+
+when entry_ok and Z_RETRACTED and not APA_IS_VERTICAL:
+    ERROR_CODE = 3005
+    NEXTSTATE  = 10
+
+STATE3_IND = entry_ok and Z_RETRACTED

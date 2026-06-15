@@ -19,8 +19,11 @@ separate scripts:
 4. Live tag values merged into those JSON files via the existing
    ``plc_tag_values_export`` reader (``--offline`` carries values forward
    from the previous export instead).
-5. ``pasteable.rll`` + ``manifest.json`` via the existing
-   ``convert_plc_rllscrap`` pipeline.
+5. ``<program>/<routine-dir>/<routine>.rung`` — the LLM-readable rendering
+   of every routine (``dune_winder.rung_lang``); the form agents read and
+   edit, compiled back with ``rung-compile``. (``pasteable.rll`` and
+   ``manifest.json`` are retired; the ladder simulator now derives its
+   paste-dialect text from ``studio_copy.rllscrap`` in memory.)
 6. ``acd_index.json`` — provenance: which ACD bytes (sha256, save-log entry)
    produced the tree, plus a sha256 for every generated file.
 
@@ -745,21 +748,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         values_ok = True
 
-    from dune_winder.convert_plc_rllscrap import convert_directory
+    from dune_winder.rung_lang.cli import render_tree
 
-    converted = convert_directory(args.output_root)
-    print(f"Regenerated {converted} pasteable.rll files")
+    rung_files, rung_warnings = render_tree(args.output_root)
+    for warning in rung_warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    print(f"Rendered {len(rung_files)} .rung files")
 
-    # Index everything the run produced (including the derived files).
-    derived = [
-        p.with_name("pasteable.rll")
-        for p in args.output_root.rglob("studio_copy.rllscrap")
-    ]
-    manifest = args.output_root / "manifest.json"
-    if manifest.exists():
-        derived.append(manifest)
     index_path = write_index(
-        args.output_root, project, tag_info, provenance, generated + derived
+        args.output_root, project, tag_info, provenance, generated + rung_files
     )
     print(f"Provenance index written to {index_path}")
 

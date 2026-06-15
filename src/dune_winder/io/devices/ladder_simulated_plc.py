@@ -267,6 +267,11 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     # ---------------------------------------------------------------------
     def _load_routines(self):
+        # pasteable.rll is retired; the simulator derives the paste-dialect
+        # text it executes from studio_copy.rllscrap in memory.
+        from dune_winder.convert_plc_rllscrap import resolve_timer_counter_args
+        from dune_winder.plc_rung_transform import transform_text
+
         parser = RllParser()
         for programName, routineName in self._ROUTINES_TO_LOAD:
             resolvedProgramName = self._resolve_program_name(programName)
@@ -278,18 +283,29 @@ class LadderSimulatedPLC(SimulatedPLC):
             if (
                 routineName == program.main_routine_name
                 and (
-                    self._PLC_ROOT / resolvedProgramName / "main" / "pasteable.rll"
+                    self._PLC_ROOT
+                    / resolvedProgramName
+                    / "main"
+                    / "studio_copy.rllscrap"
                 ).exists()
             ):
                 routine_dir = "main"
             routine_path = (
-                self._PLC_ROOT / resolvedProgramName / routine_dir / "pasteable.rll"
+                self._PLC_ROOT
+                / resolvedProgramName
+                / routine_dir
+                / "studio_copy.rllscrap"
             )
             if not routine_path.exists():
                 continue
+            rll_text = resolve_timer_counter_args(
+                transform_text(routine_path.read_text(encoding="utf-8")),
+                self._metadata,
+                resolvedProgramName,
+            )
             routine = parser.parse_routine_text(
                 routineName,
-                routine_path.read_text(encoding="utf-8"),
+                rll_text,
                 program=resolvedProgramName,
                 source_path=routine_path,
             )
