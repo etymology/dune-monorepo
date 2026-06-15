@@ -1,0 +1,77 @@
+routine queued_motion/MaxAbsSinSweep
+
+uses DINTS, REALS  # program scope
+
+REALS[3] = REALS[0] + REALS[1]
+
+JMP(lbl_min_a_0) when REALS[0] < REALS[3]
+
+always:
+    REALS[4] = REALS[3]
+    JMP(lbl_min_end_1)
+
+label lbl_min_a_0
+
+REALS[4] = REALS[0]
+
+label lbl_min_end_1
+
+JMP(lbl_max_a_2) when REALS[0] > REALS[3]
+
+always:
+    REALS[5] = REALS[3]
+    JMP(lbl_max_end_3)
+
+label lbl_max_a_2
+
+REALS[5] = REALS[0]
+
+label lbl_max_end_3
+
+REALS[900] = abs(sin(REALS[0]))
+
+REALS[901] = abs(sin(REALS[3]))
+
+JMP(lbl_max_a_4) when REALS[900] > REALS[901]
+
+always:
+    REALS[6] = REALS[901]
+    JMP(lbl_max_end_5)
+
+label lbl_max_a_4
+
+REALS[6] = REALS[900]
+
+label lbl_max_end_5
+
+REALS[902] = REALS[4] - 0.5 * 3.14159265358979 / 3.14159265358979
+
+TRN(REALS[902], DINTS[900])
+
+REALS[903] = DINTS[900]
+
+JMP(lbl_ceil_done_6) when REALS[903] >= REALS[902]
+
+DINTS[900] = DINTS[900] + 1
+
+label lbl_ceil_done_6
+
+DINTS[0] = DINTS[900]
+
+REALS[904] = REALS[5] - 0.5 * 3.14159265358979 / 3.14159265358979
+
+TRN(REALS[904], DINTS[1])
+
+JMP(lbl_else_7) when DINTS[0] > DINTS[1]
+
+REALS[2] = 1.0
+
+JMP(lbl_MaxAbsSinSweep_end)
+
+label lbl_else_7
+
+REALS[2] = REALS[6]
+
+JMP(lbl_MaxAbsSinSweep_end)
+
+label lbl_MaxAbsSinSweep_end

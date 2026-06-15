@@ -1,7 +1,7 @@
 {
   "name": "dune-winder-plc-rll",
-  "displayName": "Dune Winder PLC RLL",
-  "description": "Syntax highlighting for normalized PLC pasteable .rll files.",
+  "displayName": "Dune Winder PLC Ladder Text",
+  "description": "Syntax highlighting for normalized PLC .rll files and readable .rung IR files.",
   "version": "0.0.1",
   "publisher": "dune-winder",
   "license": "UNLICENSED",
@@ -23,6 +23,18 @@
           ".rll"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "plc-rung",
+        "aliases": [
+          "PLC Rung IR",
+          "Rung IR",
+          "Rung"
+        ],
+        "extensions": [
+          ".rung"
+        ],
+        "configuration": "./rung-language-configuration.json"
       }
     ],
     "grammars": [
@@ -30,6 +42,11 @@
         "language": "plc-rll",
         "scopeName": "source.plc-rll",
         "path": "./syntaxes/plc-rll.tmGrammar.json"
+      },
+      {
+        "language": "plc-rung",
+        "scopeName": "source.plc-rung",
+        "path": "./syntaxes/plc-rung.tmGrammar.json"
       }
     ]
   }

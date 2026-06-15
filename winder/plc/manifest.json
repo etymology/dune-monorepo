@@ -1,344 +1,113 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-06-12T19:11:09.792753+00:00",
+  "last_updated": "2026-06-15T15:24:45.976948+00:00",
   "controller": {
-    "tag_metadata": {
-      "hash": "56C-E18-A165",
-      "generated_at": "2026-06-12T16:24:34.783447+00:00"
-    },
     "tag_values": {
-      "hash": "4DF-E07-231B",
-      "generated_at": "2026-06-12T19:11:09.055295+00:00"
+      "hash": "608-8F1-F6BE",
+      "generated_at": "2026-06-15T15:24:45.720648+00:00"
     }
   },
   "programs": {
     "Camera": {
-      "routines": {
-        "main": {
-          "hash": "D48-19F-8184",
-          "hashed_at": "2026-06-12T19:11:09.440559+00:00",
-          "file_mtime": "2026-06-12T19:10:57.966366+00:00"
-        },
-        "CameraControl": {
-          "hash": "CE3-50C-88A2",
-          "hashed_at": "2026-06-12T19:11:09.415021+00:00",
-          "file_mtime": "2026-06-12T19:10:57.965354+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "DAC-EC9-81F6",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "0A6-3C5-D95B",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_11_eot_trip": {
-      "routines": {
-        "main": {
-          "hash": "C06-464-2BD8",
-          "hashed_at": "2026-06-12T19:11:09.642231+00:00",
-          "file_mtime": "2026-06-12T19:10:57.974370+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "515-6D4-CC27",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "6F8-66E-665E",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_10_error": {
-      "routines": {
-        "main": {
-          "hash": "CEC-0EE-3559",
-          "hashed_at": "2026-06-12T19:11:09.616292+00:00",
-          "file_mtime": "2026-06-12T19:10:57.973371+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "0E6-BF1-9098",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "08C-F8E-4F7E",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
+        "hash": "8E5-A8D-E4F4",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "init": {
-      "routines": {
-        "main": {
-          "hash": "68B-329-DA98",
-          "hashed_at": "2026-06-12T19:11:09.450557+00:00",
-          "file_mtime": "2026-06-12T19:10:57.968364+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "5E7-C6A-01D8",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "4B5-A29-4C1E",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_6_latch": {
-      "routines": {
-        "main": {
-          "hash": "1E8-9BD-F440",
-          "hashed_at": "2026-06-12T19:11:09.749073+00:00",
-          "file_mtime": "2026-06-12T19:10:57.985369+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "D7A-4D9-4AC9",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "18D-A62-81B1",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
+        "hash": "548-42B-C8FC",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "main": {
-      "routines": {
-        "main": {
-          "hash": "D48-19F-8184",
-          "hashed_at": "2026-06-12T19:11:09.475338+00:00",
-          "file_mtime": "2026-06-12T19:10:57.955844+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "C31-395-2174",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "33D-F76-7C75",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_3_move_xy": {
-      "routines": {
-        "main": {
-          "hash": "7AB-A4F-2980",
-          "hashed_at": "2026-06-12T19:11:09.703277+00:00",
-          "file_mtime": "2026-06-12T19:10:57.971366+00:00"
-        },
-        "xy_speed_regulator": {
-          "hash": "987-55D-C727",
-          "hashed_at": "2026-06-12T19:11:09.714282+00:00",
-          "file_mtime": "2026-06-12T19:10:57.970364+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "7D4-EC2-D70D",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "E65-794-06F7",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_5_move_z": {
-      "routines": {
-        "main": {
-          "hash": "D04-35E-C85C",
-          "hashed_at": "2026-06-12T19:11:09.735045+00:00",
-          "file_mtime": "2026-06-12T19:10:57.984369+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "9B2-7B9-EBC6",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "9BC-D67-E453",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "tension_pid": {
-      "routines": {
-        "main": {
-          "hash": "49D-4AB-5C17",
-          "hashed_at": "2026-06-12T19:11:09.772741+00:00",
-          "file_mtime": "2026-06-12T19:10:57.988878+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "F76-850-A948",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "D35-153-73D0",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_1_ready": {
-      "routines": {
-        "main": {
-          "hash": "43D-8DC-105B",
-          "hashed_at": "2026-06-12T19:11:09.690770+00:00",
-          "file_mtime": "2026-06-12T19:10:57.976370+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "D74-7B7-7CF9",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "A30-640-001F",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "Safety": {
-      "routines": {
-        "main": {
-          "hash": "ABB-090-AA13",
-          "hashed_at": "2026-06-12T19:11:09.602781+00:00",
-          "file_mtime": "2026-06-12T19:10:57.969364+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "A7B-4F4-3722",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "BD8-826-C4D9",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      }
-    },
-    "state_9_unservo": {
-      "routines": {
-        "main": {
-          "hash": "882-503-021F",
-          "hashed_at": "2026-06-12T19:11:09.761073+00:00",
-          "file_mtime": "2026-06-12T19:10:57.983369+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "49B-FA6-E8BF",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
-      "tag_values": {
-        "hash": "1E8-878-9CAC",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
+        "hash": "DCD-B95-8FE5",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "queued_motion": {
-      "routines": {
-        "ArcSweepRad": {
-          "hash": "4A0-097-631F",
-          "hashed_at": "2026-06-12T19:11:09.493340+00:00",
-          "file_mtime": "2026-06-12T19:10:57.979369+00:00"
-        },
-        "CapSegSpeed": {
-          "hash": "91A-0C1-E665",
-          "hashed_at": "2026-06-12T19:11:09.507860+00:00",
-          "file_mtime": "2026-06-12T19:10:57.982369+00:00"
-        },
-        "CircleCenterForSeg": {
-          "hash": "A6B-661-D3C5",
-          "hashed_at": "2026-06-12T19:11:09.519362+00:00",
-          "file_mtime": "2026-06-12T19:10:57.978369+00:00"
-        },
-        "main": {
-          "hash": "EC0-519-8BBD",
-          "hashed_at": "2026-06-12T19:11:09.552906+00:00",
-          "file_mtime": "2026-06-12T19:10:57.981369+00:00"
-        },
-        "MaxAbsCosSweep": {
-          "hash": "323-58B-68CB",
-          "hashed_at": "2026-06-12T19:11:09.564423+00:00",
-          "file_mtime": "2026-06-12T19:10:57.979369+00:00"
-        },
-        "MaxAbsSinSweep": {
-          "hash": "88D-36F-2106",
-          "hashed_at": "2026-06-12T19:11:09.576614+00:00",
-          "file_mtime": "2026-06-12T19:10:57.978369+00:00"
-        },
-        "SegTangentBounds": {
-          "hash": "0BA-184-2CA7",
-          "hashed_at": "2026-06-12T19:11:09.591730+00:00",
-          "file_mtime": "2026-06-12T19:10:57.980369+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "035-1DA-D11F",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "08B-334-25F5",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
+        "hash": "D9E-C89-773A",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "Safety": {
+      "tag_values": {
+        "hash": "029-11C-05C2",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_10_error": {
+      "tag_values": {
+        "hash": "A89-574-EE3A",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_11_eot_trip": {
+      "tag_values": {
+        "hash": "1DE-A11-9DF2",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "state_12_move_xz": {
-      "routines": {
-        "main": {
-          "hash": "1A4-63C-C998",
-          "hashed_at": "2026-06-12T19:11:09.654234+00:00",
-          "file_mtime": "2026-06-12T19:10:57.986872+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "3C3-9A9-66BA",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "E35-FA1-7AAA",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
+        "hash": "A28-AD1-180E",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "state_13_move_yz": {
-      "routines": {
-        "main": {
-          "hash": "E53-FA3-579C",
-          "hashed_at": "2026-06-12T19:11:09.666755+00:00",
-          "file_mtime": "2026-06-12T19:10:57.992875+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "F72-061-9F3D",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "11F-19E-91A0",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
+        "hash": "33E-DB3-FA4F",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "state_14_hmi_stop": {
       "tag_values": {
-        "hash": "451-45E-45CF",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      },
-      "routines": {
-        "main": {
-          "hash": "63B-346-882B",
-          "hashed_at": "2026-06-12T19:11:09.678754+00:00",
-          "file_mtime": "2026-06-12T19:10:57.990875+00:00"
-        }
-      },
-      "tag_metadata": {
-        "hash": "A85-18A-B025",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
+        "hash": "801-961-9BFB",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_1_ready": {
+      "tag_values": {
+        "hash": "A71-E23-0459",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_3_move_xy": {
+      "tag_values": {
+        "hash": "726-CE0-677A",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_5_move_z": {
+      "tag_values": {
+        "hash": "609-4E8-6958",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_6_latch": {
+      "tag_values": {
+        "hash": "A63-CB1-196B",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "state_9_unservo": {
+      "tag_values": {
+        "hash": "75C-B16-D7E9",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
+      }
+    },
+    "tension_pid": {
+      "tag_values": {
+        "hash": "BB6-828-6415",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     },
     "transfer": {
-      "tag_metadata": {
-        "hash": "E3C-A38-3B05",
-        "generated_at": "2026-06-12T16:24:34.783447+00:00"
-      },
       "tag_values": {
-        "hash": "6B9-991-ED25",
-        "generated_at": "2026-06-12T19:11:09.055295+00:00"
-      },
-      "routines": {
-        "main": {
-          "hash": "68B-329-DA98",
-          "hashed_at": "2026-06-12T19:11:09.792753+00:00",
-          "file_mtime": "2026-06-12T19:10:57.989876+00:00"
-        }
+        "hash": "504-AC4-CC48",
+        "generated_at": "2026-06-15T15:24:45.720648+00:00"
       }
     }
   }

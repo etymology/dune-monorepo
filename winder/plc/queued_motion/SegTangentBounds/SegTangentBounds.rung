@@ -1,0 +1,174 @@
+routine queued_motion/SegTangentBounds
+
+uses SegQueue  # controller scope
+uses BOOLS, DINTS, idx_0, idx_1, idx_2, REALS  # program scope
+
+JMP(lbl_else_30) when SegQueue[idx_2].SegType != 1
+
+REALS[24] = SegQueue[idx_2].XY[0] - REALS[20]
+
+REALS[25] = SegQueue[idx_2].XY[1] - REALS[21]
+
+REALS[26] = sqr(REALS[24] * REALS[24] + REALS[25] * REALS[25])
+
+JMP(lbl_else_32) when REALS[26] > 0.000000001
+
+REALS[22] = 0.0
+
+REALS[23] = 0.0
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_else_32
+
+REALS[22] = abs(REALS[24] / REALS[26])
+
+REALS[23] = abs(REALS[25] / REALS[26])
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_else_30
+
+JMP(lbl_else_34) when SegQueue[idx_2].SegType != 2
+
+idx_0 = idx_2
+
+idx_1 = idx_2
+
+call CircleCenterForSeg
+
+JMP(lbl_else_36) when REALS[28] != 0
+
+REALS[31] = sqr(REALS[20] - REALS[29] * REALS[20] - REALS[29] + REALS[21] - REALS[30] * REALS[21] - REALS[30])
+
+REALS[32] = sqr(SegQueue[idx_2].XY[0] - REALS[29] * SegQueue[idx_2].XY[0] - REALS[29] + SegQueue[idx_2].XY[1] - REALS[30] * SegQueue[idx_2].XY[1] - REALS[30])
+
+latch BOOLS[900] when REALS[31] <= 0.000000001 or REALS[32] <= 0.000000001
+
+JMP(lbl_else_38) when BOOLS[900]
+
+REALS[912] = REALS[21] - REALS[30]
+
+REALS[913] = REALS[20] - REALS[29]
+
+when REALS[913] > 0.0:
+    REALS[33] = atn(REALS[912] / REALS[913])
+    JMP(lbl_atan2_done_40)
+
+when REALS[913] < 0.0 and REALS[912] >= 0.0:
+    REALS[33] = atn(REALS[912] / REALS[913]) + 3.14159265358979
+    JMP(lbl_atan2_done_40)
+
+when REALS[913] < 0.0 and REALS[912] < 0.0:
+    REALS[33] = atn(REALS[912] / REALS[913]) - 3.14159265358979
+    JMP(lbl_atan2_done_40)
+
+when REALS[913] == 0.0 and REALS[912] > 0.0:
+    REALS[33] = 1.5707963267949
+    JMP(lbl_atan2_done_40)
+
+when REALS[913] == 0.0 and REALS[912] < 0.0:
+    REALS[33] = -1.5707963267949
+    JMP(lbl_atan2_done_40)
+
+REALS[33] = 0.0
+
+label lbl_atan2_done_40
+
+REALS[914] = SegQueue[idx_2].XY[1] - REALS[30]
+
+REALS[915] = SegQueue[idx_2].XY[0] - REALS[29]
+
+when REALS[915] > 0.0:
+    REALS[34] = atn(REALS[914] / REALS[915])
+    JMP(lbl_atan2_done_41)
+
+when REALS[915] < 0.0 and REALS[914] >= 0.0:
+    REALS[34] = atn(REALS[914] / REALS[915]) + 3.14159265358979
+    JMP(lbl_atan2_done_41)
+
+when REALS[915] < 0.0 and REALS[914] < 0.0:
+    REALS[34] = atn(REALS[914] / REALS[915]) - 3.14159265358979
+    JMP(lbl_atan2_done_41)
+
+when REALS[915] == 0.0 and REALS[914] > 0.0:
+    REALS[34] = 1.5707963267949
+    JMP(lbl_atan2_done_41)
+
+when REALS[915] == 0.0 and REALS[914] < 0.0:
+    REALS[34] = -1.5707963267949
+    JMP(lbl_atan2_done_41)
+
+REALS[34] = 0.0
+
+label lbl_atan2_done_41
+
+REALS[14] = REALS[33]
+
+REALS[15] = REALS[34]
+
+DINTS[4] = SegQueue[idx_2].Direction
+
+call ArcSweepRad
+
+REALS[35] = REALS[16]
+
+latch BOOLS[6] when BOOLS[3]
+
+unlatch BOOLS[6] when not BOOLS[3]
+
+JMP(lbl_else_42) when not BOOLS[6]
+
+REALS[0] = REALS[33]
+
+REALS[1] = REALS[35]
+
+call MaxAbsSinSweep
+
+REALS[36] = REALS[2]
+
+REALS[7] = REALS[33]
+
+REALS[8] = REALS[35]
+
+call MaxAbsCosSweep
+
+REALS[37] = REALS[9]
+
+REALS[22] = REALS[36]
+
+REALS[23] = REALS[37]
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_else_42
+
+label lbl_else_38
+
+label lbl_else_36
+
+label lbl_else_34
+
+REALS[24] = SegQueue[idx_2].XY[0] - REALS[20]
+
+REALS[25] = SegQueue[idx_2].XY[1] - REALS[21]
+
+REALS[26] = sqr(REALS[24] * REALS[24] + REALS[25] * REALS[25])
+
+JMP(lbl_else_44) when REALS[26] > 0.000000001
+
+REALS[22] = 0.0
+
+REALS[23] = 0.0
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_else_44
+
+REALS[22] = abs(REALS[24] / REALS[26])
+
+REALS[23] = abs(REALS[25] / REALS[26])
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_SegTangentBounds_end

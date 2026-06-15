@@ -1,15 +1,22 @@
 # RLL file format guide
 
-> **2026-06-12 — workflow superseded.** The hand copy/paste loop described
-> in §1 and §6 is replaced by `uv run plc-acd-export`, which regenerates
-> every file in this tree (`*_Routine_RLL.L5X`, `studio_copy.rllscrap`,
-> `pasteable.rll`, `programTags.json`, `controller_level_tags.json`,
-> `manifest.json`) from `ACD/DUNEW2PLC1_py3.ACD` plus a live tag-values
-> read. Save the project in Studio 5000, then run the export; do not hand
-> edit the generated files. Provenance for the last run is in
-> `acd_index.json`. The syntax documentation below is still accurate.
-> See `plans/llm-friendly-ladder-language-to-l5x.md` for where this is
-> heading (donor context shells live in `ACD/donors/`).
+> **Workflow superseded; `pasteable.rll`, `manifest.json`, and
+> `studio_copy.rllscrap` retired.** The hand copy/paste loop described in
+> §1 and §6 is replaced by `uv run plc-acd-export` + the `.rung` language:
+> the export regenerates this tree (`*_Routine_RLL.L5X`, `<routine>.rung`,
+> `programTags.json`, `controller_level_tags.json`) from
+> `ACD/DUNEW2PLC1_py3.ACD` plus a live tag-values read, and edits travel
+> back as routine L5X imports built by `uv run rung-compile` (donor
+> context shells live in `ACD/donors/`). **As of 2026-06-15 the
+> `<routine>_Routine_RLL.L5X` is the single source of truth for rung
+> text** — `studio_copy.rllscrap` is no longer generated or checked in;
+> the `.rung` renderer and the ladder simulator read the paren-dialect
+> rung text straight from each L5X's `<Rung>` CDATA (`plc_l5x.py`). See
+> `RUNG_FORMAT.md` for the language and
+> `plans/llm-friendly-ladder-language-to-l5x.md` for the design. The
+> syntax documentation below is still accurate as a description of the
+> two text dialects (the paren dialect is exactly what the L5X CDATA
+> holds).
 
 This guide explains the two ladder-logic text formats checked in under
 `dune_winder/plc/<program>/<routine>/` and how they relate. For the

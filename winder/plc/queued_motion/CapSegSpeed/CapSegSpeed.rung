@@ -1,0 +1,164 @@
+routine queued_motion/CapSegSpeed
+
+uses SegQueue  # controller scope
+uses BOOLS, DINTS, idx_2, idx_3, REALS  # program scope
+
+JMP(lbl_else_46) when DINTS[5] != 0
+
+JMP(lbl_CapSegSpeed_end)
+
+label lbl_else_46
+
+latch BOOLS[901] when REALS[38] <= 0.0 or REALS[39] <= 0.0
+
+JMP(lbl_else_48) when REALS[38] > 0.0 and REALS[39] > 0.0
+
+latch BOOLS[8]
+
+JMP(lbl_CapSegSpeed_end)
+
+label lbl_else_48
+
+latch BOOLS[902] when REALS[38] < 3.4028235E+38 or REALS[39] < 3.4028235E+38
+
+JMP(lbl_else_50) when BOOLS[902]
+
+JMP(lbl_CapSegSpeed_end)
+
+label lbl_else_50
+
+JMP(lbl_else_52) when BOOLS[7]
+
+REALS[42] = SegQueue[0].XY[0]
+
+REALS[43] = SegQueue[0].XY[1]
+
+latch BOOLS[9]
+
+JMP(lbl_end_53)
+
+label lbl_else_52
+
+REALS[42] = REALS[40]
+
+REALS[43] = REALS[41]
+
+unlatch BOOLS[9]
+
+label lbl_end_53
+
+idx_3 = 0
+
+label lbl_loop_54
+
+JMP(lbl_loop_end_55) when idx_3 >= DINTS[5]
+
+latch BOOLS[903] when idx_3 != 0 or not BOOLS[9]
+
+JMP(lbl_else_56) when BOOLS[903]
+
+JMP(lbl_min_a_58) when REALS[38] < REALS[39]
+
+always:
+    REALS[44] = REALS[39]
+    JMP(lbl_min_end_59)
+
+label lbl_min_a_58
+
+REALS[44] = REALS[38]
+
+label lbl_min_end_59
+
+REALS[45] = 1.0
+
+REALS[46] = 1.0
+
+JMP(lbl_end_57)
+
+label lbl_else_56
+
+REALS[20] = REALS[42]
+
+REALS[21] = REALS[43]
+
+idx_2 = idx_3
+
+call SegTangentBounds
+
+REALS[45] = REALS[22]
+
+REALS[46] = REALS[23]
+
+JMP(lbl_else_60) when REALS[45] > 0.000000001
+
+REALS[47] = 3.4028235E+38
+
+JMP(lbl_end_61)
+
+label lbl_else_60
+
+REALS[47] = REALS[38] / REALS[45]
+
+label lbl_end_61
+
+JMP(lbl_else_62) when REALS[46] > 0.000000001
+
+REALS[48] = 3.4028235E+38
+
+JMP(lbl_end_63)
+
+label lbl_else_62
+
+REALS[48] = REALS[39] / REALS[46]
+
+label lbl_end_63
+
+JMP(lbl_min_a_64) when REALS[47] < REALS[48]
+
+always:
+    REALS[44] = REALS[48]
+    JMP(lbl_min_end_65)
+
+label lbl_min_a_64
+
+REALS[44] = REALS[47]
+
+label lbl_min_end_65
+
+label lbl_end_57
+
+JMP(lbl_min_a_66) when SegQueue[idx_3].Speed < REALS[44]
+
+always:
+    REALS[49] = REALS[44]
+    JMP(lbl_min_end_67)
+
+label lbl_min_a_66
+
+REALS[49] = SegQueue[idx_3].Speed
+
+label lbl_min_end_67
+
+JMP(lbl_else_68) when REALS[49] > 0.0
+
+latch BOOLS[8]
+
+JMP(lbl_CapSegSpeed_end)
+
+label lbl_else_68
+
+SegQueue[idx_3].Speed = REALS[49]
+
+REALS[42] = SegQueue[idx_3].XY[0]
+
+REALS[43] = SegQueue[idx_3].XY[1]
+
+idx_3 = idx_3 + 1
+
+JMP(lbl_loop_54)
+
+label lbl_loop_end_55
+
+JMP(lbl_CapSegSpeed_end)
+
+label lbl_CapSegSpeed_end

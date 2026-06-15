@@ -1,0 +1,19 @@
+routine queued_motion/CircleCenterForSeg
+
+uses SegQueue  # controller scope
+
+JMP(lbl_else_26) when SegQueue[idx_0].CircleType != 1
+
+JMP(lbl_CircleCenterForSeg_end)
+
+label lbl_else_26
+
+JMP(lbl_else_28) when SegQueue[idx_0].CircleType != 3
+
+JMP(lbl_CircleCenterForSeg_end)
+
+label lbl_else_28
+
+JMP(lbl_CircleCenterForSeg_end)
+
+label lbl_CircleCenterForSeg_end

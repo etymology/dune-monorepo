@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -19,7 +19,7 @@ jobs:
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config python3-tk
 
       - name: Sync workspace
         run: uv sync
@@ -27,7 +27,7 @@ jobs:
       - name: Import smoke test
         run: |
           uv run python -c "import dune_tension, dune_winder, spectrum_analysis"
-          uv run python -c "from dune_winder import convert_plc_rllscrap"
+          uv run python -c "from dune_winder import acd_export_l5x, plc_l5x"
 
       - name: Run tests
         run: uv run pytest

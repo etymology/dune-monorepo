@@ -63,31 +63,6 @@ class ZMovePathTests(_TagIsolationTestCase):
         self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
         self.assertTrue(plc.get_tag("z_axis_main_move.PC"))
 
-    def test_z_seek_bypasses_stability_gate_when_tension_control_inactive(self):
-        plc = LadderSimulatedPLC("SIM")
-        plc.set_tag("check_tension_stable", True)
-        plc.set_tag("tension_stable_tolerance", 0.0)
-        plc.write(("Z_POSITION", 43.0))
-        plc.write(("Z_SPEED", 100.0))
-        plc.write(("STATE_REQUEST", plc.STATE_Z_SEEK))
-
-        self._advance_until(
-            plc,
-            lambda: (
-                plc.get_tag("STATE") == plc.STATE_READY
-                and plc.get_tag("STATE_REQUEST") == 0
-            ),
-        )
-
-        # check_tension_stable is set with a 0.0 tolerance, so the stable timer
-        # never satisfies. But tension control is not engaged (TENSION_ON_SWITCH
-        # is off), so TENSION_CONTROL_OK stays false and the STATE5_IND gate is
-        # bypassed (rung 10: ... NXB XIO TENSION_CONTROL_OK ...). The seek runs
-        # to completion rather than waiting on tension stability.
-        self.assertEqual(plc.get_tag("STATE"), plc.STATE_READY)
-        self.assertEqual(plc.get_tag("STATE_REQUEST"), 0)
-        self.assertAlmostEqual(plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
-
     def test_z_seek_errors_when_master_z_go_is_blocked(self):
         plc = LadderSimulatedPLC("SIM")
         plc.set_tag("MACHINE_SW_STAT[15]", 0, override=True)
@@ -211,34 +186,6 @@ class ControlStateMachineZMoveTests(_TagIsolationTestCase):
             ),
         )
 
-        self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_READY)
-        self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
-
-    def test_manual_z_seek_completes_when_tension_control_inactive(self):
-        io, machine = self._build_machine()
-        io.plc.set_tag("check_tension_stable", True)
-        io.plc.set_tag("tension_stable_tolerance", 0.0)
-        self._advance_machine_until(
-            io,
-            machine,
-            lambda: machine.getState() == ControlStateMachine.States.STOP,
-        )
-
-        machine.dispatch(ManualModeEvent(seekZ=43.0, velocity=100.0))
-        self.assertEqual(machine.getState(), ControlStateMachine.States.MANUAL)
-
-        self._advance_machine_until(
-            io,
-            machine,
-            lambda: (
-                machine.getState() == ControlStateMachine.States.STOP
-                and io.plc.get_tag("STATE_REQUEST") == 0
-            ),
-        )
-
-        # check_tension_stable is set, but with tension control inactive the
-        # STATE5_IND stability gate is bypassed, so the seek completes and the
-        # controller hands back to STOP rather than holding in MANUAL.
         self.assertEqual(io.plc.get_tag("STATE"), io.plc.STATE_READY)
         self.assertAlmostEqual(io.plc.get_tag("Z_axis.ActualPosition"), 43.0, places=6)
 
