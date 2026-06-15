@@ -410,6 +410,9 @@ class RoutineExecutor:
         if opcode == "TON":
             self._execute_ton(operands[0], bool(condition_in), ctx)
             return bool(condition_in)
+        if opcode == "TOF":
+            self._execute_tof(operands[0], bool(condition_in), ctx)
+            return bool(condition_in)
         if opcode == "PID":
             if condition_in:
                 self._execute_pid(operands, ctx)
@@ -600,6 +603,31 @@ class RoutineExecutor:
             timer["ACC"] = 0
             timer["TT"] = False
             timer["DN"] = False
+        ctx.set_value(timer_path, timer)
+
+    def _execute_tof(self, timer_path: str, condition_in: bool, ctx: ScanContext):
+        """Timer off-delay: DN follows the rung true immediately and stays
+        set for PRE milliseconds after the rung goes false."""
+        raw = ctx.get_value(timer_path)
+        timer = (
+            _deep_copy(raw)
+            if isinstance(raw, dict)
+            else {"PRE": 10, "ACC": 0, "EN": False, "TT": False, "DN": False}
+        )
+        timer["EN"] = bool(condition_in)
+        if condition_in:
+            timer["ACC"] = 0
+            timer["TT"] = False
+            timer["DN"] = True
+        else:
+            if bool(timer.get("DN", False)):
+                timer["ACC"] = int(timer.get("ACC", 0)) + int(
+                    ctx.runtime_state.scan_time_ms
+                )
+                if int(timer["ACC"]) >= int(timer.get("PRE", 0)):
+                    timer["ACC"] = int(timer.get("PRE", 0))
+                    timer["DN"] = False
+            timer["TT"] = bool(timer.get("DN", False))
         ctx.set_value(timer_path, timer)
 
     def _execute_ctu(self, counter_path: str, condition_in: bool, ctx: ScanContext):
