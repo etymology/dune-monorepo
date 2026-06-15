@@ -105,11 +105,19 @@ class WhenBlock(Stmt):
 
 @dataclass(frozen=True)
 class OnBlock(Stmt):
-    """``on rising/falling <expr>:`` / ``on entry of <tag>:``."""
+    """``on rising/falling <expr>:`` / ``on entry of <tag>:``.
+
+    An optional ``using <storage>, <edge>`` clause pins the one-shot's
+    bookkeeping bits to specific names (the renderer emits it to preserve
+    hand-named bits through a recompile); when absent, lowering invents
+    informative names from the trigger.
+    """
 
     kind: str  # rising | falling | entry
     expr: Expr
     actions: tuple[Action, ...]
+    storage: str | None = None  # OSR/OSF storage bit (internal one-shot state)
+    edge: str | None = None  # the output bit that pulses for one scan
 
 
 @dataclass(frozen=True)

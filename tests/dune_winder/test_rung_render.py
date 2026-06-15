@@ -56,8 +56,25 @@ class TestRecognition:
             "    servo_on Y using cy",
         ]
 
-    def test_on_rising_idiom(self):
+    def test_on_rising_idiom_spells_out_hand_named_bits(self):
+        # sb/ob are neither the derived names nor the auto_edge fallback,
+        # so the renderer preserves them with an explicit `using` clause
         text = body("XIC(a.DN)OSR(sb,ob);   XIC(ob)MAFR(X,f);")
+        assert text.splitlines() == [
+            "on rising a.DN using sb, ob:",
+            "    fault_reset X using f",
+        ]
+
+    def test_on_rising_idiom_omits_derived_bits(self):
+        # bits that match what lowering would invent stay implicit
+        text = body("XIC(a.DN)OSR(a_dn_osr_sb,a_dn_rising);   XIC(a_dn_rising)MAFR(X,f);")
+        assert text.splitlines() == [
+            "on rising a.DN:",
+            "    fault_reset X using f",
+        ]
+
+    def test_on_rising_idiom_omits_auto_edge_fallback(self):
+        text = body("XIC(a.DN)OSR(auto_edge_0_sb,auto_edge_0_ob);   XIC(auto_edge_0_ob)MAFR(X,f);")
         assert text.splitlines() == [
             "on rising a.DN:",
             "    fault_reset X using f",
@@ -65,7 +82,8 @@ class TestRecognition:
 
     def test_on_entry_idiom(self):
         text = body(
-            "XIC(act)OSR(sb,ob);   XIC(act)XIC(ob)MSF(X,c);   XIC(act)XIC(ob)MSF(Y,d);"
+            "XIC(act)OSR(act_osr_sb,act_rising);   "
+            "XIC(act)XIC(act_rising)MSF(X,c);   XIC(act)XIC(act_rising)MSF(Y,d);"
         )
         assert text.splitlines() == [
             "on entry of act:",

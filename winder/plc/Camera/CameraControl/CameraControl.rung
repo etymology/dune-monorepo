@@ -57,7 +57,7 @@ FFU(Cam_F_InspectionRes_3[0], FIFO_Data[5], FIFO_CTRL[5], ?, ?) when FIFO_CTRL[4
 
 unlatch READ_FIFOS when FIFO_CTRL[5].EU
 
-on rising EN_POS_TRIGGERS:
+on rising EN_POS_TRIGGERS using ossb[1], osob[1]:
     x_pos = X_axis.ActualPosition
     y_pos = Y_axis.ActualPosition
     latch Pos_trigger

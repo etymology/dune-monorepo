@@ -21,10 +21,12 @@ to ``raw`` (the equivalence checker would catch a mistake here too).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from . import formula
 from .formula import Bin, Call, Expr, Ref, Una
+from .lower import auto_edge_names
 from .rung_ir import (
     CONDITION_OPCODES,
     BranchIR,
@@ -447,12 +449,28 @@ def _bit_references(routine: RoutineIR, name: str) -> int:
     return count
 
 
+_AUTO_EDGE_RE = re.compile(r"auto_edge_(\d+)_(sb|ob)\Z")
+
+
+def _is_auto_edge_fallback(storage: str, edge: str) -> bool:
+    """True for the ``auto_edge_<k>_sb``/``auto_edge_<k>_ob`` pair lowering
+    mints for un-sluggable triggers — those carry no meaning, so the
+    renderer leaves the ``using`` clause off and lets a recompile re-mint
+    them."""
+    ms, me = _AUTO_EDGE_RE.match(storage), _AUTO_EDGE_RE.match(edge)
+    return bool(
+        ms and me and ms.group(1) == me.group(1) and ms.group(2) == "sb" and me.group(2) == "ob"
+    )
+
+
 @dataclass
 class _OnItem:
     kind: str  # rising | falling | entry
     expr: Expr
     action_rungs: list[list[Instr]]
     span: int  # how many source rungs the idiom covers
+    storage: str  # OSR/OSF storage bit, as it appears in the L5X
+    edge: str  # the one-shot output bit, as it appears in the L5X
 
 
 def _recognize_on_block(routine: RoutineIR, index: int) -> _OnItem | None:
@@ -503,17 +521,24 @@ def _recognize_on_block(routine: RoutineIR, index: int) -> _OnItem | None:
             expr: Expr = Ref(entry_tag)
         else:
             expr = simplify(formula.join([_instr_expr(c) for c in conditions], "and"))
-        return _OnItem(kind, expr, action_rungs, span)
+        return _OnItem(kind, expr, action_rungs, span, storage, edge)
     return None
 
 
 def _on_block_stmt(item: _OnItem, meta, program: str) -> _Stmt:
     if item.kind == "entry":
-        header = f"on entry of {formula.print_surface(item.expr)}:"
+        head = f"on entry of {formula.print_surface(item.expr)}"
     else:
-        header = f"on {item.kind} {formula.print_surface(item.expr)}:"
-    lines = [header]
+        head = f"on {item.kind} {formula.print_surface(item.expr)}"
     refs = formula.referenced_bases(item.expr)
+    # Spell out the bits unless they are exactly what lowering would invent
+    # for this trigger (the auto scheme) or the meaningless auto_edge_<k>
+    # fallback — in both of those cases a recompile reproduces them.
+    implicit = auto_edge_names(item.kind, item.expr) == (item.storage, item.edge)
+    if not implicit and not _is_auto_edge_fallback(item.storage, item.edge):
+        head += f" using {item.storage}, {item.edge}"
+        refs |= {Ref(item.storage).base, Ref(item.edge).base}
+    lines = [f"{head}:"]
     for outputs in item.action_rungs:
         refs |= _refs_of_instrs(outputs)
         for instr in outputs:

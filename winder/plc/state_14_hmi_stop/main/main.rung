@@ -2,11 +2,12 @@ routine state_14_hmi_stop/main
 
 uses AbortQueue, CurIssued, NextIssued, NEXTSTATE, QueueCount, STATE, STATE_REQUEST, X_axis, X_Y  # controller scope
 uses xz, Y_axis, Z_axis  # controller scope
-uses hmi_x_axis_stop, hmi_xy_stop, hmi_xz_stop, hmi_y_axis_stop, hmi_z_axis_stop, STATE14_IND  # program scope
+uses hmi_stop_entry_ob, hmi_stop_entry_sb, hmi_x_axis_stop, hmi_xy_stop, hmi_xz_stop  # program scope
+uses hmi_y_axis_stop, hmi_z_axis_stop, STATE14_IND  # program scope
 
 STATE14_IND = STATE == 14
 
-on rising STATE14_IND:
+on rising STATE14_IND using hmi_stop_entry_sb, hmi_stop_entry_ob:
     MCS(X_Y, hmi_xy_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
     MCS(xz, hmi_xz_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
     MAS(X_axis, hmi_x_axis_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")

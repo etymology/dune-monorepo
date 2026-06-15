@@ -6,9 +6,10 @@ is the *independent* oracle: the ``plc_ladder`` runtime (the engine behind
 .rung-round-tripped ladder over identical seeded tag stores for several
 scans, and the resulting tag snapshots must match.
 
-One-shot bookkeeping bits are excluded from the comparison: the compiler
-deliberately renames them (``auto_edge_<k>_*``), and both stores start
-zeroed so the k-th edge detector behaves identically on both sides.
+One-shot bookkeeping bits are excluded from the comparison by position
+(``internal_bit_names`` reads the OSR/OSF operands directly, whatever they
+are named): the compiler may invent fresh names for them, and both stores
+start zeroed so each edge detector behaves identically on both sides.
 
 Routines using instructions the plc_ladder runtime does not implement are
 skipped (the rung_lang equivalence checker still covers them in
@@ -88,7 +89,7 @@ def _roundtrip_paste_text(
     rendered = render_routine(
         resolve_timer_counter_args(original, rung_meta), rung_meta
     )
-    compiled = lower_routine(parse_rung_source(rendered.text))
+    compiled = lower_routine(parse_rung_source(rendered.text), rung_meta)
     resolved = resolve_timer_counter_args(compiled.routine, rung_meta)
     paste = transform_text(emit_rllscrap.routine_text(resolved))
     internal = internal_bit_names(original) | internal_bit_names(compiled.routine)

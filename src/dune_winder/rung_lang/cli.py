@@ -127,8 +127,8 @@ def main_compile(argv: list[str] | None = None) -> int:
 
     source_text = args.source.read_text(encoding="utf-8")
     ast = parse_rung_source(source_text)
-    lowered = lower_routine(ast)
     meta = load_tag_meta(args.plc_root)
+    lowered = lower_routine(ast, meta)
     lowered = Lowered(
         resolve_timer_counter_args(lowered.routine, meta),
         lowered.auto_tags,

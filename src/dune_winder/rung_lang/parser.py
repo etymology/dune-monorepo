@@ -314,6 +314,16 @@ def _parse_statement(
         if not rest.endswith(":"):
             raise RungSyntaxError("on block header must end with ':'", line.no)
         rest = rest[:-1].strip()
+        storage = edge = None
+        if " using " in rest:
+            rest, using = rest.rsplit(" using ", 1)
+            rest = rest.strip()
+            names = [n.strip() for n in using.split(",")]
+            if len(names) != 2 or not all(names):
+                raise RungSyntaxError(
+                    "'on ... using' takes two bits: storage, edge", line.no
+                )
+            storage, edge = names
         if rest.startswith("entry of "):
             kind, expr_text = "entry", rest[len("entry of ") :]
             if not _NAME_RE.match(expr_text.strip()):
@@ -326,7 +336,7 @@ def _parse_statement(
             raise RungSyntaxError("expected 'on rising/falling/entry of'", line.no)
         expr = _parse_expr(expr_text.strip(), lets, line)
         actions, pos = _parse_action_block(lines, pos, lets)
-        return rast.OnBlock(kind, expr, actions), pos
+        return rast.OnBlock(kind, expr, actions, storage, edge), pos
 
     # single statement: action [when guard] | target = expr [when guard]
     parts = _split_top_level(text, "when")

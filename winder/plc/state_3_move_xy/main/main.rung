@@ -5,13 +5,13 @@ uses MAX_TOLERABLE_Z, MCCD_X_Y_Axis1, MOVE_TYPE, NEXTSTATE, speed_regulator_swit
 uses STATE_REQUEST, TENSION_CONTROL_OK, tension_stable_timer, v_0, v_x_max, v_xyz, v_y_max  # controller scope
 uses X_axis, X_POSITION, X_Y, XY_ACCELERATION, XY_DECELERATION, XY_SPEED, XY_SPEED_REQ, Y_axis  # controller scope
 uses Y_POSITION, Z_axis, Z_RETRACTED  # controller scope
-uses dx, dy, k, main_xy_move, main_xy_move_completed, main_xy_move_completed_sb  # program scope
+uses dx, dy, eot_triggered, k, main_xy_move, main_xy_move_completed, main_xy_move_completed_sb  # program scope
 uses move_xy_entry_ob, move_xy_entry_sb, near_ending, speed_regulator_off_ob  # program scope
 uses speed_regulator_off_sb, starting_x, starting_y, STATE3_IND, stopping_distance  # program scope
 uses stopping_ratio, trigger_xy_move, v_max, x_axis_mso, x_dist_to_target, x_time, xy_accel_jerk  # program scope
 uses xy_axes_servoed_on_ob, xy_axes_servoed_on_sb, xy_decel_jerk, xy_dist_to_target  # program scope
-uses xy_eot_stop_control, xy_move_error_ob, xy_move_error_sb, xy_move_trigger_sb, y_axis_mso  # program scope
-uses y_dist_to_target, y_time, z_axis_mso, z_axis_pre_xy_retract  # program scope
+uses xy_eot_stop_control, xy_eot_trigger_sb, xy_move_error_ob, xy_move_error_sb  # program scope
+uses xy_move_trigger_sb, y_axis_mso, y_dist_to_target, y_time, z_axis_mso, z_axis_pre_xy_retract  # program scope
 
 NEXTSTATE = 1 when STATE == 2
 
@@ -118,7 +118,7 @@ OSR(xy_move_error_sb, xy_move_error_ob) when main_xy_move.ER
 
 NEXTSTATE = 14 when main_xy_move.IP and STATE_REQUEST == 14
 
-on rising main_xy_move.IP and not ALL_EOT_GOOD:
+on rising main_xy_move.IP and not ALL_EOT_GOOD using xy_eot_trigger_sb, eot_triggered:
     MCS(X_Y, xy_eot_stop_control, All, Yes, 10000, "Units per sec2", Yes, 1000, "Units per sec3")
     NEXTSTATE = 11
     STATE_REQUEST = 0

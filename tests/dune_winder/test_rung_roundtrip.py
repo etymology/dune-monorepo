@@ -46,7 +46,7 @@ def meta():
 )
 def test_render_soundness_and_fixed_point(program, routine, rdir, original, meta):
     rendered = render_routine(original, meta)
-    lowered = lower_routine(parse_rung_source(rendered.text))
+    lowered = lower_routine(parse_rung_source(rendered.text), meta)
     compiled = resolve_timer_counter_args(lowered.routine, meta)
 
     report = check_equivalence(original, compiled, trials=60)
@@ -101,7 +101,7 @@ def _load_original(program: str, routine: str):
 
 def test_fixture_state_9_unservo_compiles_equivalent(meta):
     source = (FIXTURES / "state_9_unservo_main.rung").read_text(encoding="utf-8")
-    compiled = lower_routine(parse_rung_source(source)).routine
+    compiled = lower_routine(parse_rung_source(source), meta).routine
     original = _load_original("state_9_unservo", "main")
     report = check_equivalence(original, compiled, trials=100)
     assert report.equivalent, report.summary()
@@ -111,7 +111,7 @@ def test_fixture_state_3_entry_compiles_equivalent(meta):
     """The hard branch case (§4.2): the flattened source must match the
     bracket-packed entry rung of state_3_move_xy/main."""
     source = (FIXTURES / "state_3_entry.rung").read_text(encoding="utf-8")
-    compiled = lower_routine(parse_rung_source(source)).routine
+    compiled = lower_routine(parse_rung_source(source), meta).routine
 
     original_full = _load_original("state_3_move_xy", "main")
     # entry rung only (rung 1 of the routine)
