@@ -203,6 +203,11 @@ class PlcLadderRuntimeTests(unittest.TestCase):
             program="queued_motion",
         )
 
+        # FFL loads into a pre-dimensioned FIFO bounded by the control's LEN,
+        # mirroring a configured Logix array. Without a sized SegQueue and LEN
+        # the instruction has no capacity to load into.
+        self.ctx.set_value("QueueCtl.LEN", 4)
+        self.ctx.set_value("SegQueue", [{"Seq": 0, "Valid": False} for _ in range(4)])
         self.ctx.set_value("IncomingSeg.Valid", True)
         self.ctx.set_value("IncomingSeg.Seq", 99)
         self.ctx.set_value("load", True)

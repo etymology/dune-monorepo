@@ -1468,6 +1468,7 @@ class InstructionRuntime:
     _execute_osr = RoutineExecutor._execute_osr
     _execute_osf = RoutineExecutor._execute_osf
     _execute_ton = RoutineExecutor._execute_ton
+    _execute_tof = RoutineExecutor._execute_tof
     _execute_pid = RoutineExecutor._execute_pid
     _reset_structure = RoutineExecutor._reset_structure
     _read_block = RoutineExecutor._read_block
