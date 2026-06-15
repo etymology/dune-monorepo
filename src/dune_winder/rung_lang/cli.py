@@ -4,12 +4,12 @@ rung-compile <file.rung> [--emit l5x|rllscrap] [--check-only]
     Parse + check + lower an edited .rung; write the routine import L5X
     (donor context + synthesized tags + new rungs) next to the source as
     ``<routine>_import.L5X`` and print an equivalence report against the
-    routine's current ``studio_copy.rllscrap``.
+    routine's current exported L5X.
 
 rung-render <program>/<routine> | --all
-    Re-render .rung from the checked-in studio_copy.rllscrap (also runs
-    inside ``plc-acd-export`` for every routine; this standalone form is
-    for development and spot-rendering).
+    Re-render .rung from the routine's exported L5X (also runs inside
+    ``plc-acd-export`` for every routine; this standalone form is for
+    development and spot-rendering).
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from dune_winder.paths import PLC_ROOT
+from dune_winder.plc_l5x import read_l5x_rungs
 
 from .check import check_routine
 from .context import build_import_l5x, write_import_l5x
@@ -33,20 +34,6 @@ from .tagmeta import load_tag_meta
 from .timer_args import resolve_timer_counter_args
 
 
-def _pending_rungs_from_l5x(l5x_path: Path) -> frozenset[int]:
-    """Indexes of Type="e" rungs in the routine's exported L5X."""
-    if not l5x_path.exists():
-        return frozenset()
-    import re
-
-    text = l5x_path.read_text(encoding="utf-8-sig", errors="replace")
-    pending = set()
-    for i, match in enumerate(re.finditer(r'<Rung Number="\d+" Type="([^"]+)"', text)):
-        if match.group(1) == "e":
-            pending.add(i)
-    return frozenset(pending)
-
-
 def routine_dir_name(plc_root: Path, program: str, routine: str) -> str:
     """The historical layout keeps the main routine in a ``main/`` dir."""
     if (plc_root / program / routine).is_dir():
@@ -55,16 +42,17 @@ def routine_dir_name(plc_root: Path, program: str, routine: str) -> str:
 
 
 def load_routine_ir(plc_root: Path, program: str, routine: str) -> RoutineIR:
-    rdir = plc_root / program / routine_dir_name(plc_root, program, routine)
-    rllscrap = rdir / "studio_copy.rllscrap"
-    if not rllscrap.exists():
-        raise FileNotFoundError(rllscrap)
-    pending = _pending_rungs_from_l5x(plc_root / program / f"{routine}_Routine_RLL.L5X")
+    l5x_path = plc_root / program / f"{routine}_Routine_RLL.L5X"
+    if not l5x_path.exists():
+        raise FileNotFoundError(l5x_path)
+    rungs = read_l5x_rungs(l5x_path)
+    # The L5X CDATA carries each rung's text and its Type ("e" = pending
+    # edit) directly, so the source-of-truth join matches the old
+    # studio_copy.rllscrap content exactly.
+    text = "   ".join(rung.text for rung in rungs)
+    pending = frozenset(i for i, rung in enumerate(rungs) if rung.rung_type == "e")
     return parse_rllscrap_text(
-        rllscrap.read_text(encoding="utf-8"),
-        program=program,
-        routine=routine,
-        pending_rungs=pending,
+        text, program=program, routine=routine, pending_rungs=pending
     )
 
 
@@ -76,12 +64,12 @@ def iter_tree_routines(plc_root: Path, meta=None):
     pending-edit marking."""
     if meta is None:
         meta = load_tag_meta(plc_root)
-    for rllscrap in sorted(plc_root.rglob("studio_copy.rllscrap")):
-        rdir = rllscrap.parent
-        program = rdir.parent.name
-        routine = rdir.name
-        if routine == "main":
-            routine = meta.main_routine.get(program, "main")
+    for l5x_path in sorted(plc_root.glob("*/*_Routine_RLL.L5X")):
+        program = l5x_path.parent.name
+        routine = l5x_path.name[: -len("_Routine_RLL.L5X")]
+        rdir = plc_root / program / (
+            "main" if routine == meta.main_routine.get(program) else routine
+        )
         ir = load_routine_ir(plc_root, program, routine)
         ir = resolve_timer_counter_args(ir, meta)
         yield program, routine, rdir, ir
@@ -94,6 +82,7 @@ def render_tree(plc_root: Path) -> tuple[list[Path], list[str]]:
     warnings: list[str] = []
     for program, routine, rdir, ir in iter_tree_routines(plc_root, meta):
         result = render_routine(ir, meta)
+        rdir.mkdir(parents=True, exist_ok=True)
         out = rdir / f"{routine}.rung"
         out.write_text(result.text, encoding="utf-8", newline="\n")
         written.append(out)
@@ -164,7 +153,7 @@ def main_compile(argv: list[str] | None = None) -> int:
         current = resolve_timer_counter_args(current, meta)
         print(_equivalence_report(current, lowered.routine))
     except FileNotFoundError:
-        print("no current studio_copy.rllscrap to compare against (new routine?)")
+        print("no current exported L5X to compare against (new routine?)")
 
     if args.check_only:
         print("check-only: OK")
@@ -194,7 +183,7 @@ def main_compile(argv: list[str] | None = None) -> int:
 
 def main_render(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="rung-render", description="render .rung from studio_copy.rllscrap"
+        prog="rung-render", description="render .rung from the routine's exported L5X"
     )
     parser.add_argument(
         "routine", nargs="?", help="<program>/<routine> (e.g. state_9_unservo/main)"

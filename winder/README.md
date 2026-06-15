@@ -210,39 +210,18 @@ Primary references:
 The repository includes a small Python-to-Rockwell Ladder Logic transpiler for
 selected motion-planning functions under `src/dune_winder/transpiler/`.
 
-Studio 5000 copy/paste uses two different text formats in this workflow:
-copied routine text is stored as `.rllscrap`, while pasteable ladder logic is
-stored as `.rll`. Checked-in PLC artifacts live under `plc/` at the repo root.
-The tree mixes exported metadata and manually maintained routine text:
+Checked-in PLC artifacts live under `plc/` at the repo root and are
+regenerated from the Studio 5000 ACD by `uv run plc-acd-export` (see
+`AGENTS.md`). The per-routine `*_Routine_RLL.L5X` is the single source of
+truth for rung text; the `.rung` file is the readable projection agents edit:
 
 - `plc/controller_level_tags.json`
 - `plc/<program>/programTags.json`
-- `plc/<program>/main/studio_copy.rllscrap`
-- `plc/<program>/main/pasteable.rll`
-- `plc/<program>/<subroutine>/studio_copy.rllscrap`
-- `plc/<program>/<subroutine>/pasteable.rll`
+- `plc/<program>/<routine>_Routine_RLL.L5X`  ← source of truth for rung text
+- `plc/<program>/<routine-dir>/<routine>.rung`  ← readable projection; WHAT YOU EDIT
 
-Routine folders use these canonical files when available:
-
-- `studio_copy.rllscrap`
-- `pasteable.rll`
-
-Some PLC programs also include supporting exported metadata in `programTags.json`
-and the repository root includes controller-wide metadata in
-`plc/controller_level_tags.json`. See
-[`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
-for the Studio 5000 workflow and storage conventions.
-
-To scaffold a separate live-PLC metadata tree, use:
-
-```bash
-uv run python src/export_plc_metadata.py 192.168.1.10
-```
-
-That command connects with `pycomm3`, writes controller/program tag metadata to
-`plc/`, and creates empty `studio_copy.rllscrap` placeholders for each
-discovered program entry point and subroutine. Users still need to copy actual
-rung text from Studio 5000 into those `.rllscrap` files manually.
+See [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md) and `AGENTS.md`
+for the full edit/compile/re-export cycle.
 
 CLI usage:
 

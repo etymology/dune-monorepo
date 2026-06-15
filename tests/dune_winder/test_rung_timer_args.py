@@ -1,6 +1,6 @@
 import json
 
-from dune_winder.convert_plc_rllscrap import resolve_timer_counter_args as resolve_paste_timer_args
+from dune_winder.plc_rung_transform import resolve_timer_counter_args as resolve_paste_timer_args
 from dune_winder.plc_ladder.metadata import load_plc_metadata
 from dune_winder.rung_lang.cli import main_compile
 from dune_winder.rung_lang.context import build_import_l5x
@@ -133,8 +133,11 @@ def test_rung_compile_writes_resolved_timer_arguments_to_import_l5x(tmp_path):
     _write_donor(tmp_path)
     routine_dir = tmp_path / "prog" / "main"
     routine_dir.mkdir()
-    (routine_dir / "studio_copy.rllscrap").write_text(
-        "TON(TimerA,?,?);TOF(OffDelay,?,?);",
+    # load_routine_ir reads the current export from the routine L5X; the
+    # equivalence report in main_compile compares against it.
+    (tmp_path / "prog" / "main_Routine_RLL.L5X").write_text(
+        '<Rung Number="0" Type="N"><Text><![CDATA[TON(TimerA,?,?);]]></Text></Rung>\n'
+        '<Rung Number="1" Type="N"><Text><![CDATA[TOF(OffDelay,?,?);]]></Text></Rung>\n',
         encoding="utf-8",
     )
     source = routine_dir / "main.rung"

@@ -68,11 +68,11 @@ k = x_time when trigger_xy_move and x_time < y_time
 
 k = y_time when trigger_xy_move and y_time <= x_time
 
-v_max = k * sqr(dx * dx + dy * dy) when trigger_xy_move and (x_time < y_time or y_time <= x_time)
+v_max = k * sqr(dx * dx + dy * dy) when trigger_xy_move
 
-XY_SPEED_REQ = v_max when trigger_xy_move and (x_time < y_time or y_time <= x_time) and v_max < XY_SPEED
+XY_SPEED_REQ = v_max when trigger_xy_move and v_max < XY_SPEED
 
-XY_SPEED_REQ = XY_SPEED when trigger_xy_move and (x_time < y_time or y_time <= x_time) and XY_SPEED <= v_max
+XY_SPEED_REQ = XY_SPEED when trigger_xy_move and XY_SPEED <= v_max
 
 always:
     x_dist_to_target = X_axis.ActualPosition - X_POSITION
@@ -85,7 +85,7 @@ always:
     gamma = sqr(accel_xy * accel_xy + 4 * J * v_0)
     stopping_distance = (accel_xy + gamma) * (accel_xy + gamma) * (accel_xy + gamma) / (6 * J * J)
 
-near_ending = xy_dist_to_target < stopping_distance * 1
+near_ending = xy_dist_to_target < stopping_distance
 
 stopping_ratio = stopping_distance / xy_dist_to_target when STATE3_IND
 

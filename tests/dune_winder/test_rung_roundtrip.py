@@ -1,9 +1,9 @@
 """Round-trip CI over every checked-in routine (plan §6.2), both directions.
 
-1. **Render soundness:** rllscrap -> .rung -> rllscrap is semantically
-   equivalent (random-valuation scan comparison). The renderer may not
-   change meaning, ever.
-2. **Fixed point:** .rung -> rllscrap -> .rung reproduces the rendered
+1. **Render soundness:** exported rung text -> .rung -> rung text is
+   semantically equivalent (random-valuation scan comparison). The
+   renderer may not change meaning, ever.
+2. **Fixed point:** .rung -> rung text -> .rung reproduces the rendered
    text byte-for-byte, which is what keeps the edit-import-re-export
    cycle diff-clean.
 
@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from dune_winder.paths import PLC_ROOT
+from dune_winder.plc_l5x import routine_paren_text
 from dune_winder.rung_lang.cli import iter_tree_routines
 from dune_winder.rung_lang.equiv import check_equivalence
 from dune_winder.rung_lang.lower import lower_routine
@@ -90,17 +91,18 @@ def test_raw_density_does_not_regress(meta):
 # ---------------------------------------------------------------------------
 
 
-def _load_rllscrap(program: str, routine_dir: str):
-    path = PLC_ROOT / program / routine_dir / "studio_copy.rllscrap"
+def _load_original(program: str, routine: str):
     return parse_rllscrap_text(
-        path.read_text(encoding="utf-8"), program=program, routine=routine_dir
+        routine_paren_text(PLC_ROOT / program / f"{routine}_Routine_RLL.L5X"),
+        program=program,
+        routine=routine,
     )
 
 
 def test_fixture_state_9_unservo_compiles_equivalent(meta):
     source = (FIXTURES / "state_9_unservo_main.rung").read_text(encoding="utf-8")
     compiled = lower_routine(parse_rung_source(source)).routine
-    original = _load_rllscrap("state_9_unservo", "main")
+    original = _load_original("state_9_unservo", "main")
     report = check_equivalence(original, compiled, trials=100)
     assert report.equivalent, report.summary()
 
@@ -111,7 +113,7 @@ def test_fixture_state_3_entry_compiles_equivalent(meta):
     source = (FIXTURES / "state_3_entry.rung").read_text(encoding="utf-8")
     compiled = lower_routine(parse_rung_source(source)).routine
 
-    original_full = _load_rllscrap("state_3_move_xy", "main")
+    original_full = _load_original("state_3_move_xy", "main")
     # entry rung only (rung 1 of the routine)
     from dune_winder.rung_lang.rung_ir import RoutineIR
 

@@ -1,20 +1,16 @@
 routine state_10_error/main
 
 uses ERROR_CODE, INIT_DONE, NEXTSTATE, STATE, STATE_REQUEST, X_axis, X_Y, Y_axis, Z_axis  # controller scope
-uses error_axes_stopped_ob, error_axes_stopped_sb, error_entry_ob, error_entry_sb  # program scope
-uses error_servo_off, error_servoed_off_ob, error_servoed_off_sb, STATE10_IND, x_axis_mafr  # program scope
+uses error_axes_stopped_ob, error_axes_stopped_sb, error_servo_off, STATE10_IND, x_axis_mafr  # program scope
 uses x_axis_msf, xy_error_stop_control, y_axis_mafr, y_axis_msf, z_axis_error_stop_control  # program scope
 uses z_axis_mafr, z_axis_msf  # program scope
 
 STATE10_IND = INIT_DONE and STATE == 10
 
-OSR(error_entry_sb, error_entry_ob) when STATE10_IND
-
-STATE_REQUEST = -1 when error_entry_ob
-
-MCS(X_Y, xy_error_stop_control, All, Yes, 1000, "Units per sec2", Yes, 1000, "Units per sec3") when error_entry_ob
-
-MAS(Z_axis, z_axis_error_stop_control, All, Yes, 1000, "Units per sec2", No, 10000, "% of Time") when error_entry_ob
+on rising STATE10_IND:
+    STATE_REQUEST = -1
+    MCS(X_Y, xy_error_stop_control, All, Yes, 1000, "Units per sec2", Yes, 1000, "Units per sec3")
+    MAS(Z_axis, z_axis_error_stop_control, All, Yes, 1000, "Units per sec2", No, 10000, "% of Time")
 
 OSR(error_axes_stopped_sb, error_axes_stopped_ob) when xy_error_stop_control.PC and z_axis_error_stop_control.PC
 
@@ -24,43 +20,8 @@ servo_off Y_axis using y_axis_msf when error_axes_stopped_ob and error_servo_off
 
 servo_off Z_axis using z_axis_msf when error_axes_stopped_ob and error_servo_off
 
-OSR(error_servoed_off_sb, error_servoed_off_ob) when x_axis_msf.DN and y_axis_msf.DN and z_axis_msf.DN and STATE_REQUEST == 0
-
-fault_reset Z_axis using z_axis_mafr when error_servoed_off_ob
-
-fault_reset Y_axis using y_axis_mafr when z_axis_mafr.DN
-
-fault_reset X_axis using x_axis_mafr when y_axis_mafr.DN
-
-when z_axis_msf.DN and y_axis_msf.DN and x_axis_msf.DN and STATE_REQUEST == 0 and STATE == 10:
-    ERROR_CODE = 0
-    NEXTSTATE = 1
-
-when STATE == 10 and STATE_REQUEST == 0:
-    ERROR_CODE = 0
-    NEXTSTATE = 1
-
-STATE10_IND = INIT_DONE and STATE == 10
-
-OSR(error_entry_sb, error_entry_ob) when STATE10_IND
-
-STATE_REQUEST = -1 when error_entry_ob
-
-MCS(X_Y, xy_error_stop_control, All, Yes, 1000, "Units per sec2", Yes, 1000, "Units per sec3") when error_entry_ob
-
-MAS(Z_axis, z_axis_error_stop_control, All, Yes, 1000, "Units per sec2", No, 10000, "% of Time") when error_entry_ob
-
-OSR(error_axes_stopped_sb, error_axes_stopped_ob) when xy_error_stop_control.PC and z_axis_error_stop_control.PC
-
-servo_off X_axis using x_axis_msf when error_axes_stopped_ob and error_servo_off
-
-servo_off Y_axis using y_axis_msf when error_axes_stopped_ob and error_servo_off
-
-servo_off Z_axis using z_axis_msf when error_axes_stopped_ob and error_servo_off
-
-OSR(error_servoed_off_sb, error_servoed_off_ob) when x_axis_msf.DN and y_axis_msf.DN and z_axis_msf.DN and STATE_REQUEST == 0
-
-fault_reset Z_axis using z_axis_mafr when error_servoed_off_ob
+on rising x_axis_msf.DN and y_axis_msf.DN and z_axis_msf.DN and STATE_REQUEST == 0:
+    fault_reset Z_axis using z_axis_mafr
 
 fault_reset Y_axis using y_axis_mafr when z_axis_mafr.DN
 

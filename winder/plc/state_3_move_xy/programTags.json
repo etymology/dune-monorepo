@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-15T10:24:34",
+  "generated_at": "2026-06-15T11:00:57",
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
     "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
-    "sha256": "0b43f81a0afbc4069e2125118be1ba71b9e9d83290c0b80009216f70f5bcf6c8",
-    "size": 4682724,
-    "mtime": "2026-06-15T10:23:00",
-    "last_saved": "2026-06-15 10:23:00.390",
+    "sha256": "4bd8b0df7514709b9cc9bfce00971e89f5bd77a6b1a4ad3c94d4a3c0ab8e6340",
+    "size": 4670093,
+    "mtime": "2026-06-15T11:00:11",
+    "last_saved": "2026-06-15 11:00:10.979",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 138
+    "save_log_entries": 141
   },
   "program_name": "state_3_move_xy",
   "main_routine_name": "main",
@@ -214,7 +214,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6576.00048828125
+      "value": 6575.9970703125
     },
     {
       "name": "dy",
@@ -228,7 +228,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.993988037109375
+      "value": 2.98992919921875
     },
     {
       "name": "d_raw",
@@ -270,7 +270,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.12545619904994965
+      "value": 0.12545625865459442
     },
     {
       "name": "main_xy_move",
@@ -286,13 +286,13 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 612368384,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
-        "IP": false,
-        "AC": false,
+        "IP": true,
+        "AC": true,
         "ACCEL": false,
         "DECEL": false,
         "TrackingMaster": false,
@@ -446,10 +446,10 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 1,
-        "ACC": 1,
+        "ACC": 0,
         "EN": true,
-        "TT": false,
-        "DN": true
+        "TT": true,
+        "DN": false
       }
     },
     {
@@ -506,7 +506,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 7016.00048828125
+      "value": 7015.9970703125
     },
     {
       "name": "starting_y",
@@ -520,7 +520,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 275.593994140625
+      "value": 563.0899047851562
     },
     {
       "name": "STATE3_IND",
@@ -549,7 +549,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "description": "Calculate the distance required to perform a jerk-limited stop at the gurrent jerk, acceleration, and speed",
-      "value": 527.6385498046875
+      "value": 0.020302563905715942
     },
     {
       "name": "stopping_ratio",
@@ -563,7 +563,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.8986166853428585e-06
+      "value": 6.997256605245639e-07
     },
     {
       "name": "trigger_xy_move",
@@ -675,7 +675,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3610.43994140625
+      "value": 195.4860076904297
     },
     {
       "name": "xy_dt",
@@ -762,7 +762,7 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 50,
-        "ACC": 19,
+        "ACC": 20,
         "EN": true,
         "TT": true,
         "DN": false
@@ -826,7 +826,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.4267163276672363
+      "value": 2.8757219314575195
     },
     {
       "name": "xy_error_prev",
@@ -840,7 +840,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.526491641998291
+      "value": 2.834651470184326
     },
     {
       "name": "xy_i_term",
@@ -854,7 +854,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.6063842773438
+      "value": 825.6231079101562
     },
     {
       "name": "xy_kd",
@@ -1012,7 +1012,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3607.1376953125
+      "value": -195.39971923828125
     },
     {
       "name": "x_time",
@@ -1026,7 +1026,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.12545619904994965
+      "value": 0.12545625865459442
     },
     {
       "name": "y_axis_mso",
@@ -1072,7 +1072,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1.626495361328125
+      "value": -5.79974365234375
     },
     {
       "name": "y_time",
@@ -1086,7 +1086,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 200.40159606933594
+      "value": 200.67364501953125
     },
     {
       "name": "z_axis_mso",
@@ -1153,5 +1153,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-06-15T15:24:45.720648+00:00"
+  "values_generated_at": "2026-06-15T16:01:09.086484+00:00"
 }

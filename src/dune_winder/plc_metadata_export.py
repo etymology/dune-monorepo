@@ -225,12 +225,6 @@ def _write_json(path, payload):
     path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n")
 
 
-def _ensure_rllscrap_placeholder(path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        path.write_text("")
-
-
 def write_plc_snapshot(snapshot, output_root):
     root = Path(output_root)
     root.mkdir(parents=True, exist_ok=True)
@@ -261,28 +255,12 @@ def write_plc_snapshot(snapshot, output_root):
         }
         _write_json(program_root / "programTags.json", program_payload)
 
-        _ensure_rllscrap_placeholder(program_root / "main" / "studio_copy.rllscrap")
-        for subroutine_name in program_definition["subroutines"]:
-            _ensure_rllscrap_placeholder(
-                program_root / subroutine_name / "studio_copy.rllscrap"
-            )
-
-    from dune_winder.plc_manifest import PlcManifest
-
-    manifest = PlcManifest(root)
-    manifest.load()
-    manifest.update_tag_metadata(None)
-    for program_name in snapshot["programs"]:
-        manifest.update_tag_metadata(program_name)
-    manifest.save()
-
 
 def build_argument_parser():
     parser = argparse.ArgumentParser(
         description=(
             "Connect to a Studio 5000 PLC with pycomm3 and scaffold a plc/ metadata "
-            "tree containing controller-level tags, per-program tags, and empty "
-            "studio_copy.rllscrap placeholders for main routines and subroutines."
+            "tree containing controller-level tags and per-program tags."
         )
     )
     parser.add_argument(

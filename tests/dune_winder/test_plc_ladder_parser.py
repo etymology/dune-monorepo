@@ -86,7 +86,7 @@ class PlcLadderParserTests(unittest.TestCase):
                     self.assertEqual(len(routine.rungs), 0)
 
     def test_generates_python_with_rockwell_mnemonics(self):
-        path = PLC_ROOT / "state_3_move_xy" / "main" / "studio_copy.rllscrap"
+        path = PLC_ROOT / "state_3_move_xy" / "main_Routine_RLL.L5X"
         routine = self._parse_tree_routine("state_3_move_xy", "main")
 
         generated = self.codegen.generate_routine(routine)
@@ -156,7 +156,7 @@ class PlcLadderParserTests(unittest.TestCase):
         compile(generated, "<branch_ote>", "exec")
 
     def test_imperative_codegen_sanitizes_invalid_root_names(self):
-        path = PLC_ROOT / "main" / "main" / "studio_copy.rllscrap"
+        path = PLC_ROOT / "main" / "main_Routine_RLL.L5X"
         routine = self._parse_tree_routine("main", "main")
 
         generated = self.codegen.generate_routine(routine)
