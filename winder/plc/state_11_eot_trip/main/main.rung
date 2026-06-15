@@ -1,10 +1,10 @@
 routine state_11_eot_trip/main
 
 uses AbortQueue, ALL_EOT_GOOD, ERROR_CODE, MINUS_X_EOT, MINUS_Y_EOT, MOVE_TYPE, NEXTSTATE  # controller scope
-uses PLUS_X_EOT, PLUS_Y_EOT, STATE, STATE_REQUEST, X_axis, X_Y, xz, Y_axis, Z_axis, Z_EOT  # controller scope
+uses PLUS_X_EOT, PLUS_Y_EOT, STATE, STATE_REQUEST, X_axis, X_Y, xz, Y_axis, yz, Z_axis, Z_EOT  # controller scope
 uses eot_entry_ob, eot_entry_sb, eot_recover_ready, eot_recovery_done, eot_stop_x, eot_stop_xy  # program scope
-uses eot_stop_xz, eot_stop_y, eot_stop_z, eot_stops_done, STATE11_IND, x_minus_clear_ob  # program scope
-uses x_minus_clear_sb, x_minus_cleared, x_minus_jog_active, x_minus_jog_cmd  # program scope
+uses eot_stop_xz, eot_stop_y, eot_stop_yz, eot_stop_z, eot_stops_done, STATE11_IND  # program scope
+uses x_minus_clear_ob, x_minus_clear_sb, x_minus_cleared, x_minus_jog_active, x_minus_jog_cmd  # program scope
 uses x_minus_jog_start_ob, x_minus_jog_start_sb, x_minus_jog_stop, x_minus_jog_timer  # program scope
 uses x_minus_mrp_cmd, x_minus_mrp_start_ob, x_minus_mrp_start_sb, x_minus_stop_req  # program scope
 uses x_minus_timeout, x_minus_trip, x_plus_clear_ob, x_plus_clear_sb, x_plus_jog_active  # program scope
@@ -70,6 +70,7 @@ on rising STATE11_IND using eot_entry_sb, eot_entry_ob:
     y_plus_jog_timer.PRE = 10000
     MCS(X_Y, eot_stop_xy, All, Yes, 10000, "Units per sec2", Yes, 10000, "Units per sec3")
     MCS(xz, eot_stop_xz, All, Yes, 10000, "Units per sec2", Yes, 10000, "Units per sec3")
+    MCS(yz, eot_stop_yz, All, Yes, 10000, "Units per sec2", Yes, 10000, "Units per sec3")
     MAS(X_axis, eot_stop_x, All, Yes, 10000, "Units per sec2", Yes, 10000, "Units per sec3")
     MAS(Y_axis, eot_stop_y, All, Yes, 10000, "Units per sec2", Yes, 10000, "Units per sec3")
     MAS(Z_axis, eot_stop_z, All, Yes, 10000, "Units per sec2", Yes, 10000, "Units per sec3")
