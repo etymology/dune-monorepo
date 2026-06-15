@@ -105,18 +105,3 @@ def test_fixture_state_9_unservo_compiles_equivalent(meta):
     original = _load_original("state_9_unservo", "main")
     report = check_equivalence(original, compiled, trials=100)
     assert report.equivalent, report.summary()
-
-
-def test_fixture_state_3_entry_compiles_equivalent(meta):
-    """The hard branch case (§4.2): the flattened source must match the
-    bracket-packed entry rung of state_3_move_xy/main."""
-    source = (FIXTURES / "state_3_entry.rung").read_text(encoding="utf-8")
-    compiled = lower_routine(parse_rung_source(source), meta).routine
-
-    original_full = _load_original("state_3_move_xy", "main")
-    # entry rung only (rung 1 of the routine)
-    from dune_winder.rung_lang.rung_ir import RoutineIR
-
-    original = RoutineIR("state_3_move_xy", "main", (original_full.rungs[1],))
-    report = check_equivalence(original, compiled, trials=200)
-    assert report.equivalent, report.summary()

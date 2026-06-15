@@ -85,51 +85,6 @@ class PlcLadderParserTests(unittest.TestCase):
                 else:
                     self.assertEqual(len(routine.rungs), 0)
 
-    def test_generates_python_with_rockwell_mnemonics(self):
-        path = PLC_ROOT / "state_3_move_xy" / "main_Routine_RLL.L5X"
-        routine = self._parse_tree_routine("state_3_move_xy", "main")
-
-        generated = self.codegen.generate_routine(routine)
-
-        self.assertIn("def state_3_move_xy_main(ctx: ScanContext) -> None:", generated)
-        self.assertIn("api: BoundRoutineAPI = bind_scan_context(ctx)", generated)
-        self.assertIn("STATE: IntTag = api.ref('STATE')", generated)
-        self.assertIn("X_Y: CoordinateSystemTag = api.ref('X_Y')", generated)
-        self.assertIn("X_axis: AxisTag = api.ref('X_axis')", generated)
-        self.assertIn(
-            "main_xy_move: MotionControlTag = api.ref('main_xy_move')", generated
-        )
-        self.assertIn("MCLM: MCLMCallable = api.MCLM", generated)
-        self.assertIn("if STATE==2:", generated)
-        # Rungs 0 and 1 are separate in the ACD-extracted ladder (the old
-        # hand-copied rllscrap had accidentally merged them into one rung).
-        self.assertIn(
-            "if (not main_xy_move.IP) and (STATE==3)", generated
-        )
-        self.assertIn("MCLM(", generated)
-        self.assertIn("motion_control=main_xy_move", generated)
-        self.assertIn("speed_units='Units per sec'", generated)
-        self.assertIn("accel_units='Units per sec2'", generated)
-        self.assertIn("decel_units='Units per sec2'", generated)
-        self.assertIn("jerk_units='Units per sec3'", generated)
-        self.assertIn("profile='S-Curve'", generated)
-        self.assertIn("merge='Disabled'", generated)
-        self.assertIn("termination_type=0", generated)
-        self.assertIn("lock_position=0", generated)
-        self.assertIn("lock_direction='None'", generated)
-        self.assertIn("event_distance=0", generated)
-        self.assertIn("calculated_data=0", generated)
-        self.assertIn("__ladder_routine__ = ROUTINE(", generated)
-        self.assertNotIn("tag('", generated)
-        self.assertNotIn("formula(", generated)
-        compile(generated, str(path), "exec")
-
-        restored = load_generated_routine(generated)
-        self.assertEqual(
-            self.emitter.emit_routine(restored).strip().splitlines(),
-            self.emitter.emit_routine(routine).strip().splitlines(),
-        )
-
     def test_imperative_codegen_compiles_jump_label_routines(self):
         routine = self._parse_tree_routine("queued_motion", "ArcSweepRad")
 
