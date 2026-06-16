@@ -4,7 +4,7 @@ Single source of truth for agent/AI behaviour in this monorepo. Sub-packages hav
 
 ## Plans
 
-All plan documents MUST live in `/Users/ben/dune-monorepo/plans/`. Never write to `~/.claude/plans/`, `$HOME`, temp dirs, or anywhere outside this repo. Override tool/sub-agent defaults if needed. Move pre-existing plans found elsewhere into `plans/`.
+All plan documents MUST live in this repo's `plans/` directory (repo-root-relative, regardless of where the repo is checked out — e.g. `c:\dune-monorepo\plans\` on Windows). Never write to `~/.claude/plans/`, `$HOME`, temp dirs, or anywhere outside this repo. Override tool/sub-agent defaults if needed. Move pre-existing plans found elsewhere into `plans/`.
 
 ## Python — always use `uv`
 

@@ -79,13 +79,6 @@ returns a structured response envelope:
 
 Legacy expression/XML remote command shims have been removed.
 
-For architecture follow-up and remaining high-priority refactors, see:
-
-- [`docs/ArchitecturePriorityBacklog.md`](docs/ArchitecturePriorityBacklog.md)
-- [`docs/PlcWinderCommunication.md`](docs/PlcWinderCommunication.md)
-- [`docs/PlcWinderArchitectureProposals.md`](docs/PlcWinderArchitectureProposals.md)
-- [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
-
 ## Template G-Code Generation
 
 ### V-layer CLI generator
@@ -157,11 +150,6 @@ Queued motion now supports live preview and smoother waypoint traversal through
 fillet/biarc planning, with safety validation against machine bounds and keepout
 regions.
 
-Primary references:
-
-- [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
-- [`docs/CircleLineQueue.md`](docs/CircleLineQueue.md)
-
 CLI/GUI test tooling lives in:
 
 - `src/motionQueueTest.py`
@@ -192,27 +180,22 @@ The PLC link in this repository has two main paths:
 - Queued motion: Python serializes `MotionSeg` UDT payloads into `IncomingSeg`
   and drives the queue handshake tags (`IncomingSegReqID`, `IncomingSegAck`,
   `StartQueuedPath`, `AbortQueue`, `QueueCount`, `CurIssued`, `NextIssued`,
-  and related fault tags). The checked-in standalone ladder counterpart is
-  `plc/motionQueue/main/pasteable.rll`.
+  and related fault tags). The ladder counterpart lives in the queue program's
+  `.rung` projection under `plc/` (see `AGENTS.md` for the PLC edit workflow).
 
 The runtime uses `pycomm3` in `REAL` mode and an in-memory `SimulatedPLC` in
 `SIM` mode. Most reads come from the shared `PLC.Tag` polling cache in the
 control loop; a few safety-sensitive checks use immediate reads instead.
-
-Primary references:
-
-- [`docs/PlcWinderCommunication.md`](docs/PlcWinderCommunication.md)
-- [`docs/PlcWinderArchitectureProposals.md`](docs/PlcWinderArchitectureProposals.md)
-- [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
 
 ## Python To Ladder Logic Transpiler
 
 The repository includes a small Python-to-Rockwell Ladder Logic transpiler for
 selected motion-planning functions under `src/dune_winder/transpiler/`.
 
-Checked-in PLC artifacts live under `plc/` at the repo root and are
-regenerated from the Studio 5000 ACD by `uv run plc-acd-export` (see
-`AGENTS.md`). The per-routine `*_Routine_RLL.L5X` is the single source of
+Checked-in PLC artifacts live under `winder/plc/` (the paths below are
+relative to this `winder/` package) and are regenerated from the Studio 5000
+ACD by `uv run plc-acd-export` (see `AGENTS.md`). The per-routine
+`*_Routine_RLL.L5X` is the single source of
 truth for rung text; the `.rung` file is the readable projection agents edit:
 
 - `plc/controller_level_tags.json`
@@ -220,8 +203,9 @@ truth for rung text; the `.rung` file is the readable projection agents edit:
 - `plc/<program>/<routine>_Routine_RLL.L5X`  ← source of truth for rung text
 - `plc/<program>/<routine-dir>/<routine>.rung`  ← readable projection; WHAT YOU EDIT
 
-See [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md) and `AGENTS.md`
-for the full edit/compile/re-export cycle.
+See [`../AGENTS.md`](../AGENTS.md) (PLC section) and the format references
+under `plc/` (`RUNG_FORMAT.md`, `instruction_set.md`, `RLL_FORMAT.md`) for the
+full edit/compile/re-export cycle.
 
 CLI usage:
 

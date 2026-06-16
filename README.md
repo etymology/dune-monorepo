@@ -53,7 +53,7 @@ make test                           # shorthand via Makefile
 
 ## VS Code
 
-Open `/home/dune/dune-monorepo` as the workspace folder. The root `.vscode/`
+Open the monorepo root as the workspace folder. The root `.vscode/`
 configuration is set up to use the monorepo `.venv` and launch both apps from
 the root workflow.
 
@@ -68,7 +68,10 @@ Data artifacts stay in their own subdirectories and are **not** Python packages:
 
 Tests live under [`tests/`](tests/): `dune_tension/` and `dune_winder/`.
 
-Docs live under [`docs/`](docs/): `dune_tension/` and `dune_winder/`.
+Docs live under [`docs/`](docs/) — see [`docs/README.md`](docs/README.md) for
+the index. Agent-readable Markdown is grouped under `docs/winder/` and
+`docs/tension/`; large binary reference material (ACD files, vendor PDFs,
+spreadsheets) is isolated under `docs/reference-assets/`.
 
 Package-specific operational details:
 
@@ -91,35 +94,29 @@ docker compose -f winder/docker-compose.yml up -d   # start Grafana + InfluxDB
 
 ---
 
-## RLL codegen — Python → Rockwell Ladder Logic (dune_winder)
+## PLC ladder editing (dune_winder)
 
-### Python transpiler
-
-- Source: `src/dune_winder/transpiler/`
-- CLI: `uv run python -m dune_winder.transpiler <file.py> [function_name ...]`
-- Output: pasteable ladder text → check in under `plc/<program>/<subroutine>/pasteable.rll`
-
-### RLL rung transform (`plc-rung-transform`)
-
-Converts Studio 5000 copy-paste `.rllscrap` → pasteable `.rll` format.
-
-```bash
-uv run plc-rung-transform input.rllscrap -o output.rll
-```
-
-### PLC artifact layout
-
-The whole `plc/` tree is regenerated from the Studio 5000 ACD by
-`uv run plc-acd-export` (see `AGENTS.md`). The per-routine L5X is the single
-source of truth for rung text; the `.rung` file is the readable projection
-agents edit.
+The PLC ladder code under `winder/plc/` is regenerated from the Studio 5000
+ACD by `uv run plc-acd-export`. The per-routine `*_Routine_RLL.L5X` is the
+single source of truth for rung text; the `.rung` file is the readable
+projection agents edit. Agents edit `.rung` files only and round-trip through
+`uv run rung-compile`.
 
 ```text
-plc/ACD/DUNEW2PLC1_py3.ACD                 ← SOURCE OF TRUTH (Studio 5000)
-plc/<program>/programTags.json
-plc/<program>/<routine>_Routine_RLL.L5X    ← source of truth for rung text
-plc/<program>/<routine-dir>/<routine>.rung ← readable projection; WHAT YOU EDIT
+winder/plc/ACD/DUNEW2PLC1_py3.ACD              ← SOURCE OF TRUTH (Studio 5000)
+winder/plc/<program>/<routine>_Routine_RLL.L5X ← source of truth for rung text
+winder/plc/<program>/<routine-dir>/<routine>.rung ← readable projection; WHAT YOU EDIT
 ```
 
-Never hand-edit the L5X or tag JSONs; they are export artifacts. Edit `.rung`
-files and round-trip with `uv run rung-compile`.
+The full edit/compile/import/re-export cycle, tooling table, and agent rules
+live in **[`AGENTS.md`](AGENTS.md)** — that file is authoritative for all PLC
+work. The legacy `pasteable.rll` / `.rllscrap` copy-paste loop is retired.
+
+### Python → Ladder Logic transpiler
+
+A small transpiler for selected motion-planning functions lives under
+`src/dune_winder/transpiler/`:
+
+```bash
+uv run python -m dune_winder.transpiler <file.py> [function_name ...]
+```
