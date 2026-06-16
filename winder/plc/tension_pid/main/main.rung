@@ -19,13 +19,13 @@ when TENSION_ON_SWITCH:
 
 ramp_start_cv = tension_motor_cv when tension_off_oneshot
 
-TOF(tension_off_ramp_timer, 1000, 0) when TENSION_ON_SWITCH
+TOF(tension_off_ramp_timer, 1000, 1000) when TENSION_ON_SWITCH
 
 start_timer wire_break_debounce when not wire_break_proxy  # preset 20 ms
 
 Enable_tension_motor = TENSION_ON_SWITCH and not Safety_Tripped_S and (wire_break_proxy or tension_on_switch_delay_on_start.TT or not wire_break_debounce.DN) or tension_off_ramp_timer.TT
 
-raw `[XIC(tension_on_switch_delay_on_start.TT),XIC(TENSION_CONTROL_OK)][[XIC(wire_break_proxy),XIO(wire_break_switch_delay_on_start.DN),XIO(wire_break_debounce.DN)]OTE(TENSION_CONTROL_OK),TON(wire_break_switch_delay_on_start,1000,1000)]`
+raw `[XIC(tension_on_switch_delay_on_start.TT),XIC(TENSION_CONTROL_OK)][[XIC(wire_break_proxy),XIO(wire_break_switch_delay_on_start.DN),XIO(wire_break_debounce.DN)]OTE(TENSION_CONTROL_OK),TON(wire_break_switch_delay_on_start,1000,0)]`
 
 start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 3 ms
 

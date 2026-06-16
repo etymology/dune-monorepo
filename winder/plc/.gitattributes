@@ -1,0 +1,18 @@
+# Everything in winder/plc/ is regenerated from the .ACD by `plc-acd-export`.
+# The exporters write LF; pin eol=lf here so core.autocrlf=true can't rewrite
+# the working tree to CRLF and flag every file as modified with an empty diff.
+
+# Reviewable, human-edited form of the ladder logic — keep normal diffs.
+*.rung text eol=lf
+
+# Tag metadata / provenance JSON. linguist-generated collapses them on GitHub.
+*.json           text eol=lf linguist-generated
+acd_index.json   text eol=lf linguist-generated
+
+# Per-routine L5X: verbose machine-readable XML (BOM + CRLF, treated as binary).
+# It's the source of truth for rung text but not meant for human diffing, so
+# mark it generated and suppress the diff (override: git diff -- '*.L5X').
+*_Routine_RLL.L5X -text linguist-generated -diff
+
+# The ACD itself and its sidecars are binary.
+ACD/** -text -diff

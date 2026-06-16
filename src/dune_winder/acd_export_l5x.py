@@ -56,7 +56,6 @@ import re
 import struct
 import sys
 import tempfile
-import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -166,13 +165,14 @@ def acd_provenance(acd_file: Path) -> dict:
     # oldest region), so file order is not chronological — take the max.
     saves = SAVE_LOG_PATTERN.findall(data[:262144])
     last = max(saves, key=lambda s: s[0]) if saves else None
-    stat = acd_file.stat()
+    # Only content-derived fields go here so acd_index.json is reproducible:
+    # the absolute path and filesystem mtime change on every clone/checkout
+    # and would churn the diff without tracking any real change. ``last_saved``
+    # already identifies the save independent of the file's mtime.
     return {
         "file": acd_file.name,
-        "path": str(acd_file),
         "sha256": hashlib.sha256(data).hexdigest(),
         "size": len(data),
-        "mtime": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)),
         "last_saved": last[0].decode() if last else None,
         "studio_version": last[1].decode() if last else None,
         "save_log_entries": len(saves),
@@ -471,9 +471,15 @@ def _cdata(text: str) -> str:
     return "<![CDATA[" + text.replace("]]>", "]]]]><![CDATA[>") + "]]>"
 
 
-def render_routine_l5x(project: AcdProject, program: Program, routine: Routine) -> str:
-    """Render one routine as Studio-compatible L5X (sans tag context)."""
-    export_date = time.asctime()
+def render_routine_l5x(
+    project: AcdProject, program: Program, routine: Routine, export_date: str
+) -> str:
+    """Render one routine as Studio-compatible L5X (sans tag context).
+
+    ``export_date`` is pinned to the source ACD's save time (not wall-clock)
+    so re-exporting an unchanged ACD yields a byte-identical L5X — nothing
+    reads this attribute, and a per-run timestamp would churn every file.
+    """
     lines = [
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
         f'<RSLogix5000Content SchemaRevision="1.0"'
@@ -513,7 +519,12 @@ def render_routine_l5x(project: AcdProject, program: Program, routine: Routine) 
 
 
 def _write_json(path: Path, payload: dict) -> None:
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    # Force LF (newline="\n") so the output is byte-identical across platforms;
+    # the default text-mode write emits CRLF on Windows and churns the diff
+    # against the LF the repo stores (see winder/plc/.gitattributes).
+    path.write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def write_tree(
@@ -531,7 +542,9 @@ def write_tree(
     the L5X this writes — the L5X is the source of truth, no intermediary.
     """
     written: list[Path] = []
-    generated_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    # Pin the L5X ExportDate to the ACD save time so unchanged ACDs re-export
+    # byte-identical (provenance no longer carries a wall-clock timestamp).
+    export_date = provenance.get("last_saved") or "unknown"
 
     for program in project.programs:
         program_dir = output_root / program.name
@@ -540,7 +553,7 @@ def write_tree(
 
         for routine in program.routines:
             l5x_path = program_dir / f"{routine.name}_Routine_RLL.L5X"
-            content = render_routine_l5x(project, program, routine)
+            content = render_routine_l5x(project, program, routine, export_date)
             l5x_path.write_bytes(b"\xef\xbb\xbf" + content.encode("utf-8"))
             written.append(l5x_path)
 
@@ -562,7 +575,6 @@ def write_tree(
         routine_names = sorted(r.name for r in program.routines)
         payload = {
             "schema_version": 1,
-            "generated_at": generated_at,
             "plc_path": plc_path,
             "source_acd": provenance,
             "program_name": program.name,
@@ -593,7 +605,6 @@ def write_tree(
         )
     payload = {
         "schema_version": 1,
-        "generated_at": generated_at,
         "plc_path": plc_path,
         "source_acd": provenance,
         "controller": {"name": project.controller_name},
@@ -618,7 +629,6 @@ def write_index(
         "controller": project.controller_name,
         "software_revision": project.software_revision,
         "source_acd": provenance,
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "data_types": len(tag_info.data_types),
         "controller_tags": len(tag_info.controller_tags),
         "programs": {
