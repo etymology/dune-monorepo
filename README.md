@@ -109,11 +109,17 @@ uv run plc-rung-transform input.rllscrap -o output.rll
 
 ### PLC artifact layout
 
+The whole `plc/` tree is regenerated from the Studio 5000 ACD by
+`uv run plc-acd-export` (see `AGENTS.md`). The per-routine L5X is the single
+source of truth for rung text; the `.rung` file is the readable projection
+agents edit.
+
 ```text
+plc/ACD/DUNEW2PLC1_py3.ACD                 ← SOURCE OF TRUTH (Studio 5000)
 plc/<program>/programTags.json
-plc/<program>/main/studio_copy.rllscrap   ← copied from Studio 5000 (source of truth)
-plc/<program>/main/pasteable.rll          ← transformed / transpiled output
-plc/<program>/<subroutine>/pasteable.rll
+plc/<program>/<routine>_Routine_RLL.L5X    ← source of truth for rung text
+plc/<program>/<routine-dir>/<routine>.rung ← readable projection; WHAT YOU EDIT
 ```
 
-Never hand-edit `studio_copy.rllscrap`; it is the source of truth from Studio 5000.
+Never hand-edit the L5X or tag JSONs; they are export artifacts. Edit `.rung`
+files and round-trip with `uv run rung-compile`.

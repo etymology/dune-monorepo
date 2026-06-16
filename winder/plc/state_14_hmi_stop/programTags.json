@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-12T14:10:57",
+  "generated_at": "2026-06-15T13:02:18",
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
     "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
-    "sha256": "66b4ddeacc22bb19fd9f7ec854e3d540cecf423fa28da3e4de9a25abc2555fc2",
-    "size": 4683198,
-    "mtime": "2026-06-12T14:10:10",
-    "last_saved": "2026-06-12 14:10:10.419",
+    "sha256": "3bffc7a2cf4cdd5bd5467711805e7d2587e6b9717164ebb4fc0a332a2be9d52b",
+    "size": 4691367,
+    "mtime": "2026-06-15T12:38:35",
+    "last_saved": "2026-06-15 12:38:35.137",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 137
+    "save_log_entries": 142
   },
   "program_name": "state_14_hmi_stop",
   "main_routine_name": "main",
@@ -357,5 +357,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-06-12T19:11:09.055295+00:00"
+  "values_generated_at": "2026-06-15T18:02:29.213201+00:00"
 }

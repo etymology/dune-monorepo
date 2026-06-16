@@ -16,6 +16,8 @@ from dune_winder.plc_ladder import load_imperative_routine_from_source
 from dune_winder.plc_ladder import load_plc_metadata
 from dune_winder.paths import PLC_ROOT
 
+from _plc_paste_support import paste_text
+
 
 class PlcLadderRuntimeTests(unittest.TestCase):
     @classmethod
@@ -346,10 +348,9 @@ class PlcLadderRuntimeTests(unittest.TestCase):
         self.assertTrue(self.ctx.get_value("MoveA.IP"))
 
     def test_generated_python_matches_ast_execution_for_movexy_main(self):
-        path = PLC_ROOT / "state_3_move_xy" / "main" / "pasteable.rll"
-        routine = self.parser.parse_routine_path(
-            path,
-            routine_name="main",
+        routine = self.parser.parse_routine_text(
+            "main",
+            paste_text("state_3_move_xy", "main"),
             program="state_3_move_xy",
         )
 
@@ -372,10 +373,9 @@ class PlcLadderRuntimeTests(unittest.TestCase):
         self._assert_ast_and_generated_match(routine, setup=setup)
 
     def test_generated_python_matches_ast_execution_for_movez_main(self):
-        path = PLC_ROOT / "state_5_move_z" / "main" / "pasteable.rll"
-        routine = self.parser.parse_routine_path(
-            path,
-            routine_name="main",
+        routine = self.parser.parse_routine_text(
+            "main",
+            paste_text("state_5_move_z", "main"),
             program="state_5_move_z",
         )
 

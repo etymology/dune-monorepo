@@ -38,3 +38,7 @@ dune_tension/audio/*
 winder/plc/ACD/*.Sem
 winder/plc/ACD/*.Wrk
 winder/plc/ACD/*.BAK*.acd
+# rung-compile outputs (import via Studio, then re-export; not checked in)
+winder/plc/**/*_import.L5X
+winder/plc/**/*.rllscrap.out
+winder/plc/ACD/DUNEW2PLC1_py3.ACD.Recovery

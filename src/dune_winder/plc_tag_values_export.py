@@ -279,19 +279,6 @@ def fetch_and_write_tag_values(plc_path, output_root=DEFAULT_OUTPUT_ROOT):
         )
         _write_json(json_file, updated_payload)
 
-    from dune_winder.plc_manifest import PlcManifest
-
-    manifest = PlcManifest(Path(output_root))
-    manifest.load()
-    for json_file in json_files:
-        program_name = (
-            None
-            if json_file.name == "controller_level_tags.json"
-            else json_file.parent.name
-        )
-        manifest.update_tag_values(program_name)
-    manifest.save()
-
     return {
         "generated_at": generated_at,
         "file_count": len(json_files),

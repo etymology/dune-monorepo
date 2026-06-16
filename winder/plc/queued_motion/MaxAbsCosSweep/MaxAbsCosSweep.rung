@@ -1,0 +1,77 @@
+routine queued_motion/MaxAbsCosSweep
+
+uses DINTS, REALS  # program scope
+
+REALS[10] = REALS[7] + REALS[8]
+
+JMP(lbl_min_a_9) when REALS[7] < REALS[10]
+
+always:
+    REALS[11] = REALS[10]
+    JMP(lbl_min_end_10)
+
+label lbl_min_a_9
+
+REALS[11] = REALS[7]
+
+label lbl_min_end_10
+
+JMP(lbl_max_a_11) when REALS[7] > REALS[10]
+
+always:
+    REALS[12] = REALS[10]
+    JMP(lbl_max_end_12)
+
+label lbl_max_a_11
+
+REALS[12] = REALS[7]
+
+label lbl_max_end_12
+
+REALS[905] = abs(cos(REALS[7]))
+
+REALS[906] = abs(cos(REALS[10]))
+
+JMP(lbl_max_a_13) when REALS[905] > REALS[906]
+
+always:
+    REALS[13] = REALS[906]
+    JMP(lbl_max_end_14)
+
+label lbl_max_a_13
+
+REALS[13] = REALS[905]
+
+label lbl_max_end_14
+
+REALS[907] = REALS[11] / 3.14159265358979
+
+TRN(REALS[907], DINTS[901])
+
+REALS[908] = DINTS[901]
+
+JMP(lbl_ceil_done_15) when REALS[908] >= REALS[907]
+
+DINTS[901] = DINTS[901] + 1
+
+label lbl_ceil_done_15
+
+DINTS[2] = DINTS[901]
+
+REALS[909] = REALS[12] / 3.14159265358979
+
+TRN(REALS[909], DINTS[3])
+
+JMP(lbl_else_16) when DINTS[2] > DINTS[3]
+
+REALS[9] = 1.0
+
+JMP(lbl_MaxAbsCosSweep_end)
+
+label lbl_else_16
+
+REALS[9] = REALS[13]
+
+JMP(lbl_MaxAbsCosSweep_end)
+
+label lbl_MaxAbsCosSweep_end

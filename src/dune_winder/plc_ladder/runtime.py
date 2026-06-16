@@ -606,6 +606,8 @@ class RoutineExecutor:
         ctx.set_value(timer_path, timer)
 
     def _execute_tof(self, timer_path: str, condition_in: bool, ctx: ScanContext):
+        """Timer off-delay: DN follows the rung true immediately and stays
+        set for PRE milliseconds after the rung goes false."""
         raw = ctx.get_value(timer_path)
         timer = (
             _deep_copy(raw)
@@ -618,14 +620,14 @@ class RoutineExecutor:
             timer["TT"] = False
             timer["DN"] = True
         else:
-            timer["ACC"] = int(timer.get("ACC", 0)) + int(
-                ctx.runtime_state.scan_time_ms
-            )
-            done = int(timer.get("ACC", 0)) >= int(timer.get("PRE", 0))
-            if done:
-                timer["ACC"] = max(int(timer.get("ACC", 0)), int(timer.get("PRE", 0)))
-            timer["DN"] = not done
-            timer["TT"] = not done
+            if bool(timer.get("DN", False)):
+                timer["ACC"] = int(timer.get("ACC", 0)) + int(
+                    ctx.runtime_state.scan_time_ms
+                )
+                if int(timer["ACC"]) >= int(timer.get("PRE", 0)):
+                    timer["ACC"] = int(timer.get("PRE", 0))
+                    timer["DN"] = False
+            timer["TT"] = bool(timer.get("DN", False))
         ctx.set_value(timer_path, timer)
 
     def _execute_ctu(self, counter_path: str, condition_in: bool, ctx: ScanContext):

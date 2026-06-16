@@ -1,0 +1,51 @@
+routine queued_motion/ArcSweepRad
+
+uses BOOLS, DINTS, REALS  # program scope
+
+REALS[17] = 2.0 * 3.14159265358979
+
+REALS[910] = REALS[15] - REALS[14]
+
+REALS[18] = REALS[910] mod REALS[17]
+
+REALS[911] = REALS[14] - REALS[15]
+
+REALS[19] = REALS[911] mod REALS[17]
+
+JMP(lbl_else_18) when DINTS[4] != 0
+
+REALS[16] = -REALS[19]
+
+JMP(lbl_ArcSweepRad_end)
+
+label lbl_else_18
+
+JMP(lbl_else_20) when DINTS[4] != 1
+
+REALS[16] = REALS[18]
+
+JMP(lbl_ArcSweepRad_end)
+
+label lbl_else_20
+
+JMP(lbl_else_22) when DINTS[4] != 2
+
+REALS[16] = -REALS[19]
+
+JMP(lbl_ArcSweepRad_end)
+
+label lbl_else_22
+
+JMP(lbl_else_24) when DINTS[4] != 3
+
+REALS[16] = REALS[18]
+
+JMP(lbl_ArcSweepRad_end)
+
+label lbl_else_24
+
+unlatch BOOLS[3]
+
+JMP(lbl_ArcSweepRad_end)
+
+label lbl_ArcSweepRad_end
