@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-15T10:24:34",
+  "generated_at": "2026-06-15T13:02:18",
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
     "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
-    "sha256": "0b43f81a0afbc4069e2125118be1ba71b9e9d83290c0b80009216f70f5bcf6c8",
-    "size": 4682724,
-    "mtime": "2026-06-15T10:23:00",
-    "last_saved": "2026-06-15 10:23:00.390",
+    "sha256": "3bffc7a2cf4cdd5bd5467711805e7d2587e6b9717164ebb4fc0a332a2be9d52b",
+    "size": 4691367,
+    "mtime": "2026-06-15T12:38:35",
+    "last_saved": "2026-06-15 12:38:35.137",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 138
+    "save_log_entries": 142
   },
   "program_name": "state_11_eot_trip",
   "main_routine_name": "main",
@@ -200,6 +200,230 @@
   ],
   "program_tags": [
     {
+      "name": "auto_edge_0_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_0_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_0_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_0_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_1_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_1_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_1_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_1_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_2_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_2_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_2_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_2_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_3_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_3_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_3_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_3_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_4_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_4_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_4_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_4_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_5_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_5_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_5_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_5_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_6_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_6_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_6_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_6_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_7_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_7_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "auto_edge_7_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_7_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
       "name": "eot_entry_ob",
       "fully_qualified_name": "Program:state_11_eot_trip.eot_entry_ob",
       "tag_type": "atomic",
@@ -384,6 +608,38 @@
         "DN": true,
         "ER": false,
         "PC": true,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "eot_stop_yz",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_stop_yz",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "state_11_eot_trip",
+      "value": {
+        "FLAGS": 0,
+        "EN": false,
+        "DN": false,
+        "ER": false,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1468,5 +1724,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-06-15T15:24:45.720648+00:00"
+  "values_generated_at": "2026-06-15T18:02:29.213201+00:00"
 }

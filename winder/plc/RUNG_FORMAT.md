@@ -54,9 +54,10 @@ local bool scratch_bits[32]
 | `<bool> = <bool-expr>` | contacts + `OTE` — the bit *follows* the condition every scan (writes 0 when false) |
 | `<tag> = <value-expr>` | `MOV` (bare number/tag) or `CPT` (computed); only writes when the rung is true |
 | `<tag> = <value-expr> when <expr>` | guarded `MOV`/`CPT` |
-| `on rising <expr>:` + actions | an `OSR` rung + one gated rung per action (storage/edge bits auto-allocated as `auto_edge_<k>_sb/_ob`) |
-| `on falling <expr>:` + actions | same with `OSF` |
+| `on rising <expr>:` + actions | an `OSR` rung + one gated rung per action. Bit names: when `<expr>` is a single tag, derived from it (`<slug>_osr_sb` storage, `<slug>_rising` edge); otherwise `auto_edge_<k>_sb/_ob` |
+| `on falling <expr>:` + actions | same with `OSF` (`<slug>_osf_sb`, `<slug>_falling`) |
 | `on entry of <bool>:` + actions | rising edge of a state-active bit; action rungs re-check the bit |
+| `on rising/falling <expr> using <storage>, <edge>:` | pins the one-shot's storage and edge bits to those exact tags instead of inventing names |
 | `let <name> = <expr>` | compile-time alias (not a tag); substituted into later expressions. The renderer never emits `let`. |
 | `label <name>` | `LBL(name)NOP();` — jump target for `JMP(name)` |
 | ``raw `...` `` | verbatim rung text (paren dialect); tag-scope check downgraded to a warning |
@@ -132,10 +133,14 @@ take a `when` suffix — wrap them in a `when ...:` block.
   the current export plus a semantic check (random-valuation simulation,
   `src/dune_winder/rung_lang/equiv.py`). "NOT equivalent" is expected
   exactly when your edit changes behaviour — review the `+`/`-` rungs.
-- One-shot bookkeeping (`OSR` storage arrays, edge bits) is auto-allocated
-  with deterministic names; historical hand-allocated names are not
-  reproduced. The equivalence checker, not byte-diffing, is the
-  correctness bar for re-imports.
+- One-shot bookkeeping bits (`OSR`/`OSF` storage + edge) get deterministic,
+  informative names derived from the trigger tag (`<slug>_osr_sb` /
+  `<slug>_rising`, etc.), so the generated ladder stays readable. Existing
+  hand-named bits are **preserved**: the renderer spells them out in a
+  `using <storage>, <edge>` clause, so a recompile does not rename them.
+  Only genuinely new blocks (no `using` clause, written by hand or by an
+  LLM) get freshly invented names. The equivalence checker, not
+  byte-diffing, remains the correctness bar for re-imports.
 - Renaming or repacking that the compiler performs (`CMP(STATE=9)` →
   `EQU(STATE,9)`, packed multi-output rungs splitting into one rung per
   statement) is semantically checked and normalizes once, after which the

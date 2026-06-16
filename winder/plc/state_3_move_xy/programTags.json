@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-15T10:24:34",
+  "generated_at": "2026-06-15T13:02:18",
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
     "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
-    "sha256": "0b43f81a0afbc4069e2125118be1ba71b9e9d83290c0b80009216f70f5bcf6c8",
-    "size": 4682724,
-    "mtime": "2026-06-15T10:23:00",
-    "last_saved": "2026-06-15 10:23:00.390",
+    "sha256": "3bffc7a2cf4cdd5bd5467711805e7d2587e6b9717164ebb4fc0a332a2be9d52b",
+    "size": 4691367,
+    "mtime": "2026-06-15T12:38:35",
+    "last_saved": "2026-06-15 12:38:35.137",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 138
+    "save_log_entries": 142
   },
   "program_name": "state_3_move_xy",
   "main_routine_name": "main",
@@ -203,6 +203,34 @@
   ],
   "program_tags": [
     {
+      "name": "auto_edge_0_ob",
+      "fully_qualified_name": "Program:state_3_move_xy.auto_edge_0_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_3_move_xy",
+      "value": false
+    },
+    {
+      "name": "auto_edge_0_sb",
+      "fully_qualified_name": "Program:state_3_move_xy.auto_edge_0_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_3_move_xy",
+      "value": false
+    },
+    {
       "name": "dx",
       "fully_qualified_name": "Program:state_3_move_xy.dx",
       "tag_type": "atomic",
@@ -214,7 +242,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6576.00048828125
+      "value": 6530.001953125
     },
     {
       "name": "dy",
@@ -228,7 +256,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.993988037109375
+      "value": 4.0302734375
     },
     {
       "name": "d_raw",
@@ -270,7 +298,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.12545619904994965
+      "value": 0.12633992731571198
     },
     {
       "name": "main_xy_move",
@@ -286,9 +314,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 536870912,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -429,7 +457,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.0000610351562
+      "value": 825.0001220703125
     },
     {
       "name": "regulator_loop_timer",
@@ -446,10 +474,10 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 1,
-        "ACC": 1,
+        "ACC": 0,
         "EN": true,
-        "TT": false,
-        "DN": true
+        "TT": true,
+        "DN": false
       }
     },
     {
@@ -506,7 +534,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 7016.00048828125
+      "value": 635.397705078125
     },
     {
       "name": "starting_y",
@@ -520,7 +548,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 275.593994140625
+      "value": 1428.3697509765625
     },
     {
       "name": "STATE3_IND",
@@ -549,7 +577,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "description": "Calculate the distance required to perform a jerk-limited stop at the gurrent jerk, acceleration, and speed",
-      "value": 527.6385498046875
+      "value": 0.0145137719810009
     },
     {
       "name": "stopping_ratio",
@@ -563,7 +591,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.8986166853428585e-06
+      "value": 2.9589350560854655e-06
     },
     {
       "name": "trigger_xy_move",
@@ -591,7 +619,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.0000610351562
+      "value": 825.0001220703125
     },
     {
       "name": "xy_accel_jerk",
@@ -675,7 +703,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3610.43994140625
+      "value": 3.198242664337158
     },
     {
       "name": "xy_dt",
@@ -762,7 +790,7 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 50,
-        "ACC": 19,
+        "ACC": 33,
         "EN": true,
         "TT": true,
         "DN": false
@@ -826,7 +854,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.4267163276672363
+      "value": 2.518251419067383
     },
     {
       "name": "xy_error_prev",
@@ -840,7 +868,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.526491641998291
+      "value": 2.4998221397399902
     },
     {
       "name": "xy_i_term",
@@ -854,7 +882,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.6063842773438
+      "value": 825.074951171875
     },
     {
       "name": "xy_kd",
@@ -941,6 +969,20 @@
       "value": false
     },
     {
+      "name": "xy_pre_move",
+      "fully_qualified_name": "Program:state_3_move_xy.xy_pre_move",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_3_move_xy",
+      "value": false
+    },
+    {
       "name": "xy_p_term",
       "fully_qualified_name": "Program:state_3_move_xy.xy_p_term",
       "tag_type": "atomic",
@@ -966,7 +1008,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3600
+      "value": 3000
     },
     {
       "name": "x_axis_mso",
@@ -1012,7 +1054,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3607.1376953125
+      "value": -3.2001953125
     },
     {
       "name": "x_time",
@@ -1026,7 +1068,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.12545619904994965
+      "value": 0.12633992731571198
     },
     {
       "name": "y_axis_mso",
@@ -1072,7 +1114,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1.626495361328125
+      "value": -0.0013427734375
     },
     {
       "name": "y_time",
@@ -1086,7 +1128,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 200.40159606933594
+      "value": 148.87327575683594
     },
     {
       "name": "z_axis_mso",
@@ -1153,5 +1195,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-06-15T15:24:45.720648+00:00"
+  "values_generated_at": "2026-06-15T18:02:29.213201+00:00"
 }

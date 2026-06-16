@@ -8,23 +8,23 @@ everything that used to be hand-copied out of Studio or exported with
 separate scripts:
 
 1. ``<program>/<routine>_Routine_RLL.L5X`` — per-routine L5X (rung text is
-   byte-identical to Studio's own "Export Routine" output).
-2. ``<program>/<routine-dir>/studio_copy.rllscrap`` — the paren-dialect rung
-   text, previously hand-copied from Studio's clipboard. The main routine
-   keeps the historical ``main/`` directory name.
-3. ``<program>/programTags.json`` and ``controller_level_tags.json`` — tag
+   byte-identical to Studio's own "Export Routine" output). This is the
+   single source of truth for ladder logic: the ``.rung`` projection and
+   the ladder simulator both read the paren-dialect rung text straight
+   from its ``<Rung>`` CDATA (no ``studio_copy.rllscrap`` intermediary).
+2. ``<program>/programTags.json`` and ``controller_level_tags.json`` — tag
    metadata in the same schema the pycomm3 exporters produced (the ladder
    simulator and rung transform read these), built from the ACD's internal
    ``TagInfo.XML``.
-4. Live tag values merged into those JSON files via the existing
+3. Live tag values merged into those JSON files via the existing
    ``plc_tag_values_export`` reader (``--offline`` carries values forward
    from the previous export instead).
-5. ``<program>/<routine-dir>/<routine>.rung`` — the LLM-readable rendering
+4. ``<program>/<routine-dir>/<routine>.rung`` — the LLM-readable rendering
    of every routine (``dune_winder.rung_lang``); the form agents read and
-   edit, compiled back with ``rung-compile``. (``pasteable.rll`` and
-   ``manifest.json`` are retired; the ladder simulator now derives its
-   paste-dialect text from ``studio_copy.rllscrap`` in memory.)
-6. ``acd_index.json`` — provenance: which ACD bytes (sha256, save-log entry)
+   edit, compiled back with ``rung-compile``. The main routine keeps the
+   historical ``main/`` directory name. (``pasteable.rll`` and
+   ``manifest.json`` are retired.)
+5. ``acd_index.json`` — provenance: which ACD bytes (sha256, save-log entry)
    produced the tree, plus a sha256 for every generated file.
 
 The ACD container stores ladder logic as records in internal databases:
@@ -40,8 +40,8 @@ Known gaps versus the data Studio holds:
   plain tags of the aliased type).
 - No rung comments (their linkage inside ``Comments.Dat`` is not reverse
   engineered).
-- Pending-edit rungs in the ACD are emitted with L5X ``Type="e"`` and are
-  included in the rllscrap output in display order.
+- Pending-edit rungs in the ACD are emitted with L5X ``Type="e"`` in
+  display order.
 
 Usage:
     uv run plc-acd-export [ACD_FILE] [--plc IP] [--offline] [--output-root DIR]
@@ -512,11 +512,6 @@ def render_routine_l5x(project: AcdProject, program: Program, routine: Routine) 
     return "\r\n".join(lines) + "\r\n"
 
 
-def render_rllscrap(routine: Routine) -> str:
-    """Concatenate rung text the way Studio's clipboard copy does."""
-    return "   ".join(rung.text for rung in routine.rungs) + "\n"
-
-
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -529,7 +524,12 @@ def write_tree(
     plc_path: str | None,
     offline: bool,
 ) -> list[Path]:
-    """Write L5X, rllscrap, and tag-metadata JSON for every program."""
+    """Write per-routine L5X and tag-metadata JSON for every program.
+
+    The ``.rung`` projections are rendered separately (and the routine
+    subdirectories created) by ``rung_lang.cli.render_tree``, which reads
+    the L5X this writes — the L5X is the source of truth, no intermediary.
+    """
     written: list[Path] = []
     generated_at = time.strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -543,14 +543,6 @@ def write_tree(
             content = render_routine_l5x(project, program, routine)
             l5x_path.write_bytes(b"\xef\xbb\xbf" + content.encode("utf-8"))
             written.append(l5x_path)
-
-            routine_dir = program_dir / (
-                "main" if routine.name == main_routine else routine.name
-            )
-            routine_dir.mkdir(exist_ok=True)
-            rllscrap_path = routine_dir / "studio_copy.rllscrap"
-            rllscrap_path.write_text(render_rllscrap(routine), encoding="utf-8")
-            written.append(rllscrap_path)
 
         program_tag_entries = [
             _legacy_tag_entry(tag, program.name)
@@ -732,7 +724,7 @@ def main(argv: list[str] | None = None) -> int:
     generated = write_tree(
         project, tag_info, args.output_root, provenance, plc_path, args.offline
     )
-    print(f"Wrote {len(generated)} L5X/rllscrap/tag files under {args.output_root}")
+    print(f"Wrote {len(generated)} L5X/tag files under {args.output_root}")
 
     values_ok = False
     if args.offline:

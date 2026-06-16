@@ -6,9 +6,10 @@ is the *independent* oracle: the ``plc_ladder`` runtime (the engine behind
 .rung-round-tripped ladder over identical seeded tag stores for several
 scans, and the resulting tag snapshots must match.
 
-One-shot bookkeeping bits are excluded from the comparison: the compiler
-deliberately renames them (``auto_edge_<k>_*``), and both stores start
-zeroed so the k-th edge detector behaves identically on both sides.
+One-shot bookkeeping bits are excluded from the comparison by position
+(``internal_bit_names`` reads the OSR/OSF operands directly, whatever they
+are named): the compiler may invent fresh names for them, and both stores
+start zeroed so each edge detector behaves identically on both sides.
 
 Routines using instructions the plc_ladder runtime does not implement are
 skipped (the rung_lang equivalence checker still covers them in
@@ -32,6 +33,7 @@ from dune_winder.plc_ladder import (
     load_plc_metadata,
 )
 from dune_winder.plc_ladder.metadata import TagDefinition
+from dune_winder.plc_l5x import routine_paren_text
 from dune_winder.plc_rung_transform import transform_text
 from dune_winder.rung_lang import emit_rllscrap
 from dune_winder.rung_lang.equiv import bool_context_names, internal_bit_names
@@ -42,7 +44,7 @@ from dune_winder.rung_lang.render import render_routine
 from dune_winder.rung_lang.tagmeta import load_tag_meta
 from dune_winder.rung_lang.timer_args import resolve_timer_counter_args
 
-from _plc_paste_support import paste_text
+from _plc_paste_support import l5x_path, paste_text
 
 #: routines the plc_ladder runtime is known to execute (the simulator's
 #: own scan set plus the sugar-heavy state routines)
@@ -80,16 +82,14 @@ def rung_meta():
 def _roundtrip_paste_text(
     program: str, routine_dir: str, rung_meta
 ) -> tuple[str, set[str]]:
-    """Original rllscrap -> .rung -> rllscrap -> paste dialect, plus the
+    """Original rung text -> .rung -> rung text -> paste dialect, plus the
     base names of one-shot bookkeeping bits on both sides."""
-    source = (PLC_ROOT / program / routine_dir / "studio_copy.rllscrap").read_text(
-        encoding="utf-8"
-    )
+    source = routine_paren_text(l5x_path(program, routine_dir))
     original = parse_rllscrap_text(source, program=program, routine=routine_dir)
     rendered = render_routine(
         resolve_timer_counter_args(original, rung_meta), rung_meta
     )
-    compiled = lower_routine(parse_rung_source(rendered.text))
+    compiled = lower_routine(parse_rung_source(rendered.text), rung_meta)
     resolved = resolve_timer_counter_args(compiled.routine, rung_meta)
     paste = transform_text(emit_rllscrap.routine_text(resolved))
     internal = internal_bit_names(original) | internal_bit_names(compiled.routine)
@@ -210,9 +210,7 @@ def test_roundtrip_behaves_identically_under_simulator(
         else routine_dir
     )
     ir = parse_rllscrap_text(
-        (PLC_ROOT / program / routine_dir / "studio_copy.rllscrap").read_text(
-            encoding="utf-8"
-        ),
+        routine_paren_text(l5x_path(program, routine_dir)),
         program=program,
         routine=routine_dir,
     )

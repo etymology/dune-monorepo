@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-15T10:24:34",
+  "generated_at": "2026-06-15T13:02:18",
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
     "path": "C:\\dune-monorepo\\winder\\plc\\ACD\\DUNEW2PLC1_py3.ACD",
-    "sha256": "0b43f81a0afbc4069e2125118be1ba71b9e9d83290c0b80009216f70f5bcf6c8",
-    "size": 4682724,
-    "mtime": "2026-06-15T10:23:00",
-    "last_saved": "2026-06-15 10:23:00.390",
+    "sha256": "3bffc7a2cf4cdd5bd5467711805e7d2587e6b9717164ebb4fc0a332a2be9d52b",
+    "size": 4691367,
+    "mtime": "2026-06-15T12:38:35",
+    "last_saved": "2026-06-15 12:38:35.137",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 138
+    "save_log_entries": 142
   },
   "program_name": "state_13_move_yz",
   "main_routine_name": "main",
@@ -437,5 +437,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-06-15T15:24:45.720648+00:00"
+  "values_generated_at": "2026-06-15T18:02:29.213201+00:00"
 }

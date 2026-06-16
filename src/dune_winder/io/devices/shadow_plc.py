@@ -151,7 +151,6 @@ class ShadowPLC(PLC):
         self._pending_future = None
 
         self._setup_file_handler()
-        self._check_manifest_freshness()
 
     # ------------------------------------------------------------------ #
     # PLC abstract interface
@@ -348,34 +347,3 @@ class ShadowPLC(PLC):
         _logger.addHandler(h)
         if not _logger.level:
             _logger.setLevel(logging.DEBUG)
-
-    def _check_manifest_freshness(self):
-        """Warn if any .rllscrap files have changed since the .rll files were
-        last generated.  Advisory only — never prevents shadow from starting."""
-        try:
-            from dune_winder.plc_manifest import PlcManifest
-
-            plc_root = self._shadow_ast._PLC_ROOT
-            manifest = PlcManifest(plc_root)
-            manifest.load()
-            stale = [
-                row
-                for row in manifest.status()
-                if row.category == "rllscrap"
-                and row.state in ("modified", "missing", "new")
-            ]
-            for row in stale:
-                _logger.warning(
-                    "Shadow: stale rllscrap for %s (state=%s) — "
-                    "shadow comparison may not reflect the current PLC program; "
-                    "run plc-rung-transform to regenerate .rll files",
-                    row.location,
-                    row.state,
-                )
-            if not stale:
-                _logger.info("Shadow: manifest OK — all rllscrap files are current")
-        except Exception:
-            _logger.debug(
-                "Shadow: manifest check skipped (manifest not available)",
-                exc_info=True,
-            )

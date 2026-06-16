@@ -94,7 +94,7 @@ Agents program the PLC through the `.rung` cycle (see `plans/llm-friendly-ladder
 4. Human imports it in Studio (right-click routine → Import Routine…), reviews the Import Configuration dialog (new tags appear there for creation), saves the ACD.
 5. Re-run `uv run plc-acd-export`; an **empty `git diff` on the `.rung` file confirms the change landed**.
 
-The old `pasteable.rll` copy/paste loop is retired: pasting cannot create tags and is not a Studio-recognized modification path. `pasteable.rll` and `manifest.json` are no longer generated or checked in (the ladder simulator derives its paste-dialect text from `studio_copy.rllscrap` in memory).
+The old `pasteable.rll` copy/paste loop is retired: pasting cannot create tags and is not a Studio-recognized modification path. `pasteable.rll`, `manifest.json`, and `studio_copy.rllscrap` are no longer generated or checked in — the `<routine>_Routine_RLL.L5X` is the single source of truth for rung text, and the ladder simulator derives its paste-dialect text from that L5X in memory.
 
 ### Tooling
 
@@ -102,12 +102,12 @@ The old `pasteable.rll` copy/paste loop is retired: pasting cannot create tags a
 | -------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `uv run plc-acd-export`          | Regenerate all of `winder/plc/` from the ACD + live tag values (`--offline` to skip the PLC read). |
 | `uv run rung-compile <f.rung>`   | Check + compile an edited `.rung` → routine import L5X + equivalence report. `--check-only` to validate. |
-| `uv run rung-render <prog>/<rt>` | Re-render one `.rung` from its `studio_copy.rllscrap` (`--all` for the tree). Mostly for development; the export runs it automatically. |
+| `uv run rung-render <prog>/<rt>` | Re-render one `.rung` from its exported L5X (`--all` for the tree). Mostly for development; the export runs it automatically. |
 | `uv run plc-import`              | Live tag metadata + values fetch only (pycomm3, IP `192.168.140.13`).                              |
 
 ### Agent rules
 
-1. **Edit `.rung` files only.** `studio_copy.rllscrap`, `*_Routine_RLL.L5X`, and the tag JSONs are export artifacts; `ACD/donors/*.L5X` are Studio's own routine exports (context shells for the compiler) — never modify any of them.
+1. **Edit `.rung` files only.** `*_Routine_RLL.L5X` and the tag JSONs are export artifacts; `ACD/donors/*.L5X` are Studio's own routine exports (context shells for the compiler) — never modify any of them.
 2. **Declare every new tag** with `local <type> <name>` (types: `bool int dint real motion timer counter`; timers take `preset <N>ms`). `rung-compile` errors on unresolved tags instead of letting the Studio import fail.
 3. **Run `uv run rung-compile --check-only`** on the edited source before handing the L5X to the human; include the equivalence report in your summary so the rung-level change is reviewable.
 4. **Never compile a routine whose `.rung` carries `# PENDING EDIT in Studio` markers** — the human finalizes or discards pending Studio edits first (the compiler refuses anyway).
@@ -117,7 +117,7 @@ The old `pasteable.rll` copy/paste loop is retired: pasting cannot create tags a
 
 - `.rung` language reference: `winder/plc/RUNG_FORMAT.md`
 - Instruction reference: `winder/plc/instruction_set.md`
-- Legacy text-format guide (rllscrap syntax, still accurate): `winder/plc/RLL_FORMAT.md`
+- Legacy text-format guide (paren-dialect rung syntax, as stored in the L5X CDATA): `winder/plc/RLL_FORMAT.md`
 
 ### Artifact layout
 
@@ -132,9 +132,8 @@ winder/plc/
 ├── RUNG_FORMAT.md / RLL_FORMAT.md
 └── <program>/
     ├── programTags.json                ← program-scope tags + live values
-    ├── <routine>_Routine_RLL.L5X       ← per-routine export snapshot
+    ├── <routine>_Routine_RLL.L5X       ← per-routine export snapshot; SOURCE OF TRUTH for rung text
     └── <routine-dir>/
-        ├── studio_copy.rllscrap        ← rung text as the ACD has it
         ├── <routine>.rung              ← readable projection; WHAT AGENTS EDIT
         └── <routine>_import.L5X        ← rung-compile output (not checked in)
 ```

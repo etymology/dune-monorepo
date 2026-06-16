@@ -268,9 +268,12 @@ class LadderSimulatedPLC(SimulatedPLC):
     # ---------------------------------------------------------------------
     def _load_routines(self):
         # pasteable.rll is retired; the simulator derives the paste-dialect
-        # text it executes from studio_copy.rllscrap in memory.
-        from dune_winder.convert_plc_rllscrap import resolve_timer_counter_args
-        from dune_winder.plc_rung_transform import transform_text
+        # text it executes from each routine's exported L5X in memory.
+        from dune_winder.plc_l5x import routine_paren_text
+        from dune_winder.plc_rung_transform import (
+            resolve_timer_counter_args,
+            transform_text,
+        )
 
         parser = RllParser()
         for programName, routineName in self._ROUTINES_TO_LOAD:
@@ -279,27 +282,20 @@ class LadderSimulatedPLC(SimulatedPLC):
                 continue
 
             program = self._metadata.programs[resolvedProgramName]
-            routine_dir = routineName
-            if (
-                routineName == program.main_routine_name
-                and (
-                    self._PLC_ROOT
-                    / resolvedProgramName
-                    / "main"
-                    / "studio_copy.rllscrap"
-                ).exists()
-            ):
-                routine_dir = "main"
+            # _ROUTINES_TO_LOAD names the main routine "main"; the L5X file
+            # is named for the routine's real name (usually "main" too).
+            routine_file_name = routineName
+            if routineName == "main" and program.main_routine_name:
+                routine_file_name = program.main_routine_name
             routine_path = (
                 self._PLC_ROOT
                 / resolvedProgramName
-                / routine_dir
-                / "studio_copy.rllscrap"
+                / f"{routine_file_name}_Routine_RLL.L5X"
             )
             if not routine_path.exists():
                 continue
             rll_text = resolve_timer_counter_args(
-                transform_text(routine_path.read_text(encoding="utf-8")),
+                transform_text(routine_paren_text(routine_path)),
                 self._metadata,
                 resolvedProgramName,
             )

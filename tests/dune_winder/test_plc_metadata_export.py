@@ -102,19 +102,9 @@ class PlcMetadataExportTests(unittest.TestCase):
 
             controller_path = root / "controller_level_tags.json"
             program_tags_path = root / "enqueueRoutine" / "programTags.json"
-            main_rllscrap_path = (
-                root / "enqueueRoutine" / "main" / "studio_copy.rllscrap"
-            )
-            subroutine_rllscrap_path = (
-                root / "enqueueRoutine" / "CapSegSpeed" / "studio_copy.rllscrap"
-            )
 
             self.assertTrue(controller_path.exists())
             self.assertTrue(program_tags_path.exists())
-            self.assertTrue(main_rllscrap_path.exists())
-            self.assertTrue(subroutine_rllscrap_path.exists())
-            self.assertEqual(main_rllscrap_path.read_text(), "")
-            self.assertEqual(subroutine_rllscrap_path.read_text(), "")
 
             controller_payload = json.loads(controller_path.read_text())
             self.assertEqual(
