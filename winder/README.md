@@ -150,15 +150,15 @@ Queued motion now supports live preview and smoother waypoint traversal through
 fillet/biarc planning, with safety validation against machine bounds and keepout
 regions.
 
-CLI/GUI test tooling lives in:
+CLI/GUI test tooling lives under `src/dune_winder/queued_motion/tools/`:
 
-- `src/motionQueueTest.py`
-- `src/motionQueueTest_gui.py`
+- `queue_demo.py` — CLI pattern/waypoint planner and queue driver
+- `waypoint_planner_gui.py` — interactive GUI planner
 
 Example waypoint-planning invocation:
 
 ```bash
-uv run python src/motionQueueTest.py --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
+uv run python -m dune_winder.queued_motion.tools.queue_demo --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
 ```
 
 The web/API layer also exposes queued-motion preview commands:
