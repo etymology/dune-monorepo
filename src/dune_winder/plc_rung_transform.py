@@ -1,4 +1,3 @@
-import argparse
 import re
 from pathlib import Path
 
@@ -326,47 +325,3 @@ def transform_file(input_path, output_path=None):
 
     Path(output_path).write_text(transformed)
     return transformed
-
-
-def build_argument_parser():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Transform bracketed PLC condition lists into BST/NXB/BND form, "
-            "replace parentheses and commas with spaces, and replace semicolons "
-            "with newlines."
-        )
-    )
-    parser.add_argument("input_file", help="Path to the source .txt file.")
-    parser.add_argument(
-        "-o",
-        "--output",
-        help="Write transformed output to this file. Defaults to stdout.",
-    )
-    parser.add_argument(
-        "--in-place",
-        action="store_true",
-        help="Overwrite the input file with the transformed content.",
-    )
-    return parser
-
-
-def main(argv=None):
-    parser = build_argument_parser()
-    args = parser.parse_args(argv)
-
-    if args.output and args.in_place:
-        parser.error("Use either --output or --in-place, not both.")
-
-    if args.in_place:
-        output_path = args.input_file
-    else:
-        output_path = args.output
-
-    transformed = transform_file(args.input_file, output_path)
-
-    if output_path is None:
-        print(transformed, end="")
-
-
-if __name__ == "__main__":
-    main()
