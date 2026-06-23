@@ -3,8 +3,8 @@ routine tension_pid/main
 uses current_command, current_command_high, current_command_low, ERROR_CODE  # controller scope
 uses max_tolerable_tension, MORE_STATS, neutral_cv, NEXTSTATE, overtension_timer  # controller scope
 uses pid_cv_high_limit, pid_cv_low_limit, PID_LOOP_TIMER, pid_loop_timer_bypass  # controller scope
-uses Safety_Tripped_S, SetPoint_Override, tension, TENSION_CONTROL_OK, tension_motor_cv  # controller scope
-uses tension_off_oneshot, tension_on_oneshot, TENSION_ON_SWITCH  # controller scope
+uses Safety_Tripped_S, tension, TENSION_CONTROL_OK, tension_motor_curr_override  # controller scope
+uses tension_motor_cv, tension_off_oneshot, tension_on_oneshot, TENSION_ON_SWITCH  # controller scope
 uses tension_on_switch_delay_on_start, tension_setpoint, tension_stable_timer, tension_tag  # controller scope
 uses winding_head_pid, wire_broken_tension, wire_tensioned  # controller scope
 uses a0, a1, a2, a3, a4, constant_cv_out, cv_to_electrocraft, Enable_tension_motor, oneshotsb  # program scope
@@ -25,7 +25,10 @@ start_timer wire_undertension_debounce when not wire_tensioned  # preset 10 ms
 
 TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertension_debounce.DN
 
-Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT) and not Safety_Tripped_S
+# PENDING EDIT in Studio
+raw `[XIC(TENSION_CONTROL_OK),XIC(tension_off_ramp_timer.TT)]XIO(Safety_Tripped_S)OTE(Enable_tension_motor)`
+
+Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT) and not Safety_Tripped_S or constant_cv_out
 
 start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 3 ms
 
@@ -43,7 +46,7 @@ tension_motor_cv = neutral_cv when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) 
 
 tension_motor_cv = ramp_start_cv + (neutral_cv - ramp_start_cv) * tension_off_ramp_timer.ACC / tension_off_ramp_timer.PRE when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and tension_off_ramp_timer.TT
 
-tension_motor_cv = SetPoint_Override when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and constant_cv_out
+tension_motor_cv = tension_motor_curr_override when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and constant_cv_out
 
 cv_to_electrocraft = tension_motor_cv when PID_LOOP_TIMER.DN or pid_loop_timer_bypass
 

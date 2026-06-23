@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-06-23 11:41:01.657" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-06-23 11:54:55.168" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="tension_pid" Class="Standard">
@@ -31,67 +31,72 @@
 <![CDATA[[XIC(tension_on_switch_delay_on_start.TT) ,XIO(wire_undertension_debounce.DN) ]OTE(TENSION_CONTROL_OK);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="5" Type="e">
 <Text>
 <![CDATA[[XIC(TENSION_CONTROL_OK) ,XIC(tension_off_ramp_timer.TT) ]XIO(Safety_Tripped_S)OTE(Enable_tension_motor);]]>
 </Text>
 </Rung>
 <Rung Number="6" Type="N">
 <Text>
-<![CDATA[XIO(PID_LOOP_TIMER.DN)TON(PID_LOOP_TIMER,?,?);]]>
+<![CDATA[[[XIC(TENSION_CONTROL_OK) ,XIC(tension_off_ramp_timer.TT) ] XIO(Safety_Tripped_S) ,XIC(constant_cv_out) ]OTE(Enable_tension_motor);]]>
 </Text>
 </Rung>
 <Rung Number="7" Type="N">
 <Text>
-<![CDATA[CPT(tension,a0+a1*tension_tag+a2*tension_tag*tension_tag+a3*tension_tag*tension_tag*tension_tag+a4*tension_tag*tension_tag*tension_tag*tension_tag);]]>
+<![CDATA[XIO(PID_LOOP_TIMER.DN)TON(PID_LOOP_TIMER,?,?);]]>
 </Text>
 </Rung>
 <Rung Number="8" Type="N">
 <Text>
-<![CDATA[[XIC(PID_LOOP_TIMER.DN) ,XIC(pid_loop_timer_bypass) ][XIC(TENSION_CONTROL_OK) MOV(tension_setpoint,winding_head_pid.SP) ,XIO(TENSION_CONTROL_OK) MOV(10,tension) MOV(0,winding_head_pid.SP) ,PID(winding_head_pid,tension,0,tension_motor_cv,0,0,0) ,[XIO(TENSION_CONTROL_OK) ,XIO(TENSION_ON_SWITCH) ,XIC(tension_on_switch_delay_on_start.TT) LES(tension_motor_cv,neutral_cv) ] MOV(neutral_cv,tension_motor_cv) ,XIC(tension_off_ramp_timer.TT) CPT(tension_motor_cv,ramp_start_cv+(neutral_cv-ramp_start_cv)*tension_off_ramp_timer.ACC/tension_off_ramp_timer.PRE) ,XIC(constant_cv_out) MOV(SetPoint_Override,tension_motor_cv) ,MOV(tension_motor_cv,cv_to_electrocraft) ];]]>
+<![CDATA[CPT(tension,a0+a1*tension_tag+a2*tension_tag*tension_tag+a3*tension_tag*tension_tag*tension_tag+a4*tension_tag*tension_tag*tension_tag*tension_tag);]]>
 </Text>
 </Rung>
 <Rung Number="9" Type="N">
 <Text>
-<![CDATA[CPT(tension_motor_difference,tension-tension_motor_cv);]]>
+<![CDATA[[XIC(PID_LOOP_TIMER.DN) ,XIC(pid_loop_timer_bypass) ][XIC(TENSION_CONTROL_OK) MOV(tension_setpoint,winding_head_pid.SP) ,XIO(TENSION_CONTROL_OK) MOV(10,tension) MOV(0,winding_head_pid.SP) ,PID(winding_head_pid,tension,0,tension_motor_cv,0,0,0) ,[XIO(TENSION_CONTROL_OK) ,XIO(TENSION_ON_SWITCH) ,XIC(tension_on_switch_delay_on_start.TT) LES(tension_motor_cv,neutral_cv) ] MOV(neutral_cv,tension_motor_cv) ,XIC(tension_off_ramp_timer.TT) CPT(tension_motor_cv,ramp_start_cv+(neutral_cv-ramp_start_cv)*tension_off_ramp_timer.ACC/tension_off_ramp_timer.PRE) ,XIC(constant_cv_out) MOV(tension_motor_curr_override,tension_motor_cv) ,MOV(tension_motor_cv,cv_to_electrocraft) ];]]>
 </Text>
 </Rung>
 <Rung Number="10" Type="N">
 <Text>
-<![CDATA[CPT(current_command,cv_to_electrocraft*(current_command_high-current_command_low)/pid_cv_high_limit+current_command_low);]]>
+<![CDATA[CPT(tension_motor_difference,tension-tension_motor_cv);]]>
 </Text>
 </Rung>
 <Rung Number="11" Type="N">
 <Text>
-<![CDATA[CPT(neutral_cv,-current_command_low/((current_command_high-current_command_low)/(pid_cv_high_limit-pid_cv_low_limit)));]]>
+<![CDATA[CPT(current_command,cv_to_electrocraft*(current_command_high-current_command_low)/pid_cv_high_limit+current_command_low);]]>
 </Text>
 </Rung>
 <Rung Number="12" Type="N">
 <Text>
-<![CDATA[MOV(tension_stable_time,tension_stable_timer.PRE)CMP(ABS(tension-tension_setpoint)<tension_stable_tolerance)TON(tension_stable_timer,?,?);]]>
+<![CDATA[CPT(neutral_cv,-current_command_low/((current_command_high-current_command_low)/(pid_cv_high_limit-pid_cv_low_limit)));]]>
 </Text>
 </Rung>
 <Rung Number="13" Type="N">
 <Text>
-<![CDATA[GRT(tension,max_tolerable_tension)XIC(TENSION_ON_SWITCH)OTE(Local:3:O.Pt15.Data)TON(overtension_timer,?,?);]]>
+<![CDATA[MOV(tension_stable_time,tension_stable_timer.PRE)CMP(ABS(tension-tension_setpoint)<tension_stable_tolerance)TON(tension_stable_timer,?,?);]]>
 </Text>
 </Rung>
 <Rung Number="14" Type="N">
 <Text>
-<![CDATA[XIC(overtension_timer.DN)OTE(MORE_STATS[2])CPT(ERROR_CODE,8002)CPT(NEXTSTATE,10);]]>
+<![CDATA[GRT(tension,max_tolerable_tension)XIC(TENSION_ON_SWITCH)OTE(Local:3:O.Pt15.Data)TON(overtension_timer,?,?);]]>
 </Text>
 </Rung>
 <Rung Number="15" Type="N">
 <Text>
-<![CDATA[XIC(tension_on_switch_delay_on_start.DN)XIC(wire_undertension_debounce.DN)NEQ(ERROR_CODE,8002)CPT(NEXTSTATE,10)CPT(ERROR_CODE,8001);]]>
+<![CDATA[XIC(overtension_timer.DN)OTE(MORE_STATS[2])CPT(ERROR_CODE,8002)CPT(NEXTSTATE,10);]]>
 </Text>
 </Rung>
 <Rung Number="16" Type="N">
 <Text>
-<![CDATA[[XIC(Local:1:I.Pt15.Data) ,GRT(tension_tag,wire_broken_tension) ]OTE(wire_tensioned);]]>
+<![CDATA[XIC(tension_on_switch_delay_on_start.DN)XIC(wire_undertension_debounce.DN)NEQ(ERROR_CODE,8002)CPT(NEXTSTATE,10)CPT(ERROR_CODE,8001);]]>
 </Text>
 </Rung>
 <Rung Number="17" Type="N">
+<Text>
+<![CDATA[[XIC(Local:1:I.Pt15.Data) ,GRT(tension_tag,wire_broken_tension) ]OTE(wire_tensioned);]]>
+</Text>
+</Rung>
+<Rung Number="18" Type="N">
 <Text>
 <![CDATA[XIO(TENSION_ON_SWITCH)[EQU(ERROR_CODE,8002) ,EQU(ERROR_CODE,8001) ]CPT(ERROR_CODE,0);]]>
 </Text>

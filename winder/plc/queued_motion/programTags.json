@@ -3,11 +3,11 @@
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "70985a1fecf89220480f940cc282026e2084ce51ab08990925d49abb640a19ba",
-    "size": 4691656,
-    "last_saved": "2026-06-23 11:41:01.657",
+    "sha256": "c280ab02b840c87f8dbc6b1b6f97e838347a240588cc539338504149e24ded3c",
+    "size": 4691616,
+    "last_saved": "2026-06-23 11:54:55.168",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 143
+    "save_log_entries": 145
   },
   "program_name": "queued_motion",
   "main_routine_name": "main",
@@ -1388,5 +1388,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-06-23T16:42:08.314475+00:00"
+  "values_generated_at": "2026-06-23T21:58:19.275687+00:00"
 }
