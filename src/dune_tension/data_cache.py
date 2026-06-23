@@ -8,6 +8,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from dune_tension.results import EXPECTED_COLUMNS
+from dune_tension.tension_calculation import tension_plausible
 
 TABLE_TENSION_DATA = "tension_data"
 TABLE_TENSION_SAMPLES = "tension_samples"
@@ -377,6 +378,92 @@ def clear_wire_range(
     clear_wire_numbers(file_path, apa_name, layer, side, range(start, end + 1))
 
 
+def latest_plausible_per_wire(subset: pd.DataFrame) -> pd.DataFrame:
+    """Collapse measurements to the final tension reported for each wire.
+
+    ``subset`` must already be filtered to a single apa/layer/side. Returns the
+    latest plausible measurement per wire, sorted by wire number — the same
+    selection used for the summary CSVs and plots (see
+    ``summaries._select_summary_rows``).
+
+    Outlier detection runs on this collapsed series rather than on every raw
+    measurement row; otherwise wires measured many times contribute many rows and
+    distort the per-wire statistics (e.g. a single wire's repeats can fill an
+    entire rolling-average window, masking real outliers and flagging innocent
+    neighbours).
+    """
+
+    subset = subset.copy()
+    subset["wire_number"] = pd.to_numeric(subset["wire_number"], errors="coerce")
+    subset["tension"] = pd.to_numeric(subset["tension"], errors="coerce")
+    subset["time"] = pd.to_datetime(subset["time"], errors="coerce")
+    subset = subset.dropna(subset=["wire_number", "tension"])
+    if subset.empty:
+        return subset
+
+    subset["wire_number"] = subset["wire_number"].astype(int)
+    subset = subset[subset["tension"].apply(tension_plausible)]
+    if subset.empty:
+        return subset
+
+    return (
+        subset.sort_values("time")
+        .drop_duplicates(subset="wire_number", keep="last")
+        .sort_values("wire_number")
+        .reset_index(drop=True)
+    )
+
+
+def moving_average_residuals(tension: pd.Series) -> pd.Series:
+    """Return tension residuals against a centred moving average.
+
+    ``tension`` must be ordered by wire number (one value per wire). The moving
+    average is held flat past the first and last fully-populated window so edge
+    wires still receive a residual. This is the exact series shown as
+    "Residuals from Moving Average" / the residual histogram in the GUI summary
+    plot, and the basis for residual-outlier detection — the two must agree, so
+    they share this function.
+
+    The result is index-aligned to ``tension`` and computed positionally, so it
+    is correct regardless of how ``tension`` is indexed.
+    """
+
+    rolling_mean = tension.rolling(window=20, center=True, min_periods=20).mean()
+    valid = rolling_mean.notna().to_numpy()
+    if valid.any():
+        first = int(valid.argmax())
+        last = len(valid) - 1 - int(valid[::-1].argmax())
+        filled = rolling_mean.to_numpy(dtype=float).copy()
+        filled[:first] = filled[first]
+        filled[last + 1 :] = filled[last]
+        rolling_mean = pd.Series(filled, index=tension.index)
+    return tension - rolling_mean
+
+
+def _select_side_measurements(
+    file_path: str,
+    apa_name: str,
+    layer: str,
+    side: str,
+    confidence_threshold: float,
+) -> pd.DataFrame:
+    """Return the final per-wire tensions for one apa/layer/side.
+
+    Applies the caller's ``confidence_threshold`` gate before collapsing the
+    remaining measurements to the latest plausible value per wire.
+    """
+
+    df = get_dataframe(file_path)
+    confidence = pd.to_numeric(df["confidence"], errors="coerce")
+    mask = (
+        (df["apa_name"] == apa_name)
+        & (df["layer"] == layer)
+        & (df["side"] == side)
+        & (confidence >= confidence_threshold)
+    )
+    return latest_plausible_per_wire(df[mask])
+
+
 def find_outliers(
     file_path: str,
     apa_name: str,
@@ -385,42 +472,37 @@ def find_outliers(
     times_sigma: float = 2.5,
     confidence_threshold: float = 0.0,
 ) -> list[int]:
-    """Find wire numbers whose tension residual exceeds ``times_sigma`` std."""
+    """Find wire numbers whose tension residual exceeds ``times_sigma`` std.
 
-    df = get_dataframe(file_path)
-    mask = (
-        (df["apa_name"] == apa_name)
-        & (df["layer"] == layer)
-        & (df["side"] == side)
-        & (df["confidence"].astype(float) >= confidence_threshold)
+    The residual is measured against a moving average of the *final* per-wire
+    tensions (the values written to the summary and plots), not the individual
+    repeated measurements that produced them.
+
+    Wires are returned ordered worst-first — by descending residual magnitude
+    (distance from the moving average) — so callers can remeasure the most
+    egregious outliers first.
+    """
+
+    subset = _select_side_measurements(
+        file_path, apa_name, layer, side, confidence_threshold
     )
-    subset = df[mask].copy()
-    subset["tension"] = pd.to_numeric(subset["tension"], errors="coerce")
-    subset["wire_number"] = pd.to_numeric(subset["wire_number"], errors="coerce")
-    subset = subset.dropna(subset=["tension", "wire_number"])
     if subset.empty:
         return []
 
-    subset = subset.sort_values("wire_number").reset_index(drop=True)
-
-    rolling_mean = (
-        subset["tension"].rolling(window=20, center=True, min_periods=20).mean()
-    )
-    if rolling_mean.notna().any():
-        first_valid = rolling_mean.first_valid_index()
-        last_valid = rolling_mean.last_valid_index()
-        rolling_mean = rolling_mean.copy()
-        rolling_mean.loc[:first_valid] = rolling_mean.loc[first_valid]
-        rolling_mean.loc[last_valid:] = rolling_mean.loc[last_valid]
-    residuals = subset["tension"] - rolling_mean
+    residuals = moving_average_residuals(subset["tension"])
     resid_std = residuals.std(skipna=True)
 
     if pd.isna(resid_std) or resid_std == 0:
         return []
 
-    is_outlier = residuals.abs() > times_sigma * resid_std
-    outliers = subset.loc[is_outlier, "wire_number"].astype(int).tolist()
-    return sorted(set(outliers))
+    abs_residuals = residuals.abs()
+    is_outlier = abs_residuals > times_sigma * resid_std
+    ordered = (
+        subset.loc[is_outlier]
+        .assign(_abs_residual=abs_residuals[is_outlier])
+        .sort_values("_abs_residual", ascending=False, kind="stable")
+    )
+    return ordered["wire_number"].astype(int).tolist()
 
 
 def find_distribution_outliers(
@@ -431,19 +513,18 @@ def find_distribution_outliers(
     times_sigma: float = 2.5,
     confidence_threshold: float = 0.0,
 ) -> list[int]:
-    """Find wires whose tension lies far from the bulk tension distribution."""
+    """Find wires whose tension lies far from the bulk tension distribution.
 
-    df = get_dataframe(file_path)
-    mask = (
-        (df["apa_name"] == apa_name)
-        & (df["layer"] == layer)
-        & (df["side"] == side)
-        & (df["confidence"].astype(float) >= confidence_threshold)
+    Operates on the *final* per-wire tensions (the values written to the summary
+    and plots), not the individual repeated measurements that produced them.
+
+    Wires are returned ordered worst-first — by descending distance from the
+    mean tension — so callers can remeasure the most egregious outliers first.
+    """
+
+    subset = _select_side_measurements(
+        file_path, apa_name, layer, side, confidence_threshold
     )
-    subset = df[mask].copy()
-    subset["tension"] = pd.to_numeric(subset["tension"], errors="coerce")
-    subset["wire_number"] = pd.to_numeric(subset["wire_number"], errors="coerce")
-    subset = subset.dropna(subset=["tension", "wire_number"])
     if subset.empty:
         return []
 
@@ -452,6 +533,11 @@ def find_distribution_outliers(
     if pd.isna(tension_mean) or pd.isna(tension_std) or tension_std == 0:
         return []
 
-    is_outlier = (subset["tension"] - tension_mean).abs() > times_sigma * tension_std
-    outliers = subset.loc[is_outlier, "wire_number"].astype(int).tolist()
-    return sorted(set(outliers))
+    deviation = (subset["tension"] - tension_mean).abs()
+    is_outlier = deviation > times_sigma * tension_std
+    ordered = (
+        subset.loc[is_outlier]
+        .assign(_deviation=deviation[is_outlier])
+        .sort_values("_deviation", ascending=False, kind="stable")
+    )
+    return ordered["wire_number"].astype(int).tolist()

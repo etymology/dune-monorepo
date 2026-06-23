@@ -1643,15 +1643,16 @@ def _measure_detected_outliers(
     raw_expr = inputs.times_sigma.strip()
     times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
 
-    outliers = sorted(
-        detector(
-            config.data_path,
-            config.apa_name,
-            config.layer,
-            config.side,
-            times_sigma=times_sigma,
-            confidence_threshold=inputs.confidence,
-        )
+    # Detectors return wires worst-first (furthest from the moving average /
+    # mean). Preserve that order so the most egregious outliers are remeasured
+    # first, rather than re-sorting by wire number.
+    outliers = detector(
+        config.data_path,
+        config.apa_name,
+        config.layer,
+        config.side,
+        times_sigma=times_sigma,
+        confidence_threshold=inputs.confidence,
     )
 
     if wire_predicates:
@@ -1683,8 +1684,8 @@ def _measure_detected_outliers(
     tensiometer: Tensiometer | None = None
     try:
         tensiometer = create_tensiometer(ctx, inputs)
-        LOGGER.info("Measuring %s outliers: %s", detector_name, outliers)
-        tensiometer.measure_list(outliers, preserve_order=False)
+        LOGGER.info("Measuring %s outliers worst-first: %s", detector_name, outliers)
+        tensiometer.measure_list(outliers, preserve_order=True)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:

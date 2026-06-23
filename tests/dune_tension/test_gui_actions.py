@@ -398,7 +398,8 @@ def test_measure_outliers_triggers_measurement(monkeypatch):
 
     def fake_find(*args, **kwargs):
         detector_calls.append((args, kwargs))
-        return [10, 20]
+        # Worst-first order from the detector (not ascending by wire number).
+        return [20, 10]
 
     class DummyTensiometer:
         def measure_list(self, wire_list, preserve_order=False):
@@ -432,7 +433,8 @@ def test_measure_outliers_triggers_measurement(monkeypatch):
             {"times_sigma": 3.0, "confidence_threshold": 0.75},
         )
     ]
-    assert measured_wires == [([10, 20], False)]
+    # Detector order preserved (worst-first) and measured in that order.
+    assert measured_wires == [([20, 10], True)]
 
 
 def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
@@ -485,7 +487,7 @@ def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
             {"times_sigma": 2.0, "confidence_threshold": 0.9},
         )
     ]
-    assert measured_wires == [([30, 40], False)]
+    assert measured_wires == [([30, 40], True)]
 
 
 def test_measure_refine_outliers_remeasures_union(monkeypatch):

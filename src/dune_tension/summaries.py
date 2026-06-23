@@ -8,9 +8,12 @@ import seaborn as sns
 from matplotlib.figure import Figure
 
 from dune_tension._matplotlib_lock import figure_lock, figure_lock_or_skip
-from dune_tension.data_cache import select_dataframe
+from dune_tension.data_cache import (
+    latest_plausible_per_wire,
+    moving_average_residuals,
+    select_dataframe,
+)
 from dune_tension.paths import data_path
-from dune_tension.tension_calculation import tension_plausible
 from dune_tension.tensiometer_functions import TensiometerConfig
 
 LOGGER = logging.getLogger(__name__)
@@ -44,23 +47,15 @@ def _select_summary_rows(
             continue
 
         side_df["wire_number"] = pd.to_numeric(side_df["wire_number"], errors="coerce")
-        side_df["tension"] = pd.to_numeric(side_df["tension"], errors="coerce")
-        side_df["time"] = pd.to_datetime(side_df["time"], errors="coerce")
-        side_df = side_df.dropna(subset=["wire_number", "tension"])
+        side_df = side_df.dropna(subset=["wire_number"])
         if side_df.empty:
             continue
 
-        side_df["wire_number"] = side_df["wire_number"].astype(int)
-        side_df = side_df[side_df["wire_number"].isin(expected_set)]
-        side_df = side_df[side_df["tension"].apply(tension_plausible)]
-        if side_df.empty:
-            continue
+        side_df = side_df[side_df["wire_number"].astype(int).isin(expected_set)]
 
-        selected_rows[side] = (
-            side_df.sort_values("time")
-            .drop_duplicates(subset="wire_number", keep="last")
-            .sort_values("wire_number")
-        )
+        # Collapse to the latest plausible measurement per wire — the same
+        # selection used for residual-outlier detection, so the two agree.
+        selected_rows[side] = latest_plausible_per_wire(side_df)
 
     return selected_rows
 
@@ -243,18 +238,7 @@ def build_summary_plot_figure(
             linewidth=2,
         )
 
-        rolling_mean = (
-            sorted_group["tension"]
-            .rolling(window=20, center=True, min_periods=20)
-            .mean()
-        )
-        if rolling_mean.notna().any():
-            first_valid = rolling_mean.first_valid_index()
-            last_valid = rolling_mean.last_valid_index()
-            rolling_mean = rolling_mean.copy()
-            rolling_mean.loc[:first_valid] = rolling_mean.loc[first_valid]
-            rolling_mean.loc[last_valid:] = rolling_mean.loc[last_valid]
-        residuals = sorted_group["tension"] - rolling_mean
+        residuals = moving_average_residuals(sorted_group["tension"])
 
         resid_axis.scatter(
             sorted_group["wire_number"],
