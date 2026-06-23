@@ -43,7 +43,7 @@ from dune_tension.gui.crash_logging import (
     install_tk_exception_logging,
 )
 from dune_tension.gui._layout import (
-    configure_fixed_fullscreen,
+    configure_initial_size,
     configure_root_minimum_size,
     freeze_frame_sizes,
 )
@@ -761,7 +761,7 @@ def _create_widgets(
     }
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
-    configure_fixed_fullscreen(root)
+    configure_initial_size(root)
     freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
 
     return (

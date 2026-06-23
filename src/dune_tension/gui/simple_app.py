@@ -15,7 +15,7 @@ import tkinter.font as tkfont
 from dune_tension import apa_naming
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui._layout import (
-    configure_fixed_fullscreen,
+    configure_initial_size,
     configure_root_minimum_size,
     freeze_frame_sizes,
 )
@@ -494,7 +494,7 @@ def _create_widgets(
     extras = {"gcode_entry": entry_gcode}
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
-    configure_fixed_fullscreen(root)
+    configure_initial_size(root)
     freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
 
     return (
