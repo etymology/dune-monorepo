@@ -196,10 +196,11 @@ def test_find_distribution_outliers_uses_bulk_tension_distribution(tmp_path) -> 
             "tension_pass": True,
         }
 
-    for wire_number in range(1, 11):
+    for wire_number in range(1, 21):
         append_dataframe_row(str(db_path), make_row(wire_number, 5.0))
-    append_dataframe_row(str(db_path), make_row(11, 9.0))
-    append_dataframe_row(str(db_path), make_row(12, 9.5, confidence=0.1))
+    # Wire 21 is a clear outlier; its low confidence must NOT exclude it, since
+    # the summary/plot the detector mirrors ignore confidence entirely.
+    append_dataframe_row(str(db_path), make_row(21, 9.0, confidence=0.1))
 
     outliers = find_distribution_outliers(
         str(db_path),
@@ -207,10 +208,9 @@ def test_find_distribution_outliers_uses_bulk_tension_distribution(tmp_path) -> 
         "G",
         "A",
         times_sigma=2.0,
-        confidence_threshold=0.9,
     )
 
-    assert outliers == [11]
+    assert outliers == [21]
 
 
 def _make_outlier_row(
@@ -249,7 +249,6 @@ def _run_find_outliers(tmp_path, name, tensions, *, times_sigma=2.0):
         "G",
         "A",
         times_sigma=times_sigma,
-        confidence_threshold=0.9,
     )
 
 
@@ -328,7 +327,6 @@ def test_find_outliers_uses_final_per_wire_tension_not_raw_measurements(
         "G",
         "A",
         times_sigma=2.5,
-        confidence_threshold=0.9,
     )
 
     assert outliers == [80]
@@ -361,7 +359,6 @@ def test_find_outliers_ignores_implausible_measurements(tmp_path) -> None:
         "G",
         "A",
         times_sigma=2.0,
-        confidence_threshold=0.9,
     )
 
     assert outliers == []
@@ -384,7 +381,6 @@ def test_find_outliers_uses_nearest_calculable_average_for_end_wires(tmp_path) -
         "G",
         "A",
         times_sigma=2.0,
-        confidence_threshold=0.9,
     )
 
     assert outliers == [1, 30]

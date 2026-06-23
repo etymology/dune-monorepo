@@ -376,7 +376,7 @@ def test_erase_distribution_outliers_uses_bulk_detector(monkeypatch):
     assert detector_calls == [
         (
             ("db.sqlite", "APA", "G", "A"),
-            {"times_sigma": 2.5, "confidence_threshold": 0.85},
+            {"times_sigma": 2.5},
         )
     ]
     assert clear_calls == [("db.sqlite", "APA", "G", "A", [7, 9])]
@@ -430,7 +430,7 @@ def test_measure_outliers_triggers_measurement(monkeypatch):
     assert detector_calls == [
         (
             ("db.sqlite", "APA", "G", "A"),
-            {"times_sigma": 3.0, "confidence_threshold": 0.75},
+            {"times_sigma": 3.0},
         )
     ]
     # Detector order preserved (worst-first) and measured in that order.
@@ -484,7 +484,7 @@ def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
     assert detector_calls == [
         (
             ("db.sqlite", "APA", "G", "A"),
-            {"times_sigma": 2.0, "confidence_threshold": 0.9},
+            {"times_sigma": 2.0},
         )
     ]
     assert measured_wires == [([30, 40], True)]
@@ -540,7 +540,7 @@ def test_measure_refine_outliers_remeasures_union(monkeypatch):
 
     actions.measure_refine_outliers.__wrapped__(types.SimpleNamespace(), inputs)
 
-    expected_kwargs = {"times_sigma": 2.0, "confidence_threshold": 0.8}
+    expected_kwargs = {"times_sigma": 2.0}
     assert residual_calls == [(("db.sqlite", "APA", "G", "A"), expected_kwargs)]
     assert bulk_calls == [(("db.sqlite", "APA", "G", "A"), expected_kwargs)]
     assert measured_wires == [([10, 20, 30, 40], False)]

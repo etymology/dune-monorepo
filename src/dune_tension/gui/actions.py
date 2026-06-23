@@ -1581,7 +1581,6 @@ def measure_refine_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
             config.layer,
             config.side,
             times_sigma=times_sigma,
-            confidence_threshold=inputs.confidence,
         )
     )
     bulk = set(
@@ -1591,7 +1590,6 @@ def measure_refine_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
             config.layer,
             config.side,
             times_sigma=times_sigma,
-            confidence_threshold=inputs.confidence,
         )
     )
     outliers = sorted(residual | bulk)
@@ -1652,7 +1650,6 @@ def _measure_detected_outliers(
         config.layer,
         config.side,
         times_sigma=times_sigma,
-        confidence_threshold=inputs.confidence,
     )
 
     if wire_predicates:
@@ -1724,10 +1721,6 @@ def _erase_detected_outliers(
     detector_name: str,
 ) -> None:
     cfg = _make_config_from_widgets(ctx)
-    try:
-        conf = float(ctx.widgets.entry_confidence.get())
-    except ValueError:
-        conf = 0.5
     raw_expr = ctx.widgets.entry_times_sigma.get().strip()
     times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
 
@@ -1738,7 +1731,6 @@ def _erase_detected_outliers(
             cfg.layer,
             cfg.side,
             times_sigma=times_sigma,
-            confidence_threshold=conf,
         )
     )
     if wire_predicates:

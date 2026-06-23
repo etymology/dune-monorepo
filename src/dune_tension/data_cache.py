@@ -445,21 +445,21 @@ def _select_side_measurements(
     apa_name: str,
     layer: str,
     side: str,
-    confidence_threshold: float,
 ) -> pd.DataFrame:
     """Return the final per-wire tensions for one apa/layer/side.
 
-    Applies the caller's ``confidence_threshold`` gate before collapsing the
-    remaining measurements to the latest plausible value per wire.
+    Collapses to the latest plausible measurement per wire — the exact selection
+    behind the summary CSV and the GUI residual plot. Confidence is deliberately
+    *not* filtered here: the summary/plots ignore it, so applying a confidence
+    gate would make outlier detection disagree with the residual plot the user is
+    looking at.
     """
 
     df = get_dataframe(file_path)
-    confidence = pd.to_numeric(df["confidence"], errors="coerce")
     mask = (
         (df["apa_name"] == apa_name)
         & (df["layer"] == layer)
         & (df["side"] == side)
-        & (confidence >= confidence_threshold)
     )
     return latest_plausible_per_wire(df[mask])
 
@@ -470,7 +470,6 @@ def find_outliers(
     layer: str,
     side: str,
     times_sigma: float = 2.5,
-    confidence_threshold: float = 0.0,
 ) -> list[int]:
     """Find wire numbers whose tension residual exceeds ``times_sigma`` std.
 
@@ -483,9 +482,7 @@ def find_outliers(
     egregious outliers first.
     """
 
-    subset = _select_side_measurements(
-        file_path, apa_name, layer, side, confidence_threshold
-    )
+    subset = _select_side_measurements(file_path, apa_name, layer, side)
     if subset.empty:
         return []
 
@@ -511,7 +508,6 @@ def find_distribution_outliers(
     layer: str,
     side: str,
     times_sigma: float = 2.5,
-    confidence_threshold: float = 0.0,
 ) -> list[int]:
     """Find wires whose tension lies far from the bulk tension distribution.
 
@@ -522,9 +518,7 @@ def find_distribution_outliers(
     mean tension — so callers can remeasure the most egregious outliers first.
     """
 
-    subset = _select_side_measurements(
-        file_path, apa_name, layer, side, confidence_threshold
-    )
+    subset = _select_side_measurements(file_path, apa_name, layer, side)
     if subset.empty:
         return []
 
