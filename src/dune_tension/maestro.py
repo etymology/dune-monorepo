@@ -47,37 +47,8 @@ class Controller:
     def __init__(self, ttyStr: str | None = None, device=0x0C):
         self.faulted = False
         self.usb = None
-
-        # Open the command port
-        candidate_ports = self._candidate_ports(ttyStr)
-        last_error = None
-        permission_error = None
-        for candidate_port in candidate_ports:
-            try:
-                self.usb = serial.Serial(candidate_port)
-                self.faulted = False
-                LOGGER.info("Connected to Micro Maestro on %s", candidate_port)
-                break
-            except serial.SerialException as exc:
-                last_error = exc
-                if is_serial_permission_error(exc):
-                    permission_error = exc
-                LOGGER.debug("Micro Maestro unavailable on %s", candidate_port)
-        else:
-            self.faulted = True
-            if permission_error is not None:
-                LOGGER.warning(
-                    "Found a candidate Micro Maestro serial port, but access was denied. "
-                    "Check OS serial-port permissions. Tried: %s",
-                    ", ".join(candidate_ports),
-                    exc_info=permission_error,
-                )
-            else:
-                LOGGER.warning(
-                    "Couldn't find Micro Maestro on any of %s. Check the connection or port.",
-                    ", ".join(candidate_ports),
-                    exc_info=last_error,
-                )
+        self._tty_str = ttyStr
+        self.lock = RLock()
 
         # Command lead-in and device number are sent for each Pololu serial command.
         self.PololuCmd = chr(0xAA) + chr(device)
@@ -86,7 +57,60 @@ class Controller:
         # Servo minimum and maximum targets can be restricted to protect components.
         self.Mins = [0] * 24
         self.Maxs = [0] * 24
-        self.lock = RLock()
+
+        # Open the command port.
+        self._connect()
+
+    def _connect(self) -> bool:
+        """(Re)open the Maestro command port. Returns ``True`` on success.
+
+        Called at construction time and again to recover after a USB
+        disconnect/suspend invalidates the open handle -- on Windows a write to
+        such a handle fails with ``PermissionError(13, 'Access is denied')``.
+        """
+        candidate_ports = self._candidate_ports(self._tty_str)
+        last_error = None
+        permission_error = None
+        for candidate_port in candidate_ports:
+            try:
+                usb = serial.Serial(candidate_port)
+            except serial.SerialException as exc:
+                last_error = exc
+                if is_serial_permission_error(exc):
+                    permission_error = exc
+                LOGGER.debug("Micro Maestro unavailable on %s", candidate_port)
+                continue
+            self.usb = usb
+            self.faulted = False
+            LOGGER.info("Connected to Micro Maestro on %s", candidate_port)
+            return True
+
+        self.usb = None
+        self.faulted = True
+        if permission_error is not None:
+            LOGGER.warning(
+                "Found a candidate Micro Maestro serial port, but access was denied. "
+                "Check OS serial-port permissions. Tried: %s",
+                ", ".join(candidate_ports),
+                exc_info=permission_error,
+            )
+        else:
+            LOGGER.warning(
+                "Couldn't find Micro Maestro on any of %s. Check the connection or port.",
+                ", ".join(candidate_ports),
+                exc_info=last_error,
+            )
+        return False
+
+    def _reconnect(self) -> bool:
+        """Drop any stale handle and try to reopen the command port."""
+        if self.usb is not None:
+            try:
+                self.usb.close()
+            except Exception:
+                pass
+            self.usb = None
+        return self._connect()
 
     @staticmethod
     def _candidate_ports(tty_str: str | None):
@@ -94,6 +118,10 @@ class Controller:
         # descriptions: interface 0 is the command port (Pololu protocol),
         # interface 2 is a TTL UART passthrough. Sending commands to the TTL
         # port opens cleanly but silently drops them on the floor.
+        #
+        # On Windows the usbser.sys driver names both ports "USB Serial Device",
+        # so description matching fails; pass the Pololu VID/PID so the device is
+        # still located (and the interface-0 preference picks the command port).
         return build_candidate_ports(
             preferred_port=tty_str,
             name_substrings=(
@@ -102,6 +130,8 @@ class Controller:
                 "Maestro",
                 "Pololu",
             ),
+            vendor_id=SERVO_CONFIG.vendor_id,
+            product_id=SERVO_CONFIG.product_id,
             prefer_interface_number=0,
         )
 
@@ -111,16 +141,30 @@ class Controller:
             if self.usb is not None:
                 self.usb.close()
 
-    # Send a Pololu command out the serial pnoort
+    # Send a Pololu command out the serial port
     def sendCmd(self, cmd):
         with self.lock:
-            if self.usb is None:
+            if self.usb is None and not self._reconnect():
                 return
             cmdStr = self.PololuCmd + cmd
-            if PY2:
-                self.usb.write(cmdStr)
-            else:
-                self.usb.write(bytes(cmdStr, "latin-1"))
+            payload = cmdStr if PY2 else bytes(cmdStr, "latin-1")
+            try:
+                self.usb.write(payload)
+            except (serial.SerialException, OSError) as exc:
+                # The handle went stale (USB disconnect/suspend/re-enumeration).
+                # Close it, reopen the command port, and retry the write once.
+                LOGGER.warning(
+                    "Maestro write failed (%s); reconnecting and retrying.", exc
+                )
+                if not self._reconnect():
+                    return
+                try:
+                    self.usb.write(payload)
+                except (serial.SerialException, OSError) as retry_exc:
+                    LOGGER.warning(
+                        "Maestro write failed after reconnect: %s", retry_exc
+                    )
+                    self.faulted = True
 
     # Set channels min and max value range.  Use this as a safety to protect
     # from accidentally moving outside known safe parameters. A setting of 0
@@ -193,8 +237,13 @@ class Controller:
             self.sendCmd(cmd)
             if self.usb is None:
                 return 0
-            lsb = ord(self.usb.read())
-            msb = ord(self.usb.read())
+            try:
+                lsb = ord(self.usb.read())
+                msb = ord(self.usb.read())
+            except (serial.SerialException, OSError, TypeError) as exc:
+                LOGGER.warning("Maestro position read failed (%s); reconnecting.", exc)
+                self._reconnect()
+                return 0
         return (msb << 8) + lsb
 
     # Test to see if a servo has reached the set target position.  This only provides
@@ -216,7 +265,12 @@ class Controller:
             self.sendCmd(cmd)
             if self.usb is None:
                 return False
-            return self.usb.read() != chr(0)
+            try:
+                return self.usb.read() != chr(0)
+            except (serial.SerialException, OSError) as exc:
+                LOGGER.warning("Maestro moving-state read failed (%s); reconnecting.", exc)
+                self._reconnect()
+                return False
 
     # Run a Maestro Script subroutine in the currently active script. Scripts can
     # have multiple subroutines, which get numbered sequentially from 0 on up. Code your

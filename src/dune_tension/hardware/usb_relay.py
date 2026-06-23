@@ -64,9 +64,7 @@ import argparse
 import contextlib
 import re
 import sys
-import termios
 import threading
-import tty
 from dataclasses import dataclass
 from math import ceil
 from types import TracebackType
@@ -292,6 +290,17 @@ def _ensure_tty(stream: IO[str]) -> None:
 
 
 def _cli(duration: float, port: str | None = None) -> int:
+    try:
+        import termios
+        import tty
+    except ImportError:
+        print(
+            "Error: the interactive CLI requires a POSIX terminal "
+            "(termios/tty are unavailable on this platform).",
+            file=sys.stderr,
+        )
+        return 1
+
     try:
         _ensure_tty(sys.stdin)
     except RuntimeError as exc:

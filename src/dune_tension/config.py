@@ -48,6 +48,11 @@ class MeasurementWiggleConfig:
 @dataclass(frozen=True)
 class ServoConfig:
     focus_wiggle_sigma_quarter_us: float = 20.0
+    # USB identity of the Pololu Micro Maestro 6-Servo Controller. On Windows the
+    # generic usbser.sys driver names the port "USB Serial Device", so the device
+    # cannot be matched by description; VID/PID matching is required instead.
+    vendor_id: str = "1FFB"
+    product_id: str = "0089"
 
 
 GEOMETRY_CONFIG = GeometryConfig()
