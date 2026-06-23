@@ -3,11 +3,11 @@
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "3bffc7a2cf4cdd5bd5467711805e7d2587e6b9717164ebb4fc0a332a2be9d52b",
-    "size": 4691367,
-    "last_saved": "2026-06-15 12:38:35.137",
+    "sha256": "70985a1fecf89220480f940cc282026e2084ce51ab08990925d49abb640a19ba",
+    "size": 4691656,
+    "last_saved": "2026-06-23 11:41:01.657",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 142
+    "save_log_entries": 143
   },
   "program_name": "tension_pid",
   "main_routine_name": "main",
@@ -230,7 +230,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": 6.163781642913818
+      "value": 5.667972087860107
     },
     {
       "name": "tension_motor_difference",
@@ -244,7 +244,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": -2.3093082904815674
+      "value": -2.3091318607330322
     },
     {
       "name": "tension_off_ramp_timer",
@@ -260,11 +260,11 @@
       "udt_name": "TIMER",
       "program": "tension_pid",
       "value": {
-        "PRE": 1000,
-        "ACC": 1000,
-        "EN": false,
+        "PRE": 500,
+        "ACC": 500,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -359,27 +359,6 @@
       "value": false
     },
     {
-      "name": "wire_break_debounce",
-      "fully_qualified_name": "Program:tension_pid.wire_break_debounce",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "TIMER",
-      "program": "tension_pid",
-      "value": {
-        "PRE": 20,
-        "ACC": 20,
-        "EN": true,
-        "TT": false,
-        "DN": true
-      }
-    },
-    {
       "name": "wire_break_switch_delay_on_start",
       "fully_qualified_name": "Program:tension_pid.wire_break_switch_delay_on_start",
       "tag_type": "struct",
@@ -394,12 +373,33 @@
       "program": "tension_pid",
       "value": {
         "PRE": 1000,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 1000,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
+      }
+    },
+    {
+      "name": "wire_undertension_debounce",
+      "fully_qualified_name": "Program:tension_pid.wire_undertension_debounce",
+      "tag_type": "struct",
+      "data_type_name": "TIMER",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "TIMER",
+      "program": "tension_pid",
+      "value": {
+        "PRE": 10,
+        "ACC": 10,
+        "EN": true,
+        "TT": false,
+        "DN": true
       }
     }
   ],
-  "values_generated_at": "2026-06-16T19:39:09.152036+00:00"
+  "values_generated_at": "2026-06-23T16:42:08.314475+00:00"
 }

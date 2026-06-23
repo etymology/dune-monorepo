@@ -6,10 +6,10 @@ uses pid_cv_high_limit, pid_cv_low_limit, PID_LOOP_TIMER, pid_loop_timer_bypass 
 uses Safety_Tripped_S, SetPoint_Override, tension, TENSION_CONTROL_OK, tension_motor_cv  # controller scope
 uses tension_off_oneshot, tension_on_oneshot, TENSION_ON_SWITCH  # controller scope
 uses tension_on_switch_delay_on_start, tension_setpoint, tension_stable_timer, tension_tag  # controller scope
-uses winding_head_pid, wire_break_proxy, wire_broken_tension  # controller scope
+uses winding_head_pid, wire_broken_tension, wire_tensioned  # controller scope
 uses a0, a1, a2, a3, a4, constant_cv_out, cv_to_electrocraft, Enable_tension_motor, oneshotsb  # program scope
 uses ramp_start_cv, tension_motor_difference, tension_off_ramp_timer, tension_stable_time  # program scope
-uses tension_stable_tolerance, wire_break_debounce, wire_break_switch_delay_on_start  # program scope
+uses tension_stable_tolerance, wire_undertension_debounce  # program scope
 uses Local:1:I, Local:3:O  # module I/O
 
 when TENSION_ON_SWITCH:
@@ -19,13 +19,13 @@ when TENSION_ON_SWITCH:
 
 ramp_start_cv = tension_motor_cv when tension_off_oneshot
 
-TOF(tension_off_ramp_timer, 1000, 1000) when TENSION_ON_SWITCH
+start_timer tension_off_ramp_timer when not TENSION_ON_SWITCH  # preset 500 ms
 
-start_timer wire_break_debounce when not wire_break_proxy  # preset 20 ms
+start_timer wire_undertension_debounce when not wire_tensioned  # preset 10 ms
 
-Enable_tension_motor = TENSION_ON_SWITCH and not Safety_Tripped_S and (wire_break_proxy or tension_on_switch_delay_on_start.TT or not wire_break_debounce.DN) or tension_off_ramp_timer.TT
+TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertension_debounce.DN
 
-raw `[XIC(tension_on_switch_delay_on_start.TT),XIC(TENSION_CONTROL_OK)][[XIC(wire_break_proxy),XIO(wire_break_switch_delay_on_start.DN),XIO(wire_break_debounce.DN)]OTE(TENSION_CONTROL_OK),TON(wire_break_switch_delay_on_start,1000,0)]`
+Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT) and not Safety_Tripped_S
 
 start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 3 ms
 
@@ -67,10 +67,10 @@ when overtension_timer.DN:
     ERROR_CODE = 8002
     NEXTSTATE = 10
 
-when tension_on_switch_delay_on_start.DN and wire_break_debounce.DN and ERROR_CODE != 8002:
+when tension_on_switch_delay_on_start.DN and wire_undertension_debounce.DN and ERROR_CODE != 8002:
     NEXTSTATE = 10
     ERROR_CODE = 8001
 
-wire_break_proxy = Local:1:I.Pt15.Data or tension_tag > wire_broken_tension
+wire_tensioned = Local:1:I.Pt15.Data or tension_tag > wire_broken_tension
 
 ERROR_CODE = 0 when not TENSION_ON_SWITCH and (ERROR_CODE == 8002 or ERROR_CODE == 8001)

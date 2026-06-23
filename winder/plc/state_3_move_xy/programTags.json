@@ -3,11 +3,11 @@
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "3bffc7a2cf4cdd5bd5467711805e7d2587e6b9717164ebb4fc0a332a2be9d52b",
-    "size": 4691367,
-    "last_saved": "2026-06-15 12:38:35.137",
+    "sha256": "70985a1fecf89220480f940cc282026e2084ce51ab08990925d49abb640a19ba",
+    "size": 4691656,
+    "last_saved": "2026-06-23 11:41:01.657",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 142
+    "save_log_entries": 143
   },
   "program_name": "state_3_move_xy",
   "main_routine_name": "main",
@@ -454,7 +454,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.0027465820312
+      "value": 829.7218627929688
     },
     {
       "name": "regulator_loop_timer",
@@ -574,7 +574,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "description": "Calculate the distance required to perform a jerk-limited stop at the gurrent jerk, acceleration, and speed",
-      "value": 0.04614199697971344
+      "value": 0.018793001770973206
     },
     {
       "name": "stopping_ratio",
@@ -700,7 +700,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.000360555131919682
+      "value": 0.0021377557422965765
     },
     {
       "name": "xy_dt",
@@ -787,7 +787,7 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 50,
-        "ACC": 38,
+        "ACC": 7,
         "EN": true,
         "TT": true,
         "DN": false
@@ -851,7 +851,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6.7132415771484375
+      "value": 6.629866123199463
     },
     {
       "name": "xy_error_prev",
@@ -865,7 +865,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6.233842849731445
+      "value": 6.629866123199463
     },
     {
       "name": "xy_i_term",
@@ -879,7 +879,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.0048217773438
+      "value": 829.9900512695312
     },
     {
       "name": "xy_kd",
@@ -1051,7 +1051,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -0.0008999999845400453
+      "value": 0.0006000000284984708
     },
     {
       "name": "x_time",
@@ -1111,7 +1111,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.0
+      "value": 0.00039999998989515007
     },
     {
       "name": "y_time",
@@ -1192,5 +1192,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-06-16T19:39:09.152036+00:00"
+  "values_generated_at": "2026-06-23T16:42:08.314475+00:00"
 }
