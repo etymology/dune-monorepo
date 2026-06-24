@@ -89,6 +89,10 @@ class GUIContext:
     log_binding: Any | None = None
     strum: Callable[[], None] = field(default=lambda: None)
     live_plot_manager: Any | None = None
+    # Manual move / focus widgets disabled while a measurement is active, so
+    # the user can't inject stage/focus moves between a measurement worker's
+    # own moves. Populated by each app's _configure_commands.
+    manual_motion_widgets: list[Any] = field(default_factory=list)
 
 
 LOGGER = logging.getLogger(__name__)

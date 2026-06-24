@@ -558,6 +558,14 @@ def _configure_commands(
 
     widgets = ctx.widgets
 
+    # Disabled while a measurement runs so manual stage/focus moves can't
+    # interleave with the measurement worker's own moves.
+    ctx.manual_motion_widgets = [
+        widgets.focus_slider,
+        buttons["manual_move"],
+        gcode_entry,
+    ]
+
     # Debounce the focus slider: wait for it to settle before moving the
     # servo and the winder. Without this, every intermediate value during a
     # drag fires a focus_target + X-compensation move.
