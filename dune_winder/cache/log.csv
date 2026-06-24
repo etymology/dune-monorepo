@@ -1,0 +1,19 @@
+Time	Module	Type	Message
+2026-03-26 16:46:06.824532	Main	START	Control system starts.
+2026-03-26 16:46:06.824563	Main	PLC_MODE	PLC backend mode selected.	SIM
+2026-03-26 16:46:06.824575	Main	PLC_SIM_ENGINE	PLC simulator engine selected.	LEGACY
+2026-03-26 16:46:06.824584	Main	PLC_SHADOW_MODE	PLC shadow mode.	True
+2026-03-26 16:46:06.826167	StopStateMachine	MODE	Mode changed from <None> to Idle	<None>	Idle
+2026-03-26 16:46:06.826216	ControlStateMachine	MODE	Mode changed from <None> to HardwareMode	<None>	HardwareMode
+2026-03-26 16:46:06.848559	PrimaryThread	THREADS_START	Starting all primary threads.	UICommandServerThread	WebServerThread	ControlThread	CameraThread
+2026-03-26 16:46:06.848735	UICommandServerThread	THREAD_START	Primary thread started.	UICommandServerThread	UICommandServerThread
+2026-03-26 16:46:06.848823	WebServerThread	THREAD_START	Primary thread started.	WebServerThread	WebServerThread
+2026-03-26 16:46:06.848958	ControlThread	THREAD_START	Primary thread started.	ControlThread	ControlThread
+2026-03-26 16:46:06.849598	CameraThread	THREAD_START	Primary thread started.	CameraThread	CameraThread
+2026-03-26 16:46:06.858821	HardwareMode	HARD_ERROR	All hardware ready.
+2026-03-26 16:46:06.959841	ControlStateMachine	MODE	Mode changed from HardwareMode to StopMode	HardwareMode	StopMode
+2026-03-26 16:46:10.206824	Main	SIGNAL	Signal received; requesting shutdown.	15	SIGTERM	MainThread	/home/dune/dune-monorepo/dune_winder/src/dune_winder/main.py:387 in main
+2026-03-26 16:46:46.141347	Main	START	Control system starts.
+2026-03-26 16:46:46.141457	Main	PLC_MODE	PLC backend mode selected.	REAL
+2026-03-26 16:46:46.141476	Main	PLC_SIM_ENGINE	PLC simulator engine selected.	LEGACY
+2026-03-26 16:46:46.141489	Main	PLC_SHADOW_MODE	PLC shadow mode.	True
