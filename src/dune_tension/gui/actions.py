@@ -1814,6 +1814,50 @@ def interrupt(ctx: GUIContext) -> None:
     _set_estimated_time(ctx, "Interrupted")
 
 
+# Duration of a manually triggered air pulse, in seconds.  Matches the
+# automatic measurement strum (see _make_strum_callback in services.py).
+_MANUAL_AIR_PULSE_SECONDS = 0.002
+
+
+def monitor_photodiode(ctx: GUIContext, enabled: bool) -> None:
+    """Power the photodiode amplifier (relay channel 2) on or off.
+
+    Wired to a toggle: the amplifier stays powered while *enabled* is True and
+    is de-energized when it becomes False.
+    """
+    relay = ctx.relay_controller
+    if relay is None:
+        LOGGER.warning("Cannot toggle photodiode monitor: USB relay not connected.")
+        return
+    try:
+        if enabled:
+            relay.sensor_power_on()
+        else:
+            relay.sensor_power_off()
+    except Exception as exc:
+        LOGGER.warning("Failed to set photodiode monitor power: %s", exc)
+    else:
+        LOGGER.info("Photodiode monitor %s.", "on" if enabled else "off")
+
+
+def trigger_air_pulse(ctx: GUIContext) -> None:
+    """Fire a single air pulse on the pneumatic valve (relay channel 1)."""
+    relay = ctx.relay_controller
+    if relay is None:
+        LOGGER.warning("Cannot trigger air pulse: USB relay not connected.")
+        return
+
+    def _worker() -> None:
+        try:
+            relay.pulse(_MANUAL_AIR_PULSE_SECONDS)
+        except Exception as exc:
+            LOGGER.warning("Air pulse failed: %s", exc)
+        else:
+            LOGGER.info("Triggered air pulse (%.3f s).", _MANUAL_AIR_PULSE_SECONDS)
+
+    Thread(target=_worker, name="gui-air-pulse", daemon=True).start()
+
+
 def _check_connections(ctx: GUIContext) -> dict[str, bool]:
     """Check connection status for all controllers."""
     try:
