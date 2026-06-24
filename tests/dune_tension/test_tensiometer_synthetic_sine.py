@@ -51,7 +51,7 @@ def test_tensiometer_recovers_synthetic_sine_frequency_and_tension():
         repository=DummyRepository(),
     )
 
-    analysis, frequency, confidence = tensiometer._estimate_sample_pitch(
+    analysis, frequency, confidence, accepted = tensiometer._estimate_sample_pitch(
         audio, expected_frequency=f0
     )
 
@@ -59,6 +59,9 @@ def test_tensiometer_recovers_synthetic_sine_frequency_and_tension():
     assert np.isfinite(frequency)
     assert frequency == pytest.approx(f0, rel=0.0025)
     assert confidence > 0.0
+    # Corroborated sample: acceptance tracks whether the real NN confidence
+    # clears the configured threshold.
+    assert accepted == (confidence >= tensiometer.config.confidence_threshold)
 
     expected_tension = wire_equation(length=length_m, frequency=f0)["tension"]
     measured_tension = wire_equation(length=length_m, frequency=frequency)["tension"]

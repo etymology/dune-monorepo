@@ -28,6 +28,7 @@ from dune_tension.gui.actions import (
     measure_list_button,
     measure_outliers,
     measure_zone_button,
+    monitor_photodiode,
     monitor_tension_logs,
     move_laser_to_pin_button,
     refresh_connections,
@@ -35,6 +36,7 @@ from dune_tension.gui.actions import (
     refresh_uv_laser_offset_controls,
     seek_camera_to_pin,
     set_manual_tension,
+    trigger_air_pulse,
     update_focus_command_indicator,
 )
 from dune_tension.gui.crash_logging import (
@@ -100,6 +102,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             log_text,
             summary_plot_frame,
             waveform_plot_frame,
+            extras,
         ) = _create_widgets(root, focus_command_var, estimated_time_var)
         log_binding = configure_gui_logging(root, log_text)
         LOGGER.info(
@@ -137,7 +140,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             waveform_plot_frame,
         )
 
-        _configure_commands(ctx, buttons, pad_buttons)
+        _configure_commands(ctx, buttons, pad_buttons, extras)
         LOGGER.info("GUI commands configured.")
 
         load_state(ctx)
@@ -243,6 +246,7 @@ def _create_widgets(
     Any | None,
     tk.Misc,
     tk.Misc,
+    dict[str, Any],
 ]:
     """Build and layout the GUI widgets."""
 
@@ -360,11 +364,25 @@ def _create_widgets(
     manual_move_frame = tk.LabelFrame(bottom_frame, text="Manual Move")
     manual_move_frame.grid(row=3, column=0, sticky="ew", pady=3)
 
+    relay_frame = tk.LabelFrame(bottom_frame, text="Relay")
+    relay_frame.grid(row=4, column=0, sticky="ew", pady=3)
+    if hasattr(relay_frame, "columnconfigure"):
+        relay_frame.columnconfigure(0, weight=1)
+
+    monitor_photodiode_var = tk.BooleanVar(value=False)
+    chk_monitor_photodiode = tk.Checkbutton(
+        relay_frame, text="Monitor Photodiode", variable=monitor_photodiode_var
+    )
+    chk_monitor_photodiode.grid(row=0, column=0, sticky="w")
+
+    btn_trigger_air_pulse = tk.Button(relay_frame, text="Trigger Air Pulse")
+    btn_trigger_air_pulse.grid(row=1, column=0, sticky="ew", pady=(3, 0))
+
     btn_refresh_plots = tk.Button(bottom_frame, text="Refresh Plots")
-    btn_refresh_plots.grid(row=4, column=0, sticky="ew", pady=(6, 0))
+    btn_refresh_plots.grid(row=5, column=0, sticky="ew", pady=(6, 0))
 
     btn_refresh_connections = tk.Button(bottom_frame, text="Refresh Connections")
-    btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
+    btn_refresh_connections.grid(row=6, column=0, sticky="ew", pady=(3, 0))
 
     tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
     apa_location_var = tk.StringVar(apa_frame, value="US")
@@ -753,11 +771,17 @@ def _create_widgets(
         "set_tension": btn_set_tension,
         "calibrate_noise": btn_calibrate_noise,
         "manual_go": btn_manual_go,
+        "trigger_air_pulse": btn_trigger_air_pulse,
         "refresh_plots": btn_refresh_plots,
         "refresh_connections": btn_refresh_connections,
         "seek_pin": btn_seek_pin,
         "move_laser_to_pin": btn_move_laser_to_pin,
         "capture_laser_offset": btn_capture_laser_offset,
+    }
+
+    extras: dict[str, Any] = {
+        "monitor_photodiode_var": monitor_photodiode_var,
+        "monitor_photodiode_chk": chk_monitor_photodiode,
     }
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
@@ -773,6 +797,7 @@ def _create_widgets(
         log_text,
         summary_plot_frame,
         waveform_plot_frame,
+        extras,
     )
 
 
@@ -780,6 +805,7 @@ def _configure_commands(
     ctx: GUIContext,
     buttons: dict[str, tk.Button],
     pad_buttons: list[tuple[tk.Button, int, int]],
+    extras: dict[str, Any],
 ) -> None:
     """Attach the GUI callbacks to the Tkinter widgets."""
 
@@ -811,6 +837,12 @@ def _configure_commands(
     )
     buttons["capture_laser_offset"].configure(
         command=lambda: capture_laser_offset_button(ctx)
+    )
+    buttons["trigger_air_pulse"].configure(command=lambda: trigger_air_pulse(ctx))
+
+    monitor_photodiode_var = cast(tk.BooleanVar, extras["monitor_photodiode_var"])
+    extras["monitor_photodiode_chk"].configure(
+        command=lambda: monitor_photodiode(ctx, bool(monitor_photodiode_var.get()))
     )
 
     for button, dx, dy in pad_buttons:
