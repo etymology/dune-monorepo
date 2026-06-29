@@ -16,6 +16,7 @@ from dune_tension.data_cache import (
     clear_wire_numbers,
     find_outliers,
     find_distribution_outliers,
+    find_low_confidence_wires,
     get_dataframe,
     get_results_dataframe,
     select_dataframe,
@@ -211,6 +212,86 @@ def test_find_distribution_outliers_uses_bulk_tension_distribution(tmp_path) -> 
     )
 
     assert outliers == [21]
+
+
+def test_find_low_confidence_wires_orders_lowest_confidence_first(tmp_path) -> None:
+    db_path = tmp_path / "low_confidence.db"
+
+    def make_row(wire_number: int, confidence: float) -> dict:
+        return {
+            "apa_name": "APA",
+            "layer": "G",
+            "side": "A",
+            "wire_number": wire_number,
+            "frequency": 75.0,
+            "confidence": confidence,
+            "x": 100.0,
+            "y": 200.0,
+            "taped": False,
+            "time": "2026-03-10T10:00:00",
+            "zone": 1,
+            "wire_length": 1200.0,
+            "tension": 5.0,
+            "tension_pass": True,
+        }
+
+    # Two wires above the threshold, three below it.
+    append_dataframe_row(str(db_path), make_row(1, 0.95))
+    append_dataframe_row(str(db_path), make_row(2, 0.30))
+    append_dataframe_row(str(db_path), make_row(3, 0.80))
+    append_dataframe_row(str(db_path), make_row(4, 0.10))
+    append_dataframe_row(str(db_path), make_row(5, 0.45))
+
+    wires = find_low_confidence_wires(
+        str(db_path),
+        "APA",
+        "G",
+        "A",
+        confidence_threshold=0.5,
+    )
+
+    # Only sub-threshold wires, lowest-confidence first.
+    assert wires == [4, 2, 5]
+
+
+def test_find_low_confidence_wires_uses_final_measurement_confidence(tmp_path) -> None:
+    """The detector mirrors the summary/plots: it uses the latest measurement's
+    confidence per wire, not an earlier low-confidence attempt."""
+
+    db_path = tmp_path / "low_confidence_final.db"
+
+    def make_row(confidence: float, when: str) -> dict:
+        return {
+            "apa_name": "APA",
+            "layer": "G",
+            "side": "A",
+            "wire_number": 7,
+            "frequency": 75.0,
+            "confidence": confidence,
+            "x": 100.0,
+            "y": 200.0,
+            "taped": False,
+            "time": when,
+            "zone": 1,
+            "wire_length": 1200.0,
+            "tension": 5.0,
+            "tension_pass": True,
+        }
+
+    # Earlier low-confidence attempt superseded by a high-confidence remeasure.
+    append_dataframe_row(str(db_path), make_row(0.10, "2026-03-10T10:00:00"))
+    append_dataframe_row(str(db_path), make_row(0.90, "2026-03-10T11:00:00"))
+
+    wires = find_low_confidence_wires(
+        str(db_path),
+        "APA",
+        "G",
+        "A",
+        confidence_threshold=0.5,
+    )
+
+    # The final confidence (0.90) clears the threshold, so nothing to remeasure.
+    assert wires == []
 
 
 def _make_outlier_row(

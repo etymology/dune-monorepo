@@ -23,6 +23,7 @@ from dune_tension.data_cache import (
     clear_wire_numbers,
     clear_wire_range,
     find_distribution_outliers,
+    find_low_confidence_wires,
     find_outliers,
     get_dataframe,
     update_dataframe,
@@ -1563,6 +1564,58 @@ def measure_distribution_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None
     _measure_detected_outliers(
         ctx, inputs, find_distribution_outliers, "bulk-distribution"
     )
+
+
+@_run_in_thread(measurement=True)
+def measure_low_confidence(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    """Remeasure wires whose final-measurement confidence is below threshold.
+
+    The confidence threshold is the GUI "Confidence Threshold" field. Wires are
+    remeasured lowest-confidence-first so the least trustworthy final
+    measurements — the ones feeding the summary and plots — are improved first.
+    """
+
+    config = _make_config_from_inputs(inputs)
+    try:
+        confidence_threshold = float(inputs.confidence)
+    except (TypeError, ValueError) as exc:
+        LOGGER.warning("Invalid confidence threshold: %s", exc)
+        return
+
+    wires = find_low_confidence_wires(
+        config.data_path,
+        config.apa_name,
+        config.layer,
+        config.side,
+        confidence_threshold=confidence_threshold,
+    )
+
+    if not wires:
+        LOGGER.info("No wires below confidence %.2f", confidence_threshold)
+        return
+
+    if _measurement_mode(inputs) != "legacy":
+        LOGGER.info(
+            "Streaming remeasure of low-confidence wires (<%.2f): %s",
+            confidence_threshold,
+            wires,
+        )
+        _run_streaming_for_wires(ctx, inputs, wires)
+        return
+
+    tensiometer: Tensiometer | None = None
+    try:
+        tensiometer = create_tensiometer(ctx, inputs)
+        LOGGER.info(
+            "Measuring low-confidence wires (<%.2f) lowest-first: %s",
+            confidence_threshold,
+            wires,
+        )
+        tensiometer.measure_list(wires, preserve_order=True)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+    finally:
+        _cleanup_after_measurement(ctx, tensiometer)
 
 
 @_run_in_thread(measurement=True)

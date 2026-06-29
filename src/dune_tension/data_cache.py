@@ -502,6 +502,42 @@ def find_outliers(
     return ordered["wire_number"].astype(int).tolist()
 
 
+def find_low_confidence_wires(
+    file_path: str,
+    apa_name: str,
+    layer: str,
+    side: str,
+    confidence_threshold: float,
+) -> list[int]:
+    """Find wires whose final-measurement confidence is below the threshold.
+
+    Operates on the *final* per-wire measurement — the latest plausible row,
+    which is the value (and confidence) written to the summary and plots — not
+    the individual repeated measurements that produced it. A missing/NaN
+    confidence is treated as low so the wire is remeasured.
+
+    Wires are returned ordered lowest-confidence-first so callers can remeasure
+    the least trustworthy wires first.
+    """
+
+    subset = _select_side_measurements(file_path, apa_name, layer, side)
+    if subset.empty or "confidence" not in subset.columns:
+        return []
+
+    confidence = pd.to_numeric(subset["confidence"], errors="coerce")
+    is_low = confidence.isna() | (confidence < confidence_threshold)
+    if not is_low.any():
+        return []
+
+    ordered = (
+        subset.loc[is_low]
+        # NaN sorts first (treated as the lowest possible confidence).
+        .assign(_confidence=confidence[is_low].fillna(float("-inf")))
+        .sort_values("_confidence", ascending=True, kind="stable")
+    )
+    return ordered["wire_number"].astype(int).tolist()
+
+
 def find_distribution_outliers(
     file_path: str,
     apa_name: str,

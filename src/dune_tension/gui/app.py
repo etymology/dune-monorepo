@@ -15,8 +15,6 @@ from dune_tension.gui.actions import (
     calibrate_background_noise,
     capture_laser_offset_button,
     clear_range,
-    erase_distribution_outliers,
-    erase_outliers,
     handle_close,
     interrupt,
     manual_goto,
@@ -26,6 +24,7 @@ from dune_tension.gui.actions import (
     measure_condition,
     measure_distribution_outliers,
     measure_list_button,
+    measure_low_confidence,
     measure_outliers,
     measure_zone_button,
     monitor_photodiode,
@@ -528,19 +527,24 @@ def _create_widgets(
     entry_times_sigma.grid(row=13, column=1, sticky="ew")
     entry_times_sigma.insert(0, "2.0")
 
-    btn_erase_outliers = tk.Button(measure_frame, text="Erase Residual Outliers")
-    btn_erase_outliers.grid(row=14, column=1, sticky="ew")
-    btn_measure_outliers = tk.Button(measure_frame, text="Measure Residual Outliers")
-    btn_measure_outliers.grid(row=14, column=2, padx=(3, 0), sticky="ew")
-
-    btn_erase_distribution_outliers = tk.Button(
-        measure_frame, text="Erase Bulk Outliers"
+    btn_measure_low_confidence = tk.Button(
+        measure_frame, text="Measure Low\nConfidence"
     )
-    btn_erase_distribution_outliers.grid(row=15, column=1, sticky="ew")
+    btn_measure_low_confidence.grid(
+        row=14, column=0, rowspan=2, padx=(0, 3), sticky="nsew"
+    )
+
+    btn_measure_outliers = tk.Button(measure_frame, text="Measure Residual Outliers")
+    btn_measure_outliers.grid(
+        row=14, column=1, columnspan=2, padx=(3, 0), sticky="ew"
+    )
+
     btn_measure_distribution_outliers = tk.Button(
         measure_frame, text="Measure Bulk Outliers"
     )
-    btn_measure_distribution_outliers.grid(row=15, column=2, padx=(3, 0), sticky="ew")
+    btn_measure_distribution_outliers.grid(
+        row=15, column=1, columnspan=2, padx=(3, 0), sticky="ew"
+    )
 
     # Set Tensions
     tk.Label(measure_frame, text="Set Tensions:").grid(row=16, column=0, sticky="e")
@@ -764,9 +768,8 @@ def _create_widgets(
         "interrupt": btn_interrupt,
         "clear_range": btn_clear_range,
         "measure_condition": btn_measure_condition,
-        "erase_outliers": btn_erase_outliers,
         "measure_outliers": btn_measure_outliers,
-        "erase_distribution_outliers": btn_erase_distribution_outliers,
+        "measure_low_confidence": btn_measure_low_confidence,
         "measure_distribution_outliers": btn_measure_distribution_outliers,
         "set_tension": btn_set_tension,
         "calibrate_noise": btn_calibrate_noise,
@@ -816,10 +819,9 @@ def _configure_commands(
     buttons["interrupt"].configure(command=lambda: interrupt(ctx))
     buttons["clear_range"].configure(command=lambda: clear_range(ctx))
     buttons["measure_condition"].configure(command=lambda: measure_condition(ctx))
-    buttons["erase_outliers"].configure(command=lambda: erase_outliers(ctx))
     buttons["measure_outliers"].configure(command=lambda: measure_outliers(ctx))
-    buttons["erase_distribution_outliers"].configure(
-        command=lambda: erase_distribution_outliers(ctx)
+    buttons["measure_low_confidence"].configure(
+        command=lambda: measure_low_confidence(ctx)
     )
     buttons["measure_distribution_outliers"].configure(
         command=lambda: measure_distribution_outliers(ctx)
