@@ -83,7 +83,7 @@ def test_collect_samples_invokes_audio_sample_callback(monkeypatch) -> None:
         lambda *_args, **_kwargs: analysis,
     )
     monkeypatch.setattr(
-        pitch_validation_module, "nn_pitch_is_corroborated", lambda *_a, **_kw: True
+        pitch_validation_module, "fft_has_peak_near", lambda *_a, **_kw: True
     )
     _patch_result_physics(monkeypatch)
 
@@ -162,7 +162,7 @@ def test_collect_samples_strums_until_audio_recording_starts(monkeypatch) -> Non
         lambda *_args, **_kwargs: analysis,
     )
     monkeypatch.setattr(
-        pitch_validation_module, "nn_pitch_is_corroborated", lambda *_a, **_kw: True
+        pitch_validation_module, "fft_has_peak_near", lambda *_a, **_kw: True
     )
     _patch_result_physics(monkeypatch)
 

@@ -36,7 +36,7 @@ from dune_tension.tensiometer_functions import (
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
-_STRUM_LOOP_INTERVAL_SECONDS = 0.2
+_STRUM_LOOP_INTERVAL_SECONDS = 0.5
 _SUMMARY_REFRESH_GUARD_S = 0.5
 
 # Live outlier detection during ``measure_list``. A fresh measurement is flagged
@@ -1051,7 +1051,7 @@ class Tensiometer:
         high_y = float(center_y + self.sweeping_wiggle_span_mm)
         record_duration = max(float(self.config.record_duration), 1e-6)
         sweep_speed_mm_s = max(
-            (float(self.sweeping_wiggle_span_mm) * 10),
+            (float(self.sweeping_wiggle_span_mm) / record_duration) * 2.0,
             1e-3,
         )
 
@@ -1152,7 +1152,7 @@ class Tensiometer:
         audio_sample: Any,
         expected_frequency: float | None,
     ) -> tuple[Any | None, float, float, bool]:
-        """Estimate pitch using PESTO, gated by ACF and FFT corroboration.
+        """Estimate pitch using PESTO, gated by FFT corroboration.
 
         Returns ``(analysis, frequency, confidence, accepted)`` where
         ``confidence`` is the model's own confidence for the waveform and
@@ -1161,14 +1161,14 @@ class Tensiometer:
 
         A sample is accepted only when it is *both* corroborated and the NN
         confidence clears the configured threshold.  Corroboration means the NN
-        frequency lines up with a notable autocorrelation peak (within ±15 %)
-        and a notable FFT peak (within ±10 %); neither peak has to be the global
-        maximum.  The reported confidence is always the model's real value for
+        frequency lines up with a notable FFT peak (within ±10 %); the peak does
+        not have to be the global maximum.  Autocorrelation is no longer
+        consulted.  The reported confidence is always the model's real value for
         the waveform — it is never inflated to the threshold.  When not
         corroborated, the sample is rejected (``accepted=False`` and confidence
         zeroed) so the loop keeps searching regardless of what PESTO reported.
         """
-        from spectrum_analysis.pitch_validation import nn_pitch_is_corroborated
+        from spectrum_analysis.pitch_validation import fft_has_peak_near
 
         self._last_pitch_triplet_accepted = None
         analysis = None
@@ -1196,28 +1196,26 @@ class Tensiometer:
         accepted = float(confidence) >= float(self.config.confidence_threshold)
 
         if require_corroboration and np.isfinite(frequency) and frequency > 0.0:
-            corroborated = nn_pitch_is_corroborated(
+            corroborated = fft_has_peak_near(
                 np.asarray(audio_sample, dtype=np.float64),
                 self.samplerate,
                 float(frequency),
             )
             if corroborated:
                 self._last_pitch_triplet_accepted = True
-                # ACF and FFT agree: accept only if the model's real confidence
-                # also clears the threshold.  Keep the real confidence value for
+                # FFT agrees: accept only if the model's real confidence also
+                # clears the threshold.  Keep the real confidence value for
                 # reporting/ranking either way.
-                accepted = float(confidence) >= float(
-                    self.config.confidence_threshold
-                )
+                accepted = float(confidence) >= float(self.config.confidence_threshold)
                 LOGGER.debug(
-                    "NN pitch %.1f Hz corroborated by ACF/FFT; confidence=%.2f accepted=%s.",
+                    "NN pitch %.1f Hz corroborated by FFT; confidence=%.2f accepted=%s.",
                     frequency,
                     confidence,
                     accepted,
                 )
             else:
                 LOGGER.debug(
-                    "NN pitch %.1f Hz not corroborated by ACF/FFT; rejecting sample.",
+                    "NN pitch %.1f Hz not corroborated by FFT; rejecting sample.",
                     frequency,
                 )
                 self._last_pitch_triplet_accepted = False
