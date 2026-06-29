@@ -10,7 +10,6 @@ from matplotlib.figure import Figure
 from dune_tension._matplotlib_lock import figure_lock, figure_lock_or_skip
 from dune_tension.data_cache import (
     latest_plausible_per_wire,
-    moving_average_residuals,
     select_dataframe,
 )
 from dune_tension.paths import data_path
@@ -92,9 +91,10 @@ def _compute_tensions(
         missing_wires[side] = sorted(expected_set - set(measured_wire_tensions))
 
         side_label = f"Side {side}"
-        line_data.append(
-            selected[["wire_number", "tension"]].assign(side_label=side_label)
-        )
+        line_columns = ["wire_number", "tension"]
+        if "confidence" in selected.columns:
+            line_columns.append("confidence")
+        line_data.append(selected[line_columns].assign(side_label=side_label))
         histogram_data.append(selected[["tension"]].assign(side_label=side_label))
     return tension_series, line_data, histogram_data, missing_wires
 
@@ -214,50 +214,60 @@ def build_summary_plot_figure(
     hist_df = pd.concat(histogram_data)
 
     figure = Figure(figsize=figsize)
-    scatter_axis = figure.add_subplot(2, 2, 1)
-    hist_axis = figure.add_subplot(2, 2, 2)
-    resid_axis = figure.add_subplot(2, 2, 3)
-    resid_hist_axis = figure.add_subplot(2, 2, 4)
+    # Side A and Side B get their own scatter column so the two sides never
+    # overlap; the bottom row holds the side-comparison tension histogram.
+    grid = figure.add_gridspec(2, 2)
+    hist_axis = figure.add_subplot(grid[1, :])
 
-    resid_data: List[pd.DataFrame] = []
+    def _confidence_color_kwargs(frame: pd.DataFrame) -> dict:
+        # Points are colored by their measurement confidence in [0, 1].
+        if "confidence" not in frame.columns:
+            return {}
+        return {
+            "c": pd.to_numeric(frame["confidence"], errors="coerce"),
+            "cmap": "viridis",
+            "vmin": 0.0,
+            "vmax": 1.0,
+        }
 
-    for side_label, group in line_df.groupby("side_label"):
-        scatter_axis.scatter(
-            group["wire_number"],
-            group["tension"],
-            label=side_label,
-            alpha=0.5,
-            s=10,
+    sides = ["Side A", "Side B"]
+    line_groups = {str(label): grp for label, grp in line_df.groupby("side_label")}
+    shared_scatter_axis = None
+    for col, side_label in enumerate(sides):
+        scatter_axis = figure.add_subplot(grid[0, col], sharey=shared_scatter_axis)
+        shared_scatter_axis = shared_scatter_axis or scatter_axis
+
+        scatter_axis.set_title(
+            f"{apa_name} - {side_label} Tension w/ Trendline - Layer {layer}"
         )
+        scatter_axis.set_xlabel("Wire Number")
+        scatter_axis.set_ylabel("Tension")
+        scatter_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
+
+        group = line_groups.get(side_label)
+        if group is None or group.empty:
+            continue
+
         sorted_group = group.sort_values("wire_number")
+        color_kwargs = _confidence_color_kwargs(sorted_group)
+
+        scatter_mappable = scatter_axis.scatter(
+            sorted_group["wire_number"],
+            sorted_group["tension"],
+            alpha=0.7,
+            s=10,
+            **color_kwargs,
+        )
         moving_average = sorted_group["tension"].rolling(window=15, center=True).mean()
         scatter_axis.plot(
             sorted_group["wire_number"],
             moving_average,
+            color="black",
             alpha=0.4,
             linewidth=2,
         )
-
-        residuals = moving_average_residuals(sorted_group["tension"])
-
-        resid_axis.scatter(
-            sorted_group["wire_number"],
-            residuals,
-            label=side_label,
-            alpha=0.5,
-            s=10,
-        )
-        resid_data.append(
-            pd.DataFrame({"residual": residuals, "side_label": side_label})
-        )
-
-    scatter_axis.set_title(
-        f"{apa_name} - Tension Scatter Plot with Trendline - Layer {layer}"
-    )
-    scatter_axis.set_xlabel("Wire Number")
-    scatter_axis.set_ylabel("Tension")
-    scatter_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
-    scatter_axis.legend()
+        if color_kwargs:
+            figure.colorbar(scatter_mappable, ax=scatter_axis, label="Confidence")
 
     sns.histplot(
         data=hist_df,
@@ -297,55 +307,6 @@ def build_summary_plot_figure(
             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
         )
 
-    resid_axis.axhline(0, color="gray", linewidth=0.8, linestyle="--")
-    resid_axis.set_title(f"{apa_name} - Residuals from Moving Average - Layer {layer}")
-    resid_axis.set_xlabel("Wire Number")
-    resid_axis.set_ylabel("Residual")
-    resid_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
-    resid_axis.legend()
-
-    if resid_data:
-        resid_df = pd.concat(resid_data)
-        sns.histplot(
-            data=resid_df,
-            x="residual",
-            hue="side_label",
-            element="step",
-            stat="count",
-            common_norm=False,
-            ax=resid_hist_axis,
-        )
-
-        # Add sigma statistics for residuals per side (mean is always 0 by construction)
-        resid_stats_text_parts = []
-        for side_label, group in resid_df.groupby("side_label"):
-            resid_stats = _compute_tension_stats(group["residual"].values)
-            if np.isfinite(resid_stats["sigma"]):
-                # Build stats text for this side (only sigma, as mean is 0 by construction)
-                resid_stats_text_parts.append(
-                    f"{side_label}: σ={resid_stats['sigma']:.2f}"
-                )
-
-        # Add a text box with residual stats in the upper right
-        if resid_stats_text_parts:
-            resid_stats_text = "\n".join(resid_stats_text_parts)
-            resid_hist_axis.text(
-                0.98,
-                0.97,
-                resid_stats_text,
-                transform=resid_hist_axis.transAxes,
-                fontsize=7,
-                verticalalignment="top",
-                horizontalalignment="right",
-                bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-            )
-
-    resid_hist_axis.axvline(0, color="gray", linewidth=0.8, linestyle="--")
-    resid_hist_axis.set_title(f"{apa_name} - Residual Histogram - Layer {layer}")
-    resid_hist_axis.set_xlabel("Residual")
-    resid_hist_axis.set_ylabel("Count")
-    resid_hist_axis.grid(True, linestyle=":", linewidth=0.5, color="gray")
-
     figure.tight_layout()
     return figure
 
@@ -353,7 +314,7 @@ def build_summary_plot_figure(
 def build_summary_plot_figure_for_config(
     config: TensiometerConfig,
     *,
-    figsize: tuple[float, float] = (14, 5),
+    figsize: tuple[float, float] = (14, 6),
     timeout: Optional[float] = None,
 ) -> Figure | None:
     """Build the current summary figure for ``config`` from persisted results.

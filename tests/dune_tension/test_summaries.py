@@ -123,7 +123,7 @@ def test_compute_tensions_prefers_latest_plausible_measurement(
     assert len(histogram_data) == 2
 
 
-def test_build_summary_plot_figure_creates_two_panel_figure() -> None:
+def test_build_summary_plot_figure_separates_sides_into_own_panels() -> None:
     line_data = [
         pd.DataFrame(
             {
@@ -153,12 +153,50 @@ def test_build_summary_plot_figure_creates_two_panel_figure() -> None:
     )
 
     assert figure is not None
-    assert len(figure.axes) == 4
-    assert (
-        figure.axes[0].get_title()
-        == "APA - Tension Scatter Plot with Trendline - Layer X"
+    # Per-side scatter panels plus the shared tension histogram.
+    assert len(figure.axes) == 3
+    titles = {ax.get_title() for ax in figure.axes}
+    assert "APA - Side A Tension w/ Trendline - Layer X" in titles
+    assert "APA - Side B Tension w/ Trendline - Layer X" in titles
+    assert "APA - Tension Histogram - Layer X" in titles
+    # Residual panels have been removed entirely.
+    assert not any("Residual" in title for title in titles)
+
+
+def test_build_summary_plot_figure_colors_scatter_by_confidence() -> None:
+    line_data = [
+        pd.DataFrame(
+            {
+                "wire_number": [1, 2, 3],
+                "tension": [5.0, 5.2, 5.1],
+                "confidence": [0.1, 0.5, 0.9],
+                "side_label": ["Side A", "Side A", "Side A"],
+            }
+        ),
+    ]
+    histogram_data = [
+        pd.DataFrame({"tension": [5.0, 5.2, 5.1], "side_label": ["Side A"] * 3}),
+    ]
+
+    figure = summaries.build_summary_plot_figure(
+        line_data,
+        histogram_data,
+        "APA",
+        "X",
     )
-    assert figure.axes[1].get_title() == "APA - Tension Histogram - Layer X"
+
+    assert figure is not None
+    # Side A's scatter panel gets a confidence colorbar.
+    colorbar_axes = [ax for ax in figure.axes if ax.get_ylabel() == "Confidence"]
+    assert len(colorbar_axes) == 1
+    # Scatter point colors are mapped over the full [0, 1] confidence range.
+    scatter_axis = next(
+        ax
+        for ax in figure.axes
+        if ax.get_title() == "APA - Side A Tension w/ Trendline - Layer X"
+    )
+    scatter = scatter_axis.collections[0]
+    assert scatter.get_clim() == (0.0, 1.0)
 
 
 def test_get_tension_series_uses_summary_results_over_raw_samples(
