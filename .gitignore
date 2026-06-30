@@ -25,7 +25,9 @@ node_modules/
 tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
 tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
 .claude/settings.local.json
-tension/data/experiment_audio/*
+dune_tension/data/experiment_audio/*
+dune_tension/data/streaming_runs/*
+dune_tension/images/*
 
 # Playwright
 /test-results/

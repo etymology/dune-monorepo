@@ -1,0 +1,3 @@
+Time	Module	Type	Message
+2026-03-26 16:46:06.858821	HardwareMode	HARD_ERROR	All hardware ready.
+2026-03-26 16:46:06.959841	ControlStateMachine	MODE	Mode changed from HardwareMode to StopMode	HardwareMode	StopMode

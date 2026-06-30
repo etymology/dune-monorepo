@@ -164,6 +164,35 @@ def _set_estimated_time(ctx: GUIContext, value: str) -> None:
         return
 
 
+def _set_manual_controls_enabled(ctx: GUIContext, enabled: bool) -> None:
+    """Enable or disable the manual move/focus widgets on the Tk thread.
+
+    A manual stage or focus move issued from the main thread while a
+    measurement worker is driving the stage interleaves with the measurement's
+    own moves: each ``goto_xy`` is locked individually, but the lock does not
+    span a measurement step, so a manual move can reposition the stage between
+    the worker's move and its record. Disabling these controls for the
+    duration of a measurement closes that window.
+    """
+
+    state = "normal" if enabled else "disabled"
+
+    def apply() -> None:
+        for widget in list(getattr(ctx, "manual_motion_widgets", ()) or ()):
+            try:
+                widget.configure(state=state)
+            except Exception:
+                pass
+
+    try:
+        if threading.current_thread() is threading.main_thread():
+            apply()
+        else:
+            ctx.root.after(0, apply)
+    except Exception:
+        return
+
+
 def _publish_live_waveform(
     ctx: GUIContext,
     audio_sample: Any,
@@ -913,6 +942,9 @@ def _run_in_thread(func=None, *, measurement: bool = False):
             if measurement and not _begin_measurement(ctx, measurement_name):
                 return
 
+            if measurement:
+                _set_manual_controls_enabled(ctx, False)
+
             def run() -> None:
                 if measurement:
                     ctx.stop_event.clear()
@@ -927,6 +959,7 @@ def _run_in_thread(func=None, *, measurement: bool = False):
                     if measurement:
                         ctx.stop_event.clear()
                         _end_measurement(ctx)
+                        _set_manual_controls_enabled(ctx, True)
                     LOGGER.info("Worker thread finished: %s", measurement_name)
 
             try:
@@ -938,6 +971,7 @@ def _run_in_thread(func=None, *, measurement: bool = False):
             except Exception:
                 if measurement:
                     _end_measurement(ctx)
+                    _set_manual_controls_enabled(ctx, True)
                 raise
 
         return wrapper
@@ -2163,6 +2197,11 @@ def handle_close(ctx: GUIContext) -> None:
         sd.stop()
     except Exception:
         pass
+    if ctx.live_plot_manager is not None:
+        try:
+            ctx.live_plot_manager.shutdown()
+        except Exception:
+            LOGGER.exception("Failed to shut down live plot manager during shutdown.")
     try:
         ctx.root.destroy()
     except Exception:

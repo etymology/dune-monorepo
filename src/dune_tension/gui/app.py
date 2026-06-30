@@ -854,6 +854,14 @@ def _configure_commands(
     widgets.focus_slider.configure(
         command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
     )
+    # Disabled while a measurement runs so manual stage/focus moves can't
+    # interleave with the measurement worker's own moves.
+    ctx.manual_motion_widgets = [
+        widgets.focus_slider,
+        widgets.entry_xy,
+        buttons["manual_go"],
+        *(button for button, _dx, _dy in pad_buttons),
+    ]
     for variable in (
         widgets.layer_var,
         widgets.side_var,
