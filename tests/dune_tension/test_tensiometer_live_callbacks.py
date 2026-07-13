@@ -8,6 +8,7 @@ import numpy as np
 
 import dune_tension.results as results_module
 import dune_tension.tensiometer as tensiometer_module
+import dune_tension.measure.analysis as analysis_module
 from dune_tension.results import TensionResult
 from dune_tension.tensiometer import Tensiometer
 import spectrum_analysis.pitch_validation as pitch_validation_module
@@ -78,7 +79,7 @@ def test_collect_samples_invokes_audio_sample_callback(monkeypatch) -> None:
     )
     monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: analysis,
     )
@@ -157,7 +158,7 @@ def test_collect_samples_strums_until_audio_recording_starts(monkeypatch) -> Non
     )
     monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: analysis,
     )

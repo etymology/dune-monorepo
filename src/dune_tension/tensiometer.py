@@ -41,6 +41,7 @@ from dune_tension.measure.analysis import (
     AudioAcquisitionConfig,
     DeferredPitchSample,
     HarmonicSampleFeatures,
+    SampleAnalyzer,
     acquire_audio,
     analyze_audio_with_pesto,
     default_harmonic_comb_config as _default_harmonic_comb_config,
@@ -51,6 +52,7 @@ from dune_tension.measure.conditions import (
 )
 from dune_tension.measure.profiling import (
     BatchMeasurementProfile,
+    MeasurementProfiler,
     WireMeasurementProfile,
 )
 
@@ -71,6 +73,26 @@ _OUTLIER_ABS_NEWTONS = 0.5
 _OUTLIER_SIGMA = 1
 _OUTLIER_WINDOW = 10
 _OUTLIER_MIN_NEIGHBORS = 5
+
+# Public surface of this module. Several names are re-exported from
+# ``dune_tension.measure`` for import-site stability during the carve-up; listing
+# them here documents the intent and marks them as re-exports for linters.
+__all__ = [
+    "Tensiometer",
+    "build_tensiometer",
+    "AudioAcquisitionConfig",
+    "DeferredPitchSample",
+    "HarmonicSampleFeatures",
+    "WireMeasurementProfile",
+    "BatchMeasurementProfile",
+    "SampleAnalyzer",
+    "MeasurementProfiler",
+    "acquire_audio",
+    "analyze_audio_with_pesto",
+    "estimate_pitch_from_audio",
+    "FOCUS_MM_PER_QUARTER_US",
+    "FOCUS_X_MM_PER_QUARTER_US",
+]
 
 
 def build_tensiometer(
@@ -378,7 +400,13 @@ class Tensiometer:
             )
         except Exception:
             self._harmonic_trigger_learner = None
-        self._last_pitch_triplet_accepted: bool | None = None
+        self._analyzer = SampleAnalyzer(
+            config=self.config,
+            samplerate=self.samplerate,
+            noise_threshold=self.noise_threshold,
+            harmonic_comb_config=self._harmonic_comb_config,
+            harmonic_trigger_learner=self._harmonic_trigger_learner,
+        )
 
         self.get_current_xy_position = getattr(
             self.motion, "get_live_xy", self.motion.get_xy
@@ -422,8 +450,17 @@ class Tensiometer:
         self._wiggle_thread: threading.Thread | None = None
         self._sweeping_wiggle_event: threading.Event | None = None
         self._sweeping_wiggle_thread: threading.Thread | None = None
-        self._active_batch_profile: BatchMeasurementProfile | None = None
-        self._active_wire_profile: WireMeasurementProfile | None = None
+        self._profiler = MeasurementProfiler(self._profile_time)
+
+    # Timing/profiling delegates to MeasurementProfiler. The ``_active_*``
+    # properties preserve the historical attribute-style access used by tests.
+    @property
+    def _active_batch_profile(self) -> BatchMeasurementProfile | None:
+        return self._profiler.active_batch
+
+    @property
+    def _active_wire_profile(self) -> WireMeasurementProfile | None:
+        return self._profiler.active_wire
 
     def _start_batch_profile(
         self,
@@ -431,100 +468,21 @@ class Tensiometer:
         workflow: str,
         requested_wires: list[int],
     ) -> BatchMeasurementProfile:
-        profile = BatchMeasurementProfile(
-            workflow=workflow,
-            requested_wires=list(map(int, requested_wires)),
-            started_at=self._profile_time(),
+        return self._profiler.start_batch(
+            workflow=workflow, requested_wires=requested_wires
         )
-        self._active_batch_profile = profile
-        LOGGER.info(
-            "Timing profile started for %s measurement of %s wire(s): %s",
-            workflow,
-            len(profile.requested_wires),
-            profile.requested_wires,
-        )
-        return profile
 
     def _finish_batch_profile(self) -> None:
-        profile = self._active_batch_profile
-        self._active_batch_profile = None
-        self._active_wire_profile = None
-        if profile is None:
-            return
-        measured_wires = len(profile.wire_profiles)
-        total_wire_seconds = sum(p.total_seconds for p in profile.wire_profiles)
-        avg_wire_seconds = (
-            total_wire_seconds / measured_wires if measured_wires else 0.0
-        )
-        aggregate_stages: dict[str, float] = {}
-        for wire_profile in profile.wire_profiles:
-            for stage, elapsed in wire_profile.stage_seconds.items():
-                aggregate_stages[stage] = aggregate_stages.get(stage, 0.0) + elapsed
-        stage_summary = (
-            ", ".join(
-                f"{stage}={elapsed:.2f}s"
-                for stage, elapsed in sorted(
-                    aggregate_stages.items(),
-                    key=lambda item: item[1],
-                    reverse=True,
-                )
-            )
-            or "none"
-        )
-        LOGGER.info(
-            "Timing profile summary for %s measurement: requested=%s measured=%s skipped=%s planning=%.2fs avg_wire=%.2fs total=%.2fs stage_totals=[%s]",
-            profile.workflow,
-            len(profile.requested_wires),
-            measured_wires,
-            profile.skipped_wires,
-            profile.planning_seconds,
-            avg_wire_seconds,
-            profile.total_seconds,
-            stage_summary,
-        )
+        self._profiler.finish_batch()
 
     def _start_wire_profile(self, workflow: str, wire_number: int) -> None:
-
-        if self._active_batch_profile is None:
-            self._active_wire_profile = None
-            return
-        self._active_wire_profile = WireMeasurementProfile(
-            workflow=workflow,
-            wire_number=int(wire_number),
-            started_at=self._profile_time(),
-        )
+        self._profiler.start_wire(workflow, wire_number)
 
     def _record_wire_stage(self, stage: str, elapsed: float) -> None:
-        if self._active_wire_profile is not None:
-            self._active_wire_profile.add(stage, elapsed)
+        self._profiler.record_stage(stage, elapsed)
 
     def _complete_wire_profile(self, *, skipped: bool = False) -> None:
-        profile = self._active_wire_profile
-        self._active_wire_profile = None
-        if self._active_batch_profile is None or profile is None:
-            return
-        if skipped:
-            self._active_batch_profile.skipped_wires.append(profile.wire_number)
-            return
-        self._active_batch_profile.complete_wire(profile)
-        stage_summary = (
-            ", ".join(
-                f"{stage}={elapsed:.2f}s"
-                for stage, elapsed in sorted(
-                    profile.stage_seconds.items(),
-                    key=lambda item: item[1],
-                    reverse=True,
-                )
-            )
-            or "none"
-        )
-        LOGGER.info(
-            "Timing profile for %s wire %s: total=%.2fs stages=[%s]",
-            profile.workflow,
-            profile.wire_number,
-            profile.total_seconds,
-            stage_summary,
-        )
+        self._profiler.complete_wire(skipped=skipped)
 
     def _focus_wiggle_x_sign(self) -> float:
         """Return focus/X coupling sign for the configured side."""
@@ -900,136 +858,35 @@ class Tensiometer:
         if return_to_center and center_x is not None and center_y is not None:
             self._move_to_measurement_pose(center_x, center_y, focus_target)
 
+    # Signal analysis delegates to SampleAnalyzer. Thin wrappers preserve the
+    # historical ``Tensiometer`` method API used by tests and the measure loop.
+    @property
+    def _last_pitch_triplet_accepted(self) -> bool | None:
+        return self._analyzer.last_pitch_triplet_accepted
+
     @staticmethod
     def _sample_rms(audio_sample: Any) -> float:
-        """Return the RMS amplitude of an audio sample."""
-
-        audio_array = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
-        if audio_array.size == 0:
-            return 0.0
-        audio_float = audio_array.astype(np.float64, copy=False)
-        return float(np.sqrt(np.mean(np.square(audio_float))))
+        return SampleAnalyzer.sample_rms(audio_sample)
 
     def _triangle_reference_rms(self, expected_frequency: float | None) -> float:
-        """Return the RMS of a unit-peak triangle wave over the full record window."""
-
-        try:
-            sample_rate = int(self.samplerate)
-            duration = float(self.config.record_duration)
-            if expected_frequency is None:
-                return float("nan")
-            frequency = float(expected_frequency)
-        except (TypeError, ValueError):
-            return float("nan")
-
-        if sample_rate <= 0 or not np.isfinite(duration) or duration <= 0.0:
-            return float("nan")
-        if not np.isfinite(frequency) or frequency <= 0.0:
-            return float("nan")
-        sample_count = max(int(round(duration * sample_rate)), 1)
-        times = np.arange(sample_count, dtype=np.float64) / float(sample_rate)
-        phase = np.mod(times * frequency, 1.0)
-        triangle_wave = 1.0 - 4.0 * np.abs(phase - 0.5)
-        return float(np.sqrt(np.mean(np.square(triangle_wave))))
+        return self._analyzer.triangle_reference_rms(expected_frequency)
 
     def _amplitude_confidence(
         self,
         audio_sample: Any,
         expected_frequency: float | None,
     ) -> float:
-        """Return amplitude confidence normalized to the expected triangle-wave RMS."""
-
-        measured_rms = self._sample_rms(audio_sample)
-        reference_rms = self._triangle_reference_rms(expected_frequency)
-        if not np.isfinite(reference_rms) or reference_rms <= 0.0:
-            return measured_rms
-        return measured_rms / reference_rms
+        return self._analyzer.amplitude_confidence(audio_sample, expected_frequency)
 
     def _is_audio_worth_analyzing(self, audio_sample: Any) -> bool:
-        """Return True if the sample has enough signal to justify NN analysis."""
-
-        measured_rms = self._sample_rms(audio_sample)
-        if self.noise_threshold > 0.0 and measured_rms < self.noise_threshold * 1.5:
-            return False
-
-        return True
+        return self._analyzer.is_audio_worth_analyzing(audio_sample)
 
     def _estimate_sample_pitch(
         self,
         audio_sample: Any,
         expected_frequency: float | None,
     ) -> tuple[Any | None, float, float, bool]:
-        """Estimate pitch using PESTO, gated by FFT corroboration.
-
-        Returns ``(analysis, frequency, confidence, accepted)`` where
-        ``confidence`` is the model's own confidence for the waveform and
-        ``accepted`` signals whether the measurement loop should accept the
-        sample.
-
-        A sample is accepted only when it is *both* corroborated and the NN
-        confidence clears the configured threshold.  Corroboration means the NN
-        frequency lines up with a notable FFT peak (within ±10 %); the peak does
-        not have to be the global maximum.  Autocorrelation is no longer
-        consulted.  The reported confidence is always the model's real value for
-        the waveform — it is never inflated to the threshold.  When not
-        corroborated, the sample is rejected (``accepted=False`` and confidence
-        zeroed) so the loop keeps searching regardless of what PESTO reported.
-        """
-        from spectrum_analysis.pitch_validation import fft_has_peak_near
-
-        self._last_pitch_triplet_accepted = None
-        analysis = None
-
-        if not self._is_audio_worth_analyzing(audio_sample):
-            return None, 0.0, 0.0, False
-
-        require_corroboration = False
-        try:
-            analysis = analyze_audio_with_pesto(
-                audio_sample,
-                self.samplerate,
-                expected_frequency=expected_frequency,
-                include_activations=True,
-            )
-            frequency, confidence = analysis.frequency, analysis.confidence
-            require_corroboration = True
-        except Exception:
-            frequency, confidence = estimate_pitch_from_audio(
-                audio_sample,
-                self.samplerate,
-                expected_frequency,
-            )
-
-        accepted = float(confidence) >= float(self.config.confidence_threshold)
-
-        if require_corroboration and np.isfinite(frequency) and frequency > 0.0:
-            corroborated = fft_has_peak_near(
-                np.asarray(audio_sample, dtype=np.float64),
-                self.samplerate,
-                float(frequency),
-            )
-            if corroborated:
-                self._last_pitch_triplet_accepted = True
-                # FFT agrees: accept only if the model's real confidence also
-                # clears the threshold.  Keep the real confidence value for
-                # reporting/ranking either way.
-                accepted = float(confidence) >= float(self.config.confidence_threshold)
-                LOGGER.debug(
-                    "NN pitch %.1f Hz corroborated by FFT; confidence=%.2f accepted=%s.",
-                    frequency,
-                    confidence,
-                    accepted,
-                )
-            else:
-                LOGGER.debug(
-                    "NN pitch %.1f Hz not corroborated by FFT; rejecting sample.",
-                    frequency,
-                )
-                self._last_pitch_triplet_accepted = False
-                accepted = False
-                confidence = 0.0
-
-        return analysis, float(frequency), float(confidence), bool(accepted)
+        return self._analyzer.estimate_sample_pitch(audio_sample, expected_frequency)
 
     def _sample_harmonic_features(
         self,
@@ -1037,44 +894,8 @@ class Tensiometer:
         frequency: float,
         expected_frequency: float | None,
     ) -> HarmonicSampleFeatures:
-        """Measure comb features on a captured sample for trigger learning."""
-
-        comb_cfg = self._harmonic_comb_config
-        frame_size = max(1, int(getattr(comb_cfg, "frame_size", 2048)))
-        harmonicity_audio = np.asarray(audio_sample, dtype=np.float32).reshape(-1)
-        if harmonicity_audio.size < frame_size:
-            return HarmonicSampleFeatures()
-
-        frame = harmonicity_audio[:frame_size]
-        f0 = None
-        if expected_frequency is not None:
-            expected = float(expected_frequency)
-            if np.isfinite(expected) and expected > 0.0:
-                f0 = expected
-        if f0 is None and np.isfinite(frequency) and frequency > 0.0:
-            f0 = float(frequency)
-        if f0 is None:
-            return HarmonicSampleFeatures()
-
-        from spectrum_analysis.comb_trigger import harmonic_comb_response
-
-        window = np.hanning(frame_size).astype(np.float32)
-        freq_bins = np.fft.rfftfreq(frame_size, d=1.0 / self.samplerate)
-        candidates = np.array([float(f0)], dtype=np.float64)
-        weights = comb_cfg.harmonic_weights()
-        harmonicity, spectral_flatness, valid = harmonic_comb_response(
-            frame,
-            self.samplerate,
-            window,
-            freq_bins,
-            candidates,
-            weights,
-            int(comb_cfg.min_harmonics),
-        )
-        return HarmonicSampleFeatures(
-            harmonicity=float(harmonicity),
-            spectral_flatness=float(spectral_flatness),
-            valid=bool(valid),
+        return self._analyzer.sample_harmonic_features(
+            audio_sample, frequency, expected_frequency
         )
 
     def _learn_harmonic_trigger(
@@ -1082,25 +903,7 @@ class Tensiometer:
         features: HarmonicSampleFeatures,
         accepted_by_triplet: bool | None,
     ) -> None:
-        """Adapt comb trigger parameters from downstream pitch acceptance."""
-
-        if accepted_by_triplet is None or not features.valid:
-            return
-        learner = self._harmonic_trigger_learner
-        if learner is None:
-            return
-        try:
-            from spectrum_analysis.comb_trigger import HarmonicCombTriggerObservation
-
-            learner.observe(
-                HarmonicCombTriggerObservation(
-                    harmonicity=features.harmonicity,
-                    spectral_flatness=features.spectral_flatness,
-                    accepted_by_triplet=bool(accepted_by_triplet),
-                )
-            )
-        except Exception as exc:
-            LOGGER.debug("Harmonic trigger learning skipped: %s", exc)
+        self._analyzer.learn_harmonic_trigger(features, accepted_by_triplet)
 
     def measure_calibrate(self, wire_number: int) -> Optional[TensionResult]:
         target = None

@@ -13,6 +13,7 @@ import pytest
 
 import dune_tension.results as results_module
 import dune_tension.tensiometer as tensiometer_module
+import dune_tension.measure.analysis as analysis_module
 from dune_tension.results import TensionResult
 from dune_tension.tensiometer import Tensiometer
 from dune_tension.tensiometer_functions import PlannedWirePose
@@ -243,7 +244,7 @@ def test_collect_samples_stops_when_confidence_threshold_is_met(monkeypatch):
     )
     monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "estimate_pitch_from_audio",
         lambda *_args: (5.0, 0.95),
     )
@@ -251,7 +252,7 @@ def test_collect_samples_stops_when_confidence_threshold_is_met(monkeypatch):
     def _raise_analysis(*_args, **_kwargs):
         raise RuntimeError("fallback to simple pitch estimate")
 
-    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+    monkeypatch.setattr(analysis_module, "analyze_audio_with_pesto", _raise_analysis)
 
     tensiometer = Tensiometer(
         apa_name="APA",
@@ -291,7 +292,7 @@ def test_collect_samples_keeps_sampling_until_legacy_tension_condition_matches(
 
     monkeypatch.setattr(tensiometer_module, "acquire_audio", lambda **_kwargs: [1.0])
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "estimate_pitch_from_audio",
         lambda *_args: (next(frequencies), 0.95),
     )
@@ -299,7 +300,7 @@ def test_collect_samples_keeps_sampling_until_legacy_tension_condition_matches(
     def _raise_analysis(*_args, **_kwargs):
         raise RuntimeError("fallback to simple pitch estimate")
 
-    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+    monkeypatch.setattr(analysis_module, "analyze_audio_with_pesto", _raise_analysis)
 
     tensiometer = Tensiometer(
         apa_name="APA",
@@ -350,12 +351,12 @@ def test_collect_samples_waits_for_quiet_before_audio(monkeypatch):
     )
     monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "estimate_pitch_from_audio",
         lambda *_args: (5.0, 0.95),
     )
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("fallback")),
     )
@@ -568,7 +569,7 @@ def test_amplitude_mode_skips_pesto_until_threshold_then_analyzes_once(monkeypat
         marker = analyses[-1]
         return types.SimpleNamespace(frequency=5.0, confidence=0.99, marker=marker)
 
-    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _analyze)
+    monkeypatch.setattr(analysis_module, "analyze_audio_with_pesto", _analyze)
 
     tensiometer = Tensiometer(
         apa_name="APA",
@@ -631,7 +632,7 @@ def test_amplitude_mode_timeout_analyzes_only_best_pending_sample(monkeypatch):
     monkeypatch.setattr(tensiometer_module, "tension_plausible", lambda _tension: True)
     analyze_calls = []
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: analyze_calls.append(True) or analysis,
     )
@@ -707,7 +708,7 @@ def test_amplitude_mode_continues_after_implausible_threshold_sample(monkeypatch
         lambda _tension: next(plausibility),
     )
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "analyze_audio_with_pesto",
         lambda *_args, **_kwargs: (
             analyze_calls.append(True)
@@ -1156,7 +1157,7 @@ def test_collect_samples_sweeping_wiggle_refocuses_after_bad_sweep(monkeypatch):
 
     confidences = iter([0.5])
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "estimate_pitch_from_audio",
         lambda *_args: (5.0, next(confidences, 0.95)),
     )
@@ -1164,7 +1165,7 @@ def test_collect_samples_sweeping_wiggle_refocuses_after_bad_sweep(monkeypatch):
     def _raise_analysis(*_args, **_kwargs):
         raise RuntimeError("fallback to simple pitch estimate")
 
-    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+    monkeypatch.setattr(analysis_module, "analyze_audio_with_pesto", _raise_analysis)
 
     motion = _make_motion_service(start_x=1.0, start_y=2.0)
     focus_state = {"value": 5000}
@@ -1232,7 +1233,7 @@ def test_collect_samples_sweeping_wiggle_skips_refocus_without_callback(monkeypa
 
     confidences = iter([0.5])
     monkeypatch.setattr(
-        tensiometer_module,
+        analysis_module,
         "estimate_pitch_from_audio",
         lambda *_args: (5.0, next(confidences, 0.95)),
     )
@@ -1240,7 +1241,7 @@ def test_collect_samples_sweeping_wiggle_skips_refocus_without_callback(monkeypa
     def _raise_analysis(*_args, **_kwargs):
         raise RuntimeError("fallback to simple pitch estimate")
 
-    monkeypatch.setattr(tensiometer_module, "analyze_audio_with_pesto", _raise_analysis)
+    monkeypatch.setattr(analysis_module, "analyze_audio_with_pesto", _raise_analysis)
 
     motion = _make_motion_service(start_x=1.0, start_y=2.0)
     tensiometer = Tensiometer(
