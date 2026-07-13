@@ -1,7 +1,5 @@
-import ast
 import threading
 from contextlib import nullcontext
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import math
@@ -33,6 +31,29 @@ from dune_tension.tensiometer_functions import (
     plan_measurement_poses,
 )
 
+# Pure leaves carved out of this module (Stage 1 of the tensiometer refactor).
+# Re-exported here so existing ``dune_tension.tensiometer`` import sites keep
+# working while the measurement core moves into ``dune_tension.measure``.
+from dune_tension.measure._concurrency import (
+    invoke_with_timeout as _invoke_with_timeout,
+)
+from dune_tension.measure.analysis import (
+    AudioAcquisitionConfig,
+    DeferredPitchSample,
+    HarmonicSampleFeatures,
+    acquire_audio,
+    analyze_audio_with_pesto,
+    default_harmonic_comb_config as _default_harmonic_comb_config,
+    estimate_pitch_from_audio,
+)
+from dune_tension.measure.conditions import (
+    compile_legacy_tension_condition as _compile_legacy_tension_condition,
+)
+from dune_tension.measure.profiling import (
+    BatchMeasurementProfile,
+    WireMeasurementProfile,
+)
+
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
@@ -50,220 +71,6 @@ _OUTLIER_ABS_NEWTONS = 0.5
 _OUTLIER_SIGMA = 1
 _OUTLIER_WINDOW = 10
 _OUTLIER_MIN_NEIGHBORS = 5
-
-
-def _invoke_with_timeout(
-    callback: Callable[..., Any],
-    *args: Any,
-    timeout_s: float,
-    label: str,
-) -> None:
-    """Run ``callback`` in a daemon thread; return after ``timeout_s`` seconds.
-
-    The thread keeps running on its own if the callback hasn't returned; we
-    just stop waiting. This guarantees the wire loop never blocks on a
-    misbehaving callback (e.g. a plot dispatch that has wedged).
-    """
-
-    def _runner() -> None:
-        try:
-            callback(*args)
-        except Exception as exc:  # noqa: BLE001 — callback is user code
-            LOGGER.debug("%s raised: %s", label, exc)
-
-    thread = threading.Thread(
-        target=_runner, name=f"timeout-guard-{label}", daemon=True
-    )
-    thread.start()
-    thread.join(timeout=timeout_s)
-    if thread.is_alive():
-        LOGGER.warning(
-            "%s exceeded %.2fs wall-clock guard; continuing measurement",
-            label,
-            timeout_s,
-        )
-
-
-def _compile_legacy_tension_condition(expr: str) -> Callable[[float], bool]:
-    """Compile a safe tension-only expression that references ``t``."""
-
-    allowed_nodes = (
-        ast.Expression,
-        ast.BoolOp,
-        ast.BinOp,
-        ast.UnaryOp,
-        ast.Compare,
-        ast.Name,
-        ast.Load,
-        ast.Constant,
-        ast.And,
-        ast.Or,
-        ast.Not,
-        ast.Add,
-        ast.Sub,
-        ast.Mult,
-        ast.Div,
-        ast.Pow,
-        ast.Mod,
-        ast.USub,
-        ast.UAdd,
-        ast.Eq,
-        ast.NotEq,
-        ast.Lt,
-        ast.LtE,
-        ast.Gt,
-        ast.GtE,
-    )
-
-    try:
-        tree = ast.parse(expr, mode="eval")
-    except SyntaxError as exc:
-        raise ValueError(f"invalid syntax: {exc.msg}") from exc
-
-    uses_t = False
-    for node in ast.walk(tree):
-        if not isinstance(node, allowed_nodes):
-            raise ValueError(f"disallowed expression node: {type(node).__name__}")
-        if isinstance(node, ast.Name):
-            if node.id != "t":
-                raise ValueError(
-                    "only the variable 't' is allowed in legacy tension conditions"
-                )
-            uses_t = True
-
-    if not uses_t:
-        raise ValueError("legacy tension conditions must reference the variable 't'")
-
-    code = compile(tree, "<legacy-tension-condition>", "eval")
-
-    def predicate(tension: float) -> bool:
-        result = eval(code, {"__builtins__": {}}, {"t": float(tension)})
-        return bool(result)
-
-    return predicate
-
-
-def _default_harmonic_comb_config() -> Any:
-    from spectrum_analysis.comb_trigger import HarmonicCombConfig
-
-    return HarmonicCombConfig()
-
-
-@dataclass(frozen=True)
-class AudioAcquisitionConfig:
-    """Minimal runtime config passed into ``acquire_audio``."""
-
-    sample_rate: int
-    max_record_seconds: float
-    expected_f0: float | None
-    snr_threshold_db: float
-    trigger_mode: str
-    min_frequency: float = 30.0
-    max_frequency: float = 2000.0
-    min_oscillations_per_window: float = 10.0
-    min_window_overlap: float = 0.5
-    idle_timeout: float = 0.2
-    input_mode: str = "mic"
-    input_audio_path: str | None = None
-    comb_trigger: Any = field(default_factory=_default_harmonic_comb_config)
-    recording_started_callback: Callable[[], None] | None = None
-    stop_event: threading.Event | None = None
-    discard_leading_seconds: float = 0.0
-
-
-@dataclass(frozen=True)
-class DeferredPitchSample:
-    """Captured sample metadata retained for deferred pitch analysis."""
-
-    audio_sample: Any
-    x: float
-    y: float
-    focus_position: int | None
-    confidence: float
-
-
-@dataclass(frozen=True)
-class HarmonicSampleFeatures:
-    """Comb features measured on a captured sample."""
-
-    harmonicity: float = 0.0
-    spectral_flatness: float = 1.0
-    valid: bool = False
-
-
-@dataclass
-class WireMeasurementProfile:
-    """Timing breakdown for one wire inside a list/auto batch run."""
-
-    workflow: str
-    wire_number: int
-    started_at: float
-    stage_seconds: dict[str, float] = field(default_factory=dict)
-
-    def add(self, stage: str, elapsed: float) -> None:
-        self.stage_seconds[stage] = self.stage_seconds.get(stage, 0.0) + max(
-            0.0,
-            float(elapsed),
-        )
-
-    @property
-    def total_seconds(self) -> float:
-        if "wire_total_wall" in self.stage_seconds:
-            return max(0.0, float(self.stage_seconds["wire_total_wall"]))
-        return max(0.0, float(sum(self.stage_seconds.values())))
-
-
-@dataclass
-class BatchMeasurementProfile:
-    """Aggregate timing for a list/auto wire measurement batch."""
-
-    workflow: str
-    requested_wires: list[int]
-    started_at: float
-    planning_seconds: float = 0.0
-    wire_profiles: list[WireMeasurementProfile] = field(default_factory=list)
-    skipped_wires: list[int] = field(default_factory=list)
-
-    def complete_wire(self, profile: WireMeasurementProfile | None) -> None:
-        if profile is not None:
-            self.wire_profiles.append(profile)
-
-    @property
-    def total_seconds(self) -> float:
-        return max(
-            0.0,
-            float(
-                sum(p.total_seconds for p in self.wire_profiles) + self.planning_seconds
-            ),
-        )
-
-
-def acquire_audio(*args, **kwargs):
-    """Lazily import the runtime audio acquisition helper."""
-
-    from spectrum_analysis.audio_processing import acquire_audio as _acquire_audio
-
-    return _acquire_audio(*args, **kwargs)
-
-
-def estimate_pitch_from_audio(*args, **kwargs):
-    """Lazily import the runtime PESTO pitch estimator."""
-
-    from spectrum_analysis.pesto_analysis import (
-        estimate_pitch_from_audio as _estimate_pitch_from_audio,
-    )
-
-    return _estimate_pitch_from_audio(*args, **kwargs)
-
-
-def analyze_audio_with_pesto(*args, **kwargs):
-    """Lazily import the runtime PESTO diagnostics helper."""
-
-    from spectrum_analysis.pesto_analysis import (
-        analyze_audio_with_pesto as _analyze_audio_with_pesto,
-    )
-
-    return _analyze_audio_with_pesto(*args, **kwargs)
 
 
 def build_tensiometer(
