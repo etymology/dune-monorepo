@@ -2,7 +2,6 @@ import threading
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 import logging
-import math
 from typing import Any, ContextManager, Optional, Callable
 import time
 import numpy as np
@@ -50,15 +49,20 @@ from dune_tension.measure.analysis import (
 from dune_tension.measure.conditions import (
     compile_legacy_tension_condition as _compile_legacy_tension_condition,
 )
+from dune_tension.measure.focus import (
+    FOCUS_MM_PER_QUARTER_US,
+    FOCUS_X_MM_PER_QUARTER_US,
+    FocusController,
+)
+from dune_tension.measure.motion import Mover
 from dune_tension.measure.profiling import (
     BatchMeasurementProfile,
     MeasurementProfiler,
     WireMeasurementProfile,
 )
+from dune_tension.measure.wiggle import WiggleController
 
 LOGGER = logging.getLogger(__name__)
-FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
-FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
 _STRUM_LOOP_INTERVAL_SECONDS = 0.5
 _SUMMARY_REFRESH_GUARD_S = 0.5
 
@@ -445,11 +449,10 @@ class Tensiometer:
         self._audio_store = audio_store
         self.use_harmonic_comb_trigger = bool(use_harmonic_comb_trigger)
 
-        # State tracking for winder wiggle thread
-        self._wiggle_event: threading.Event | None = None
-        self._wiggle_thread: threading.Thread | None = None
-        self._sweeping_wiggle_event: threading.Event | None = None
-        self._sweeping_wiggle_thread: threading.Thread | None = None
+        # Motion/focus/wiggle collaborators (read live host attributes).
+        self._mover = Mover(self)
+        self._focus = FocusController(self)
+        self._wiggle = WiggleController(self)
         self._profiler = MeasurementProfiler(self._profile_time)
 
     # Timing/profiling delegates to MeasurementProfiler. The ``_active_*``
@@ -484,94 +487,31 @@ class Tensiometer:
     def _complete_wire_profile(self, *, skipped: bool = False) -> None:
         self._profiler.complete_wire(skipped=skipped)
 
+    # Focus positioning delegates to FocusController; XY moves to Mover. Thin
+    # wrappers preserve the historical ``Tensiometer`` method API used by tests
+    # and the measure loop.
     def _focus_wiggle_x_sign(self) -> float:
-        """Return focus/X coupling sign for the configured side."""
-
-        from dune_tension.streaming.pose import focus_side_sign
-
-        return focus_side_sign(self.config.side)
+        return self._focus.wiggle_x_sign()
 
     def _focus_to_x_delta_mm(self, delta_focus_units: float) -> float:
-        """Convert a focus delta in quarter-us to the coupled X delta in mm."""
-
-        return (
-            self._focus_wiggle_x_sign()
-            * float(delta_focus_units)
-            * FOCUS_X_MM_PER_QUARTER_US
-        )
+        return self._focus.focus_to_x_delta_mm(delta_focus_units)
 
     def _get_focus_position(self) -> int:
-        """Return the latest commanded focus position in quarter-us units."""
-
-        try:
-            return int(self.focus_position_getter())
-        except Exception:
-            return 0
+        return self._focus.get_focus_position()
 
     def _apply_focus_wiggle_with_x_compensation(
         self, delta_focus: float
     ) -> float | None:
-        """Apply focus wiggle and X compensation for equivalent travel in mm."""
-
-        if not self._has_focus_wiggle_callback:
-            return None
-
-        commanded_delta = int(float(delta_focus))
-        self.focus_wiggle_func(commanded_delta)
-        if commanded_delta == 0:
-            return None
-
-        delta_x_mm = self._focus_to_x_delta_mm(commanded_delta)
-        try:
-            cur_x, cur_y = self.get_current_xy_position()
-        except Exception as exc:
-            LOGGER.warning("Unable to read XY for focus wiggle compensation: %s", exc)
-            return None
-
-        new_x = round(cur_x + delta_x_mm, 1)
-        try:
-            moved = self.goto_xy_func(new_x, cur_y)
-        except Exception as exc:
-            LOGGER.warning("Focus wiggle compensation move failed: %s", exc)
-            return None
-        if moved is False:
-            LOGGER.warning(
-                "Focus wiggle compensation move to %s,%s failed.",
-                new_x,
-                cur_y,
-            )
-            return None
-
-        try:
-            compensated_x, _ = self.get_current_xy_position()
-            return float(compensated_x)
-        except Exception:
-            return new_x
+        return self._focus.apply_focus_wiggle_with_x_compensation(delta_focus)
 
     def _get_focus_bounds(self) -> tuple[int, int]:
-        try:
-            bounds = self.focus_range_getter()
-        except Exception:
-            bounds = None
-        if not bounds or len(bounds) != 2:
-            return (4000, 8000)
-        low, high = int(bounds[0]), int(bounds[1])
-        if low > high:
-            return (4000, 8000)
-        return (low, high)
+        return self._focus.get_focus_bounds()
 
     def _clamp_focus_position(self, focus_position: int) -> int:
-        low, high = self._get_focus_bounds()
-        return max(low, min(high, int(focus_position)))
+        return self._focus.clamp_focus_position(focus_position)
 
     def _active_focus_target(self, focus_target: int | None = None) -> int | None:
-        if self.use_manual_focus:
-            if self.manual_focus_target is None:
-                return self._clamp_focus_position(self._get_focus_position())
-            return self._clamp_focus_position(self.manual_focus_target)
-        if focus_target is None:
-            return None
-        return self._clamp_focus_position(int(focus_target))
+        return self._focus.active_focus_target(focus_target)
 
     def _goto_xy_with_reset_recovery(
         self,
@@ -581,51 +521,9 @@ class Tensiometer:
         context: str,
         **move_kwargs: Any,
     ) -> bool:
-        """Attempt an XY move, resetting the PLC and retrying once on failure."""
-
-        try:
-            moved = self.goto_xy_func(x_target, y_target, **move_kwargs)
-        except Exception as exc:
-            LOGGER.warning(
-                "%s move to %s,%s raised %s", context, x_target, y_target, exc
-            )
-            moved = False
-
-        if moved is not False:
-            return True
-
-        LOGGER.warning(
-            "%s move to %s,%s failed. Resetting PLC and retrying once.",
-            context,
-            x_target,
-            y_target,
+        return self._mover.goto_with_reset_recovery(
+            x_target, y_target, context=context, **move_kwargs
         )
-        try:
-            self.motion.reset_plc()
-        except Exception as exc:
-            LOGGER.warning("PLC reset after failed move raised %s", exc)
-
-        try:
-            retry = self.goto_xy_func(x_target, y_target, **move_kwargs)
-        except Exception as exc:
-            LOGGER.warning(
-                "%s retry after PLC reset raised %s for move to %s,%s",
-                context,
-                exc,
-                x_target,
-                y_target,
-            )
-            return False
-
-        if retry is False:
-            LOGGER.warning(
-                "%s retry after PLC reset still failed for move to %s,%s.",
-                context,
-                x_target,
-                y_target,
-            )
-            return False
-        return True
 
     def _move_to_measurement_pose(
         self,
@@ -633,13 +531,13 @@ class Tensiometer:
         y_target: float,
         focus_target: int | None = None,
     ) -> bool:
-        clamped_focus = self._active_focus_target(focus_target)
+        clamped_focus = self._focus.active_focus_target(focus_target)
         if clamped_focus is not None:
-            current_focus = self._get_focus_position()
+            current_focus = self._focus.get_focus_position()
             delta_focus = clamped_focus - current_focus
             if delta_focus != 0:
-                self._apply_focus_wiggle_with_x_compensation(delta_focus)
-        return self._goto_xy_with_reset_recovery(
+                self._focus.apply_focus_wiggle_with_x_compensation(delta_focus)
+        return self._mover.goto_with_reset_recovery(
             x_target,
             y_target,
             context="Measurement pose",
@@ -736,41 +634,11 @@ class Tensiometer:
 
     def start_wiggle(self) -> None:
         """Begin wiggling the winder in a background thread."""
-        if self._wiggle_event and self._wiggle_event.is_set():
-            return
-
-        self._wiggle_event = threading.Event()
-        self._wiggle_event.set()
-
-        start_x, start_y = self.get_current_xy_position()
-        # Wiggle by roughly half the wire pitch to avoid hitting adjacent wires
-        wiggle_width = MEASUREMENT_WIGGLE_CONFIG.background_y_sigma_mm
-
-        def _run() -> None:
-            while self._wiggle_event and self._wiggle_event.is_set():
-                self.goto_xy_func(
-                    start_x,
-                    self._gauss(start_y, wiggle_width),
-                    speed=MEASUREMENT_WIGGLE_CONFIG.background_speed,
-                )
-                if self._wiggle_event is not None and not self._wiggle_event.is_set():
-                    break
-                time.sleep(MEASUREMENT_WIGGLE_CONFIG.background_interval_seconds)
-
-        self._wiggle_thread = threading.Thread(target=_run, daemon=True)
-        self._wiggle_thread.start()
+        self._wiggle.start()
 
     def stop_wiggle(self) -> None:
         """Stop the background winder wiggle thread."""
-        if not self._wiggle_event:
-            return
-        self.motion.set_speed()
-        self._wiggle_event.clear()
-        if self._wiggle_thread:
-            self._wiggle_thread.join(timeout=0.1)
-        self._wiggle_event = None
-        self._wiggle_thread = None
-        self.motion.reset_plc()
+        self._wiggle.stop()
 
     def _plot_audio(self, audio_sample) -> None:
         """Save a plot of the recorded audio sample to a temporary file."""
@@ -804,40 +672,9 @@ class Tensiometer:
         center_y: float,
         focus_target: int | None,
     ) -> None:
-        if not self.sweeping_wiggle or self.sweeping_wiggle_span_mm <= 0.0:
-            return
-        self._stop_sweeping_wiggle(return_to_center=False)
-
-        stop_event = threading.Event()
-        stop_event.set()
-        self._sweeping_wiggle_event = stop_event
-
-        low_y = float(center_y - self.sweeping_wiggle_span_mm)
-        high_y = float(center_y + self.sweeping_wiggle_span_mm)
-        record_duration = max(float(self.config.record_duration), 1e-6)
-        sweep_speed_mm_s = max(
-            (float(self.sweeping_wiggle_span_mm) / record_duration) * 2.0,
-            1e-3,
+        self._wiggle.start_sweeping(
+            center_x=center_x, center_y=center_y, focus_target=focus_target
         )
-
-        def _run() -> None:
-            target_y = high_y
-            while stop_event.is_set():
-                if check_stop_event(
-                    self.stop_event, "tension measurement interrupted!"
-                ):
-                    break
-                if not self._goto_xy_with_reset_recovery(
-                    center_x,
-                    target_y,
-                    context="Sweeping wiggle",
-                    speed=sweep_speed_mm_s,
-                ):
-                    break
-                target_y = low_y if abs(target_y - high_y) < 1e-9 else high_y
-
-        self._sweeping_wiggle_thread = threading.Thread(target=_run, daemon=True)
-        self._sweeping_wiggle_thread.start()
 
     def _stop_sweeping_wiggle(
         self,
@@ -847,16 +684,12 @@ class Tensiometer:
         center_y: float | None = None,
         focus_target: int | None = None,
     ) -> None:
-        stop_event = self._sweeping_wiggle_event
-        if stop_event is not None:
-            stop_event.clear()
-        if self._sweeping_wiggle_thread is not None:
-            self._sweeping_wiggle_thread.join(timeout=1.0)
-        self._sweeping_wiggle_event = None
-        self._sweeping_wiggle_thread = None
-        self.motion.set_speed()
-        if return_to_center and center_x is not None and center_y is not None:
-            self._move_to_measurement_pose(center_x, center_y, focus_target)
+        self._wiggle.stop_sweeping(
+            return_to_center=return_to_center,
+            center_x=center_x,
+            center_y=center_y,
+            focus_target=focus_target,
+        )
 
     # Signal analysis delegates to SampleAnalyzer. Thin wrappers preserve the
     # historical ``Tensiometer`` method API used by tests and the measure loop.
