@@ -145,7 +145,17 @@ class PLC_Logic:
     def recoverEOT(self):
         """
         Request the PLC EOT recovery state.
+
+        The state-11 entry logic runs off a one-shot.  From READY this fires on
+        the normal transition into state 11, but when the winder is already in
+        state 11 (e.g. it powered up in an end-of-travel trip) there is no
+        rising STATE11_IND and re-writing the same STATE_REQUEST value would not
+        retrigger the ladder one-shot.  Pulse STATE_REQUEST through 0 -- as
+        `_pulseMoveType` does for MOVE_TYPE -- so the state-11 manual re-entry
+        one-shot (EQU(STATE_REQUEST, 11)) always sees a fresh false->true edge.
         """
+        self._writeTagNow(self._stateRequest.getName(), 0)
+        self._stateRequest.updateFromReadTag(0)
         self._requestState(self.States.EOT)
 
     # ---------------------------------------------------------------------

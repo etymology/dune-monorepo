@@ -17,13 +17,28 @@ uses y_plus_clear_ob, y_plus_clear_sb, y_plus_jog_active, y_plus_jog_cmd, y_plus
 uses y_plus_jog_start_sb, y_plus_jog_stop, y_plus_jog_timer, y_plus_stop_req, y_plus_timeout  # program scope
 uses y_plus_trip, z_recover_started, z_trip, z_zero_cmd, z_zero_start_ob, z_zero_start_sb  # program scope
 
+local motion eot_mso_x, eot_mso_y, eot_mso_z
+local bool eot_axes_enabled, eot_mso_start_sb, eot_mso_start_ob
+local bool eot_manual_sb, eot_manual_ob
+
 when not ALL_EOT_GOOD:
     NEXTSTATE = 11
     STATE_REQUEST = 0
 
 STATE11_IND = STATE == 11
 
-on rising STATE11_IND using eot_entry_sb, eot_entry_ob:
+# Auto entry one-shot: fired by the normal transition into state 11.
+raw `XIC(STATE11_IND)OSR(eot_entry_sb,eot_entry_ob)`
+
+# Manual re-entry one-shot: the Wind-page "EOT recover" button pulses
+# STATE_REQUEST to 11 (PLC_Logic.recoverEOT). When the winder powers up
+# already in state 11 the normal transition never happens, so there is no
+# rising STATE11_IND and eot_entry_ob never fires; this rung re-runs the
+# entry from a fresh STATE_REQUEST==11 edge instead. It precedes the
+# `STATE_REQUEST = 0` reset below so it observes the request before it clears.
+raw `XIC(STATE11_IND)EQU(STATE_REQUEST,11)OSR(eot_manual_sb,eot_manual_ob)`
+
+when eot_entry_ob or eot_manual_ob:
     eot_stop_xy.FLAGS = 0
     eot_stop_xz.FLAGS = 0
     eot_stop_x.FLAGS = 0
@@ -40,6 +55,9 @@ on rising STATE11_IND using eot_entry_sb, eot_entry_ob:
     y_plus_jog_cmd.FLAGS = 0
     y_plus_jog_stop.FLAGS = 0
     z_zero_cmd.FLAGS = 0
+    eot_mso_x.FLAGS = 0
+    eot_mso_y.FLAGS = 0
+    eot_mso_z.FLAGS = 0
     reset x_minus_jog_timer
     reset x_plus_jog_timer
     reset y_minus_jog_timer
@@ -93,7 +111,14 @@ latch z_trip when STATE11_IND and not Z_EOT
 
 eot_stops_done = STATE11_IND and eot_stop_xy.DN and eot_stop_xz.DN and eot_stop_x.DN and eot_stop_y.DN and eot_stop_z.DN
 
-eot_recover_ready = STATE11_IND and eot_stops_done and not X_axis.MoveStatus and not Y_axis.MoveStatus and not Z_axis.MoveStatus and not X_axis.StoppingStatus and not Y_axis.StoppingStatus and not Z_axis.StoppingStatus
+on rising eot_stops_done using eot_mso_start_sb, eot_mso_start_ob:
+    servo_on X_axis using eot_mso_x
+    servo_on Y_axis using eot_mso_y
+    servo_on Z_axis using eot_mso_z
+
+eot_axes_enabled = eot_mso_x.DN and eot_mso_y.DN and eot_mso_z.DN
+
+eot_recover_ready = STATE11_IND and eot_stops_done and eot_axes_enabled and not X_axis.MoveStatus and not Y_axis.MoveStatus and not Z_axis.MoveStatus and not X_axis.StoppingStatus and not Y_axis.StoppingStatus and not Z_axis.StoppingStatus
 
 on rising STATE11_IND and eot_recover_ready and x_minus_trip and not MINUS_X_EOT and not X_axis.StoppingStatus and not x_minus_jog_active and not x_minus_timeout and not x_minus_jog_cmd.IP and not x_plus_trip and not x_plus_stop_req using x_minus_jog_start_sb, x_minus_jog_start_ob:
     latch x_minus_jog_active
