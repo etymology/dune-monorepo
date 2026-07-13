@@ -9,6 +9,7 @@ import numpy as np
 import dune_tension.results as results_module
 import dune_tension.tensiometer as tensiometer_module
 import dune_tension.measure.analysis as analysis_module
+import dune_tension.measure.collector as collector_module
 from dune_tension.results import TensionResult
 from dune_tension.tensiometer import Tensiometer
 import spectrum_analysis.pitch_validation as pitch_validation_module
@@ -150,7 +151,7 @@ def test_collect_samples_strums_until_audio_recording_starts(monkeypatch) -> Non
     # Strum interval well below the fake's 0.08s recording-start delay so the
     # loop strums several times before recording begins (independent of the
     # production interval constant).
-    monkeypatch.setattr(tensiometer_module, "_STRUM_LOOP_INTERVAL_SECONDS", 0.01)
+    monkeypatch.setattr(collector_module, "_STRUM_LOOP_INTERVAL_SECONDS", 0.01)
     monkeypatch.setattr(
         tensiometer_module,
         "wire_equation",
