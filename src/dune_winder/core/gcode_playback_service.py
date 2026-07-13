@@ -587,10 +587,12 @@ class GCodePlaybackService:
                     else:
                         lineToExecute = line.strip() + " Y" + str(yPosition)
                 elif re.match(y_only + "|" + yf + "|" + fy, line):
-                    if self._isTransferOk("X_Transfer_OK"):
-                        lineToExecute = line.strip() + " Z" + str(zPosition)
-                    else:
-                        lineToExecute = line.strip() + " X" + str(xPosition)
+                    # A bare Y line is always a plain XY (state 3) seek: pin the
+                    # current X so the handler issues setXY_Position. A YZ (state
+                    # 13) move is only started when the line explicitly contains
+                    # both Y and Z -- never inferred from a transfer-OK Y-only
+                    # line.
+                    lineToExecute = line.strip() + " X" + str(xPosition)
 
                 errorData = self._gCodeHandler.executeG_CodeLine(
                     lineToExecute,
