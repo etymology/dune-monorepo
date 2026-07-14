@@ -867,14 +867,16 @@ class ManualCalibrationTests(unittest.TestCase):
                 lines = inputFile.readlines()
 
             self.assertTrue(lines[0].startswith("( X-layer "))
-            self.assertEqual(lines[1], "N0 X440.0 Y201.0\n")
+            # The camera-wire offset (Y=-5.0) is applied to the reference wireY
+            # before generation, so every recipe Y is shifted down by 5.0.
+            self.assertEqual(lines[1], "N0 X440.0 Y196.0\n")
             self.assertEqual(lines[2], "N1 G206 P0\n")
-            self.assertEqual(lines[3], "N2 (1,1) X635.0 Y201.0\n")
-            self.assertEqual(lines[4], "N3 (1,2) X7165.0 Y403.0\n")
+            self.assertEqual(lines[3], "N2 (1,1) X635.0 Y196.0\n")
+            self.assertEqual(lines[4], "N3 (1,2) X7165.0 Y398.0\n")
             self.assertEqual(lines[5], "N4 (1,3) G206 P0\n")
             self.assertEqual(lines[6], "N5 (1,4) G206 P3\n")
-            self.assertEqual(lines[7], "N6 (1,5) X7016.0 Y404.0\n")
-            self.assertEqual(lines[-1], "N3842 X635.0 Y2501.0\n")
+            self.assertEqual(lines[7], "N6 (1,5) X7016.0 Y399.0\n")
+            self.assertEqual(lines[-1], "N3842 X635.0 Y2496.0\n")
 
             state = service.getState()
             self.assertFalse(state["dirty"])
