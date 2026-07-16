@@ -3,11 +3,11 @@
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "c280ab02b840c87f8dbc6b1b6f97e838347a240588cc539338504149e24ded3c",
-    "size": 4691616,
-    "last_saved": "2026-06-23 11:54:55.168",
+    "sha256": "8ad5b334d4476bd65072609d91dd29a50084e65cb222f1f135385a10bd5027d5",
+    "size": 4473358,
+    "last_saved": "2026-07-16 11:42:25.755",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 145
+    "save_log_entries": 151
   },
   "program_name": "state_14_hmi_stop",
   "main_routine_name": "main",
@@ -193,11 +193,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_14_hmi_stop",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -225,11 +225,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_14_hmi_stop",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -257,11 +257,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_14_hmi_stop",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -289,11 +289,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_14_hmi_stop",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -321,11 +321,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_14_hmi_stop",
       "value": {
-        "FLAGS": 704643072,
+        "FLAGS": 33554432,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -354,5 +354,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-06-23T21:58:19.275687+00:00"
+  "values_generated_at": "2026-07-16T16:43:25.500853+00:00"
 }

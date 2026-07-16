@@ -3,11 +3,11 @@
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "c280ab02b840c87f8dbc6b1b6f97e838347a240588cc539338504149e24ded3c",
-    "size": 4691616,
-    "last_saved": "2026-06-23 11:54:55.168",
+    "sha256": "8ad5b334d4476bd65072609d91dd29a50084e65cb222f1f135385a10bd5027d5",
+    "size": 4473358,
+    "last_saved": "2026-07-16 11:42:25.755",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 145
+    "save_log_entries": 151
   },
   "program_name": "state_11_eot_trip",
   "main_routine_name": "main",
@@ -421,6 +421,34 @@
       "value": false
     },
     {
+      "name": "eot_axes_enabled",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_axes_enabled",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": true
+    },
+    {
+      "name": "eot_entry_manual_pulse",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_entry_manual_pulse",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
       "name": "eot_entry_ob",
       "fully_qualified_name": "Program:state_11_eot_trip.eot_entry_ob",
       "tag_type": "atomic",
@@ -447,6 +475,158 @@
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
       "value": false
+    },
+    {
+      "name": "eot_manual_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_manual_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "eot_manual_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_manual_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "eot_mso_start_ob",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_mso_start_ob",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "eot_mso_start_sb",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_mso_start_sb",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_11_eot_trip",
+      "value": false
+    },
+    {
+      "name": "eot_mso_x",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_mso_x",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "state_11_eot_trip",
+      "value": {
+        "FLAGS": 536870912,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "eot_mso_y",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_mso_y",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "state_11_eot_trip",
+      "value": {
+        "FLAGS": 536870912,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
+    },
+    {
+      "name": "eot_mso_z",
+      "fully_qualified_name": "Program:state_11_eot_trip.eot_mso_z",
+      "tag_type": "struct",
+      "data_type_name": "MOTION_INSTRUCTION",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "MOTION_INSTRUCTION",
+      "program": "state_11_eot_trip",
+      "value": {
+        "FLAGS": 536870912,
+        "EN": false,
+        "DN": true,
+        "ER": false,
+        "PC": false,
+        "IP": false,
+        "AC": false,
+        "ACCEL": false,
+        "DECEL": false,
+        "TrackingMaster": false,
+        "CalculatedDataAvailable": false,
+        "ERR": 0,
+        "STATUS": 0,
+        "STATE": 0,
+        "SEGMENT": 0,
+        "EXERR": 0
+      }
     },
     {
       "name": "eot_recovery_done",
@@ -632,11 +812,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -891,8 +1071,8 @@
         "TrackingMaster": false,
         "CalculatedDataAvailable": false,
         "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
+        "STATUS": 2,
+        "STATE": 3,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -1023,9 +1203,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 536870912,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1083,11 +1263,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 671088640,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1234,9 +1414,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 536870912,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1294,11 +1474,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 671088640,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1347,9 +1527,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 536870912,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1359,8 +1539,8 @@
         "TrackingMaster": false,
         "CalculatedDataAvailable": false,
         "ERR": 0,
-        "STATUS": 0,
-        "STATE": 0,
+        "STATUS": 2,
+        "STATE": 3,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -1721,5 +1901,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-06-23T21:58:19.275687+00:00"
+  "values_generated_at": "2026-07-16T16:43:25.500853+00:00"
 }

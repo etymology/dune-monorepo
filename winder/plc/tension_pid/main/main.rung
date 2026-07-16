@@ -25,10 +25,7 @@ start_timer wire_undertension_debounce when not wire_tensioned  # preset 10 ms
 
 TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertension_debounce.DN
 
-# PENDING EDIT in Studio
-raw `[XIC(TENSION_CONTROL_OK),XIC(tension_off_ramp_timer.TT)]XIO(Safety_Tripped_S)OTE(Enable_tension_motor)`
-
-Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT) and not Safety_Tripped_S or constant_cv_out
+Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT or constant_cv_out) and not Safety_Tripped_S
 
 start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 3 ms
 
