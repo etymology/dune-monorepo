@@ -399,19 +399,6 @@ class Process:
         self._io.plcLogic.reset()
 
     # ---------------------------------------------------------------------
-    # Phil Heath (PWH)
-    # Added 19/08/2021 for the PLC_Init button
-    #
-    # ---------------------------------------------------------------------
-    def acknowledgePLC_Init(self):
-        #  """
-        #  Request that the winding process init.
-        #  """
-
-        print("Hello World!")
-        self._io.plcLogic.PLC_init()
-
-    # ---------------------------------------------------------------------
     def servoDisable(self):
         self._motionService().servoDisable()
 
