@@ -21,7 +21,7 @@ ramp_start_cv = tension_motor_cv when tension_off_oneshot
 
 start_timer tension_off_ramp_timer when not TENSION_ON_SWITCH  # preset 500 ms
 
-start_timer wire_undertension_debounce when not wire_tensioned  # preset 10 ms
+start_timer wire_undertension_debounce when not wire_tensioned  # preset 20 ms
 
 TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertension_debounce.DN
 
@@ -59,7 +59,7 @@ start_timer tension_stable_timer when abs(tension - tension_setpoint) < tension_
 
 Local:3:O.Pt15.Data = tension > max_tolerable_tension and TENSION_ON_SWITCH
 
-start_timer overtension_timer when tension > max_tolerable_tension and TENSION_ON_SWITCH  # preset 10 ms
+start_timer overtension_timer when tension > max_tolerable_tension and TENSION_ON_SWITCH  # preset 25 ms
 
 MORE_STATS[2] = overtension_timer.DN
 
