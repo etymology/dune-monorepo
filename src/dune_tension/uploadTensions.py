@@ -176,7 +176,7 @@ def upload_tensions(apa_name: str, layer: str, action_id: str) -> UploadResult:
         )
         response = connection.getresponse()
         response.read()  # drain the body so the connection closes cleanly
-        if response.status != 200:
+        if not 200 <= response.status < 300:
             raise ActionNotEditableError(action_id, response.status, response.reason)
     finally:
         connection.close()
