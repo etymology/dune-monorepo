@@ -60,8 +60,7 @@ when STATE5_IND and Z_axis.DriveEnableStatus and Z_FIXED_LATCHED:
         accel          = 10000 units/s2
         decel          = 10000 units/s2
         profile        = s-curve
-        accel_jerk     = 15000
-        decel_jerk     = 12000
+        jerk           = 10000
         merge          = Disabled
         merge_speed    = Programmed
         lock_direction = None
