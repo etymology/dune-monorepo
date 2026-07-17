@@ -61,7 +61,6 @@ class PLC_Logic:
         HOME_LATCH = 6
         LATCH_UNLOCK = 7
         UNSERVO = 8
-        PLC_INIT = 9
         SEEK_XZ = 10
         HMI_STOP_REQUEST = 11
 
@@ -492,15 +491,6 @@ class PLC_Logic:
         self._errorCode.updateFromReadTag(0)
         self._writeTagNow(self._stateRequest.getName(), 0)
         self._stateRequest.updateFromReadTag(0)
-
-    # ---------------------------------------------------------------------
-    # New function for PLC_Init - PWH - September 2021
-    def PLC_init(self):
-        """
-        Initilize PLC logic.
-        """
-
-        self._moveType.set(self.MoveTypes.PLC_INIT)
 
     # ---------------------------------------------------------------------
 

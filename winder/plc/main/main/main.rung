@@ -147,8 +147,6 @@ start_timer blink_off when blink_on.DN  # preset 500 ms
 
 reset blink_on when blink_off.DN
 
-STATE = 0 when INIT_DONE and NEXTSTATE == 0
-
 STATE = 1 when INIT_DONE and NEXTSTATE == 1
 
 STATE = 2 when INIT_DONE and NEXTSTATE == 2

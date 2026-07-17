@@ -465,6 +465,8 @@ unlatch IssueCurPulse when AbortActive
 
 unlatch IssueNextPulse when AbortActive
 
+unlatch WaitCurAxisOn when AbortActive
+
 unlatch WaitNextAxisOn when AbortActive
 
 unlatch QueueStopRequest when AbortActive

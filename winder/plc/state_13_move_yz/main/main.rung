@@ -35,7 +35,7 @@ when STATE13_IND and not X_XFER_OK:
     STATE_REQUEST = 0
     NEXTSTATE = 10
 
-when STATE13_IND and yz_target_support_collision:
+when STATE13_IND and yz_target_support_collision and (yz_position_target[1] > 1 or Z_axis.ActualPosition > 1):
     ERROR_CODE = 5003
     STATE_REQUEST = 0
     NEXTSTATE = 10

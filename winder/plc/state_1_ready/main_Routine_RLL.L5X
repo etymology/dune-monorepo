@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-06-23 11:54:55.168" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-16 11:42:25.755" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="state_1_ready" Class="Standard">
@@ -38,15 +38,10 @@
 </Rung>
 <Rung Number="6" Type="N">
 <Text>
-<![CDATA[XIC(STATE1_IND)EQU(MOVE_TYPE,9)MOV(0,NEXTSTATE);]]>
-</Text>
-</Rung>
-<Rung Number="7" Type="N">
-<Text>
 <![CDATA[XIC(STATE1_IND)NEQ(STATE_REQUEST_ID,STATE_REQUEST_ACK)MOV(STATE_REQUEST_ID,STATE_REQUEST_ACK)MOV(0,STATE_REQUEST_RESULT)MOV(0,STATE_FAULT_FLAGS);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="7" Type="N">
 <Text>
 <![CDATA[XIC(STATE1_IND)NEQ(STATE_REQUEST,0)MOV(1,STATE_REQUEST_RESULT)MOV(STATE_REQUEST,NEXTSTATE);]]>
 </Text>

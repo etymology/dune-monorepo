@@ -1396,11 +1396,6 @@ def build_command_registry(
         return process.maxVelocity(value)
 
     registry.register("process.max_velocity", process_max_velocity, True)
-    registry.register(
-        "process.acknowledge_plc_init",
-        lambda args: (_validateArgs(args), process.acknowledgePLC_Init())[1],
-        True,
-    )
 
     def log_get_all(args):
         _validateArgs(args, optional=("number_of_lines",))

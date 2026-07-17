@@ -64,7 +64,6 @@ class LadderSimulatedPLC(SimulatedPLC):
         SimulatedPLC.MOVE_HOME_LATCH: SimulatedPLC.STATE_LATCH_HOMEING,
         SimulatedPLC.MOVE_LATCH_UNLOCK: SimulatedPLC.STATE_LATCH_RELEASE,
         SimulatedPLC.MOVE_UNSERVO: SimulatedPLC.STATE_UNSERVO,
-        SimulatedPLC.MOVE_PLC_INIT: SimulatedPLC.STATE_INIT,
         SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
         SimulatedPLC.MOVE_SEEK_YZ: SimulatedPLC.STATE_YZ_SEEK,
         SimulatedPLC.MOVE_HMI_STOP_REQUEST: SimulatedPLC.STATE_HMI_STOP,
@@ -467,7 +466,6 @@ class LadderSimulatedPLC(SimulatedPLC):
         if resolvedProgramName == "init" and routineName == "main":
             if (
                 int(self._ctx.get_value("STATE")) != self.STATE_INIT
-                and int(self._ctx.get_value("MOVE_TYPE")) != self.MOVE_PLC_INIT
                 and bool(self._ctx.get_value("INIT_DONE"))
             ):
                 return

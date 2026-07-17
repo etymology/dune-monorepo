@@ -200,6 +200,7 @@ class GCodeHandler(GCodeHandlerBase):
             isError = False
             self._nextLine = line
             self._currentLine = line
+            self._stopStepBackApplied = False
             if self._lineChangeCallback:
                 self._lineChangeCallback()
 
@@ -846,6 +847,15 @@ class GCodeHandler(GCodeHandlerBase):
         """
 
         self._stopNextMove = False
+
+        # A single stop transitions Wind -> Stop, which invokes stop() twice
+        # (StopMode.enter() then WindMode.exit()).  The line step-back below must
+        # only be applied once per stop, otherwise the second call steps back an
+        # extra line and the next "step" re-runs the previous line instead of
+        # retrying the interrupted one.  The flag is cleared whenever a line is
+        # actually (re)launched (see poll() / setLine()).
+        stepBackDone = self._stopStepBackApplied
+
         if self._queued_preview is not None:
             self._queued_block_start_line = int(
                 self._queued_preview.block["start_line"]
@@ -855,7 +865,9 @@ class GCodeHandler(GCodeHandlerBase):
             )
             self._queued_preview = None
             self._queued_stop_mode = None
-            self._nextLine = self._queued_block_start_line - self._direction
+            if not stepBackDone:
+                self._nextLine = self._queued_block_start_line - self._direction
+                self._stopStepBackApplied = True
             return
 
         if self._queued_session is not None:
@@ -865,17 +877,24 @@ class GCodeHandler(GCodeHandlerBase):
                 self._io.plcLogic.queuedMotion.set_stop_request(True)
             self._queued_session = None
             self._queued_stop_mode = None
-            if self._queued_block_start_line is not None and self._direction is not None:
+            if (
+                not stepBackDone
+                and self._queued_block_start_line is not None
+                and self._direction is not None
+            ):
                 self._nextLine = self._queued_block_start_line - self._direction
+                self._stopStepBackApplied = True
             return
 
         # If we are interrupting a running line, set it as the next line to run.
         if (
-            not self._io.plcLogic.isReady()
+            not stepBackDone
+            and not self._io.plcLogic.isReady()
             and self._nextLine is not None
             and self._direction is not None
         ):
             self._nextLine -= self._direction
+            self._stopStepBackApplied = True
 
     # ---------------------------------------------------------------------
     def stopNext(self):
@@ -1204,6 +1223,10 @@ class GCodeHandler(GCodeHandlerBase):
                         self._pauseCount += 1
                     else:
                         self._pauseCount = 0
+                        # A fresh line is being launched: any pending stop
+                        # step-back has now been consumed, so re-arm it for the
+                        # next interrupt.
+                        self._stopStepBackApplied = False
                         next_line = self._nextLine
                         direction = self._direction
                         if next_line is not None and direction is not None:
@@ -1686,6 +1709,7 @@ class GCodeHandler(GCodeHandlerBase):
         self._positionLog = None
 
         self._stopNextMove = False
+        self._stopStepBackApplied = False
         self.singleStep = False
         self._beforeExecuteLineCallback = None
         self._lineChangeCallback = None

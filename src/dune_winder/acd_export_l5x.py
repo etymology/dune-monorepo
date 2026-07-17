@@ -53,6 +53,7 @@ import argparse
 import hashlib
 import json
 import re
+import sqlite3
 import struct
 import sys
 import tempfile
@@ -189,10 +190,67 @@ def _build_database(acd_file: Path, temp_dir: str):
 
     Returns the exporter; callers must close ``exporter._db`` so the
     temporary directory can be removed on Windows.
-    """
-    from acd.l5x.export_l5x import ExportL5x
 
-    return ExportL5x(acd_file, _temp_dir=temp_dir)
+    We subclass acd-tools' ``ExportL5x`` to fix its two quadratic hot spots
+    rather than pay them (stock extraction is ~46s; this is ~2s, verified
+    byte-identical on the comps/rungs/region_map tables):
+
+    - ``CompsRecord`` issues ``DELETE FROM comps WHERE object_id=?`` before
+      every insert, and ``SbRegionRecord`` issues ``SELECT ... WHERE
+      object_id=?`` for every tag operand it resolves. With no index those
+      are full scans of a 15k-row / 10 MB table, so comps load is O(n^2)
+      (~26s) and rung load O(rungs*operands) (~20s). A single index on
+      ``comps(object_id)``, created before either table is loaded, turns
+      both into lookups.
+    - ``Comments.Dat`` and ``Nameless.Dat`` are parsed by stock ExportL5x
+      but nothing here reads the ``comments``/``nameless`` tables, so we
+      skip them (and their tables) entirely.
+
+    The one piece of raw binary parsing (``populate_region_map``) is reused
+    from the base class unchanged.
+    """
+    from acd.database.dbextract import DbExtract
+    from acd.l5x.export_l5x import ExportL5x
+    from acd.record.comps import CompsRecord
+    from acd.record.sbregion import SbRegionRecord
+    from acd.zip.unzip import Unzip
+
+    class _FastExportL5x(ExportL5x):
+        def __post_init__(self) -> None:
+            db_path = Path(self._temp_dir) / "acd.db"
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            db_path.unlink(missing_ok=True)
+            self._db = sqlite3.connect(db_path)
+            self._cur = self._db.cursor()
+            self._cur.execute(
+                "CREATE TABLE comps(object_id int, parent_id int, comp_name text,"
+                " seq_number int, record_type int, record BLOB NOT NULL)"
+            )
+            self._cur.execute(
+                "CREATE TABLE rungs(object_id int, rung text, seq_number int)"
+            )
+            self._cur.execute(
+                "CREATE TABLE region_map(object_id int, parent_id int, unknown int,"
+                " seq_no int, record BLOB NOT NULL)"
+            )
+            # Must exist before comps/SbRegion load — see _build_database docstring.
+            self._cur.execute("CREATE INDEX ix_comps_object_id ON comps(object_id)")
+
+            Unzip(self.input_filename).write_files(self._temp_dir)
+
+            comps_db = DbExtract(str(Path(self._temp_dir) / "Comps.Dat")).read()
+            for record in comps_db.records.record:
+                CompsRecord(self._cur, record)
+            self._db.commit()
+
+            self.populate_region_map()
+
+            sb_region_db = DbExtract(str(Path(self._temp_dir) / "SbRegion.Dat")).read()
+            for record in sb_region_db.records.record:
+                SbRegionRecord(self._cur, record)
+            self._db.commit()
+
+    return _FastExportL5x(acd_file, _temp_dir=temp_dir)
 
 
 def _software_revision(temp_dir: str) -> str:
@@ -690,7 +748,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.acd_file.exists():
         parser.error(f"ACD file not found: {args.acd_file}")
 
-    print(f"Reading {args.acd_file} (extracting internal databases, ~1 min)...")
+    print(f"Reading {args.acd_file} (extracting internal databases)...")
     provenance = acd_provenance(args.acd_file)
     if provenance["last_saved"]:
         print(
