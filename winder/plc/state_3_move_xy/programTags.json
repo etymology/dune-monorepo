@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "plc_path": "192.168.140.13",
+  "plc_path": null,
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "8ad5b334d4476bd65072609d91dd29a50084e65cb222f1f135385a10bd5027d5",
-    "size": 4473358,
-    "last_saved": "2026-07-16 11:42:25.755",
+    "sha256": "010c14ff9031689cc05f652e0f9c8b37fdefdf0b816c741ab309a3e4cf740925",
+    "size": 4488632,
+    "last_saved": "2026-07-17 13:42:32.663",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 151
+    "save_log_entries": 152
   },
   "program_name": "state_3_move_xy",
   "main_routine_name": "main",
@@ -239,7 +239,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6530.3994140625
+      "value": 0.003800000064074993
     },
     {
       "name": "dy",
@@ -253,7 +253,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.8983001708984375
+      "value": 0.9591000080108643
     },
     {
       "name": "d_raw",
@@ -295,7 +295,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.12633223831653595
+      "value": 625.5864868164062
     },
     {
       "name": "main_xy_move",
@@ -311,7 +311,7 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -454,7 +454,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 650.1497802734375
+      "value": 600.0046997070312
     },
     {
       "name": "regulator_loop_timer",
@@ -531,7 +531,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 635.0004272460938
+      "value": 0.003800000064074993
     },
     {
       "name": "starting_y",
@@ -545,7 +545,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 70.19830322265625
+      "value": 0.9591000080108643
     },
     {
       "name": "STATE3_IND",
@@ -574,7 +574,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "description": "Calculate the distance required to perform a jerk-limited stop at the gurrent jerk, acceleration, and speed",
-      "value": 0.020784610882401466
+      "value": 0.0011694105342030525
     },
     {
       "name": "stopping_ratio",
@@ -588,7 +588,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1.317932969868707e-06
+      "value": 0.27115729451179504
     },
     {
       "name": "trigger_xy_move",
@@ -616,7 +616,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 825.0
+      "value": 600.0046997070312
     },
     {
       "name": "xy_accel_jerk",
@@ -658,7 +658,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": false
+      "value": true
     },
     {
       "name": "xy_decel_jerk",
@@ -672,7 +672,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3000
+      "value": 1300
     },
     {
       "name": "xy_default_speed",
@@ -700,7 +700,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 7175.7939453125
+      "value": 0.005939696915447712
     },
     {
       "name": "xy_dt",
@@ -787,7 +787,7 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 50,
-        "ACC": 10,
+        "ACC": 7,
         "EN": true,
         "TT": true,
         "DN": false
@@ -851,7 +851,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 8.3090238571167
+      "value": 2.512362480163574
     },
     {
       "name": "xy_error_prev",
@@ -865,7 +865,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 6.9524078369140625
+      "value": 2.512362480163574
     },
     {
       "name": "xy_i_term",
@@ -879,7 +879,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 650.1497802734375
+      "value": 600.4362182617188
     },
     {
       "name": "xy_kd",
@@ -1005,7 +1005,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3000
+      "value": 800
     },
     {
       "name": "x_axis_mso",
@@ -1021,9 +1021,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 570425344,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1034,7 +1034,7 @@
         "CalculatedDataAvailable": false,
         "ERR": 0,
         "STATUS": 0,
-        "STATE": 0,
+        "STATE": 1,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -1051,7 +1051,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -7175.35546875
+      "value": 0.00430000014603138
     },
     {
       "name": "x_time",
@@ -1065,7 +1065,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.12633223831653595
+      "value": 217105.265625
     },
     {
       "name": "y_axis_mso",
@@ -1081,9 +1081,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 570425344,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1094,7 +1094,7 @@
         "CalculatedDataAvailable": false,
         "ERR": 0,
         "STATUS": 0,
-        "STATE": 0,
+        "STATE": 1,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -1111,7 +1111,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -79.2311019897461
+      "value": -0.00419999985024333
     },
     {
       "name": "y_time",
@@ -1125,7 +1125,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 667.9281616210938
+      "value": 625.5864868164062
     },
     {
       "name": "z_axis_mso",
@@ -1141,7 +1141,7 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 0,
         "EN": false,
         "DN": false,
         "ER": false,
@@ -1154,7 +1154,7 @@
         "CalculatedDataAvailable": false,
         "ERR": 0,
         "STATUS": 0,
-        "STATE": 0,
+        "STATE": 1,
         "SEGMENT": 0,
         "EXERR": 0
       }
@@ -1173,11 +1173,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_3_move_xy",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 671088640,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1192,5 +1192,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-07-16T16:43:25.500853+00:00"
+  "values_generated_at": "2026-07-17T18:47:44.024397+00:00"
 }

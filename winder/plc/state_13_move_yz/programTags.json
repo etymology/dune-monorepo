@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "plc_path": "192.168.140.13",
+  "plc_path": null,
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "8ad5b334d4476bd65072609d91dd29a50084e65cb222f1f135385a10bd5027d5",
-    "size": 4473358,
-    "last_saved": "2026-07-16 11:42:25.755",
+    "sha256": "010c14ff9031689cc05f652e0f9c8b37fdefdf0b816c741ab309a3e4cf740925",
+    "size": 4488632,
+    "last_saved": "2026-07-17 13:42:32.663",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 151
+    "save_log_entries": 152
   },
   "program_name": "state_13_move_yz",
   "main_routine_name": "main",
@@ -327,11 +327,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_13_move_yz",
       "value": {
-        "FLAGS": 33554432,
+        "FLAGS": 704643072,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -434,5 +434,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-07-16T16:43:25.500853+00:00"
+  "values_generated_at": "2026-07-17T18:47:44.024397+00:00"
 }
