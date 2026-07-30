@@ -1,0 +1,5 @@
+APA-US-012 - Layer V, Side A:
+  Missing wire_numbers: 1146
+APA-US-012 - Layer V, Side B:
+  Missing wire_numbers: 8, 9, 10, 11
+

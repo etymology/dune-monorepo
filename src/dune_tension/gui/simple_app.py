@@ -264,6 +264,9 @@ def _create_widgets(
     btn_refresh_connections = tk.Button(main_frame, text="Refresh Connections")
     btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
 
+    btn_help = tk.Button(main_frame, text="Help")
+    btn_help.grid(row=6, column=0, sticky="ew", pady=(3, 0))
+
     # APA controls
     tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
     apa_location_var = tk.StringVar(apa_frame, value="US")
@@ -507,6 +510,7 @@ def _create_widgets(
         "capture_laser_offset": btn_capture_laser_offset,
         "manual_move": btn_move,
         "trigger_air_pulse": btn_trigger_air_pulse,
+        "help": btn_help,
     }
     extras = {
         "gcode_entry": entry_gcode,
@@ -528,6 +532,90 @@ def _create_widgets(
         waveform_plot_frame,
         extras,
     )
+
+
+def show_help_dialog(ctx: GUIContext) -> None:
+    """Open a modal help window describing the X/G and U/V measurement workflows.
+
+    Both workflows are shown; the section matching the currently-selected Layer
+    is highlighted and scrolled into view so the operator sees the relevant
+    steps first.
+    """
+
+    window = tk.Toplevel(ctx.root)
+    window.title("Tensiometer GUI Help")
+    window.geometry("640x600")
+    try:
+        window.transient(cast(tk.Wm, ctx.root))
+        window.grab_set()
+    except Exception:
+        pass
+
+    text_frame = tk.Frame(window)
+    text_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+    scrollbar = tk.Scrollbar(text_frame, orient="vertical")
+    scrollbar.pack(side="right", fill="y")
+
+    text = tk.Text(text_frame, wrap="word", yscrollcommand=scrollbar.set)
+    text.pack(side="left", fill="both", expand=True)
+    scrollbar.configure(command=text.yview)
+
+    text.tag_configure("title", font=("TkDefaultFont", 11, "bold"))
+    text.tag_configure("heading", font=("TkDefaultFont", 10, "bold"))
+    text.tag_configure("active", background="#fff3b0")
+
+    layer = ctx.widgets.layer_var.get().strip().upper()
+    xg_active = layer in ("X", "G")
+    uv_active = layer in ("U", "V")
+
+    text.insert("end", "Tensiometer GUI Help\n\n", "title")
+
+    text.insert("end", "Before you measure (both layers)\n", "heading")
+    text.insert(
+        "end",
+        "  • Make sure the pogo pins are making contact.\n"
+        "  • Make sure the USB is connected to the USB port nearer to the "
+        "user.\n"
+        "  • Make sure the air is connected.\n"
+        "  • If the wires are not seated in the combs, use capos or comb jigs "
+        "to hold them in place.\n\n",
+    )
+
+    xg_tags = ("heading", "active") if xg_active else ("heading",)
+    xg_start = text.index("end")
+    text.insert("end", "X / G layers\n", xg_tags)
+    text.insert(
+        "end",
+        "  1. Move the tensiometer laser to the lowest wire on that side.\n"
+        "  2. Click “Measure Calibrate”.\n"
+        "  3. To measure the rest of the side, click “Measure All”.\n\n",
+        ("active",) if xg_active else (),
+    )
+
+    uv_tags = ("heading", "active") if uv_active else ("heading",)
+    uv_start = text.index("end")
+    text.insert("end", "U / V layers\n", uv_tags)
+    text.insert(
+        "end",
+        "  1. Make sure the calibration on the desktop is up to date.\n"
+        "  2. Move the laser over either the first (headmost) or last "
+        "(footmost) pin on the lower edge of the APA, then click "
+        "“Capture Laser Offset”.\n"
+        "  3. Start measuring by entering wire ranges into the Wire(s) field, "
+        "e.g. 1146-8 or 8-200 (measured in the order given).\n"
+        "  4. The full range of wires to measure is 8-1146.\n\n",
+        ("active",) if uv_active else (),
+    )
+
+    if uv_active:
+        text.see(uv_start)
+    elif xg_active:
+        text.see(xg_start)
+
+    text.configure(state="disabled")
+
+    tk.Button(window, text="Close", command=window.destroy).pack(pady=(0, 8))
 
 
 def _measure_calibrate_single(ctx: GUIContext) -> None:
@@ -578,6 +666,7 @@ def _configure_commands(
     gcode_entry.bind("<Return>", lambda _event: _run_gcode_move())
 
     buttons["trigger_air_pulse"].configure(command=lambda: trigger_air_pulse(ctx))
+    buttons["help"].configure(command=lambda: show_help_dialog(ctx))
 
     monitor_photodiode_var = cast(tk.BooleanVar, extras["monitor_photodiode_var"])
     extras["monitor_photodiode_chk"].configure(

@@ -1050,10 +1050,7 @@ class Tensiometer:
         low_y = float(center_y - self.sweeping_wiggle_span_mm)
         high_y = float(center_y + self.sweeping_wiggle_span_mm)
         record_duration = max(float(self.config.record_duration), 1e-6)
-        sweep_speed_mm_s = max(
-            (float(self.sweeping_wiggle_span_mm) / record_duration) * 2.0,
-            1e-3,
-        )
+        sweep_speed_mm_s = max(float(self.sweeping_wiggle_span_mm * 2), 1e-3)
 
         def _run() -> None:
             target_y = high_y
