@@ -1,0 +1,36 @@
+#gCodeErrorArticle
+{
+  max-width: 700px;
+}
+
+#gCodeErrorArticle h2
+{
+  color: red;
+}
+
+/* The MASTER_Z_GO diagnosis is a multi-line, column-aligned block, so keep the
+   whitespace and use a monospace face. */
+#gCodeErrorMessage
+{
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+  margin: 0.5em 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+#gCodeErrorLocation
+{
+  font-style: italic;
+}
+
+#gCodeErrorDismissButton
+{
+  display: block;
+  width: 100px;
+  height: 50px;
+  margin: auto;
+  clear: both;
+}

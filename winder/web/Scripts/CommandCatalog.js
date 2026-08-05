@@ -25,6 +25,8 @@
       seekPin: "process.seek_pin",
       setAnchorPoint: "process.set_anchor_point",
       acknowledgeError: "process.acknowledge_error",
+      getGCodeError: "process.get_gcode_error",
+      acknowledgeGCodeError: "process.acknowledge_gcode_error",
       servoDisable: "process.servo_disable",
       eotRecover: "process.eot_recover",
       maxVelocity: "process.max_velocity",
