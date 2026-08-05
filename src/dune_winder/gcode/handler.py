@@ -1441,6 +1441,43 @@ class GCodeHandler(GCodeHandlerBase):
         return self._isG_CodeErrorData
 
     # ---------------------------------------------------------------------
+    def latchG_CodeError(self):
+        """
+        Preserve the current G-Code error for later operator acknowledgement.
+
+        A wind clears the error as soon as it has logged it, which leaves
+        nothing for the UI to poll.  Latching keeps a copy alive until the
+        operator dismisses it.
+        """
+        if not self._isG_CodeError:
+            return
+
+        self._latchedG_CodeError = {
+            "message": self._isG_CodeErrorMessage,
+            "data": list(self._isG_CodeErrorData),
+        }
+
+    # ---------------------------------------------------------------------
+    def getLatchedG_CodeError(self):
+        """
+        The latched G-Code error, or None when nothing is awaiting acknowledgement.
+        """
+        if self._latchedG_CodeError is None:
+            return None
+
+        return {
+            "message": self._latchedG_CodeError["message"],
+            "data": list(self._latchedG_CodeError["data"]),
+        }
+
+    # ---------------------------------------------------------------------
+    def clearLatchedG_CodeError(self):
+        """
+        Discard the latched G-Code error after the operator has acknowledged it.
+        """
+        self._latchedG_CodeError = None
+
+    # ---------------------------------------------------------------------
     def getQueuedMotionPreview(self):
         if self._queued_preview is None:
             return None
@@ -1859,6 +1896,7 @@ class GCodeHandler(GCodeHandlerBase):
         self._isG_CodeError = False
         self._isG_CodeErrorMessage = ""
         self._isG_CodeErrorData = []
+        self._latchedG_CodeError = None
         self._queued_session = None
         self._queued_block_start_line = None
         self._queued_block_resume_line = None

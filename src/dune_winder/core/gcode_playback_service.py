@@ -245,6 +245,20 @@ class GCodePlaybackService:
 
         return isError
 
+    # -- latched error -------------------------------------------------------
+
+    def getG_CodeError(self):
+        """
+        The G-Code error awaiting operator acknowledgement, or None.
+        """
+        return self._gCodeHandler.getLatchedG_CodeError()
+
+    def acknowledgeG_CodeError(self):
+        """
+        Dismiss the latched G-Code error.
+        """
+        self._gCodeHandler.clearLatchedG_CodeError()
+
     # -- loop / velocity scale -----------------------------------------------
 
     def getG_CodeLoop(self):

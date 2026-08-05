@@ -255,6 +255,7 @@ class DummyProcess:
         self.queuedMotionUseMaxSpeed = False
         self.queuedPreviewContinued = False
         self.queuedPreviewCancelled = False
+        self.latchedG_CodeError = None
         self.controlStateMachine = DummyControlState()
         self.gCodeHandler = DummyGCodeHandler()
         self.vTemplateRecipe = DummyTemplateRecipe()
@@ -330,6 +331,13 @@ class DummyProcess:
         return False
 
     def acknowledgeError(self):
+        return None
+
+    def getG_CodeError(self):
+        return self.latchedG_CodeError
+
+    def acknowledgeG_CodeError(self):
+        self.latchedG_CodeError = None
         return None
 
     def servoDisable(self):

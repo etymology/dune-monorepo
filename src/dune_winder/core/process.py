@@ -697,6 +697,14 @@ class Process:
         return self._playbackService().executeG_CodeLine(line)
 
     # ---------------------------------------------------------------------
+    def getG_CodeError(self):
+        return self._playbackService().getG_CodeError()
+
+    # ---------------------------------------------------------------------
+    def acknowledgeG_CodeError(self):
+        return self._playbackService().acknowledgeG_CodeError()
+
+    # ---------------------------------------------------------------------
     def getRealXPosition(self):
         return self._xBacklash.getEffectiveX(self._io.xAxis.getPosition())
 
