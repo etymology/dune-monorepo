@@ -1186,7 +1186,7 @@ function Calibrate(modules)
           {},
           function()
           {
-            setMessage( "Started a clean-APA draft from nominal geometry.", "success" )
+            setMessage( "Started a clean-APA draft from measured-APA best-fit nominal geometry.", "success" )
             refreshStateOnce( function() { refreshPrediction( true ) } )
           }
         )
