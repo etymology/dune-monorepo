@@ -168,8 +168,12 @@ class GCodePlaybackService:
             pins.append(
                 {
                     "name": str(pin_name),
-                    "x": float(getattr(location, "x", 0.0)) + offset_x + camera_offset_x,
-                    "y": float(getattr(location, "y", 0.0)) + offset_y + camera_offset_y,
+                    "x": float(getattr(location, "x", 0.0))
+                    + offset_x
+                    + camera_offset_x,
+                    "y": float(getattr(location, "y", 0.0))
+                    + offset_y
+                    + camera_offset_y,
                     "z": float(getattr(location, "z", 0.0)) + offset_z,
                 }
             )
@@ -499,26 +503,30 @@ class GCodePlaybackService:
                     if isRelativeXYMove:
                         y += yPosition
 
-                if cmd and cmd[0] in ("F", "A") and re.match(
-                    "|".join(
-                        [
-                            xyf,
-                            fxy,
-                            xf,
-                            fx,
-                            yf,
-                            fy,
-                            xzf,
-                            fxz,
-                            zf,
-                            fz,
-                            gxyf,
-                            gx_yf,
-                            f_only,
-                            a_only,
-                        ]
-                    ),
-                    line,
+                if (
+                    cmd
+                    and cmd[0] in ("F", "A")
+                    and re.match(
+                        "|".join(
+                            [
+                                xyf,
+                                fxy,
+                                xf,
+                                fx,
+                                yf,
+                                fy,
+                                xzf,
+                                fxz,
+                                zf,
+                                fz,
+                                gxyf,
+                                gx_yf,
+                                f_only,
+                                a_only,
+                            ]
+                        ),
+                        line,
+                    )
                 ):
                     velocity = float(cmd[1:])
                     if velocity < 0 or velocity > self._safety.max_velocity:

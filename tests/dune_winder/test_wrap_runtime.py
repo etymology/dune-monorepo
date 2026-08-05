@@ -454,9 +454,7 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertEqual(plan.face, "top")
 
         baseline_moves = len(io.plcLogic.xy_moves)
-        error = handler.executeG_CodeLine(
-            "~anchorToTarget(B2001,A800,inTwoMoves=True)"
-        )
+        error = handler.executeG_CodeLine("~anchorToTarget(B2001,A800,inTwoMoves=True)")
 
         self.assertIsNone(error)
         while handler._dispatch_pending_actions(safety_label="manual"):
@@ -486,9 +484,7 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertEqual(plan.face, "bottom")
 
         baseline_moves = len(io.plcLogic.xy_moves)
-        error = handler.executeG_CodeLine(
-            "~anchorToTarget(A2401,B401,inTwoMoves=True)"
-        )
+        error = handler.executeG_CodeLine("~anchorToTarget(A2401,B401,inTwoMoves=True)")
 
         self.assertIsNone(error)
         while handler._dispatch_pending_actions(safety_label="manual"):
@@ -662,9 +658,7 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertGreater(
             float(plan.final_xy.y), float(machine_calibration.transferTop)
         )
-        self.assertLess(
-            float(plan.target_tangent_point.y), float(plan.final_xy.y)
-        )
+        self.assertLess(float(plan.target_tangent_point.y), float(plan.final_xy.y))
 
     def test_anchor_to_target_rejects_mixed_face_alternating_pair(self):
         handler, _io, _machine_calibration, _layer_calibration = self._build_handler(

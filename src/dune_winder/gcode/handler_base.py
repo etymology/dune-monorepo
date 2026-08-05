@@ -700,14 +700,13 @@ class GCodeHandlerBase:
         if plan.same_side:
             prep_transfer = False
             if head_present and self._x is not None and self._y is not None:
-                in_transfer_zone = (
-                    float(self._machineCalibration.transferLeft)
-                    <= float(self._x)
-                    <= float(self._machineCalibration.transferRight)
-                    and float(self._machineCalibration.transferBottom)
-                    <= float(self._y)
-                    <= float(self._machineCalibration.transferTop)
-                )
+                in_transfer_zone = float(
+                    self._machineCalibration.transferLeft
+                ) <= float(self._x) <= float(
+                    self._machineCalibration.transferRight
+                ) and float(self._machineCalibration.transferBottom) <= float(
+                    self._y
+                ) <= float(self._machineCalibration.transferTop)
                 near_target = (
                     abs(float(self._x) - float(final_xy.x))
                     <= _SAME_SIDE_PREP_TRANSFER_XY_TOLERANCE_MM
@@ -743,9 +742,7 @@ class GCodeHandlerBase:
                 and self._y is not None
             )
             if should_split:
-                self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(self._y)
-                )
+                self._append_pending_action("xy", x=float(final_xy.x), y=float(self._y))
                 self._append_pending_action(
                     "xy", x=float(final_xy.x), y=float(final_xy.y)
                 )

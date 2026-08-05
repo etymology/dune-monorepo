@@ -816,7 +816,9 @@ class GCodeHandler(GCodeHandlerBase):
             self._isG_CodeErrorMessage = session.error
             self._isG_CodeErrorData = [
                 self._queued_block_start_line,
-                gCode.lines[self._queued_block_start_line] if gCode is not None else None,
+                gCode.lines[self._queued_block_start_line]
+                if gCode is not None
+                else None,
             ]
             self._queued_session = None
             self._queued_stop_mode = None
@@ -910,7 +912,10 @@ class GCodeHandler(GCodeHandlerBase):
             )
             self._queued_preview = None
             self._queued_stop_mode = None
-            if self._queued_block_start_line is not None and self._direction is not None:
+            if (
+                self._queued_block_start_line is not None
+                and self._direction is not None
+            ):
                 self._nextLine = self._queued_block_start_line - self._direction
             self._stopNextMove = True
             return
@@ -921,7 +926,10 @@ class GCodeHandler(GCodeHandlerBase):
             self._io.plcLogic.queuedMotion.set_abort(False)
             self._queued_session = None
             self._queued_stop_mode = None
-            if self._queued_block_start_line is not None and self._direction is not None:
+            if (
+                self._queued_block_start_line is not None
+                and self._direction is not None
+            ):
                 self._nextLine = self._queued_block_start_line - self._direction
             self._stopNextMove = True
             return
