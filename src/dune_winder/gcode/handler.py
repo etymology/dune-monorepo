@@ -38,6 +38,11 @@ from dune_winder.queued_motion.segment_patterns import (
     DEFAULT_V_Y_MAX,
     DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
 )
+from dune_winder.core.master_z_go import (
+    evaluate_master_z_go,
+    format_master_z_go_message,
+    master_z_go_is_ready,
+)
 from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
@@ -119,6 +124,111 @@ class GCodeHandler(GCodeHandlerBase):
     # ---------------------------------------------------------------------
     def _isHeadPresent(self):
         return self._io.head.readCurrentPosition() != Head.HEAD_ABSENT
+
+    # ---------------------------------------------------------------------
+    def _readTransferWindowState(self):
+        """
+        Live X_XFER_OK / Y_XFER_OK, preferring a fresh PLC read.
+
+        Falls back to the polled BaseIO inputs (and finally to False) so test
+        doubles and reduced IO maps stay usable.
+        """
+        plcLogic = getattr(self._io, "plcLogic", None)
+        if plcLogic is not None and hasattr(plcLogic, "getTransferWindowStateNow"):
+            try:
+                window = plcLogic.getTransferWindowStateNow()
+                return (
+                    bool(window["xTransferOk"]),
+                    bool(window["yTransferOk"]),
+                )
+            except Exception:
+                pass
+
+        def _input_enabled(name):
+            io_point = getattr(self._io, name, None)
+            if io_point is None or not hasattr(io_point, "get"):
+                return False
+            try:
+                return bool(io_point.get())
+            except Exception:
+                return False
+
+        return (_input_enabled("X_Transfer_OK"), _input_enabled("Y_Transfer_OK"))
+
+    # ---------------------------------------------------------------------
+    def _axis_position(self, name, fallback):
+        axis = getattr(self._io, name, None)
+        if axis is None or not hasattr(axis, "getPosition"):
+            return float(fallback or 0.0)
+        try:
+            return float(axis.getPosition())
+        except Exception:
+            return float(fallback or 0.0)
+
+    # ---------------------------------------------------------------------
+    def _requireHeadTransferReady(self, data):
+        """
+        Reject a head transfer that the machine cannot start.
+
+        Silent when no head is mounted -- that is a legitimate no-head run and
+        the interpreter skips the transfer as before.  When a head *is* mounted
+        but is not resting on a clean transfer side, the PLC's MASTER_Z_GO
+        interlock would refuse the Z move (ERROR_CODE 5001), so raise a
+        descriptive error instead of quietly degrading to an XY-only move.
+        """
+        head = getattr(self._io, "head", None)
+        if head is None or not hasattr(head, "getTransferAvailability"):
+            return
+
+        availability, transfer_state = head.getTransferAvailability()
+        if availability != Head.TRANSFER_BLOCKED:
+            return
+
+        latch_detail = ""
+        if hasattr(head, "describeLatchConflict"):
+            latch_detail = str(head.describeLatchConflict(transfer_state))
+
+        x_transfer_ok, y_transfer_ok = self._readTransferWindowState()
+        terms = evaluate_master_z_go(
+            transfer_state=transfer_state,
+            x_transfer_ok=x_transfer_ok,
+            y_transfer_ok=y_transfer_ok,
+            x_position=self._axis_position("xAxis", self._x),
+            y_position=self._axis_position("yAxis", self._y),
+            limits=self._motion_safety_limits(),
+            collision_state=self._queued_motion_collision_state(),
+            latch_detail=latch_detail,
+        )
+
+        state_summary = self._transfer_state_summary(transfer_state)
+
+        if master_z_go_is_ready(terms) and latch_detail:
+            # Every MASTER_Z_GO conjunct holds, yet the head is not on a clean
+            # side (for example both latches engaged, or stage-latched with the
+            # wrong ACTUATOR_POS).  Naming MASTER_Z_GO here would be misleading,
+            # so report the latch conflict on its own.
+            message = (
+                "Head transfer blocked: the head is mounted but not resting on a "
+                "known transfer side -- " + latch_detail + "."
+            )
+            if state_summary:
+                message += "\n" + state_summary
+            raise GCodeExecutionError(message, list(data))
+
+        raise GCodeExecutionError(
+            format_master_z_go_message(terms, state_summary=state_summary),
+            list(data),
+        )
+
+    # ---------------------------------------------------------------------
+    def _transfer_state_summary(self, transfer_state):
+        head = getattr(self._io, "head", None)
+        if head is not None and hasattr(head, "_formatTransferState"):
+            try:
+                return str(head._formatTransferState(transfer_state))
+            except Exception:
+                pass
+        return ""
 
     # ---------------------------------------------------------------------
     def isDone(self):

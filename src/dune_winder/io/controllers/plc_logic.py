@@ -431,6 +431,23 @@ class PLC_Logic:
         }
 
     # ---------------------------------------------------------------------
+    def getTransferWindowStateNow(self):
+        """
+        Read the X/Y transfer-window tags immediately without cached poll state.
+
+        These are the `no_apa_collision` inputs of the PLC MASTER_Z_GO rung
+        (winder/plc/state_5_move_z/main/main.rung).
+
+        Returns:
+          Dictionary with the current live X_XFER_OK / Y_XFER_OK values.
+        """
+        values = self._readTagsNow([self._xTransferOk, self._yTransferOk])
+        return {
+            "xTransferOk": bool(values[self._xTransferOk.getName()]),
+            "yTransferOk": bool(values[self._yTransferOk.getName()]),
+        }
+
+    # ---------------------------------------------------------------------
     def move_latch(self):
         """
         Request a latch transition through the PLC move-type state machine.

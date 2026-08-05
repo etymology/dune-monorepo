@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.geometry.primitives.location import Location
+from dune_winder.io.controllers.head import Head
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
@@ -80,6 +81,37 @@ class _Head:
         self.transfer_moves = []
         self.front_back = None
         self.position = 0
+        # Mirrors the real Head: derived from `position` unless a test pins it.
+        # Set to Head.TRANSFER_BLOCKED to exercise the latch-conflict preflight.
+        self.availability = None
+        self.transfer_state = {
+            "stagePresent": False,
+            "fixedPresent": True,
+            "stageLatched": False,
+            "fixedLatched": True,
+            "zExtended": False,
+            "enableActuator": False,
+            "actuatorPos": 3,
+            "zPosition": 0.0,
+        }
+        self.latch_conflict = (
+            "fixed-latched, ACTUATOR_POS=3 (needs 2, mid_engagement, before the "
+            "arm can extend)"
+        )
+
+    def getTransferAvailability(self):
+        if self.availability is not None:
+            return (self.availability, dict(self.transfer_state))
+        if int(self.position) == Head.HEAD_ABSENT:
+            return (Head.TRANSFER_ABSENT, dict(self.transfer_state))
+        return (Head.TRANSFER_READY, dict(self.transfer_state))
+
+    def describeLatchConflict(self, state):
+        del state
+        return self.latch_conflict
+
+    def _formatTransferState(self, state):
+        return "actuatorPos=" + str(int(state["actuatorPos"]))
 
     def isReady(self):
         return True
@@ -905,6 +937,148 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertEqual(io.head.moves, [])
         self.assertEqual(handler._headPosition, initial_head_position)
         self.assertFalse(handler.isG_CodeError())
+
+
+class HeadTransferBlockedTests(unittest.TestCase):
+    """
+    A head that is mounted but sits in a conflicting latch position must fault
+    loudly rather than degrade to a bare XY move.  This is the case the PLC
+    would refuse with MASTER_Z_GO / ERROR_CODE 5001.
+    """
+
+    def _build_handler(self, start_x, start_y):
+        machine_calibration = _load_machine_calibration()
+        layer_calibration = _load_layer_calibration("U")
+        io = _IO(start_x, start_y, z=0.0)
+        handler = GCodeHandler(
+            io, machine_calibration, WirePathModel(machine_calibration)
+        )
+        handler.useLayerCalibration(layer_calibration)
+        handler._x = float(start_x)
+        handler._y = float(start_y)
+        handler._z = 0.0
+        return handler, io, machine_calibration, layer_calibration
+
+    def _blocked_handler(self, start_x=500.0, start_y=500.0):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            start_x, start_y
+        )
+        io.head.availability = Head.TRANSFER_BLOCKED
+        return handler, io, machine_calibration, layer_calibration
+
+    def _assert_lockout_error(self, error):
+        self.assertIsNotNone(error)
+        message = error["message"]
+        self.assertIn("MASTER_Z_GO", message)
+        self.assertIn("no_latch_collision", message)
+        self.assertIn("ACTUATOR_POS=3", message)
+        self.assertIn("ERROR_CODE 5001", message)
+
+    def test_anchor_to_target_errors_when_head_blocked_same_side(self):
+        handler, io, _machine_calibration, _layer_calibration = self._blocked_handler()
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+        self._assert_lockout_error(error)
+        # Nothing may move: not the head, and not a consolation XY move.
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertEqual(io.head.moves, [])
+        self.assertEqual(io.plcLogic.xy_moves, [])
+
+    def test_anchor_to_target_errors_when_head_blocked_alternating(self):
+        handler, io, _machine_calibration, _layer_calibration = self._blocked_handler()
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B2001,A800,hover=True)")
+
+        self._assert_lockout_error(error)
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertEqual(io.plcLogic.xy_moves, [])
+
+    def test_g206_errors_when_head_blocked(self):
+        handler, io, _machine_calibration, _layer_calibration = self._blocked_handler()
+        initial_head_position = handler._headPosition
+
+        error = handler.executeG_CodeLine("G206 P3")
+
+        self._assert_lockout_error(error)
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertEqual(handler._headPosition, initial_head_position)
+
+    def test_message_reports_every_blocking_term(self):
+        handler, io, _machine_calibration, _layer_calibration = self._blocked_handler()
+        # Drop both transfer windows so no_apa_collision fails as well.
+        io.Y_Transfer_OK = _Input(False)
+
+        error = handler.executeG_CodeLine("G206 P3")
+
+        self.assertIsNotNone(error)
+        message = error["message"]
+        self.assertIn("no_latch_collision", message)
+        self.assertIn("no_apa_collision", message)
+        self.assertIn("X_XFER_OK=0", message)
+        self.assertIn("no_supports_collision", message)
+
+    def test_head_state_summary_is_appended(self):
+        handler, _io, _machine_calibration, _layer_calibration = self._blocked_handler()
+
+        error = handler.executeG_CodeLine("G206 P3")
+
+        self.assertIsNotNone(error)
+        self.assertIn("actuatorPos=3", error["message"])
+
+    def test_error_data_carries_the_pins(self):
+        handler, _io, _machine_calibration, _layer_calibration = self._blocked_handler()
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+        self.assertIsNotNone(error)
+        self.assertIn("B1201", error["data"])
+        self.assertIn("B2001", error["data"])
+
+    def test_latch_conflict_that_does_not_trip_master_z_go(self):
+        # Stage-latched at the wrong ACTUATOR_POS leaves the head on no known
+        # side, but every MASTER_Z_GO conjunct still holds (no_latch_collision
+        # only constrains the *fixed* latch).  Naming MASTER_Z_GO would be
+        # misleading, so the message reports the latch conflict alone.
+        handler, io, _machine_calibration, _layer_calibration = self._blocked_handler()
+        io.head.transfer_state = {
+            "stagePresent": True,
+            "fixedPresent": False,
+            "stageLatched": True,
+            "fixedLatched": False,
+            "zExtended": False,
+            "enableActuator": False,
+            "actuatorPos": 3,
+            "zPosition": 0.0,
+        }
+        io.head.latch_conflict = "stage-latched, ACTUATOR_POS=3 (needs 1)"
+
+        error = handler.executeG_CodeLine("G206 P3")
+
+        self.assertIsNotNone(error)
+        message = error["message"]
+        self.assertIn("not resting on a known transfer side", message)
+        self.assertIn("stage-latched, ACTUATOR_POS=3", message)
+        self.assertNotIn("MASTER_Z_GO", message)
+        self.assertEqual(io.head.transfer_moves, [])
+
+    def test_absent_head_still_skips_silently(self):
+        # Regression guard for the behaviour we deliberately kept: with neither
+        # presence sensor asserted there is no head to transfer, so the XY move
+        # proceeds without an error.
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+        io.head.position = -1
+        io.head.availability = Head.TRANSFER_ABSENT
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        self.assertEqual(io.head.transfer_moves, [])
+        self.assertGreaterEqual(len(io.plcLogic.xy_moves), 1)
 
 
 if __name__ == "__main__":

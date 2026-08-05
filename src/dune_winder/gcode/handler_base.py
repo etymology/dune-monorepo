@@ -693,6 +693,7 @@ class GCodeHandlerBase:
         )
         head_position = 1 if normalized_target.startswith("A") else 2
         clearance_position = 0 if normalized_target.startswith("A") else 3
+        self._requireHeadTransferReady([normalized_anchor, normalized_target])
         head_present = self._isHeadPresent()
         self._instruction_trace["sameSide"] = bool(plan.same_side)
 
@@ -1135,6 +1136,22 @@ class GCodeHandlerBase:
         return True
 
     # ---------------------------------------------------------------------
+    def _requireHeadTransferReady(self, data):
+        """
+        Reject a head transfer that cannot start.
+
+        A head that is not mounted at all is fine -- the transfer is skipped
+        silently so no-head runs still work.  A head that *is* mounted but sits
+        in a latch position the machine cannot extend from is a real fault, and
+        hardware subclasses raise GCodeExecutionError describing it.  No-op in
+        the base interpreter, which has no sensors to consult.
+
+        Args:
+          data: G-code error data (pins, target) attached to any error raised.
+        """
+        return
+
+    # ---------------------------------------------------------------------
     def _getPin(self, pinName):
         """
         Function to fetch specific pin location.
@@ -1364,6 +1381,7 @@ class GCodeHandlerBase:
         Head transfer position.
         """
         target = self._parameterExtract(function, 1, None, int, "head transfer")
+        self._requireHeadTransferReady([str(target)])
         if not self._isHeadPresent():
             return
         self._headPosition = target
