@@ -354,6 +354,235 @@ class HeadControllerTests(unittest.TestCase):
         head.update()
         self.assertEqual(plc.latch_moves, 1)
 
+    def _drive_stage_to_fixed_into_seeking(self, head, plc, clock):
+        """
+        Run a STAGE->FIXED G206 through 1->3->2 until the Z withdrawal is
+        commanded and the head enters SEEKING_TO_FINAL_POSITION.
+        """
+        self.assertIsNone(head.setTransferPosition(Head.FIXED_SIDE, 400))
+        head.update()  # EXTENDING -> LATCHING, first pulse (1 -> 3)
+
+        plc._zStageLatchedBit.set(False)
+        plc._actuatorPosition.set(3)
+        clock["now"] = 1.0
+        head.update()  # pulse (3 -> 2)
+
+        plc._zFixedLatchedBit.set(True)
+        plc._actuatorPosition.set(2)
+        clock["now"] = 2.0
+        head.update()  # latch settled -> command Z withdrawal -> SEEKING
+        self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
+        self.assertEqual(plc.z_moves[-1], (0.0, 400))
+
+    def test_g206_relatches_when_actuator_stalls_at_3_before_final_settle(self):
+        head, plc, clock = self._build_head(
+            stage_present=True,
+            fixed_present=True,
+            stage_latched=True,
+            fixed_latched=False,
+            actuator_pos=1,
+            z_position=0.0,
+        )
+        self._drive_stage_to_fixed_into_seeking(head, plc, clock)
+
+        # The latch slips back to ACTUATOR_POS 3 with the head still extended
+        # (ENABLE_ACTUATOR true): the final-settle check must re-latch, not fail.
+        plc._actuatorPosition.set(3)
+        plc._zAxis._position.set(418.0)
+        latch_moves_before = plc.latch_moves
+        clock["now"] = 3.0
+        head.update()
+        self.assertFalse(head.hasError())
+        self.assertEqual(head._headState, Head.States.LATCHING)
+        self.assertEqual(plc.latch_moves, latch_moves_before + 1)
+
+        # The retry drives 3 -> 2 again; the latching phase re-commands the Z
+        # withdrawal and the transfer then settles cleanly.
+        plc._actuatorPosition.set(2)
+        clock["now"] = 4.0
+        head.update()
+        self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
+
+        plc._zAxis._position.set(0.0)
+        clock["now"] = 5.0
+        head.update()
+        self.assertEqual(head._headState, Head.States.IDLE)
+        self.assertTrue(head.isReady())
+        self.assertFalse(head.hasError())
+
+    def test_g206_does_not_relatch_when_head_no_longer_extended(self):
+        head, plc, clock = self._build_head(
+            stage_present=True,
+            fixed_present=True,
+            stage_latched=True,
+            fixed_latched=False,
+            actuator_pos=1,
+            z_position=0.0,
+        )
+        self._drive_stage_to_fixed_into_seeking(head, plc, clock)
+
+        # Latch short of its detent but the arm has retracted (z=0), so
+        # ENABLE_ACTUATOR is false and a fresh pulse cannot help: fail outright.
+        plc._actuatorPosition.set(3)
+        plc._zAxis._position.set(0.0)
+        latch_moves_before = plc.latch_moves
+        clock["now"] = 3.0
+        head.update()
+        self.assertTrue(head.hasError())
+        self.assertEqual(plc.latch_moves, latch_moves_before)
+        self.assertIn("did not settle", head.getLastError())
+
+    def test_g206_errors_after_exhausting_latch_resettle_retries(self):
+        head, plc, clock = self._build_head(
+            stage_present=True,
+            fixed_present=True,
+            stage_latched=True,
+            fixed_latched=False,
+            actuator_pos=1,
+            z_position=0.0,
+        )
+        self._drive_stage_to_fixed_into_seeking(head, plc, clock)
+
+        now = 3.0
+        for expected in range(1, head._g206MaxLatchResettleAttempts + 1):
+            # Slip back to 3 while still extended -> should re-latch.
+            plc._actuatorPosition.set(3)
+            plc._zAxis._position.set(418.0)
+            clock["now"] = now
+            now += 1.0
+            head.update()
+            self.assertFalse(head.hasError())
+            self.assertEqual(head._headState, Head.States.LATCHING)
+            self.assertEqual(head._g206LatchResettleAttempts, expected)
+
+            # Recover to 2 so the latching phase re-commands the withdrawal.
+            plc._actuatorPosition.set(2)
+            clock["now"] = now
+            now += 1.0
+            head.update()
+            self.assertEqual(head._headState, Head.States.SEEKING_TO_FINAL_POSITION)
+
+        # Budget spent: the next stall must fail instead of re-latching again.
+        plc._actuatorPosition.set(3)
+        plc._zAxis._position.set(418.0)
+        clock["now"] = now
+        head.update()
+        self.assertTrue(head.hasError())
+        self.assertIn("did not settle", head.getLastError())
+        self.assertIn("actuatorPos=3", head.getLastError())
+        self.assertTrue(head.isReady())
+        self.assertFalse(head.isTransferActive())
+
+
+class TransferAvailabilityTests(unittest.TestCase):
+    """
+    readCurrentPosition() reports HEAD_ABSENT both for a missing head and for a
+    mounted head in a conflicting latch state.  getTransferAvailability() must
+    tell those two apart so the interpreter can skip one and fault the other.
+    """
+
+    def _head(self, **kwargs):
+        return Head(_PLCLogic(**kwargs))
+
+    def test_absent_when_neither_presence_sensor_sees_the_head(self):
+        head = self._head(stage_present=False, fixed_present=False)
+
+        availability, state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_ABSENT)
+        self.assertEqual(head.readCurrentPosition(), Head.HEAD_ABSENT)
+        self.assertEqual(head.describeLatchConflict(state), "")
+
+    def test_ready_on_clean_stage_side(self):
+        head = self._head(
+            stage_present=True,
+            fixed_present=False,
+            stage_latched=True,
+            fixed_latched=False,
+            actuator_pos=1,
+        )
+
+        availability, state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_READY)
+        self.assertEqual(head.describeLatchConflict(state), "")
+
+    def test_ready_on_clean_fixed_side(self):
+        head = self._head(
+            stage_present=False,
+            fixed_present=True,
+            stage_latched=False,
+            fixed_latched=True,
+            actuator_pos=2,
+        )
+
+        availability, _state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_READY)
+
+    def test_blocked_when_fixed_latched_at_rocker_at_fixed(self):
+        # ACTUATOR_POS 3 is the no_latch_collision violation: the latch would
+        # foul the fixed mount if the arm extended.
+        head = self._head(
+            stage_present=False,
+            fixed_present=True,
+            stage_latched=False,
+            fixed_latched=True,
+            actuator_pos=3,
+        )
+
+        availability, state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_BLOCKED)
+        self.assertEqual(head.readCurrentPosition(), Head.HEAD_ABSENT)
+        detail = head.describeLatchConflict(state)
+        self.assertIn("fixed-latched", detail)
+        self.assertIn("ACTUATOR_POS=3", detail)
+
+    def test_blocked_when_both_latches_engaged(self):
+        head = self._head(
+            stage_present=True,
+            fixed_present=True,
+            stage_latched=True,
+            fixed_latched=True,
+            actuator_pos=2,
+        )
+
+        availability, state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_BLOCKED)
+        self.assertIn("both latches", head.describeLatchConflict(state))
+
+    def test_blocked_when_stage_latched_at_wrong_actuator_position(self):
+        head = self._head(
+            stage_present=True,
+            fixed_present=False,
+            stage_latched=True,
+            fixed_latched=False,
+            actuator_pos=3,
+        )
+
+        availability, state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_BLOCKED)
+        detail = head.describeLatchConflict(state)
+        self.assertIn("stage-latched", detail)
+        self.assertIn("ACTUATOR_POS=3", detail)
+
+    def test_blocked_when_present_but_floating(self):
+        head = self._head(
+            stage_present=True,
+            fixed_present=True,
+            stage_latched=False,
+            fixed_latched=False,
+            actuator_pos=3,
+        )
+
+        availability, state = head.getTransferAvailability()
+
+        self.assertEqual(availability, Head.TRANSFER_BLOCKED)
+        self.assertIn("neither latch", head.describeLatchConflict(state))
+
 
 if __name__ == "__main__":
     unittest.main()
