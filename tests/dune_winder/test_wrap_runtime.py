@@ -50,6 +50,9 @@ class _PLCLogic:
         self._y_axis = y_axis
         self._z_axis = z_axis
         self.xy_moves = []
+        # Parallel to xy_moves: the per-move accel-jerk override, None when the
+        # caller did not supply one.
+        self.xy_jerks = []
         self.z_moves = []
         self.xz_moves = []
         self.latch_moves = 0
@@ -57,8 +60,17 @@ class _PLCLogic:
     def isReady(self):
         return True
 
-    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
+    def setXY_Position(
+        self,
+        x,
+        y,
+        velocity=None,
+        acceleration=None,
+        deceleration=None,
+        accelJerk=None,
+    ):
         self.xy_moves.append((float(x), float(y), velocity, acceleration, deceleration))
+        self.xy_jerks.append(accelJerk)
         self._x_axis.setPosition(x)
         self._y_axis.setPosition(y)
 
@@ -920,6 +932,110 @@ class WrapRuntimeTests(unittest.TestCase):
         # Alternating same-as-before: a single clearance transfer (position 0 for
         # an A target), no extra preparatory transfer.
         self.assertEqual(transfer_positions, [0])
+
+    def test_anchor_to_target_jerk_keyword_overrides_the_xy_move_jerk(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        baseline_moves = len(io.plcLogic.xy_moves)
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001,jerk=gentle)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        emitted = io.plcLogic.xy_jerks[baseline_moves:]
+        self.assertTrue(emitted)
+        self.assertTrue(all(jerk == 1000.0 for jerk in emitted))
+
+    def test_anchor_to_target_jerky_keyword_selects_the_jerky_profile(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        baseline_moves = len(io.plcLogic.xy_moves)
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001,jerk=jerky)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        emitted = io.plcLogic.xy_jerks[baseline_moves:]
+        self.assertTrue(emitted)
+        self.assertTrue(all(jerk == 2000.0 for jerk in emitted))
+
+    def test_anchor_to_target_without_jerk_keyword_leaves_the_override_unset(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        baseline_moves = len(io.plcLogic.xy_moves)
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        emitted = io.plcLogic.xy_jerks[baseline_moves:]
+        self.assertTrue(emitted)
+        # None leaves the PLC facade free to apply its configured default.
+        self.assertTrue(all(jerk is None for jerk in emitted))
+
+    def test_anchor_to_target_jerk_reads_live_configuration(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        class _Configuration:
+            xyRegulatedAccelJerkDefault = 1500.0
+            xyRegulatedAccelJerkGentle = 750.0
+            xyRegulatedAccelJerkJerky = 2000.0
+
+        handler._configuration = _Configuration()
+
+        baseline_moves = len(io.plcLogic.xy_moves)
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001,jerk=gentle)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        emitted = io.plcLogic.xy_jerks[baseline_moves:]
+        self.assertTrue(emitted)
+        self.assertTrue(all(jerk == 750.0 for jerk in emitted))
+
+    def test_anchor_to_target_jerk_applies_to_both_halves_of_a_split_move(self):
+        handler, io, machine_calibration, layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        _final_xy, plan = self._expected_explicit_wrap_final_xy(
+            layer_calibration=layer_calibration,
+            machine_calibration=machine_calibration,
+            anchor_pin="B2001",
+            target_pin="A800",
+        )
+        self.assertFalse(plan.same_side)
+        self.assertEqual(plan.face, "top")
+
+        baseline_moves = len(io.plcLogic.xy_moves)
+        error = handler.executeG_CodeLine(
+            "~anchorToTarget(B2001,A800,inTwoMoves=True,jerk=gentle)"
+        )
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        self.assertEqual(len(io.plcLogic.xy_moves[baseline_moves:]), 2)
+        self.assertEqual(io.plcLogic.xy_jerks[baseline_moves:], [1000.0, 1000.0])
+
+    def test_anchor_to_target_rejects_an_unknown_jerk_keyword(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001,jerk=snappy)")
+
+        self.assertIsNotNone(error)
+        self.assertIn("jerk must be one of", error["message"])
+        self.assertEqual(io.plcLogic.xy_moves, [])
 
     def test_g206_silently_skips_head_transfer_when_head_absent(self):
         handler, io, _machine_calibration, _layer_calibration = self._build_handler(

@@ -23,7 +23,16 @@ class _PLCLogic:
     def isReady(self):
         return True
 
-    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
+    def setXY_Position(
+        self,
+        x,
+        y,
+        velocity=None,
+        acceleration=None,
+        deceleration=None,
+        accelJerk=None,
+    ):
+        del accelJerk
         self.moves.append((float(x), float(y), velocity, acceleration, deceleration))
 
     def setZ_Position(self, z, velocity=None):

@@ -1521,20 +1521,23 @@ def build_command_registry(
         actual_y = _asFloat(args["actual_y"], "actual_y")
         layer = _asString(args["layer"], "layer").upper()
 
+        # Keep in sync with uv_head_target_parts/constants.py and the runtime
+        # keyword loop in gcode/handler_base.py (_run_macro_call).
         match = re.fullmatch(
             r"~anchorToTarget\("
             r"([A-B]\d+),([A-B]\d+)"
             r"(?:,(?:offset=\([^)]+\)"
             r"|hover=(?:True|False|1|0|yes|no|on|off)"
             r"|inTwoMoves=(?:True|False|1|0|yes|no|on|off)"
-            r")){0,3}"
+            r"|jerk=(?:default|gentle|jerky)"
+            r")){0,4}"
             r"\)",
             gcode_line,
             flags=re.IGNORECASE,
         )
         if not match:
             raise ValueError(
-                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,inTwoMoves=True])"
+                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,inTwoMoves=True][,jerk=gentle])"
             )
         anchor_pin, target_pin = match.groups()
 

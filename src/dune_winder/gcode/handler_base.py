@@ -18,6 +18,10 @@ import os
 import re
 from typing import TypedDict, cast
 
+from dune_winder.library.app_config import (
+    XY_ACCEL_JERK_DEFAULTS,
+    XY_ACCEL_JERK_KEYWORDS,
+)
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.gcode.model import (
     CommandWord,
@@ -605,6 +609,32 @@ class GCodeHandlerBase:
         self._queue_wrap_state_update(target_pin)
 
     # ---------------------------------------------------------------------
+    def _resolve_xy_accel_jerk(self, keyword):
+        """
+        Map a ~anchorToTarget 'jerk=' keyword to an accel-jerk value.
+
+        Read from live configuration so Configuration-page edits take effect
+        without a restart.  Returns None when no keyword was given, leaving the
+        PLC facade to apply its own default.
+        """
+        if keyword is None:
+            return None
+
+        key = XY_ACCEL_JERK_KEYWORDS[str(keyword).strip().lower()]
+        fallback = XY_ACCEL_JERK_DEFAULTS[key]
+        configuration = getattr(self, "_configuration", None)
+        if configuration is None:
+            return fallback
+
+        value = getattr(configuration, key, None)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+        return value if value > 0.0 else fallback
+
+    # ---------------------------------------------------------------------
     def _plan_explicit_wrap_transition(
         self,
         anchor_pin,
@@ -612,6 +642,7 @@ class GCodeHandlerBase:
         target_offset=None,
         hover=False,
         in_two_moves=False,
+        jerk=None,
     ):
         if self._layerCalibration is None:
             raise GCodeExecutionError(
@@ -627,6 +658,11 @@ class GCodeHandlerBase:
 
         normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
         normalized_target = self._normalize_wrap_pin(target_pin, label="target pin")
+
+        # Applies to the XY moves this one macro emits and nothing else; absent
+        # when no jerk= keyword was given.
+        accel_jerk = self._resolve_xy_accel_jerk(jerk)
+        jerk_kwargs = {} if accel_jerk is None else {"accel_jerk": accel_jerk}
 
         anchor_location = self._wire_space_pin_location(normalized_anchor)
         target_location = self._wire_space_pin_location(normalized_target)
@@ -719,7 +755,9 @@ class GCodeHandlerBase:
                 self._append_pending_action(
                     "head_transfer", head_position=clearance_position
                 )
-            self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+            self._append_pending_action(
+                "xy", x=float(final_xy.x), y=float(final_xy.y), **jerk_kwargs
+            )
             if head_present:
                 self._append_pending_action(
                     "head_transfer", head_position=head_position
@@ -743,13 +781,15 @@ class GCodeHandlerBase:
                 and self._y is not None
             )
             if should_split:
-                self._append_pending_action("xy", x=float(final_xy.x), y=float(self._y))
                 self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                    "xy", x=float(final_xy.x), y=float(self._y), **jerk_kwargs
+                )
+                self._append_pending_action(
+                    "xy", x=float(final_xy.x), y=float(final_xy.y), **jerk_kwargs
                 )
             else:
                 self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                    "xy", x=float(final_xy.x), y=float(final_xy.y), **jerk_kwargs
                 )
             resolved_head_position = clearance_position
 
@@ -804,12 +844,13 @@ class GCodeHandlerBase:
         if name == "anchorToTarget":
             if len(arguments) < 2:
                 raise GCodeExecutionError(
-                    "~anchorToTarget requires two pin arguments and optional hover/offset/inTwoMoves keywords.",
+                    "~anchorToTarget requires two pin arguments and optional hover/offset/inTwoMoves/jerk keywords.",
                     [raw_text],
                 )
             target_offset = None
             hover = False
             in_two_moves = False
+            jerk = None
             for keyword in arguments[2:]:
                 keyword_text = str(keyword).strip()
                 if "=" not in keyword_text:
@@ -863,8 +904,19 @@ class GCodeHandlerBase:
                         "~anchorToTarget inTwoMoves must be written as inTwoMoves=True or inTwoMoves=False.",
                         [raw_text],
                     )
+                if keyword_name == "jerk":
+                    jerk_value = keyword_value.lower()
+                    if jerk_value not in XY_ACCEL_JERK_KEYWORDS:
+                        raise GCodeExecutionError(
+                            "~anchorToTarget jerk must be one of "
+                            + ", ".join(sorted(XY_ACCEL_JERK_KEYWORDS))
+                            + ".",
+                            [raw_text],
+                        )
+                    jerk = jerk_value
+                    continue
                 raise GCodeExecutionError(
-                    "~anchorToTarget only supports offset, hover, and inTwoMoves keyword arguments.",
+                    "~anchorToTarget only supports offset, hover, inTwoMoves, and jerk keyword arguments.",
                     [raw_text],
                 )
             self._plan_explicit_wrap_transition(
@@ -873,6 +925,7 @@ class GCodeHandlerBase:
                 target_offset=target_offset,
                 hover=hover,
                 in_two_moves=in_two_moves,
+                jerk=jerk,
             )
             return
 

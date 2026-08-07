@@ -196,6 +196,7 @@ class Process:
             maxVelocity,
             float(configuration.maxAcceleration),
             float(configuration.maxDeceleration),
+            xyAccelJerk=float(configuration.xyRegulatedAccelJerkDefault),
         )
 
         # Setup extended/retracted positions for head.

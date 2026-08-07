@@ -150,6 +150,8 @@ class GCodeRecipeExamples(unittest.TestCase):
             "anchorToTarget(B1201,B2001)",
             "anchorToTarget(B1201,B2001,offset=(1.25,-2.5))",
             "anchorToTarget(B1201,B2001,hover=True)",
+            "anchorToTarget(B1201,B2001,jerk=gentle)",
+            "anchorToTarget(B1201,B2001,offset=(1,0),hover=True,jerk=jerky)",
         ):
             line = parse_line_text(f"N7 ~{text} ( top )")
             self.assertEqual(render_line(line), f"N7 ~{text} ( top )")

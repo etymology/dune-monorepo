@@ -23,3 +23,6 @@ maxAcceleration = 2000
 maxDeceleration = 2000
 maxJerkAccel = 1500.0
 maxJerkDecel = 1500.0
+xyRegulatedAccelJerkDefault = 2500.0
+xyRegulatedAccelJerkGentle = 800.0
+xyRegulatedAccelJerkJerky = 2000.0

@@ -22,12 +22,18 @@
 # strict shape: no whitespace inside a macro call, and `offset=` immediately
 # after the two pins.  `anchor()` is the only sanctioned way to build the call
 # so that shape cannot drift.
+#
+# Keyword args render in a fixed order -- `offset`, `hover`, `inTwoMoves`,
+# `jerk` -- and every one is optional.  `jerk` selects an XY accel-jerk profile
+# (`default` / `gentle` / `jerky`, resolved from operator configuration at run
+# time) and applies only to the XY moves of the call that carries it.
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
+from dune_winder.library.app_config import XY_ACCEL_JERK_KEYWORDS
 from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe_template_language import (
     RecipeTemplateLanguageError,
@@ -121,7 +127,14 @@ def _base_environment(adapter, *, offsets, pull_ins):
     def a_from_b(pin_number):
         return b_to_a_pin(layer, b_pin(pin_number))
 
-    def anchor(anchor_pin, target_pin, offset=None, hover=False, in_two_moves=False):
+    def anchor(
+        anchor_pin,
+        target_pin,
+        offset=None,
+        hover=False,
+        in_two_moves=False,
+        jerk=None,
+    ):
         # `offset` must stay immediately after the pins: offset_axis_policy's
         # regex anchors on that position and silently stops clamping the
         # off-axis component if anything is inserted before it.
@@ -137,6 +150,23 @@ def _base_environment(adapter, *, offsets, pull_ins):
             call += ",hover=True"
         if in_two_moves:
             call += ",inTwoMoves=True"
+        if jerk is not None:
+            # Reject a typo here rather than emitting it into 7000 lines of
+            # recipe for the runtime interpreter to fault on mid-wrap.  Written
+            # last so it cannot displace `offset=` from its anchored position.
+            keyword = str(jerk).strip().lower()
+            if keyword not in XY_ACCEL_JERK_KEYWORDS:
+                raise RecipeTemplateLanguageError(
+                    "anchor() jerk must be one of "
+                    + ", ".join(sorted(XY_ACCEL_JERK_KEYWORDS))
+                    + "; got "
+                    + repr(jerk)
+                    + "."
+                )
+            # `jerk='default'` is kept rather than dropped as a no-op: it resolves
+            # against live configuration at run time, whereas omitting the keyword
+            # leaves the value the PLC facade was seeded with at startup.
+            call += ",jerk=" + keyword
         return call + ")"
 
     def increment(delta_x, delta_y):

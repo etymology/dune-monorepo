@@ -21,6 +21,27 @@ from dune_winder.queued_motion.jerk_limits import (
     normalize_queued_motion_jerk,
 )
 
+# Selectable accel-jerk profiles for the tension-regulated state-3 XY move.
+# Written to Program:state_3_move_xy.xy_regulated_accel_jerk ahead of the state
+# request; picked per G-code line by the ~anchorToTarget 'jerk=' keyword.
+DEFAULT_XY_ACCEL_JERK = 1500.0
+GENTLE_XY_ACCEL_JERK = 1000.0
+JERKY_XY_ACCEL_JERK = 2000.0
+
+# Keyword accepted by ~anchorToTarget -> the configuration key holding its value.
+XY_ACCEL_JERK_KEYWORDS = {
+    "default": "xyRegulatedAccelJerkDefault",
+    "gentle": "xyRegulatedAccelJerkGentle",
+    "jerky": "xyRegulatedAccelJerkJerky",
+}
+
+# Configuration key -> fallback used when the value is missing or nonsensical.
+XY_ACCEL_JERK_DEFAULTS = {
+    "xyRegulatedAccelJerkDefault": DEFAULT_XY_ACCEL_JERK,
+    "xyRegulatedAccelJerkGentle": GENTLE_XY_ACCEL_JERK,
+    "xyRegulatedAccelJerkJerky": JERKY_XY_ACCEL_JERK,
+}
+
 
 @dataclasses.dataclass
 class AppConfig:
@@ -76,6 +97,11 @@ class AppConfig:
     maxJerkAccel: float = DEFAULT_QUEUED_MOTION_ACCEL_JERK
     maxJerkDecel: float = DEFAULT_QUEUED_MOTION_DECEL_JERK
 
+    # Selectable XY accel-jerk profiles (see XY_ACCEL_JERK_KEYWORDS).
+    xyRegulatedAccelJerkDefault: float = DEFAULT_XY_ACCEL_JERK
+    xyRegulatedAccelJerkGentle: float = GENTLE_XY_ACCEL_JERK
+    xyRegulatedAccelJerkJerky: float = JERKY_XY_ACCEL_JERK
+
     @classmethod
     def normalizePlcMode(cls, value: typing.Any) -> str:
         mode = str(value).strip().upper()
@@ -107,6 +133,12 @@ class AppConfig:
             self.maxJerkDecel,
             default=DEFAULT_QUEUED_MOTION_DECEL_JERK,
         )
+        for key, fallback in XY_ACCEL_JERK_DEFAULTS.items():
+            setattr(
+                self,
+                key,
+                normalize_queued_motion_jerk(getattr(self, key), default=fallback),
+            )
         # Not a dataclass field — stores the file path for save().
         self._path: typing.Optional[pathlib.Path] = None
 
@@ -290,6 +322,10 @@ class AppConfig:
         elif key == "maxJerkDecel":
             value = normalize_queued_motion_jerk(
                 value, default=DEFAULT_QUEUED_MOTION_DECEL_JERK
+            )
+        elif key in XY_ACCEL_JERK_DEFAULTS:
+            value = normalize_queued_motion_jerk(
+                value, default=XY_ACCEL_JERK_DEFAULTS[key]
             )
 
         setattr(self, key, value)

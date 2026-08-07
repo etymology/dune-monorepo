@@ -37,7 +37,8 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
     match = _ANCHOR_TO_TARGET_RE.fullmatch(raw_text)
     if match is None:
         raise UvHeadTargetError(
-            "Command must match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True])."
+            "Command must match "
+            "~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,jerk=gentle])."
         )
     anchor_pin = _normalize_pin_name(match.group("anchor"), "Anchor pin")
     target_pin = _normalize_pin_name(match.group("target"), "Target pin")
@@ -106,8 +107,12 @@ def parse_anchor_to_target_command(command_text: str) -> AnchorToTargetCommand:
             raise UvHeadTargetError(
                 "~anchorToTarget inTwoMoves must be written as inTwoMoves=True or inTwoMoves=False."
             )
+        if keyword_name == "jerk":
+            # A motion-profile hint with no bearing on the geometry this view
+            # computes.  Validated by the regex; accepted and ignored here.
+            continue
         raise UvHeadTargetError(
-            "~anchorToTarget only supports offset, hover, and inTwoMoves keyword arguments."
+            "~anchorToTarget only supports offset, hover, inTwoMoves, and jerk keyword arguments."
         )
     return AnchorToTargetCommand(
         raw_text=raw_text,

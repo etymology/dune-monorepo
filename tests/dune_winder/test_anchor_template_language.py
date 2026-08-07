@@ -182,6 +182,96 @@ class AnchorCallShapeTests(unittest.TestCase):
         rendered = self._render_call("anchor('A1', 'B2', offset=(1.5, -2))")
         self.assertNotIn(", ", rendered)
 
+    def test_jerk_renders_last_so_offset_keeps_its_anchored_position(self):
+        # offset_axis_policy and template_gcode_foot_pauses both match a prefix
+        # and ignore trailing keywords, so jerk must never precede offset=.
+        self.assertEqual(
+            self._render_call(
+                "anchor('A1', 'B2', offset=(1.5, -2), hover=True, "
+                "in_two_moves=True, jerk='gentle')"
+            ),
+            "(1,1) ~anchorToTarget(A1,B2,offset=(1.5,-2),hover=True,"
+            "inTwoMoves=True,jerk=gentle)",
+        )
+
+    def test_jerk_alone_needs_no_other_keyword(self):
+        self.assertEqual(
+            self._render_call("anchor('A1', 'B2', jerk='jerky')"),
+            "(1,1) ~anchorToTarget(A1,B2,jerk=jerky)",
+        )
+
+    def test_omitted_jerk_emits_no_keyword(self):
+        self.assertEqual(
+            self._render_call("anchor('A1', 'B2')"),
+            "(1,1) ~anchorToTarget(A1,B2)",
+        )
+
+    def test_explicit_default_jerk_is_kept_rather_than_dropped(self):
+        # Not a no-op: it resolves against live configuration at run time, while
+        # omitting it uses whatever the PLC facade was seeded with at startup.
+        self.assertEqual(
+            self._render_call("anchor('A1', 'B2', jerk='default')"),
+            "(1,1) ~anchorToTarget(A1,B2,jerk=default)",
+        )
+
+    def test_jerk_keyword_is_case_insensitive_and_normalised(self):
+        self.assertEqual(
+            self._render_call("anchor('A1', 'B2', jerk='GENTLE')"),
+            "(1,1) ~anchorToTarget(A1,B2,jerk=gentle)",
+        )
+
+    def test_unknown_jerk_keyword_fails_at_render_time(self):
+        # Emitting it would defer the failure to the runtime interpreter, mid-wrap.
+        with self.assertRaises(RecipeTemplateLanguageError):
+            self._render_call("anchor('A1', 'B2', jerk='snappy')")
+
+    def test_jerk_survives_the_runtime_macro_parser(self):
+        # The DSL and gcode/handler_base.py must agree on the emitted spelling.
+        from dune_winder.gcode.parser import parse_line_text
+        from dune_winder.gcode.renderer import render_line
+
+        rendered = self._render_call(
+            "anchor('A1', 'B2', offset=(1.5, -2), hover=True, jerk='gentle')"
+        )
+        call = rendered.split(" ", 1)[1]
+        self.assertEqual(render_line(parse_line_text(call)), call)
+
+    def test_jerk_survives_the_offline_anchor_to_target_parser(self):
+        from dune_winder.uv_head_target_parts.anchor_to_target import (
+            parse_anchor_to_target_command,
+        )
+
+        rendered = self._render_call("anchor('A1', 'B2', hover=True, jerk='jerky')")
+        command = parse_anchor_to_target_command(rendered.split(" ", 1)[1])
+        self.assertEqual(command.anchor_pin, "A1")
+        self.assertEqual(command.target_pin, "B2")
+        self.assertTrue(command.hover)
+
+    def test_jerk_does_not_disturb_the_offset_axis_policy_pass(self):
+        # That pass rewrites offset= in place; the trailing jerk must survive it.
+        from dune_winder.recipes.offset_axis_policy import (
+            enforce_offset_natural_axis,
+        )
+
+        rendered = self._render_call(
+            "anchor('A1', 'B2', offset=(1.5, -2), jerk='gentle')"
+        )
+        line = rendered.split(" ", 1)[1]
+        normalized = enforce_offset_natural_axis([line], layer="U")
+
+        self.assertEqual(len(normalized), 1)
+        self.assertTrue(normalized[0].endswith(",jerk=gentle)"))
+        self.assertIn("offset=(", normalized[0])
+
+    def test_jerk_survives_the_foot_pause_pin_match(self):
+        from dune_winder.recipes.template_gcode_foot_pauses import (
+            _ANCHOR_TO_TARGET_RE,
+        )
+
+        rendered = self._render_call("anchor('A1', 'B2', jerk='gentle')")
+
+        self.assertEqual(_ANCHOR_TO_TARGET_RE.findall(rendered), [("A1", "B2")])
+
     def test_increment_and_goto_emit_both_components(self):
         self.assertEqual(
             self._render_call("increment(-70, 0)"), "(1,1) ~increment(-70,0)"

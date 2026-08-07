@@ -158,7 +158,15 @@ class PLC_Logic:
         self._requestState(self.States.EOT)
 
     # ---------------------------------------------------------------------
-    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
+    def setXY_Position(
+        self,
+        x,
+        y,
+        velocity=None,
+        acceleration=None,
+        deceleration=None,
+        accelJerk=None,
+    ):
         """
         Make a coordinated move of the X/Y axis.
 
@@ -167,6 +175,8 @@ class PLC_Logic:
           y: Position to seek in y-axis (in millimeters).
           velocity: Maximum velocity at which to make move.  None to use last
             velocity.
+          accelJerk: S-curve accel jerk for this move only.  None to use the
+            default from setupLimits.
         """
         if velocity is not None:
             self._velocity = velocity
@@ -176,6 +186,14 @@ class PLC_Logic:
 
         if deceleration is not None:
             self._maxXY_Deceleration.set(float(deceleration))
+
+        # Written every move rather than only on override, so a one-off jerk
+        # cannot latch in the PLC and leak into the moves that follow.  The
+        # ladder latches its jerk operand on the rising trigger_xy_move
+        # one-shot, so this must land before the state request below.
+        jerk = self._xyAccelJerkDefault if accelJerk is None else accelJerk
+        if jerk is not None:
+            self._xyRegulatedAccelJerk.set(int(round(float(jerk))))
 
         self._maxXY_Velocity.set(self._velocity)
         self._xyAxis.setDesiredPosition([x, y])
@@ -586,7 +604,13 @@ class PLC_Logic:
         return self._maxDeceleration
 
     # ---------------------------------------------------------------------
-    def setupLimits(self, maxVelocity=None, maxAcceleration=None, maxDeceleration=None):
+    def setupLimits(
+        self,
+        maxVelocity=None,
+        maxAcceleration=None,
+        maxDeceleration=None,
+        xyAccelJerk=None,
+    ):
         """
         Setup the velocity and acceleration limits.
 
@@ -594,6 +618,8 @@ class PLC_Logic:
           maxVelocity: Maximum velocity.
           maxAcceleration: Maximum positive acceleration.
           maxDeceleration: Maximum negative acceleration.
+          xyAccelJerk: Default XY accel jerk, used by every setXY_Position that
+            does not carry a per-move override.
         """
         if maxVelocity is not None:
             self._velocity = maxVelocity
@@ -603,6 +629,9 @@ class PLC_Logic:
 
         if maxDeceleration is not None:
             self._maxDeceleration = maxDeceleration
+
+        if xyAccelJerk is not None:
+            self._xyAccelJerkDefault = float(xyAccelJerk)
 
         self._maxXY_Velocity.set(self._velocity)
         self._maxXY_Acceleration.set(self._maxAcceleration)
@@ -707,9 +736,19 @@ class PLC_Logic:
             plc, "yz_position_target", writeOnly, tagType="REAL[2]"
         )
 
+        # Program-scope, so it must be addressed by its qualified name.  Kept
+        # write-only to stay out of the polled-tag batch.
+        self._xyRegulatedAccelJerk = PLC.Tag(
+            plc,
+            "Program:state_3_move_xy.xy_regulated_accel_jerk",
+            writeOnly,
+            tagType="DINT",
+        )
+
         self._velocity = 0.0
         self._maxAcceleration = 0
         self._maxDeceleration = 0
+        self._xyAccelJerkDefault = None
         self.queuedMotion = QueuedMotionPLCInterface(plc)
 
 

@@ -1123,7 +1123,12 @@ class GCodeHandler(GCodeHandlerBase):
                         )
                         return False
 
-                self._io.plcLogic.setXY_Position(raw_target_x, target_xy[1], velocity)
+                self._io.plcLogic.setXY_Position(
+                    raw_target_x,
+                    target_xy[1],
+                    velocity,
+                    accelJerk=self._pending_action_value(action, "accel_jerk", None),
+                )
                 if self._xBacklash is not None:
                     self._xBacklash.noteCommand(current_raw_x, float(target_xy[0]))
                 moving = True

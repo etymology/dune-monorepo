@@ -215,6 +215,67 @@ class PLCLogicTests(unittest.TestCase):
             ],
         )
 
+    def test_xy_seek_writes_per_move_accel_jerk_before_the_state_request(self):
+        plc = _FreshReadPLC()
+        xAxis = PLC_Motor("xAxis", plc, "X")
+        yAxis = PLC_Motor("yAxis", plc, "Y")
+        logic = PLC_Logic(plc, MultiAxisMotor("xyAxis", [xAxis, yAxis]), object())
+
+        logic.setXY_Position(10.0, 20.0, velocity=150.0, accelJerk=1000.0)
+
+        # The ladder latches the MCLM jerk operand on the rising
+        # trigger_xy_move one-shot, so the jerk must land before STATE_REQUEST.
+        self.assertEqual(
+            plc.write_calls,
+            [
+                ("Program:state_3_move_xy.xy_regulated_accel_jerk", 1000),
+                ("XY_SPEED", 150.0),
+                ("X_POSITION", 10.0),
+                ("Y_POSITION", 20.0),
+                ("STATE_REQUEST", PLC_Logic.States.XY_SEEK),
+            ],
+        )
+
+    def test_xy_seek_falls_back_to_the_configured_default_accel_jerk(self):
+        plc = _FreshReadPLC()
+        xAxis = PLC_Motor("xAxis", plc, "X")
+        yAxis = PLC_Motor("yAxis", plc, "Y")
+        logic = PLC_Logic(plc, MultiAxisMotor("xyAxis", [xAxis, yAxis]), object())
+        logic.setupLimits(150.0, 2.0, 3.0, xyAccelJerk=1500.0)
+        plc.write_calls = []
+
+        logic.setXY_Position(10.0, 20.0)
+
+        self.assertEqual(
+            plc.write_calls,
+            [
+                ("Program:state_3_move_xy.xy_regulated_accel_jerk", 1500),
+                ("XY_SPEED", 150.0),
+                ("X_POSITION", 10.0),
+                ("Y_POSITION", 20.0),
+                ("STATE_REQUEST", PLC_Logic.States.XY_SEEK),
+            ],
+        )
+
+    def test_xy_seek_rewrites_the_default_after_a_one_off_override(self):
+        # A gentle move must not latch in the PLC: the very next default move
+        # has to put the configured value back.
+        plc = _FreshReadPLC()
+        xAxis = PLC_Motor("xAxis", plc, "X")
+        yAxis = PLC_Motor("yAxis", plc, "Y")
+        logic = PLC_Logic(plc, MultiAxisMotor("xyAxis", [xAxis, yAxis]), object())
+        logic.setupLimits(150.0, 2.0, 3.0, xyAccelJerk=1500.0)
+
+        logic.setXY_Position(10.0, 20.0, accelJerk=1000.0)
+        logic.setXY_Position(11.0, 21.0)
+
+        jerk_writes = [
+            write[1]
+            for write in plc.write_calls
+            if write[0] == "Program:state_3_move_xy.xy_regulated_accel_jerk"
+        ]
+        self.assertEqual(jerk_writes, [1000, 1500])
+
     def test_servo_disable_requests_state_request(self):
         plc = _FreshReadPLC()
         logic = PLC_Logic(plc, object(), object())

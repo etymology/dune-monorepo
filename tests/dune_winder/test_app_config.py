@@ -66,6 +66,53 @@ class AppConfigTests(unittest.TestCase):
 
             self.assertEqual(reloaded.xBacklashCompensationMm, 3.5)
 
+    def test_xy_accel_jerk_profiles_default_to_the_three_documented_values(self):
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+
+            configuration = AppConfig.load(configPath)
+
+            self.assertEqual(configuration.xyRegulatedAccelJerkDefault, 1500.0)
+            self.assertEqual(configuration.xyRegulatedAccelJerkGentle, 1000.0)
+            self.assertEqual(configuration.xyRegulatedAccelJerkJerky, 2000.0)
+
+    def test_xy_accel_jerk_profiles_persist(self):
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+
+            configuration = AppConfig.load(configPath)
+            configuration.set("xyRegulatedAccelJerkDefault", 1600.0)
+            configuration.set("xyRegulatedAccelJerkGentle", 900.0)
+            configuration.set("xyRegulatedAccelJerkJerky", 2400.0)
+
+            reloaded = AppConfig.load(configPath)
+
+            self.assertEqual(reloaded.xyRegulatedAccelJerkDefault, 1600.0)
+            self.assertEqual(reloaded.xyRegulatedAccelJerkGentle, 900.0)
+            self.assertEqual(reloaded.xyRegulatedAccelJerkJerky, 2400.0)
+
+    def test_xy_accel_jerk_profiles_reject_non_positive_values(self):
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+
+            configuration = AppConfig.load(configPath)
+            configuration.set("xyRegulatedAccelJerkGentle", 0.0)
+            self.assertEqual(configuration.xyRegulatedAccelJerkGentle, 1000.0)
+
+            configuration.set("xyRegulatedAccelJerkJerky", -5.0)
+            self.assertEqual(configuration.xyRegulatedAccelJerkJerky, 2000.0)
+
+    def test_xy_accel_jerk_profiles_accept_the_stringified_api_values(self):
+        # configuration.set arrives from the web API as a string, so a decimal
+        # must survive the round trip rather than raising like an int field.
+        with tempfile.TemporaryDirectory() as tempDirectory:
+            configPath = pathlib.Path(tempDirectory) / "configuration.toml"
+
+            configuration = AppConfig.load(configPath)
+            configuration.set("xyRegulatedAccelJerkDefault", "1450.5")
+
+            self.assertEqual(configuration.xyRegulatedAccelJerkDefault, 1450.5)
+
 
 if __name__ == "__main__":
     unittest.main()
