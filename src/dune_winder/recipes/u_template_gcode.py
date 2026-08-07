@@ -12,11 +12,16 @@ import re
 from pathlib import Path
 
 from dune_winder.core.manual_calibration import LAYER_METADATA
+from dune_winder.recipes.anchor_template_language import (
+    OFFSET_MODE_NATURAL,
+    AnchorLayerAdapter,
+    compile_anchor_script_sections,
+    render_anchor_layer_lines,
+)
 from dune_winder.recipes.recipe_template_language import (
     compile_template_script,
     execute_template_script,
 )
-from dune_winder.machine.geometry.uv_wrap_geometry import b_to_a_pin
 from dune_winder.recipes.recipe import Recipe
 from dune_winder.recipes.line_offset_overrides import apply_line_offset_overrides
 from dune_winder.recipes.offset_axis_policy import enforce_offset_natural_axis
@@ -180,30 +185,56 @@ U_WRAP_SCRIPT = compile_template_script(
     )
 )
 
-U_WRAP_WRAPPING_SCRIPT = compile_template_script(
-    (
-        "emit G115 ${coord('PX', -X_PULL_IN)} ${coord('PY', 0)}",
-        "emit G117 PB${2002 - wrap} (Top B corner - foot end)",
-        "emit G118 PB${2002 - wrap} (Top A corner - foot end)",
-        "emit G115 ${coord('PX', 0)} ${coord('PY', -Y_PULL_IN)}",
-        "if near_comb(2002 - wrap): emit G115 ${coord('PX', -COMB_PULL)} ${coord('PY', 0)} (comb pull)",
-        "emit G118 PB${400 + wrap} (Bottom A corner - head end)",
-        "emit G117 PB${400 + wrap} (Bottom B corner - head end)",
-        "emit G115 ${coord('PX', 0)} ${coord('PY', Y_PULL_IN)}",
-        "if near_comb(400 + wrap): emit G115 ${coord('PX', -COMB_PULL)} ${coord('PY', 0)} (comb pull)",
-        "emit G117 PB${401 - wrap} (Head B corner)",
-        "emit G118 PB${401 - wrap} (Head A corner)",
-        "emit G115 ${coord('PX', X_PULL_IN)} ${coord('PY', 0)}",
-        "emit G118 PB${2001 + wrap} (Top A corner - head end)",
-        "emit G117 PB${2001 + wrap} (Top B corner - head end)",
-        "emit G115 ${coord('PX', 0)} ${coord('PY', -Y_PULL_IN)}",
-        "if near_comb(2001 + wrap): emit G115 ${coord('PX', COMB_PULL)} ${coord('PY', 0)} (comb pull)",
-        "emit G117 PB${1201 - wrap} (Bottom B corner - foot end)",
-        "emit G118 PB${1201 - wrap} (Bottom A corner - foot end)",
-        "emit G115 ${coord('PX', 0)} ${coord('PY', Y_PULL_IN)}",
-        "if near_comb(1201 - wrap): emit G115 ${coord('PX', COMB_PULL)} ${coord('PY', 0)} (comb pull)",
-        "emit G118 PB${1201 + wrap} (Foot A corner)",
-    )
+# The "wrapping" variant, as anchorToTarget macros.  Twelve corners per wrap,
+# each optionally followed by a pull-in and a comb-clearance move.
+#
+# Notes for anyone editing this script:
+#   * `hover=True` marks the four same-pin A<->B transfers.
+#   * The comb-pull sign tracks which side of the board the head is on (i.e.
+#     whether the +/-X_PULL_IN traverse has happened yet), NOT the direction of
+#     the preceding Y move.  It is -,-,+,+ here and +,+,-,- on V.  Do not try
+#     to derive it.
+#   * `near_comb` must be given the *wrapped* pin wherever the argument can go
+#     negative.  `n - 399` is negative for wraps 1..399; passing it raw drops 18
+#     wraps' comb pulls and shifts every following line identifier.
+#   * Every anchor must be the previous statement's target -- the wire is one
+#     continuous strand, across wrap boundaries and into the postscript.
+#     test_anchor_template_language checks that for all 4801 moves.
+U_ANCHOR_SECTIONS = compile_anchor_script_sections(
+    preamble=(
+        "emit ( U Layer )",
+        "emit ${goto(PREAMBLE_X, 0)}",
+    ),
+    wrap=(
+        "emit ${anchor(a_from_b(1201 + n), b_pin(1201 + n), offset=offset_natural(11))} (Foot B corner)",
+        "emit ${increment(-X_PULL_IN, 0)}",
+        "emit ${anchor(b_pin(1201 + n), b_pin(1602 + 399 - n), offset=offset_natural(0))} (Top B corner - foot end)",
+        "emit ${anchor(b_pin(1602 + 399 - n), a_from_b(1602 + 399 - n), offset=offset_natural(1), hover=True)} (Top A corner - foot end)",
+        "emit ${increment(0, -Y_PULL_IN)}",
+        "if near_comb(1602 + 399 - n): emit ${increment(-COMB_PULL, 0)} (comb pull)",
+        "emit ${anchor(a_from_b(1602 + 399 - n), a_from_b(401 + n), offset=offset_natural(2))} (Bottom A corner - head end)",
+        "emit ${anchor(a_from_b(401 + n), b_pin(401 + n), offset=offset_natural(3), hover=True)} (Bottom B corner - head end)",
+        "emit ${increment(0, Y_PULL_IN)}",
+        "if near_comb(401 + n): emit ${increment(-COMB_PULL, 0)} (comb pull)",
+        "emit ${anchor(b_pin(401 + n), b_pin(400 - n), offset=offset_natural(4))} (Head B corner)",
+        "emit ${anchor(b_pin(400 - n), a_from_b(400 - n), offset=offset_natural(5))} (Head A corner)",
+        "emit ${increment(X_PULL_IN, 0)}",
+        "emit ${anchor(a_from_b(400 - n), a_from_b(n - 399), offset=offset_natural(6))} (Top A corner - head end)",
+        "emit ${anchor(a_from_b(n - 399), b_pin(n - 399), offset=offset_natural(7), hover=True)} (Top B corner - head end)",
+        "emit ${increment(0, -Y_PULL_IN)}",
+        "if near_comb(wrap_pin(n - 399)): emit ${increment(COMB_PULL, 0)} (comb pull)",
+        "emit ${anchor(b_pin(n - 399), b_pin(1200 - n), offset=offset_natural(8))} (Bottom B corner - foot end)",
+        "emit ${anchor(b_pin(1200 - n), a_from_b(1200 - n), offset=offset_natural(9), hover=True)} (Bottom A corner - foot end)",
+        "emit ${increment(0, Y_PULL_IN)}",
+        "if near_comb(wrap_pin(1200 - n)): emit ${increment(COMB_PULL, 0)} (comb pull)",
+        "emit ${anchor(a_from_b(1200 - n), a_from_b(1201 + n + 1), offset=offset_natural(10))} (Foot A corner)",
+    ),
+    # Emitted without a (wrap,line) identifier, so unlike V's final-wrap tail
+    # these two lines are not addressable by line_offset_overrides.
+    postscript=(
+        "emit ${anchor(a_from_b(1601), b_pin(1601))}",
+        "emit ${increment(X_PULL_IN, 0)}",
+    ),
 )
 
 
@@ -556,6 +587,23 @@ def _number_lines(lines):
     return template_gcode_common.number_lines(lines, line_builder=_line)
 
 
+# U pins each corner offset onto that offset id's natural axis as it is
+# emitted; V emits both components and lets enforce_offset_natural_axis clamp
+# them afterwards.  The two agree on today's inputs but are not the same rule.
+U_ANCHOR_ADAPTER = AnchorLayerAdapter(
+    layer="U",
+    line_builder=_line,
+    coord=_coord,
+    wrap_pin=_wrap_pin_number,
+    near_comb=_near_comb,
+    annotate_wrap_lines=_annotate_wrap_lines,
+    offset_mode=OFFSET_MODE_NATURAL,
+    offset_ids=OFFSET_IDS,
+    offset_natural_axis=OFFSET_NATURAL_AXIS,
+    named_values={"PREAMBLE_X": PREAMBLE_X},
+)
+
+
 def _token_line(*parts):
     return tuple(_normalize_pin_tokens(str(part)) for part in parts)
 
@@ -676,194 +724,6 @@ def _render_wrap_lines(
     return _annotate_wrap_lines(wrap_number, lines)
 
 
-def _render_wrapping_wrap_lines(wrap_number, pull_ins, offsets):
-    n = int(wrap_number) - 1
-
-    def b_pin(pin_number):
-        return "B" + str(_wrap_pin_number(pin_number))
-
-    def a_from_b(pin_number):
-        return b_to_a_pin("U", b_pin(pin_number))
-
-    def _scalar_axis(value, axis):
-        if isinstance(value, dict):
-            return float(value.get(axis, 0.0))
-        return float(value)
-
-    def anchor_to_target(anchor_pin, target_pin, label=None, offset=None, hover=False):
-        call = f"~anchorToTarget({anchor_pin},{target_pin}"
-        if offset is not None:
-            offset_x = (
-                _scalar_axis(offset[0], "x")
-                if not isinstance(offset[0], (int, float))
-                else float(offset[0])
-            )
-            offset_y = (
-                _scalar_axis(offset[1], "y")
-                if not isinstance(offset[1], (int, float))
-                else float(offset[1])
-            )
-            if abs(offset_x) >= 1e-9 or abs(offset_y) >= 1e-9:
-                call += (
-                    ",offset=("
-                    + _coord("", offset_x)
-                    + ","
-                    + _coord("", offset_y)
-                    + ")"
-                )
-        if hover:
-            call += ",hover=True"
-        call += ")"
-        parts = [call]
-        if label:
-            parts.append("(" + str(label) + ")")
-        return _line(*parts)
-
-    lines = [
-        anchor_to_target(
-            a_from_b(1201 + n),
-            b_pin(1201 + n),
-            "Foot B corner",
-            offset=(0.0, offsets[11]),
-        ),
-        _line("~increment(" + _coord("", -pull_ins["X_PULL_IN"]) + ",0)"),
-        anchor_to_target(
-            b_pin(1201 + n),
-            b_pin(1602 + (399 - n)),
-            "Top B corner - foot end",
-            offset=(offsets[0], 0.0),
-        ),
-        anchor_to_target(
-            b_pin(1602 + (399 - n)),
-            a_from_b(1602 + (399 - n)),
-            "Top A corner - foot end",
-            offset=(offsets[1], 0.0),
-            hover=True,
-        ),
-        _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
-    ]
-    if _near_comb(1602 + (399 - n)):
-        lines.append(
-            _line(
-                "~increment("
-                + _coord(
-                    "", -comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
-                )
-                + ",0)",
-                "(comb pull)",
-            )
-        )
-    lines.extend(
-        [
-            anchor_to_target(
-                a_from_b(1602 + (399 - n)),
-                a_from_b(401 + n),
-                "Bottom A corner - head end",
-                offset=(offsets[2], 0.0),
-            ),
-            anchor_to_target(
-                a_from_b(401 + n),
-                b_pin(401 + n),
-                "Bottom B corner - head end",
-                offset=(offsets[3], 0.0),
-                hover=True,
-            ),
-            _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
-        ]
-    )
-    if _near_comb(401 + n):
-        lines.append(
-            _line(
-                "~increment("
-                + _coord(
-                    "", -comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
-                )
-                + ",0)",
-                "(comb pull)",
-            )
-        )
-    lines.extend(
-        [
-            anchor_to_target(
-                b_pin(401 + n),
-                b_pin(400 - n),
-                "Head B corner",
-                offset=(0.0, offsets[4]),
-            ),
-            anchor_to_target(
-                b_pin(400 - n),
-                a_from_b(400 - n),
-                "Head A corner",
-                offset=(0.0, offsets[5]),
-            ),
-            _line("~increment(" + _coord("", pull_ins["X_PULL_IN"]) + ",0)"),
-            anchor_to_target(
-                a_from_b(400 - n),
-                a_from_b(n - 399),
-                "Top A corner - head end",
-                offset=(offsets[6], 0.0),
-            ),
-            anchor_to_target(
-                a_from_b(n - 399),
-                b_pin(n - 399),
-                "Top B corner - head end",
-                offset=(offsets[7], 0.0),
-                hover=True,
-            ),
-            _line("~increment(0," + _coord("", -pull_ins["Y_PULL_IN"]) + ")"),
-        ]
-    )
-    if _near_comb(_wrap_pin_number(n - 399)):
-        lines.append(
-            _line(
-                "~increment("
-                + _coord(
-                    "", comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
-                )
-                + ",0)",
-                "(comb pull)",
-            )
-        )
-    lines.extend(
-        [
-            anchor_to_target(
-                b_pin(1 - 399 + n),
-                b_pin(1200 - n),
-                "Bottom B corner - foot end",
-                offset=(offsets[8], 0.0),
-            ),
-            anchor_to_target(
-                b_pin(1200 - n),
-                a_from_b(1200 - n),
-                "Bottom A corner - foot end",
-                offset=(offsets[9], 0.0),
-                hover=True,
-            ),
-            _line("~increment(0," + _coord("", pull_ins["Y_PULL_IN"]) + ")"),
-        ]
-    )
-    if _near_comb(_wrap_pin_number(1200 - n)):
-        lines.append(
-            _line(
-                "~increment("
-                + _coord(
-                    "", comb_pull(pull_ins["Y_PULL_IN"], pull_ins["HEAD_ARM_LENGTH"])
-                )
-                + ",0)",
-                "(comb pull)",
-            )
-        )
-    lines.append(
-        anchor_to_target(
-            a_from_b(1200 - n),
-            a_from_b(1201 + n + 1),
-            "Foot A corner",
-            offset=(0.0, offsets[10]),
-        )
-    )
-    return _annotate_wrap_lines(wrap_number, lines)
-
-
 def render_u_template_lines(
     *,
     offsets=None,
@@ -896,20 +756,12 @@ def render_u_template_lines(
     script_variant = _normalize_script_variant(script_variant)
 
     if script_variant == SCRIPT_VARIANT_WRAPPING:
-        final_anchor_pin = b_to_a_pin("U", "B1601")
-        lines = [
-            "( U Layer )",
-            _line("~goto(" + _coord("", PREAMBLE_X) + ",0)"),
-        ]
-        for wrap_number in range(1, WRAP_COUNT + 1):
-            lines.extend(
-                _render_wrapping_wrap_lines(wrap_number, pull_ins, resolved_offsets)
-            )
-        lines.extend(
-            [
-                _line("~anchorToTarget(" + final_anchor_pin + ",B1601)"),
-                _line("~increment(" + _coord("", pull_ins["X_PULL_IN"]) + ",0)"),
-            ]
+        lines = render_anchor_layer_lines(
+            U_ANCHOR_SECTIONS,
+            U_ANCHOR_ADAPTER,
+            offsets=resolved_offsets,
+            pull_ins=pull_ins,
+            wrap_count=WRAP_COUNT,
         )
     else:
         lines = [

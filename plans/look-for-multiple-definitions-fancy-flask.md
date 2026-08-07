@@ -10,7 +10,7 @@ There is also a latent bug: `v_template_gcode.py` sets `PIN_MAX=2400` but V-laye
 
 1. **G109/G103 in normal mode** (U_WRAP_SCRIPT, V_WRAP_BASE_SCRIPT + tail scripts): Template strings like `emit G109 PB${1200 + wrap}` are compiled at module load via `compile_template_script()`. The `${...}` expressions are `eval()`'d at execution time with an environment dict. The literal pin numbers (1200, 2002, 800, etc.) in these strings **cannot be changed** -- they remain as-is. What CAN change is the module-level Python constants (PIN_MIN, PIN_MAX, WRAP_COUNT, etc.) and the environment values (Y_PULL_IN, X_PULL_IN, COMB_PULL_FACTOR).
 
-2. **G115/G117/G118 in wrapping mode** (U_WRAP_WRAPPING_SCRIPT): Same template-string constraint. Additionally, `_render_wrapping_wrap_lines()` (lines 663-754) uses hardcoded endpoint pins in Python code -- these CAN be centralized.
+2. **anchorToTarget in wrapping mode** (U_ANCHOR_SECTIONS / V_ANCHOR_SECTIONS): Same template-string constraint, but the pins can be centralized by injecting them through the layer adapter's `named_values`. (`U_WRAP_WRAPPING_SCRIPT`, the unused G115/G117/G118 script, is dead code -- delete rather than migrate.)
 
 3. **anchorToTarget macro** (~anchorToTarget): Called from wrapping-mode gcode at runtime. The handler `_plan_explicit_wrap_transition()` at handler_base.py:531 already calls `plan_wrap_transition()` which uses `get_uv_layout()` internally. **No changes needed** in the anchorToTarget execution path.
 
@@ -198,21 +198,20 @@ _U_LAYOUT = get_uv_layout("U")
 - `FOOT_PAUSE_MIN_PIN = 1200`, `FOOT_PAUSE_MAX_PIN = 1600` (boundary pin values that include edge pins outside strict face ranges -- verify separately)
 - Template script strings `U_WRAP_SCRIPT` and `U_WRAP_WRAPPING_SCRIPT` (lines 101-159): The literal pin numbers in `${...}` expressions like `${1200 + wrap}` are compiled at import time and cannot reference layout methods.
 
-### 2c. Replace hardcoded pins in `_render_wrapping_wrap_lines()` (lines 663-754)
+### 2c. Replace hardcoded pins in `U_ANCHOR_SECTIONS`
 
-This function builds gcode lines for wrapping mode using `anchor_to_target()`. It uses hardcoded endpoint pins:
+Partly superseded: `_render_wrapping_wrap_lines()` no longer exists. Wrapping mode is now the `U_ANCHOR_SECTIONS` template script (see `plans/anchor-to-target-dsl.md`), so these pins sit inside `${...}` expressions and must be injected via the adapter's `named_values` -- the route V already uses for its `bh`/`tf`/`fb`/`bf`/`th`/`hb` aliases.
 
 - `1201 + n` → `_U_LAYOUT.named_pins["foot_bottom_end"] + n`
-- `1602 + (399 - n)` → `_U_LAYOUT.named_pins["top_foot_end"] + (WRAP_COUNT - 1 - n)`
+- `1602 + 399 - n` → `_U_LAYOUT.named_pins["top_foot_end"] + (WRAP_COUNT - 1 - n)`
 - `401 + n` → `_U_LAYOUT.named_pins["bottom_head_end"] + n`
 - `400 - n` → `_U_LAYOUT.named_pins["head_bottom_end"] - n`
 - `n - 399` → `n - (WRAP_COUNT - 1)` (result passed to `_wrap_pin_number()`)
-- `1 - 399 + n` → equivalent to above, keep `_wrap_pin_number()` call
 - `1200 - n` → `_U_LAYOUT.named_pins["bottom_foot_end"] - n`
 - `1201 + n + 1` → `_U_LAYOUT.named_pins["foot_bottom_end"] + n + 1`
-- `b_to_a_pin("U", ...)` calls: already centralized, keep as-is
-- `_wrap_pin_number(...)` calls: keep, now uses centralized PIN_MAX/PIN_SPAN
-- `_near_comb(...)` calls: keep, uses centralized COMBS
+- `b_to_a_pin("U", ...)` / `_wrap_pin_number(...)` / `_near_comb(...)`: reached through the environment as `a_from_b` / `wrap_pin` / `near_comb`, keep as-is
+
+The old `1 - 399 + n` variant is gone. It was **not** equivalent to `n - 399` (`1 - 399 + n == n - 398`), and that one-pin gap was a real off-by-one in the head-end handoff -- fixed 2026-08-06. Anchor-chain continuity is now asserted for all 4801 moves in `tests/dune_winder/test_anchor_template_language.py`.
 
 Also at line 787: `b_to_a_pin("U", "B1601")` uses literal pin 1601 (foot_top_end for U). Could use `_U_LAYOUT.named_pins["foot_top_end"]` but this is a one-off; optional.
 
