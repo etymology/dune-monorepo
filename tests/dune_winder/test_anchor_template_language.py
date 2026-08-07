@@ -399,7 +399,8 @@ class WrappingAnchorChainTests(unittest.TestCase):
         # wrap range so a regression cannot hide in the modular pin arithmetic.
         bodies = _bodies(U.render_u_template_lines(script_variant=WRAPPING))
         self.assertIn(
-            "(1,13) ~anchorToTarget(A800,B2002,hover=True) (Top B corner - head end)",
+            "(1,13) ~anchorToTarget(A800,B2002,hover=True,jerk=gentle)"
+            " (Top B corner - head end)",
             bodies,
         )
         self.assertIn(
