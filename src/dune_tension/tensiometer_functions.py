@@ -297,12 +297,17 @@ class WirePositionProvider:
         if config.layer not in ["U", "V"]:
             return None
 
+        targeting_side = (
+            {"A": "B", "B": "A"}[config.side.upper()]
+            if config.flipped
+            else config.side.upper()
+        )
         try:
             from dune_tension.uv_wire_planner import plan_uv_wire
 
             planned = plan_uv_wire(
                 str(config.layer).upper(),
-                str(config.side).upper(),
+                targeting_side,
                 int(wire_number),
                 zone=zone,
             )

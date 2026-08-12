@@ -410,7 +410,11 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
             else lambda wire_number, wire_x, wire_y: _request_uv_wire_preview(
                 ctx,
                 str(inputs.layer).upper(),
-                str(inputs.side).upper(),
+                (
+                    {"A": "B", "B": "A"}[str(inputs.side).upper()]
+                    if inputs.flipped
+                    else str(inputs.side).upper()
+                ),
                 int(wire_number),
                 float(wire_x),
                 float(wire_y),
