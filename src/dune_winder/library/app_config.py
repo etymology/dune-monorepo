@@ -79,9 +79,9 @@ class AppConfig:
     manualCalibrationOffsetGY: float = -108.2
     xBacklashCompensationMm: float = 2.0
 
-    # UI command server.
-    serverAddress: str = "127.0.0.1"
-    serverPort: int = 6626
+    # Web server bind address (empty string = all interfaces; set to a specific
+    # IP to restrict which network adapter accepts connections).
+    webServerHost: str = ""
 
     # Web server port.
     webServerPort: int = 8080

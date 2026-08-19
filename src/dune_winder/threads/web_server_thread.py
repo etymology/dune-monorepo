@@ -16,13 +16,15 @@ from dune_winder.library.web_server_interface import WebServerInterface
 
 class WebServerThread(PrimaryThread):
     # ---------------------------------------------------------------------
-    def __init__(self, log, commandRegistry):
+    def __init__(self, log, commandRegistry, host=""):
         """
         Constructor.
 
         Args:
           log: Logger instance.
           commandRegistry: API command registry.
+          host: Network address to bind to. Empty string binds all interfaces;
+            set to a specific IP to restrict which adapter accepts connections.
         """
 
         os.chdir(Settings.WEB_DIRECTORY)
@@ -30,6 +32,7 @@ class WebServerThread(PrimaryThread):
         PrimaryThread.__init__(self, "WebServerThread", log)
         self._commandRegistry = commandRegistry
         self._log = log
+        self._host = host
         self._httpd = None
 
     # ---------------------------------------------------------------------
@@ -45,7 +48,7 @@ class WebServerThread(PrimaryThread):
 
         WebServerInterface.commandRegistry = self._commandRegistry
         WebServerInterface.log = self._log
-        server_address = ("", Settings.WEB_SERVER_PORT)
+        server_address = (self._host, Settings.WEB_SERVER_PORT)
         self._httpd = ThreadedHTTPServer(server_address, WebServerInterface)
         self._httpd.timeout = 0.1
 

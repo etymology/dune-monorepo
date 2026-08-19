@@ -17,7 +17,6 @@ THREAD_MODULES = [
     "dune_winder.threads.control_thread",
     "dune_winder.threads.web_server_thread",
     "dune_winder.threads.camera_thread",
-    "dune_winder.threads.ui_server_thread",
 ]
 
 CORE_MODULES = [
