@@ -61,7 +61,6 @@ class PLC_Logic:
         HOME_LATCH = 6
         LATCH_UNLOCK = 7
         UNSERVO = 8
-        PLC_INIT = 9
         SEEK_XZ = 10
         HMI_STOP_REQUEST = 11
 
@@ -145,7 +144,17 @@ class PLC_Logic:
     def recoverEOT(self):
         """
         Request the PLC EOT recovery state.
+
+        The state-11 entry logic runs off a one-shot.  From READY this fires on
+        the normal transition into state 11, but when the winder is already in
+        state 11 (e.g. it powered up in an end-of-travel trip) there is no
+        rising STATE11_IND and re-writing the same STATE_REQUEST value would not
+        retrigger the ladder one-shot.  Pulse STATE_REQUEST through 0 -- as
+        `_pulseMoveType` does for MOVE_TYPE -- so the state-11 manual re-entry
+        one-shot (EQU(STATE_REQUEST, 11)) always sees a fresh false->true edge.
         """
+        self._writeTagNow(self._stateRequest.getName(), 0)
+        self._stateRequest.updateFromReadTag(0)
         self._requestState(self.States.EOT)
 
     # ---------------------------------------------------------------------
@@ -422,6 +431,23 @@ class PLC_Logic:
         }
 
     # ---------------------------------------------------------------------
+    def getTransferWindowStateNow(self):
+        """
+        Read the X/Y transfer-window tags immediately without cached poll state.
+
+        These are the `no_apa_collision` inputs of the PLC MASTER_Z_GO rung
+        (winder/plc/state_5_move_z/main/main.rung).
+
+        Returns:
+          Dictionary with the current live X_XFER_OK / Y_XFER_OK values.
+        """
+        values = self._readTagsNow([self._xTransferOk, self._yTransferOk])
+        return {
+            "xTransferOk": bool(values[self._xTransferOk.getName()]),
+            "yTransferOk": bool(values[self._yTransferOk.getName()]),
+        }
+
+    # ---------------------------------------------------------------------
     def move_latch(self):
         """
         Request a latch transition through the PLC move-type state machine.
@@ -482,15 +508,6 @@ class PLC_Logic:
         self._errorCode.updateFromReadTag(0)
         self._writeTagNow(self._stateRequest.getName(), 0)
         self._stateRequest.updateFromReadTag(0)
-
-    # ---------------------------------------------------------------------
-    # New function for PLC_Init - PWH - September 2021
-    def PLC_init(self):
-        """
-        Initilize PLC logic.
-        """
-
-        self._moveType.set(self.MoveTypes.PLC_INIT)
 
     # ---------------------------------------------------------------------
 

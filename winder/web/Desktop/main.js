@@ -203,6 +203,9 @@ function configureCommonModules( page, popupMode )
     page.addCommonPage( "/Desktop/Modules/Time",        "#timeDiv"     )
     page.addCommonPage( "/Desktop/Modules/Version",     "#versionDiv"  )
     page.addCommonPage( "/Desktop/Modules/FullStop",    "#fullStopDiv" )
+
+    // Watches for G-code run faults and raises the shared error modal.
+    page.addCommonPage( "/Desktop/Modules/GCodeErrorWatch", "#gCodeErrorDiv" )
   }
 }
 

@@ -82,17 +82,23 @@ def build_candidate_ports(
 def _port_interface_number(port: object) -> int | None:
     """Extract the USB interface number from a port, or ``None`` if unknown."""
 
-    # On Linux, ``port.location`` is typically ``"3-7.4:1.0"`` where the digit
-    # after the last ``.`` is the interface number.
+    # The interface number lives in the USB location string after the final
+    # ``.`` -- e.g. Linux ``"3-7.4:1.0"`` or Windows ``"1-7.4:x.0"`` (the field
+    # before the dot is a digit on Linux but masked as ``x`` by pyserial on
+    # Windows). Windows composite hardware IDs alternatively carry ``&MI_02``.
     for source in (
         getattr(port, "location", None),
         getattr(port, "hwid", None),
     ):
         if not source:
             continue
-        match = re.search(r":\d+\.(\d+)\b", str(source))
-        if match:
-            return int(match.group(1))
+        text = str(source)
+        mi_match = re.search(r"[&_]MI_(\d+)", text, re.IGNORECASE)
+        if mi_match:
+            return int(mi_match.group(1))
+        loc_match = re.search(r":(?:\d+|x)\.(\d+)\b", text)
+        if loc_match:
+            return int(loc_match.group(1))
     return None
 
 

@@ -1,0 +1,379 @@
+{
+  "name": "PLC Rung IR",
+  "scopeName": "source.plc-rung",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#routineHeader"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#blockHeaders"
+    },
+    {
+      "include": "#motionCommands"
+    },
+    {
+      "include": "#actionKeywords"
+    },
+    {
+      "include": "#instructions"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#placeholders"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#parameters"
+    },
+    {
+      "include": "#tags"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.plc-rung",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.plc-rung",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.plc-rung",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "routineHeader": {
+      "patterns": [
+        {
+          "name": "meta.header.routine.plc-rung",
+          "match": "^\\s*(routine)\\s+([^\\s#]+)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.routine.plc-rung"
+            },
+            "2": {
+              "name": "entity.name.function.routine.plc-rung"
+            }
+          }
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.declaration.uses.plc-rung",
+          "begin": "^\\s*(uses)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.declaration.uses.plc-rung"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#scopeComments"
+            },
+            {
+              "include": "#tags"
+            }
+          ]
+        },
+        {
+          "name": "meta.declaration.local.plc-rung",
+          "match": "^\\s*(local)\\s+(bool|int|dint|real|motion|timer|counter)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(preset)\\s+([-+]?(?:\\d+\\.\\d+|\\d+|\\.\\d+)(?:[eE][-+]?\\d+)?)(ms))?",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.local.plc-rung"
+            },
+            "2": {
+              "name": "storage.type.plc-rung"
+            },
+            "3": {
+              "name": "variable.other.tag.plc-rung"
+            },
+            "4": {
+              "name": "storage.modifier.preset.plc-rung"
+            },
+            "5": {
+              "name": "constant.numeric.plc-rung"
+            },
+            "6": {
+              "name": "keyword.other.unit.plc-rung"
+            }
+          }
+        }
+      ]
+    },
+    "scopeComments": {
+      "patterns": [
+        {
+          "name": "comment.line.scope.plc-rung",
+          "match": "#\\s*(?:controller scope|program scope|module I/O|UNRESOLVED:.*)$"
+        }
+      ]
+    },
+    "blockHeaders": {
+      "patterns": [
+        {
+          "name": "meta.block.when.plc-rung",
+          "begin": "^\\s*(when)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.conditional.when.plc-rung"
+            }
+          },
+          "end": "(:)|$",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.plc-rung"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#expressions"
+            }
+          ]
+        },
+        {
+          "name": "meta.block.always.plc-rung",
+          "match": "^\\s*(always)(:)\\s*(?:#.*)?$",
+          "captures": {
+            "1": {
+              "name": "keyword.control.conditional.always.plc-rung"
+            },
+            "2": {
+              "name": "punctuation.section.block.begin.plc-rung"
+            }
+          }
+        },
+        {
+          "name": "meta.block.edge.plc-rung",
+          "begin": "^\\s*(on)\\s+(entry\\s+of|rising|falling)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.edge.on.plc-rung"
+            },
+            "2": {
+              "name": "keyword.control.edge.kind.plc-rung"
+            }
+          },
+          "end": "(:)|$",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.plc-rung"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#expressions"
+            }
+          ]
+        }
+      ]
+    },
+    "motionCommands": {
+      "patterns": [
+        {
+          "name": "meta.motion.command.plc-rung",
+          "begin": "^\\s*(servo_on|servo_off|fault_reset|move_axis|coordinated_move)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "support.function.motion.plc-rung"
+            }
+          },
+          "end": "(:)|(?=\\bwhen\\b)|$",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.plc-rung"
+            }
+          },
+          "patterns": [
+            {
+              "match": "\\b(using)\\b",
+              "name": "keyword.control.using.plc-rung"
+            },
+            {
+              "include": "#tags"
+            }
+          ]
+        }
+      ]
+    },
+    "actionKeywords": {
+      "patterns": [
+        {
+          "match": "^\\s*(latch|unlatch|call)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.action.plc-rung"
+            }
+          }
+        },
+        {
+          "match": "\\b(when|using)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.plc-rung"
+            }
+          }
+        }
+      ]
+    },
+    "instructions": {
+      "patterns": [
+        {
+          "name": "support.function.instruction.plc-rung",
+          "match": "\\b(?:ADD|AFI|CMP|COP|CPT|CTU|EQU|FFL|FFU|FLL|GEQ|GRT|JMP|JSR|LBL|LEQ|LES|LIM|MAFR|MAM|MAR|MAS|MCCD|MCCM|MCLM|MCS|MOD|MOV|MSF|MSO|NEQ|NOP|ONS|OSF|OSR|OTE|OTL|OTU|PID|RES|SFX|SLS|TOF|TON|TRN|XIC|XIO)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "support.function.math.plc-rung",
+          "match": "\\b(?:abs|atn|cos|mod|sin|sqr|ABS|ATN|COS|MOD|SIN|SQR)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.plc-rung",
+          "match": "\\b(?:absolute|incremental|relative|programmed|s-curve|trapezoid|All|None|Disabled|Active Motion|Coordinated Move)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.plc-rung",
+          "match": "\\b(?:true|false|True|False|Yes|No)\\b"
+        },
+        {
+          "name": "constant.language.null.plc-rung",
+          "match": "\\b(?:null|None)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.plc-rung",
+          "match": "(?<![\\w.])[-+]?(?:\\d+\\.\\d+|\\d+|\\.\\d+)(?:[eE][-+]?\\d+)?\\b"
+        },
+        {
+          "name": "keyword.other.unit.plc-rung",
+          "match": "\\b(?:ms|s|units/s2|units/s3|units/s|%\\s+of\\s+Time)\\b"
+        }
+      ]
+    },
+    "placeholders": {
+      "patterns": [
+        {
+          "name": "invalid.deprecated.placeholder.plc-rung",
+          "match": "\\?"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.plc-rung",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.assignment.plc-rung",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.logical.plc-rung",
+          "match": "\\b(?:and|or|not)\\b"
+        },
+        {
+          "name": "keyword.operator.arithmetic.plc-rung",
+          "match": "[+\\-*/]"
+        }
+      ]
+    },
+    "parameters": {
+      "patterns": [
+        {
+          "name": "variable.parameter.motion.plc-rung",
+          "match": "^\\s*(type|position|target|speed|accel|decel|profile|jerk|termination)\\b(?=\\s*=)"
+        }
+      ]
+    },
+    "tags": {
+      "patterns": [
+        {
+          "name": "variable.other.tag.plc-rung",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:(?::[A-Za-z0-9_]+)+)?(?:\\.[A-Za-z_][A-Za-z0-9_]*|\\[[^\\]\\s]+\\])*"
+        }
+      ]
+    },
+    "expressions": {
+      "patterns": [
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#instructions"
+        },
+        {
+          "include": "#functions"
+        },
+        {
+          "include": "#constants"
+        },
+        {
+          "include": "#numbers"
+        },
+        {
+          "include": "#placeholders"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#tags"
+        }
+      ]
+    }
+  }
+}

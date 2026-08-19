@@ -42,6 +42,7 @@ OPERAND_COUNTS = {
     "LIM": 3,
     "MAFR": 2,
     "MAM": 20,
+    "MAR": 7,
     "MAJ": 17,
     "MAS": 9,
     "MCCM": 25,

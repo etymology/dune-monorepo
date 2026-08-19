@@ -1,0 +1,76 @@
+routine tension_pid/main
+
+uses current_command, current_command_high, current_command_low, ERROR_CODE  # controller scope
+uses max_tolerable_tension, MORE_STATS, neutral_cv, NEXTSTATE, overtension_timer  # controller scope
+uses pid_cv_high_limit, pid_cv_low_limit, PID_LOOP_TIMER, pid_loop_timer_bypass  # controller scope
+uses Safety_Tripped_S, tension, TENSION_CONTROL_OK, tension_motor_curr_override  # controller scope
+uses tension_motor_cv, tension_off_oneshot, tension_on_oneshot, TENSION_ON_SWITCH  # controller scope
+uses tension_on_switch_delay_on_start, tension_setpoint, tension_stable_timer, tension_tag  # controller scope
+uses winding_head_pid, wire_broken_tension, wire_tensioned  # controller scope
+uses a0, a1, a2, a3, a4, constant_cv_out, cv_to_electrocraft, Enable_tension_motor, oneshotsb  # program scope
+uses ramp_start_cv, tension_motor_difference, tension_off_ramp_timer, tension_stable_time  # program scope
+uses tension_stable_tolerance, wire_undertension_debounce  # program scope
+uses Local:1:I, Local:3:O  # module I/O
+
+when TENSION_ON_SWITCH:
+    start_timer tension_on_switch_delay_on_start  # preset 1000 ms
+    OSR(oneshotsb[0], tension_on_oneshot)
+    OSF(oneshotsb[1], tension_off_oneshot)
+
+ramp_start_cv = tension_motor_cv when tension_off_oneshot
+
+start_timer tension_off_ramp_timer when not TENSION_ON_SWITCH  # preset 500 ms
+
+start_timer wire_undertension_debounce when not wire_tensioned  # preset 20 ms
+
+TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertension_debounce.DN
+
+Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT or constant_cv_out) and not Safety_Tripped_S
+
+start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 3 ms
+
+tension = a0 + a1 * tension_tag + a2 * tension_tag * tension_tag + a3 * tension_tag * tension_tag * tension_tag + a4 * tension_tag * tension_tag * tension_tag * tension_tag
+
+winding_head_pid.SP = tension_setpoint when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and TENSION_CONTROL_OK
+
+when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and not TENSION_CONTROL_OK:
+    tension = 10
+    winding_head_pid.SP = 0
+
+PID(winding_head_pid, tension, 0, tension_motor_cv, 0, 0, 0) when PID_LOOP_TIMER.DN or pid_loop_timer_bypass
+
+tension_motor_cv = neutral_cv when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and (not TENSION_CONTROL_OK or not TENSION_ON_SWITCH or tension_on_switch_delay_on_start.TT and tension_motor_cv < neutral_cv)
+
+tension_motor_cv = ramp_start_cv + (neutral_cv - ramp_start_cv) * tension_off_ramp_timer.ACC / tension_off_ramp_timer.PRE when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and tension_off_ramp_timer.TT
+
+tension_motor_cv = tension_motor_curr_override when (PID_LOOP_TIMER.DN or pid_loop_timer_bypass) and constant_cv_out
+
+cv_to_electrocraft = tension_motor_cv when PID_LOOP_TIMER.DN or pid_loop_timer_bypass
+
+tension_motor_difference = tension - tension_motor_cv
+
+current_command = cv_to_electrocraft * (current_command_high - current_command_low) / pid_cv_high_limit + current_command_low
+
+neutral_cv = -current_command_low / ((current_command_high - current_command_low) / (pid_cv_high_limit - pid_cv_low_limit))
+
+tension_stable_timer.PRE = tension_stable_time
+
+start_timer tension_stable_timer when abs(tension - tension_setpoint) < tension_stable_tolerance  # preset 10 ms
+
+Local:3:O.Pt15.Data = tension > max_tolerable_tension and TENSION_ON_SWITCH
+
+start_timer overtension_timer when tension > max_tolerable_tension and TENSION_ON_SWITCH  # preset 25 ms
+
+MORE_STATS[2] = overtension_timer.DN
+
+when overtension_timer.DN:
+    ERROR_CODE = 8002
+    NEXTSTATE = 10
+
+when tension_on_switch_delay_on_start.DN and wire_undertension_debounce.DN and ERROR_CODE != 8002:
+    NEXTSTATE = 10
+    ERROR_CODE = 8001
+
+wire_tensioned = Local:1:I.Pt15.Data or tension_tag > wire_broken_tension
+
+ERROR_CODE = 0 when not TENSION_ON_SWITCH and (ERROR_CODE == 8002 or ERROR_CODE == 8001)

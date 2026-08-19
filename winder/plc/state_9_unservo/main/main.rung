@@ -1,0 +1,27 @@
+routine state_9_unservo/main
+
+uses INIT_DONE, MOVE_TYPE, NEXTSTATE, STATE, STATE_REQUEST, X_axis, Y_axis, Z_axis  # controller scope
+uses entered_state_9_osr, state_unservo_active, unservo_ons_storage, x_axis_mafr, x_axis_msf  # program scope
+uses x_axis_msf_dn_osr, y_axis_mafr, y_axis_msf, y_axis_msf_dn_osr, z_axis_mafr, z_axis_msf  # program scope
+uses z_axis_msf_dn_osr  # program scope
+
+state_unservo_active = INIT_DONE and STATE == 9
+
+on entry of state_unservo_active using unservo_ons_storage[0], entered_state_9_osr:
+    servo_off X_axis using x_axis_msf
+    servo_off Y_axis using y_axis_msf
+    servo_off Z_axis using z_axis_msf
+
+on rising x_axis_msf.DN using unservo_ons_storage[1], x_axis_msf_dn_osr:
+    fault_reset X_axis using x_axis_mafr
+
+on rising y_axis_msf.DN using unservo_ons_storage[2], y_axis_msf_dn_osr:
+    fault_reset Y_axis using y_axis_mafr
+
+on rising z_axis_msf.DN using unservo_ons_storage[3], z_axis_msf_dn_osr:
+    fault_reset Z_axis using z_axis_mafr
+
+when state_unservo_active and x_axis_mafr.DN and y_axis_mafr.DN and z_axis_mafr.DN:
+    MOVE_TYPE = 0
+    STATE_REQUEST = 0
+    NEXTSTATE = 1

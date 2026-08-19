@@ -22,8 +22,10 @@ LOGGER = logging.getLogger(__name__)
 # Lock used for individual HTTP request/response calls.
 PLC_LOCK = threading.RLock()
 
-# Separate lock to keep motion command sequences from interleaving.
-_MOTION_LOCK = threading.Lock()
+# Separate lock to keep motion command sequences from interleaving. Reentrant
+# so goto_xy can hold it across a comb-crossing detour while its routed legs
+# (which call goto_xy recursively) re-acquire it on the same thread.
+_MOTION_LOCK = threading.RLock()
 
 # Shared HTTP session for connection pooling and lower request latency.
 _HTTP_SESSION: Any = None
@@ -402,44 +404,51 @@ def goto_xy(
 
     _ensure_tracked_xy()
 
-    if check_comb:
-        path_x = _ensure_tracked_xy()[0]
-        crosses = any(
-            (path_x < c < x_target) or (x_target < c < path_x) for c in comb_positions
-        )
-        if crosses:
-            transit_y = 0.0
-            if not goto_xy(
-                path_x,
-                transit_y,
-                speed=speed,
-                check_comb=False,
-                idle_timeout=idle_timeout,
-                move_timeout=move_timeout,
-                wait_for_completion=wait_for_completion,
-            ):
-                return False
-            if not goto_xy(
-                x_target,
-                transit_y,
-                speed=speed,
-                check_comb=False,
-                idle_timeout=idle_timeout,
-                move_timeout=move_timeout,
-                wait_for_completion=wait_for_completion,
-            ):
-                return False
-            return goto_xy(
-                x_target,
-                y_target,
-                speed=speed,
-                check_comb=False,
-                idle_timeout=idle_timeout,
-                move_timeout=move_timeout,
-                wait_for_completion=wait_for_completion,
-            )
-
     with _MOTION_LOCK:
+        # Plan the comb-crossing check and any routed transit moves while
+        # holding the lock, reading the start position under the lock. A
+        # concurrent move must not change _TRUE_XY between the comb decision
+        # and the legs that depend on it, or comb avoidance is defeated. The
+        # check_comb=False legs re-acquire _MOTION_LOCK (an RLock) so the whole
+        # detour is one atomic, non-interleaved sequence.
+        if check_comb:
+            path_x = _ensure_tracked_xy()[0]
+            crosses = any(
+                (path_x < c < x_target) or (x_target < c < path_x)
+                for c in comb_positions
+            )
+            if crosses:
+                transit_y = 0.0
+                if not goto_xy(
+                    path_x,
+                    transit_y,
+                    speed=speed,
+                    check_comb=False,
+                    idle_timeout=idle_timeout,
+                    move_timeout=move_timeout,
+                    wait_for_completion=wait_for_completion,
+                ):
+                    return False
+                if not goto_xy(
+                    x_target,
+                    transit_y,
+                    speed=speed,
+                    check_comb=False,
+                    idle_timeout=idle_timeout,
+                    move_timeout=move_timeout,
+                    wait_for_completion=wait_for_completion,
+                ):
+                    return False
+                return goto_xy(
+                    x_target,
+                    y_target,
+                    speed=speed,
+                    check_comb=False,
+                    idle_timeout=idle_timeout,
+                    move_timeout=move_timeout,
+                    wait_for_completion=wait_for_completion,
+                )
+
         if get_plc_io_mode() == "desktop":
             from dune_tension.plc_desktop import desktop_seek_xy as _desktop_seek_xy
 

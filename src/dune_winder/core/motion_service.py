@@ -13,7 +13,7 @@ from dune_winder.core.control_events import (
     ManualModeEvent,
     SetManualJoggingEvent,
 )
-from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
+from dune_winder.core.manual_calibration import build_nominal_calibration
 from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
 from dune_winder.queued_motion.safety import (
     QueuedMotionCollisionState,
@@ -69,9 +69,11 @@ class MotionService:
     # -- servo ---------------------------------------------------------------
 
     def servoDisable(self):
-        if self._controlStateMachine.isInMotion():
-            self._log.add(LOG_NAME, "SERVO", "Idling servo control.")
-            self._controlStateMachine.dispatch(ManualModeEvent(idleServos=True))
+        # Request PLC state 9 (UNSERVO) directly.  The PLC idles the servos and
+        # then clears back to state 1 (READY) on its own, so this must work from
+        # any state -- including idle -- not only while the machine is in motion.
+        self._log.add(LOG_NAME, "SERVO", "Idling servo control.")
+        self._io.plcLogic.servoDisable()
 
     def recoverEOT(self):
         self._log.add(LOG_NAME, "EOT", "Request EOT recovery.")
@@ -590,7 +592,12 @@ class MotionService:
         if workspace:
             layer = workspace.getLayer()
 
-            calibration = DefaultLayerCalibration(None, None, layer)
+            # Same nominal geometry the Calibrate page's "Clean APA" draft uses,
+            # so a nominal seek and a clean-APA baseline agree on where a pin is.
+            machineCalibration = getattr(
+                self._headCompensation, "_machineCalibration", None
+            )
+            calibration = build_nominal_calibration(layer, machineCalibration)
 
             if calibration.getPinExists(pin):
                 self._log.add(

@@ -117,29 +117,44 @@ def configure_root_minimum_size(
             return
 
 
-def configure_fixed_fullscreen(root: tk.Misc) -> None:
-    """Pin the root window to the full screen and disable resizing.
+def configure_initial_size(root: tk.Misc) -> None:
+    """Size the root to fit its content and keep it user-resizable.
 
-    A fixed window keeps the outer grid geometry constant so regenerated plot
-    canvases can never trigger a window-level resize.
+    The window opens at its natural requested size (clamped to the screen so it
+    never spawns larger than the display) and remains resizable. Plot refreshes
+    cannot reflow the outer layout because ``freeze_frame_sizes`` pins the plot
+    frames and disables their geometry propagation.
     """
 
+    if hasattr(root, "update_idletasks"):
+        try:
+            root.update_idletasks()
+        except Exception:
+            pass
+
+    req_width = safe_screen_dimension(root, "winfo_reqwidth")
+    req_height = safe_screen_dimension(root, "winfo_reqheight")
     screen_width = safe_screen_dimension(root, "winfo_screenwidth")
     screen_height = safe_screen_dimension(root, "winfo_screenheight")
-    if screen_width is None or screen_height is None:
-        return
+
+    width = req_width
+    height = req_height
+    if width is not None and screen_width is not None:
+        width = min(width, screen_width)
+    if height is not None and screen_height is not None:
+        height = min(height, max(screen_height - 60, 1))
 
     geometry = getattr(root, "geometry", None)
-    if callable(geometry):
+    if callable(geometry) and width and height:
         try:
-            geometry(f"{screen_width}x{screen_height}+0+0")
+            geometry(f"{width}x{height}+0+0")
         except Exception:
-            return
+            pass
 
     resizable = getattr(root, "resizable", None)
     if callable(resizable):
         try:
-            resizable(False, False)
+            resizable(True, True)
         except Exception:
             pass
 

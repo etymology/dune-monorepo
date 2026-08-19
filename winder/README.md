@@ -79,13 +79,6 @@ returns a structured response envelope:
 
 Legacy expression/XML remote command shims have been removed.
 
-For architecture follow-up and remaining high-priority refactors, see:
-
-- [`docs/ArchitecturePriorityBacklog.md`](docs/ArchitecturePriorityBacklog.md)
-- [`docs/PlcWinderCommunication.md`](docs/PlcWinderCommunication.md)
-- [`docs/PlcWinderArchitectureProposals.md`](docs/PlcWinderArchitectureProposals.md)
-- [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
-
 ## Template G-Code Generation
 
 ### V-layer CLI generator
@@ -157,20 +150,15 @@ Queued motion now supports live preview and smoother waypoint traversal through
 fillet/biarc planning, with safety validation against machine bounds and keepout
 regions.
 
-Primary references:
+CLI/GUI test tooling lives under `src/dune_winder/queued_motion/tools/`:
 
-- [`docs/WaypointPathPlanning.md`](docs/WaypointPathPlanning.md)
-- [`docs/CircleLineQueue.md`](docs/CircleLineQueue.md)
-
-CLI/GUI test tooling lives in:
-
-- `src/motionQueueTest.py`
-- `src/motionQueueTest_gui.py`
+- `queue_demo.py` — CLI pattern/waypoint planner and queue driver
+- `waypoint_planner_gui.py` — interactive GUI planner
 
 Example waypoint-planning invocation:
 
 ```bash
-uv run python src/motionQueueTest.py --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
+uv run python -m dune_winder.queued_motion.tools.queue_demo --pattern waypoint_path --waypoints "1000,200;2000,900;3500,1400;5000,500" --waypoint-order shortest --visualize-only
 ```
 
 The web/API layer also exposes queued-motion preview commands:
@@ -192,57 +180,32 @@ The PLC link in this repository has two main paths:
 - Queued motion: Python serializes `MotionSeg` UDT payloads into `IncomingSeg`
   and drives the queue handshake tags (`IncomingSegReqID`, `IncomingSegAck`,
   `StartQueuedPath`, `AbortQueue`, `QueueCount`, `CurIssued`, `NextIssued`,
-  and related fault tags). The checked-in standalone ladder counterpart is
-  `plc/motionQueue/main/pasteable.rll`.
+  and related fault tags). The ladder counterpart lives in the queue program's
+  `.rung` projection under `plc/` (see `AGENTS.md` for the PLC edit workflow).
 
 The runtime uses `pycomm3` in `REAL` mode and an in-memory `SimulatedPLC` in
 `SIM` mode. Most reads come from the shared `PLC.Tag` polling cache in the
 control loop; a few safety-sensitive checks use immediate reads instead.
-
-Primary references:
-
-- [`docs/PlcWinderCommunication.md`](docs/PlcWinderCommunication.md)
-- [`docs/PlcWinderArchitectureProposals.md`](docs/PlcWinderArchitectureProposals.md)
-- [`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
 
 ## Python To Ladder Logic Transpiler
 
 The repository includes a small Python-to-Rockwell Ladder Logic transpiler for
 selected motion-planning functions under `src/dune_winder/transpiler/`.
 
-Studio 5000 copy/paste uses two different text formats in this workflow:
-copied routine text is stored as `.rllscrap`, while pasteable ladder logic is
-stored as `.rll`. Checked-in PLC artifacts live under `plc/` at the repo root.
-The tree mixes exported metadata and manually maintained routine text:
+Checked-in PLC artifacts live under `winder/plc/` (the paths below are
+relative to this `winder/` package) and are regenerated from the Studio 5000
+ACD by `uv run plc-acd-export` (see `AGENTS.md`). The per-routine
+`*_Routine_RLL.L5X` is the single source of
+truth for rung text; the `.rung` file is the readable projection agents edit:
 
 - `plc/controller_level_tags.json`
 - `plc/<program>/programTags.json`
-- `plc/<program>/main/studio_copy.rllscrap`
-- `plc/<program>/main/pasteable.rll`
-- `plc/<program>/<subroutine>/studio_copy.rllscrap`
-- `plc/<program>/<subroutine>/pasteable.rll`
+- `plc/<program>/<routine>_Routine_RLL.L5X`  ← source of truth for rung text
+- `plc/<program>/<routine-dir>/<routine>.rung`  ← readable projection; WHAT YOU EDIT
 
-Routine folders use these canonical files when available:
-
-- `studio_copy.rllscrap`
-- `pasteable.rll`
-
-Some PLC programs also include supporting exported metadata in `programTags.json`
-and the repository root includes controller-wide metadata in
-`plc/controller_level_tags.json`. See
-[`docs/PlcLadderWorkflow.md`](docs/PlcLadderWorkflow.md)
-for the Studio 5000 workflow and storage conventions.
-
-To scaffold a separate live-PLC metadata tree, use:
-
-```bash
-uv run python src/export_plc_metadata.py 192.168.1.10
-```
-
-That command connects with `pycomm3`, writes controller/program tag metadata to
-`plc/`, and creates empty `studio_copy.rllscrap` placeholders for each
-discovered program entry point and subroutine. Users still need to copy actual
-rung text from Studio 5000 into those `.rllscrap` files manually.
+See [`../AGENTS.md`](../AGENTS.md) (PLC section) and the format references
+under `plc/` (`RUNG_FORMAT.md`, `instruction_set.md`, `RLL_FORMAT.md`) for the
+full edit/compile/re-export cycle.
 
 CLI usage:
 

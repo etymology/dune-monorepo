@@ -57,6 +57,7 @@ def _load_actions_module(monkeypatch):
     data_cache.clear_wire_numbers = lambda *args, **kwargs: None
     data_cache.clear_wire_range = lambda *args, **kwargs: None
     data_cache.find_distribution_outliers = lambda *args, **kwargs: []
+    data_cache.find_low_confidence_wires = lambda *args, **kwargs: []
     data_cache.find_outliers = lambda *args, **kwargs: []
     data_cache.get_dataframe = lambda *args, **kwargs: None
     data_cache.update_dataframe = lambda *args, **kwargs: None
@@ -376,7 +377,7 @@ def test_erase_distribution_outliers_uses_bulk_detector(monkeypatch):
     assert detector_calls == [
         (
             ("db.sqlite", "APA", "G", "A"),
-            {"times_sigma": 2.5, "confidence_threshold": 0.85},
+            {"times_sigma": 2.5},
         )
     ]
     assert clear_calls == [("db.sqlite", "APA", "G", "A", [7, 9])]
@@ -398,7 +399,8 @@ def test_measure_outliers_triggers_measurement(monkeypatch):
 
     def fake_find(*args, **kwargs):
         detector_calls.append((args, kwargs))
-        return [10, 20]
+        # Worst-first order from the detector (not ascending by wire number).
+        return [20, 10]
 
     class DummyTensiometer:
         def measure_list(self, wire_list, preserve_order=False):
@@ -429,10 +431,11 @@ def test_measure_outliers_triggers_measurement(monkeypatch):
     assert detector_calls == [
         (
             ("db.sqlite", "APA", "G", "A"),
-            {"times_sigma": 3.0, "confidence_threshold": 0.75},
+            {"times_sigma": 3.0},
         )
     ]
-    assert measured_wires == [([10, 20], False)]
+    # Detector order preserved (worst-first) and measured in that order.
+    assert measured_wires == [([20, 10], True)]
 
 
 def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
@@ -482,10 +485,66 @@ def test_measure_distribution_outliers_triggers_measurement(monkeypatch):
     assert detector_calls == [
         (
             ("db.sqlite", "APA", "G", "A"),
-            {"times_sigma": 2.0, "confidence_threshold": 0.9},
+            {"times_sigma": 2.0},
         )
     ]
-    assert measured_wires == [([30, 40], False)]
+    assert measured_wires == [([30, 40], True)]
+
+
+def test_measure_low_confidence_triggers_measurement(monkeypatch):
+    actions = _load_actions_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(
+        data_path="db.sqlite",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+    monkeypatch.setattr(actions, "_make_config_from_inputs", lambda _inputs: cfg)
+
+    detector_calls = []
+    measured_wires = []
+
+    def fake_find(*args, **kwargs):
+        detector_calls.append((args, kwargs))
+        # Lowest-confidence-first order from the detector.
+        return [12, 5]
+
+    class DummyTensiometer:
+        def measure_list(self, wire_list, preserve_order=False):
+            measured_wires.append((wire_list, preserve_order))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(actions, "find_low_confidence_wires", fake_find)
+    monkeypatch.setattr(
+        actions, "create_tensiometer", lambda _ctx, _inputs: DummyTensiometer()
+    )
+    monkeypatch.setattr(
+        actions, "_cleanup_after_measurement", lambda *_args, **_kwargs: None
+    )
+
+    inputs = types.SimpleNamespace(
+        times_sigma="2.0",
+        confidence=0.5,
+        measurement_mode="legacy",
+        apa_name="APA",
+        layer="G",
+        side="A",
+    )
+
+    actions.measure_low_confidence.__wrapped__(types.SimpleNamespace(), inputs)
+
+    # The GUI confidence threshold is passed through to the detector.
+    assert detector_calls == [
+        (
+            ("db.sqlite", "APA", "G", "A"),
+            {"confidence_threshold": 0.5},
+        )
+    ]
+    # Detector order preserved (lowest-confidence first) and measured in order.
+    assert measured_wires == [([12, 5], True)]
 
 
 def test_measure_refine_outliers_remeasures_union(monkeypatch):
@@ -538,7 +597,7 @@ def test_measure_refine_outliers_remeasures_union(monkeypatch):
 
     actions.measure_refine_outliers.__wrapped__(types.SimpleNamespace(), inputs)
 
-    expected_kwargs = {"times_sigma": 2.0, "confidence_threshold": 0.8}
+    expected_kwargs = {"times_sigma": 2.0}
     assert residual_calls == [(("db.sqlite", "APA", "G", "A"), expected_kwargs)]
     assert bulk_calls == [(("db.sqlite", "APA", "G", "A"), expected_kwargs)]
     assert measured_wires == [([10, 20, 30, 40], False)]

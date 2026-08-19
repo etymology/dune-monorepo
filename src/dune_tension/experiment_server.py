@@ -370,7 +370,7 @@ def collect_raw():
                     audio_save_path, audio=audio_sample, samplerate=tm.samplerate
                 )
 
-                analysis, frequency, confidence = tm._estimate_sample_pitch(
+                analysis, frequency, confidence, _accepted = tm._estimate_sample_pitch(
                     audio_sample, None
                 )
                 state.audio_callback(audio_sample, tm.samplerate, analysis)

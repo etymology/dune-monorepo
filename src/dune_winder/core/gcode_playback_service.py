@@ -168,8 +168,12 @@ class GCodePlaybackService:
             pins.append(
                 {
                     "name": str(pin_name),
-                    "x": float(getattr(location, "x", 0.0)) + offset_x + camera_offset_x,
-                    "y": float(getattr(location, "y", 0.0)) + offset_y + camera_offset_y,
+                    "x": float(getattr(location, "x", 0.0))
+                    + offset_x
+                    + camera_offset_x,
+                    "y": float(getattr(location, "y", 0.0))
+                    + offset_y
+                    + camera_offset_y,
                     "z": float(getattr(location, "z", 0.0)) + offset_z,
                 }
             )
@@ -240,6 +244,20 @@ class GCodePlaybackService:
             )
 
         return isError
+
+    # -- latched error -------------------------------------------------------
+
+    def getG_CodeError(self):
+        """
+        The G-Code error awaiting operator acknowledgement, or None.
+        """
+        return self._gCodeHandler.getLatchedG_CodeError()
+
+    def acknowledgeG_CodeError(self):
+        """
+        Dismiss the latched G-Code error.
+        """
+        self._gCodeHandler.clearLatchedG_CodeError()
 
     # -- loop / velocity scale -----------------------------------------------
 
@@ -499,26 +517,30 @@ class GCodePlaybackService:
                     if isRelativeXYMove:
                         y += yPosition
 
-                if cmd and cmd[0] in ("F", "A") and re.match(
-                    "|".join(
-                        [
-                            xyf,
-                            fxy,
-                            xf,
-                            fx,
-                            yf,
-                            fy,
-                            xzf,
-                            fxz,
-                            zf,
-                            fz,
-                            gxyf,
-                            gx_yf,
-                            f_only,
-                            a_only,
-                        ]
-                    ),
-                    line,
+                if (
+                    cmd
+                    and cmd[0] in ("F", "A")
+                    and re.match(
+                        "|".join(
+                            [
+                                xyf,
+                                fxy,
+                                xf,
+                                fx,
+                                yf,
+                                fy,
+                                xzf,
+                                fxz,
+                                zf,
+                                fz,
+                                gxyf,
+                                gx_yf,
+                                f_only,
+                                a_only,
+                            ]
+                        ),
+                        line,
+                    )
                 ):
                     velocity = float(cmd[1:])
                     if velocity < 0 or velocity > self._safety.max_velocity:
@@ -587,10 +609,12 @@ class GCodePlaybackService:
                     else:
                         lineToExecute = line.strip() + " Y" + str(yPosition)
                 elif re.match(y_only + "|" + yf + "|" + fy, line):
-                    if self._isTransferOk("X_Transfer_OK"):
-                        lineToExecute = line.strip() + " Z" + str(zPosition)
-                    else:
-                        lineToExecute = line.strip() + " X" + str(xPosition)
+                    # A bare Y line is always a plain XY (state 3) seek: pin the
+                    # current X so the handler issues setXY_Position. A YZ (state
+                    # 13) move is only started when the line explicitly contains
+                    # both Y and Z -- never inferred from a transfer-OK Y-only
+                    # line.
+                    lineToExecute = line.strip() + " X" + str(xPosition)
 
                 errorData = self._gCodeHandler.executeG_CodeLine(
                     lineToExecute,

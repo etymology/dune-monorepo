@@ -200,13 +200,13 @@ def CreateComponent(componentTypeFormID, componentData, connection, headers):
                 "POST", "/api/component", body=componentJSON, headers=headers
             )
 
-            # The route returns a different string based on success (response code = 200) or failure (response code = anything else)
+            # The route returns a different string based on success (2xx response code) or failure (response code = anything else)
             #  - if successful, the full UUID of the submitted component is returned and set to the result string
             #  - if not successful, an error is returned and displayed on screen, and the result string is set to an 'invalid' indicator
             submissionResponse = connection.getresponse()
             result = "none"
 
-            if submissionResponse.status == 200:
+            if 200 <= submissionResponse.status < 300:
                 result = submissionResponse.read().decode("utf-8")
             else:
                 print(submissionResponse.status, submissionResponse.reason)
@@ -300,13 +300,13 @@ def EditComponent(
                 "POST", "/api/component", body=componentJSON, headers=headers
             )
 
-            # The route returns a different string based on success (response code = 200) or failure (response code = anything else)
+            # The route returns a different string based on success (2xx response code) or failure (response code = anything else)
             #  - if successful, the full UUID of the submitted component is returned and set to the result string
             #  - if not successful, an error is returned and displayed on screen, and the result string is set to an 'invalid' indicator
             submissionResponse = connection.getresponse()
             result = "none"
 
-            if submissionResponse.status == 200:
+            if 200 <= submissionResponse.status < 300:
                 result = submissionResponse.read().decode("utf-8")
             else:
                 print(submissionResponse.status, submissionResponse.reason)
@@ -379,13 +379,13 @@ def PerformAction(actionTypeFormID, componentUUID, actionData, connection, heade
     try:
         connection.request("POST", "/api/action", body=actionJSON, headers=headers)
 
-        # The route returns a different string based on success (response code = 200) or failure (response code = anything else)
+        # The route returns a different string based on success (2xx response code) or failure (response code = anything else)
         #  - if successful, the ID of the submitted action is returned and set to the result string
         #  - if not successful, an error is returned and displayed on screen, and the result string is set to an 'invalid' indicator
         submissionResponse = connection.getresponse()
         result = "none"
 
-        if submissionResponse.status == 200:
+        if 200 <= submissionResponse.status < 300:
             result = submissionResponse.read().decode("utf-8")
         else:
             print(submissionResponse.status, submissionResponse.reason)
@@ -459,13 +459,13 @@ def EditAction(actionID, actionData_fields, actionData_values, connection, heade
         try:
             connection.request("POST", "/api/action", body=actionJSON, headers=headers)
 
-            # The route returns a different string based on success (response code = 200) or failure (response code = anything else)
+            # The route returns a different string based on success (2xx response code) or failure (response code = anything else)
             #  - if successful, the ID of the submitted action is returned and set to the result string
             #  - if not successful, an error is returned and displayed on screen, and the result string is set to an 'invalid' indicator
             submissionResponse = connection.getresponse()
             result = "none"
 
-            if submissionResponse.status == 200:
+            if 200 <= submissionResponse.status < 300:
                 result = submissionResponse.read().decode("utf-8")
             else:
                 print(submissionResponse.status, submissionResponse.reason)

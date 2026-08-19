@@ -693,6 +693,7 @@ class GCodeHandlerBase:
         )
         head_position = 1 if normalized_target.startswith("A") else 2
         clearance_position = 0 if normalized_target.startswith("A") else 3
+        self._requireHeadTransferReady([normalized_anchor, normalized_target])
         head_present = self._isHeadPresent()
         self._instruction_trace["sameSide"] = bool(plan.same_side)
 
@@ -700,14 +701,13 @@ class GCodeHandlerBase:
         if plan.same_side:
             prep_transfer = False
             if head_present and self._x is not None and self._y is not None:
-                in_transfer_zone = (
-                    float(self._machineCalibration.transferLeft)
-                    <= float(self._x)
-                    <= float(self._machineCalibration.transferRight)
-                    and float(self._machineCalibration.transferBottom)
-                    <= float(self._y)
-                    <= float(self._machineCalibration.transferTop)
-                )
+                in_transfer_zone = float(
+                    self._machineCalibration.transferLeft
+                ) <= float(self._x) <= float(
+                    self._machineCalibration.transferRight
+                ) and float(self._machineCalibration.transferBottom) <= float(
+                    self._y
+                ) <= float(self._machineCalibration.transferTop)
                 near_target = (
                     abs(float(self._x) - float(final_xy.x))
                     <= _SAME_SIDE_PREP_TRANSFER_XY_TOLERANCE_MM
@@ -743,9 +743,7 @@ class GCodeHandlerBase:
                 and self._y is not None
             )
             if should_split:
-                self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(self._y)
-                )
+                self._append_pending_action("xy", x=float(final_xy.x), y=float(self._y))
                 self._append_pending_action(
                     "xy", x=float(final_xy.x), y=float(final_xy.y)
                 )
@@ -1138,6 +1136,22 @@ class GCodeHandlerBase:
         return True
 
     # ---------------------------------------------------------------------
+    def _requireHeadTransferReady(self, data):
+        """
+        Reject a head transfer that cannot start.
+
+        A head that is not mounted at all is fine -- the transfer is skipped
+        silently so no-head runs still work.  A head that *is* mounted but sits
+        in a latch position the machine cannot extend from is a real fault, and
+        hardware subclasses raise GCodeExecutionError describing it.  No-op in
+        the base interpreter, which has no sensors to consult.
+
+        Args:
+          data: G-code error data (pins, target) attached to any error raised.
+        """
+        return
+
+    # ---------------------------------------------------------------------
     def _getPin(self, pinName):
         """
         Function to fetch specific pin location.
@@ -1367,6 +1381,7 @@ class GCodeHandlerBase:
         Head transfer position.
         """
         target = self._parameterExtract(function, 1, None, int, "head transfer")
+        self._requireHeadTransferReady([str(target)])
         if not self._isHeadPresent():
             return
         self._headPosition = target

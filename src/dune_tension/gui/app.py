@@ -15,8 +15,6 @@ from dune_tension.gui.actions import (
     calibrate_background_noise,
     capture_laser_offset_button,
     clear_range,
-    erase_distribution_outliers,
-    erase_outliers,
     handle_close,
     interrupt,
     manual_goto,
@@ -26,8 +24,10 @@ from dune_tension.gui.actions import (
     measure_condition,
     measure_distribution_outliers,
     measure_list_button,
+    measure_low_confidence,
     measure_outliers,
     measure_zone_button,
+    monitor_photodiode,
     monitor_tension_logs,
     move_laser_to_pin_button,
     refresh_connections,
@@ -35,6 +35,7 @@ from dune_tension.gui.actions import (
     refresh_uv_laser_offset_controls,
     seek_camera_to_pin,
     set_manual_tension,
+    trigger_air_pulse,
     update_focus_command_indicator,
 )
 from dune_tension.gui.crash_logging import (
@@ -43,7 +44,7 @@ from dune_tension.gui.crash_logging import (
     install_tk_exception_logging,
 )
 from dune_tension.gui._layout import (
-    configure_fixed_fullscreen,
+    configure_initial_size,
     configure_root_minimum_size,
     freeze_frame_sizes,
 )
@@ -100,6 +101,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             log_text,
             summary_plot_frame,
             waveform_plot_frame,
+            extras,
         ) = _create_widgets(root, focus_command_var, estimated_time_var)
         log_binding = configure_gui_logging(root, log_text)
         LOGGER.info(
@@ -137,7 +139,7 @@ def run_app(state_file: str = "gui_state.json", root: tk.Misc | None = None) -> 
             waveform_plot_frame,
         )
 
-        _configure_commands(ctx, buttons, pad_buttons)
+        _configure_commands(ctx, buttons, pad_buttons, extras)
         LOGGER.info("GUI commands configured.")
 
         load_state(ctx)
@@ -243,6 +245,7 @@ def _create_widgets(
     Any | None,
     tk.Misc,
     tk.Misc,
+    dict[str, Any],
 ]:
     """Build and layout the GUI widgets."""
 
@@ -360,11 +363,25 @@ def _create_widgets(
     manual_move_frame = tk.LabelFrame(bottom_frame, text="Manual Move")
     manual_move_frame.grid(row=3, column=0, sticky="ew", pady=3)
 
+    relay_frame = tk.LabelFrame(bottom_frame, text="Relay")
+    relay_frame.grid(row=4, column=0, sticky="ew", pady=3)
+    if hasattr(relay_frame, "columnconfigure"):
+        relay_frame.columnconfigure(0, weight=1)
+
+    monitor_photodiode_var = tk.BooleanVar(value=False)
+    chk_monitor_photodiode = tk.Checkbutton(
+        relay_frame, text="Monitor Photodiode", variable=monitor_photodiode_var
+    )
+    chk_monitor_photodiode.grid(row=0, column=0, sticky="w")
+
+    btn_trigger_air_pulse = tk.Button(relay_frame, text="Trigger Air Pulse")
+    btn_trigger_air_pulse.grid(row=1, column=0, sticky="ew", pady=(3, 0))
+
     btn_refresh_plots = tk.Button(bottom_frame, text="Refresh Plots")
-    btn_refresh_plots.grid(row=4, column=0, sticky="ew", pady=(6, 0))
+    btn_refresh_plots.grid(row=5, column=0, sticky="ew", pady=(6, 0))
 
     btn_refresh_connections = tk.Button(bottom_frame, text="Refresh Connections")
-    btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
+    btn_refresh_connections.grid(row=6, column=0, sticky="ew", pady=(3, 0))
 
     tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
     apa_location_var = tk.StringVar(apa_frame, value="US")
@@ -510,19 +527,24 @@ def _create_widgets(
     entry_times_sigma.grid(row=13, column=1, sticky="ew")
     entry_times_sigma.insert(0, "2.0")
 
-    btn_erase_outliers = tk.Button(measure_frame, text="Erase Residual Outliers")
-    btn_erase_outliers.grid(row=14, column=1, sticky="ew")
-    btn_measure_outliers = tk.Button(measure_frame, text="Measure Residual Outliers")
-    btn_measure_outliers.grid(row=14, column=2, padx=(3, 0), sticky="ew")
-
-    btn_erase_distribution_outliers = tk.Button(
-        measure_frame, text="Erase Bulk Outliers"
+    btn_measure_low_confidence = tk.Button(
+        measure_frame, text="Measure Low\nConfidence"
     )
-    btn_erase_distribution_outliers.grid(row=15, column=1, sticky="ew")
+    btn_measure_low_confidence.grid(
+        row=14, column=0, rowspan=2, padx=(0, 3), sticky="nsew"
+    )
+
+    btn_measure_outliers = tk.Button(measure_frame, text="Measure Residual Outliers")
+    btn_measure_outliers.grid(
+        row=14, column=1, columnspan=2, padx=(3, 0), sticky="ew"
+    )
+
     btn_measure_distribution_outliers = tk.Button(
         measure_frame, text="Measure Bulk Outliers"
     )
-    btn_measure_distribution_outliers.grid(row=15, column=2, padx=(3, 0), sticky="ew")
+    btn_measure_distribution_outliers.grid(
+        row=15, column=1, columnspan=2, padx=(3, 0), sticky="ew"
+    )
 
     # Set Tensions
     tk.Label(measure_frame, text="Set Tensions:").grid(row=16, column=0, sticky="e")
@@ -746,13 +768,13 @@ def _create_widgets(
         "interrupt": btn_interrupt,
         "clear_range": btn_clear_range,
         "measure_condition": btn_measure_condition,
-        "erase_outliers": btn_erase_outliers,
         "measure_outliers": btn_measure_outliers,
-        "erase_distribution_outliers": btn_erase_distribution_outliers,
+        "measure_low_confidence": btn_measure_low_confidence,
         "measure_distribution_outliers": btn_measure_distribution_outliers,
         "set_tension": btn_set_tension,
         "calibrate_noise": btn_calibrate_noise,
         "manual_go": btn_manual_go,
+        "trigger_air_pulse": btn_trigger_air_pulse,
         "refresh_plots": btn_refresh_plots,
         "refresh_connections": btn_refresh_connections,
         "seek_pin": btn_seek_pin,
@@ -760,8 +782,13 @@ def _create_widgets(
         "capture_laser_offset": btn_capture_laser_offset,
     }
 
+    extras: dict[str, Any] = {
+        "monitor_photodiode_var": monitor_photodiode_var,
+        "monitor_photodiode_chk": chk_monitor_photodiode,
+    }
+
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
-    configure_fixed_fullscreen(root)
+    configure_initial_size(root)
     freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
 
     return (
@@ -773,6 +800,7 @@ def _create_widgets(
         log_text,
         summary_plot_frame,
         waveform_plot_frame,
+        extras,
     )
 
 
@@ -780,6 +808,7 @@ def _configure_commands(
     ctx: GUIContext,
     buttons: dict[str, tk.Button],
     pad_buttons: list[tuple[tk.Button, int, int]],
+    extras: dict[str, Any],
 ) -> None:
     """Attach the GUI callbacks to the Tkinter widgets."""
 
@@ -790,10 +819,9 @@ def _configure_commands(
     buttons["interrupt"].configure(command=lambda: interrupt(ctx))
     buttons["clear_range"].configure(command=lambda: clear_range(ctx))
     buttons["measure_condition"].configure(command=lambda: measure_condition(ctx))
-    buttons["erase_outliers"].configure(command=lambda: erase_outliers(ctx))
     buttons["measure_outliers"].configure(command=lambda: measure_outliers(ctx))
-    buttons["erase_distribution_outliers"].configure(
-        command=lambda: erase_distribution_outliers(ctx)
+    buttons["measure_low_confidence"].configure(
+        command=lambda: measure_low_confidence(ctx)
     )
     buttons["measure_distribution_outliers"].configure(
         command=lambda: measure_distribution_outliers(ctx)
@@ -812,6 +840,12 @@ def _configure_commands(
     buttons["capture_laser_offset"].configure(
         command=lambda: capture_laser_offset_button(ctx)
     )
+    buttons["trigger_air_pulse"].configure(command=lambda: trigger_air_pulse(ctx))
+
+    monitor_photodiode_var = cast(tk.BooleanVar, extras["monitor_photodiode_var"])
+    extras["monitor_photodiode_chk"].configure(
+        command=lambda: monitor_photodiode(ctx, bool(monitor_photodiode_var.get()))
+    )
 
     for button, dx, dy in pad_buttons:
         button.configure(command=partial(manual_increment, ctx, dx, dy))
@@ -820,6 +854,14 @@ def _configure_commands(
     widgets.focus_slider.configure(
         command=lambda val: adjust_focus_with_x_compensation(ctx, int(float(val)))
     )
+    # Disabled while a measurement runs so manual stage/focus moves can't
+    # interleave with the measurement worker's own moves.
+    ctx.manual_motion_widgets = [
+        widgets.focus_slider,
+        widgets.entry_xy,
+        buttons["manual_go"],
+        *(button for button, _dx, _dy in pad_buttons),
+    ]
     for variable in (
         widgets.layer_var,
         widgets.side_var,

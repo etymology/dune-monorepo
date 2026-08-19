@@ -1,0 +1,68 @@
+routine state_13_move_yz/main
+
+uses btm_support_collision_ymax, btm_support_collision_ymin, ERROR_CODE, FRAME_LOC_FT_BTM  # controller scope
+uses FRAME_LOC_FT_MID, FRAME_LOC_FT_TOP, FRAME_LOC_HD_BTM, FRAME_LOC_HD_MID, FRAME_LOC_HD_TOP  # controller scope
+uses mid_support_collision_ymax, mid_support_collision_ymin, NEXTSTATE, STATE, STATE_REQUEST  # controller scope
+uses top_support_collision_ymax, top_support_collision_ymin, X_XFER_OK, X_Y, Y_axis, yz  # controller scope
+uses yz_position_target, yz_speed, Z_axis  # controller scope
+uses STATE13_IND, xy_stop, yz_main_move, yz_stop, yz_target_collision_bttm  # program scope
+uses yz_target_collision_mid, yz_target_collision_top, yz_target_support_collision  # program scope
+
+STATE13_IND = STATE == 13
+
+yz_target_collision_bttm = LIM(btm_support_collision_ymin, yz_position_target[0], btm_support_collision_ymax)
+
+yz_target_collision_mid = LIM(mid_support_collision_ymin, yz_position_target[0], mid_support_collision_ymax)
+
+yz_target_collision_top = LIM(top_support_collision_ymin, yz_position_target[0], top_support_collision_ymax)
+
+unlatch yz_target_support_collision
+
+latch yz_target_support_collision when yz_target_collision_bttm and FRAME_LOC_HD_BTM
+
+latch yz_target_support_collision when yz_target_collision_bttm and FRAME_LOC_FT_BTM
+
+latch yz_target_support_collision when yz_target_collision_mid and FRAME_LOC_HD_MID
+
+latch yz_target_support_collision when yz_target_collision_mid and FRAME_LOC_FT_MID
+
+latch yz_target_support_collision when yz_target_collision_top and FRAME_LOC_HD_TOP
+
+latch yz_target_support_collision when yz_target_collision_top and FRAME_LOC_FT_TOP
+
+when STATE13_IND and not X_XFER_OK:
+    ERROR_CODE = 5003
+    STATE_REQUEST = 0
+    NEXTSTATE = 10
+
+when STATE13_IND and yz_target_support_collision and (yz_position_target[1] > 1 or Z_axis.ActualPosition > 1):
+    ERROR_CODE = 5003
+    STATE_REQUEST = 0
+    NEXTSTATE = 10
+
+when STATE13_IND and X_XFER_OK and not yz_main_move.IP:
+    coordinated_move yz using yz_main_move:
+        type        = absolute
+        target      = yz_position_target
+        speed       = yz_speed units/s
+        accel       = 1000 units/s2
+        decel       = 1000 units/s2
+        profile     = s-curve
+        jerk        = 1000
+        termination = programmed
+
+when not X_XFER_OK and yz_main_move.IP:
+    MCS(X_Y, xy_stop, All, Yes, 4000, "Units per sec2", Yes, 2000, "Units per sec3")
+    MCS(yz, yz_stop, All, Yes, 4000, "Units per sec2", Yes, 200, "Units per sec3")
+    STATE_REQUEST = 0
+    ERROR_CODE = 5003
+    NEXTSTATE = 10
+
+when STATE13_IND and yz_main_move.ER:
+    STATE_REQUEST = 0
+    ERROR_CODE = 5003
+    NEXTSTATE = 10
+
+when STATE13_IND and abs(Y_axis.ActualPosition - yz_position_target[0]) < 0.1 and abs(Z_axis.ActualPosition - yz_position_target[1]) < 0.1:
+    STATE_REQUEST = 0
+    NEXTSTATE = 1

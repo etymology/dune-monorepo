@@ -1005,6 +1005,46 @@ rule HeadTransferRequiresStableStart {
   ensures: head_controller.mode = idle
 }
 
+rule MountedHeadCannotSkipTransferSilently {
+  when: GCodeRequestsHeadTransfer(target)
+  requires: head_sensors.stage_present or head_sensors.fixed_present
+  requires: not head_state.on_known_transfer_side
+
+  ensures: OperatorDiagnostic.created(
+    message: "Head transfer blocked: MASTER_Z_GO transfer lockout is not ready.",
+    code: null
+  )
+  ensures: GCodeRunHalted()
+
+  @guidance
+    -- Covers both ~anchorToTarget and a bare G206.
+    --
+    -- The head controller reports HEAD_ABSENT for two different things: no
+    -- head fitted, and a head that is fitted but resting in a latch position
+    -- with no well-defined side (fixed-latched away from ACTUATOR_POS 2, both
+    -- latches engaged, neither latch engaged, ...). The interpreter used to
+    -- treat both as "no head" and drop the transfer, leaving the run to lay
+    -- wire with the head on the wrong plane and no error anywhere.
+    --
+    -- Only the genuinely-unfitted case may be skipped -- see
+    -- UnmountedHeadSkipsTransferSilently. A fitted head in a conflicting
+    -- latch position is the state the PLC would refuse with ERROR_CODE 5001,
+    -- so the diagnostic names the failing MASTER_Z_GO conjuncts
+    -- (motion-safety.allium#ZMotionRequiresMasterZGo) and the run stops.
+}
+
+rule UnmountedHeadSkipsTransferSilently {
+  when: GCodeRequestsHeadTransfer(target)
+  requires: not head_sensors.stage_present
+  requires: not head_sensors.fixed_present
+
+  ensures: no OperatorDiagnostic.created
+  ensures: HeadTransferSkipped()
+
+  @guidance
+    -- Dry runs with no head fitted must still execute their XY moves.
+}
+
 rule StageTransferRequiresActuatorOne {
   when: SetHeadPosition(target, velocity)
   requires: head_position.side = stage

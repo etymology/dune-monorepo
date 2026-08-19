@@ -14,12 +14,6 @@ function PLC_Status( modules )
     uiServices.call( commands.process.acknowledgeError, {} )
   }
 
-  // new function for PLC_Init - PWH - September 2021
-  this.PLC_init = function ()
-  {
-    uiServices.call( commands.process.acknowledgePLCInit, {} )
-  }
-
   //-----------------------------------------------------------------------------
   // Uses:
   //   Close button callback.

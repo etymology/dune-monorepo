@@ -223,13 +223,22 @@ class PLCLogicTests(unittest.TestCase):
 
         self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.UNSERVO)])
 
-    def test_eot_recover_requests_state_request(self):
+    def test_eot_recover_pulses_state_request_for_a_clean_edge(self):
         plc = _FreshReadPLC()
         logic = PLC_Logic(plc, object(), object())
 
         logic.recoverEOT()
 
-        self.assertEqual(plc.write_calls, [("STATE_REQUEST", PLC_Logic.States.EOT)])
+        # Pulse through 0 so the state-11 manual re-entry one-shot
+        # (EQU(STATE_REQUEST, 11)) retriggers even when the winder is already
+        # in the EOT state and STATE_REQUEST is otherwise unchanged.
+        self.assertEqual(
+            plc.write_calls,
+            [
+                ("STATE_REQUEST", 0),
+                ("STATE_REQUEST", PLC_Logic.States.EOT),
+            ],
+        )
 
     def test_latch_home_is_not_supported_by_checked_in_plc_contract(self):
         plc = _FreshReadPLC()

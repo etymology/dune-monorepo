@@ -33,12 +33,37 @@ Project dependencies are declared in [pyproject.toml](pyproject.toml).
 
 ## Entry Points
 
-After the root `uv sync`, the following console commands are available:
+After the root `uv sync`, the following console commands are available (full
+list in [`pyproject.toml`](pyproject.toml) under `[project.scripts]`):
 
-- `dune-tension-gui`
-- `dune-tension-periodic-plots`
-- `dune-spectrum-compare`
-- `dune-spectrum-scroller`
+Measurement & GUIs:
+
+- `dune-tension-gui` — main guided-measurement GUI
+- `dune-tension-gui-simple` — minimal measurement GUI
+- `dune-tension-upload-gui` — M2M upload GUI
+- `dune-tension-average-profile-clouds-gui` — profile-cloud averaging GUI
+
+Streaming sweep / fit:
+
+- `dune-tension-stream-sweep` — run a streaming frequency sweep
+- `dune-tension-stream-rescue` — recover/resume an interrupted sweep
+- `dune-tension-stream-replay` — replay a recorded sweep
+- `dune-tension-fit-focus` — focused fit on streamed data
+
+Data, plots & upload:
+
+- `dune-tension-periodic-plots` — periodic summary plot/output generation
+- `dune-tension-plot-sqlite` — plot tensions from the SQLite DB
+- `dune-tension-download-m2m` — download tension data from M2M
+- `dune-tension-average-profile-clouds` — profile-cloud averaging (CLI)
+
+Spectrum / pitch:
+
+- `dune-spectrum-compare` — compare pitch workflows
+- `dune-spectrum-scroller` — scrolling spectrogram viewer
+- `dune-spectrum-recording-stats` — pitch statistics over recordings
+- `dune-spectrum-tune-hct` — tune HCT pitch parameters
+- `dune-spectrum-trigger-gui` — trigger-capture GUI
 
 ## Quick Start
 

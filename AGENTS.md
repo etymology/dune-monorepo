@@ -4,7 +4,7 @@ Single source of truth for agent/AI behaviour in this monorepo. Sub-packages hav
 
 ## Plans
 
-All plan documents MUST live in `/Users/ben/dune-monorepo/plans/`. Never write to `~/.claude/plans/`, `$HOME`, temp dirs, or anywhere outside this repo. Override tool/sub-agent defaults if needed. Move pre-existing plans found elsewhere into `plans/`.
+All plan documents MUST live in this repo's `plans/` directory (repo-root-relative, regardless of where the repo is checked out — e.g. `c:\dune-monorepo\plans\` on Windows). Never write to `~/.claude/plans/`, `$HOME`, temp dirs, or anywhere outside this repo. Override tool/sub-agent defaults if needed. Move pre-existing plans found elsewhere into `plans/`.
 
 ## Python — always use `uv`
 
@@ -84,78 +84,56 @@ chore: update uv.lock after dependency bump
 
 ## PLC code (`winder/plc/`)
 
-Studio 5000 ControlLogix program for the winder. Two-format workflow forced by vendor:
+Studio 5000 ControlLogix program for the winder. The `.ACD` project file is the source of truth; everything under `winder/plc/` is **generated** from it by `uv run plc-acd-export`. Never hand-edit generated files.
 
-- **`studio_copy.rllscrap`** — source of truth. Literal Ctrl+C output from Logix Designer. Check in *exactly* as emitted. Never hand-edit.
-- **`pasteable.rll`** — paste target. Generated from `studio_copy.rllscrap` via the rung transform; format Logix Designer accepts back via Ctrl+V.
+Agents program the PLC through the `.rung` cycle (see `plans/llm-friendly-ladder-language-to-l5x.md`):
 
-Propose new ladder logic in `pasteable.rll`. The human pastes into Studio, copies the result back, overwrites `studio_copy.rllscrap`, and reruns the conversion to confirm round-trip.
+1. Human saves the ACD in Studio 5000 and runs `uv run plc-acd-export` — regenerates the tree, including a readable `<routine>.rung` per routine.
+2. Agent reads and edits the `.rung` source (language reference: `winder/plc/RUNG_FORMAT.md`). New tags are declared with `local <type> <name>` lines — the compiler enforces that every referenced tag is `uses` (existing) or `local` (new).
+3. `uv run rung-compile <file.rung>` validates the source, prints an equivalence report against the current export, and writes `<routine>_import.L5X` (donor context shell + synthesized tags + new rungs).
+4. Human imports it in Studio (right-click routine → Import Routine…), reviews the Import Configuration dialog (new tags appear there for creation), saves the ACD.
+5. Re-run `uv run plc-acd-export`; an **empty `git diff` on the `.rung` file confirms the change landed**.
+
+The old `pasteable.rll` copy/paste loop is retired: pasting cannot create tags and is not a Studio-recognized modification path. `pasteable.rll`, `manifest.json`, and `studio_copy.rllscrap` are no longer generated or checked in — the `<routine>_Routine_RLL.L5X` is the single source of truth for rung text, and the ladder simulator derives its paste-dialect text from that L5X in memory.
 
 ### Tooling
 
-| Command                        | What it does                                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `uv run plc-sync`              | Live PLC fetch (metadata + values via pycomm3) + regenerate every `pasteable.rll` + refresh `manifest.json`. IP `192.168.140.13`. |
-| `uv run plc-sync --offline`    | No PLC connection. Regenerate `pasteable.rll` from every `studio_copy.rllscrap` + refresh manifest. **Use this in agent flows.** |
-| `uv run plc-import`            | Metadata + values fetch only.                                                                                      |
-| `uv run plc-convert-rllscrap`  | rllscrap → rll across the whole tree.                                                                              |
-| `uv run plc-rung-transform`    | Convert a single `.rllscrap` (stdin or `--in-place`).                                                              |
-| `uv run plc-manifest status`   | Show artifacts out of sync with checked-in hashes.                                                                 |
+| Command                          | What it does                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `uv run plc-acd-export`          | Regenerate all of `winder/plc/` from the ACD + live tag values (`--offline` to skip the PLC read). |
+| `uv run rung-compile <f.rung>`   | Check + compile an edited `.rung` → routine import L5X + equivalence report. `--check-only` to validate. |
+| `uv run rung-render <prog>/<rt>` | Re-render one `.rung` from its exported L5X (`--all` for the tree). Mostly for development; the export runs it automatically. |
+| `uv run plc-import`              | Live tag metadata + values fetch only (pycomm3, IP `192.168.140.13`).                              |
 
-### Mandatory agent workflow
+### Agent rules
 
-1. **Before editing ladder logic**, run `uv run plc-manifest status`. Any `modified` row → alert the user; the working copy may overwrite pending changes.
-2. **After changing `studio_copy.rllscrap`**, run `uv run plc-sync --offline` before staging so you can inspect the regenerated `.rll` diff. (Pre-commit also runs it as a safety net.)
-3. **When proposing changes to `pasteable.rll`**, use the change-proposal format below before writing any files. The change isn't real until the user pastes into Studio and round-trips a fresh `studio_copy.rllscrap` back.
-
-### Change-proposal format (REQUIRED for `pasteable.rll` edits)
-
-```text
-PLC change proposal
--------------------
-
-Routines to change:
-- <program>/<routine>            (e.g. state_5_move_z/main)
-
-Tags to add:
-- <fully_qualified_name>         scope=<controller|program:NAME>
-                                  type=<DINT|REAL|BOOL|TIMER|UDT name>
-                                  initial=<value or n/a>
-                                  reason=<one line>
-
-Tags to modify:
-- <fully_qualified_name>         change=<initial value | data type | dimensions>
-                                  reason=<one line>
-
-Rung diff per routine:
-<unified diff of pasteable.rll for each routine listed above>
-
-Paste instructions:
-1. In Studio 5000, open <program>.<routine>.
-2. Add/modify tags listed above at the indicated scope BEFORE pasting rungs.
-3. Select the affected rungs and paste from <routine>/pasteable.rll.
-4. Save, copy the routine back out, overwrite studio_copy.rllscrap.
-5. Run `uv run plc-sync --offline` to verify round-trip.
-```
-
-Never hide a tag addition inside the rung diff — Studio 5000 rejects pastes referencing tags that don't exist at the right scope. List every new tag explicitly.
+1. **Edit `.rung` files only.** `*_Routine_RLL.L5X` and the tag JSONs are export artifacts; `ACD/donors/*.L5X` are Studio's own routine exports (context shells for the compiler) — never modify any of them.
+2. **Declare every new tag** with `local <type> <name>` (types: `bool int dint real motion timer counter`; timers take `preset <N>ms`). `rung-compile` errors on unresolved tags instead of letting the Studio import fail.
+3. **Run `uv run rung-compile --check-only`** on the edited source before handing the L5X to the human; include the equivalence report in your summary so the rung-level change is reviewable.
+4. **Never compile a routine whose `.rung` carries `# PENDING EDIT in Studio` markers** — the human finalizes or discards pending Studio edits first (the compiler refuses anyway).
+5. The change isn't real until the human imports the L5X, saves the ACD, re-exports, and the `.rung` diff comes back empty.
 
 ### References
 
+- `.rung` language reference: `winder/plc/RUNG_FORMAT.md`
 - Instruction reference: `winder/plc/instruction_set.md`
-- File-format guide (rllscrap vs. rll, branches, formulas, quoting, joint programming protocol): `winder/plc/RLL_FORMAT.md`
+- Legacy text-format guide (paren-dialect rung syntax, as stored in the L5X CDATA): `winder/plc/RLL_FORMAT.md`
 
 ### Artifact layout
 
 ```text
 winder/plc/
+├── ACD/
+│   ├── DUNEW2PLC1_py3.ACD              ← SOURCE OF TRUTH (Studio 5000)
+│   └── donors/<program>/<routine>_Routine_RLL.L5X   ← Studio routine exports (context shells)
+├── acd_index.json                      ← provenance of the last export (ACD sha256, file hashes)
 ├── controller_level_tags.json          ← controller-scope tags + live values
-├── manifest.json                       ← hashes + timestamps
 ├── instruction_set.md
-├── RLL_FORMAT.md
+├── RUNG_FORMAT.md / RLL_FORMAT.md
 └── <program>/
     ├── programTags.json                ← program-scope tags + live values
-    └── <routine>/
-        ├── studio_copy.rllscrap        ← source of truth (paste from Studio)
-        └── pasteable.rll               ← generated; paste back into Studio
+    ├── <routine>_Routine_RLL.L5X       ← per-routine export snapshot; SOURCE OF TRUTH for rung text
+    └── <routine-dir>/
+        ├── <routine>.rung              ← readable projection; WHAT AGENTS EDIT
+        └── <routine>_import.L5X        ← rung-compile output (not checked in)
 ```

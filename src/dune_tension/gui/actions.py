@@ -23,6 +23,7 @@ from dune_tension.data_cache import (
     clear_wire_numbers,
     clear_wire_range,
     find_distribution_outliers,
+    find_low_confidence_wires,
     find_outliers,
     get_dataframe,
     update_dataframe,
@@ -159,6 +160,35 @@ def _set_estimated_time(ctx: GUIContext, value: str) -> None:
             apply()
             return
         ctx.root.after(0, apply)
+    except Exception:
+        return
+
+
+def _set_manual_controls_enabled(ctx: GUIContext, enabled: bool) -> None:
+    """Enable or disable the manual move/focus widgets on the Tk thread.
+
+    A manual stage or focus move issued from the main thread while a
+    measurement worker is driving the stage interleaves with the measurement's
+    own moves: each ``goto_xy`` is locked individually, but the lock does not
+    span a measurement step, so a manual move can reposition the stage between
+    the worker's move and its record. Disabling these controls for the
+    duration of a measurement closes that window.
+    """
+
+    state = "normal" if enabled else "disabled"
+
+    def apply() -> None:
+        for widget in list(getattr(ctx, "manual_motion_widgets", ()) or ()):
+            try:
+                widget.configure(state=state)
+            except Exception:
+                pass
+
+    try:
+        if threading.current_thread() is threading.main_thread():
+            apply()
+        else:
+            ctx.root.after(0, apply)
     except Exception:
         return
 
@@ -912,6 +942,9 @@ def _run_in_thread(func=None, *, measurement: bool = False):
             if measurement and not _begin_measurement(ctx, measurement_name):
                 return
 
+            if measurement:
+                _set_manual_controls_enabled(ctx, False)
+
             def run() -> None:
                 if measurement:
                     ctx.stop_event.clear()
@@ -926,6 +959,7 @@ def _run_in_thread(func=None, *, measurement: bool = False):
                     if measurement:
                         ctx.stop_event.clear()
                         _end_measurement(ctx)
+                        _set_manual_controls_enabled(ctx, True)
                     LOGGER.info("Worker thread finished: %s", measurement_name)
 
             try:
@@ -937,6 +971,7 @@ def _run_in_thread(func=None, *, measurement: bool = False):
             except Exception:
                 if measurement:
                     _end_measurement(ctx)
+                    _set_manual_controls_enabled(ctx, True)
                 raise
 
         return wrapper
@@ -1566,6 +1601,58 @@ def measure_distribution_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None
 
 
 @_run_in_thread(measurement=True)
+def measure_low_confidence(ctx: GUIContext, inputs: WorkerInputs) -> None:
+    """Remeasure wires whose final-measurement confidence is below threshold.
+
+    The confidence threshold is the GUI "Confidence Threshold" field. Wires are
+    remeasured lowest-confidence-first so the least trustworthy final
+    measurements — the ones feeding the summary and plots — are improved first.
+    """
+
+    config = _make_config_from_inputs(inputs)
+    try:
+        confidence_threshold = float(inputs.confidence)
+    except (TypeError, ValueError) as exc:
+        LOGGER.warning("Invalid confidence threshold: %s", exc)
+        return
+
+    wires = find_low_confidence_wires(
+        config.data_path,
+        config.apa_name,
+        config.layer,
+        config.side,
+        confidence_threshold=confidence_threshold,
+    )
+
+    if not wires:
+        LOGGER.info("No wires below confidence %.2f", confidence_threshold)
+        return
+
+    if _measurement_mode(inputs) != "legacy":
+        LOGGER.info(
+            "Streaming remeasure of low-confidence wires (<%.2f): %s",
+            confidence_threshold,
+            wires,
+        )
+        _run_streaming_for_wires(ctx, inputs, wires)
+        return
+
+    tensiometer: Tensiometer | None = None
+    try:
+        tensiometer = create_tensiometer(ctx, inputs)
+        LOGGER.info(
+            "Measuring low-confidence wires (<%.2f) lowest-first: %s",
+            confidence_threshold,
+            wires,
+        )
+        tensiometer.measure_list(wires, preserve_order=True)
+    except ValueError as exc:
+        LOGGER.warning("%s", exc)
+    finally:
+        _cleanup_after_measurement(ctx, tensiometer)
+
+
+@_run_in_thread(measurement=True)
 def measure_refine_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
     """Remeasure the union of residual and bulk-distribution outliers."""
 
@@ -1581,7 +1668,6 @@ def measure_refine_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
             config.layer,
             config.side,
             times_sigma=times_sigma,
-            confidence_threshold=inputs.confidence,
         )
     )
     bulk = set(
@@ -1591,7 +1677,6 @@ def measure_refine_outliers(ctx: GUIContext, inputs: WorkerInputs) -> None:
             config.layer,
             config.side,
             times_sigma=times_sigma,
-            confidence_threshold=inputs.confidence,
         )
     )
     outliers = sorted(residual | bulk)
@@ -1643,15 +1728,15 @@ def _measure_detected_outliers(
     raw_expr = inputs.times_sigma.strip()
     times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
 
-    outliers = sorted(
-        detector(
-            config.data_path,
-            config.apa_name,
-            config.layer,
-            config.side,
-            times_sigma=times_sigma,
-            confidence_threshold=inputs.confidence,
-        )
+    # Detectors return wires worst-first (furthest from the moving average /
+    # mean). Preserve that order so the most egregious outliers are remeasured
+    # first, rather than re-sorting by wire number.
+    outliers = detector(
+        config.data_path,
+        config.apa_name,
+        config.layer,
+        config.side,
+        times_sigma=times_sigma,
     )
 
     if wire_predicates:
@@ -1683,8 +1768,8 @@ def _measure_detected_outliers(
     tensiometer: Tensiometer | None = None
     try:
         tensiometer = create_tensiometer(ctx, inputs)
-        LOGGER.info("Measuring %s outliers: %s", detector_name, outliers)
-        tensiometer.measure_list(outliers, preserve_order=False)
+        LOGGER.info("Measuring %s outliers worst-first: %s", detector_name, outliers)
+        tensiometer.measure_list(outliers, preserve_order=True)
     except ValueError as exc:
         LOGGER.warning("%s", exc)
     finally:
@@ -1723,10 +1808,6 @@ def _erase_detected_outliers(
     detector_name: str,
 ) -> None:
     cfg = _make_config_from_widgets(ctx)
-    try:
-        conf = float(ctx.widgets.entry_confidence.get())
-    except ValueError:
-        conf = 0.5
     raw_expr = ctx.widgets.entry_times_sigma.get().strip()
     times_sigma, wire_predicates = _parse_outlier_erase_expression(raw_expr)
 
@@ -1737,7 +1818,6 @@ def _erase_detected_outliers(
             cfg.layer,
             cfg.side,
             times_sigma=times_sigma,
-            confidence_threshold=conf,
         )
     )
     if wire_predicates:
@@ -1819,6 +1899,50 @@ def interrupt(ctx: GUIContext) -> None:
     ctx.stop_event.set()
     ctx.servo_controller.stop_loop()
     _set_estimated_time(ctx, "Interrupted")
+
+
+# Duration of a manually triggered air pulse, in seconds.  Matches the
+# automatic measurement strum (see _make_strum_callback in services.py).
+_MANUAL_AIR_PULSE_SECONDS = 0.002
+
+
+def monitor_photodiode(ctx: GUIContext, enabled: bool) -> None:
+    """Power the photodiode amplifier (relay channel 2) on or off.
+
+    Wired to a toggle: the amplifier stays powered while *enabled* is True and
+    is de-energized when it becomes False.
+    """
+    relay = ctx.relay_controller
+    if relay is None:
+        LOGGER.warning("Cannot toggle photodiode monitor: USB relay not connected.")
+        return
+    try:
+        if enabled:
+            relay.sensor_power_on()
+        else:
+            relay.sensor_power_off()
+    except Exception as exc:
+        LOGGER.warning("Failed to set photodiode monitor power: %s", exc)
+    else:
+        LOGGER.info("Photodiode monitor %s.", "on" if enabled else "off")
+
+
+def trigger_air_pulse(ctx: GUIContext) -> None:
+    """Fire a single air pulse on the pneumatic valve (relay channel 1)."""
+    relay = ctx.relay_controller
+    if relay is None:
+        LOGGER.warning("Cannot trigger air pulse: USB relay not connected.")
+        return
+
+    def _worker() -> None:
+        try:
+            relay.pulse(_MANUAL_AIR_PULSE_SECONDS)
+        except Exception as exc:
+            LOGGER.warning("Air pulse failed: %s", exc)
+        else:
+            LOGGER.info("Triggered air pulse (%.3f s).", _MANUAL_AIR_PULSE_SECONDS)
+
+    Thread(target=_worker, name="gui-air-pulse", daemon=True).start()
 
 
 def _check_connections(ctx: GUIContext) -> dict[str, bool]:
@@ -2073,6 +2197,11 @@ def handle_close(ctx: GUIContext) -> None:
         sd.stop()
     except Exception:
         pass
+    if ctx.live_plot_manager is not None:
+        try:
+            ctx.live_plot_manager.shutdown()
+        except Exception:
+            LOGGER.exception("Failed to shut down live plot manager during shutdown.")
     try:
         ctx.root.destroy()
     except Exception:

@@ -8,20 +8,23 @@ everything that used to be hand-copied out of Studio or exported with
 separate scripts:
 
 1. ``<program>/<routine>_Routine_RLL.L5X`` — per-routine L5X (rung text is
-   byte-identical to Studio's own "Export Routine" output).
-2. ``<program>/<routine-dir>/studio_copy.rllscrap`` — the paren-dialect rung
-   text, previously hand-copied from Studio's clipboard. The main routine
-   keeps the historical ``main/`` directory name.
-3. ``<program>/programTags.json`` and ``controller_level_tags.json`` — tag
+   byte-identical to Studio's own "Export Routine" output). This is the
+   single source of truth for ladder logic: the ``.rung`` projection and
+   the ladder simulator both read the paren-dialect rung text straight
+   from its ``<Rung>`` CDATA (no ``studio_copy.rllscrap`` intermediary).
+2. ``<program>/programTags.json`` and ``controller_level_tags.json`` — tag
    metadata in the same schema the pycomm3 exporters produced (the ladder
    simulator and rung transform read these), built from the ACD's internal
    ``TagInfo.XML``.
-4. Live tag values merged into those JSON files via the existing
+3. Live tag values merged into those JSON files via the existing
    ``plc_tag_values_export`` reader (``--offline`` carries values forward
    from the previous export instead).
-5. ``pasteable.rll`` + ``manifest.json`` via the existing
-   ``convert_plc_rllscrap`` pipeline.
-6. ``acd_index.json`` — provenance: which ACD bytes (sha256, save-log entry)
+4. ``<program>/<routine-dir>/<routine>.rung`` — the LLM-readable rendering
+   of every routine (``dune_winder.rung_lang``); the form agents read and
+   edit, compiled back with ``rung-compile``. The main routine keeps the
+   historical ``main/`` directory name. (``pasteable.rll`` and
+   ``manifest.json`` are retired.)
+5. ``acd_index.json`` — provenance: which ACD bytes (sha256, save-log entry)
    produced the tree, plus a sha256 for every generated file.
 
 The ACD container stores ladder logic as records in internal databases:
@@ -37,8 +40,8 @@ Known gaps versus the data Studio holds:
   plain tags of the aliased type).
 - No rung comments (their linkage inside ``Comments.Dat`` is not reverse
   engineered).
-- Pending-edit rungs in the ACD are emitted with L5X ``Type="e"`` and are
-  included in the rllscrap output in display order.
+- Pending-edit rungs in the ACD are emitted with L5X ``Type="e"`` in
+  display order.
 
 Usage:
     uv run plc-acd-export [ACD_FILE] [--plc IP] [--offline] [--output-root DIR]
@@ -50,10 +53,10 @@ import argparse
 import hashlib
 import json
 import re
+import sqlite3
 import struct
 import sys
 import tempfile
-import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -163,13 +166,14 @@ def acd_provenance(acd_file: Path) -> dict:
     # oldest region), so file order is not chronological — take the max.
     saves = SAVE_LOG_PATTERN.findall(data[:262144])
     last = max(saves, key=lambda s: s[0]) if saves else None
-    stat = acd_file.stat()
+    # Only content-derived fields go here so acd_index.json is reproducible:
+    # the absolute path and filesystem mtime change on every clone/checkout
+    # and would churn the diff without tracking any real change. ``last_saved``
+    # already identifies the save independent of the file's mtime.
     return {
         "file": acd_file.name,
-        "path": str(acd_file),
         "sha256": hashlib.sha256(data).hexdigest(),
         "size": len(data),
-        "mtime": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)),
         "last_saved": last[0].decode() if last else None,
         "studio_version": last[1].decode() if last else None,
         "save_log_entries": len(saves),
@@ -186,10 +190,67 @@ def _build_database(acd_file: Path, temp_dir: str):
 
     Returns the exporter; callers must close ``exporter._db`` so the
     temporary directory can be removed on Windows.
-    """
-    from acd.l5x.export_l5x import ExportL5x
 
-    return ExportL5x(acd_file, _temp_dir=temp_dir)
+    We subclass acd-tools' ``ExportL5x`` to fix its two quadratic hot spots
+    rather than pay them (stock extraction is ~46s; this is ~2s, verified
+    byte-identical on the comps/rungs/region_map tables):
+
+    - ``CompsRecord`` issues ``DELETE FROM comps WHERE object_id=?`` before
+      every insert, and ``SbRegionRecord`` issues ``SELECT ... WHERE
+      object_id=?`` for every tag operand it resolves. With no index those
+      are full scans of a 15k-row / 10 MB table, so comps load is O(n^2)
+      (~26s) and rung load O(rungs*operands) (~20s). A single index on
+      ``comps(object_id)``, created before either table is loaded, turns
+      both into lookups.
+    - ``Comments.Dat`` and ``Nameless.Dat`` are parsed by stock ExportL5x
+      but nothing here reads the ``comments``/``nameless`` tables, so we
+      skip them (and their tables) entirely.
+
+    The one piece of raw binary parsing (``populate_region_map``) is reused
+    from the base class unchanged.
+    """
+    from acd.database.dbextract import DbExtract
+    from acd.l5x.export_l5x import ExportL5x
+    from acd.record.comps import CompsRecord
+    from acd.record.sbregion import SbRegionRecord
+    from acd.zip.unzip import Unzip
+
+    class _FastExportL5x(ExportL5x):
+        def __post_init__(self) -> None:
+            db_path = Path(self._temp_dir) / "acd.db"
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            db_path.unlink(missing_ok=True)
+            self._db = sqlite3.connect(db_path)
+            self._cur = self._db.cursor()
+            self._cur.execute(
+                "CREATE TABLE comps(object_id int, parent_id int, comp_name text,"
+                " seq_number int, record_type int, record BLOB NOT NULL)"
+            )
+            self._cur.execute(
+                "CREATE TABLE rungs(object_id int, rung text, seq_number int)"
+            )
+            self._cur.execute(
+                "CREATE TABLE region_map(object_id int, parent_id int, unknown int,"
+                " seq_no int, record BLOB NOT NULL)"
+            )
+            # Must exist before comps/SbRegion load — see _build_database docstring.
+            self._cur.execute("CREATE INDEX ix_comps_object_id ON comps(object_id)")
+
+            Unzip(self.input_filename).write_files(self._temp_dir)
+
+            comps_db = DbExtract(str(Path(self._temp_dir) / "Comps.Dat")).read()
+            for record in comps_db.records.record:
+                CompsRecord(self._cur, record)
+            self._db.commit()
+
+            self.populate_region_map()
+
+            sb_region_db = DbExtract(str(Path(self._temp_dir) / "SbRegion.Dat")).read()
+            for record in sb_region_db.records.record:
+                SbRegionRecord(self._cur, record)
+            self._db.commit()
+
+    return _FastExportL5x(acd_file, _temp_dir=temp_dir)
 
 
 def _software_revision(temp_dir: str) -> str:
@@ -468,9 +529,15 @@ def _cdata(text: str) -> str:
     return "<![CDATA[" + text.replace("]]>", "]]]]><![CDATA[>") + "]]>"
 
 
-def render_routine_l5x(project: AcdProject, program: Program, routine: Routine) -> str:
-    """Render one routine as Studio-compatible L5X (sans tag context)."""
-    export_date = time.asctime()
+def render_routine_l5x(
+    project: AcdProject, program: Program, routine: Routine, export_date: str
+) -> str:
+    """Render one routine as Studio-compatible L5X (sans tag context).
+
+    ``export_date`` is pinned to the source ACD's save time (not wall-clock)
+    so re-exporting an unchanged ACD yields a byte-identical L5X — nothing
+    reads this attribute, and a per-run timestamp would churn every file.
+    """
     lines = [
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
         f'<RSLogix5000Content SchemaRevision="1.0"'
@@ -509,13 +576,13 @@ def render_routine_l5x(project: AcdProject, program: Program, routine: Routine) 
     return "\r\n".join(lines) + "\r\n"
 
 
-def render_rllscrap(routine: Routine) -> str:
-    """Concatenate rung text the way Studio's clipboard copy does."""
-    return "   ".join(rung.text for rung in routine.rungs) + "\n"
-
-
 def _write_json(path: Path, payload: dict) -> None:
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    # Force LF (newline="\n") so the output is byte-identical across platforms;
+    # the default text-mode write emits CRLF on Windows and churns the diff
+    # against the LF the repo stores (see winder/plc/.gitattributes).
+    path.write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def write_tree(
@@ -526,9 +593,16 @@ def write_tree(
     plc_path: str | None,
     offline: bool,
 ) -> list[Path]:
-    """Write L5X, rllscrap, and tag-metadata JSON for every program."""
+    """Write per-routine L5X and tag-metadata JSON for every program.
+
+    The ``.rung`` projections are rendered separately (and the routine
+    subdirectories created) by ``rung_lang.cli.render_tree``, which reads
+    the L5X this writes — the L5X is the source of truth, no intermediary.
+    """
     written: list[Path] = []
-    generated_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    # Pin the L5X ExportDate to the ACD save time so unchanged ACDs re-export
+    # byte-identical (provenance no longer carries a wall-clock timestamp).
+    export_date = provenance.get("last_saved") or "unknown"
 
     for program in project.programs:
         program_dir = output_root / program.name
@@ -537,17 +611,9 @@ def write_tree(
 
         for routine in program.routines:
             l5x_path = program_dir / f"{routine.name}_Routine_RLL.L5X"
-            content = render_routine_l5x(project, program, routine)
+            content = render_routine_l5x(project, program, routine, export_date)
             l5x_path.write_bytes(b"\xef\xbb\xbf" + content.encode("utf-8"))
             written.append(l5x_path)
-
-            routine_dir = program_dir / (
-                "main" if routine.name == main_routine else routine.name
-            )
-            routine_dir.mkdir(exist_ok=True)
-            rllscrap_path = routine_dir / "studio_copy.rllscrap"
-            rllscrap_path.write_text(render_rllscrap(routine), encoding="utf-8")
-            written.append(rllscrap_path)
 
         program_tag_entries = [
             _legacy_tag_entry(tag, program.name)
@@ -567,7 +633,6 @@ def write_tree(
         routine_names = sorted(r.name for r in program.routines)
         payload = {
             "schema_version": 1,
-            "generated_at": generated_at,
             "plc_path": plc_path,
             "source_acd": provenance,
             "program_name": program.name,
@@ -598,7 +663,6 @@ def write_tree(
         )
     payload = {
         "schema_version": 1,
-        "generated_at": generated_at,
         "plc_path": plc_path,
         "source_acd": provenance,
         "controller": {"name": project.controller_name},
@@ -623,7 +687,6 @@ def write_index(
         "controller": project.controller_name,
         "software_revision": project.software_revision,
         "source_acd": provenance,
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "data_types": len(tag_info.data_types),
         "controller_tags": len(tag_info.controller_tags),
         "programs": {
@@ -685,7 +748,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.acd_file.exists():
         parser.error(f"ACD file not found: {args.acd_file}")
 
-    print(f"Reading {args.acd_file} (extracting internal databases, ~1 min)...")
+    print(f"Reading {args.acd_file} (extracting internal databases)...")
     provenance = acd_provenance(args.acd_file)
     if provenance["last_saved"]:
         print(
@@ -729,7 +792,7 @@ def main(argv: list[str] | None = None) -> int:
     generated = write_tree(
         project, tag_info, args.output_root, provenance, plc_path, args.offline
     )
-    print(f"Wrote {len(generated)} L5X/rllscrap/tag files under {args.output_root}")
+    print(f"Wrote {len(generated)} L5X/tag files under {args.output_root}")
 
     values_ok = False
     if args.offline:
@@ -745,21 +808,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         values_ok = True
 
-    from dune_winder.convert_plc_rllscrap import convert_directory
+    from dune_winder.rung_lang.cli import render_tree
 
-    converted = convert_directory(args.output_root)
-    print(f"Regenerated {converted} pasteable.rll files")
+    rung_files, rung_warnings = render_tree(args.output_root)
+    for warning in rung_warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    print(f"Rendered {len(rung_files)} .rung files")
 
-    # Index everything the run produced (including the derived files).
-    derived = [
-        p.with_name("pasteable.rll")
-        for p in args.output_root.rglob("studio_copy.rllscrap")
-    ]
-    manifest = args.output_root / "manifest.json"
-    if manifest.exists():
-        derived.append(manifest)
     index_path = write_index(
-        args.output_root, project, tag_info, provenance, generated + derived
+        args.output_root, project, tag_info, provenance, generated + rung_files
     )
     print(f"Provenance index written to {index_path}")
 

@@ -1,0 +1,5 @@
+/* The watcher itself is invisible; it only drives the Overlay modal. */
+#gCodeErrorDiv
+{
+  display: none;
+}

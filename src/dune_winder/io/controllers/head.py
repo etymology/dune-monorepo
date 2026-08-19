@@ -24,6 +24,15 @@ class Head:
     LEVEL_B_SIDE = 2
     FIXED_SIDE = 3
 
+    # Transfer availability classes reported by getTransferAvailability().
+    #
+    # readCurrentPosition() collapses ABSENT and BLOCKED into HEAD_ABSENT, which
+    # makes a real latch conflict indistinguishable from an unmounted head.
+    # Callers that must tell them apart use getTransferAvailability() instead.
+    TRANSFER_ABSENT = "absent"  # no head mounted -- skipping a transfer is correct
+    TRANSFER_READY = "ready"  # sitting on a clean, known side
+    TRANSFER_BLOCKED = "blocked"  # mounted, but the latch/actuator conflicts
+
     _TRANSFER_MODE_G206 = "g206"
 
     def __init__(self, plcLogic: PLC_Logic):
@@ -57,6 +66,13 @@ class Head:
         self._g206TransitionStartedAt = None
         self._g206ExtendStartedAt = None
         self._g206ExtendTimeoutSeconds = 10.0
+        # Bounded re-latch retries.  When a transfer reaches its final Z check
+        # but the latch actuator stalled short of its settled detent (the
+        # operator-reported "stuck in state 3" instead of "state 2, ready to
+        # withdraw"), re-issue the latch command this many times before
+        # reporting a failure.
+        self._g206MaxLatchResettleAttempts = 3
+        self._g206LatchResettleAttempts = 0
 
     def isReady(self):
         self.update()
@@ -89,6 +105,10 @@ class Head:
         self._headLatchTarget = -1
         self._activeTransferMode = None
         self._lastError = ""
+        # Reset the re-latch retry budget here (transfer start / teardown) rather
+        # than in _resetG206State, which also runs on the in-flight latching ->
+        # Z-move handoff and must not refill the budget mid-transfer.
+        self._g206LatchResettleAttempts = 0
         self._resetG206State()
 
     def setLatchTiming(self, retry_interval_seconds, timeout_seconds):
@@ -297,6 +317,22 @@ class Head:
             return self._isStrictStageSideState(state)
         return False
 
+    def _canResettleG206Latch(self, state):
+        """
+        Whether another latch command can still drive the latch to its detent.
+
+        The recoverable failure the operator reported is a fixed-side transfer
+        whose latch engaged the fixed mount but whose actuator stalled at
+        ACTUATOR_POS 3 instead of settling at 2 ("ready to withdraw").  A fresh
+        latch pulse only helps while the head is still extended between the two
+        mounts -- i.e. while ENABLE_ACTUATOR is true; once the arm has retracted
+        the actuator interlock refuses the pulse.  If the latch target is
+        already reached there is nothing left to resettle.
+        """
+        return bool(state["enableActuator"]) and not self._isG206LatchTargetReached(
+            state
+        )
+
     def _isExpectedTransitionSuccess(self, state, toPos):
         if toPos == 1:
             return self._isStrictStageSideState(state)
@@ -431,17 +467,33 @@ class Head:
             if not self._plcLogic.isReady():
                 return
             state = self._readTransferStateNow()
-            if not self._isG206FinalTargetReached(state):
-                self._setHeadError(
-                    "Head transfer final state did not settle as requested for target "
-                    + str(int(self._headPositionTarget))
-                    + "; last state: "
-                    + self._formatTransferState(state)
-                )
+            if self._isG206FinalTargetReached(state):
+                self._headState = self.States.IDLE
+                self._activeTransferMode = None
+                self._lastError = ""
                 return
-            self._headState = self.States.IDLE
-            self._activeTransferMode = None
-            self._lastError = ""
+            if (
+                self._g206LatchResettleAttempts < self._g206MaxLatchResettleAttempts
+                and self._canResettleG206Latch(state)
+            ):
+                # The transfer reached its final Z check but the latch actuator
+                # stalled short of its settled detent (fixed-latched at
+                # ACTUATOR_POS 3 rather than 2, "ready to withdraw").  The head
+                # is still extended between the mounts, so a fresh latch command
+                # can still drive the actuator home: re-enter the latching phase
+                # and try again instead of failing outright.  The latching phase
+                # will re-issue the Z withdrawal once the latch settles at 2.
+                self._g206LatchResettleAttempts += 1
+                self._headState = self.States.LATCHING
+                self._g206TransitionStartedAt = self._clock()
+                self._commandNextG206Pulse()
+                return
+            self._setHeadError(
+                "Head transfer final state did not settle as requested for target "
+                + str(int(self._headPositionTarget))
+                + "; last state: "
+                + self._formatTransferState(state)
+            )
             return
 
         raise ValueError("Unknown head state: " + str(self._headState))
@@ -520,6 +572,77 @@ class Head:
 
     def getPosition(self):
         return self.readCurrentPosition()
+
+    def getTransferAvailability(self):
+        """
+        Classify whether a head transfer can start.
+
+        Returns:
+          Tuple of (availability, state).  `availability` is one of
+          TRANSFER_ABSENT / TRANSFER_READY / TRANSFER_BLOCKED; `state` is the
+          live _readTransferStateNow() dictionary so callers can reuse it
+          instead of issuing a second PLC read.
+        """
+        state = self._readTransferStateNow()
+
+        if not state["stagePresent"] and not state["fixedPresent"]:
+            return (self.TRANSFER_ABSENT, state)
+
+        if self._getCurrentStrictTransferSide(state) != self.HEAD_ABSENT:
+            return (self.TRANSFER_READY, state)
+
+        return (self.TRANSFER_BLOCKED, state)
+
+    def describeLatchConflict(self, state):
+        """
+        Explain why a mounted head is not resting on a clean transfer side.
+
+        This is the head-controller half of the MASTER_Z_GO diagnosis; it covers
+        the `no_latch_collision` term plus the latch states that leave the head
+        in no well-defined side at all.
+
+        Args:
+          state: A _readTransferStateNow() dictionary.
+
+        Returns:
+          Operator-facing explanation, or "" when the state is a clean side.
+        """
+        if not state["stagePresent"] and not state["fixedPresent"]:
+            # No head mounted, so there is no conflict to describe.
+            return ""
+
+        if self._getCurrentStrictTransferSide(state) != self.HEAD_ABSENT:
+            return ""
+
+        actuatorPos = int(state["actuatorPos"])
+        stageLatched = bool(state["stageLatched"])
+        fixedLatched = bool(state["fixedLatched"])
+
+        if stageLatched and fixedLatched:
+            return (
+                "both latches are engaged (stage and fixed); the head must be "
+                "held by exactly one side before the arm can extend"
+            )
+
+        if fixedLatched:
+            return (
+                "fixed-latched, ACTUATOR_POS="
+                + str(actuatorPos)
+                + " (needs 2, mid_engagement, before the arm can extend; "
+                "otherwise the latch fouls the fixed mount)"
+            )
+
+        if stageLatched:
+            return (
+                "stage-latched, ACTUATOR_POS="
+                + str(actuatorPos)
+                + " (needs 1, stage_latched)"
+            )
+
+        return (
+            "the head is present but neither latch is engaged (floating), "
+            "ACTUATOR_POS=" + str(actuatorPos)
+        )
 
     def readCurrentPosition(self):
         state = self._readTransferStateNow()

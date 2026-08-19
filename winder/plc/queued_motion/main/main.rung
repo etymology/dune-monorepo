@@ -1,0 +1,684 @@
+routine queued_motion/main
+
+uses AbortQueue, ActiveSeq, ALL_EOT_GOOD, APA_IS_VERTICAL, CurIssueAckTON, CurIssued, ERROR_CODE  # controller scope
+uses gui_stop, IncomingSeg, IncomingSegAck, IncomingSegReqID, LastIncomingSegReqID  # controller scope
+uses MAX_TOLERABLE_Z, MotionFault, MOVE_TYPE, NextIssueAckTON, NextIssued, NEXTSTATE, PendingSeq  # controller scope
+uses QueueCount, QueueDiag_AbortActive, QueueDiag_ActiveSeq, QueueDiag_CheckCurSeg  # controller scope
+uses QueueDiag_CheckNextSeg, QueueDiag_CmdA_SegType, QueueDiag_CmdB_SegType  # controller scope
+uses QueueDiag_CurSeg_SegType, QueueDiag_CurSeg_Seq, QueueDiag_CurSeg_Speed  # controller scope
+uses QueueDiag_CurSeg_TermType, QueueDiag_CurSeg_Valid, QueueDiag_CurSeg_X, QueueDiag_CurSeg_Y  # controller scope
+uses QueueDiag_FaultCode, QueueDiag_FlipToA, QueueDiag_FlipToB, QueueDiag_IssueCurPulse  # controller scope
+uses QueueDiag_IssueNextPulse, QueueDiag_LoadCurReq, QueueDiag_LoadNextReq, QueueDiag_MoveA_DN  # controller scope
+uses QueueDiag_MoveA_ER, QueueDiag_MoveA_ERRID, QueueDiag_MoveA_EXERR, QueueDiag_MoveA_IP  # controller scope
+uses QueueDiag_MoveA_PC, QueueDiag_MoveB_DN, QueueDiag_MoveB_ER, QueueDiag_MoveB_ERRID  # controller scope
+uses QueueDiag_MoveB_EXERR, QueueDiag_MoveB_IP, QueueDiag_MoveB_PC, QueueDiag_NextSeg_SegType  # controller scope
+uses QueueDiag_NextSeg_Seq, QueueDiag_NextSeg_Speed, QueueDiag_NextSeg_TermType  # controller scope
+uses QueueDiag_NextSeg_Valid, QueueDiag_NextSeg_X, QueueDiag_NextSeg_Y, QueueDiag_PendingSeq  # controller scope
+uses QueueDiag_PrepCurMove, QueueDiag_PrepNextMove, QueueDiag_QueueCtl_DN, QueueDiag_QueueCtl_EM  # controller scope
+uses QueueDiag_QueueCtl_EN, QueueDiag_QueueCtl_ER, QueueDiag_QueueCtl_EU, QueueDiag_QueueCtl_IN  # controller scope
+uses QueueDiag_QueueCtl_LEN, QueueDiag_QueueCtl_POS, QueueDiag_QueueCtl_UL  # controller scope
+uses QueueDiag_RotateMoves, QueueDiag_UseAasCurrent, QueueDiag_WaitCurAxisOn  # controller scope
+uses QueueDiag_WaitNextAxisOn, QueueFault, QueueFull, QueueStopRequest, SegQueue  # controller scope
+uses StartQueuedPath, v_x_max, v_y_max, X_axis, X_Y, Y_axis, Z_axis, Z_RETRACTED  # controller scope
+uses AbortActive, BOOLS, CheckCurSeg, CheckNextSeg, CmdA_Accel, CmdA_CircleType, CmdA_Decel  # program scope
+uses CmdA_Direction, CmdA_JerkAccel, CmdA_JerkDecel, CmdA_SegType, CmdA_Speed, CmdA_TermType  # program scope
+uses CmdA_ViaCenter, CmdA_XY, CmdB_Accel, CmdB_CircleType, CmdB_Decel, CmdB_Direction  # program scope
+uses CmdB_JerkAccel, CmdB_JerkDecel, CmdB_SegType, CmdB_Speed, CmdB_TermType, CmdB_ViaCenter  # program scope
+uses CmdB_XY, CmdTolerance, CurSeg, DINTS, DoneONS_A, DoneONS_B, EnqueueReq, FaultCode, FlipToA  # program scope
+uses FlipToB, IssueCurPulse, IssueNextPulse, LoadCurReq, LoadNextReq, MoveA, MoveB, NextSeg  # program scope
+uses PrepCurMove, PrepNextMove, QueueCtl, QueueEmpty, QueueStopReqONS, REALS, RotateMoves  # program scope
+uses RotateONS_AtoB, RotateONS_BtoA, SegValid, SegValidArc, SegValidLine, StartCurONS  # program scope
+uses StartNextA_ONS, StartNextB_ONS, UseAasCurrent, WaitCurAxisOn, WaitNextAxisOn, x_axis_mso  # program scope
+uses y_axis_mso  # program scope
+
+QueueEmpty = QueueCtl.POS == 0
+
+QueueFull = QueueCtl.POS >= 32
+
+QueueCount = QueueCtl.POS
+
+when MOVE_TYPE == 11:
+    latch AbortQueue
+    NEXTSTATE = 14
+
+MCS(X_Y, gui_stop, All, Yes, 2000, "Units per sec2", Yes, 1000, "Units per sec3") when QueueStopRequest and (CurIssued or NextIssued or X_Y.MovePendingStatus) and ONS(QueueStopReqONS)
+
+latch AbortQueue when QueueStopRequest
+
+AbortActive = AbortQueue or not ALL_EOT_GOOD
+
+latch EnqueueReq when IncomingSegReqID != LastIncomingSegReqID
+
+SegValidLine = EnqueueReq and IncomingSeg.Valid and IncomingSeg.SegType == 1 and IncomingSeg.Speed > 0.0 and IncomingSeg.Accel > 0.0 and IncomingSeg.Decel > 0.0 and IncomingSeg.TermType >= 0 and IncomingSeg.TermType <= 6
+
+SegValidArc = EnqueueReq and IncomingSeg.Valid and IncomingSeg.SegType == 2 and IncomingSeg.Speed > 0.0 and IncomingSeg.Accel > 0.0 and IncomingSeg.Decel > 0.0 and IncomingSeg.TermType >= 0 and IncomingSeg.TermType <= 6 and IncomingSeg.CircleType >= 0 and IncomingSeg.CircleType <= 3 and IncomingSeg.Direction >= 0 and IncomingSeg.Direction <= 3
+
+SegValid = SegValidLine or SegValidArc
+
+FFL(IncomingSeg, SegQueue[0], QueueCtl, ?, ?) when EnqueueReq and SegValid and not QueueFull
+
+IncomingSegAck = IncomingSeg.Seq when EnqueueReq and SegValid and not QueueFull
+
+LastIncomingSegReqID = IncomingSegReqID when EnqueueReq and SegValid and not QueueFull
+
+unlatch EnqueueReq when EnqueueReq
+
+FaultCode = 3 when MoveA.ER
+
+latch QueueFault when MoveA.ER
+
+latch AbortQueue when MoveA.ER
+
+unlatch MoveA.ER when MoveA.ER
+
+FaultCode = 4 when MoveB.ER
+
+latch QueueFault when MoveB.ER
+
+latch AbortQueue when MoveB.ER
+
+unlatch MoveB.ER when MoveB.ER
+
+MotionFault = QueueFault or MoveA.ER or MoveB.ER
+
+latch PrepCurMove when CheckCurSeg and CurSeg.Valid and CurSeg.Seq > 0 and (CurSeg.SegType == 1 or CurSeg.SegType == 2)
+
+FaultCode = 1 when CheckCurSeg and not CurSeg.Valid
+
+latch QueueFault when CheckCurSeg and not CurSeg.Valid
+
+FaultCode = 6 when CheckCurSeg and CurSeg.Valid and CurSeg.Seq <= 0
+
+latch QueueFault when CheckCurSeg and CurSeg.Valid and CurSeg.Seq <= 0
+
+FaultCode = 7 when CheckCurSeg and CurSeg.Valid and CurSeg.Seq > 0 and (CurSeg.SegType < 1 or CurSeg.SegType > 2)
+
+latch QueueFault when CheckCurSeg and CurSeg.Valid and CurSeg.Seq > 0 and (CurSeg.SegType < 1 or CurSeg.SegType > 2)
+
+unlatch CheckCurSeg when CheckCurSeg
+
+latch PrepNextMove when CheckNextSeg and NextSeg.Valid and NextSeg.Seq > 0 and (NextSeg.SegType == 1 or NextSeg.SegType == 2)
+
+FaultCode = 2 when CheckNextSeg and not NextSeg.Valid
+
+latch QueueFault when CheckNextSeg and not NextSeg.Valid
+
+FaultCode = 5 when CheckNextSeg and NextSeg.Valid and NextSeg.Seq <= 0
+
+latch QueueFault when CheckNextSeg and NextSeg.Valid and NextSeg.Seq <= 0
+
+FaultCode = 8 when CheckNextSeg and NextSeg.Valid and NextSeg.Seq > 0 and (NextSeg.SegType < 1 or NextSeg.SegType > 2)
+
+latch QueueFault when CheckNextSeg and NextSeg.Valid and NextSeg.Seq > 0 and (NextSeg.SegType < 1 or NextSeg.SegType > 2)
+
+unlatch CheckNextSeg when CheckNextSeg
+
+DINTS[5] = QueueCtl.POS when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
+
+DINTS[5] = 0 when CurIssued or NextIssued or QueueFault or QueueCtl.POS <= 0
+
+REALS[38] = v_x_max when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
+
+REALS[39] = v_y_max when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
+
+REALS[40] = X_axis.ActualPosition when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
+
+REALS[41] = Y_axis.ActualPosition when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
+
+latch BOOLS[7] when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
+
+call CapSegSpeed
+
+when StartQueuedPath and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z):
+    ERROR_CODE = 3001
+    NEXTSTATE = 10
+
+when StartQueuedPath and Z_RETRACTED and not APA_IS_VERTICAL:
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+
+AbortQueue = StartQueuedPath and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z or Z_RETRACTED and not APA_IS_VERTICAL)
+
+unlatch StartQueuedPath when StartQueuedPath and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z or Z_RETRACTED and not APA_IS_VERTICAL)
+
+latch LoadCurReq when StartQueuedPath and not CurIssued and not QueueFault and QueueCtl.POS >= 1 and ONS(StartCurONS)
+
+unlatch StartQueuedPath when LoadCurReq
+
+FFU(SegQueue[0], CurSeg, QueueCtl, ?, ?) when LoadCurReq
+
+latch CheckCurSeg when LoadCurReq
+
+unlatch LoadCurReq when LoadCurReq
+
+COP(CurSeg.XY[0], CmdA_XY[0], 2) when PrepCurMove and UseAasCurrent
+
+CmdA_Speed = CurSeg.Speed when PrepCurMove and UseAasCurrent
+
+CmdA_Accel = CurSeg.Accel when PrepCurMove and UseAasCurrent
+
+CmdA_Decel = CurSeg.Decel when PrepCurMove and UseAasCurrent
+
+CmdA_JerkAccel = CurSeg.JerkAccel when PrepCurMove and UseAasCurrent
+
+CmdA_JerkDecel = CurSeg.JerkDecel when PrepCurMove and UseAasCurrent
+
+CmdA_TermType = CurSeg.TermType when PrepCurMove and UseAasCurrent
+
+CmdA_SegType = CurSeg.SegType when PrepCurMove and UseAasCurrent
+
+CmdA_CircleType = CurSeg.CircleType when PrepCurMove and UseAasCurrent
+
+COP(CurSeg.ViaCenter[0], CmdA_ViaCenter[0], 2) when PrepCurMove and UseAasCurrent
+
+CmdA_Direction = CurSeg.Direction when PrepCurMove and UseAasCurrent
+
+ActiveSeq = CurSeg.Seq when PrepCurMove and UseAasCurrent
+
+COP(CurSeg.XY[0], CmdB_XY[0], 2) when PrepCurMove and not UseAasCurrent
+
+CmdB_Speed = CurSeg.Speed when PrepCurMove and not UseAasCurrent
+
+CmdB_Accel = CurSeg.Accel when PrepCurMove and not UseAasCurrent
+
+CmdB_Decel = CurSeg.Decel when PrepCurMove and not UseAasCurrent
+
+CmdB_JerkAccel = CurSeg.JerkAccel when PrepCurMove and not UseAasCurrent
+
+CmdB_JerkDecel = CurSeg.JerkDecel when PrepCurMove and not UseAasCurrent
+
+CmdB_TermType = CurSeg.TermType when PrepCurMove and not UseAasCurrent
+
+CmdB_SegType = CurSeg.SegType when PrepCurMove and not UseAasCurrent
+
+CmdB_CircleType = CurSeg.CircleType when PrepCurMove and not UseAasCurrent
+
+COP(CurSeg.ViaCenter[0], CmdB_ViaCenter[0], 2) when PrepCurMove and not UseAasCurrent
+
+CmdB_Direction = CurSeg.Direction when PrepCurMove and not UseAasCurrent
+
+ActiveSeq = CurSeg.Seq when PrepCurMove and not UseAasCurrent
+
+when PrepCurMove and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
+
+when PrepCurMove and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
+
+latch IssueCurPulse when PrepCurMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and X_axis.DriveEnableStatus and Y_axis.DriveEnableStatus
+
+latch WaitCurAxisOn when PrepCurMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and (not X_axis.DriveEnableStatus or not Y_axis.DriveEnableStatus)
+
+unlatch PrepCurMove when PrepCurMove
+
+when WaitCurAxisOn and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitCurAxisOn
+
+when WaitCurAxisOn and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitCurAxisOn
+
+when WaitCurAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault:
+    servo_on X_axis using x_axis_mso
+    servo_on Y_axis using y_axis_mso
+
+latch IssueCurPulse when WaitCurAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
+
+unlatch WaitCurAxisOn when WaitCurAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
+
+unlatch PrepCurMove when PrepCurMove
+
+when IssueCurPulse and UseAasCurrent and CmdA_SegType == 1:
+    coordinated_move X_Y using MoveA:
+        type              = absolute
+        target            = CmdA_XY[0]
+        speed             = CmdA_Speed units/s
+        accel             = CmdA_Accel units/s2
+        decel             = CmdA_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdA_JerkAccel
+        decel_jerk        = CmdA_JerkDecel
+        merge             = CmdA_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
+
+MCCM(X_Y, MoveA, 0, CmdA_XY[0], CmdA_CircleType, CmdA_ViaCenter[0], CmdA_Direction, CmdA_Speed, "Units per sec", CmdA_Accel, "Units per sec2", CmdA_Decel, "Units per sec2", S-Curve, CmdA_JerkAccel, CmdA_JerkDecel, "Units per sec3", CmdA_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueCurPulse and UseAasCurrent and CmdA_SegType == 2
+
+when IssueCurPulse and not UseAasCurrent and CmdB_SegType == 1:
+    coordinated_move X_Y using MoveB:
+        type              = absolute
+        target            = CmdB_XY[0]
+        speed             = CmdB_Speed units/s
+        accel             = CmdB_Accel units/s2
+        decel             = CmdB_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdB_JerkAccel
+        decel_jerk        = CmdB_JerkDecel
+        merge             = CmdB_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
+
+MCCM(X_Y, MoveB, 0, CmdB_XY[0], CmdB_CircleType, CmdB_ViaCenter[0], CmdB_Direction, CmdB_Speed, "Units per sec", CmdB_Accel, "Units per sec2", CmdB_Decel, "Units per sec2", S-Curve, CmdB_JerkAccel, CmdB_JerkDecel, "Units per sec3", CmdB_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueCurPulse and not UseAasCurrent and CmdB_SegType == 2
+
+latch CurIssued when IssueCurPulse
+
+unlatch IssueCurPulse when IssueCurPulse
+
+latch LoadNextReq when CurIssued and UseAasCurrent and MoveA.IP and not X_Y.MovePendingStatus and not NextIssued and not QueueEmpty and not QueueFault and ONS(StartNextA_ONS)
+
+latch LoadNextReq when CurIssued and not UseAasCurrent and MoveB.IP and not X_Y.MovePendingStatus and not NextIssued and not QueueEmpty and not QueueFault and ONS(StartNextB_ONS)
+
+FFU(SegQueue[0], NextSeg, QueueCtl, ?, ?) when LoadNextReq
+
+latch CheckNextSeg when LoadNextReq
+
+unlatch LoadNextReq when LoadNextReq
+
+COP(NextSeg.XY[0], CmdB_XY[0], 2) when PrepNextMove and UseAasCurrent
+
+CmdB_Speed = NextSeg.Speed when PrepNextMove and UseAasCurrent
+
+CmdB_Accel = NextSeg.Accel when PrepNextMove and UseAasCurrent
+
+CmdB_Decel = NextSeg.Decel when PrepNextMove and UseAasCurrent
+
+CmdB_JerkAccel = NextSeg.JerkAccel when PrepNextMove and UseAasCurrent
+
+CmdB_JerkDecel = NextSeg.JerkDecel when PrepNextMove and UseAasCurrent
+
+CmdB_TermType = NextSeg.TermType when PrepNextMove and UseAasCurrent
+
+CmdB_SegType = NextSeg.SegType when PrepNextMove and UseAasCurrent
+
+CmdB_CircleType = NextSeg.CircleType when PrepNextMove and UseAasCurrent
+
+COP(NextSeg.ViaCenter[0], CmdB_ViaCenter[0], 2) when PrepNextMove and UseAasCurrent
+
+CmdB_Direction = NextSeg.Direction when PrepNextMove and UseAasCurrent
+
+PendingSeq = NextSeg.Seq when PrepNextMove and UseAasCurrent
+
+COP(NextSeg.XY[0], CmdA_XY[0], 2) when PrepNextMove and not UseAasCurrent
+
+CmdA_Speed = NextSeg.Speed when PrepNextMove and not UseAasCurrent
+
+CmdA_Accel = NextSeg.Accel when PrepNextMove and not UseAasCurrent
+
+CmdA_Decel = NextSeg.Decel when PrepNextMove and not UseAasCurrent
+
+CmdA_JerkAccel = NextSeg.JerkAccel when PrepNextMove and not UseAasCurrent
+
+CmdA_JerkDecel = NextSeg.JerkDecel when PrepNextMove and not UseAasCurrent
+
+CmdA_TermType = NextSeg.TermType when PrepNextMove and not UseAasCurrent
+
+CmdA_SegType = NextSeg.SegType when PrepNextMove and not UseAasCurrent
+
+CmdA_CircleType = NextSeg.CircleType when PrepNextMove and not UseAasCurrent
+
+COP(NextSeg.ViaCenter[0], CmdA_ViaCenter[0], 2) when PrepNextMove and not UseAasCurrent
+
+CmdA_Direction = NextSeg.Direction when PrepNextMove and not UseAasCurrent
+
+PendingSeq = NextSeg.Seq when PrepNextMove and not UseAasCurrent
+
+when PrepNextMove and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
+
+when PrepNextMove and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
+
+latch IssueNextPulse when PrepNextMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and X_axis.DriveEnableStatus and Y_axis.DriveEnableStatus
+
+latch WaitNextAxisOn when PrepNextMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and (not X_axis.DriveEnableStatus or not Y_axis.DriveEnableStatus)
+
+unlatch PrepNextMove when PrepNextMove
+
+when WaitNextAxisOn and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitNextAxisOn
+
+when WaitNextAxisOn and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitNextAxisOn
+
+when WaitNextAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault:
+    servo_on X_axis using x_axis_mso
+    servo_on Y_axis using y_axis_mso
+
+latch IssueNextPulse when WaitNextAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
+
+unlatch WaitNextAxisOn when WaitNextAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
+
+unlatch PrepNextMove when PrepNextMove
+
+when IssueNextPulse and UseAasCurrent and CmdB_SegType == 1:
+    coordinated_move X_Y using MoveB:
+        type              = absolute
+        target            = CmdB_XY[0]
+        speed             = CmdB_Speed units/s
+        accel             = CmdB_Accel units/s2
+        decel             = CmdB_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdB_JerkAccel
+        decel_jerk        = CmdB_JerkDecel
+        merge             = CmdB_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
+
+MCCM(X_Y, MoveB, 0, CmdB_XY[0], CmdB_CircleType, CmdB_ViaCenter[0], CmdB_Direction, CmdB_Speed, "Units per sec", CmdB_Accel, "Units per sec2", CmdB_Decel, "Units per sec2", S-Curve, CmdB_JerkAccel, CmdB_JerkDecel, "Units per sec3", CmdB_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueNextPulse and UseAasCurrent and CmdB_SegType == 2
+
+when IssueNextPulse and not UseAasCurrent and CmdA_SegType == 1:
+    coordinated_move X_Y using MoveA:
+        type              = absolute
+        target            = CmdA_XY[0]
+        speed             = CmdA_Speed units/s
+        accel             = CmdA_Accel units/s2
+        decel             = CmdA_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdA_JerkAccel
+        decel_jerk        = CmdA_JerkDecel
+        merge             = CmdA_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
+
+MCCM(X_Y, MoveA, 0, CmdA_XY[0], CmdA_CircleType, CmdA_ViaCenter[0], CmdA_Direction, CmdA_Speed, "Units per sec", CmdA_Accel, "Units per sec2", CmdA_Decel, "Units per sec2", S-Curve, CmdA_JerkAccel, CmdA_JerkDecel, "Units per sec3", CmdA_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueNextPulse and not UseAasCurrent and CmdA_SegType == 2
+
+latch NextIssued when IssueNextPulse
+
+unlatch IssueNextPulse when IssueNextPulse
+
+latch RotateMoves when CurIssued and NextIssued and UseAasCurrent and not X_Y.MovePendingStatus and MoveB.IP and ONS(RotateONS_AtoB)
+
+latch RotateMoves when CurIssued and NextIssued and not UseAasCurrent and not X_Y.MovePendingStatus and MoveA.IP and ONS(RotateONS_BtoA)
+
+COP(NextSeg, CurSeg, 1) when RotateMoves
+
+latch FlipToB when RotateMoves and UseAasCurrent
+
+latch FlipToA when RotateMoves and not UseAasCurrent
+
+unlatch UseAasCurrent when FlipToB
+
+latch UseAasCurrent when FlipToA
+
+unlatch NextIssued when RotateMoves
+
+ActiveSeq = PendingSeq when RotateMoves
+
+PendingSeq = 0 when RotateMoves
+
+unlatch RotateMoves when RotateMoves
+
+unlatch FlipToA when FlipToA
+
+unlatch FlipToB when FlipToB
+
+unlatch CurIssued when CurIssued and not NextIssued and UseAasCurrent and not X_Y.MovePendingStatus and MoveA.PC and ONS(DoneONS_A)
+
+unlatch CurIssued when CurIssued and not NextIssued and not UseAasCurrent and not X_Y.MovePendingStatus and MoveB.PC and ONS(DoneONS_B)
+
+reset CurIssueAckTON when AbortActive
+
+reset NextIssueAckTON when AbortActive
+
+reset QueueCtl when AbortActive
+
+unlatch CurIssued when AbortActive
+
+unlatch NextIssued when AbortActive
+
+unlatch LoadCurReq when AbortActive
+
+unlatch LoadNextReq when AbortActive
+
+unlatch PrepCurMove when AbortActive
+
+unlatch PrepNextMove when AbortActive
+
+unlatch IssueCurPulse when AbortActive
+
+unlatch IssueNextPulse when AbortActive
+
+unlatch WaitCurAxisOn when AbortActive
+
+unlatch WaitNextAxisOn when AbortActive
+
+unlatch QueueStopRequest when AbortActive
+
+unlatch AbortQueue when AbortActive
+
+unlatch EnqueueReq when AbortActive
+
+unlatch RotateMoves when AbortActive
+
+unlatch FlipToA when AbortActive
+
+unlatch FlipToB when AbortActive
+
+latch UseAasCurrent when AbortActive
+
+unlatch StartQueuedPath when AbortActive
+
+FaultCode = 0 when AbortActive
+
+unlatch QueueFault when AbortActive
+
+unlatch CheckCurSeg when AbortActive
+
+unlatch CheckNextSeg when AbortActive
+
+unlatch CurSeg.Valid when AbortActive
+
+CurSeg.Seq = 0 when AbortActive
+
+unlatch NextSeg.Valid when AbortActive
+
+NextSeg.Seq = 0 when AbortActive
+
+LastIncomingSegReqID = IncomingSegReqID when AbortActive
+
+ActiveSeq = 0 when AbortActive
+
+PendingSeq = 0 when AbortActive
+
+FLL(0, SegQueue[0], 32) when AbortActive
+
+latch QueueDiag_UseAasCurrent when UseAasCurrent
+
+unlatch QueueDiag_UseAasCurrent when not UseAasCurrent
+
+latch QueueDiag_LoadCurReq when LoadCurReq
+
+unlatch QueueDiag_LoadCurReq when not LoadCurReq
+
+latch QueueDiag_LoadNextReq when LoadNextReq
+
+unlatch QueueDiag_LoadNextReq when not LoadNextReq
+
+latch QueueDiag_CheckCurSeg when CheckCurSeg
+
+unlatch QueueDiag_CheckCurSeg when not CheckCurSeg
+
+latch QueueDiag_CheckNextSeg when CheckNextSeg
+
+unlatch QueueDiag_CheckNextSeg when not CheckNextSeg
+
+latch QueueDiag_PrepCurMove when PrepCurMove
+
+unlatch QueueDiag_PrepCurMove when not PrepCurMove
+
+latch QueueDiag_PrepNextMove when PrepNextMove
+
+unlatch QueueDiag_PrepNextMove when not PrepNextMove
+
+latch QueueDiag_IssueCurPulse when IssueCurPulse
+
+unlatch QueueDiag_IssueCurPulse when not IssueCurPulse
+
+latch QueueDiag_IssueNextPulse when IssueNextPulse
+
+unlatch QueueDiag_IssueNextPulse when not IssueNextPulse
+
+latch QueueDiag_WaitCurAxisOn when WaitCurAxisOn
+
+unlatch QueueDiag_WaitCurAxisOn when not WaitCurAxisOn
+
+latch QueueDiag_WaitNextAxisOn when WaitNextAxisOn
+
+unlatch QueueDiag_WaitNextAxisOn when not WaitNextAxisOn
+
+latch QueueDiag_RotateMoves when RotateMoves
+
+unlatch QueueDiag_RotateMoves when not RotateMoves
+
+latch QueueDiag_FlipToA when FlipToA
+
+unlatch QueueDiag_FlipToA when not FlipToA
+
+latch QueueDiag_FlipToB when FlipToB
+
+unlatch QueueDiag_FlipToB when not FlipToB
+
+latch QueueDiag_AbortActive when AbortActive
+
+unlatch QueueDiag_AbortActive when not AbortActive
+
+latch QueueDiag_MoveA_IP when MoveA.IP
+
+unlatch QueueDiag_MoveA_IP when not MoveA.IP
+
+latch QueueDiag_MoveA_PC when MoveA.PC
+
+unlatch QueueDiag_MoveA_PC when not MoveA.PC
+
+latch QueueDiag_MoveA_DN when MoveA.DN
+
+unlatch QueueDiag_MoveA_DN when not MoveA.DN
+
+latch QueueDiag_MoveA_ER when MoveA.ER
+
+unlatch QueueDiag_MoveA_ER when not MoveA.ER
+
+latch QueueDiag_MoveB_IP when MoveB.IP
+
+unlatch QueueDiag_MoveB_IP when not MoveB.IP
+
+latch QueueDiag_MoveB_PC when MoveB.PC
+
+unlatch QueueDiag_MoveB_PC when not MoveB.PC
+
+latch QueueDiag_MoveB_DN when MoveB.DN
+
+unlatch QueueDiag_MoveB_DN when not MoveB.DN
+
+latch QueueDiag_MoveB_ER when MoveB.ER
+
+unlatch QueueDiag_MoveB_ER when not MoveB.ER
+
+latch QueueDiag_CurSeg_Valid when CurSeg.Valid
+
+unlatch QueueDiag_CurSeg_Valid when not CurSeg.Valid
+
+latch QueueDiag_NextSeg_Valid when NextSeg.Valid
+
+unlatch QueueDiag_NextSeg_Valid when not NextSeg.Valid
+
+QueueDiag_CurSeg_Seq = CurSeg.Seq
+
+QueueDiag_CurSeg_SegType = CurSeg.SegType
+
+QueueDiag_CurSeg_TermType = CurSeg.TermType
+
+QueueDiag_CurSeg_Speed = CurSeg.Speed
+
+QueueDiag_CurSeg_X = CurSeg.XY[0]
+
+QueueDiag_CurSeg_Y = CurSeg.XY[1]
+
+QueueDiag_NextSeg_Seq = NextSeg.Seq
+
+QueueDiag_NextSeg_SegType = NextSeg.SegType
+
+QueueDiag_NextSeg_TermType = NextSeg.TermType
+
+QueueDiag_NextSeg_Speed = NextSeg.Speed
+
+QueueDiag_NextSeg_X = NextSeg.XY[0]
+
+QueueDiag_NextSeg_Y = NextSeg.XY[1]
+
+QueueDiag_CmdA_SegType = CmdA_SegType
+
+QueueDiag_CmdB_SegType = CmdB_SegType
+
+QueueDiag_ActiveSeq = ActiveSeq
+
+QueueDiag_PendingSeq = PendingSeq
+
+QueueDiag_FaultCode = FaultCode
+
+latch QueueDiag_QueueCtl_EN when QueueCtl.EN
+
+unlatch QueueDiag_QueueCtl_EN when not QueueCtl.EN
+
+latch QueueDiag_QueueCtl_DN when QueueCtl.DN
+
+unlatch QueueDiag_QueueCtl_DN when not QueueCtl.DN
+
+latch QueueDiag_QueueCtl_EM when QueueCtl.EM
+
+unlatch QueueDiag_QueueCtl_EM when not QueueCtl.EM
+
+latch QueueDiag_QueueCtl_ER when QueueCtl.ER
+
+unlatch QueueDiag_QueueCtl_ER when not QueueCtl.ER
+
+latch QueueDiag_QueueCtl_EU when QueueCtl.EU
+
+unlatch QueueDiag_QueueCtl_EU when not QueueCtl.EU
+
+latch QueueDiag_QueueCtl_UL when QueueCtl.UL
+
+unlatch QueueDiag_QueueCtl_UL when not QueueCtl.UL
+
+latch QueueDiag_QueueCtl_IN when QueueCtl.IN
+
+unlatch QueueDiag_QueueCtl_IN when not QueueCtl.IN
+
+QueueDiag_QueueCtl_POS = QueueCtl.POS
+
+QueueDiag_QueueCtl_LEN = QueueCtl.LEN
+
+QueueDiag_MoveA_ERRID = MoveA.ERR
+
+QueueDiag_MoveA_EXERR = MoveA.EXERR
+
+QueueDiag_MoveB_ERRID = MoveB.ERR
+
+QueueDiag_MoveB_EXERR = MoveB.EXERR

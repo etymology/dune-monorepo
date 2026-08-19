@@ -1,0 +1,82 @@
+routine state_5_move_z/main
+
+uses ACTUATOR_POS, ALL_EOT_GOOD, check_tension_stable, ERROR_CODE, FRAME_LOC_FT_BTM  # controller scope
+uses FRAME_LOC_FT_MID, FRAME_LOC_FT_TOP, FRAME_LOC_HD_BTM, FRAME_LOC_HD_MID, FRAME_LOC_HD_TOP  # controller scope
+uses LATCH_ACTUATOR_HOMED, MASTER_Z_GO, MOVE_TYPE, NEXTSTATE, no_apa_collision  # controller scope
+uses no_latch_collision, no_supports_collision, STATE, STATE_REQUEST  # controller scope
+uses support_collision_window_bttm, support_collision_window_mid, support_collision_window_top  # controller scope
+uses TENSION_CONTROL_OK, tension_stable_timer, X_axis, X_XFER_OK, Y_XFER_OK, Z_ACCELERATION  # controller scope
+uses Z_axis, Z_DECELLERATION, Z_FIXED_LATCHED, Z_POSITION, Z_SPEED  # controller scope
+uses eot_stop, oneshotob, STATE5_IND, z_accel_jerk, z_axis_fast_move, z_axis_main_move  # program scope
+uses z_axis_mso, z_decel_jerk, z_move_success  # program scope
+
+no_latch_collision = Z_FIXED_LATCHED and ACTUATOR_POS == 2 or not Z_FIXED_LATCHED
+
+no_apa_collision = X_XFER_OK or Y_XFER_OK
+
+no_supports_collision = X_XFER_OK and (LIM(400, X_axis.ActualPosition, 500) and (support_collision_window_bttm and not FRAME_LOC_HD_BTM or support_collision_window_mid and not FRAME_LOC_HD_MID or support_collision_window_top and not FRAME_LOC_HD_TOP) or LIM(7100, X_axis.ActualPosition, 7200) and (support_collision_window_bttm and not FRAME_LOC_FT_BTM or support_collision_window_mid and not FRAME_LOC_FT_MID or support_collision_window_top and not FRAME_LOC_FT_TOP) or not support_collision_window_bttm and not support_collision_window_mid and not support_collision_window_top) or Y_XFER_OK
+
+MASTER_Z_GO = no_latch_collision and no_supports_collision and no_apa_collision
+
+NEXTSTATE = 1 when STATE == 4
+
+when STATE == 5 and Z_FIXED_LATCHED and LATCH_ACTUATOR_HOMED and ACTUATOR_POS != 2:
+    ERROR_CODE = 5004
+    NEXTSTATE = 10
+
+when STATE == 5 and Z_axis.PhysicalAxisFault:
+    ERROR_CODE = 5002
+    NEXTSTATE = 10
+
+when STATE == 5 and not MASTER_Z_GO:
+    ERROR_CODE = 5001
+    NEXTSTATE = 10
+
+ERROR_CODE = 0 when MASTER_Z_GO and ERROR_CODE == 5001
+
+STATE5_IND = STATE == 5 and MASTER_Z_GO and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK or Z_FIXED_LATCHED)
+
+servo_on Z_axis using z_axis_mso when STATE5_IND and not Z_axis.DriveEnableStatus
+
+when STATE5_IND and Z_axis.DriveEnableStatus and not Z_FIXED_LATCHED:
+    move_axis Z_axis using z_axis_main_move:
+        type           = absolute
+        position       = Z_POSITION
+        speed          = Z_SPEED units/s
+        accel          = Z_ACCELERATION units/s2
+        decel          = Z_DECELLERATION units/s2
+        profile        = s-curve
+        accel_jerk     = z_accel_jerk
+        decel_jerk     = z_decel_jerk
+        merge          = Disabled
+        merge_speed    = Programmed
+        lock_direction = None
+
+when STATE5_IND and Z_axis.DriveEnableStatus and Z_FIXED_LATCHED:
+    move_axis Z_axis using z_axis_fast_move:
+        type           = absolute
+        position       = Z_POSITION
+        speed          = 2000 units/s
+        accel          = 10000 units/s2
+        decel          = 10000 units/s2
+        profile        = s-curve
+        jerk           = 10000
+        merge          = Disabled
+        merge_speed    = Programmed
+        lock_direction = None
+
+NEXTSTATE = 14 when Z_axis.MoveStatus and STATE_REQUEST == 14
+
+MAS(Z_axis, eot_stop, Jog, Yes, 2000, "Units per sec2", No, 100, "% of Time") when not ALL_EOT_GOOD and Z_axis.MoveStatus
+
+when eot_stop.PC:
+    ERROR_CODE = 5005
+    NEXTSTATE = 11
+    eot_stop.FLAGS = 0
+
+on rising STATE == 5 and abs(Z_axis.ActualPosition - Z_POSITION) < 0.1 using oneshotob[0], z_move_success:
+    STATE_REQUEST = 0
+    MOVE_TYPE = 0
+    NEXTSTATE = 1
+    z_axis_main_move.FLAGS = 0
+    z_axis_fast_move.FLAGS = 0

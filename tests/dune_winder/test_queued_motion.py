@@ -588,6 +588,74 @@ class QueuedMotionTests(unittest.TestCase):
         self.assertIsNone(handler._queued_session)
         self.assertEqual(handler._nextLine, 6)
 
+    def test_double_stop_steps_back_only_once_for_queued_session(self):
+        # A single Wind -> Stop transition invokes stop() twice
+        # (StopMode.enter() then WindMode.exit()).  The line step-back must be
+        # applied only once so the next "step" retries the interrupted block
+        # instead of re-running the previous line.
+        plc = SimulatedPLC("SIM")
+        calibration = DefaultMachineCalibration()
+        handler = GCodeHandler(
+            _RuntimeQueuedMotionIO(plc), calibration, WirePathModel(calibration)
+        )
+        handler._queued_session = object()
+        handler._queued_block_start_line = 7
+        handler._nextLine = 9
+
+        handler.stop()  # StopMode.enter()
+        handler.stop()  # WindMode.exit()
+
+        self.assertEqual(handler._nextLine, 6)
+
+    def test_double_stop_steps_back_only_once_for_running_line(self):
+        # Legacy (non-queued) interrupt: two stop() calls for one stop must only
+        # step _nextLine back a single line so "step" retries the interrupted
+        # line rather than the one before it.
+        calibration = DefaultMachineCalibration()
+        io = _IO(400.0, 100.0)
+        cast(Any, io).plcLogic.isReady = lambda: False
+        handler = GCodeHandler(io, calibration, WirePathModel(calibration))
+        handler._nextLine = 5
+        handler._direction = 1
+
+        handler.stop()  # StopMode.enter()
+        handler.stop()  # WindMode.exit()
+
+        self.assertEqual(handler._nextLine, 4)
+
+    def test_step_back_rearms_after_line_relaunch(self):
+        # Once a line is relaunched (setLine or a fresh poll advance), a
+        # subsequent stop must step back again.
+        calibration = DefaultMachineCalibration()
+        io = _IO(400.0, 100.0)
+        cast(Any, io).plcLogic.isReady = lambda: False
+        handler = GCodeHandler(io, calibration, WirePathModel(calibration))
+        handler.loadG_Code(
+            [
+                "G113 PPRECISE X500.0 Y100.0",
+                "G113 PPRECISE X550.0 Y150.0",
+                "G113 PPRECISE X600.0 Y200.0",
+                "G113 PPRECISE X650.0 Y250.0",
+                "G113 PPRECISE X700.0 Y300.0",
+                "G113 PPRECISE X750.0 Y350.0",
+            ],
+            None,
+        )
+        handler._nextLine = 5
+        handler._direction = 1
+
+        handler.stop()
+        handler.stop()
+        self.assertEqual(handler._nextLine, 4)
+        self.assertTrue(handler._stopStepBackApplied)
+
+        # Operator repositions / relaunches the line, re-arming the step-back.
+        self.assertFalse(handler.setLine(5))
+        self.assertFalse(handler._stopStepBackApplied)
+        handler.stop()
+        handler.stop()
+        self.assertEqual(handler._nextLine, 4)
+
     def test_start_queued_block_falls_back_when_queue_planner_rejects_path(self):
         calibration = DefaultMachineCalibration()
         handler = GCodeHandler(

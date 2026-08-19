@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="Fri Jun 12 14:10:57 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="tension_pid" Class="Standard">
@@ -18,22 +18,22 @@
 </Rung>
 <Rung Number="2" Type="N">
 <Text>
-<![CDATA[XIC(TENSION_ON_SWITCH)TOF(tension_off_ramp_timer,?,?);]]>
+<![CDATA[XIO(TENSION_ON_SWITCH)TON(tension_off_ramp_timer,?,?);]]>
 </Text>
 </Rung>
 <Rung Number="3" Type="N">
 <Text>
-<![CDATA[XIO(wire_break_proxy)TON(wire_break_debounce,?,?);]]>
+<![CDATA[XIO(wire_tensioned)TON(wire_undertension_debounce,?,?);]]>
 </Text>
 </Rung>
 <Rung Number="4" Type="N">
 <Text>
-<![CDATA[[XIC(TENSION_ON_SWITCH) XIO(Safety_Tripped_S) [XIC(wire_break_proxy) ,XIC(tension_on_switch_delay_on_start.TT) ,XIO(wire_break_debounce.DN) ] ,XIC(tension_off_ramp_timer.TT) ]OTE(Enable_tension_motor);]]>
+<![CDATA[[XIC(tension_on_switch_delay_on_start.TT) ,XIO(wire_undertension_debounce.DN) ]OTE(TENSION_CONTROL_OK);]]>
 </Text>
 </Rung>
 <Rung Number="5" Type="N">
 <Text>
-<![CDATA[[XIC(tension_on_switch_delay_on_start.TT) ,XIC(TENSION_CONTROL_OK) ][[XIC(wire_break_proxy) ,XIO(wire_break_switch_delay_on_start.DN) ,XIO(wire_break_debounce.DN) ] OTE(TENSION_CONTROL_OK) ,TON(wire_break_switch_delay_on_start,?,?) ];]]>
+<![CDATA[[XIC(TENSION_CONTROL_OK) ,XIC(tension_off_ramp_timer.TT) ,XIC(constant_cv_out) ]XIO(Safety_Tripped_S)OTE(Enable_tension_motor);]]>
 </Text>
 </Rung>
 <Rung Number="6" Type="N">
@@ -48,7 +48,7 @@
 </Rung>
 <Rung Number="8" Type="N">
 <Text>
-<![CDATA[[XIC(PID_LOOP_TIMER.DN) ,XIC(pid_loop_timer_bypass) ][XIC(TENSION_CONTROL_OK) MOV(tension_setpoint,winding_head_pid.SP) ,XIO(TENSION_CONTROL_OK) MOV(10,tension) MOV(0,winding_head_pid.SP) ,PID(winding_head_pid,tension,0,tension_motor_cv,0,0,0) ,[XIO(TENSION_CONTROL_OK) ,XIO(TENSION_ON_SWITCH) ,XIC(tension_on_switch_delay_on_start.TT) LES(tension_motor_cv,neutral_cv) ] MOV(neutral_cv,tension_motor_cv) ,XIC(tension_off_ramp_timer.TT) CPT(tension_motor_cv,ramp_start_cv+(neutral_cv-ramp_start_cv)*tension_off_ramp_timer.ACC/tension_off_ramp_timer.PRE) ,XIC(constant_cv_out) MOV(SetPoint_Override,tension_motor_cv) ,MOV(tension_motor_cv,cv_to_electrocraft) ];]]>
+<![CDATA[[XIC(PID_LOOP_TIMER.DN) ,XIC(pid_loop_timer_bypass) ][XIC(TENSION_CONTROL_OK) MOV(tension_setpoint,winding_head_pid.SP) ,XIO(TENSION_CONTROL_OK) MOV(10,tension) MOV(0,winding_head_pid.SP) ,PID(winding_head_pid,tension,0,tension_motor_cv,0,0,0) ,[XIO(TENSION_CONTROL_OK) ,XIO(TENSION_ON_SWITCH) ,XIC(tension_on_switch_delay_on_start.TT) LES(tension_motor_cv,neutral_cv) ] MOV(neutral_cv,tension_motor_cv) ,XIC(tension_off_ramp_timer.TT) CPT(tension_motor_cv,ramp_start_cv+(neutral_cv-ramp_start_cv)*tension_off_ramp_timer.ACC/tension_off_ramp_timer.PRE) ,XIC(constant_cv_out) MOV(tension_motor_curr_override,tension_motor_cv) ,MOV(tension_motor_cv,cv_to_electrocraft) ];]]>
 </Text>
 </Rung>
 <Rung Number="9" Type="N">
@@ -83,12 +83,12 @@
 </Rung>
 <Rung Number="15" Type="N">
 <Text>
-<![CDATA[XIC(tension_on_switch_delay_on_start.DN)XIC(wire_break_debounce.DN)NEQ(ERROR_CODE,8002)CPT(NEXTSTATE,10)CPT(ERROR_CODE,8001);]]>
+<![CDATA[XIC(tension_on_switch_delay_on_start.DN)XIC(wire_undertension_debounce.DN)NEQ(ERROR_CODE,8002)CPT(NEXTSTATE,10)CPT(ERROR_CODE,8001);]]>
 </Text>
 </Rung>
 <Rung Number="16" Type="N">
 <Text>
-<![CDATA[[XIC(Local:1:I.Pt15.Data) ,GRT(tension_tag,wire_broken_tension) ]OTE(wire_break_proxy);]]>
+<![CDATA[[XIC(Local:1:I.Pt15.Data) ,GRT(tension_tag,wire_broken_tension) ]OTE(wire_tensioned);]]>
 </Text>
 </Rung>
 <Rung Number="17" Type="N">

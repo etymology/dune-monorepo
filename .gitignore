@@ -25,7 +25,9 @@ node_modules/
 tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation_files/
 tension/experiments/UKAPA7_comparison/ukapa7_shipment_storage_presentation.html
 .claude/settings.local.json
-tension/data/experiment_audio/*
+dune_tension/data/experiment_audio/*
+dune_tension/data/streaming_runs/*
+dune_tension/images/*
 
 # Playwright
 /test-results/
@@ -38,3 +40,7 @@ dune_tension/audio/*
 winder/plc/ACD/*.Sem
 winder/plc/ACD/*.Wrk
 winder/plc/ACD/*.BAK*.acd
+# rung-compile outputs (import via Studio, then re-export; not checked in)
+winder/plc/**/*_import.L5X
+winder/plc/**/*.rllscrap.out
+winder/plc/ACD/DUNEW2PLC1_py3.ACD.Recovery

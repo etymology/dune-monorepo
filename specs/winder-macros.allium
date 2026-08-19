@@ -88,6 +88,8 @@ variant HeadLocation : Macro {
 
 variant HeadTransfer : Macro {
     -- Same encoding as HeadLocation; selects the head side to transfer to.
+    -- Subject to the same head-transfer preflight as AnchorToTarget; see
+    -- states/MountedHeadCannotSkipTransferSilently.
     location: Integer
 }
 
@@ -177,6 +179,9 @@ rule ExecuteAnchorToTarget {
     @guidance
         -- Coordinates the transition from an anchor pin to a target pin.
         -- Sequence:
+        -- 0. Head-transfer preflight (states/MountedHeadCannotSkipTransferSilently):
+        --    a fitted head that is not on a known transfer side aborts the line
+        --    with a MASTER_Z_GO diagnostic; an unfitted head skips steps 3 and 5.
         -- 1. Resolve pins and WrapTransitionPlan from geometry/ComputeWrapTransitionPlan.
         -- 2. Move head to anchor position (states/XYMoveRequested).
         -- 3. If plan.transfer_required: execute modern transfer protocol (states/ModernTransfer).

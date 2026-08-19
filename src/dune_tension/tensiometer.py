@@ -36,7 +36,7 @@ from dune_tension.tensiometer_functions import (
 LOGGER = logging.getLogger(__name__)
 FOCUS_MM_PER_QUARTER_US = 20.0 / 4000.0
 FOCUS_X_MM_PER_QUARTER_US = FOCUS_MM_PER_QUARTER_US / math.sqrt(3.0)
-_STRUM_LOOP_INTERVAL_SECONDS = 0.2
+_STRUM_LOOP_INTERVAL_SECONDS = 0.5
 _SUMMARY_REFRESH_GUARD_S = 0.5
 
 # Live outlier detection during ``measure_list``. A fresh measurement is flagged
@@ -1051,7 +1051,7 @@ class Tensiometer:
         high_y = float(center_y + self.sweeping_wiggle_span_mm)
         record_duration = max(float(self.config.record_duration), 1e-6)
         sweep_speed_mm_s = max(
-            (float(self.sweeping_wiggle_span_mm)),
+            (float(self.sweeping_wiggle_span_mm) / record_duration) * 2.0,
             1e-3,
         )
 
@@ -1151,24 +1151,30 @@ class Tensiometer:
         self,
         audio_sample: Any,
         expected_frequency: float | None,
-    ) -> tuple[Any | None, float, float]:
-        """Estimate pitch using PESTO, gated by ACF and FFT corroboration.
+    ) -> tuple[Any | None, float, float, bool]:
+        """Estimate pitch using PESTO, gated by FFT corroboration.
 
-        Acceptance is determined by whether the NN frequency is corroborated by
-        a notable autocorrelation peak (within ±15 %) and a notable FFT peak
-        (within ±10 %).  Neither peak has to be the global maximum.  When
-        corroborated, confidence is raised to at least the configured threshold
-        so the measurement loop accepts the sample immediately.  When not
-        corroborated, confidence is zeroed so the loop continues searching —
-        regardless of what PESTO reported.
+        Returns ``(analysis, frequency, confidence, accepted)`` where
+        ``confidence`` is the model's own confidence for the waveform and
+        ``accepted`` signals whether the measurement loop should accept the
+        sample.
+
+        A sample is accepted only when it is *both* corroborated and the NN
+        confidence clears the configured threshold.  Corroboration means the NN
+        frequency lines up with a notable FFT peak (within ±10 %); the peak does
+        not have to be the global maximum.  Autocorrelation is no longer
+        consulted.  The reported confidence is always the model's real value for
+        the waveform — it is never inflated to the threshold.  When not
+        corroborated, the sample is rejected (``accepted=False`` and confidence
+        zeroed) so the loop keeps searching regardless of what PESTO reported.
         """
-        from spectrum_analysis.pitch_validation import nn_pitch_is_corroborated
+        from spectrum_analysis.pitch_validation import fft_has_peak_near
 
         self._last_pitch_triplet_accepted = None
         analysis = None
 
         if not self._is_audio_worth_analyzing(audio_sample):
-            return None, 0.0, 0.0
+            return None, 0.0, 0.0, False
 
         require_corroboration = False
         try:
@@ -1187,32 +1193,36 @@ class Tensiometer:
                 expected_frequency,
             )
 
+        accepted = float(confidence) >= float(self.config.confidence_threshold)
+
         if require_corroboration and np.isfinite(frequency) and frequency > 0.0:
-            corroborated = nn_pitch_is_corroborated(
+            corroborated = fft_has_peak_near(
                 np.asarray(audio_sample, dtype=np.float64),
                 self.samplerate,
                 float(frequency),
             )
             if corroborated:
                 self._last_pitch_triplet_accepted = True
-                # ACF and FFT agree: accept regardless of NN confidence.
-                confidence = max(
-                    float(confidence), float(self.config.confidence_threshold)
-                )
+                # FFT agrees: accept only if the model's real confidence also
+                # clears the threshold.  Keep the real confidence value for
+                # reporting/ranking either way.
+                accepted = float(confidence) >= float(self.config.confidence_threshold)
                 LOGGER.debug(
-                    "NN pitch %.1f Hz corroborated by ACF/FFT; confidence=%.2f.",
+                    "NN pitch %.1f Hz corroborated by FFT; confidence=%.2f accepted=%s.",
                     frequency,
                     confidence,
+                    accepted,
                 )
             else:
                 LOGGER.debug(
-                    "NN pitch %.1f Hz not corroborated by ACF/FFT; rejecting sample.",
+                    "NN pitch %.1f Hz not corroborated by FFT; rejecting sample.",
                     frequency,
                 )
                 self._last_pitch_triplet_accepted = False
+                accepted = False
                 confidence = 0.0
 
-        return analysis, float(frequency), float(confidence)
+        return analysis, float(frequency), float(confidence), bool(accepted)
 
     def _sample_harmonic_features(
         self,
@@ -1634,9 +1644,11 @@ class Tensiometer:
         def _analyze_sample(
             sample: DeferredPitchSample,
         ) -> TensionResult:
-            analysis, frequency, _nn_confidence = self._estimate_sample_pitch(
-                sample.audio_sample,
-                expected_frequency,
+            analysis, frequency, _nn_confidence, _accepted = (
+                self._estimate_sample_pitch(
+                    sample.audio_sample,
+                    expected_frequency,
+                )
             )
             _publish_audio_sample(sample.audio_sample, analysis)
 
@@ -1934,9 +1946,11 @@ class Tensiometer:
                             _publish_audio_sample(audio_sample, None)
                     else:
                         analyze_started = self._profile_time()
-                        analysis, frequency, confidence = self._estimate_sample_pitch(
-                            audio_sample,
-                            expected_frequency,
+                        analysis, frequency, confidence, accepted = (
+                            self._estimate_sample_pitch(
+                                audio_sample,
+                                expected_frequency,
+                            )
                         )
                         self._record_wire_stage(
                             "analyze_audio",
@@ -1983,10 +1997,7 @@ class Tensiometer:
                                     else best_focus
                                 )
                                 axis_index = 0
-                            if (
-                                wire_result.confidence
-                                >= self.config.confidence_threshold
-                            ):
+                            if accepted:
                                 break
                 else:
                     LOGGER.info("Sample of wire %s: no audio detected.", wire_number)

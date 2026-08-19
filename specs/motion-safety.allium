@@ -365,12 +365,20 @@ invariant ActiveFrameLockKeepoutsRespected {
 -- The PLC computes a single boolean MASTER_Z_GO at state_5_move_z that
 -- gates all Z motion. It is the conjunction of three named conditions
 -- (no_latch_collision, no_apa_collision, no_supports_collision) and
--- mirrors the rung in winder/plc/state_5_move_z/main/pasteable.rll.
+-- mirrors the rung in winder/plc/state_5_move_z/main/main.rung.
 --
 -- The names below match the PLC tags so the spec and ladder logic line
 -- up symbol-for-symbol. NoZMotionWhileFloating in winder-states.allium
 -- is a separate, complementary constraint on the head-transfer state
 -- machine; it is not part of MASTER_Z_GO.
+--
+-- The same three conjuncts are mirrored in Python by
+-- dune_winder/core/master_z_go.py, which the G-code interpreter consults
+-- as a preflight so a blocked head transfer produces a descriptive
+-- operator message instead of a silently skipped transfer. The mirror is
+-- advisory only; the ladder remains authoritative (see
+-- winder-states.allium#RuntimeAndPLCBothEnforceSafety). Parity between
+-- the two is enforced by tests/dune_winder/test_master_z_go_ladder_parity.py.
 
 invariant ZMotionRequiresMasterZGo {
     -- Whenever a Z-axis move is in progress (PLC z_seek state), the
@@ -391,7 +399,7 @@ invariant NoApaCollision {
 }
 
 invariant NoSupportsCollision {
-    -- At least one of:
+    -- Either (a), or X_Transfer_OK together with at least one of (b)/(c)/(d):
     --   (a) Y is parked in a Y transfer zone (Y_Transfer_OK), OR
     --   (b) Y is outside every support Y band (none of
     --       support_collision_window_bttm / _mid / _top is active), OR
@@ -405,8 +413,18 @@ invariant NoSupportsCollision {
     --       the support Y band Y currently occupies, the matching foot
     --       frame-lock sensor frame_lock_foot_<row> is deasserted.
     --
+    -- Note the X_Transfer_OK conjunct: only (a) stands on its own. The rung
+    -- is  X_XFER_OK and ( (c) or (d) or (b) )  or  Y_XFER_OK.
+    --
     -- The support Y bands are
     --   bttm: [support_collision_bottom_min_y, support_collision_bottom_max_y]
     --   mid:  [support_collision_middle_min_y, support_collision_middle_max_y]
     --   top:  [support_collision_top_min_y,    support_collision_top_max_y]
+    --
+    -- KNOWN DRIFT: the middle band's upper edge is 1515 in the ladder
+    -- (mid_support_collision_ymax) but 1550 in config/machineCalibration.json
+    -- (supportCollisionMiddleMaxY). Python consumers -- the queued-motion
+    -- keepout boxes and the MASTER_Z_GO mirror -- use the calibration value,
+    -- so between Y=1515 and Y=1550 they are stricter than the PLC. Pinned by
+    -- test_master_z_go_ladder_parity.ConstantSourceTests.
 }

@@ -156,6 +156,9 @@ class WindMode(StateMachineState):
                     self.stateMachine.gCodeHandler.getG_CodeErrorData(),
                 )
 
+                # Keep a copy for the operator popup; clearCodeError() below
+                # would otherwise discard it before the UI can poll for it.
+                self.stateMachine.gCodeHandler.latchG_CodeError()
                 self.stateMachine.gCodeHandler.clearCodeError()
 
                 isDone = True

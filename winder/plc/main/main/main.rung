@@ -1,0 +1,194 @@
+routine main/main
+
+uses accel_xy, ACTUATOR_POS, ALL_EOT_GOOD, APA_IS_VERTICAL, blink_off, blink_on  # controller scope
+uses btm_support_collision_ymax, btm_support_collision_ymin, ERROR_CODE, FRAME_LOC_FT_BTM  # controller scope
+uses FRAME_LOC_FT_MID, FRAME_LOC_FT_TOP, FRAME_LOC_HD_BTM, FRAME_LOC_HD_MID, FRAME_LOC_HD_TOP  # controller scope
+uses HEAD_POS, INIT_DONE, MACHINE_SW_STAT, mid_support_collision_ymax  # controller scope
+uses mid_support_collision_ymin, MINUS_X_EOT, MINUS_Y_EOT, NEXTSTATE, PLUS_X_EOT, PLUS_Y_EOT  # controller scope
+uses ResetPB, Safety_Tripped_S, speed_regulator_switch, STATE, support_collision_window_bttm  # controller scope
+uses support_collision_window_mid, support_collision_window_top, T01, TENSION_ON_SWITCH  # controller scope
+uses top_support_collision_ymax, top_support_collision_ymin, v_xy, v_xyz, X_axis, X_PARKED  # controller scope
+uses X_XFER_OK, Y_axis, Y_MOUNT_XFER_OK, Y_XFER_OK, Z_axis, Z_EOT, z_eot_bypass, Z_EXTENDED  # controller scope
+uses Z_FIXED_LATCHED, Z_FIXED_PRESENT, Z_RETRACTED, Z_STAGE_LATCHED, Z_STAGE_PRESENT  # controller scope
+uses test_tag, Z_RETRACTED_1A, Z_RETRACTED_1B, Z_RETRACTED_2A, Z_RETRACTED_2B  # program scope
+uses DUNEW2PLC2:1:I, Local:1:I, Local:2:I, Local:3:O, Local:6:I  # module I/O
+
+MACHINE_SW_STAT[1] = Local:1:I.Pt00.Data
+
+Z_RETRACTED_1A = Local:1:I.Pt00.Data
+
+MACHINE_SW_STAT[23] = not DUNEW2PLC2:1:I.Pt02Data or not DUNEW2PLC2:1:I.Pt03Data or not DUNEW2PLC2:1:I.Pt04Data
+
+MACHINE_SW_STAT[2] = not Local:1:I.Pt01.Data
+
+Z_RETRACTED_1B = not Local:1:I.Pt01.Data
+
+MACHINE_SW_STAT[3] = Local:1:I.Pt02.Data
+
+Z_RETRACTED_2A = Local:1:I.Pt02.Data
+
+MACHINE_SW_STAT[4] = not Local:1:I.Pt03.Data
+
+Z_RETRACTED_2B = not Local:1:I.Pt03.Data
+
+Z_RETRACTED = (Z_RETRACTED_1A or Z_RETRACTED_2A) and Z_RETRACTED_1B and Z_RETRACTED_2B
+
+MACHINE_SW_STAT[5] = Local:1:I.Pt04.Data or Z_axis.ActualPosition > 415
+
+Z_EXTENDED = Local:1:I.Pt04.Data or Z_axis.ActualPosition > 415
+
+MACHINE_SW_STAT[6] = Local:1:I.Pt11.Data
+
+Z_STAGE_LATCHED = Local:1:I.Pt11.Data
+
+MACHINE_SW_STAT[7] = Local:2:I.Pt01.Data
+
+Z_FIXED_LATCHED = Local:2:I.Pt01.Data
+
+MACHINE_SW_STAT[8] = Local:1:I.Pt07.Data or z_eot_bypass
+
+Z_EOT = Local:1:I.Pt07.Data or z_eot_bypass
+
+MACHINE_SW_STAT[18] = Local:1:I.Pt06.Data
+
+PLUS_Y_EOT = Local:1:I.Pt06.Data
+
+MACHINE_SW_STAT[19] = Local:2:I.Pt12.Data
+
+MINUS_Y_EOT = Local:2:I.Pt12.Data
+
+TENSION_ON_SWITCH = Local:2:I.Pt06.Data
+
+MACHINE_SW_STAT[20] = Local:2:I.Pt08.Data
+
+PLUS_X_EOT = Local:2:I.Pt08.Data
+
+MACHINE_SW_STAT[21] = Local:2:I.Pt10.Data
+
+MINUS_X_EOT = Local:2:I.Pt10.Data
+
+ALL_EOT_GOOD = Z_EOT and PLUS_Y_EOT and MINUS_Y_EOT and PLUS_X_EOT and MINUS_X_EOT
+
+MACHINE_SW_STAT[9] = not Local:1:I.Pt10.Data
+
+Z_STAGE_PRESENT = not Local:1:I.Pt10.Data
+
+MACHINE_SW_STAT[10] = not Local:2:I.Pt02.Data
+
+Z_FIXED_PRESENT = not Local:2:I.Pt02.Data
+
+MACHINE_SW_STAT[17] = Local:1:I.Pt12.Data
+
+Y_XFER_OK = Local:1:I.Pt12.Data
+
+MACHINE_SW_STAT[16] = Local:1:I.Pt13.Data
+
+Y_MOUNT_XFER_OK = Local:1:I.Pt13.Data
+
+MACHINE_SW_STAT[15] = Local:2:I.Pt00.Data
+
+X_XFER_OK = Local:2:I.Pt00.Data
+
+MACHINE_SW_STAT[14] = Local:2:I.Pt04.Data
+
+X_PARKED = Local:2:I.Pt04.Data
+
+MACHINE_SW_STAT[22] = Local:2:I.Pt14.Data
+
+APA_IS_VERTICAL = Local:2:I.Pt14.Data
+
+MACHINE_SW_STAT[25] = DUNEW2PLC2:1:I.Pt00Data and DUNEW2PLC2:1:I.Pt01Data
+
+MACHINE_SW_STAT[26] = Local:6:I.Pt00.Data
+
+FRAME_LOC_HD_TOP = Local:6:I.Pt00.Data
+
+MACHINE_SW_STAT[27] = Local:6:I.Pt01.Data
+
+FRAME_LOC_HD_MID = Local:6:I.Pt01.Data
+
+MACHINE_SW_STAT[28] = Local:6:I.Pt02.Data
+
+FRAME_LOC_HD_BTM = Local:6:I.Pt02.Data
+
+MACHINE_SW_STAT[29] = Local:6:I.Pt03.Data
+
+FRAME_LOC_FT_TOP = Local:6:I.Pt03.Data
+
+MACHINE_SW_STAT[30] = Local:6:I.Pt04.Data
+
+FRAME_LOC_FT_MID = Local:6:I.Pt04.Data
+
+MACHINE_SW_STAT[31] = Local:6:I.Pt05.Data
+
+FRAME_LOC_FT_BTM = Local:6:I.Pt05.Data
+
+support_collision_window_bttm = LIM(btm_support_collision_ymin, Y_axis.ActualPosition, btm_support_collision_ymax)
+
+support_collision_window_mid = LIM(mid_support_collision_ymin, Y_axis.ActualPosition, mid_support_collision_ymax)
+
+support_collision_window_top = LIM(top_support_collision_ymin, Y_axis.ActualPosition, top_support_collision_ymax)
+
+start_timer T01 when not Safety_Tripped_S  # preset 5000 ms
+
+Local:3:O.Pt11.Data = Safety_Tripped_S
+
+Local:3:O.Pt12.Data = Safety_Tripped_S
+
+Local:3:O.Pt13.Data = blink_on.TT and (T01.TT or ERROR_CODE != 0) or X_axis.SLSActiveStatus
+
+Local:3:O.Pt15.Data = blink_on.TT and T01.TT
+
+Local:3:O.Pt14.Data = T01.TT or T01.DN
+
+start_timer blink_on  # preset 500 ms
+
+start_timer blink_off when blink_on.DN  # preset 500 ms
+
+reset blink_on when blink_off.DN
+
+STATE = 1 when INIT_DONE and NEXTSTATE == 1
+
+STATE = 2 when INIT_DONE and NEXTSTATE == 2
+
+STATE = 3 when INIT_DONE and NEXTSTATE == 3
+
+STATE = 4 when INIT_DONE and NEXTSTATE == 4
+
+STATE = 5 when INIT_DONE and NEXTSTATE == 5
+
+STATE = 6 when INIT_DONE and NEXTSTATE == 6
+
+STATE = 7 when INIT_DONE and NEXTSTATE == 7
+
+STATE = 8 when INIT_DONE and NEXTSTATE == 8
+
+STATE = 9 when INIT_DONE and NEXTSTATE == 9
+
+STATE = 10 when INIT_DONE and NEXTSTATE == 10
+
+STATE = 11 when INIT_DONE and NEXTSTATE == 11
+
+STATE = 12 when INIT_DONE and NEXTSTATE == 12
+
+STATE = 13 when INIT_DONE and NEXTSTATE == 13
+
+STATE = 14 when INIT_DONE and NEXTSTATE == 14
+
+ResetPB = Local:2:I.Pt13.Data
+
+v_xyz = sqr(X_axis.ActualVelocity * X_axis.ActualVelocity + Y_axis.ActualVelocity * Y_axis.ActualVelocity) + sqr(Z_axis.ActualVelocity * Z_axis.ActualVelocity)
+
+v_xy = sqr(X_axis.ActualVelocity * X_axis.ActualVelocity + Y_axis.ActualVelocity * Y_axis.ActualVelocity)
+
+accel_xy = (X_axis.ActualVelocity * X_axis.CommandAcceleration + Y_axis.ActualVelocity * Y_axis.CommandAcceleration) / v_xy when v_xy != 0
+
+speed_regulator_switch = not DUNEW2PLC2:1:I.Pt06Data
+
+HEAD_POS = 0 when Z_STAGE_LATCHED or Z_FIXED_LATCHED and ACTUATOR_POS == 3
+
+HEAD_POS = 3 when Z_FIXED_LATCHED and ACTUATOR_POS == 2
+
+HEAD_POS = -1 when not Z_STAGE_LATCHED and not Z_FIXED_LATCHED
+
+test_tag = INIT_DONE

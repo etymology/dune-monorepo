@@ -1,8 +1,5 @@
-import argparse
 import re
 from pathlib import Path
-
-from dune_winder.plc_manifest import _try_update_rllscrap_manifest
 
 
 COMMAND_ARGUMENTS_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\(([^()\n]*)\)")
@@ -282,6 +279,43 @@ def transform_text(text):
     return _restore_protected_formula_expression(normalized_text)
 
 
+TIMER_COUNTER_PATTERN = re.compile(
+    r"\b(?P<instruction>TON|TOF|RTO|CTU|CTD)(?P<open>\(|\s+)"
+    r"(?P<tag>[^,\s)]+)(?P<sep1>,|\s+)\?(?P<sep2>,|\s+)\?"
+)
+
+
+def _resolve_tag_arguments(match, plc_metadata, program):
+    """Replace timer/counter placeholders with PRE/ACC values from tag definitions."""
+    instruction = match.group("instruction")
+    open_ = match.group("open")
+    tag_name = match.group("tag")
+    tag = plc_metadata.get_tag_definition(tag_name, program=program)
+    if tag is None or not isinstance(tag.value, dict):
+        return match.group(0)
+    pre = tag.value.get("PRE")
+    acc = tag.value.get("ACC")
+    if pre is None or acc is None:
+        return match.group(0)
+    if open_ == "(":
+        return f"{instruction}({tag_name},{pre},{acc}"
+    return f"{instruction} {tag_name} {pre} {acc}"
+
+
+def resolve_timer_counter_args(text, plc_metadata, program):
+    """Resolve TON/TOF/RTO/CTU/CTD ``? ?`` placeholders in paste-dialect text.
+
+    The paren-dialect rung text the ACD stores leaves timer/counter
+    PRE/ACC as ``?`` placeholders; the simulator fills them from the
+    exported tag values (the rung_lang side has its own IR-level resolver
+    in ``rung_lang.timer_args``).
+    """
+    return TIMER_COUNTER_PATTERN.sub(
+        lambda m: _resolve_tag_arguments(m, plc_metadata, program),
+        text,
+    )
+
+
 def transform_file(input_path, output_path=None):
     source_path = Path(input_path)
     transformed = transform_text(source_path.read_text())
@@ -290,49 +324,4 @@ def transform_file(input_path, output_path=None):
         return transformed
 
     Path(output_path).write_text(transformed)
-    _try_update_rllscrap_manifest(source_path)
     return transformed
-
-
-def build_argument_parser():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Transform bracketed PLC condition lists into BST/NXB/BND form, "
-            "replace parentheses and commas with spaces, and replace semicolons "
-            "with newlines."
-        )
-    )
-    parser.add_argument("input_file", help="Path to the source .txt file.")
-    parser.add_argument(
-        "-o",
-        "--output",
-        help="Write transformed output to this file. Defaults to stdout.",
-    )
-    parser.add_argument(
-        "--in-place",
-        action="store_true",
-        help="Overwrite the input file with the transformed content.",
-    )
-    return parser
-
-
-def main(argv=None):
-    parser = build_argument_parser()
-    args = parser.parse_args(argv)
-
-    if args.output and args.in_place:
-        parser.error("Use either --output or --in-place, not both.")
-
-    if args.in_place:
-        output_path = args.input_file
-    else:
-        output_path = args.output
-
-    transformed = transform_file(args.input_file, output_path)
-
-    if output_path is None:
-        print(transformed, end="")
-
-
-if __name__ == "__main__":
-    main()

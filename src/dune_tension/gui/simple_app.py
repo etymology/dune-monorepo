@@ -15,7 +15,7 @@ import tkinter.font as tkfont
 from dune_tension import apa_naming
 from dune_tension.config import MEASUREMENT_WIGGLE_CONFIG
 from dune_tension.gui._layout import (
-    configure_fixed_fullscreen,
+    configure_initial_size,
     configure_root_minimum_size,
     freeze_frame_sizes,
 )
@@ -30,12 +30,14 @@ from dune_tension.gui.actions import (
     measure_condition,
     measure_list_button,
     measure_refine_outliers,
+    monitor_photodiode,
     monitor_tension_logs,
     move_laser_to_pin_button,
     refresh_connections,
     refresh_tension_logs,
     refresh_uv_laser_offset_controls,
     seek_camera_to_pin,
+    trigger_air_pulse,
 )
 from dune_tension.gui.app import _initialise_servo
 from dune_tension.gui.context import GUIContext, GUIWidgets, create_context
@@ -242,11 +244,25 @@ def _create_widgets(
     btn_move = tk.Button(move_frame, text="Move")
     btn_move.grid(row=0, column=1, sticky="ew", padx=(0, 3), pady=3)
 
+    relay_frame = tk.LabelFrame(main_frame, text="Relay")
+    relay_frame.grid(row=3, column=0, sticky="ew", pady=3)
+    if hasattr(relay_frame, "columnconfigure"):
+        relay_frame.columnconfigure(0, weight=1)
+
+    monitor_photodiode_var = tk.BooleanVar(value=False)
+    chk_monitor_photodiode = tk.Checkbutton(
+        relay_frame, text="Monitor Photodiode", variable=monitor_photodiode_var
+    )
+    chk_monitor_photodiode.grid(row=0, column=0, sticky="w")
+
+    btn_trigger_air_pulse = tk.Button(relay_frame, text="Trigger Air Pulse")
+    btn_trigger_air_pulse.grid(row=1, column=0, sticky="ew", pady=(3, 0))
+
     btn_refresh_plots = tk.Button(main_frame, text="Refresh Plots")
-    btn_refresh_plots.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+    btn_refresh_plots.grid(row=4, column=0, sticky="ew", pady=(6, 0))
 
     btn_refresh_connections = tk.Button(main_frame, text="Refresh Connections")
-    btn_refresh_connections.grid(row=4, column=0, sticky="ew", pady=(3, 0))
+    btn_refresh_connections.grid(row=5, column=0, sticky="ew", pady=(3, 0))
 
     # APA controls
     tk.Label(apa_frame, text="APA Location:").grid(row=0, column=0, sticky="e")
@@ -490,11 +506,16 @@ def _create_widgets(
         "move_laser_to_pin": btn_move_laser_to_pin,
         "capture_laser_offset": btn_capture_laser_offset,
         "manual_move": btn_move,
+        "trigger_air_pulse": btn_trigger_air_pulse,
     }
-    extras = {"gcode_entry": entry_gcode}
+    extras = {
+        "gcode_entry": entry_gcode,
+        "monitor_photodiode_var": monitor_photodiode_var,
+        "monitor_photodiode_chk": chk_monitor_photodiode,
+    }
 
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
-    configure_fixed_fullscreen(root)
+    configure_initial_size(root)
     freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
 
     return (
@@ -556,7 +577,22 @@ def _configure_commands(
     buttons["manual_move"].configure(command=_run_gcode_move)
     gcode_entry.bind("<Return>", lambda _event: _run_gcode_move())
 
+    buttons["trigger_air_pulse"].configure(command=lambda: trigger_air_pulse(ctx))
+
+    monitor_photodiode_var = cast(tk.BooleanVar, extras["monitor_photodiode_var"])
+    extras["monitor_photodiode_chk"].configure(
+        command=lambda: monitor_photodiode(ctx, bool(monitor_photodiode_var.get()))
+    )
+
     widgets = ctx.widgets
+
+    # Disabled while a measurement runs so manual stage/focus moves can't
+    # interleave with the measurement worker's own moves.
+    ctx.manual_motion_widgets = [
+        widgets.focus_slider,
+        buttons["manual_move"],
+        gcode_entry,
+    ]
 
     # Debounce the focus slider: wait for it to settle before moving the
     # servo and the winder. Without this, every intermediate value during a

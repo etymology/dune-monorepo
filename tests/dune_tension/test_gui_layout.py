@@ -64,11 +64,25 @@ class _FakeFrame:
 
 
 class _FakeFixedRoot(_FakeRoot):
-    def __init__(self, screen_width: int = 1920, screen_height: int = 1080) -> None:
+    def __init__(
+        self,
+        screen_width: int = 1920,
+        screen_height: int = 1080,
+        req_width: int = 800,
+        req_height: int = 600,
+    ) -> None:
         super().__init__(screen_width, screen_height)
         self.geometry_args: list[str] = []
         self.resizable_args: list[tuple[bool, bool]] = []
         self.full_update_calls = 0
+        self.req_width = req_width
+        self.req_height = req_height
+
+    def winfo_reqwidth(self) -> int:
+        return self.req_width
+
+    def winfo_reqheight(self) -> int:
+        return self.req_height
 
     def geometry(self, spec: str) -> None:
         self.geometry_args.append(spec)
@@ -156,24 +170,30 @@ def test_configure_root_minimum_size_clamps_to_screen(monkeypatch):
     assert root.minsize_args == (1100, 680)
 
 
-def test_configure_fixed_fullscreen_pins_geometry_and_disables_resizing(monkeypatch):
+def test_configure_initial_size_fits_content_and_stays_resizable(monkeypatch):
     layout = _load_layout_module(monkeypatch)
-    root = _FakeFixedRoot(screen_width=1920, screen_height=1080)
+    root = _FakeFixedRoot(
+        screen_width=1920, screen_height=1080, req_width=800, req_height=600
+    )
 
-    layout.configure_fixed_fullscreen(root)
+    layout.configure_initial_size(root)
 
-    assert root.geometry_args == ["1920x1080+0+0"]
-    assert root.resizable_args == [(False, False)]
+    # Content fits on screen, so the window opens at its requested size.
+    assert root.geometry_args == ["800x600+0+0"]
+    assert root.resizable_args == [(True, True)]
 
 
-def test_configure_fixed_fullscreen_skips_without_screen_dimensions(monkeypatch):
+def test_configure_initial_size_clamps_to_screen(monkeypatch):
     layout = _load_layout_module(monkeypatch)
-    root = _FakeFixedRoot(screen_width=0, screen_height=1080)
+    root = _FakeFixedRoot(
+        screen_width=1280, screen_height=720, req_width=4000, req_height=4000
+    )
 
-    layout.configure_fixed_fullscreen(root)
+    layout.configure_initial_size(root)
 
-    assert root.geometry_args == []
-    assert root.resizable_args == []
+    # Width clamps to the screen; height leaves room for the taskbar/titlebar.
+    assert root.geometry_args == ["1280x660+0+0"]
+    assert root.resizable_args == [(True, True)]
 
 
 def test_freeze_frame_sizes_locks_allocated_sizes(monkeypatch):

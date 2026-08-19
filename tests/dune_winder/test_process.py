@@ -761,6 +761,14 @@ class _AxisForManualGCode:
         return self._position
 
 
+class _TransferOkSignal:
+    def __init__(self, value):
+        self._value = bool(value)
+
+    def get(self):
+        return self._value
+
+
 class _ControlStateMachineForManualGCode:
     def __init__(self):
         self.events = []
@@ -926,6 +934,18 @@ class ProcessManualGCodeTests(unittest.TestCase):
 
     def test_execute_manual_gcode_accepts_y_only_and_keeps_current_x(self):
         process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+
+        error = process.executeG_CodeLine("Y3")
+
+        self.assertIsNone(error)
+        self.assertEqual(process.gCodeHandler.lines, ["Y3 X11.0"])
+
+    def test_execute_manual_gcode_y_only_is_xy_move_even_in_x_transfer_zone(self):
+        # A bare Y line must always resolve to a plain XY (state 3) move by
+        # pinning the current X. It must never become a YZ (state 13) move by
+        # appending Z, even when X_Transfer_OK is asserted.
+        process = self._build_process_for_manual_gcode(x_position=11.0, y_position=22.0)
+        process._io.X_Transfer_OK = _TransferOkSignal(True)
 
         error = process.executeG_CodeLine("Y3")
 

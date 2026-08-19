@@ -64,7 +64,6 @@ class LadderSimulatedPLC(SimulatedPLC):
         SimulatedPLC.MOVE_HOME_LATCH: SimulatedPLC.STATE_LATCH_HOMEING,
         SimulatedPLC.MOVE_LATCH_UNLOCK: SimulatedPLC.STATE_LATCH_RELEASE,
         SimulatedPLC.MOVE_UNSERVO: SimulatedPLC.STATE_UNSERVO,
-        SimulatedPLC.MOVE_PLC_INIT: SimulatedPLC.STATE_INIT,
         SimulatedPLC.MOVE_SEEK_XZ: SimulatedPLC.STATE_XZ_SEEK,
         SimulatedPLC.MOVE_SEEK_YZ: SimulatedPLC.STATE_YZ_SEEK,
         SimulatedPLC.MOVE_HMI_STOP_REQUEST: SimulatedPLC.STATE_HMI_STOP,
@@ -267,6 +266,14 @@ class LadderSimulatedPLC(SimulatedPLC):
 
     # ---------------------------------------------------------------------
     def _load_routines(self):
+        # pasteable.rll is retired; the simulator derives the paste-dialect
+        # text it executes from each routine's exported L5X in memory.
+        from dune_winder.plc_l5x import routine_paren_text
+        from dune_winder.plc_rung_transform import (
+            resolve_timer_counter_args,
+            transform_text,
+        )
+
         parser = RllParser()
         for programName, routineName in self._ROUTINES_TO_LOAD:
             resolvedProgramName = self._resolve_program_name(programName)
@@ -274,22 +281,26 @@ class LadderSimulatedPLC(SimulatedPLC):
                 continue
 
             program = self._metadata.programs[resolvedProgramName]
-            routine_dir = routineName
-            if (
-                routineName == program.main_routine_name
-                and (
-                    self._PLC_ROOT / resolvedProgramName / "main" / "pasteable.rll"
-                ).exists()
-            ):
-                routine_dir = "main"
+            # _ROUTINES_TO_LOAD names the main routine "main"; the L5X file
+            # is named for the routine's real name (usually "main" too).
+            routine_file_name = routineName
+            if routineName == "main" and program.main_routine_name:
+                routine_file_name = program.main_routine_name
             routine_path = (
-                self._PLC_ROOT / resolvedProgramName / routine_dir / "pasteable.rll"
+                self._PLC_ROOT
+                / resolvedProgramName
+                / f"{routine_file_name}_Routine_RLL.L5X"
             )
             if not routine_path.exists():
                 continue
+            rll_text = resolve_timer_counter_args(
+                transform_text(routine_paren_text(routine_path)),
+                self._metadata,
+                resolvedProgramName,
+            )
             routine = parser.parse_routine_text(
                 routineName,
-                routine_path.read_text(encoding="utf-8"),
+                rll_text,
                 program=resolvedProgramName,
                 source_path=routine_path,
             )
@@ -455,7 +466,6 @@ class LadderSimulatedPLC(SimulatedPLC):
         if resolvedProgramName == "init" and routineName == "main":
             if (
                 int(self._ctx.get_value("STATE")) != self.STATE_INIT
-                and int(self._ctx.get_value("MOVE_TYPE")) != self.MOVE_PLC_INIT
                 and bool(self._ctx.get_value("INIT_DONE"))
             ):
                 return
