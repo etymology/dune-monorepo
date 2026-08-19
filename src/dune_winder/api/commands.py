@@ -1703,10 +1703,17 @@ def build_command_registry(
 
     def configuration_set(args):
         _validateArgs(args, required=("key", "value"))
-        return configuration.set(
-            _asString(args["key"], "key"),
-            _asString(args["value"], "value"),
-        )
+        key = _asString(args["key"], "key")
+        result = configuration.set(key, _asString(args["value"], "value"))
+        if key == "xyRegulatedAccelJerkDefault":
+            # Only seeded into the PLC facade at startup, so push the edit
+            # through for the moves that read it there (manual moves, and any
+            # G-code move not routed through the jerk= resolution).  Read back
+            # from configuration, which normalizes a rejected value.
+            io.plcLogic.setXY_AccelJerkDefault(
+                configuration.xyRegulatedAccelJerkDefault
+            )
+        return result
 
     registry.register("configuration.set", configuration_set, True)
     registry.register(

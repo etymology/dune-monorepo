@@ -344,6 +344,31 @@ class CommandRegistryTests(unittest.TestCase):
         self.assertEqual(process.workspace.lastJumpUvPinSegment, ("A", "bottom", 1, 1))
         self.assertEqual(response["data"]["jumpedToLine"], 12)
 
+    def test_setting_the_xy_jerk_default_pushes_it_to_the_plc_facade(self):
+        registry, _, io, configuration, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {
+                "name": "configuration.set",
+                "args": {"key": "xyRegulatedAccelJerkDefault", "value": "2500"},
+            },
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(configuration.sets, [("xyRegulatedAccelJerkDefault", "2500")])
+        # Taken from configuration, which normalizes a rejected value.
+        self.assertEqual(io.plcLogic.xyAccelJerkDefaults, [2500.0])
+
+    def test_setting_an_unrelated_key_leaves_the_plc_facade_alone(self):
+        registry, _, io, _, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {"name": "configuration.set", "args": {"key": "maxVelocity", "value": "9"}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(io.plcLogic.xyAccelJerkDefaults, [])
+
 
 if __name__ == "__main__":
     unittest.main()

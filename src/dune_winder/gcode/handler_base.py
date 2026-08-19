@@ -609,18 +609,18 @@ class GCodeHandlerBase:
         self._queue_wrap_state_update(target_pin)
 
     # ---------------------------------------------------------------------
-    def _resolve_xy_accel_jerk(self, keyword):
+    def _resolve_xy_accel_jerk(self, keyword=None):
         """
         Map a ~anchorToTarget 'jerk=' keyword to an accel-jerk value.
 
         Read from live configuration so Configuration-page edits take effect
-        without a restart.  Returns None when no keyword was given, leaving the
-        PLC facade to apply its own default.
+        without a restart.  A move that names no profile resolves to the
+        'default' one, so the configured default applies to every move rather
+        than only to the moves that ask for it by name.
         """
-        if keyword is None:
-            return None
+        keyword = "default" if keyword is None else str(keyword).strip().lower()
 
-        key = XY_ACCEL_JERK_KEYWORDS[str(keyword).strip().lower()]
+        key = XY_ACCEL_JERK_KEYWORDS[keyword]
         fallback = XY_ACCEL_JERK_DEFAULTS[key]
         configuration = getattr(self, "_configuration", None)
         if configuration is None:
@@ -659,10 +659,11 @@ class GCodeHandlerBase:
         normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
         normalized_target = self._normalize_wrap_pin(target_pin, label="target pin")
 
-        # Applies to the XY moves this one macro emits and nothing else; absent
-        # when no jerk= keyword was given.
-        accel_jerk = self._resolve_xy_accel_jerk(jerk)
-        jerk_kwargs = {} if accel_jerk is None else {"accel_jerk": accel_jerk}
+        # Applies to the XY moves this one macro emits and nothing else.  With
+        # no jerk= keyword this is the configured default, which still has to
+        # ride along on the move: the PLC latches whatever the previous move
+        # left in the tag, so an unqualified move must overwrite it.
+        jerk_kwargs = {"accel_jerk": self._resolve_xy_accel_jerk(jerk)}
 
         anchor_location = self._wire_space_pin_location(normalized_anchor)
         target_location = self._wire_space_pin_location(normalized_target)

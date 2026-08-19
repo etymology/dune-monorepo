@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from dune_winder.gcode.handler import GCodeHandler
 from dune_winder.geometry.primitives.location import Location
+from dune_winder.library.app_config import DEFAULT_XY_ACCEL_JERK
 from dune_winder.io.controllers.head import Head
 from dune_winder.machine.calibration.layer import LayerCalibration
 from dune_winder.machine.calibration.machine import MachineCalibration
@@ -963,7 +964,30 @@ class WrapRuntimeTests(unittest.TestCase):
         self.assertTrue(emitted)
         self.assertTrue(all(jerk == 2000.0 for jerk in emitted))
 
-    def test_anchor_to_target_without_jerk_keyword_leaves_the_override_unset(self):
+    def test_anchor_to_target_without_jerk_keyword_uses_the_configured_default(self):
+        handler, io, _machine_calibration, _layer_calibration = self._build_handler(
+            500.0, 500.0
+        )
+
+        class _Configuration:
+            xyRegulatedAccelJerkDefault = 2500.0
+            xyRegulatedAccelJerkGentle = 750.0
+            xyRegulatedAccelJerkJerky = 2000.0
+
+        handler._configuration = _Configuration()
+
+        baseline_moves = len(io.plcLogic.xy_moves)
+        error = handler.executeG_CodeLine("~anchorToTarget(B1201,B2001)")
+
+        self.assertIsNone(error)
+        while handler._dispatch_pending_actions(safety_label="manual"):
+            pass
+        emitted = io.plcLogic.xy_jerks[baseline_moves:]
+        self.assertTrue(emitted)
+        # The Configuration-page default, not whatever the last move latched.
+        self.assertTrue(all(jerk == 2500.0 for jerk in emitted))
+
+    def test_anchor_to_target_without_configuration_falls_back_to_the_default(self):
         handler, io, _machine_calibration, _layer_calibration = self._build_handler(
             500.0, 500.0
         )
@@ -976,8 +1000,7 @@ class WrapRuntimeTests(unittest.TestCase):
             pass
         emitted = io.plcLogic.xy_jerks[baseline_moves:]
         self.assertTrue(emitted)
-        # None leaves the PLC facade free to apply its configured default.
-        self.assertTrue(all(jerk is None for jerk in emitted))
+        self.assertTrue(all(jerk == DEFAULT_XY_ACCEL_JERK for jerk in emitted))
 
     def test_anchor_to_target_jerk_reads_live_configuration(self):
         handler, io, _machine_calibration, _layer_calibration = self._build_handler(

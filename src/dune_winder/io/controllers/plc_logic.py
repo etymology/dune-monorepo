@@ -640,6 +640,19 @@ class PLC_Logic:
         self._maxZ_Deceleration.set(self._maxDeceleration)
 
     # ---------------------------------------------------------------------
+    def setXY_AccelJerkDefault(self, xyAccelJerk):
+        """
+        Change the default XY accel jerk applied to moves with no override.
+
+        setupLimits only seeds this at startup, so the Configuration page calls
+        here to make an edit take effect without a restart.
+
+        Args:
+          xyAccelJerk: New default XY accel jerk.
+        """
+        self._xyAccelJerkDefault = float(xyAccelJerk)
+
+    # ---------------------------------------------------------------------
     def servoDisable(self):
         """
         Disable servo control of motors.
