@@ -16,6 +16,10 @@ whose coefficients live in the program-scope tags
 This module records calibration samples (a known hung weight versus the
 stabilised ``tension_tag`` reading), fits the quartic with least squares
 (optionally forcing ``a0 = 0``), and reads/writes the coefficients on the PLC.
+
+Samples carry a ``selected`` flag so the operator can fit a subset (e.g. drop a
+point captured before the lever settled). When nothing is selected the fit uses
+every sample, so selection is opt-in.
 """
 
 from __future__ import annotations
@@ -67,6 +71,7 @@ class TensionSample:
     grams: float
     tension_tag: float
     created_at: float
+    selected: bool = False
 
     @property
     def newtons(self) -> float:
@@ -80,6 +85,7 @@ class TensionSample:
             "tensionTag": self.tension_tag,
             "newtons": self.newtons,
             "createdAt": self.created_at,
+            "selected": self.selected,
         }
 
 
@@ -343,6 +349,7 @@ class LoadcellCalibration:
                         grams=float(entry["grams"]),
                         tension_tag=float(entry["tensionTag"]),
                         created_at=float(entry.get("createdAt", 0.0)),
+                        selected=bool(entry.get("selected", False)),
                     )
                 )
             except (KeyError, TypeError, ValueError) as exc:
@@ -362,6 +369,7 @@ class LoadcellCalibration:
                     "grams": sample.grams,
                     "tensionTag": sample.tension_tag,
                     "createdAt": sample.created_at,
+                    "selected": sample.selected,
                 }
                 for sample in self._samples
             ],
@@ -394,6 +402,24 @@ class LoadcellCalibration:
         self._samples = []
         self._save()
 
+    def set_sample_selected(self, sample_id: int, selected: bool) -> bool:
+        """Select or deselect one sample for the fit. Returns True if found."""
+        for sample in self._samples:
+            if sample.id == sample_id:
+                if sample.selected != bool(selected):
+                    sample.selected = bool(selected)
+                    self._save()
+                return True
+        return False
+
+    def clear_selection(self) -> None:
+        """Deselect every sample, which puts the fit back on all of them."""
+        if not any(sample.selected for sample in self._samples):
+            return
+        for sample in self._samples:
+            sample.selected = False
+        self._save()
+
     def set_fix_intercept(self, enabled: bool) -> None:
         self._fix_intercept = bool(enabled)
         self._save()
@@ -415,10 +441,16 @@ class LoadcellCalibration:
     def samples(self) -> list[TensionSample]:
         return list(self._samples)
 
+    def fit_samples(self) -> list[TensionSample]:
+        """Samples the fit runs on: the selected ones, or all when none are."""
+        selected = [sample for sample in self._samples if sample.selected]
+        return selected if selected else list(self._samples)
+
     def fit(self) -> dict[str, Any] | None:
+        points = self.fit_samples()
         return fit_polynomial(
-            [s.tension_tag for s in self._samples],
-            [s.newtons for s in self._samples],
+            [s.tension_tag for s in points],
+            [s.newtons for s in points],
             self._max_degree,
             self._fix_intercept,
         )
@@ -426,8 +458,15 @@ class LoadcellCalibration:
     def state(self, plc: Any = None) -> dict[str, Any]:
         """Assemble the full UI state payload."""
         live = read_live(plc)
+        fit_ids = {sample.id for sample in self.fit_samples()}
+        samples = []
+        for sample in self._samples:
+            entry = sample.to_dict()
+            entry["usedInFit"] = sample.id in fit_ids
+            samples.append(entry)
         return {
-            "samples": [sample.to_dict() for sample in self._samples],
+            "samples": samples,
+            "selectedCount": sum(1 for sample in self._samples if sample.selected),
             "fixIntercept": self._fix_intercept,
             "maxDegree": self._max_degree,
             "fit": self.fit(),

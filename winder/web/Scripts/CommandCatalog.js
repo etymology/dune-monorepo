@@ -177,6 +177,8 @@
       addSample: "loadcell_calibration.add_sample",
       deleteSample: "loadcell_calibration.delete_sample",
       clearSamples: "loadcell_calibration.clear_samples",
+      setSampleSelected: "loadcell_calibration.set_sample_selected",
+      clearSelection: "loadcell_calibration.clear_selection",
       setFixIntercept: "loadcell_calibration.set_fix_intercept",
       setMaxDegree: "loadcell_calibration.set_max_degree",
       apply: "loadcell_calibration.apply",

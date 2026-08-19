@@ -1896,6 +1896,31 @@ def build_command_registry(
         "loadcell_calibration.clear_samples", loadcell_calibration_clear_samples, True
     )
 
+    def loadcell_calibration_set_sample_selected(args):
+        _validateArgs(args, required=("id", "selected"))
+        _loadcell_calibration.set_sample_selected(
+            _asInt(args["id"], "id"),
+            _asBool(args["selected"], "selected"),
+        )
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.set_sample_selected",
+        loadcell_calibration_set_sample_selected,
+        True,
+    )
+
+    def loadcell_calibration_clear_selection(args):
+        _validateArgs(args)
+        _loadcell_calibration.clear_selection()
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.clear_selection",
+        loadcell_calibration_clear_selection,
+        True,
+    )
+
     def loadcell_calibration_set_fix_intercept(args):
         _validateArgs(args, required=("enabled",))
         _loadcell_calibration.set_fix_intercept(_asBool(args["enabled"], "enabled"))

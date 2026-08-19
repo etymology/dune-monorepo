@@ -213,6 +213,76 @@ class StorageTest(unittest.TestCase):
             cal.clear()
             self.assertEqual(len(cal.samples), 0)
 
+    def test_selection_round_trips_through_disk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cal.json"
+            cal = loadcell.LoadcellCalibration(path)
+            first = cal.add_sample(100.0, 2.0)
+            cal.add_sample(200.0, 4.0)
+
+            self.assertTrue(cal.set_sample_selected(first.id, True))
+            self.assertFalse(cal.set_sample_selected(9999, True))
+
+            reloaded = loadcell.LoadcellCalibration(path)
+            selected = [s for s in reloaded.samples if s.selected]
+            self.assertEqual([s.id for s in selected], [first.id])
+
+            reloaded.clear_selection()
+            self.assertFalse(any(s.selected for s in reloaded.samples))
+            self.assertFalse(
+                any(s.selected for s in loadcell.LoadcellCalibration(path).samples)
+            )
+
+    def test_fit_uses_only_selected_samples(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cal = loadcell.LoadcellCalibration(Path(tmp) / "cal.json")
+            # Two points on y = x * GRAMS_TO_NEWTONS plus one wild outlier.
+            first = cal.add_sample(1000.0, 1.0)
+            second = cal.add_sample(2000.0, 2.0)
+            outlier = cal.add_sample(3000.0, 50.0)
+
+            # No selection: the outlier drags the fit and all three are used.
+            unselected = cal.fit()
+            assert unselected is not None
+            self.assertEqual(unselected["pointCount"], 3)
+            self.assertGreater(unselected["rmsNewtons"], 1.0)
+
+            cal.set_sample_selected(first.id, True)
+            cal.set_sample_selected(second.id, True)
+            fit = cal.fit()
+            assert fit is not None
+            self.assertEqual(fit["pointCount"], 2)
+            self.assertLess(fit["rmsNewtons"], 1e-9)
+            self.assertAlmostEqual(
+                fit["coefficients"]["a1"], 1000.0 * loadcell.GRAMS_TO_NEWTONS, places=6
+            )
+
+            # Deselecting everything puts the outlier back in the fit.
+            cal.clear_selection()
+            restored = cal.fit()
+            assert restored is not None
+            self.assertEqual(restored["pointCount"], 3)
+            self.assertTrue(cal.set_sample_selected(outlier.id, True))
+            self.assertIsNone(cal.fit())  # one selected point cannot fit a line
+
+    def test_state_marks_which_samples_the_fit_uses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cal = loadcell.LoadcellCalibration(Path(tmp) / "cal.json")
+            first = cal.add_sample(100.0, 2.0)
+            second = cal.add_sample(200.0, 4.0)
+
+            state = cal.state()
+            self.assertEqual(state["selectedCount"], 0)
+            self.assertTrue(all(s["usedInFit"] for s in state["samples"]))
+            self.assertFalse(any(s["selected"] for s in state["samples"]))
+
+            cal.set_sample_selected(second.id, True)
+            state = cal.state()
+            self.assertEqual(state["selectedCount"], 1)
+            used = {s["id"]: s["usedInFit"] for s in state["samples"]}
+            self.assertFalse(used[first.id])
+            self.assertTrue(used[second.id])
+
     def test_newtons_conversion(self):
         with tempfile.TemporaryDirectory() as tmp:
             cal = loadcell.LoadcellCalibration(Path(tmp) / "cal.json")
