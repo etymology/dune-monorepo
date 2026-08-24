@@ -64,10 +64,15 @@
 
       <article class="loadcellCalibrateCard">
         <h2>Samples</h2>
+        <p class="loadcellCalibrateHint">
+          Tick the samples to fit. Samples in the fit are red, excluded ones
+          grey. With nothing ticked every sample is used.
+        </p>
         <p id="loadcellSampleCount">No samples recorded.</p>
         <table id="loadcellSamplesTable" class="loadcellCalibrateTable hidden">
           <thead>
             <tr>
+              <th>Use</th>
               <th>#</th>
               <th>Weight (g)</th>
               <th>Force (N)</th>
@@ -78,6 +83,9 @@
           <tbody id="loadcellSamplesBody"></tbody>
         </table>
         <div class="loadcellCalibrateButtonRow">
+          <button type="button" id="loadcellClearSelectionButton" class="loadcellCalibrateButton">
+            Clear selection (use all)
+          </button>
           <button type="button" id="loadcellClearButton" class="loadcellCalibrateButton">
             Clear all samples
           </button>
@@ -110,7 +118,8 @@
         <h2>tension_tag &rarr; tension</h2>
         <canvas id="loadcellPlot" width="900" height="648"></canvas>
         <div class="loadcellCalibrateLegend">
-          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchSamples"></span>Samples</span>
+          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchSamples"></span>Samples in fit</span>
+          <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchExcluded"></span>Excluded samples</span>
           <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchCurrent"></span>Current PLC fit</span>
           <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchNew"></span>New fit</span>
           <span class="loadcellCalibrateLegendItem"><span class="loadcellSwatch loadcellSwatchLive"></span>Live tension_tag</span>

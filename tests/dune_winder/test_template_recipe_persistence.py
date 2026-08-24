@@ -155,7 +155,9 @@ class TemplateRecipePersistenceTests(unittest.TestCase):
             with open(recipePath, encoding="utf-8") as handle:
                 recipeText = handle.read()
             self.assertIn("~goto(7174,0)", recipeText)
-            self.assertIn("~anchorToTarget(B2001,A801,hover=True)", recipeText)
+            self.assertIn(
+                "~anchorToTarget(B2001,A801,hover=True,jerk=gentle)", recipeText
+            )
             self.assertNotIn("~increment(0,5)", recipeText)
 
     def test_u_recipe_generation_applies_line_offset_overrides_to_wrapping_output(self):

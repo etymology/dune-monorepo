@@ -321,7 +321,9 @@ _LAYOUT_SPECS: dict[str, _LayoutSpec] = {
         "wire_segment_formula_max": 1151,
         "wire_segment_min": 8,
         "wire_segment_max": 1146,
-        "b1_target_xy": (570.0, 2455.0),
+        # Least-squares translation of the nominal grid onto the measured pin
+        # positions in config/APA/U_Calibration.json (all 4802 pins).
+        "b1_target_xy": (562.3, 2457.1),
         "measurement_dy_sign": {"A": -1, "B": 1},
         "tangent_ranges": (
             (1, 1200, True, False),
@@ -335,7 +337,9 @@ _LAYOUT_SPECS: dict[str, _LayoutSpec] = {
         "wire_segment_formula_max": 1151,
         "wire_segment_min": 8,
         "wire_segment_max": 1146,
-        "b1_target_xy": (635.0, 2350.0),
+        # Least-squares translation of the nominal grid onto the measured pin
+        # positions in config/APA/V_Calibration.json (all 4798 pins).
+        "b1_target_xy": (565.5, 2456.1),
         "measurement_dy_sign": {"A": 1, "B": -1},
         "tangent_ranges": (
             (1, 399, True, True),

@@ -3,6 +3,8 @@
 // Uses: Load-cell calibration page. Capture (weight, tension_tag) samples, fit a
 //   quartic (tension_tag -> tension in newtons), plot the current PLC fit, the
 //   samples, and the new fit, and write the new coefficients to the PLC.
+//   Samples can be selected in or out of the fit; selected ones draw red and
+//   excluded ones grey. Selecting nothing fits every sample.
 ///////////////////////////////////////////////////////////////////////////////
 
 function LoadcellCalibrate(modules) {
@@ -127,21 +129,50 @@ function LoadcellCalibrate(modules) {
     $("#loadcellLiveTension").text(fmt(live.tension, 3))
   }
 
+  // A sample drives the fit when it is selected, or when nothing is selected
+  // at all (the backend falls back to every sample in that case).
+  function usedInFit(sample) {
+    return sample.usedInFit !== false
+  }
+
+  function selectedCount() {
+    if (state && isNum(state.selectedCount)) return state.selectedCount
+    var samples = (state && state.samples) || []
+    var count = 0
+    samples.forEach(function(s) {
+      if (s.selected) count += 1
+    })
+    return count
+  }
+
   function renderSamples() {
     var samples = (state && state.samples) || []
     if (samples.length === 0) {
       $("#loadcellSampleCount").text("No samples recorded.")
       $("#loadcellSamplesTable").addClass("hidden")
       $("#loadcellSamplesBody").empty()
+      $("#loadcellClearSelectionButton").prop("disabled", true)
       return
     }
+    var chosen = selectedCount()
     $("#loadcellSampleCount").text(
-      samples.length + " sample" + (samples.length === 1 ? "" : "s") + " recorded."
+      samples.length + " sample" + (samples.length === 1 ? "" : "s") + " recorded. " +
+        (chosen === 0
+          ? "None selected — fitting all of them."
+          : "Fitting the " + chosen + " selected.")
     )
+    $("#loadcellClearSelectionButton").prop("disabled", chosen === 0)
+
     var rows = ""
     samples.forEach(function(sample) {
+      var rowClass = usedInFit(sample)
+        ? "loadcellSampleUsed"
+        : "loadcellSampleExcluded"
       rows +=
-        "<tr>" +
+        '<tr class="' + rowClass + '">' +
+        '<td class="loadcellSelectCell"><input type="checkbox" class="loadcellSelectSample" data-id="' +
+        sample.id +
+        '"' + (sample.selected ? " checked" : "") + " /></td>" +
         "<td>" + sample.id + "</td>" +
         "<td>" + fmt(sample.grams, 1) + "</td>" +
         "<td>" + fmt(sample.newtons, 3) + "</td>" +
@@ -343,14 +374,20 @@ function LoadcellCalibrate(modules) {
       ctx.stroke()
     })
 
-    // Sample points.
-    ctx.fillStyle = "#1b1b1b"
-    samples.forEach(function(s) {
-      if (!isNum(s.tensionTag) || !isNum(s.newtons)) return
-      ctx.beginPath()
-      ctx.arc(sx(s.tensionTag), sy(s.newtons), 4.5, 0, Math.PI * 2)
-      ctx.fill()
-    })
+    // Sample points: red for the ones the fit uses, grey for the excluded.
+    // Excluded first so the fitted points stay on top where they overlap.
+    function drawSamples(used, color) {
+      ctx.fillStyle = color
+      samples.forEach(function(s) {
+        if (!isNum(s.tensionTag) || !isNum(s.newtons)) return
+        if (usedInFit(s) !== used) return
+        ctx.beginPath()
+        ctx.arc(sx(s.tensionTag), sy(s.newtons), 4.5, 0, Math.PI * 2)
+        ctx.fill()
+      })
+    }
+    drawSamples(false, "#9aa0a6")
+    drawSamples(true, "#e5484d")
 
     ctx.restore()
   }
@@ -430,6 +467,14 @@ function LoadcellCalibrate(modules) {
     )
   })
 
+  $("#loadcellClearSelectionButton").off("click").on("click", function() {
+    mutate(
+      name(cmd.clearSelection, "loadcell_calibration.clear_selection"),
+      {},
+      "Cleared the selection; fitting all samples."
+    )
+  })
+
   $("#loadcellFixIntercept").off("change").on("change", function() {
     mutate(
       name(cmd.setFixIntercept, "loadcell_calibration.set_fix_intercept"),
@@ -457,10 +502,18 @@ function LoadcellCalibrate(modules) {
 
   $(document)
     .off("click.loadcell")
+    .off("change.loadcell")
     .on("click.loadcell", ".loadcellDeleteSample", function() {
       mutate(
         name(cmd.deleteSample, "loadcell_calibration.delete_sample"),
         { id: $(this).data("id") },
+        null
+      )
+    })
+    .on("change.loadcell", ".loadcellSelectSample", function() {
+      mutate(
+        name(cmd.setSampleSelected, "loadcell_calibration.set_sample_selected"),
+        { id: $(this).data("id"), selected: $(this).prop("checked") },
         null
       )
     })
@@ -474,6 +527,6 @@ function LoadcellCalibrate(modules) {
       window.clearInterval(liveTimer)
       liveTimer = null
     }
-    $(document).off("click.loadcell")
+    $(document).off("click.loadcell").off("change.loadcell")
   })
 }

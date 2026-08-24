@@ -1,55 +1,49 @@
 {
   "fixIntercept": false,
   "maxDegree": 1,
-  "nextId": 25,
+  "nextId": 52,
   "samples": [
     {
-      "id": 1,
-      "grams": 750.0,
-      "tensionTag": 7.028712272644043,
-      "createdAt": 1781020484.9908695
-    },
-    {
-      "id": 2,
-      "grams": 650.0,
-      "tensionTag": 6.036468744277954,
-      "createdAt": 1781020515.5504107
-    },
-    {
-      "id": 3,
-      "grams": 550.0,
-      "tensionTag": 5.083403015136719,
-      "createdAt": 1781020538.7680387
-    },
-    {
-      "id": 4,
-      "grams": 400.0,
-      "tensionTag": 3.6496463060379027,
-      "createdAt": 1781020577.5413265
-    },
-    {
-      "id": 6,
-      "grams": 900.0,
-      "tensionTag": 8.482101440429688,
-      "createdAt": 1781020654.1848624
-    },
-    {
-      "id": 8,
-      "grams": 1000.0,
-      "tensionTag": 9.33693332672119,
-      "createdAt": 1781020911.2185903
-    },
-    {
-      "id": 9,
+      "id": 43,
       "grams": 950.0,
-      "tensionTag": 8.929535961151123,
-      "createdAt": 1781020955.986115
+      "tensionTag": 9.341504287719726,
+      "createdAt": 1786046564.5810626,
+      "selected": false
     },
     {
-      "id": 23,
+      "id": 44,
+      "grams": 750.0,
+      "tensionTag": 7.31486177444458,
+      "createdAt": 1786046608.713356,
+      "selected": false
+    },
+    {
+      "id": 45,
+      "grams": 550.0,
+      "tensionTag": 5.194785070419312,
+      "createdAt": 1786046654.0404286,
+      "selected": false
+    },
+    {
+      "id": 46,
       "grams": 350.0,
-      "tensionTag": 3.1570867538452148,
-      "createdAt": 1781022605.5344768
+      "tensionTag": 3.0558259963989256,
+      "createdAt": 1786046686.2759545,
+      "selected": false
+    },
+    {
+      "id": 48,
+      "grams": 250.0,
+      "tensionTag": 1.9787891030311584,
+      "createdAt": 1786046727.159219,
+      "selected": false
+    },
+    {
+      "id": 49,
+      "grams": 150.0,
+      "tensionTag": 0.9108186066150665,
+      "createdAt": 1786046758.6996515,
+      "selected": false
     }
   ]
 }

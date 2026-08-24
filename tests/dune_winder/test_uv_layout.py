@@ -78,8 +78,8 @@ def test_uv_layout_board_lookup_and_nominal_positions_are_machine_space():
 
     assert board_pin.pin_name == "A2401"
     assert board_pin.physical_pin == 401
-    assert nominal["B1"].x == 570.0
-    assert nominal["B1"].y == 2455.0
+    assert nominal["B1"].x == 562.3
+    assert nominal["B1"].y == 2457.1
     assert nominal["B1"].y > nominal["A1"].y
 
 

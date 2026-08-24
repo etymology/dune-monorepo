@@ -13,7 +13,7 @@ from dune_winder.core.control_events import (
     ManualModeEvent,
     SetManualJoggingEvent,
 )
-from dune_winder.machine.calibration.defaults import DefaultLayerCalibration
+from dune_winder.core.manual_calibration import build_nominal_calibration
 from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
 from dune_winder.queued_motion.safety import (
     QueuedMotionCollisionState,
@@ -592,7 +592,12 @@ class MotionService:
         if workspace:
             layer = workspace.getLayer()
 
-            calibration = DefaultLayerCalibration(None, None, layer)
+            # Same nominal geometry the Calibrate page's "Clean APA" draft uses,
+            # so a nominal seek and a clean-APA baseline agree on where a pin is.
+            machineCalibration = getattr(
+                self._headCompensation, "_machineCalibration", None
+            )
+            calibration = build_nominal_calibration(layer, machineCalibration)
 
             if calibration.getPinExists(pin):
                 self._log.add(

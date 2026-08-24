@@ -126,7 +126,7 @@ def test_fit_roller_arm_four_measurements():
     )
 
     m4 = RollerArmMeasurement(
-        gcode_line="~anchorToTarget(B2003,B1200)",
+        gcode_line="~anchorToTarget(B2002,B1200)",
         layer="U",
         actual_x=7174.0,
         actual_y=3.7,

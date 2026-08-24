@@ -29,7 +29,16 @@ class _PLCLogic:
         self.xz_calls = []
         self.yz_calls = []
 
-    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
+    def setXY_Position(
+        self,
+        x,
+        y,
+        velocity=None,
+        acceleration=None,
+        deceleration=None,
+        accelJerk=None,
+    ):
+        del accelJerk
         self.xy_calls.append((x, y, velocity, acceleration, deceleration))
 
     def setZ_Position(self, position, velocity=None):
@@ -155,7 +164,9 @@ def _build_service(io, control=None, log=None):
 
 class XZJogConversionTests(unittest.TestCase):
     def test_x_only_jog_in_y_transfer_zone_dispatches_xz(self):
-        io = _IO(x_position=420.0, y_position=200.0, z_position=42.0, y_transfer_ok=True)
+        io = _IO(
+            x_position=420.0, y_position=200.0, z_position=42.0, y_transfer_ok=True
+        )
         service, control, _ = _build_service(io)
 
         is_error = service.manualSeekXY(xPosition=430.0, velocity=100.0)
@@ -171,7 +182,9 @@ class XZJogConversionTests(unittest.TestCase):
         self.assertIsNone(event.seekY)
 
     def test_x_only_jog_outside_y_transfer_zone_uses_xy_path(self):
-        io = _IO(x_position=600.0, y_position=200.0, z_position=42.0, y_transfer_ok=False)
+        io = _IO(
+            x_position=600.0, y_position=200.0, z_position=42.0, y_transfer_ok=False
+        )
         service, control, _ = _build_service(io)
 
         is_error = service.manualSeekXY(xPosition=610.0, velocity=100.0)
@@ -185,10 +198,14 @@ class XZJogConversionTests(unittest.TestCase):
         self.assertIsNone(event.seekZ)
 
     def test_xy_seek_with_both_axes_does_not_convert(self):
-        io = _IO(x_position=420.0, y_position=200.0, z_position=42.0, y_transfer_ok=True)
+        io = _IO(
+            x_position=420.0, y_position=200.0, z_position=42.0, y_transfer_ok=True
+        )
         service, control, _ = _build_service(io)
 
-        is_error = service.manualSeekXY(xPosition=430.0, yPosition=210.0, velocity=100.0)
+        is_error = service.manualSeekXY(
+            xPosition=430.0, yPosition=210.0, velocity=100.0
+        )
 
         self.assertFalse(is_error)
         self.assertEqual(len(control.events), 1)

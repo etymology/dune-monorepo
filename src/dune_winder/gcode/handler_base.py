@@ -18,6 +18,10 @@ import os
 import re
 from typing import TypedDict, cast
 
+from dune_winder.library.app_config import (
+    XY_ACCEL_JERK_DEFAULTS,
+    XY_ACCEL_JERK_KEYWORDS,
+)
 from dune_winder.library.math_extra import MathExtra
 from dune_winder.gcode.model import (
     CommandWord,
@@ -605,6 +609,32 @@ class GCodeHandlerBase:
         self._queue_wrap_state_update(target_pin)
 
     # ---------------------------------------------------------------------
+    def _resolve_xy_accel_jerk(self, keyword=None):
+        """
+        Map a ~anchorToTarget 'jerk=' keyword to an accel-jerk value.
+
+        Read from live configuration so Configuration-page edits take effect
+        without a restart.  A move that names no profile resolves to the
+        'default' one, so the configured default applies to every move rather
+        than only to the moves that ask for it by name.
+        """
+        keyword = "default" if keyword is None else str(keyword).strip().lower()
+
+        key = XY_ACCEL_JERK_KEYWORDS[keyword]
+        fallback = XY_ACCEL_JERK_DEFAULTS[key]
+        configuration = getattr(self, "_configuration", None)
+        if configuration is None:
+            return fallback
+
+        value = getattr(configuration, key, None)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+        return value if value > 0.0 else fallback
+
+    # ---------------------------------------------------------------------
     def _plan_explicit_wrap_transition(
         self,
         anchor_pin,
@@ -612,6 +642,7 @@ class GCodeHandlerBase:
         target_offset=None,
         hover=False,
         in_two_moves=False,
+        jerk=None,
     ):
         if self._layerCalibration is None:
             raise GCodeExecutionError(
@@ -627,6 +658,12 @@ class GCodeHandlerBase:
 
         normalized_anchor = self._normalize_wrap_pin(anchor_pin, label="anchor pin")
         normalized_target = self._normalize_wrap_pin(target_pin, label="target pin")
+
+        # Applies to the XY moves this one macro emits and nothing else.  With
+        # no jerk= keyword this is the configured default, which still has to
+        # ride along on the move: the PLC latches whatever the previous move
+        # left in the tag, so an unqualified move must overwrite it.
+        jerk_kwargs = {"accel_jerk": self._resolve_xy_accel_jerk(jerk)}
 
         anchor_location = self._wire_space_pin_location(normalized_anchor)
         target_location = self._wire_space_pin_location(normalized_target)
@@ -693,6 +730,7 @@ class GCodeHandlerBase:
         )
         head_position = 1 if normalized_target.startswith("A") else 2
         clearance_position = 0 if normalized_target.startswith("A") else 3
+        self._requireHeadTransferReady([normalized_anchor, normalized_target])
         head_present = self._isHeadPresent()
         self._instruction_trace["sameSide"] = bool(plan.same_side)
 
@@ -700,14 +738,13 @@ class GCodeHandlerBase:
         if plan.same_side:
             prep_transfer = False
             if head_present and self._x is not None and self._y is not None:
-                in_transfer_zone = (
-                    float(self._machineCalibration.transferLeft)
-                    <= float(self._x)
-                    <= float(self._machineCalibration.transferRight)
-                    and float(self._machineCalibration.transferBottom)
-                    <= float(self._y)
-                    <= float(self._machineCalibration.transferTop)
-                )
+                in_transfer_zone = float(
+                    self._machineCalibration.transferLeft
+                ) <= float(self._x) <= float(
+                    self._machineCalibration.transferRight
+                ) and float(self._machineCalibration.transferBottom) <= float(
+                    self._y
+                ) <= float(self._machineCalibration.transferTop)
                 near_target = (
                     abs(float(self._x) - float(final_xy.x))
                     <= _SAME_SIDE_PREP_TRANSFER_XY_TOLERANCE_MM
@@ -719,7 +756,9 @@ class GCodeHandlerBase:
                 self._append_pending_action(
                     "head_transfer", head_position=clearance_position
                 )
-            self._append_pending_action("xy", x=float(final_xy.x), y=float(final_xy.y))
+            self._append_pending_action(
+                "xy", x=float(final_xy.x), y=float(final_xy.y), **jerk_kwargs
+            )
             if head_present:
                 self._append_pending_action(
                     "head_transfer", head_position=head_position
@@ -744,14 +783,14 @@ class GCodeHandlerBase:
             )
             if should_split:
                 self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(self._y)
+                    "xy", x=float(final_xy.x), y=float(self._y), **jerk_kwargs
                 )
                 self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                    "xy", x=float(final_xy.x), y=float(final_xy.y), **jerk_kwargs
                 )
             else:
                 self._append_pending_action(
-                    "xy", x=float(final_xy.x), y=float(final_xy.y)
+                    "xy", x=float(final_xy.x), y=float(final_xy.y), **jerk_kwargs
                 )
             resolved_head_position = clearance_position
 
@@ -806,12 +845,13 @@ class GCodeHandlerBase:
         if name == "anchorToTarget":
             if len(arguments) < 2:
                 raise GCodeExecutionError(
-                    "~anchorToTarget requires two pin arguments and optional hover/offset/inTwoMoves keywords.",
+                    "~anchorToTarget requires two pin arguments and optional hover/offset/inTwoMoves/jerk keywords.",
                     [raw_text],
                 )
             target_offset = None
             hover = False
             in_two_moves = False
+            jerk = None
             for keyword in arguments[2:]:
                 keyword_text = str(keyword).strip()
                 if "=" not in keyword_text:
@@ -865,8 +905,19 @@ class GCodeHandlerBase:
                         "~anchorToTarget inTwoMoves must be written as inTwoMoves=True or inTwoMoves=False.",
                         [raw_text],
                     )
+                if keyword_name == "jerk":
+                    jerk_value = keyword_value.lower()
+                    if jerk_value not in XY_ACCEL_JERK_KEYWORDS:
+                        raise GCodeExecutionError(
+                            "~anchorToTarget jerk must be one of "
+                            + ", ".join(sorted(XY_ACCEL_JERK_KEYWORDS))
+                            + ".",
+                            [raw_text],
+                        )
+                    jerk = jerk_value
+                    continue
                 raise GCodeExecutionError(
-                    "~anchorToTarget only supports offset, hover, and inTwoMoves keyword arguments.",
+                    "~anchorToTarget only supports offset, hover, inTwoMoves, and jerk keyword arguments.",
                     [raw_text],
                 )
             self._plan_explicit_wrap_transition(
@@ -875,6 +926,7 @@ class GCodeHandlerBase:
                 target_offset=target_offset,
                 hover=hover,
                 in_two_moves=in_two_moves,
+                jerk=jerk,
             )
             return
 
@@ -1138,6 +1190,22 @@ class GCodeHandlerBase:
         return True
 
     # ---------------------------------------------------------------------
+    def _requireHeadTransferReady(self, data):
+        """
+        Reject a head transfer that cannot start.
+
+        A head that is not mounted at all is fine -- the transfer is skipped
+        silently so no-head runs still work.  A head that *is* mounted but sits
+        in a latch position the machine cannot extend from is a real fault, and
+        hardware subclasses raise GCodeExecutionError describing it.  No-op in
+        the base interpreter, which has no sensors to consult.
+
+        Args:
+          data: G-code error data (pins, target) attached to any error raised.
+        """
+        return
+
+    # ---------------------------------------------------------------------
     def _getPin(self, pinName):
         """
         Function to fetch specific pin location.
@@ -1367,6 +1435,7 @@ class GCodeHandlerBase:
         Head transfer position.
         """
         target = self._parameterExtract(function, 1, None, int, "head transfer")
+        self._requireHeadTransferReady([str(target)])
         if not self._isHeadPresent():
             return
         self._headPosition = target

@@ -67,7 +67,16 @@ class _QueuedMotionPLCLogic:
     def isReady(self):
         return True
 
-    def setXY_Position(self, x, y, velocity=None, acceleration=None, deceleration=None):
+    def setXY_Position(
+        self,
+        x,
+        y,
+        velocity=None,
+        acceleration=None,
+        deceleration=None,
+        accelJerk=None,
+    ):
+        del accelJerk
         self.legacy_xy_moves.append(
             (float(x), float(y), velocity, acceleration, deceleration)
         )

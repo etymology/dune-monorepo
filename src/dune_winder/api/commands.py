@@ -1134,6 +1134,16 @@ def build_command_registry(
         True,
     )
     registry.register(
+        "process.get_gcode_error",
+        lambda args: (_validateArgs(args), process.getG_CodeError())[1],
+        False,
+    )
+    registry.register(
+        "process.acknowledge_gcode_error",
+        lambda args: (_validateArgs(args), process.acknowledgeG_CodeError())[1],
+        True,
+    )
+    registry.register(
         "process.servo_disable",
         lambda args: (_validateArgs(args), process.servoDisable())[1],
         True,
@@ -1511,20 +1521,23 @@ def build_command_registry(
         actual_y = _asFloat(args["actual_y"], "actual_y")
         layer = _asString(args["layer"], "layer").upper()
 
+        # Keep in sync with uv_head_target_parts/constants.py and the runtime
+        # keyword loop in gcode/handler_base.py (_run_macro_call).
         match = re.fullmatch(
             r"~anchorToTarget\("
             r"([A-B]\d+),([A-B]\d+)"
             r"(?:,(?:offset=\([^)]+\)"
             r"|hover=(?:True|False|1|0|yes|no|on|off)"
             r"|inTwoMoves=(?:True|False|1|0|yes|no|on|off)"
-            r")){0,3}"
+            r"|jerk=(?:default|gentle|jerky)"
+            r")){0,4}"
             r"\)",
             gcode_line,
             flags=re.IGNORECASE,
         )
         if not match:
             raise ValueError(
-                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,inTwoMoves=True])"
+                f"gcode_line '{gcode_line}' does not match ~anchorToTarget(pinA,pinB[,offset=(x,y)][,hover=True][,inTwoMoves=True][,jerk=gentle])"
             )
         anchor_pin, target_pin = match.groups()
 
@@ -1690,10 +1703,17 @@ def build_command_registry(
 
     def configuration_set(args):
         _validateArgs(args, required=("key", "value"))
-        return configuration.set(
-            _asString(args["key"], "key"),
-            _asString(args["value"], "value"),
-        )
+        key = _asString(args["key"], "key")
+        result = configuration.set(key, _asString(args["value"], "value"))
+        if key == "xyRegulatedAccelJerkDefault":
+            # Only seeded into the PLC facade at startup, so push the edit
+            # through for the moves that read it there (manual moves, and any
+            # G-code move not routed through the jerk= resolution).  Read back
+            # from configuration, which normalizes a rejected value.
+            io.plcLogic.setXY_AccelJerkDefault(
+                configuration.xyRegulatedAccelJerkDefault
+            )
+        return result
 
     registry.register("configuration.set", configuration_set, True)
     registry.register(
@@ -1874,6 +1894,31 @@ def build_command_registry(
 
     registry.register(
         "loadcell_calibration.clear_samples", loadcell_calibration_clear_samples, True
+    )
+
+    def loadcell_calibration_set_sample_selected(args):
+        _validateArgs(args, required=("id", "selected"))
+        _loadcell_calibration.set_sample_selected(
+            _asInt(args["id"], "id"),
+            _asBool(args["selected"], "selected"),
+        )
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.set_sample_selected",
+        loadcell_calibration_set_sample_selected,
+        True,
+    )
+
+    def loadcell_calibration_clear_selection(args):
+        _validateArgs(args)
+        _loadcell_calibration.clear_selection()
+        return _loadcell_calibration.state(_loadcell_plc())
+
+    registry.register(
+        "loadcell_calibration.clear_selection",
+        loadcell_calibration_clear_selection,
+        True,
     )
 
     def loadcell_calibration_set_fix_intercept(args):

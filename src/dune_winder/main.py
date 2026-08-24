@@ -1,4 +1,4 @@
-###############################################################################
+﻿###############################################################################
 # Name: main.py
 # Uses: Initialize and start the control system.
 # Date: 2016-02-03
@@ -13,7 +13,6 @@ import time
 import json
 import threading
 import os
-import re
 
 from dune_winder.library.system_time import SystemTime
 from dune_winder.library.log import Log
@@ -29,7 +28,6 @@ from dune_winder.core.process import Process
 from dune_winder.api.commands import build_command_registry
 
 from dune_winder.threads.primary_thread import PrimaryThread
-from dune_winder.threads.ui_server_thread import UICommandServerThread
 from dune_winder.threads.control_thread import ControlThread
 from dune_winder.threads.web_server_thread import WebServerThread
 from dune_winder.threads.camera_thread import CameraThread
@@ -95,136 +93,6 @@ def _resolvePlcMode(configuredMode, cliOverride):
 # -----------------------------------------------------------------------
 def _resolvePlcSimEngine(configuredEngine, cliOverride):
     return resolve_plc_sim_engine(configuredEngine, envOverride=cliOverride)
-
-
-# -----------------------------------------------------------------------
-def _normalizeCommand(command):
-    if isinstance(command, bytes):
-        return command.decode("utf-8", errors="replace")
-    return str(command)
-
-
-# -----------------------------------------------------------------------
-def _normalizeLegacyManualGCode(command):
-    return " ".join(_normalizeCommand(command).strip().split()).upper()
-
-
-# -----------------------------------------------------------------------
-def _looksLikeLegacyManualGCode(command):
-    commandText = _normalizeCommand(command).strip()
-    if not commandText:
-        return False
-
-    return (
-        re.match(
-            r"^(?:[Gg]\d|[Xx]-?\d|[Yy]-?\d|[Zz]-?\d|[Ff]-?\d)",
-            commandText,
-        )
-        is not None
-    )
-
-
-# -----------------------------------------------------------------------
-def _describeCaller(source):
-    if source is None:
-        return {"type": "ui-socket", "address": None, "port": None}
-
-    if hasattr(source, "client_address"):
-        address = source.client_address
-        host = None
-        port = None
-        if isinstance(address, tuple):
-            if len(address) > 0:
-                host = address[0]
-            if len(address) > 1:
-                port = address[1]
-        return {"type": source.__class__.__name__, "address": host, "port": port}
-
-    return {"type": source.__class__.__name__, "address": None, "port": None}
-
-
-# -----------------------------------------------------------------------
-def _getSignalName(signalNumber):
-    try:
-        return signal.Signals(signalNumber).name
-    except ValueError:
-        return str(signalNumber)
-
-
-# -----------------------------------------------------------------------
-def _describeFrame(frame):
-    if frame is None:
-        return "<unknown>"
-
-    code = frame.f_code
-    return code.co_filename + ":" + str(frame.f_lineno) + " in " + code.co_name
-
-
-# -----------------------------------------------------------------------
-def commandHandler(source, command):
-    """
-    Handle a remote command payload.
-    Prefer JSON API request envelopes, but still accept legacy raw manual
-    G-Code lines over the TCP socket.
-
-    Args:
-      command: JSON request payload (single command or batch envelope).
-
-    Returns:
-      JSON envelope string.
-    """
-    commandText = _normalizeCommand(command)
-    caller = _describeCaller(source)
-
-    if log:
-        log.add(
-            "Main",
-            "REMOTE_COMMAND",
-            "Remote command requested.",
-            [threading.current_thread().name, caller, commandText],
-        )
-
-    try:
-        payload = json.loads(commandText)
-    except (TypeError, ValueError):
-        payload = None
-
-    if payload is None:
-        if commandRegistry is not None and _looksLikeLegacyManualGCode(commandText):
-            legacyCommand = _normalizeLegacyManualGCode(commandText)
-            response = commandRegistry.execute(
-                "process.execute_gcode_line",
-                {"line": legacyCommand},
-            )
-            return jsonDumps(response)
-
-        response = {
-            "ok": False,
-            "data": None,
-            "error": {
-                "code": "BAD_REQUEST",
-                "message": "Request body must be valid JSON.",
-            },
-        }
-        return jsonDumps(response)
-
-    if commandRegistry is None:
-        response = {
-            "ok": False,
-            "data": None,
-            "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "Command registry is not configured.",
-            },
-        }
-        return jsonDumps(response)
-
-    if isinstance(payload, dict) and "requests" in payload:
-        response = commandRegistry.executeBatchRequest(payload)
-    else:
-        response = commandRegistry.executeRequest(payload)
-
-    return jsonDumps(response)
 
 
 # -----------------------------------------------------------------------
@@ -384,8 +252,7 @@ def main():
                 [metricsCollector.disableReason()],
             )
 
-        _ = UICommandServerThread(commandHandler, log)
-        _ = WebServerThread(log, commandRegistry)
+        _ = WebServerThread(log, commandRegistry, host=configuration.webServerHost)
         _ = ControlThread(io, log, process.controlStateMachine, systemTime, isIO_Logged)
         _ = CameraThread(io.camera, log, systemTime)
 
@@ -452,3 +319,5 @@ def main():
 # mechanics." -- Richard Feynman
 if __name__ == "__main__":
     main()
+
+

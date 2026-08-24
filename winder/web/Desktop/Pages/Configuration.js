@@ -358,6 +358,9 @@ function Configuration( modules )
     configuration.display( "Slow velocity",      "maxSlowVelocity",  tag )
     configuration.display( "Max acceleration",   "maxAcceleration",  tag )
     configuration.display( "Max deceleration",   "maxDeceleration",  tag )
+    configuration.display( "XY jerk (default)",  "xyRegulatedAccelJerkDefault", tag )
+    configuration.display( "XY jerk (gentle)",   "xyRegulatedAccelJerkGentle",  tag )
+    configuration.display( "XY jerk (jerky)",    "xyRegulatedAccelJerkJerky",   tag )
     configuration.buttonSet( tag )
   }
 

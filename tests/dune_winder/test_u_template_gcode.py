@@ -63,7 +63,7 @@ class UTemplateGCodeTests(unittest.TestCase):
                 "N4 (1,3) ~anchorToTarget(B1201,B2001) (Top B corner - foot end)",
             ],
         )
-        self.assertIn("~anchorToTarget(B2001,A801,hover=True)", lines[5])
+        self.assertIn("~anchorToTarget(B2001,A801,hover=True,jerk=gentle)", lines[5])
         self.assertTrue(lines[-2].endswith("~anchorToTarget(A1201,B1601)"))
         self.assertTrue(lines[-1].endswith("~increment(70,0)"))
         self.assertTrue(all("G103" not in line and "G11" not in line for line in lines))
@@ -95,9 +95,33 @@ class UTemplateGCodeTests(unittest.TestCase):
         )
 
         self.assertIn(
-            "~anchorToTarget(B2001,A801,offset=(2,0),hover=True)",
+            "~anchorToTarget(B2001,A801,offset=(2,0),hover=True,jerk=gentle)",
             lines[5],
         )
+
+    def test_wrapping_variant_marks_only_the_two_top_corners_gentle(self):
+        # The two top corners run a softened XY accel-jerk profile; every other
+        # move keeps the configured default.  Pinned in both directions so a
+        # stray jerk= on a neighbouring corner cannot slip through unnoticed.
+        lines = render_u_template_text_lines(script_variant=SCRIPT_VARIANT_WRAPPING)
+
+        gentle = [line for line in lines if "jerk=gentle" in line]
+        self.assertEqual(len(gentle), 2 * WRAP_COUNT)
+        for label in ("Top A corner - foot end", "Top B corner - head end"):
+            labelled = [line for line in lines if "(" + label + ")" in line]
+            self.assertEqual(len(labelled), WRAP_COUNT)
+            self.assertTrue(all("jerk=gentle" in line for line in labelled), label)
+        self.assertEqual(
+            [
+                line
+                for line in gentle
+                if "(Top A corner - foot end)" not in line
+                and "(Top B corner - head end)" not in line
+            ],
+            [],
+        )
+        # No other jerk profile is in play, so nothing can be silently jerky.
+        self.assertEqual([line for line in lines if "jerk=" in line], gentle)
 
     def test_wrapping_variant_includes_foot_b_offset_keyword_when_non_zero(self):
         lines = render_u_template_text_lines(

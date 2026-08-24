@@ -218,12 +218,20 @@
   border-radius: 2px;
 }
 
-.loadcellSwatchSamples {
+.loadcellSwatchSamples,
+.loadcellSwatchExcluded {
   height: 10px;
   width: 10px;
   border-radius: 50%;
-  background-color: #1b1b1b;
   border: 1px solid #c7d0d8;
+}
+
+.loadcellSwatchSamples {
+  background-color: #e5484d;
+}
+
+.loadcellSwatchExcluded {
+  background-color: #9aa0a6;
 }
 
 .loadcellSwatchCurrent {
@@ -273,6 +281,24 @@
 .loadcellCalibrateTable td:first-child,
 .loadcellCalibrateFitTable td:first-child {
   text-align: left;
+}
+
+/* Row colouring mirrors the plot: red drives the fit, grey is excluded. */
+.loadcellSampleUsed td {
+  color: #ff7a7a;
+}
+
+.loadcellSampleExcluded td {
+  color: #8f8f8f;
+}
+
+.loadcellCalibrateTable td.loadcellSelectCell {
+  text-align: center;
+}
+
+.loadcellSelectSample {
+  cursor: pointer;
+  margin: 0;
 }
 
 .loadcellMiniButton {

@@ -122,11 +122,21 @@ function ManualMove(modules) {
   };
 
   var onGCodeError = function (response) {
-    if (response && response.error && response.error.message) {
-      setStatus("Error interpreting line: " + response.error.message);
-      return;
+    var payload = response && response.error ? response.error : null;
+
+    if (payload && payload.message) {
+      setStatus("Error interpreting line: " + payload.message);
+    } else {
+      setStatus("Manual G-code execution failed.");
     }
-    setStatus("Manual G-code execution failed.");
+
+    // Also raise the shared modal so an interlock rejection cannot be missed.
+    // The watcher is a common page module, which the popped-out Manual Move
+    // window does not load -- there the inline status above is the whole story.
+    var gCodeErrorWatch = modules.get("GCodeErrorWatch");
+    if (gCodeErrorWatch && payload && payload.message) {
+      gCodeErrorWatch.showError(payload);
+    }
   };
 
   var executeActionGCode = function (gCode) {

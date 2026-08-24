@@ -42,6 +42,42 @@ class CommandRegistryTests(unittest.TestCase):
         self.assertEqual(response["data"], "")
         self.assertIsNone(response["error"])
 
+    def test_get_gcode_error_returns_null_when_nothing_is_latched(self):
+        registry, _, _, _, _, _ = build_registry_fixture()
+        response = registry.executeRequest(
+            {"name": "process.get_gcode_error", "args": {}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertIsNone(response["data"])
+
+    def test_get_gcode_error_returns_the_latched_error(self):
+        registry, process, _, _, _, _ = build_registry_fixture()
+        process.latchedG_CodeError = {
+            "message": "Head transfer blocked: MASTER_Z_GO transfer lockout is "
+            "not ready.",
+            "data": [12, "~anchorToTarget(B1201,B2001)"],
+        }
+
+        response = registry.executeRequest(
+            {"name": "process.get_gcode_error", "args": {}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertIn("MASTER_Z_GO", response["data"]["message"])
+        self.assertEqual(response["data"]["data"][0], 12)
+
+    def test_acknowledge_gcode_error_clears_the_latch(self):
+        registry, process, _, _, _, _ = build_registry_fixture()
+        process.latchedG_CodeError = {"message": "boom", "data": []}
+
+        response = registry.executeRequest(
+            {"name": "process.acknowledge_gcode_error", "args": {}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertIsNone(process.latchedG_CodeError)
+
     def test_manual_seek_xy_allows_single_axis_requests(self):
         registry, process, _, _, _, _ = build_registry_fixture()
 
@@ -307,6 +343,31 @@ class CommandRegistryTests(unittest.TestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(process.workspace.lastJumpUvPinSegment, ("A", "bottom", 1, 1))
         self.assertEqual(response["data"]["jumpedToLine"], 12)
+
+    def test_setting_the_xy_jerk_default_pushes_it_to_the_plc_facade(self):
+        registry, _, io, configuration, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {
+                "name": "configuration.set",
+                "args": {"key": "xyRegulatedAccelJerkDefault", "value": "2500"},
+            },
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(configuration.sets, [("xyRegulatedAccelJerkDefault", "2500")])
+        # Taken from configuration, which normalizes a rejected value.
+        self.assertEqual(io.plcLogic.xyAccelJerkDefaults, [2500.0])
+
+    def test_setting_an_unrelated_key_leaves_the_plc_facade_alone(self):
+        registry, _, io, _, _, _ = build_registry_fixture()
+
+        response = registry.executeRequest(
+            {"name": "configuration.set", "args": {"key": "maxVelocity", "value": "9"}},
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(io.plcLogic.xyAccelJerkDefaults, [])
 
 
 if __name__ == "__main__":

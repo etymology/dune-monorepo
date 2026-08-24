@@ -255,6 +255,7 @@ class DummyProcess:
         self.queuedMotionUseMaxSpeed = False
         self.queuedPreviewContinued = False
         self.queuedPreviewCancelled = False
+        self.latchedG_CodeError = None
         self.controlStateMachine = DummyControlState()
         self.gCodeHandler = DummyGCodeHandler()
         self.vTemplateRecipe = DummyTemplateRecipe()
@@ -330,6 +331,13 @@ class DummyProcess:
         return False
 
     def acknowledgeError(self):
+        return None
+
+    def getG_CodeError(self):
+        return self.latchedG_CodeError
+
+    def acknowledgeG_CodeError(self):
+        self.latchedG_CodeError = None
         return None
 
     def servoDisable(self):
@@ -423,6 +431,12 @@ class DummyProcess:
 
 
 class DummyPLCLogic:
+    def __init__(self):
+        self.xyAccelJerkDefaults = []
+
+    def setXY_AccelJerkDefault(self, xyAccelJerk):
+        self.xyAccelJerkDefaults.append(float(xyAccelJerk))
+
     def move_latch(self):
         return None
 
@@ -493,6 +507,11 @@ class DummyIO:
 
 
 class DummyConfiguration:
+    def __init__(self):
+        self.sets = []
+        # Read back by the registry after a set, so it has to be a real field.
+        self.xyRegulatedAccelJerkDefault = 1500.0
+
     def get(self, key):
         values = {
             "maxVelocity": "100",
@@ -502,7 +521,9 @@ class DummyConfiguration:
         return values.get(key, "")
 
     def set(self, key, value):
-        pass
+        self.sets.append((str(key), value))
+        if hasattr(self, str(key)):
+            setattr(self, str(key), float(value))
 
     def save(self):
         pass

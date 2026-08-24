@@ -38,6 +38,11 @@ from dune_winder.queued_motion.segment_patterns import (
     DEFAULT_V_Y_MAX,
     DEFAULT_WAYPOINT_MIN_ARC_RADIUS,
 )
+from dune_winder.core.master_z_go import (
+    evaluate_master_z_go,
+    format_master_z_go_message,
+    master_z_go_is_ready,
+)
 from dune_winder.core.x_backlash_compensation import XBacklashCompensation
 
 _COMMAND_POSITION_RESOLUTION_MM = 0.1
@@ -119,6 +124,111 @@ class GCodeHandler(GCodeHandlerBase):
     # ---------------------------------------------------------------------
     def _isHeadPresent(self):
         return self._io.head.readCurrentPosition() != Head.HEAD_ABSENT
+
+    # ---------------------------------------------------------------------
+    def _readTransferWindowState(self):
+        """
+        Live X_XFER_OK / Y_XFER_OK, preferring a fresh PLC read.
+
+        Falls back to the polled BaseIO inputs (and finally to False) so test
+        doubles and reduced IO maps stay usable.
+        """
+        plcLogic = getattr(self._io, "plcLogic", None)
+        if plcLogic is not None and hasattr(plcLogic, "getTransferWindowStateNow"):
+            try:
+                window = plcLogic.getTransferWindowStateNow()
+                return (
+                    bool(window["xTransferOk"]),
+                    bool(window["yTransferOk"]),
+                )
+            except Exception:
+                pass
+
+        def _input_enabled(name):
+            io_point = getattr(self._io, name, None)
+            if io_point is None or not hasattr(io_point, "get"):
+                return False
+            try:
+                return bool(io_point.get())
+            except Exception:
+                return False
+
+        return (_input_enabled("X_Transfer_OK"), _input_enabled("Y_Transfer_OK"))
+
+    # ---------------------------------------------------------------------
+    def _axis_position(self, name, fallback):
+        axis = getattr(self._io, name, None)
+        if axis is None or not hasattr(axis, "getPosition"):
+            return float(fallback or 0.0)
+        try:
+            return float(axis.getPosition())
+        except Exception:
+            return float(fallback or 0.0)
+
+    # ---------------------------------------------------------------------
+    def _requireHeadTransferReady(self, data):
+        """
+        Reject a head transfer that the machine cannot start.
+
+        Silent when no head is mounted -- that is a legitimate no-head run and
+        the interpreter skips the transfer as before.  When a head *is* mounted
+        but is not resting on a clean transfer side, the PLC's MASTER_Z_GO
+        interlock would refuse the Z move (ERROR_CODE 5001), so raise a
+        descriptive error instead of quietly degrading to an XY-only move.
+        """
+        head = getattr(self._io, "head", None)
+        if head is None or not hasattr(head, "getTransferAvailability"):
+            return
+
+        availability, transfer_state = head.getTransferAvailability()
+        if availability != Head.TRANSFER_BLOCKED:
+            return
+
+        latch_detail = ""
+        if hasattr(head, "describeLatchConflict"):
+            latch_detail = str(head.describeLatchConflict(transfer_state))
+
+        x_transfer_ok, y_transfer_ok = self._readTransferWindowState()
+        terms = evaluate_master_z_go(
+            transfer_state=transfer_state,
+            x_transfer_ok=x_transfer_ok,
+            y_transfer_ok=y_transfer_ok,
+            x_position=self._axis_position("xAxis", self._x),
+            y_position=self._axis_position("yAxis", self._y),
+            limits=self._motion_safety_limits(),
+            collision_state=self._queued_motion_collision_state(),
+            latch_detail=latch_detail,
+        )
+
+        state_summary = self._transfer_state_summary(transfer_state)
+
+        if master_z_go_is_ready(terms) and latch_detail:
+            # Every MASTER_Z_GO conjunct holds, yet the head is not on a clean
+            # side (for example both latches engaged, or stage-latched with the
+            # wrong ACTUATOR_POS).  Naming MASTER_Z_GO here would be misleading,
+            # so report the latch conflict on its own.
+            message = (
+                "Head transfer blocked: the head is mounted but not resting on a "
+                "known transfer side -- " + latch_detail + "."
+            )
+            if state_summary:
+                message += "\n" + state_summary
+            raise GCodeExecutionError(message, list(data))
+
+        raise GCodeExecutionError(
+            format_master_z_go_message(terms, state_summary=state_summary),
+            list(data),
+        )
+
+    # ---------------------------------------------------------------------
+    def _transfer_state_summary(self, transfer_state):
+        head = getattr(self._io, "head", None)
+        if head is not None and hasattr(head, "_formatTransferState"):
+            try:
+                return str(head._formatTransferState(transfer_state))
+            except Exception:
+                pass
+        return ""
 
     # ---------------------------------------------------------------------
     def isDone(self):
@@ -816,7 +926,9 @@ class GCodeHandler(GCodeHandlerBase):
             self._isG_CodeErrorMessage = session.error
             self._isG_CodeErrorData = [
                 self._queued_block_start_line,
-                gCode.lines[self._queued_block_start_line] if gCode is not None else None,
+                gCode.lines[self._queued_block_start_line]
+                if gCode is not None
+                else None,
             ]
             self._queued_session = None
             self._queued_stop_mode = None
@@ -910,7 +1022,10 @@ class GCodeHandler(GCodeHandlerBase):
             )
             self._queued_preview = None
             self._queued_stop_mode = None
-            if self._queued_block_start_line is not None and self._direction is not None:
+            if (
+                self._queued_block_start_line is not None
+                and self._direction is not None
+            ):
                 self._nextLine = self._queued_block_start_line - self._direction
             self._stopNextMove = True
             return
@@ -921,7 +1036,10 @@ class GCodeHandler(GCodeHandlerBase):
             self._io.plcLogic.queuedMotion.set_abort(False)
             self._queued_session = None
             self._queued_stop_mode = None
-            if self._queued_block_start_line is not None and self._direction is not None:
+            if (
+                self._queued_block_start_line is not None
+                and self._direction is not None
+            ):
                 self._nextLine = self._queued_block_start_line - self._direction
             self._stopNextMove = True
             return
@@ -1005,7 +1123,12 @@ class GCodeHandler(GCodeHandlerBase):
                         )
                         return False
 
-                self._io.plcLogic.setXY_Position(raw_target_x, target_xy[1], velocity)
+                self._io.plcLogic.setXY_Position(
+                    raw_target_x,
+                    target_xy[1],
+                    velocity,
+                    accelJerk=self._pending_action_value(action, "accel_jerk", None),
+                )
                 if self._xBacklash is not None:
                     self._xBacklash.noteCommand(current_raw_x, float(target_xy[0]))
                 moving = True
@@ -1321,6 +1444,43 @@ class GCodeHandler(GCodeHandlerBase):
           An array of data.
         """
         return self._isG_CodeErrorData
+
+    # ---------------------------------------------------------------------
+    def latchG_CodeError(self):
+        """
+        Preserve the current G-Code error for later operator acknowledgement.
+
+        A wind clears the error as soon as it has logged it, which leaves
+        nothing for the UI to poll.  Latching keeps a copy alive until the
+        operator dismisses it.
+        """
+        if not self._isG_CodeError:
+            return
+
+        self._latchedG_CodeError = {
+            "message": self._isG_CodeErrorMessage,
+            "data": list(self._isG_CodeErrorData),
+        }
+
+    # ---------------------------------------------------------------------
+    def getLatchedG_CodeError(self):
+        """
+        The latched G-Code error, or None when nothing is awaiting acknowledgement.
+        """
+        if self._latchedG_CodeError is None:
+            return None
+
+        return {
+            "message": self._latchedG_CodeError["message"],
+            "data": list(self._latchedG_CodeError["data"]),
+        }
+
+    # ---------------------------------------------------------------------
+    def clearLatchedG_CodeError(self):
+        """
+        Discard the latched G-Code error after the operator has acknowledged it.
+        """
+        self._latchedG_CodeError = None
 
     # ---------------------------------------------------------------------
     def getQueuedMotionPreview(self):
@@ -1741,6 +1901,7 @@ class GCodeHandler(GCodeHandlerBase):
         self._isG_CodeError = False
         self._isG_CodeErrorMessage = ""
         self._isG_CodeErrorData = []
+        self._latchedG_CodeError = None
         self._queued_session = None
         self._queued_block_start_line = None
         self._queued_block_resume_line = None
