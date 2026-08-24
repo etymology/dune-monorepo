@@ -927,3 +927,21 @@ Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, nu
 [2026-08-12T13:58:02] starting fault capture pid=64263 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
 
 [2026-08-12T14:00:17] starting fault capture pid=64608 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-12T14:22:06] starting fault capture pid=74863 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-12T14:45:30] starting fault capture pid=83768 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-18T10:09:15] starting fault capture pid=97607 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-18T10:14:30] starting fault capture pid=99154 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-18T10:37:51] starting fault capture pid=105566 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-18T11:04:12] starting fault capture pid=118702 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-19T15:18:39] starting fault capture pid=27219 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-24T13:21:57] starting fault capture pid=6011 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-24T13:27:02] starting fault capture pid=7557 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
