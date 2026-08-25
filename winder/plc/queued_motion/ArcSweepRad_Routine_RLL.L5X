@@ -1,124 +1,124 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="ArcSweepRad" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="ArcSweepRad" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-25 15:19:14.538" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="queued_motion" Class="Standard">
 <Routines Use="Context">
 <Routine Use="Target" Name="ArcSweepRad" Type="RLL">
 <RLLContent>
-<Rung Number="0" Type="N">
+<Rung Number="0" Type="e">
 <Text>
 <![CDATA[CPT(REALS[17],2.0*3.14159265358979);]]>
 </Text>
 </Rung>
-<Rung Number="1" Type="N">
+<Rung Number="1" Type="e">
 <Text>
 <![CDATA[CPT(REALS[910],REALS[15]-REALS[14]);]]>
 </Text>
 </Rung>
-<Rung Number="2" Type="N">
+<Rung Number="2" Type="e">
 <Text>
 <![CDATA[MOD(REALS[910],REALS[17],REALS[18]);]]>
 </Text>
 </Rung>
-<Rung Number="3" Type="N">
+<Rung Number="3" Type="e">
 <Text>
 <![CDATA[CPT(REALS[911],REALS[14]-REALS[15]);]]>
 </Text>
 </Rung>
-<Rung Number="4" Type="N">
+<Rung Number="4" Type="e">
 <Text>
 <![CDATA[MOD(REALS[911],REALS[17],REALS[19]);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="5" Type="e">
 <Text>
 <![CDATA[NEQ(DINTS[4],0)JMP(lbl_else_18);]]>
 </Text>
 </Rung>
-<Rung Number="6" Type="N">
+<Rung Number="6" Type="e">
 <Text>
 <![CDATA[CPT(REALS[16],-REALS[19]);]]>
 </Text>
 </Rung>
-<Rung Number="7" Type="N">
+<Rung Number="7" Type="e">
 <Text>
 <![CDATA[JMP(lbl_ArcSweepRad_end);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="8" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_18)NEQ(DINTS[4],1)JMP(lbl_else_20);]]>
 </Text>
 </Rung>
-<Rung Number="9" Type="N">
+<Rung Number="9" Type="e">
 <Text>
 <![CDATA[MOV(REALS[18],REALS[16]);]]>
 </Text>
 </Rung>
-<Rung Number="10" Type="N">
+<Rung Number="10" Type="e">
 <Text>
 <![CDATA[JMP(lbl_ArcSweepRad_end);]]>
 </Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="11" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_20)NEQ(DINTS[4],2)JMP(lbl_else_22);]]>
 </Text>
 </Rung>
-<Rung Number="12" Type="N">
+<Rung Number="12" Type="e">
 <Text>
 <![CDATA[CPT(REALS[16],-REALS[19]);]]>
 </Text>
 </Rung>
-<Rung Number="13" Type="N">
+<Rung Number="13" Type="e">
 <Text>
 <![CDATA[JMP(lbl_ArcSweepRad_end);]]>
 </Text>
 </Rung>
-<Rung Number="14" Type="N">
+<Rung Number="14" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_22)NEQ(DINTS[4],3)JMP(lbl_else_24);]]>
 </Text>
 </Rung>
-<Rung Number="15" Type="N">
+<Rung Number="15" Type="e">
 <Text>
 <![CDATA[MOV(REALS[18],REALS[16]);]]>
 </Text>
 </Rung>
-<Rung Number="16" Type="N">
+<Rung Number="16" Type="e">
 <Text>
 <![CDATA[JMP(lbl_ArcSweepRad_end);]]>
 </Text>
 </Rung>
-<Rung Number="17" Type="N">
+<Rung Number="17" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_24)OTU(BOOLS[3]);]]>
 </Text>
 </Rung>
-<Rung Number="18" Type="N">
+<Rung Number="18" Type="e">
 <Text>
 <![CDATA[JMP(lbl_ArcSweepRad_end);]]>
 </Text>
 </Rung>
-<Rung Number="19" Type="N">
+<Rung Number="19" Type="e">
 <Text>
 <![CDATA[LBL(lbl_ArcSweepRad_end)NOP();]]>
 </Text>
 </Rung>
 </RLLContent>
 </Routine>
+<Routine Use="Reference" Name="SegTangentBounds">
+</Routine>
 <Routine Use="Reference" Name="MaxAbsCosSweep">
 </Routine>
-<Routine Use="Reference" Name="MaxAbsSinSweep">
-</Routine>
 <Routine Use="Reference" Name="CapSegSpeed">
+</Routine>
+<Routine Use="Reference" Name="MaxAbsSinSweep">
 </Routine>
 <Routine Use="Reference" Name="CircleCenterForSeg">
 </Routine>
 <Routine Use="Reference" Name="main">
-</Routine>
-<Routine Use="Reference" Name="SegTangentBounds">
 </Routine>
 </Routines>
 </Program>

@@ -1,92 +1,92 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-25 15:19:14.538" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="state_13_move_yz" Class="Standard">
 <Routines Use="Context">
 <Routine Use="Target" Name="main" Type="RLL">
 <RLLContent>
-<Rung Number="0" Type="N">
+<Rung Number="0" Type="e">
 <Text>
 <![CDATA[CMP(STATE=13)OTE(STATE13_IND);]]>
 </Text>
 </Rung>
-<Rung Number="1" Type="N">
+<Rung Number="1" Type="e">
 <Text>
 <![CDATA[LIM(btm_support_collision_ymin,yz_position_target[0],btm_support_collision_ymax)OTE(yz_target_collision_bttm);]]>
 </Text>
 </Rung>
-<Rung Number="2" Type="N">
+<Rung Number="2" Type="e">
 <Text>
 <![CDATA[LIM(mid_support_collision_ymin,yz_position_target[0],mid_support_collision_ymax)OTE(yz_target_collision_mid);]]>
 </Text>
 </Rung>
-<Rung Number="3" Type="N">
+<Rung Number="3" Type="e">
 <Text>
 <![CDATA[LIM(top_support_collision_ymin,yz_position_target[0],top_support_collision_ymax)OTE(yz_target_collision_top);]]>
 </Text>
 </Rung>
-<Rung Number="4" Type="N">
+<Rung Number="4" Type="e">
 <Text>
 <![CDATA[OTU(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="5" Type="e">
 <Text>
 <![CDATA[XIC(yz_target_collision_bttm)XIC(FRAME_LOC_HD_BTM)OTL(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="6" Type="N">
+<Rung Number="6" Type="e">
 <Text>
 <![CDATA[XIC(yz_target_collision_bttm)XIC(FRAME_LOC_FT_BTM)OTL(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="7" Type="N">
+<Rung Number="7" Type="e">
 <Text>
 <![CDATA[XIC(yz_target_collision_mid)XIC(FRAME_LOC_HD_MID)OTL(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="8" Type="e">
 <Text>
 <![CDATA[XIC(yz_target_collision_mid)XIC(FRAME_LOC_FT_MID)OTL(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="9" Type="N">
+<Rung Number="9" Type="e">
 <Text>
 <![CDATA[XIC(yz_target_collision_top)XIC(FRAME_LOC_HD_TOP)OTL(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="10" Type="N">
+<Rung Number="10" Type="e">
 <Text>
 <![CDATA[XIC(yz_target_collision_top)XIC(FRAME_LOC_FT_TOP)OTL(yz_target_support_collision);]]>
 </Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="11" Type="e">
 <Text>
 <![CDATA[XIC(STATE13_IND)XIO(X_XFER_OK)CPT(ERROR_CODE,5003)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,10);]]>
 </Text>
 </Rung>
-<Rung Number="12" Type="N">
+<Rung Number="12" Type="e">
 <Text>
 <![CDATA[XIC(STATE13_IND)XIC(yz_target_support_collision)[GRT(yz_position_target[1],1) ,GRT(Z_axis.ActualPosition,1) ]CPT(ERROR_CODE,5003)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,10);]]>
 </Text>
 </Rung>
-<Rung Number="13" Type="N">
+<Rung Number="13" Type="e">
 <Text>
 <![CDATA[XIC(STATE13_IND)XIC(X_XFER_OK)XIO(yz_main_move.IP)MCLM(yz,yz_main_move,0,yz_position_target,yz_speed,Units per sec,1000,Units per sec2,1000,Units per sec2,S-Curve,1000,1000,Units per sec3,0,Disabled,Programmed,50,0,None,0,0);]]>
 </Text>
 </Rung>
-<Rung Number="14" Type="N">
+<Rung Number="14" Type="e">
 <Text>
 <![CDATA[XIO(X_XFER_OK)XIC(yz_main_move.IP)MCS(X_Y,xy_stop,All,Yes,4000,Units per sec2,Yes,2000,Units per sec3)MCS(yz,yz_stop,All,Yes,4000,Units per sec2,Yes,200,Units per sec3)MOV(0,STATE_REQUEST)CPT(ERROR_CODE,5003)CPT(NEXTSTATE,10);]]>
 </Text>
 </Rung>
-<Rung Number="15" Type="N">
+<Rung Number="15" Type="e">
 <Text>
 <![CDATA[XIC(STATE13_IND)XIC(yz_main_move.ER)MOV(0,STATE_REQUEST)CPT(ERROR_CODE,5003)CPT(NEXTSTATE,10);]]>
 </Text>
 </Rung>
-<Rung Number="16" Type="N">
+<Rung Number="16" Type="e">
 <Text>
 <![CDATA[XIC(STATE13_IND)CMP(ABS(Y_axis.ActualPosition-yz_position_target[0])<0.1)CMP(ABS(Z_axis.ActualPosition-yz_position_target[1])<0.1)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,1);]]>
 </Text>

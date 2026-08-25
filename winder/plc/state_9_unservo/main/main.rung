@@ -5,23 +5,38 @@ uses entered_state_9_osr, state_unservo_active, unservo_ons_storage, x_axis_mafr
 uses x_axis_msf_dn_osr, y_axis_mafr, y_axis_msf, y_axis_msf_dn_osr, z_axis_mafr, z_axis_msf  # program scope
 uses z_axis_msf_dn_osr  # program scope
 
-state_unservo_active = INIT_DONE and STATE == 9
+# PENDING EDIT in Studio
+raw `XIC(INIT_DONE)CMP(STATE=9)OTE(state_unservo_active)`
 
-on entry of state_unservo_active using unservo_ons_storage[0], entered_state_9_osr:
-    servo_off X_axis using x_axis_msf
-    servo_off Y_axis using y_axis_msf
-    servo_off Z_axis using z_axis_msf
+# PENDING EDIT in Studio
+raw `XIC(state_unservo_active)OSR(unservo_ons_storage[0],entered_state_9_osr)`
 
-on rising x_axis_msf.DN using unservo_ons_storage[1], x_axis_msf_dn_osr:
-    fault_reset X_axis using x_axis_mafr
+# PENDING EDIT in Studio
+raw `XIC(state_unservo_active)XIC(entered_state_9_osr)MSF(X_axis,x_axis_msf)`
 
-on rising y_axis_msf.DN using unservo_ons_storage[2], y_axis_msf_dn_osr:
-    fault_reset Y_axis using y_axis_mafr
+# PENDING EDIT in Studio
+raw `XIC(state_unservo_active)XIC(entered_state_9_osr)MSF(Y_axis,y_axis_msf)`
 
-on rising z_axis_msf.DN using unservo_ons_storage[3], z_axis_msf_dn_osr:
-    fault_reset Z_axis using z_axis_mafr
+# PENDING EDIT in Studio
+raw `XIC(state_unservo_active)XIC(entered_state_9_osr)MSF(Z_axis,z_axis_msf)`
 
-when state_unservo_active and x_axis_mafr.DN and y_axis_mafr.DN and z_axis_mafr.DN:
-    MOVE_TYPE = 0
-    STATE_REQUEST = 0
-    NEXTSTATE = 1
+# PENDING EDIT in Studio
+raw `XIC(x_axis_msf.DN)OSR(unservo_ons_storage[1],x_axis_msf_dn_osr)`
+
+# PENDING EDIT in Studio
+raw `XIC(x_axis_msf_dn_osr)MAFR(X_axis,x_axis_mafr)`
+
+# PENDING EDIT in Studio
+raw `XIC(y_axis_msf.DN)OSR(unservo_ons_storage[2],y_axis_msf_dn_osr)`
+
+# PENDING EDIT in Studio
+raw `XIC(y_axis_msf_dn_osr)MAFR(Y_axis,y_axis_mafr)`
+
+# PENDING EDIT in Studio
+raw `XIC(z_axis_msf.DN)OSR(unservo_ons_storage[3],z_axis_msf_dn_osr)`
+
+# PENDING EDIT in Studio
+raw `XIC(z_axis_msf_dn_osr)MAFR(Z_axis,z_axis_mafr)`
+
+# PENDING EDIT in Studio
+raw `XIC(state_unservo_active)XIC(x_axis_mafr.DN)XIC(y_axis_mafr.DN)XIC(z_axis_mafr.DN)CPT(MOVE_TYPE,0)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,1)`

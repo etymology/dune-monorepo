@@ -3,162 +3,176 @@ routine queued_motion/CapSegSpeed
 uses SegQueue  # controller scope
 uses BOOLS, DINTS, idx_2, idx_3, REALS  # program scope
 
-JMP(lbl_else_46) when DINTS[5] != 0
+# PENDING EDIT in Studio
+raw `NEQ(DINTS[5],0)JMP(lbl_else_46)`
 
-JMP(lbl_CapSegSpeed_end)
+# PENDING EDIT in Studio
+raw `JMP(lbl_CapSegSpeed_end)`
 
-label lbl_else_46
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_46)[LEQ(REALS[38],0.0),LEQ(REALS[39],0.0)]OTL(BOOLS[901])`
 
-latch BOOLS[901] when REALS[38] <= 0.0 or REALS[39] <= 0.0
+# PENDING EDIT in Studio
+raw `GRT(REALS[38],0.0)GRT(REALS[39],0.0)JMP(lbl_else_48)`
 
-JMP(lbl_else_48) when REALS[38] > 0.0 and REALS[39] > 0.0
+# PENDING EDIT in Studio
+raw `OTL(BOOLS[8])`
 
-latch BOOLS[8]
+# PENDING EDIT in Studio
+raw `JMP(lbl_CapSegSpeed_end)`
 
-JMP(lbl_CapSegSpeed_end)
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_48)[LES(REALS[38],3.4028235E+38),LES(REALS[39],3.4028235E+38)]OTL(BOOLS[902])`
 
-label lbl_else_48
+# PENDING EDIT in Studio
+raw `XIC(BOOLS[902])JMP(lbl_else_50)`
 
-latch BOOLS[902] when REALS[38] < 3.4028235E+38 or REALS[39] < 3.4028235E+38
+# PENDING EDIT in Studio
+raw `JMP(lbl_CapSegSpeed_end)`
 
-JMP(lbl_else_50) when BOOLS[902]
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_50)XIC(BOOLS[7])JMP(lbl_else_52)`
 
-JMP(lbl_CapSegSpeed_end)
+# PENDING EDIT in Studio
+raw `MOV(SegQueue[0].XY[0],REALS[42])`
 
-label lbl_else_50
+# PENDING EDIT in Studio
+raw `MOV(SegQueue[0].XY[1],REALS[43])`
 
-JMP(lbl_else_52) when BOOLS[7]
+# PENDING EDIT in Studio
+raw `OTL(BOOLS[9])`
 
-REALS[42] = SegQueue[0].XY[0]
+# PENDING EDIT in Studio
+raw `JMP(lbl_end_53)`
 
-REALS[43] = SegQueue[0].XY[1]
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_52)MOV(REALS[40],REALS[42])`
 
-latch BOOLS[9]
+# PENDING EDIT in Studio
+raw `MOV(REALS[41],REALS[43])`
 
-JMP(lbl_end_53)
+# PENDING EDIT in Studio
+raw `OTU(BOOLS[9])`
 
-label lbl_else_52
+# PENDING EDIT in Studio
+raw `LBL(lbl_end_53)MOV(0,idx_3)`
 
-REALS[42] = REALS[40]
+# PENDING EDIT in Studio
+raw `LBL(lbl_loop_54)GEQ(idx_3,DINTS[5])JMP(lbl_loop_end_55)`
 
-REALS[43] = REALS[41]
+# PENDING EDIT in Studio
+raw `[NEQ(idx_3,0),XIO(BOOLS[9])]OTL(BOOLS[903])`
 
-unlatch BOOLS[9]
+# PENDING EDIT in Studio
+raw `XIC(BOOLS[903])JMP(lbl_else_56)`
 
-label lbl_end_53
+# PENDING EDIT in Studio
+raw `LES(REALS[38],REALS[39])JMP(lbl_min_a_58)`
 
-idx_3 = 0
+# PENDING EDIT in Studio
+raw `MOV(REALS[39],REALS[44])JMP(lbl_min_end_59)`
 
-label lbl_loop_54
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_a_58)MOV(REALS[38],REALS[44])`
 
-JMP(lbl_loop_end_55) when idx_3 >= DINTS[5]
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_end_59)MOV(1.0,REALS[45])`
 
-latch BOOLS[903] when idx_3 != 0 or not BOOLS[9]
+# PENDING EDIT in Studio
+raw `MOV(1.0,REALS[46])`
 
-JMP(lbl_else_56) when BOOLS[903]
+# PENDING EDIT in Studio
+raw `JMP(lbl_end_57)`
 
-JMP(lbl_min_a_58) when REALS[38] < REALS[39]
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_56)MOV(REALS[42],REALS[20])`
 
-always:
-    REALS[44] = REALS[39]
-    JMP(lbl_min_end_59)
+# PENDING EDIT in Studio
+raw `MOV(REALS[43],REALS[21])`
 
-label lbl_min_a_58
+# PENDING EDIT in Studio
+raw `MOV(idx_3,idx_2)`
 
-REALS[44] = REALS[38]
+# PENDING EDIT in Studio
+raw `JSR(SegTangentBounds,0)`
 
-label lbl_min_end_59
+# PENDING EDIT in Studio
+raw `MOV(REALS[22],REALS[45])`
 
-REALS[45] = 1.0
+# PENDING EDIT in Studio
+raw `MOV(REALS[23],REALS[46])`
 
-REALS[46] = 1.0
+# PENDING EDIT in Studio
+raw `GRT(REALS[45],0.000000001)JMP(lbl_else_60)`
 
-JMP(lbl_end_57)
+# PENDING EDIT in Studio
+raw `MOV(3.4028235E+38,REALS[47])`
 
-label lbl_else_56
+# PENDING EDIT in Studio
+raw `JMP(lbl_end_61)`
 
-REALS[20] = REALS[42]
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_60)CPT(REALS[47],REALS[38]/REALS[45])`
 
-REALS[21] = REALS[43]
+# PENDING EDIT in Studio
+raw `LBL(lbl_end_61)GRT(REALS[46],0.000000001)JMP(lbl_else_62)`
 
-idx_2 = idx_3
+# PENDING EDIT in Studio
+raw `MOV(3.4028235E+38,REALS[48])`
 
-call SegTangentBounds
+# PENDING EDIT in Studio
+raw `JMP(lbl_end_63)`
 
-REALS[45] = REALS[22]
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_62)CPT(REALS[48],REALS[39]/REALS[46])`
 
-REALS[46] = REALS[23]
+# PENDING EDIT in Studio
+raw `LBL(lbl_end_63)LES(REALS[47],REALS[48])JMP(lbl_min_a_64)`
 
-JMP(lbl_else_60) when REALS[45] > 0.000000001
+# PENDING EDIT in Studio
+raw `MOV(REALS[48],REALS[44])JMP(lbl_min_end_65)`
 
-REALS[47] = 3.4028235E+38
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_a_64)MOV(REALS[47],REALS[44])`
 
-JMP(lbl_end_61)
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_end_65)NOP()`
 
-label lbl_else_60
+# PENDING EDIT in Studio
+raw `LBL(lbl_end_57)LES(SegQueue[idx_3].Speed,REALS[44])JMP(lbl_min_a_66)`
 
-REALS[47] = REALS[38] / REALS[45]
+# PENDING EDIT in Studio
+raw `MOV(REALS[44],REALS[49])JMP(lbl_min_end_67)`
 
-label lbl_end_61
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_a_66)MOV(SegQueue[idx_3].Speed,REALS[49])`
 
-JMP(lbl_else_62) when REALS[46] > 0.000000001
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_end_67)GRT(REALS[49],0.0)JMP(lbl_else_68)`
 
-REALS[48] = 3.4028235E+38
+# PENDING EDIT in Studio
+raw `OTL(BOOLS[8])`
 
-JMP(lbl_end_63)
+# PENDING EDIT in Studio
+raw `JMP(lbl_CapSegSpeed_end)`
 
-label lbl_else_62
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_68)MOV(REALS[49],SegQueue[idx_3].Speed)`
 
-REALS[48] = REALS[39] / REALS[46]
+# PENDING EDIT in Studio
+raw `MOV(SegQueue[idx_3].XY[0],REALS[42])`
 
-label lbl_end_63
+# PENDING EDIT in Studio
+raw `MOV(SegQueue[idx_3].XY[1],REALS[43])`
 
-JMP(lbl_min_a_64) when REALS[47] < REALS[48]
+# PENDING EDIT in Studio
+raw `ADD(idx_3,1,idx_3)`
 
-always:
-    REALS[44] = REALS[48]
-    JMP(lbl_min_end_65)
+# PENDING EDIT in Studio
+raw `JMP(lbl_loop_54)`
 
-label lbl_min_a_64
+# PENDING EDIT in Studio
+raw `LBL(lbl_loop_end_55)JMP(lbl_CapSegSpeed_end)`
 
-REALS[44] = REALS[47]
-
-label lbl_min_end_65
-
-label lbl_end_57
-
-JMP(lbl_min_a_66) when SegQueue[idx_3].Speed < REALS[44]
-
-always:
-    REALS[49] = REALS[44]
-    JMP(lbl_min_end_67)
-
-label lbl_min_a_66
-
-REALS[49] = SegQueue[idx_3].Speed
-
-label lbl_min_end_67
-
-JMP(lbl_else_68) when REALS[49] > 0.0
-
-latch BOOLS[8]
-
-JMP(lbl_CapSegSpeed_end)
-
-label lbl_else_68
-
-SegQueue[idx_3].Speed = REALS[49]
-
-REALS[42] = SegQueue[idx_3].XY[0]
-
-REALS[43] = SegQueue[idx_3].XY[1]
-
-idx_3 = idx_3 + 1
-
-JMP(lbl_loop_54)
-
-label lbl_loop_end_55
-
-JMP(lbl_CapSegSpeed_end)
-
-label lbl_CapSegSpeed_end
+# PENDING EDIT in Studio
+raw `LBL(lbl_CapSegSpeed_end)NOP()`

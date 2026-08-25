@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "plc_path": null,
+  "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "010c14ff9031689cc05f652e0f9c8b37fdefdf0b816c741ab309a3e4cf740925",
-    "size": 4488632,
-    "last_saved": "2026-07-17 13:42:32.663",
+    "sha256": "270913fab55545bff6c10825f89e48ffe0f7d7c6d693869c97c7c801d96cfa4c",
+    "size": 4554673,
+    "last_saved": "2026-08-25 15:19:14.538",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 152
+    "save_log_entries": 285
   },
   "controller": {
     "name": "DUNEW2PLC1"
@@ -89448,213 +89448,305 @@
   ],
   "controller_level_tags": [
     {
-      "name": "DUNEW2SERVO2:S",
-      "fully_qualified_name": "DUNEW2SERVO2:S",
+      "name": "DUNEW2NETSW:I",
+      "fully_qualified_name": "DUNEW2NETSW:I",
       "tag_type": "struct",
-      "data_type_name": "AB:Motion_Diagnostics:S:1",
+      "data_type_name": "AB:STRATIX_5700_10PORT_GB_MANAGED:I:0",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "udt_name": "AB:Motion_Diagnostics:S:1",
+      "udt_name": "AB:STRATIX_5700_10PORT_GB_MANAGED:I:0",
       "value": {
-        "LostControllerToDriveTransmissions": 0,
-        "LateControllerToDriveTransmissions": 0,
-        "LostDriveToControllerTransmissions": 0,
-        "LateDriveToControllerTransmissions": 0,
-        "LastControllerToDriveTime": 0,
-        "AverageControllerToDriveTime": 0,
-        "MaximumControllerToDriveTime": 0,
-        "LastDriveToControllerTime": 0,
-        "AverageDriveToControllerTime": 0,
-        "MaximumDriveToControllerTime": 0,
-        "LastSystemClockJitter": 0,
-        "AverageSystemClockJitter": 0,
-        "MaximumSystemClockJitter": 0,
-        "TimingStatisticsEnabled": 0,
-        "ControllerToDriveConnectionSize": 48,
-        "DriveToControllerConnectionSize": 68,
-        "NominalControllerToDriveTime": 1000,
-        "NominalDriveToControllerTime": 1000,
-        "CoarseUpdatePeriod": 2000
-      }
+        "Fault": 0,
+        "LinkStatus": 31,
+        "AnyPortConnected": true,
+        "PortFa1_1Connected": true,
+        "PortFa1_2Connected": true,
+        "PortFa1_3Connected": true,
+        "PortFa1_4Connected": true,
+        "PortFa1_5Connected": false,
+        "PortFa1_6Connected": false,
+        "PortFa1_7Connected": false,
+        "PortFa1_8Connected": false,
+        "PortGi1_1Connected": false,
+        "PortGi1_2Connected": false,
+        "UnauthorizedDevice": 0,
+        "AnyPortUnauthorizedDevice": false,
+        "PortFa1_1UnauthorizedDevice": false,
+        "PortFa1_2UnauthorizedDevice": false,
+        "PortFa1_3UnauthorizedDevice": false,
+        "PortFa1_4UnauthorizedDevice": false,
+        "PortFa1_5UnauthorizedDevice": false,
+        "PortFa1_6UnauthorizedDevice": false,
+        "PortFa1_7UnauthorizedDevice": false,
+        "PortFa1_8UnauthorizedDevice": false,
+        "PortGi1_1UnauthorizedDevice": false,
+        "PortGi1_2UnauthorizedDevice": false,
+        "ThresholdExceeded": 0,
+        "AnyPortThreshold": false,
+        "PortFa1_1Threshold": false,
+        "PortFa1_2Threshold": false,
+        "PortFa1_3Threshold": false,
+        "PortFa1_4Threshold": false,
+        "PortFa1_5Threshold": false,
+        "PortFa1_6Threshold": false,
+        "PortFa1_7Threshold": false,
+        "PortFa1_8Threshold": false,
+        "PortGi1_1Threshold": false,
+        "PortGi1_2Threshold": false,
+        "AllPortsUtilization": 0,
+        "PortFa1_1Utilization": 2,
+        "PortFa1_2Utilization": 0,
+        "PortFa1_3Utilization": 1,
+        "PortFa1_4Utilization": 0,
+        "PortFa1_5Utilization": 0,
+        "PortFa1_6Utilization": 0,
+        "PortFa1_7Utilization": 0,
+        "PortFa1_8Utilization": 0,
+        "PortGi1_1Utilization": 0,
+        "PortGi1_2Utilization": 0,
+        "SVI1Utilization": null,
+        "AlarmRelay": 0,
+        "MajorAlarmRelay": false,
+        "MulticastGroupsActive": 2
+      },
+      "read_error": "SVI1Utilization: IOI syntax error. A syntax error was detected decoding the Request Path (see extended status) - Extended status out of memory  (04, 00)"
     },
     {
-      "name": "DUNEW2SERVO2:SI",
-      "fully_qualified_name": "DUNEW2SERVO2:SI",
+      "name": "DUNEW2PLC2:1:I",
+      "fully_qualified_name": "DUNEW2PLC2:1:I",
       "tag_type": "struct",
-      "data_type_name": "AB:CIP_Motion_Device_Safety2:SI:0",
+      "data_type_name": "AB:1734_IB8S_Safety2:I:0",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "udt_name": "AB:CIP_Motion_Device_Safety2:SI:0",
+      "udt_name": "AB:1734_IB8S_Safety2:I:0",
       "value": {
         "ConnectionStatus": 1,
         "RunMode": true,
         "ConnectionFaulted": false,
-        "FeedbackPosition1": 2312,
-        "FeedbackVelocity1": 0.0,
-        "SecondaryFeedbackPosition1": 0,
-        "SecondaryFeedbackVelocity1": 0.0,
-        "FeedbackPosition2": 0,
-        "FeedbackVelocity2": 0.0,
-        "SecondaryFeedbackPosition2": 0,
-        "SecondaryFeedbackVelocity2": 0.0,
-        "StopStatus1": 0,
-        "STOActive1": false,
-        "SBCActive1": false,
-        "SS1Active1": false,
-        "SS2Active1": false,
-        "SOSStandstill1": false,
-        "SMTOvertemp1": false,
-        "SafetyFault1": false,
-        "RestartRequired1": false,
-        "SafeStatus1": 0,
-        "TorqueDisabled1": false,
-        "BrakeEngaged1": false,
-        "MotionStatus1": 0,
-        "MotionPositive1": false,
-        "MotionNegative1": false,
-        "FunctionSupport1": 17,
-        "PrimaryFeedbackValid1": true,
-        "SecondaryFeedbackValid1": false,
-        "DiscrepancyCheckingActive1": false,
-        "SBCReady1": false,
-        "SS1Ready1": true,
-        "SS2Ready1": false,
-        "SOSReady1": false,
-        "SMTReady1": false,
-        "StopStatus2": -127,
-        "STOActive2": true,
-        "SBCActive2": false,
-        "SS1Active2": false,
-        "SS2Active2": false,
-        "SOSStandstill2": false,
-        "SMTOvertemp2": false,
-        "SafetyFault2": false,
-        "RestartRequired2": true,
-        "SafeStatus2": 1,
-        "TorqueDisabled2": true,
-        "BrakeEngaged2": false,
-        "MotionStatus2": 0,
-        "MotionPositive2": false,
-        "MotionNegative2": false,
-        "FunctionSupport2": 16,
-        "PrimaryFeedbackValid2": false,
-        "SecondaryFeedbackValid2": false,
-        "DiscrepancyCheckingActive2": false,
-        "SBCReady2": false,
-        "SS1Ready2": true,
-        "SS2Ready2": false,
-        "SOSReady2": false,
-        "SMTReady2": false
+        "PtData": 63,
+        "Pt00Data": true,
+        "Pt01Data": true,
+        "Pt02Data": true,
+        "Pt03Data": true,
+        "Pt04Data": true,
+        "Pt05Data": true,
+        "Pt06Data": false,
+        "Pt07Data": false,
+        "PtStatus": -1,
+        "Pt00Status": true,
+        "Pt01Status": true,
+        "Pt02Status": true,
+        "Pt03Status": true,
+        "Pt04Status": true,
+        "Pt05Status": true,
+        "Pt06Status": true,
+        "Pt07Status": true
       }
     },
     {
-      "name": "DUNEW2SERVO2:SO",
-      "fully_qualified_name": "DUNEW2SERVO2:SO",
+      "name": "DUNEW2PLC2:1:O",
+      "fully_qualified_name": "DUNEW2PLC2:1:O",
       "tag_type": "struct",
-      "data_type_name": "AB:CIP_Motion_Device_Safety2:SO:0",
+      "data_type_name": "AB:1734_IB8S:O:0",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "udt_name": "AB:CIP_Motion_Device_Safety2:SO:0",
+      "udt_name": "AB:1734_IB8S:O:0",
       "value": {
-        "PassThruDataA1": 0,
-        "PassThruDataB1": 0,
-        "PassThruDataA2": 0,
-        "PassThruDataB2": 0,
-        "PassThruStopStatus1": 0,
-        "SBCIntegrity1": false,
-        "SBCActive1": false,
-        "SBCBrakeEngaged1": false,
-        "SS1Active1": false,
-        "SS2Active1": false,
-        "SOSActive1": false,
-        "SOSStandstill1": false,
-        "PassThruSpeedLimitStatus1": 0,
-        "SSMActive1": false,
-        "SSMStatus1": false,
-        "SLSActive1": false,
-        "SLSLimit1": false,
-        "SDIActive1": false,
-        "SDILimit1": false,
-        "PassThruPositionLimitStatus1": 0,
-        "SCAActive1": false,
-        "SCAStatus1": false,
-        "SLPActive1": false,
-        "SLPLimit1": false,
-        "SFHomed1": false,
-        "PassThruStopFaults1": 0,
-        "SFXFault1": false,
-        "SBCFault1": false,
-        "SS1Fault1": false,
-        "SS2Fault1": false,
-        "SOSFault1": false,
-        "PassThruLimitFaults1": 0,
-        "SSMFault1": false,
-        "SLSFault1": false,
-        "SDIFault1": false,
-        "SCAFault1": false,
-        "SLPFault1": false,
-        "SafetyStopFunctions1": 1,
-        "STOOutput1": true,
-        "SBCOutput1": false,
-        "SS1Request1": false,
-        "SS2Request1": false,
-        "SOSRequest1": false,
-        "SMTRequest1": false,
-        "ResetRequest1": false,
-        "PassThruStopStatus2": 0,
-        "SBCIntegrity2": false,
-        "SBCActive2": false,
-        "SBCBrakeEngaged2": false,
-        "SS1Active2": false,
-        "SS2Active2": false,
-        "SOSActive2": false,
-        "SOSStandstill2": false,
-        "PassThruSpeedLimitStatus2": 0,
-        "SSMActive2": false,
-        "SSMStatus2": false,
-        "SLSActive2": false,
-        "SLSLimit2": false,
-        "SDIActive2": false,
-        "SDILimit2": false,
-        "PassThruPositionLimitStatus2": 0,
-        "SCAActive2": false,
-        "SCAStatus2": false,
-        "SLPActive2": false,
-        "SLPLimit2": false,
-        "SFHomed2": false,
-        "PassThruStopFaults2": 0,
-        "SFXFault2": false,
-        "SBCFault2": false,
-        "SS1Fault2": false,
-        "SS2Fault2": false,
-        "SOSFault2": false,
-        "PassThruLimitFaults2": 0,
-        "SSMFault2": false,
-        "SLSFault2": false,
-        "SDIFault2": false,
-        "SCAFault2": false,
-        "SLPFault2": false,
-        "SafetyStopFunctions2": 0,
-        "STOOutput2": false,
-        "SBCOutput2": false,
-        "SS1Request2": false,
-        "SS2Request2": false,
-        "SOSRequest2": false,
-        "SMTRequest2": false,
-        "ResetRequest2": false
+        "TestData": 0,
+        "Test00Data": false,
+        "Test01Data": false,
+        "Test02Data": false,
+        "Test03Data": false
       }
+    },
+    {
+      "name": "DUNEW2PLC2:2:I",
+      "fully_qualified_name": "DUNEW2PLC2:2:I",
+      "tag_type": "struct",
+      "data_type_name": "AB:1734_OB8S_Safety1:I:0",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "AB:1734_OB8S_Safety1:I:0",
+      "value": {
+        "ConnectionStatus": 1,
+        "RunMode": true,
+        "ConnectionFaulted": false,
+        "PtOutputStatus": -1,
+        "Pt00OutputStatus": true,
+        "Pt01OutputStatus": true,
+        "Pt02OutputStatus": true,
+        "Pt03OutputStatus": true,
+        "Pt04OutputStatus": true,
+        "Pt05OutputStatus": true,
+        "Pt06OutputStatus": true,
+        "Pt07OutputStatus": true
+      }
+    },
+    {
+      "name": "DUNEW2PLC2:2:O",
+      "fully_qualified_name": "DUNEW2PLC2:2:O",
+      "tag_type": "struct",
+      "data_type_name": "AB:1734_OB8S:O:0",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "AB:1734_OB8S:O:0",
+      "value": {
+        "PtData": 0,
+        "Pt00Data": false,
+        "Pt01Data": false,
+        "Pt02Data": false,
+        "Pt03Data": false,
+        "Pt04Data": false,
+        "Pt05Data": false,
+        "Pt06Data": false,
+        "Pt07Data": false
+      }
+    },
+    {
+      "name": "DUNEW2AMP:S",
+      "fully_qualified_name": "DUNEW2AMP:S",
+      "tag_type": "struct",
+      "data_type_name": "AB:MotionDevice_Diagnostics:S:0",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "AB:MotionDevice_Diagnostics:S:0",
+      "value": {
+        "LostControllerToDeviceTransmissions": 0,
+        "LateControllerToDeviceTransmissions": 0,
+        "LostDeviceToControllerTransmissions": 0,
+        "LateDeviceToControllerTransmissions": 0,
+        "LastControllerToDeviceTime": 0,
+        "AverageControllerToDeviceTime": 0,
+        "MaximumControllerToDeviceTime": 0,
+        "LastDeviceToControllerTime": 0,
+        "AverageDeviceToControllerTime": 0,
+        "MaximumDeviceToControllerTime": 0,
+        "LastSystemClockJitter": 0,
+        "AverageSystemClockJitter": 0,
+        "MaximumSystemClockJitter": 0,
+        "TimingStatisticsEnabled": 0,
+        "ControllerToDeviceConnectionSize": 36,
+        "DeviceToControllerConnectionSize": 36,
+        "NominalControllerToDeviceTime": 1000,
+        "NominalDeviceToControllerTime": 1000,
+        "CoarseUpdatePeriod": 2000
+      }
+    },
+    {
+      "name": "DUNE2CAM1:I",
+      "fully_qualified_name": "DUNE2CAM1:I",
+      "tag_type": "struct",
+      "data_type_name": "CC:InSight11_DINT8:I:0",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "CC:InSight11_DINT8:I:0",
+      "value": {
+        "Status": {
+          "Status": 557586,
+          "TriggerReady": false,
+          "TriggerAck": true,
+          "MissedAcq": false,
+          "OfflineReason0": true,
+          "OfflineReason1": false,
+          "OfflineReason2": false,
+          "Online": false,
+          "SystemBusy": false,
+          "InspectionCompleted": true,
+          "ResultsBufferOverrun": false,
+          "ResultsValid": false,
+          "CommandExecuting": false,
+          "CommandCompleted": false,
+          "CommandFailed": false,
+          "Error": true,
+          "SetUserDataAck": false,
+          "ExposureComplete": true,
+          "JobPass": false,
+          "TestRunReady": false,
+          "SoftEventAck0": false,
+          "SoftEventAck1": false,
+          "SoftEventAck2": false,
+          "SoftEventAck3": false,
+          "SoftEventAck4": false,
+          "SoftEventAck5": false,
+          "SoftEventAck6": false,
+          "SoftEventAck7": false,
+          "ErrorCode": 257,
+          "NotUsedB6B7": null,
+          "CurrentJobID": -1,
+          "AcquisitionID": -31799,
+          "InspectionID": 0,
+          "InspectionResultCode": 0
+        },
+        "InspectionResults": 0
+      },
+      "read_error": "Status: NotUsedB6B7: IOI syntax error. A syntax error was detected decoding the Request Path (see extended status) - Extended status out of memory  (04, 00)"
+    },
+    {
+      "name": "DUNE2CAM1:O",
+      "fully_qualified_name": "DUNE2CAM1:O",
+      "tag_type": "struct",
+      "data_type_name": "CC:InSight11_DINT8:O:0",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "udt_name": "CC:InSight11_DINT8:O:0",
+      "value": {
+        "Control": {
+          "Control": 3,
+          "TriggerEnable": true,
+          "Trigger": true,
+          "ResultsBufferEnable": false,
+          "InspectionResultsAck": false,
+          "ExecuteCommand": false,
+          "SetOffline": false,
+          "SetUserData": false,
+          "ClearError": false,
+          "ClearExposureComplete": false,
+          "SoftEvent0": false,
+          "SoftEvent1": false,
+          "SoftEvent2": false,
+          "SoftEvent3": false,
+          "SoftEvent4": false,
+          "SoftEvent5": false,
+          "SoftEvent6": false,
+          "SoftEvent7": false,
+          "Command": 0,
+          "NotUsedB6B7": null
+        },
+        "UserData": 0
+      },
+      "read_error": "Control: NotUsedB6B7: IOI syntax error. A syntax error was detected decoding the Request Path (see extended status) - Extended status out of memory  (04, 00)"
     },
     {
       "name": "Local:1:C",
@@ -89799,14 +89891,14 @@
           "Uncertain": false
         },
         "Pt07": {
-          "DataBits": 0,
-          "Data": false,
+          "DataBits": 1,
+          "Data": true,
           "Fault": false,
           "Uncertain": false
         },
         "Pt08": {
-          "DataBits": 1,
-          "Data": true,
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -89817,14 +89909,14 @@
           "Uncertain": false
         },
         "Pt10": {
-          "DataBits": 0,
-          "Data": false,
+          "DataBits": 1,
+          "Data": true,
           "Fault": false,
           "Uncertain": false
         },
         "Pt11": {
-          "DataBits": 1,
-          "Data": true,
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -89979,8 +90071,8 @@
           "Uncertain": false
         },
         "Pt04": {
-          "DataBits": 0,
-          "Data": false,
+          "DataBits": 1,
+          "Data": true,
           "Fault": false,
           "Uncertain": false
         },
@@ -89991,8 +90083,8 @@
           "Uncertain": false
         },
         "Pt06": {
-          "DataBits": 1,
-          "Data": true,
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -90289,8 +90381,8 @@
           "ShortCircuit": false
         },
         "Pt03": {
-          "DataBits": 1,
-          "Data": true,
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false,
           "NoLoad": false,
@@ -90420,8 +90512,8 @@
           "Data": false
         },
         "Pt03": {
-          "DataBits": 1,
-          "Data": true
+          "DataBits": 0,
+          "Data": false
         },
         "Pt04": {
           "DataBits": 0,
@@ -90693,7 +90785,7 @@
         "RunMode": true,
         "ConnectionFaulted": false,
         "DiagnosticActive": true,
-        "DiagnosticSequenceCount": 1,
+        "DiagnosticSequenceCount": 7,
         "Ch00": {
           "DataBits": 6,
           "Fault": true,
@@ -90713,8 +90805,8 @@
           "CalBits": 0,
           "CalFault": false,
           "Calibrating": false,
-          "Data": -0.03781720995903015,
-          "RollingTimestamp": 3161
+          "Data": -0.026029963046312332,
+          "RollingTimestamp": 21654
         },
         "Ch01": {
           "DataBits": 0,
@@ -90735,8 +90827,8 @@
           "CalBits": 0,
           "CalFault": false,
           "Calibrating": false,
-          "Data": 5.678999423980713,
-          "RollingTimestamp": 3171
+          "Data": 0.0021731252782046795,
+          "RollingTimestamp": 21663
         },
         "Ch02": {
           "DataBits": 2,
@@ -91266,7 +91358,7 @@
         "RunMode": true,
         "ConnectionFaulted": false,
         "DiagnosticActive": false,
-        "DiagnosticSequenceCount": 0,
+        "DiagnosticSequenceCount": 14,
         "Ch00": {
           "DataBits": 0,
           "Fault": false,
@@ -91286,8 +91378,8 @@
           "CalBits": 0,
           "CalFault": false,
           "Calibrating": false,
-          "Data": 5.329963207244873,
-          "RollingTimestamp": 3461
+          "Data": 2.5,
+          "RollingTimestamp": 22913
         },
         "Ch01": {
           "DataBits": 2,
@@ -91464,7 +91556,7 @@
           "HLimitAlarmUnlatch": false,
           "RampAlarmUnlatch": false,
           "CalBits": null,
-          "Data": 5.327941417694092
+          "Data": 2.5
         },
         "Ch01": {
           "DataBits": 0,
@@ -91650,8 +91742,8 @@
           "Uncertain": false
         },
         "Pt04": {
-          "DataBits": 1,
-          "Data": true,
+          "DataBits": 0,
+          "Data": false,
           "Fault": false,
           "Uncertain": false
         },
@@ -92145,202 +92237,212 @@
       }
     },
     {
-      "name": "DUNE2CAM1:I",
-      "fully_qualified_name": "DUNE2CAM1:I",
+      "name": "DUNEW2SERVO2:S",
+      "fully_qualified_name": "DUNEW2SERVO2:S",
       "tag_type": "struct",
-      "data_type_name": "CC:InSight11_DINT8:I:0",
+      "data_type_name": "AB:Motion_Diagnostics:S:1",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "udt_name": "CC:InSight11_DINT8:I:0",
+      "udt_name": "AB:Motion_Diagnostics:S:1",
       "value": {
-        "Status": {
-          "Status": 557074,
-          "TriggerReady": false,
-          "TriggerAck": true,
-          "MissedAcq": false,
-          "OfflineReason0": true,
-          "OfflineReason1": false,
-          "OfflineReason2": false,
-          "Online": false,
-          "SystemBusy": false,
-          "InspectionCompleted": false,
-          "ResultsBufferOverrun": false,
-          "ResultsValid": false,
-          "CommandExecuting": false,
-          "CommandCompleted": false,
-          "CommandFailed": false,
-          "Error": true,
-          "SetUserDataAck": false,
-          "ExposureComplete": true,
-          "JobPass": false,
-          "TestRunReady": false,
-          "SoftEventAck0": false,
-          "SoftEventAck1": false,
-          "SoftEventAck2": false,
-          "SoftEventAck3": false,
-          "SoftEventAck4": false,
-          "SoftEventAck5": false,
-          "SoftEventAck6": false,
-          "SoftEventAck7": false,
-          "ErrorCode": 257,
-          "NotUsedB6B7": null,
-          "CurrentJobID": -1,
-          "AcquisitionID": -432,
-          "InspectionID": 0,
-          "InspectionResultCode": 0
-        },
-        "InspectionResults": 0
-      },
-      "read_error": "Status: NotUsedB6B7: IOI syntax error. A syntax error was detected decoding the Request Path (see extended status) - Extended status out of memory  (04, 00)"
+        "LostControllerToDriveTransmissions": 0,
+        "LateControllerToDriveTransmissions": 0,
+        "LostDriveToControllerTransmissions": 0,
+        "LateDriveToControllerTransmissions": 0,
+        "LastControllerToDriveTime": 0,
+        "AverageControllerToDriveTime": 0,
+        "MaximumControllerToDriveTime": 0,
+        "LastDriveToControllerTime": 0,
+        "AverageDriveToControllerTime": 0,
+        "MaximumDriveToControllerTime": 0,
+        "LastSystemClockJitter": 0,
+        "AverageSystemClockJitter": 0,
+        "MaximumSystemClockJitter": 0,
+        "TimingStatisticsEnabled": 0,
+        "ControllerToDriveConnectionSize": 48,
+        "DriveToControllerConnectionSize": 68,
+        "NominalControllerToDriveTime": 1000,
+        "NominalDriveToControllerTime": 1000,
+        "CoarseUpdatePeriod": 2000
+      }
     },
     {
-      "name": "DUNE2CAM1:O",
-      "fully_qualified_name": "DUNE2CAM1:O",
+      "name": "DUNEW2SERVO2:SI",
+      "fully_qualified_name": "DUNEW2SERVO2:SI",
       "tag_type": "struct",
-      "data_type_name": "CC:InSight11_DINT8:O:0",
+      "data_type_name": "AB:CIP_Motion_Device_Safety2:SI:0",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "udt_name": "CC:InSight11_DINT8:O:0",
-      "value": {
-        "Control": {
-          "Control": 3,
-          "TriggerEnable": true,
-          "Trigger": true,
-          "ResultsBufferEnable": false,
-          "InspectionResultsAck": false,
-          "ExecuteCommand": false,
-          "SetOffline": false,
-          "SetUserData": false,
-          "ClearError": false,
-          "ClearExposureComplete": false,
-          "SoftEvent0": false,
-          "SoftEvent1": false,
-          "SoftEvent2": false,
-          "SoftEvent3": false,
-          "SoftEvent4": false,
-          "SoftEvent5": false,
-          "SoftEvent6": false,
-          "SoftEvent7": false,
-          "Command": 0,
-          "NotUsedB6B7": null
-        },
-        "UserData": 0
-      },
-      "read_error": "Control: NotUsedB6B7: IOI syntax error. A syntax error was detected decoding the Request Path (see extended status) - Extended status out of memory  (04, 00)"
-    },
-    {
-      "name": "DUNEW2PLC2:1:I",
-      "fully_qualified_name": "DUNEW2PLC2:1:I",
-      "tag_type": "struct",
-      "data_type_name": "AB:1734_IB8S_Safety2:I:0",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "AB:1734_IB8S_Safety2:I:0",
+      "udt_name": "AB:CIP_Motion_Device_Safety2:SI:0",
       "value": {
         "ConnectionStatus": 1,
         "RunMode": true,
         "ConnectionFaulted": false,
-        "PtData": 63,
-        "Pt00Data": true,
-        "Pt01Data": true,
-        "Pt02Data": true,
-        "Pt03Data": true,
-        "Pt04Data": true,
-        "Pt05Data": true,
-        "Pt06Data": false,
-        "Pt07Data": false,
-        "PtStatus": -1,
-        "Pt00Status": true,
-        "Pt01Status": true,
-        "Pt02Status": true,
-        "Pt03Status": true,
-        "Pt04Status": true,
-        "Pt05Status": true,
-        "Pt06Status": true,
-        "Pt07Status": true
+        "FeedbackPosition1": 2308,
+        "FeedbackVelocity1": 0.0,
+        "SecondaryFeedbackPosition1": 0,
+        "SecondaryFeedbackVelocity1": 0.0,
+        "FeedbackPosition2": 0,
+        "FeedbackVelocity2": 0.0,
+        "SecondaryFeedbackPosition2": 0,
+        "SecondaryFeedbackVelocity2": 0.0,
+        "StopStatus1": 0,
+        "STOActive1": false,
+        "SBCActive1": false,
+        "SS1Active1": false,
+        "SS2Active1": false,
+        "SOSStandstill1": false,
+        "SMTOvertemp1": false,
+        "SafetyFault1": false,
+        "RestartRequired1": false,
+        "SafeStatus1": 0,
+        "TorqueDisabled1": false,
+        "BrakeEngaged1": false,
+        "MotionStatus1": 0,
+        "MotionPositive1": false,
+        "MotionNegative1": false,
+        "FunctionSupport1": 17,
+        "PrimaryFeedbackValid1": true,
+        "SecondaryFeedbackValid1": false,
+        "DiscrepancyCheckingActive1": false,
+        "SBCReady1": false,
+        "SS1Ready1": true,
+        "SS2Ready1": false,
+        "SOSReady1": false,
+        "SMTReady1": false,
+        "StopStatus2": -127,
+        "STOActive2": true,
+        "SBCActive2": false,
+        "SS1Active2": false,
+        "SS2Active2": false,
+        "SOSStandstill2": false,
+        "SMTOvertemp2": false,
+        "SafetyFault2": false,
+        "RestartRequired2": true,
+        "SafeStatus2": 1,
+        "TorqueDisabled2": true,
+        "BrakeEngaged2": false,
+        "MotionStatus2": 0,
+        "MotionPositive2": false,
+        "MotionNegative2": false,
+        "FunctionSupport2": 16,
+        "PrimaryFeedbackValid2": false,
+        "SecondaryFeedbackValid2": false,
+        "DiscrepancyCheckingActive2": false,
+        "SBCReady2": false,
+        "SS1Ready2": true,
+        "SS2Ready2": false,
+        "SOSReady2": false,
+        "SMTReady2": false
       }
     },
     {
-      "name": "DUNEW2PLC2:1:O",
-      "fully_qualified_name": "DUNEW2PLC2:1:O",
+      "name": "DUNEW2SERVO2:SO",
+      "fully_qualified_name": "DUNEW2SERVO2:SO",
       "tag_type": "struct",
-      "data_type_name": "AB:1734_IB8S:O:0",
+      "data_type_name": "AB:CIP_Motion_Device_Safety2:SO:0",
       "dimensions": [
         0,
         0,
         0
       ],
       "array_dimensions": 0,
-      "udt_name": "AB:1734_IB8S:O:0",
+      "udt_name": "AB:CIP_Motion_Device_Safety2:SO:0",
       "value": {
-        "TestData": 0,
-        "Test00Data": false,
-        "Test01Data": false,
-        "Test02Data": false,
-        "Test03Data": false
-      }
-    },
-    {
-      "name": "DUNEW2PLC2:2:I",
-      "fully_qualified_name": "DUNEW2PLC2:2:I",
-      "tag_type": "struct",
-      "data_type_name": "AB:1734_OB8S_Safety1:I:0",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "AB:1734_OB8S_Safety1:I:0",
-      "value": {
-        "ConnectionStatus": 1,
-        "RunMode": true,
-        "ConnectionFaulted": false,
-        "PtOutputStatus": -1,
-        "Pt00OutputStatus": true,
-        "Pt01OutputStatus": true,
-        "Pt02OutputStatus": true,
-        "Pt03OutputStatus": true,
-        "Pt04OutputStatus": true,
-        "Pt05OutputStatus": true,
-        "Pt06OutputStatus": true,
-        "Pt07OutputStatus": true
-      }
-    },
-    {
-      "name": "DUNEW2PLC2:2:O",
-      "fully_qualified_name": "DUNEW2PLC2:2:O",
-      "tag_type": "struct",
-      "data_type_name": "AB:1734_OB8S:O:0",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "AB:1734_OB8S:O:0",
-      "value": {
-        "PtData": 0,
-        "Pt00Data": false,
-        "Pt01Data": false,
-        "Pt02Data": false,
-        "Pt03Data": false,
-        "Pt04Data": false,
-        "Pt05Data": false,
-        "Pt06Data": false,
-        "Pt07Data": false
+        "PassThruDataA1": 0,
+        "PassThruDataB1": 0,
+        "PassThruDataA2": 0,
+        "PassThruDataB2": 0,
+        "PassThruStopStatus1": 0,
+        "SBCIntegrity1": false,
+        "SBCActive1": false,
+        "SBCBrakeEngaged1": false,
+        "SS1Active1": false,
+        "SS2Active1": false,
+        "SOSActive1": false,
+        "SOSStandstill1": false,
+        "PassThruSpeedLimitStatus1": 0,
+        "SSMActive1": false,
+        "SSMStatus1": false,
+        "SLSActive1": false,
+        "SLSLimit1": false,
+        "SDIActive1": false,
+        "SDILimit1": false,
+        "PassThruPositionLimitStatus1": 0,
+        "SCAActive1": false,
+        "SCAStatus1": false,
+        "SLPActive1": false,
+        "SLPLimit1": false,
+        "SFHomed1": false,
+        "PassThruStopFaults1": 0,
+        "SFXFault1": false,
+        "SBCFault1": false,
+        "SS1Fault1": false,
+        "SS2Fault1": false,
+        "SOSFault1": false,
+        "PassThruLimitFaults1": 0,
+        "SSMFault1": false,
+        "SLSFault1": false,
+        "SDIFault1": false,
+        "SCAFault1": false,
+        "SLPFault1": false,
+        "SafetyStopFunctions1": 1,
+        "STOOutput1": true,
+        "SBCOutput1": false,
+        "SS1Request1": false,
+        "SS2Request1": false,
+        "SOSRequest1": false,
+        "SMTRequest1": false,
+        "ResetRequest1": false,
+        "PassThruStopStatus2": 0,
+        "SBCIntegrity2": false,
+        "SBCActive2": false,
+        "SBCBrakeEngaged2": false,
+        "SS1Active2": false,
+        "SS2Active2": false,
+        "SOSActive2": false,
+        "SOSStandstill2": false,
+        "PassThruSpeedLimitStatus2": 0,
+        "SSMActive2": false,
+        "SSMStatus2": false,
+        "SLSActive2": false,
+        "SLSLimit2": false,
+        "SDIActive2": false,
+        "SDILimit2": false,
+        "PassThruPositionLimitStatus2": 0,
+        "SCAActive2": false,
+        "SCAStatus2": false,
+        "SLPActive2": false,
+        "SLPLimit2": false,
+        "SFHomed2": false,
+        "PassThruStopFaults2": 0,
+        "SFXFault2": false,
+        "SBCFault2": false,
+        "SS1Fault2": false,
+        "SS2Fault2": false,
+        "SOSFault2": false,
+        "PassThruLimitFaults2": 0,
+        "SSMFault2": false,
+        "SLSFault2": false,
+        "SDIFault2": false,
+        "SCAFault2": false,
+        "SLPFault2": false,
+        "SafetyStopFunctions2": 0,
+        "STOOutput2": false,
+        "SBCOutput2": false,
+        "SS1Request2": false,
+        "SS2Request2": false,
+        "SOSRequest2": false,
+        "SMTRequest2": false,
+        "ResetRequest2": false
       }
     },
     {
@@ -92397,7 +92499,7 @@
         "FeedbackVelocity1": 0.0,
         "SecondaryFeedbackPosition1": 0,
         "SecondaryFeedbackVelocity1": 0.0,
-        "FeedbackPosition2": 124,
+        "FeedbackPosition2": 14,
         "FeedbackVelocity2": 0.0,
         "SecondaryFeedbackPosition2": 0,
         "SecondaryFeedbackVelocity2": 0.0,
@@ -92553,108 +92655,6 @@
       }
     },
     {
-      "name": "DUNEW2NETSW:I",
-      "fully_qualified_name": "DUNEW2NETSW:I",
-      "tag_type": "struct",
-      "data_type_name": "AB:STRATIX_5700_10PORT_GB_MANAGED:I:0",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "AB:STRATIX_5700_10PORT_GB_MANAGED:I:0",
-      "value": {
-        "Fault": 0,
-        "LinkStatus": 31,
-        "AnyPortConnected": true,
-        "PortFa1_1Connected": true,
-        "PortFa1_2Connected": true,
-        "PortFa1_3Connected": true,
-        "PortFa1_4Connected": true,
-        "PortFa1_5Connected": false,
-        "PortFa1_6Connected": false,
-        "PortFa1_7Connected": false,
-        "PortFa1_8Connected": false,
-        "PortGi1_1Connected": false,
-        "PortGi1_2Connected": false,
-        "UnauthorizedDevice": 0,
-        "AnyPortUnauthorizedDevice": false,
-        "PortFa1_1UnauthorizedDevice": false,
-        "PortFa1_2UnauthorizedDevice": false,
-        "PortFa1_3UnauthorizedDevice": false,
-        "PortFa1_4UnauthorizedDevice": false,
-        "PortFa1_5UnauthorizedDevice": false,
-        "PortFa1_6UnauthorizedDevice": false,
-        "PortFa1_7UnauthorizedDevice": false,
-        "PortFa1_8UnauthorizedDevice": false,
-        "PortGi1_1UnauthorizedDevice": false,
-        "PortGi1_2UnauthorizedDevice": false,
-        "ThresholdExceeded": 0,
-        "AnyPortThreshold": false,
-        "PortFa1_1Threshold": false,
-        "PortFa1_2Threshold": false,
-        "PortFa1_3Threshold": false,
-        "PortFa1_4Threshold": false,
-        "PortFa1_5Threshold": false,
-        "PortFa1_6Threshold": false,
-        "PortFa1_7Threshold": false,
-        "PortFa1_8Threshold": false,
-        "PortGi1_1Threshold": false,
-        "PortGi1_2Threshold": false,
-        "AllPortsUtilization": 0,
-        "PortFa1_1Utilization": 2,
-        "PortFa1_2Utilization": 0,
-        "PortFa1_3Utilization": 1,
-        "PortFa1_4Utilization": 0,
-        "PortFa1_5Utilization": 0,
-        "PortFa1_6Utilization": 0,
-        "PortFa1_7Utilization": 0,
-        "PortFa1_8Utilization": 0,
-        "PortGi1_1Utilization": 0,
-        "PortGi1_2Utilization": 0,
-        "SVI1Utilization": null,
-        "AlarmRelay": 0,
-        "MajorAlarmRelay": false,
-        "MulticastGroupsActive": 2
-      },
-      "read_error": "SVI1Utilization: IOI syntax error. A syntax error was detected decoding the Request Path (see extended status) - Extended status out of memory  (04, 00)"
-    },
-    {
-      "name": "DUNEW2AMP:S",
-      "fully_qualified_name": "DUNEW2AMP:S",
-      "tag_type": "struct",
-      "data_type_name": "AB:MotionDevice_Diagnostics:S:0",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "AB:MotionDevice_Diagnostics:S:0",
-      "value": {
-        "LostControllerToDeviceTransmissions": 0,
-        "LateControllerToDeviceTransmissions": 0,
-        "LostDeviceToControllerTransmissions": 0,
-        "LateDeviceToControllerTransmissions": 0,
-        "LastControllerToDeviceTime": 0,
-        "AverageControllerToDeviceTime": 0,
-        "MaximumControllerToDeviceTime": 0,
-        "LastDeviceToControllerTime": 0,
-        "AverageDeviceToControllerTime": 0,
-        "MaximumDeviceToControllerTime": 0,
-        "LastSystemClockJitter": 0,
-        "AverageSystemClockJitter": 0,
-        "MaximumSystemClockJitter": 0,
-        "TimingStatisticsEnabled": 0,
-        "ControllerToDeviceConnectionSize": 36,
-        "DeviceToControllerConnectionSize": 36,
-        "NominalControllerToDeviceTime": 1000,
-        "NominalDeviceToControllerTime": 1000,
-        "CoarseUpdatePeriod": 2000
-      }
-    },
-    {
       "name": "AbortQueue",
       "fully_qualified_name": "AbortQueue",
       "tag_type": "atomic",
@@ -92705,24 +92705,11 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 1
+      "value": 3
     },
     {
       "name": "ALL_EOT_GOOD",
       "fully_qualified_name": "ALL_EOT_GOOD",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": true
-    },
-    {
-      "name": "always_regulate_speed",
-      "fully_qualified_name": "always_regulate_speed",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "dimensions": [
@@ -92747,45 +92734,6 @@
       "value": true
     },
     {
-      "name": "auto_retract_z",
-      "fully_qualified_name": "auto_retract_z",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": true
-    },
-    {
-      "name": "a_actual",
-      "fully_qualified_name": "a_actual",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 700.0062255859375
-    },
-    {
-      "name": "a_signed",
-      "fully_qualified_name": "a_signed",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": -243.8571319580078
-    },
-    {
       "name": "blink_off",
       "fully_qualified_name": "blink_off",
       "tag_type": "struct",
@@ -92799,9 +92747,9 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 500,
-        "ACC": 0,
-        "EN": false,
-        "TT": false,
+        "ACC": 339,
+        "EN": true,
+        "TT": true,
         "DN": false
       }
     },
@@ -92819,10 +92767,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 500,
-        "ACC": 130,
+        "ACC": 500,
         "EN": true,
-        "TT": true,
-        "DN": false
+        "TT": false,
+        "DN": true
       }
     },
     {
@@ -92836,7 +92784,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 450
+      "value": 440
     },
     {
       "name": "btm_support_collision_ymin",
@@ -92850,19 +92798,6 @@
       ],
       "array_dimensions": 0,
       "value": 80
-    },
-    {
-      "name": "bypass_xy_move",
-      "fully_qualified_name": "bypass_xy_move",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": true
     },
     {
       "name": "CAM_F_EN",
@@ -92948,7 +92883,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0.5658434629440308
+      "value": 0.0
     },
     {
       "name": "current_command_high",
@@ -92994,26 +92929,6 @@
         "EN": false,
         "TT": false,
         "DN": false
-      }
-    },
-    {
-      "name": "dummy",
-      "fully_qualified_name": "dummy",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 1,
-        "ACC": 1,
-        "EN": true,
-        "TT": false,
-        "DN": true
       }
     },
     {
@@ -93834,11 +93749,11 @@
         "ModuleFault": false,
         "ConfigFault": false,
         "TaskMaxScanTime": 329,
-        "TaskLastScanTime": 126,
-        "TaskLastIOTime": 83,
-        "TaskMaxIOTime": 182,
-        "TaskAverageScanTime": 120,
-        "TaskAverageIOTime": 78
+        "TaskLastScanTime": 110,
+        "TaskLastIOTime": 73,
+        "TaskMaxIOTime": 215,
+        "TaskAverageScanTime": 117,
+        "TaskAverageIOTime": 77
       }
     },
     {
@@ -93852,7 +93767,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "Enable_SFX",
@@ -93892,59 +93807,6 @@
       ],
       "array_dimensions": 0,
       "value": false
-    },
-    {
-      "name": "eot_inc",
-      "fully_qualified_name": "eot_inc",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 500,
-        "ACC": 500,
-        "EN": true,
-        "TT": false,
-        "DN": true
-      }
-    },
-    {
-      "name": "eot_pass",
-      "fully_qualified_name": "eot_pass",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "eot_pause",
-      "fully_qualified_name": "eot_pause",
-      "tag_type": "struct",
-      "data_type_name": "TIMER",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "TIMER",
-      "value": {
-        "PRE": 500,
-        "ACC": 157,
-        "EN": true,
-        "TT": true,
-        "DN": false
-      }
     },
     {
       "name": "ERROR_CODE",
@@ -94023,7 +93885,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "FRAME_LOC_FT_TOP",
@@ -94088,20 +93950,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 16.124513626098633
-    },
-    {
-      "name": "gui_latch_pulse",
-      "fully_qualified_name": "gui_latch_pulse",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
+      "value": 28.284269332885742
     },
     {
       "name": "gui_stop",
@@ -94145,7 +93994,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0
+      "value": -1
     },
     {
       "name": "HomeTrigger",
@@ -94221,19 +94070,6 @@
       "value": 4861
     },
     {
-      "name": "IncomingSegStrobe",
-      "fully_qualified_name": "IncomingSegStrobe",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
       "name": "INIT_DONE",
       "fully_qualified_name": "INIT_DONE",
       "tag_type": "atomic",
@@ -94247,122 +94083,6 @@
       "value": true
     },
     {
-      "name": "INPUTS2",
-      "fully_qualified_name": "INPUTS2",
-      "tag_type": "struct",
-      "data_type_name": "AB:5000_DI16:I:0",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "udt_name": "AB:5000_DI16:I:0",
-      "value": {
-        "InfoBits": 1,
-        "RunMode": true,
-        "ConnectionFaulted": false,
-        "DiagnosticActive": false,
-        "DiagnosticSequenceCount": 0,
-        "Pt00": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt01": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt02": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt03": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt04": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt05": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt06": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt07": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt08": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt09": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt10": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt11": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt12": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt13": {
-          "DataBits": 0,
-          "Data": false,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt14": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        },
-        "Pt15": {
-          "DataBits": 1,
-          "Data": true,
-          "Fault": false,
-          "Uncertain": false
-        }
-      }
-    },
-    {
       "name": "J",
       "fully_qualified_name": "J",
       "tag_type": "atomic",
@@ -94373,7 +94093,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 1300.0
+      "value": 2000.0
     },
     {
       "name": "LastIncomingSegReqID",
@@ -94389,47 +94109,8 @@
       "value": 4861
     },
     {
-      "name": "LastIncomingSegStrobe",
-      "fully_qualified_name": "LastIncomingSegStrobe",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "LAST_STATE",
-      "fully_qualified_name": "LAST_STATE",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0
-    },
-    {
       "name": "latching_in_progress",
       "fully_qualified_name": "latching_in_progress",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "LATCH_ACTUATOR_BOTTOM",
-      "fully_qualified_name": "LATCH_ACTUATOR_BOTTOM",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "dimensions": [
@@ -94477,33 +94158,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "latch_ouput",
-      "fully_qualified_name": "latch_ouput",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "less_than_tension",
-      "fully_qualified_name": "less_than_tension",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0.06755724549293518
+      "value": true
     },
     {
       "name": "MACHINE_SW_STAT",
@@ -94517,20 +94172,6 @@
       ],
       "array_dimensions": 1,
       "value": false
-    },
-    {
-      "name": "MAS",
-      "fully_qualified_name": "MAS",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "description": "Motion Axis Stop",
-      "value": true
     },
     {
       "name": "MASTER_Z_GO",
@@ -94748,19 +94389,6 @@
       "value": true
     },
     {
-      "name": "min_loadcell_readout",
-      "fully_qualified_name": "min_loadcell_readout",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0.8999999761581421
-    },
-    {
       "name": "MORE_STATS",
       "fully_qualified_name": "MORE_STATS",
       "tag_type": "atomic",
@@ -94825,58 +94453,6 @@
       ],
       "array_dimensions": 0,
       "value": 2.5
-    },
-    {
-      "name": "neutral_cv_percentage",
-      "fully_qualified_name": "neutral_cv_percentage",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 25
-    },
-    {
-      "name": "New_Jog_Speed_Neg",
-      "fully_qualified_name": "New_Jog_Speed_Neg",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": -50
-    },
-    {
-      "name": "New_Jog_Speed_Pos",
-      "fully_qualified_name": "New_Jog_Speed_Pos",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 50.0
-    },
-    {
-      "name": "New_Speed",
-      "fully_qualified_name": "New_Speed",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 25
     },
     {
       "name": "NextIssueAckTON",
@@ -94964,19 +94540,6 @@
       "value": true
     },
     {
-      "name": "nullbit",
-      "fully_qualified_name": "nullbit",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": true
-    },
-    {
       "name": "overtension_timer",
       "fully_qualified_name": "overtension_timer",
       "tag_type": "struct",
@@ -95036,19 +94599,6 @@
       "value": 0.0
     },
     {
-      "name": "pid_cv_out",
-      "fully_qualified_name": "pid_cv_out",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 2.5
-    },
-    {
       "name": "PID_LOOP_TIMER",
       "fully_qualified_name": "PID_LOOP_TIMER",
       "tag_type": "struct",
@@ -95061,38 +94611,12 @@
       "array_dimensions": 0,
       "udt_name": "TIMER",
       "value": {
-        "PRE": 3,
-        "ACC": 2,
+        "PRE": 1,
+        "ACC": 0,
         "EN": true,
         "TT": true,
         "DN": false
       }
-    },
-    {
-      "name": "pid_loop_timer_bypass",
-      "fully_qualified_name": "pid_loop_timer_bypass",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "pid_start_bias",
-      "fully_qualified_name": "pid_start_bias",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
     },
     {
       "name": "PLUS_X_EOT",
@@ -96069,32 +95593,6 @@
       "value": false
     },
     {
-      "name": "SLS_speed",
-      "fully_qualified_name": "SLS_speed",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 25
-    },
-    {
-      "name": "sometag",
-      "fully_qualified_name": "sometag",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
       "name": "speed_regulator_switch",
       "fully_qualified_name": "speed_regulator_switch",
       "tag_type": "atomic",
@@ -96134,32 +95632,6 @@
       "array_dimensions": 0,
       "description": "CURRENT State Machine State",
       "value": 1
-    },
-    {
-      "name": "STATE8_IND",
-      "fully_qualified_name": "STATE8_IND",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "STATE_ENTRY_COUNTER",
-      "fully_qualified_name": "STATE_ENTRY_COUNTER",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0
     },
     {
       "name": "STATE_FAULT_FLAGS",
@@ -96297,7 +95769,7 @@
       ],
       "array_dimensions": 0,
       "description": "wire tension from load cell (N)",
-      "value": 6.004499435424805
+      "value": 0.6071692705154419
     },
     {
       "name": "TENSION_CONTROL_OK",
@@ -96310,20 +95782,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": true
-    },
-    {
-      "name": "tension_limited_speed",
-      "fully_qualified_name": "tension_limited_speed",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0.0
+      "value": false
     },
     {
       "name": "tension_motor_curr_override",
@@ -96349,20 +95808,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 5.306112766265869
-    },
-    {
-      "name": "tension_motor_out",
-      "fully_qualified_name": "tension_motor_out",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 5.306112766265869
+      "value": 2.5
     },
     {
       "name": "tension_off_oneshot",
@@ -96401,7 +95847,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "tension_on_switch_delay_on_start",
@@ -96416,11 +95862,11 @@
       "array_dimensions": 0,
       "udt_name": "TIMER",
       "value": {
-        "PRE": 1000,
-        "ACC": 1000,
-        "EN": true,
+        "PRE": 500,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     },
     {
@@ -96437,19 +95883,6 @@
       "value": 6.0
     },
     {
-      "name": "tension_stabilizing",
-      "fully_qualified_name": "tension_stabilizing",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": true
-    },
-    {
       "name": "tension_stable_timer",
       "fully_qualified_name": "tension_stable_timer",
       "tag_type": "struct",
@@ -96463,10 +95896,10 @@
       "udt_name": "TIMER",
       "value": {
         "PRE": 10,
-        "ACC": 10,
-        "EN": true,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     },
     {
@@ -96481,7 +95914,7 @@
       ],
       "array_dimensions": 0,
       "description": "wire tension (N)",
-      "value": 5.682474613189697
+      "value": 0.002138832351192832
     },
     {
       "name": "top_support_collision_ymax",
@@ -96520,7 +95953,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 0.0
+      "value": 0.0707106739282608
     },
     {
       "name": "v_xy",
@@ -96534,7 +95967,7 @@
       ],
       "array_dimensions": 0,
       "description": "velocity of winding head in xy plane",
-      "value": 0.0
+      "value": 0.0707106739282608
     },
     {
       "name": "v_xyz",
@@ -96548,7 +95981,7 @@
       ],
       "array_dimensions": 0,
       "description": "Velocity of winding head in xyz space",
-      "value": 0.0
+      "value": 0.0707106739282608
     },
     {
       "name": "v_x_max",
@@ -96606,25 +96039,25 @@
         "OLL": false,
         "OLH": false,
         "EWD": false,
-        "DVNA": true,
-        "DVPA": false,
+        "DVNA": false,
+        "DVPA": true,
         "PVLA": false,
         "PVHA": false,
         "SP": 6.0,
         "KP": 0.0,
-        "KI": 0.2800000011920929,
-        "KD": 0.07000000029802322,
+        "KI": 0.10999999940395355,
+        "KD": 0.05000000074505806,
         "BIAS": 25.0,
         "MAXS": 11.0,
         "MINS": 0.0,
         "DB": 0.0,
-        "SO": 53.061126708984375,
+        "SO": 25.161785125732422,
         "MAXO": 100.0,
         "MINO": 0.0,
         "UPD": 0.029999999329447746,
-        "PV": 6.004499435424805,
-        "ERR": -0.0044994354248046875,
-        "OUT": 53.061126708984375,
+        "PV": 0.6071692705154419,
+        "ERR": 5.392830848693848,
+        "OUT": 25.161785125732422,
         "PVH": 10.0,
         "PVL": 0.0,
         "DVP": 0.0,
@@ -96639,20 +96072,20 @@
         "MINTIE": 0.0,
         "MAXTIE": 10.0,
         "DATA": [
-          28.29853630065918,
-          -0.4170558452606201,
-          6.004499435424805,
-          -0.0044994354248046875,
+          0.0,
+          784.4117431640625,
+          0.6071692705154419,
+          5.392830848693848,
           6.0,
           9.090909004211426,
           1.0,
-          0.550000011920929,
+          0.5299999713897705,
           0.0,
-          0.2800000011920929,
-          0.07000000029802322,
+          0.10999999940395355,
+          0.05000000074505806,
           0.0,
-          0.2800000011920929,
-          0.07000000029802322,
+          0.10999999940395355,
+          0.05000000074505806,
           0.0,
           0.10000000149011612,
           10.0
@@ -96670,7 +96103,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": 1.7999999523162842
+      "value": 1.5
     },
     {
       "name": "wire_tensioned",
@@ -96683,7 +96116,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "xyz",
@@ -96728,7 +96161,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 0,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": 0.00419999985024333,
+        "ActualPosition": -9.999999747378752e-05,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -96762,74 +96195,6 @@
       "array_dimensions": 0,
       "description": "Maximum negative acceleration for position move.",
       "value": 2000.0
-    },
-    {
-      "name": "XY_DECELERATION_SLS",
-      "fully_qualified_name": "XY_DECELERATION_SLS",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 200.0
-    },
-    {
-      "name": "XY_DECEL_REQ",
-      "fully_qualified_name": "XY_DECEL_REQ",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0.0
-    },
-    {
-      "name": "XY_MAX_ACCELERATION",
-      "fully_qualified_name": "XY_MAX_ACCELERATION",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "description": "Maximum positive acceleration for position move.",
-      "value": 0.0
-    },
-    {
-      "name": "XY_MAX_DECELERATION",
-      "fully_qualified_name": "XY_MAX_DECELERATION",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "description": "Maximum negative acceleration for position move.",
-      "value": 0.0
-    },
-    {
-      "name": "XY_MAX_VELOCITY",
-      "fully_qualified_name": "XY_MAX_VELOCITY",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "description": "Maximum velocity for position move.",
-      "value": 0.0
     },
     {
       "name": "xy_regulated_acceleration",
@@ -96903,11 +96268,11 @@
         "ReadyStatus": false,
         "MotionStatus": false,
         "AxisInhibitStatus": false,
-        "CoordinateMotionStatus": 0,
+        "CoordinateMotionStatus": 12,
         "AccelStatus": false,
         "DecelStatus": false,
-        "ActualPosToleranceStatus": false,
-        "CommandPosToleranceStatus": false,
+        "ActualPosToleranceStatus": true,
+        "CommandPosToleranceStatus": true,
         "StoppingStatus": false,
         "MoveStatus": false,
         "MoveTransitionStatus": false,
@@ -96928,7 +96293,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 0,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": 0.00430000014603138,
+        "ActualPosition": -9.999999747378752e-05,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -96946,7 +96311,7 @@
         0
       ],
       "array_dimensions": 1,
-      "value": -0.0016999974614009261
+      "value": 6300.0
     },
     {
       "name": "xz_speed",
@@ -96960,19 +96325,6 @@
       ],
       "array_dimensions": 0,
       "value": 300
-    },
-    {
-      "name": "xz_trigger_move",
-      "fully_qualified_name": "xz_trigger_move",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
     },
     {
       "name": "X_axis",
@@ -97050,10 +96402,10 @@
         "OutputCamPendingStatus": 0,
         "OutputCamLockStatus": 0,
         "OutputCamTransitionStatus": 0,
-        "ActualPosition": 0.00430000014603138,
+        "ActualPosition": -9.999999747378752e-05,
         "StrobeActualPosition": 0.0,
-        "StartActualPosition": 0.003800000064074993,
-        "AverageVelocity": 0.0004032258002553135,
+        "StartActualPosition": 0.0005000000237487257,
+        "AverageVelocity": 0.0,
         "ActualVelocity": 0.0,
         "ActualAcceleration": 0.0,
         "WatchPosition": 0.0,
@@ -97075,9 +96427,9 @@
         "MasterOffset": 0.0,
         "StrobeMasterOffset": 0.0,
         "StartMasterOffset": 0.0,
-        "CommandPosition": 0.00430000014603138,
+        "CommandPosition": -9.999999747378752e-05,
         "StrobeCommandPosition": 0.0,
-        "StartCommandPosition": 0.003700000001117587,
+        "StartCommandPosition": -0.0,
         "DirectCommandVelocity": 0.0,
         "CommandVelocity": 0.0,
         "CommandAcceleration": 0.0,
@@ -97873,19 +97225,6 @@
       "value": 0.0
     },
     {
-      "name": "X_DIR",
-      "fully_qualified_name": "X_DIR",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0
-    },
-    {
       "name": "X_PARKED",
       "fully_qualified_name": "X_PARKED",
       "tag_type": "atomic",
@@ -97896,37 +97235,11 @@
         0
       ],
       "array_dimensions": 0,
-      "value": false
-    },
-    {
-      "name": "X_PARK_OK",
-      "fully_qualified_name": "X_PARK_OK",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
+      "value": true
     },
     {
       "name": "X_POSITION",
       "fully_qualified_name": "X_POSITION",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0.0
-    },
-    {
-      "name": "X_SPEED",
-      "fully_qualified_name": "X_SPEED",
       "tag_type": "atomic",
       "data_type_name": "REAL",
       "dimensions": [
@@ -97994,7 +97307,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 0,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": 0.00430000014603138,
+        "ActualPosition": -9.999999747378752e-05,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -98044,7 +97357,7 @@
         "AxesShutdownStatus": 0,
         "AxesServoOnStatus": 0,
         "AxesInhibitedStatus": 0,
-        "ActualPosition": -0.00419999985024333,
+        "ActualPosition": -1.5433000326156616,
         "ActiveToolFrameID": 0,
         "ActiveWorkFrameID": 0,
         "TurnsCounters": 0,
@@ -98062,7 +97375,7 @@
         0
       ],
       "array_dimensions": 1,
-      "value": 1902.499755859375
+      "value": 1820.28564453125
     },
     {
       "name": "yz_speed",
@@ -98153,12 +97466,12 @@
         "OutputCamPendingStatus": 0,
         "OutputCamLockStatus": 0,
         "OutputCamTransitionStatus": 0,
-        "ActualPosition": -0.00419999985024333,
+        "ActualPosition": -1.5434000492095947,
         "StrobeActualPosition": 0.0,
-        "StartActualPosition": 0.9591000080108643,
+        "StartActualPosition": 0.0006000000284984708,
         "AverageVelocity": 0.0,
         "ActualVelocity": 0.0,
-        "ActualAcceleration": 0.0,
+        "ActualAcceleration": 24.999998092651367,
         "WatchPosition": 0.0,
         "Registration1Position": 0.0,
         "Registration1PositiveEdgePosition": 0.0,
@@ -98178,9 +97491,9 @@
         "MasterOffset": 0.0,
         "StrobeMasterOffset": 0.0,
         "StartMasterOffset": 0.0,
-        "CommandPosition": -0.00419999985024333,
+        "CommandPosition": -1.5433000326156616,
         "StrobeCommandPosition": 0.0,
-        "StartCommandPosition": 0.965499997138977,
+        "StartCommandPosition": 0.0,
         "DirectCommandVelocity": 0.0,
         "CommandVelocity": 0.0,
         "CommandAcceleration": 0.0,
@@ -98880,19 +98193,6 @@
       "value": 5.75
     },
     {
-      "name": "Y_DIR",
-      "fully_qualified_name": "Y_DIR",
-      "tag_type": "atomic",
-      "data_type_name": "DINT",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0
-    },
-    {
       "name": "Y_MOUNT_XFER_OK",
       "fully_qualified_name": "Y_MOUNT_XFER_OK",
       "tag_type": "atomic",
@@ -98908,19 +98208,6 @@
     {
       "name": "Y_POSITION",
       "fully_qualified_name": "Y_POSITION",
-      "tag_type": "atomic",
-      "data_type_name": "REAL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": 0.0
-    },
-    {
-      "name": "Y_SPEED",
-      "fully_qualified_name": "Y_SPEED",
       "tag_type": "atomic",
       "data_type_name": "REAL",
       "dimensions": [
@@ -99033,12 +98320,12 @@
         "OutputCamPendingStatus": 0,
         "OutputCamLockStatus": 0,
         "OutputCamTransitionStatus": 0,
-        "ActualPosition": 0.0010000000474974513,
+        "ActualPosition": 0.10520000010728836,
         "StrobeActualPosition": 0.0,
-        "StartActualPosition": 0.0,
-        "AverageVelocity": 0.0,
-        "ActualVelocity": 0.0,
-        "ActualAcceleration": -24.999998092651367,
+        "StartActualPosition": 0.0005000000237487257,
+        "AverageVelocity": -0.0004032258002553135,
+        "ActualVelocity": 0.04999999701976776,
+        "ActualAcceleration": -49.999996185302734,
         "WatchPosition": 0.0,
         "Registration1Position": 0.0,
         "Registration1PositiveEdgePosition": 0.0,
@@ -99058,9 +98345,9 @@
         "MasterOffset": 0.0,
         "StrobeMasterOffset": 0.0,
         "StartMasterOffset": 0.0,
-        "CommandPosition": 0.0010999999940395355,
+        "CommandPosition": 0.10520000010728836,
         "StrobeCommandPosition": 0.0,
-        "StartCommandPosition": 0.0010999999940395355,
+        "StartCommandPosition": -0.0,
         "DirectCommandVelocity": 0.0,
         "CommandVelocity": 0.0,
         "CommandAcceleration": 0.0,
@@ -99825,19 +99112,6 @@
       "value": false
     },
     {
-      "name": "Z_OK_TO_ENGAGE",
-      "fully_qualified_name": "Z_OK_TO_ENGAGE",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
       "name": "Z_POSITION",
       "fully_qualified_name": "Z_POSITION",
       "tag_type": "atomic",
@@ -99864,19 +99138,6 @@
       "value": true
     },
     {
-      "name": "Z_SAFE_TO_WITHDRAW",
-      "fully_qualified_name": "Z_SAFE_TO_WITHDRAW",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "value": false
-    },
-    {
       "name": "Z_SPEED",
       "fully_qualified_name": "Z_SPEED",
       "tag_type": "atomic",
@@ -99900,7 +99161,7 @@
         0
       ],
       "array_dimensions": 0,
-      "value": true
+      "value": false
     },
     {
       "name": "Z_STAGE_PRESENT",
@@ -99914,21 +99175,8 @@
       ],
       "array_dimensions": 0,
       "description": "Winding head is on the Z-arm",
-      "value": true
-    },
-    {
-      "name": "Z_STAGE_UNLATCHED",
-      "fully_qualified_name": "Z_STAGE_UNLATCHED",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
       "value": false
     }
   ],
-  "values_generated_at": "2026-07-17T18:47:44.024397+00:00"
+  "values_generated_at": "2026-08-25T20:19:41.367377+00:00"
 }

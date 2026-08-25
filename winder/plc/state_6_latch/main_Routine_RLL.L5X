@@ -1,132 +1,132 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-25 15:19:14.538" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="state_6_latch" Class="Standard">
 <Routines Use="Context">
 <Routine Use="Target" Name="main" Type="RLL">
 <RLLContent>
-<Rung Number="0" Type="N">
+<Rung Number="0" Type="e">
 <Text>
 <![CDATA[XIO(Local:1:I.Pt08.Data)OTE(MACHINE_SW_STAT[12])OTE(LATCH_ACTUATOR_TOP);]]>
 </Text>
 </Rung>
-<Rung Number="1" Type="N">
+<Rung Number="1" Type="e">
 <Text>
 <![CDATA[XIO(Local:1:I.Pt09.Data)OTE(MACHINE_SW_STAT[13])OTE(LATCH_ACTUATOR_MID);]]>
 </Text>
 </Rung>
-<Rung Number="2" Type="N">
+<Rung Number="2" Type="e">
 <Text>
 <![CDATA[XIC(LATCH_ACTUATOR_TOP)XIO(LATCH_ACTUATOR_MID)CPT(ACTUATOR_POS,3);]]>
 </Text>
 </Rung>
-<Rung Number="3" Type="N">
+<Rung Number="3" Type="e">
 <Text>
 <![CDATA[XIC(LATCH_ACTUATOR_TOP)XIC(LATCH_ACTUATOR_MID)TON(delay_mid_position,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="4" Type="N">
+<Rung Number="4" Type="e">
 <Text>
 <![CDATA[XIC(LATCH_ACTUATOR_TOP)XIC(LATCH_ACTUATOR_MID)XIC(delay_mid_position.DN)CPT(ACTUATOR_POS,2);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="5" Type="e">
 <Text>
 <![CDATA[XIO(LATCH_ACTUATOR_TOP)XIO(LATCH_ACTUATOR_MID)XIO(Z_STAGE_LATCHED)CPT(ACTUATOR_POS,0);]]>
 </Text>
 </Rung>
-<Rung Number="6" Type="N">
+<Rung Number="6" Type="e">
 <Text>
 <![CDATA[XIC(Z_STAGE_LATCHED)TON(delay_stage_latched,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="7" Type="N">
+<Rung Number="7" Type="e">
 <Text>
 <![CDATA[XIC(Z_STAGE_LATCHED)XIC(delay_stage_latched.DN)CPT(ACTUATOR_POS,1);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="8" Type="e">
 <Text>
 <![CDATA[XIC(Z_STAGE_PRESENT)XIC(Z_FIXED_PRESENT)XIC(Z_EXTENDED)OTE(head_between_stage_and_fixed);]]>
 </Text>
 </Rung>
-<Rung Number="9" Type="N">
+<Rung Number="9" Type="e">
 <Text>
 <![CDATA[XIO(Z_STAGE_PRESENT)XIC(Z_RETRACTED)OTE(latch_in_free_space);]]>
 </Text>
 </Rung>
-<Rung Number="10" Type="N">
+<Rung Number="10" Type="e">
 <Text>
 <![CDATA[[XIC(head_between_stage_and_fixed) ,XIC(latch_in_free_space) ]OTE(ENABLE_ACTUATOR);]]>
 </Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="11" Type="e">
 <Text>
 <![CDATA[CMP(STATE=6)XIC(ENABLE_ACTUATOR)OTE(latching_in_progress);]]>
 </Text>
 </Rung>
-<Rung Number="12" Type="N">
+<Rung Number="12" Type="e">
 <Text>
 <![CDATA[CMP(STATE=6)XIO(ENABLE_ACTUATOR)CPT(ERROR_CODE,6001)CPT(NEXTSTATE,10);]]>
 </Text>
 </Rung>
-<Rung Number="13" Type="N">
+<Rung Number="13" Type="e">
 <Text>
-<![CDATA[XIC(latching_in_progress)OSR(null,latching_rising_edge);]]>
+<![CDATA[XIC(latching_in_progress)OSR(latching_storage_bit,latching_rising_edge);]]>
 </Text>
 </Rung>
-<Rung Number="14" Type="N">
+<Rung Number="14" Type="e">
 <Text>
 <![CDATA[XIC(latching_rising_edge)CPT(PREV_ACT_POS,ACTUATOR_POS);]]>
 </Text>
 </Rung>
-<Rung Number="15" Type="N">
+<Rung Number="15" Type="e">
 <Text>
 <![CDATA[XIC(latching_rising_edge)RES(LatchingTimeoutCounter);]]>
 </Text>
 </Rung>
-<Rung Number="16" Type="N">
+<Rung Number="16" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)XIC(Latching_pulse_interval.DN)TON(Latching_pulse_duration,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="17" Type="N">
+<Rung Number="17" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)TON(Latching_pulse_interval,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="18" Type="N">
+<Rung Number="18" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)XIC(Latching_pulse_duration.DN)RES(Latching_pulse_interval);]]>
 </Text>
 </Rung>
-<Rung Number="19" Type="N">
+<Rung Number="19" Type="e">
 <Text>
 <![CDATA[[XIC(Latching_pulse_duration.TT) ,XIC(manual_toggle_latch) ]OTE(Local:3:O.Pt01.Data)OTE(latching_signal);]]>
 </Text>
 </Rung>
-<Rung Number="20" Type="N">
+<Rung Number="20" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)XIC(head_between_stage_and_fixed)[CMP(PREV_ACT_POS=1) CMP(ACTUATOR_POS=3) ,CMP(PREV_ACT_POS=3) CMP(ACTUATOR_POS=2) ,CMP(PREV_ACT_POS=2) CMP(ACTUATOR_POS=1) ,CMP(PREV_ACT_POS=0) CMP(ACTUATOR_POS<>0) ]CPT(MOVE_TYPE,0)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,1);]]>
 </Text>
 </Rung>
-<Rung Number="21" Type="N">
+<Rung Number="21" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)XIC(latch_in_free_space)[CMP(PREV_ACT_POS=0) CMP(ACTUATOR_POS=3) ,CMP(PREV_ACT_POS=3) CMP(ACTUATOR_POS=2) ,CMP(PREV_ACT_POS=2) CMP(ACTUATOR_POS=0) ]CPT(MOVE_TYPE,0)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,1);]]>
 </Text>
 </Rung>
-<Rung Number="22" Type="N">
+<Rung Number="22" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)XIO(LatchingTimeoutCounter.DN)TON(one_second_timer,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="23" Type="N">
+<Rung Number="23" Type="e">
 <Text>
 <![CDATA[XIC(latching_in_progress)XIO(LatchingTimeoutCounter.DN)XIC(one_second_timer.DN)RES(one_second_timer)CTU(LatchingTimeoutCounter,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="24" Type="N">
+<Rung Number="24" Type="e">
 <Text>
 <![CDATA[XIC(LatchingTimeoutCounter.DN)XIC(latching_in_progress)CPT(ERROR_CODE,6002)CPT(NEXTSTATE,10)RES(LatchingTimeoutCounter);]]>
 </Text>

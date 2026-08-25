@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "plc_path": null,
+  "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "010c14ff9031689cc05f652e0f9c8b37fdefdf0b816c741ab309a3e4cf740925",
-    "size": 4488632,
-    "last_saved": "2026-07-17 13:42:32.663",
+    "sha256": "270913fab55545bff6c10825f89e48ffe0f7d7c6d693869c97c7c801d96cfa4c",
+    "size": 4554673,
+    "last_saved": "2026-08-25 15:19:14.538",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 152
+    "save_log_entries": 285
   },
   "program_name": "state_11_eot_trip",
   "main_routine_name": "main",
@@ -197,230 +197,6 @@
   ],
   "program_tags": [
     {
-      "name": "auto_edge_0_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_0_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_0_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_0_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_1_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_1_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_1_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_1_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_2_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_2_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_2_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_2_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_3_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_3_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_3_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_3_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_4_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_4_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_4_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_4_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_5_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_5_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_5_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_5_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_6_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_6_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_6_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_6_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_7_ob",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_7_ob",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
-      "name": "auto_edge_7_sb",
-      "fully_qualified_name": "Program:state_11_eot_trip.auto_edge_7_sb",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
-    },
-    {
       "name": "eot_axes_enabled",
       "fully_qualified_name": "Program:state_11_eot_trip.eot_axes_enabled",
       "tag_type": "atomic",
@@ -433,20 +209,6 @@
       "array_dimensions": 0,
       "program": "state_11_eot_trip",
       "value": true
-    },
-    {
-      "name": "eot_entry_manual_pulse",
-      "fully_qualified_name": "Program:state_11_eot_trip.eot_entry_manual_pulse",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_11_eot_trip",
-      "value": false
     },
     {
       "name": "eot_entry_ob",
@@ -1203,9 +965,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 536870912,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1263,11 +1025,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 0,
+        "FLAGS": 671088640,
         "EN": false,
-        "DN": false,
+        "DN": true,
         "ER": false,
-        "PC": false,
+        "PC": true,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1414,9 +1176,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 536870912,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1474,11 +1236,11 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 671088640,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
-        "PC": true,
+        "PC": false,
         "IP": false,
         "AC": false,
         "ACCEL": false,
@@ -1527,9 +1289,9 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_11_eot_trip",
       "value": {
-        "FLAGS": 536870912,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
         "PC": false,
         "IP": false,
@@ -1901,5 +1663,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-07-17T18:47:44.024397+00:00"
+  "values_generated_at": "2026-08-25T20:19:41.367377+00:00"
 }

@@ -2,50 +2,62 @@ routine queued_motion/ArcSweepRad
 
 uses BOOLS, DINTS, REALS  # program scope
 
-REALS[17] = 2.0 * 3.14159265358979
+# PENDING EDIT in Studio
+raw `CPT(REALS[17],2.0*3.14159265358979)`
 
-REALS[910] = REALS[15] - REALS[14]
+# PENDING EDIT in Studio
+raw `CPT(REALS[910],REALS[15]-REALS[14])`
 
-REALS[18] = REALS[910] mod REALS[17]
+# PENDING EDIT in Studio
+raw `MOD(REALS[910],REALS[17],REALS[18])`
 
-REALS[911] = REALS[14] - REALS[15]
+# PENDING EDIT in Studio
+raw `CPT(REALS[911],REALS[14]-REALS[15])`
 
-REALS[19] = REALS[911] mod REALS[17]
+# PENDING EDIT in Studio
+raw `MOD(REALS[911],REALS[17],REALS[19])`
 
-JMP(lbl_else_18) when DINTS[4] != 0
+# PENDING EDIT in Studio
+raw `NEQ(DINTS[4],0)JMP(lbl_else_18)`
 
-REALS[16] = -REALS[19]
+# PENDING EDIT in Studio
+raw `CPT(REALS[16],-REALS[19])`
 
-JMP(lbl_ArcSweepRad_end)
+# PENDING EDIT in Studio
+raw `JMP(lbl_ArcSweepRad_end)`
 
-label lbl_else_18
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_18)NEQ(DINTS[4],1)JMP(lbl_else_20)`
 
-JMP(lbl_else_20) when DINTS[4] != 1
+# PENDING EDIT in Studio
+raw `MOV(REALS[18],REALS[16])`
 
-REALS[16] = REALS[18]
+# PENDING EDIT in Studio
+raw `JMP(lbl_ArcSweepRad_end)`
 
-JMP(lbl_ArcSweepRad_end)
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_20)NEQ(DINTS[4],2)JMP(lbl_else_22)`
 
-label lbl_else_20
+# PENDING EDIT in Studio
+raw `CPT(REALS[16],-REALS[19])`
 
-JMP(lbl_else_22) when DINTS[4] != 2
+# PENDING EDIT in Studio
+raw `JMP(lbl_ArcSweepRad_end)`
 
-REALS[16] = -REALS[19]
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_22)NEQ(DINTS[4],3)JMP(lbl_else_24)`
 
-JMP(lbl_ArcSweepRad_end)
+# PENDING EDIT in Studio
+raw `MOV(REALS[18],REALS[16])`
 
-label lbl_else_22
+# PENDING EDIT in Studio
+raw `JMP(lbl_ArcSweepRad_end)`
 
-JMP(lbl_else_24) when DINTS[4] != 3
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_24)OTU(BOOLS[3])`
 
-REALS[16] = REALS[18]
+# PENDING EDIT in Studio
+raw `JMP(lbl_ArcSweepRad_end)`
 
-JMP(lbl_ArcSweepRad_end)
-
-label lbl_else_24
-
-unlatch BOOLS[3]
-
-JMP(lbl_ArcSweepRad_end)
-
-label lbl_ArcSweepRad_end
+# PENDING EDIT in Studio
+raw `LBL(lbl_ArcSweepRad_end)NOP()`

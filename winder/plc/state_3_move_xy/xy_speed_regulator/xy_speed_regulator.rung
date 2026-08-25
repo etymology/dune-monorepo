@@ -6,45 +6,29 @@ uses regulator_loop_timer, speed_tension_setpoint, trigger_xy_move, v_max, xy_d_
 uses xy_d_term, xy_d_term_prev, xy_d_timer, xy_decel_jerk, xy_default_speed, xy_dt, xy_error  # program scope
 uses xy_error_prev, xy_i_term, xy_kd, xy_ki, xy_kp, xy_p_term, xy_regulated_accel_jerk  # program scope
 
-when trigger_xy_move:
-    coordinated_move X_Y using main_xy_move:
-        type        = absolute
-        target      = X_POSITION
-        speed       = v_max units/s
-        accel       = xy_regulated_acceleration units/s2
-        decel       = xy_regulated_deceleration units/s2
-        profile     = s-curve
-        accel_jerk  = xy_regulated_accel_jerk
-        decel_jerk  = xy_decel_jerk
-        termination = programmed
+# PENDING EDIT in Studio
+raw `XIC(trigger_xy_move)MCLM(X_Y,main_xy_move,0,X_POSITION,v_max,Units per sec,xy_regulated_acceleration,Units per sec2,xy_regulated_deceleration,Units per sec2,S-Curve,xy_regulated_accel_jerk,xy_decel_jerk,Units per sec3,0,Disabled,Programmed,50,0,None,0,0)`
 
-when trigger_xy_move:
-    regulator_loop_timer.PRE = xy_dt
-    xy_d_timer.PRE = xy_d_dt
-    xy_i_term = 0
+# PENDING EDIT in Studio
+raw `XIC(trigger_xy_move)MOV(xy_dt,regulator_loop_timer.PRE)MOV(xy_d_dt,xy_d_timer.PRE)MOV(0,xy_i_term)`
 
-start_timer regulator_loop_timer when not regulator_loop_timer.DN  # preset 1 ms
+# PENDING EDIT in Studio
+raw `XIO(regulator_loop_timer.DN)TON(regulator_loop_timer,1,0)`
 
-start_timer xy_d_timer when not xy_d_timer.DN  # preset 50 ms
+# PENDING EDIT in Studio
+raw `XIO(xy_d_timer.DN)TON(xy_d_timer,50,48)`
 
-when xy_d_timer.DN:
-    d_raw = xy_kd * (xy_error - xy_error_prev) / xy_d_dt * 100
-    xy_d_term = xy_d_alpha * d_raw + (1 - xy_d_alpha) * xy_d_term_prev
-    xy_error_prev = xy_error
-    xy_d_term_prev = xy_d_term
+# PENDING EDIT in Studio
+raw `XIC(xy_d_timer.DN)CPT(d_raw,xy_kd*(xy_error-xy_error_prev)/xy_d_dt*100)CPT(xy_d_term,xy_d_alpha*d_raw+(1-xy_d_alpha)*xy_d_term_prev)MOV(xy_error,xy_error_prev)MOV(xy_d_term,xy_d_term_prev)`
 
-xy_error = speed_tension_setpoint - tension
+# PENDING EDIT in Studio
+raw `CPT(xy_error,speed_tension_setpoint-tension)`
 
-xy_p_term = xy_kp * xy_error when regulator_loop_timer.DN
+# PENDING EDIT in Studio
+raw `XIC(regulator_loop_timer.DN)CPT(xy_p_term,xy_kp*xy_error)`
 
-xy_i_term = xy_i_term + xy_ki * xy_error * xy_dt / 1000 when regulator_loop_timer.DN and (regulated_speed < v_max or xy_error < 0) and (regulated_speed > min_regulated_speed or xy_error > 0)
+# PENDING EDIT in Studio
+raw `XIC(regulator_loop_timer.DN)[LES(regulated_speed,v_max),LES(xy_error,0)][GRT(regulated_speed,min_regulated_speed),GRT(xy_error,0)]CPT(xy_i_term,xy_i_term+(xy_ki*xy_error*xy_dt/1000))[LES(xy_i_term,min_integral)MOV(min_integral,xy_i_term),GRT(xy_i_term,max_integral)MOV(max_integral,xy_i_term)]`
 
-xy_i_term = min_integral when regulator_loop_timer.DN and (regulated_speed < v_max or xy_error < 0) and (regulated_speed > min_regulated_speed or xy_error > 0) and xy_i_term < min_integral
-
-xy_i_term = max_integral when regulator_loop_timer.DN and (regulated_speed < v_max or xy_error < 0) and (regulated_speed > min_regulated_speed or xy_error > 0) and xy_i_term > max_integral
-
-regulated_speed = xy_default_speed + xy_p_term + xy_i_term + xy_d_term when regulator_loop_timer.DN
-
-regulated_speed = v_max when regulator_loop_timer.DN and v_max < regulated_speed
-
-regulated_speed = min_regulated_speed when regulator_loop_timer.DN and regulated_speed < min_regulated_speed
+# PENDING EDIT in Studio
+raw `XIC(regulator_loop_timer.DN)CPT(regulated_speed,xy_default_speed+xy_p_term+xy_i_term+xy_d_term)[LES(v_max,regulated_speed)MOV(v_max,regulated_speed),LES(regulated_speed,min_regulated_speed)MOV(min_regulated_speed,regulated_speed)]`

@@ -6,32 +6,47 @@ uses error_servo_off, error_servoed_off_ob, error_servoed_off_sb, STATE10_IND, x
 uses x_axis_msf, xy_error_stop_control, y_axis_mafr, y_axis_msf, z_axis_error_stop_control  # program scope
 uses z_axis_mafr, z_axis_msf  # program scope
 
-STATE10_IND = INIT_DONE and STATE == 10
+# PENDING EDIT in Studio
+raw `XIC(INIT_DONE)CMP(STATE=10)OTE(STATE10_IND)`
 
-on rising STATE10_IND using error_entry_sb, error_entry_ob:
-    STATE_REQUEST = -1
-    MCS(X_Y, xy_error_stop_control, All, Yes, 1000, "Units per sec2", Yes, 1000, "Units per sec3")
-    MAS(Z_axis, z_axis_error_stop_control, All, Yes, 1000, "Units per sec2", No, 10000, "% of Time")
+# PENDING EDIT in Studio
+raw `XIC(STATE10_IND)OSR(error_entry_sb,error_entry_ob)`
 
-OSR(error_axes_stopped_sb, error_axes_stopped_ob) when xy_error_stop_control.PC and z_axis_error_stop_control.PC
+# PENDING EDIT in Studio
+raw `XIC(error_entry_ob)MOV(-1,STATE_REQUEST)`
 
-servo_off X_axis using x_axis_msf when error_axes_stopped_ob and error_servo_off
+# PENDING EDIT in Studio
+raw `XIC(error_entry_ob)MCS(X_Y,xy_error_stop_control,All,Yes,1000,Units per sec2,Yes,1000,Units per sec3)`
 
-servo_off Y_axis using y_axis_msf when error_axes_stopped_ob and error_servo_off
+# PENDING EDIT in Studio
+raw `XIC(error_entry_ob)MAS(Z_axis,z_axis_error_stop_control,All,Yes,1000,Units per sec2,No,10000,% of Time)`
 
-servo_off Z_axis using z_axis_msf when error_axes_stopped_ob and error_servo_off
+# PENDING EDIT in Studio
+raw `XIC(xy_error_stop_control.PC)XIC(z_axis_error_stop_control.PC)OSR(error_axes_stopped_sb,error_axes_stopped_ob)`
 
-on rising x_axis_msf.DN and y_axis_msf.DN and z_axis_msf.DN and STATE_REQUEST == 0 using error_servoed_off_sb, error_servoed_off_ob:
-    fault_reset Z_axis using z_axis_mafr
+# PENDING EDIT in Studio
+raw `XIC(error_axes_stopped_ob)XIC(error_servo_off)MSF(X_axis,x_axis_msf)`
 
-fault_reset Y_axis using y_axis_mafr when z_axis_mafr.DN
+# PENDING EDIT in Studio
+raw `XIC(error_axes_stopped_ob)XIC(error_servo_off)MSF(Y_axis,y_axis_msf)`
 
-fault_reset X_axis using x_axis_mafr when y_axis_mafr.DN
+# PENDING EDIT in Studio
+raw `XIC(error_axes_stopped_ob)XIC(error_servo_off)MSF(Z_axis,z_axis_msf)`
 
-when z_axis_msf.DN and y_axis_msf.DN and x_axis_msf.DN and STATE_REQUEST == 0 and STATE == 10:
-    ERROR_CODE = 0
-    NEXTSTATE = 1
+# PENDING EDIT in Studio
+raw `XIC(x_axis_msf.DN)XIC(y_axis_msf.DN)XIC(z_axis_msf.DN)CMP(STATE_REQUEST=0)OSR(error_servoed_off_sb,error_servoed_off_ob)`
 
-when STATE == 10 and STATE_REQUEST == 0:
-    ERROR_CODE = 0
-    NEXTSTATE = 1
+# PENDING EDIT in Studio
+raw `XIC(error_servoed_off_ob)MAFR(Z_axis,z_axis_mafr)`
+
+# PENDING EDIT in Studio
+raw `XIC(z_axis_mafr.DN)MAFR(Y_axis,y_axis_mafr)`
+
+# PENDING EDIT in Studio
+raw `XIC(y_axis_mafr.DN)MAFR(X_axis,x_axis_mafr)`
+
+# PENDING EDIT in Studio
+raw `XIC(z_axis_msf.DN)XIC(y_axis_msf.DN)XIC(x_axis_msf.DN)CMP(STATE_REQUEST=0)CMP(STATE=10)CPT(ERROR_CODE,0)CPT(NEXTSTATE,1)`
+
+# PENDING EDIT in Studio
+raw `CMP(STATE=10)CMP(STATE_REQUEST=0)CPT(ERROR_CODE,0)CPT(NEXTSTATE,1)`

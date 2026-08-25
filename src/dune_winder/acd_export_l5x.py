@@ -239,8 +239,18 @@ def _build_database(acd_file: Path, temp_dir: str):
             Unzip(self.input_filename).write_files(self._temp_dir)
 
             comps_db = DbExtract(str(Path(self._temp_dir) / "Comps.Dat")).read()
+            # Two-pass load: FdfdComps (65021) first, FafaComps (64250) last.
+            # Studio 5000 can write duplicate Region Map records with the same
+            # object_id in both formats; since CompsRecord does DELETE-then-INSERT,
+            # whichever format appears last in the file wins.  populate_region_map()
+            # needs the FafaComps record_buffer (fixed binary layout), so FafaComps
+            # must always overwrite any earlier FdfdComps entry for the same id.
             for record in comps_db.records.record:
-                CompsRecord(self._cur, record)
+                if record.identifier == 65021:
+                    CompsRecord(self._cur, record)
+            for record in comps_db.records.record:
+                if record.identifier == 64250:
+                    CompsRecord(self._cur, record)
             self._db.commit()
 
             self.populate_region_map()

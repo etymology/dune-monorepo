@@ -1,187 +1,187 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="CameraControl" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="CameraControl" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-25 15:19:14.538" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="Camera" Class="Standard">
 <Routines Use="Context">
 <Routine Use="Target" Name="CameraControl" Type="RLL">
 <RLLContent>
-<Rung Number="0" Type="N">
+<Rung Number="0" Type="e">
 <Text>
 <![CDATA[XIC(CAM_F_EN)OTE(DUNE2CAM1:O.Control.TriggerEnable);]]>
 </Text>
 </Rung>
-<Rung Number="1" Type="N">
+<Rung Number="1" Type="e">
 <Text>
 <![CDATA[XIC(CAM_F_TRIGGER)OSR(triggerOneShotSB,triggerOneShotOB);]]>
 </Text>
 </Rung>
-<Rung Number="2" Type="N">
+<Rung Number="2" Type="e">
 <Text>
 <![CDATA[XIC(CAM_F_TRIGGER)XIC(triggerOneShotSB)XIO(TriggerResetTimer2.TT)TON(TriggerResetTimer1,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="3" Type="N">
+<Rung Number="3" Type="e">
 <Text>
 <![CDATA[XIC(CAM_F_TRIGGER)XIC(triggerOneShotSB)XIO(TriggerResetTimer1.TT)TON(TriggerResetTimer2,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="4" Type="N">
+<Rung Number="4" Type="e">
 <Text>
 <![CDATA[[XIC(TriggerResetTimer1.TT) ,XIC(LightRing.TT) ]OTE(DUNE2CAM1:O.Control.Trigger);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="5" Type="e">
 <Text>
 <![CDATA[[XIC(TriggerResetTimer1.TT) ,XIC(LightRing.TT) ]MAR(Y_axis,RegistrationData[1],Negative_Edge,Disabled,0,0,2);]]>
 </Text>
 </Rung>
-<Rung Number="6" Type="N">
+<Rung Number="6" Type="e">
 <Text>
 <![CDATA[[XIC(TriggerResetTimer1.TT) ,XIC(LightRing.TT) ]MAR(X_axis,RegistrationData[0],Negative_Edge,Disabled,0,0,2);]]>
 </Text>
 </Rung>
-<Rung Number="7" Type="N">
+<Rung Number="7" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[0].PC)CPT(X_axis_Cam_F_Position,X_axis.Registration2NegativeEdgePosition);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="8" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[1].PC)CPT(Y_axis_Cam_F_Position,Y_axis.Registration2NegativeEdgePosition);]]>
 </Text>
 </Rung>
-<Rung Number="9" Type="N">
+<Rung Number="9" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[0].PC)FFL(X_axis_Cam_F_Position,X_axis_Cam_F_Pos[0],FIFO_CTRL[0],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="10" Type="N">
+<Rung Number="10" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[1].PC)FFL(Y_axis_Cam_F_Position,Y_axis_Cam_F_Pos[0],FIFO_CTRL[1],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="11" Type="e">
 <Text>
 <![CDATA[XIC(DUNE2CAM1:I.Status.InspectionCompleted)OSR(ossb[3],osob[3]);]]>
 </Text>
 </Rung>
-<Rung Number="12" Type="N">
+<Rung Number="12" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[0],Cam_F_InspectionRes_0[0],FIFO_CTRL[2],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="13" Type="N">
+<Rung Number="13" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[1],Cam_F_InspectionRes_1[0],FIFO_CTRL[3],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="14" Type="N">
+<Rung Number="14" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[2],Cam_F_InspectionRes_2[0],FIFO_CTRL[4],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="15" Type="N">
+<Rung Number="15" Type="e">
 <Text>
 <![CDATA[XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[3],Cam_F_InspectionRes_3[0],FIFO_CTRL[5],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="16" Type="N">
+<Rung Number="16" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[5].DN)OTL(READ_FIFOS);]]>
 </Text>
 </Rung>
-<Rung Number="17" Type="N">
+<Rung Number="17" Type="e">
 <Text>
 <![CDATA[XIC(READ_FIFOS)FFU(X_axis_Cam_F_Pos[0],FIFO_Data[0],FIFO_CTRL[0],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="18" Type="N">
+<Rung Number="18" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[0].EU)FFU(Y_axis_Cam_F_Pos[0],FIFO_Data[1],FIFO_CTRL[1],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="19" Type="N">
+<Rung Number="19" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[1].EU)FFU(Cam_F_InspectionRes_0[0],FIFO_Data[2],FIFO_CTRL[2],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="20" Type="N">
+<Rung Number="20" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[2].EU)FFU(Cam_F_InspectionRes_1[0],FIFO_Data[3],FIFO_CTRL[3],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="21" Type="N">
+<Rung Number="21" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[3].EU)FFU(Cam_F_InspectionRes_2[0],FIFO_Data[4],FIFO_CTRL[4],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="22" Type="N">
+<Rung Number="22" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[4].EU)FFU(Cam_F_InspectionRes_3[0],FIFO_Data[5],FIFO_CTRL[5],?,?);]]>
 </Text>
 </Rung>
-<Rung Number="23" Type="N">
+<Rung Number="23" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_CTRL[5].EU)OTU(READ_FIFOS);]]>
 </Text>
 </Rung>
-<Rung Number="24" Type="N">
+<Rung Number="24" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)OSR(ossb[1],osob[1]);]]>
 </Text>
 </Rung>
-<Rung Number="25" Type="N">
+<Rung Number="25" Type="e">
 <Text>
 <![CDATA[XIC(osob[1])CPT(x_pos,X_axis.ActualPosition);]]>
 </Text>
 </Rung>
-<Rung Number="26" Type="N">
+<Rung Number="26" Type="e">
 <Text>
 <![CDATA[XIC(osob[1])CPT(y_pos,Y_axis.ActualPosition);]]>
 </Text>
 </Rung>
-<Rung Number="27" Type="N">
+<Rung Number="27" Type="e">
 <Text>
 <![CDATA[XIC(osob[1])OTL(Pos_trigger);]]>
 </Text>
 </Rung>
-<Rung Number="28" Type="N">
+<Rung Number="28" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)XIC(Pos_trigger)[[CMP(X_DELTA<0) CMP(X_axis.ActualPosition<(x_pos+X_DELTA)) ,CMP(X_DELTA>0) CMP(X_axis.ActualPosition>(x_pos+X_DELTA)) ] ,[CMP(Y_DELTA<0) CMP(Y_axis.ActualPosition<(y_pos+Y_DELTA)) ,CMP(Y_DELTA>0) CMP(Y_axis.ActualPosition>(y_pos+Y_DELTA)) ] ]OTL(foundIt);]]>
 </Text>
 </Rung>
-<Rung Number="29" Type="N">
+<Rung Number="29" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)[XIC(foundIt) ,XIC(Manual_Trig) ]OSR(ossb[0],osob[0])OTU(Pos_trigger);]]>
 </Text>
 </Rung>
-<Rung Number="30" Type="N">
+<Rung Number="30" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)XIC(osob[0])CPT(x_pos_next,x_pos+X_DELTA);]]>
 </Text>
 </Rung>
-<Rung Number="31" Type="N">
+<Rung Number="31" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)XIC(osob[0])CPT(y_pos_next,y_pos+Y_DELTA);]]>
 </Text>
 </Rung>
-<Rung Number="32" Type="N">
+<Rung Number="32" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)XIC(ossb[0])TON(LightRing,?,?);]]>
 </Text>
 </Rung>
-<Rung Number="33" Type="N">
+<Rung Number="33" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)XIC(LightRing.DN)OTU(foundIt);]]>
 </Text>
 </Rung>
-<Rung Number="34" Type="N">
+<Rung Number="34" Type="e">
 <Text>
 <![CDATA[XIC(EN_POS_TRIGGERS)XIC(LightRing.DN)[CMP(x_pos_next<>x_pos) ,CMP(y_pos_next<>y_pos) ]CPT(x_pos,x_pos_next)CPT(y_pos,y_pos_next)OTL(Pos_trigger);]]>
 </Text>
 </Rung>
-<Rung Number="35" Type="N">
+<Rung Number="35" Type="e">
 <Text>
 <![CDATA[XIC(FIFO_FLUSH)MOV(0,FIFO_CTRL[0].POS)MOV(0,FIFO_CTRL[1].POS)MOV(0,FIFO_CTRL[2].POS)MOV(0,FIFO_CTRL[3].POS)MOV(0,FIFO_CTRL[4].POS)MOV(0,FIFO_CTRL[5].POS)OTU(FIFO_FLUSH);]]>
 </Text>

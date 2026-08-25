@@ -2,76 +2,80 @@ routine queued_motion/MaxAbsCosSweep
 
 uses DINTS, REALS  # program scope
 
-REALS[10] = REALS[7] + REALS[8]
+# PENDING EDIT in Studio
+raw `CPT(REALS[10],REALS[7]+REALS[8])`
 
-JMP(lbl_min_a_9) when REALS[7] < REALS[10]
+# PENDING EDIT in Studio
+raw `LES(REALS[7],REALS[10])JMP(lbl_min_a_9)`
 
-always:
-    REALS[11] = REALS[10]
-    JMP(lbl_min_end_10)
+# PENDING EDIT in Studio
+raw `MOV(REALS[10],REALS[11])JMP(lbl_min_end_10)`
 
-label lbl_min_a_9
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_a_9)MOV(REALS[7],REALS[11])`
 
-REALS[11] = REALS[7]
+# PENDING EDIT in Studio
+raw `LBL(lbl_min_end_10)GRT(REALS[7],REALS[10])JMP(lbl_max_a_11)`
 
-label lbl_min_end_10
+# PENDING EDIT in Studio
+raw `MOV(REALS[10],REALS[12])JMP(lbl_max_end_12)`
 
-JMP(lbl_max_a_11) when REALS[7] > REALS[10]
+# PENDING EDIT in Studio
+raw `LBL(lbl_max_a_11)MOV(REALS[7],REALS[12])`
 
-always:
-    REALS[12] = REALS[10]
-    JMP(lbl_max_end_12)
+# PENDING EDIT in Studio
+raw `LBL(lbl_max_end_12)CPT(REALS[905],ABS(COS(REALS[7])))`
 
-label lbl_max_a_11
+# PENDING EDIT in Studio
+raw `CPT(REALS[906],ABS(COS(REALS[10])))`
 
-REALS[12] = REALS[7]
+# PENDING EDIT in Studio
+raw `GRT(REALS[905],REALS[906])JMP(lbl_max_a_13)`
 
-label lbl_max_end_12
+# PENDING EDIT in Studio
+raw `MOV(REALS[906],REALS[13])JMP(lbl_max_end_14)`
 
-REALS[905] = abs(cos(REALS[7]))
+# PENDING EDIT in Studio
+raw `LBL(lbl_max_a_13)MOV(REALS[905],REALS[13])`
 
-REALS[906] = abs(cos(REALS[10]))
+# PENDING EDIT in Studio
+raw `LBL(lbl_max_end_14)CPT(REALS[907],REALS[11]/3.14159265358979)`
 
-JMP(lbl_max_a_13) when REALS[905] > REALS[906]
+# PENDING EDIT in Studio
+raw `TRN(REALS[907],DINTS[901])`
 
-always:
-    REALS[13] = REALS[906]
-    JMP(lbl_max_end_14)
+# PENDING EDIT in Studio
+raw `MOV(DINTS[901],REALS[908])`
 
-label lbl_max_a_13
+# PENDING EDIT in Studio
+raw `GEQ(REALS[908],REALS[907])JMP(lbl_ceil_done_15)`
 
-REALS[13] = REALS[905]
+# PENDING EDIT in Studio
+raw `ADD(DINTS[901],1,DINTS[901])`
 
-label lbl_max_end_14
+# PENDING EDIT in Studio
+raw `LBL(lbl_ceil_done_15)MOV(DINTS[901],DINTS[2])`
 
-REALS[907] = REALS[11] / 3.14159265358979
+# PENDING EDIT in Studio
+raw `CPT(REALS[909],REALS[12]/3.14159265358979)`
 
-TRN(REALS[907], DINTS[901])
+# PENDING EDIT in Studio
+raw `TRN(REALS[909],DINTS[3])`
 
-REALS[908] = DINTS[901]
+# PENDING EDIT in Studio
+raw `GRT(DINTS[2],DINTS[3])JMP(lbl_else_16)`
 
-JMP(lbl_ceil_done_15) when REALS[908] >= REALS[907]
+# PENDING EDIT in Studio
+raw `MOV(1.0,REALS[9])`
 
-DINTS[901] = DINTS[901] + 1
+# PENDING EDIT in Studio
+raw `JMP(lbl_MaxAbsCosSweep_end)`
 
-label lbl_ceil_done_15
+# PENDING EDIT in Studio
+raw `LBL(lbl_else_16)MOV(REALS[13],REALS[9])`
 
-DINTS[2] = DINTS[901]
+# PENDING EDIT in Studio
+raw `JMP(lbl_MaxAbsCosSweep_end)`
 
-REALS[909] = REALS[12] / 3.14159265358979
-
-TRN(REALS[909], DINTS[3])
-
-JMP(lbl_else_16) when DINTS[2] > DINTS[3]
-
-REALS[9] = 1.0
-
-JMP(lbl_MaxAbsCosSweep_end)
-
-label lbl_else_16
-
-REALS[9] = REALS[13]
-
-JMP(lbl_MaxAbsCosSweep_end)
-
-label lbl_MaxAbsCosSweep_end
+# PENDING EDIT in Studio
+raw `LBL(lbl_MaxAbsCosSweep_end)NOP()`

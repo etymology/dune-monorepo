@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "plc_path": null,
+  "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "010c14ff9031689cc05f652e0f9c8b37fdefdf0b816c741ab309a3e4cf740925",
-    "size": 4488632,
-    "last_saved": "2026-07-17 13:42:32.663",
+    "sha256": "270913fab55545bff6c10825f89e48ffe0f7d7c6d693869c97c7c801d96cfa4c",
+    "size": 4554673,
+    "last_saved": "2026-08-25 15:19:14.538",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 152
+    "save_log_entries": 285
   },
   "program_name": "state_6_latch",
   "main_routine_name": "main",
@@ -138,10 +138,10 @@
       "program": "state_6_latch",
       "value": {
         "PRE": 150,
-        "ACC": 150,
-        "EN": true,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     },
     {
@@ -174,7 +174,7 @@
       "description": "When you enter state 6 or 7, start counting seconds",
       "value": {
         "PRE": 20,
-        "ACC": 1,
+        "ACC": 0,
         "CU": false,
         "CD": false,
         "DN": false,
@@ -253,6 +253,20 @@
       "value": false
     },
     {
+      "name": "latching_storage_bit",
+      "fully_qualified_name": "Program:state_6_latch.latching_storage_bit",
+      "tag_type": "atomic",
+      "data_type_name": "BOOL",
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "array_dimensions": 0,
+      "program": "state_6_latch",
+      "value": false
+    },
+    {
       "name": "latch_in_free_space",
       "fully_qualified_name": "Program:state_6_latch.latch_in_free_space",
       "tag_type": "atomic",
@@ -264,25 +278,11 @@
       ],
       "array_dimensions": 0,
       "program": "state_6_latch",
-      "value": false
+      "value": true
     },
     {
       "name": "manual_toggle_latch",
       "fully_qualified_name": "Program:state_6_latch.manual_toggle_latch",
-      "tag_type": "atomic",
-      "data_type_name": "BOOL",
-      "dimensions": [
-        0,
-        0,
-        0
-      ],
-      "array_dimensions": 0,
-      "program": "state_6_latch",
-      "value": false
-    },
-    {
-      "name": "null",
-      "fully_qualified_name": "Program:state_6_latch.null",
       "tag_type": "atomic",
       "data_type_name": "BOOL",
       "dimensions": [
@@ -328,8 +328,8 @@
       "array_dimensions": 0,
       "program": "state_6_latch",
       "description": "Store the previous actuator position",
-      "value": 2
+      "value": 3
     }
   ],
-  "values_generated_at": "2026-07-17T18:47:44.024397+00:00"
+  "values_generated_at": "2026-08-25T20:19:41.367377+00:00"
 }

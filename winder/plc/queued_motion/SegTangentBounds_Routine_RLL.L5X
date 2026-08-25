@@ -1,352 +1,352 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="SegTangentBounds" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="SegTangentBounds" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-25 15:19:14.538" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="queued_motion" Class="Standard">
 <Routines Use="Context">
 <Routine Use="Target" Name="SegTangentBounds" Type="RLL">
 <RLLContent>
-<Rung Number="0" Type="N">
+<Rung Number="0" Type="e">
 <Text>
 <![CDATA[NEQ(SegQueue[idx_2].SegType,1)JMP(lbl_else_30);]]>
 </Text>
 </Rung>
-<Rung Number="1" Type="N">
+<Rung Number="1" Type="e">
 <Text>
 <![CDATA[CPT(REALS[24],SegQueue[idx_2].XY[0]-REALS[20]);]]>
 </Text>
 </Rung>
-<Rung Number="2" Type="N">
+<Rung Number="2" Type="e">
 <Text>
 <![CDATA[CPT(REALS[25],SegQueue[idx_2].XY[1]-REALS[21]);]]>
 </Text>
 </Rung>
-<Rung Number="3" Type="N">
+<Rung Number="3" Type="e">
 <Text>
 <![CDATA[CPT(REALS[26],SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25]));]]>
 </Text>
 </Rung>
-<Rung Number="4" Type="N">
+<Rung Number="4" Type="e">
 <Text>
 <![CDATA[GRT(REALS[26],0.000000001)JMP(lbl_else_32);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="5" Type="e">
 <Text>
 <![CDATA[MOV(0.0,REALS[22]);]]>
 </Text>
 </Rung>
-<Rung Number="6" Type="N">
+<Rung Number="6" Type="e">
 <Text>
 <![CDATA[MOV(0.0,REALS[23]);]]>
 </Text>
 </Rung>
-<Rung Number="7" Type="N">
+<Rung Number="7" Type="e">
 <Text>
 <![CDATA[JMP(lbl_SegTangentBounds_end);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="8" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_32)CPT(REALS[22],ABS(REALS[24]/REALS[26]));]]>
 </Text>
 </Rung>
-<Rung Number="9" Type="N">
+<Rung Number="9" Type="e">
 <Text>
 <![CDATA[CPT(REALS[23],ABS(REALS[25]/REALS[26]));]]>
 </Text>
 </Rung>
-<Rung Number="10" Type="N">
+<Rung Number="10" Type="e">
 <Text>
 <![CDATA[JMP(lbl_SegTangentBounds_end);]]>
 </Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="11" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_30)NEQ(SegQueue[idx_2].SegType,2)JMP(lbl_else_34);]]>
 </Text>
 </Rung>
-<Rung Number="12" Type="N">
+<Rung Number="12" Type="e">
 <Text>
 <![CDATA[MOV(idx_2,idx_0);]]>
 </Text>
 </Rung>
-<Rung Number="13" Type="N">
+<Rung Number="13" Type="e">
 <Text>
 <![CDATA[MOV(idx_2,idx_1);]]>
 </Text>
 </Rung>
-<Rung Number="14" Type="N">
+<Rung Number="14" Type="e">
 <Text>
 <![CDATA[JSR(CircleCenterForSeg,0);]]>
 </Text>
 </Rung>
-<Rung Number="15" Type="N">
+<Rung Number="15" Type="e">
 <Text>
 <![CDATA[NEQ(REALS[28],0)JMP(lbl_else_36);]]>
 </Text>
 </Rung>
-<Rung Number="16" Type="N">
+<Rung Number="16" Type="e">
 <Text>
 <![CDATA[CPT(REALS[31],SQR(REALS[20]-REALS[29]*REALS[20]-REALS[29]+REALS[21]-REALS[30]*REALS[21]-REALS[30]));]]>
 </Text>
 </Rung>
-<Rung Number="17" Type="N">
+<Rung Number="17" Type="e">
 <Text>
 <![CDATA[CPT(REALS[32],SQR(SegQueue[idx_2].XY[0]-REALS[29]*SegQueue[idx_2].XY[0]-REALS[29]+SegQueue[idx_2].XY[1]-REALS[30]*SegQueue[idx_2].XY[1]-REALS[30]));]]>
 </Text>
 </Rung>
-<Rung Number="18" Type="N">
+<Rung Number="18" Type="e">
 <Text>
 <![CDATA[[LEQ(REALS[31],0.000000001) ,LEQ(REALS[32],0.000000001) ]OTL(BOOLS[900]);]]>
 </Text>
 </Rung>
-<Rung Number="19" Type="N">
+<Rung Number="19" Type="e">
 <Text>
 <![CDATA[XIC(BOOLS[900])JMP(lbl_else_38);]]>
 </Text>
 </Rung>
-<Rung Number="20" Type="N">
+<Rung Number="20" Type="e">
 <Text>
 <![CDATA[CPT(REALS[912],REALS[21]-REALS[30]);]]>
 </Text>
 </Rung>
-<Rung Number="21" Type="N">
+<Rung Number="21" Type="e">
 <Text>
 <![CDATA[CPT(REALS[913],REALS[20]-REALS[29]);]]>
 </Text>
 </Rung>
-<Rung Number="22" Type="N">
+<Rung Number="22" Type="e">
 <Text>
 <![CDATA[GRT(REALS[913],0.0)CPT(REALS[33],ATN(REALS[912]/REALS[913]))JMP(lbl_atan2_done_40);]]>
 </Text>
 </Rung>
-<Rung Number="23" Type="N">
+<Rung Number="23" Type="e">
 <Text>
 <![CDATA[LES(REALS[913],0.0)GEQ(REALS[912],0.0)CPT(REALS[33],ATN(REALS[912]/REALS[913])+3.14159265358979)JMP(lbl_atan2_done_40);]]>
 </Text>
 </Rung>
-<Rung Number="24" Type="N">
+<Rung Number="24" Type="e">
 <Text>
 <![CDATA[LES(REALS[913],0.0)LES(REALS[912],0.0)CPT(REALS[33],ATN(REALS[912]/REALS[913])-3.14159265358979)JMP(lbl_atan2_done_40);]]>
 </Text>
 </Rung>
-<Rung Number="25" Type="N">
+<Rung Number="25" Type="e">
 <Text>
 <![CDATA[EQU(REALS[913],0.0)GRT(REALS[912],0.0)MOV(1.5707963267949,REALS[33])JMP(lbl_atan2_done_40);]]>
 </Text>
 </Rung>
-<Rung Number="26" Type="N">
+<Rung Number="26" Type="e">
 <Text>
 <![CDATA[EQU(REALS[913],0.0)LES(REALS[912],0.0)MOV(-1.5707963267949,REALS[33])JMP(lbl_atan2_done_40);]]>
 </Text>
 </Rung>
-<Rung Number="27" Type="N">
+<Rung Number="27" Type="e">
 <Text>
 <![CDATA[MOV(0.0,REALS[33]);]]>
 </Text>
 </Rung>
-<Rung Number="28" Type="N">
+<Rung Number="28" Type="e">
 <Text>
 <![CDATA[LBL(lbl_atan2_done_40)CPT(REALS[914],SegQueue[idx_2].XY[1]-REALS[30]);]]>
 </Text>
 </Rung>
-<Rung Number="29" Type="N">
+<Rung Number="29" Type="e">
 <Text>
 <![CDATA[CPT(REALS[915],SegQueue[idx_2].XY[0]-REALS[29]);]]>
 </Text>
 </Rung>
-<Rung Number="30" Type="N">
+<Rung Number="30" Type="e">
 <Text>
 <![CDATA[GRT(REALS[915],0.0)CPT(REALS[34],ATN(REALS[914]/REALS[915]))JMP(lbl_atan2_done_41);]]>
 </Text>
 </Rung>
-<Rung Number="31" Type="N">
+<Rung Number="31" Type="e">
 <Text>
 <![CDATA[LES(REALS[915],0.0)GEQ(REALS[914],0.0)CPT(REALS[34],ATN(REALS[914]/REALS[915])+3.14159265358979)JMP(lbl_atan2_done_41);]]>
 </Text>
 </Rung>
-<Rung Number="32" Type="N">
+<Rung Number="32" Type="e">
 <Text>
 <![CDATA[LES(REALS[915],0.0)LES(REALS[914],0.0)CPT(REALS[34],ATN(REALS[914]/REALS[915])-3.14159265358979)JMP(lbl_atan2_done_41);]]>
 </Text>
 </Rung>
-<Rung Number="33" Type="N">
+<Rung Number="33" Type="e">
 <Text>
 <![CDATA[EQU(REALS[915],0.0)GRT(REALS[914],0.0)MOV(1.5707963267949,REALS[34])JMP(lbl_atan2_done_41);]]>
 </Text>
 </Rung>
-<Rung Number="34" Type="N">
+<Rung Number="34" Type="e">
 <Text>
 <![CDATA[EQU(REALS[915],0.0)LES(REALS[914],0.0)MOV(-1.5707963267949,REALS[34])JMP(lbl_atan2_done_41);]]>
 </Text>
 </Rung>
-<Rung Number="35" Type="N">
+<Rung Number="35" Type="e">
 <Text>
 <![CDATA[MOV(0.0,REALS[34]);]]>
 </Text>
 </Rung>
-<Rung Number="36" Type="N">
+<Rung Number="36" Type="e">
 <Text>
 <![CDATA[LBL(lbl_atan2_done_41)MOV(REALS[33],REALS[14]);]]>
 </Text>
 </Rung>
-<Rung Number="37" Type="N">
+<Rung Number="37" Type="e">
 <Text>
 <![CDATA[MOV(REALS[34],REALS[15]);]]>
 </Text>
 </Rung>
-<Rung Number="38" Type="N">
+<Rung Number="38" Type="e">
 <Text>
 <![CDATA[MOV(SegQueue[idx_2].Direction,DINTS[4]);]]>
 </Text>
 </Rung>
-<Rung Number="39" Type="N">
+<Rung Number="39" Type="e">
 <Text>
 <![CDATA[JSR(ArcSweepRad,0);]]>
 </Text>
 </Rung>
-<Rung Number="40" Type="N">
+<Rung Number="40" Type="e">
 <Text>
 <![CDATA[MOV(REALS[16],REALS[35]);]]>
 </Text>
 </Rung>
-<Rung Number="41" Type="N">
+<Rung Number="41" Type="e">
 <Text>
 <![CDATA[XIC(BOOLS[3])OTL(BOOLS[6]);]]>
 </Text>
 </Rung>
-<Rung Number="42" Type="N">
+<Rung Number="42" Type="e">
 <Text>
 <![CDATA[XIO(BOOLS[3])OTU(BOOLS[6]);]]>
 </Text>
 </Rung>
-<Rung Number="43" Type="N">
+<Rung Number="43" Type="e">
 <Text>
 <![CDATA[XIO(BOOLS[6])JMP(lbl_else_42);]]>
 </Text>
 </Rung>
-<Rung Number="44" Type="N">
+<Rung Number="44" Type="e">
 <Text>
 <![CDATA[MOV(REALS[33],REALS[0]);]]>
 </Text>
 </Rung>
-<Rung Number="45" Type="N">
+<Rung Number="45" Type="e">
 <Text>
 <![CDATA[MOV(REALS[35],REALS[1]);]]>
 </Text>
 </Rung>
-<Rung Number="46" Type="N">
+<Rung Number="46" Type="e">
 <Text>
 <![CDATA[JSR(MaxAbsSinSweep,0);]]>
 </Text>
 </Rung>
-<Rung Number="47" Type="N">
+<Rung Number="47" Type="e">
 <Text>
 <![CDATA[MOV(REALS[2],REALS[36]);]]>
 </Text>
 </Rung>
-<Rung Number="48" Type="N">
+<Rung Number="48" Type="e">
 <Text>
 <![CDATA[MOV(REALS[33],REALS[7]);]]>
 </Text>
 </Rung>
-<Rung Number="49" Type="N">
+<Rung Number="49" Type="e">
 <Text>
 <![CDATA[MOV(REALS[35],REALS[8]);]]>
 </Text>
 </Rung>
-<Rung Number="50" Type="N">
+<Rung Number="50" Type="e">
 <Text>
 <![CDATA[JSR(MaxAbsCosSweep,0);]]>
 </Text>
 </Rung>
-<Rung Number="51" Type="N">
+<Rung Number="51" Type="e">
 <Text>
 <![CDATA[MOV(REALS[9],REALS[37]);]]>
 </Text>
 </Rung>
-<Rung Number="52" Type="N">
+<Rung Number="52" Type="e">
 <Text>
 <![CDATA[MOV(REALS[36],REALS[22]);]]>
 </Text>
 </Rung>
-<Rung Number="53" Type="N">
+<Rung Number="53" Type="e">
 <Text>
 <![CDATA[MOV(REALS[37],REALS[23]);]]>
 </Text>
 </Rung>
-<Rung Number="54" Type="N">
+<Rung Number="54" Type="e">
 <Text>
 <![CDATA[JMP(lbl_SegTangentBounds_end);]]>
 </Text>
 </Rung>
-<Rung Number="55" Type="N">
+<Rung Number="55" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_42)NOP();]]>
 </Text>
 </Rung>
-<Rung Number="56" Type="N">
+<Rung Number="56" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_38)NOP();]]>
 </Text>
 </Rung>
-<Rung Number="57" Type="N">
+<Rung Number="57" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_36)NOP();]]>
 </Text>
 </Rung>
-<Rung Number="58" Type="N">
+<Rung Number="58" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_34)CPT(REALS[24],SegQueue[idx_2].XY[0]-REALS[20]);]]>
 </Text>
 </Rung>
-<Rung Number="59" Type="N">
+<Rung Number="59" Type="e">
 <Text>
 <![CDATA[CPT(REALS[25],SegQueue[idx_2].XY[1]-REALS[21]);]]>
 </Text>
 </Rung>
-<Rung Number="60" Type="N">
+<Rung Number="60" Type="e">
 <Text>
 <![CDATA[CPT(REALS[26],SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25]));]]>
 </Text>
 </Rung>
-<Rung Number="61" Type="N">
+<Rung Number="61" Type="e">
 <Text>
 <![CDATA[GRT(REALS[26],0.000000001)JMP(lbl_else_44);]]>
 </Text>
 </Rung>
-<Rung Number="62" Type="N">
+<Rung Number="62" Type="e">
 <Text>
 <![CDATA[MOV(0.0,REALS[22]);]]>
 </Text>
 </Rung>
-<Rung Number="63" Type="N">
+<Rung Number="63" Type="e">
 <Text>
 <![CDATA[MOV(0.0,REALS[23]);]]>
 </Text>
 </Rung>
-<Rung Number="64" Type="N">
+<Rung Number="64" Type="e">
 <Text>
 <![CDATA[JMP(lbl_SegTangentBounds_end);]]>
 </Text>
 </Rung>
-<Rung Number="65" Type="N">
+<Rung Number="65" Type="e">
 <Text>
 <![CDATA[LBL(lbl_else_44)CPT(REALS[22],ABS(REALS[24]/REALS[26]));]]>
 </Text>
 </Rung>
-<Rung Number="66" Type="N">
+<Rung Number="66" Type="e">
 <Text>
 <![CDATA[CPT(REALS[23],ABS(REALS[25]/REALS[26]));]]>
 </Text>
 </Rung>
-<Rung Number="67" Type="N">
+<Rung Number="67" Type="e">
 <Text>
 <![CDATA[JMP(lbl_SegTangentBounds_end);]]>
 </Text>
 </Rung>
-<Rung Number="68" Type="N">
+<Rung Number="68" Type="e">
 <Text>
 <![CDATA[LBL(lbl_SegTangentBounds_end)NOP();]]>
 </Text>
@@ -355,9 +355,9 @@
 </Routine>
 <Routine Use="Reference" Name="MaxAbsCosSweep">
 </Routine>
-<Routine Use="Reference" Name="MaxAbsSinSweep">
-</Routine>
 <Routine Use="Reference" Name="CapSegSpeed">
+</Routine>
+<Routine Use="Reference" Name="MaxAbsSinSweep">
 </Routine>
 <Routine Use="Reference" Name="CircleCenterForSeg">
 </Routine>
