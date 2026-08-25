@@ -74,7 +74,7 @@ def length_lookup(
                 f"no value found for wire {wire_number} in zone {zone} for layer {layer}"
             )
         value = float(raw_value)
-        if taped:
+        if taped and zone == 1:
             return (value - GEOMETRY_CONFIG.taped_length_offset_mm) / 1000
         return value / 1000
     except KeyError:
