@@ -2,20 +2,18 @@ routine queued_motion/CircleCenterForSeg
 
 uses SegQueue  # controller scope
 
-# PENDING EDIT in Studio
-raw `NEQ(SegQueue[idx_0].CircleType,1)JMP(lbl_else_26)`
+JMP(lbl_else_26) when SegQueue[idx_0].CircleType != 1
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_CircleCenterForSeg_end)`
+JMP(lbl_CircleCenterForSeg_end)
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_26)NEQ(SegQueue[idx_0].CircleType,3)JMP(lbl_else_28)`
+label lbl_else_26
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_CircleCenterForSeg_end)`
+JMP(lbl_else_28) when SegQueue[idx_0].CircleType != 3
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_28)JMP(lbl_CircleCenterForSeg_end)`
+JMP(lbl_CircleCenterForSeg_end)
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_CircleCenterForSeg_end)NOP()`
+label lbl_else_28
+
+JMP(lbl_CircleCenterForSeg_end)
+
+label lbl_CircleCenterForSeg_end

@@ -68,9 +68,14 @@ DEFAULT_ACD = PLC_ROOT / "ACD" / "DUNEW2PLC1_py3.ACD"
 DEFAULT_PLC_PATH = "192.168.140.13"
 INDEX_NAME = "acd_index.json"
 
-#: region_map.seq_no value marking a pending-edit rung (Studio shows these
-#: as rung Type="e"; finalized rungs are Type="N").
-PENDING_EDIT_SEQ = 0xFFFFFFFF
+# region_map.seq_no — NOT a pending-edit indicator.
+# 0xFFFFFFFF is the default for rungs that have never been downloaded with
+# PLC version-tracking (offline-edited routines).  Sequential values (0, 1,
+# 2, …) appear only in routines whose rungs the controller has confirmed.
+# Neither value reliably maps to Studio's "pending edit" (Type="e") concept,
+# which is tracked in RegnLink.Dat — not decoded here.  All rungs are
+# therefore exported as Type="N" (finalized).  See PENDING_EDIT_SEQ note in
+# git history if a future reader wants to implement true pending detection.
 
 EXPORT_OPTIONS = (
     "References NoRawData L5KData DecoratedData Context Dependencies "
@@ -315,12 +320,12 @@ def _routine_type(cur: Cursor, routine_id: int, has_rungs: bool) -> str:
 
 def _read_routine(cur: Cursor, routine_id: int, name: str) -> Routine:
     entries = cur.execute(
-        "SELECT object_id, unknown, seq_no FROM region_map"
+        "SELECT object_id, unknown FROM region_map"
         " WHERE parent_id=? ORDER BY unknown",
         (routine_id,),
     ).fetchall()
     rungs: list[Rung] = []
-    for object_id, number, seq_no in entries:
+    for object_id, number in entries:
         row = cur.execute(
             "SELECT rung FROM rungs WHERE object_id=?", (object_id,)
         ).fetchone()
@@ -328,8 +333,7 @@ def _read_routine(cur: Cursor, routine_id: int, name: str) -> Routine:
             raise ValueError(
                 f"routine {name}: rung object {object_id:#x} missing from SbRegion"
             )
-        rung_type = "e" if seq_no == PENDING_EDIT_SEQ else "N"
-        rungs.append(Rung(number, rung_type, _resolve_module_refs(cur, row[0])))
+        rungs.append(Rung(number, "N", _resolve_module_refs(cur, row[0])))
     return Routine(name, _routine_type(cur, routine_id, bool(rungs)), rungs)
 
 

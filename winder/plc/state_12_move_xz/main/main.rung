@@ -4,23 +4,38 @@ uses ERROR_CODE, NEXTSTATE, STATE, STATE_REQUEST, X_axis, X_Y, xz, xz_position_t
 uses Y_axis, Y_XFER_OK, Z_axis, Z_RETRACTED  # controller scope
 uses STATE12_IND, xy_stop, xz_main_move, xz_stop, y_axis_stop  # program scope
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=12)OTE(STATE12_IND)`
+STATE12_IND = STATE == 12
 
-# PENDING EDIT in Studio
-raw `XIC(STATE12_IND)XIO(Y_XFER_OK)CPT(ERROR_CODE,5003)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,10)`
+when STATE12_IND and not Y_XFER_OK:
+    ERROR_CODE = 5003
+    STATE_REQUEST = 0
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE12_IND)XIC(Y_XFER_OK)XIO(xz_main_move.IP)MCLM(xz,xz_main_move,0,xz_position_target,xz_speed,Units per sec,1000,Units per sec2,1000,Units per sec2,S-Curve,1000,1000,Units per sec3,0,Disabled,Programmed,50,0,None,0,0)`
+when STATE12_IND and Y_XFER_OK and not xz_main_move.IP:
+    coordinated_move xz using xz_main_move:
+        type        = absolute
+        target      = xz_position_target
+        speed       = xz_speed units/s
+        accel       = 1000 units/s2
+        decel       = 1000 units/s2
+        profile     = s-curve
+        jerk        = 1000
+        termination = programmed
 
-# PENDING EDIT in Studio
-raw `XIO(Y_XFER_OK)XIC(xz_main_move.IP)MCS(X_Y,xy_stop,All,Yes,4000,Units per sec2,Yes,2000,Units per sec3)MCS(xz,xz_stop,All,Yes,4000,Units per sec2,Yes,200,Units per sec3)MOV(0,STATE_REQUEST)CPT(ERROR_CODE,5003)CPT(NEXTSTATE,10)`
+when not Y_XFER_OK and xz_main_move.IP:
+    MCS(X_Y, xy_stop, All, Yes, 4000, "Units per sec2", Yes, 2000, "Units per sec3")
+    MCS(xz, xz_stop, All, Yes, 4000, "Units per sec2", Yes, 200, "Units per sec3")
+    STATE_REQUEST = 0
+    ERROR_CODE = 5003
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE12_IND)XIC(xz_main_move.ER)MOV(0,STATE_REQUEST)CPT(ERROR_CODE,5003)CPT(NEXTSTATE,10)`
+when STATE12_IND and xz_main_move.ER:
+    STATE_REQUEST = 0
+    ERROR_CODE = 5003
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE12_IND)CMP(ABS(X_axis.ActualPosition-xz_position_target[0])<0.1)CMP(ABS(Z_axis.ActualPosition-xz_position_target[1])<0.1)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,1)`
+when STATE12_IND and abs(X_axis.ActualPosition - xz_position_target[0]) < 0.1 and abs(Z_axis.ActualPosition - xz_position_target[1]) < 0.1:
+    STATE_REQUEST = 0
+    NEXTSTATE = 1
 
-# PENDING EDIT in Studio
-raw `XIC(Y_axis.MoveStatus)XIO(Z_RETRACTED)MAS(Y_axis,y_axis_stop,All,Yes,4000,Units per sec2,Yes,4000,Units per sec3)`
+MAS(Y_axis, y_axis_stop, All, Yes, 4000, "Units per sec2", Yes, 4000, "Units per sec3") when Y_axis.MoveStatus and not Z_RETRACTED

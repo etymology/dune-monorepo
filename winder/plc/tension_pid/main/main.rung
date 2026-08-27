@@ -11,30 +11,28 @@ uses Enable_tension_motor, oneshotsb, ramp_start_cv, tension_off_ramp_timer, ten
 uses tension_stable_tolerance, wire_broken_state, wire_undertension_debounce  # program scope
 uses Local:1:I, Local:3:O  # module I/O
 
-# PENDING EDIT in Studio
-raw `XIC(TENSION_ON_SWITCH)[TON(tension_on_switch_delay_on_start,500,0),OSR(oneshotsb[0],tension_on_oneshot),OSF(oneshotsb[1],tension_off_oneshot)]`
+when TENSION_ON_SWITCH:
+    start_timer tension_on_switch_delay_on_start  # preset 500 ms
+    OSR(oneshotsb[0], tension_on_oneshot)
+    OSF(oneshotsb[1], tension_off_oneshot)
 
-# PENDING EDIT in Studio
-raw `XIC(tension_off_oneshot)MOV(tension_motor_cv,ramp_start_cv)`
+ramp_start_cv = tension_motor_cv when tension_off_oneshot
 
 unlatch wire_broken_state when tension_on_oneshot
 
-# PENDING EDIT in Studio
-raw `XIO(TENSION_ON_SWITCH)TON(tension_off_ramp_timer,500,500)`
+unlatch wire_broken_state when tension_off_oneshot
 
-# PENDING EDIT in Studio
-raw `XIO(wire_tensioned)TON(wire_undertension_debounce,20,20)`
+start_timer tension_off_ramp_timer when not TENSION_ON_SWITCH  # preset 500 ms
 
-# PENDING EDIT in Studio
-raw `[XIC(tension_on_switch_delay_on_start.TT),XIO(wire_undertension_debounce.DN)]OTE(TENSION_CONTROL_OK)`
+start_timer wire_undertension_debounce when not wire_tensioned  # preset 20 ms
+
+TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertension_debounce.DN
 
 Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT or constant_cv_out) and not Safety_Tripped_S and disable_motor and not wire_broken_state
 
-# PENDING EDIT in Studio
-raw `XIO(PID_LOOP_TIMER.DN)TON(PID_LOOP_TIMER,1,0)`
+start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 1 ms
 
-# PENDING EDIT in Studio
-raw `CPT(tension,a0+a1*tension_tag+a2*tension_tag*tension_tag+a3*tension_tag*tension_tag*tension_tag+a4*tension_tag*tension_tag*tension_tag*tension_tag)`
+tension = a0 + a1 * tension_tag + a2 * tension_tag * tension_tag + a3 * tension_tag * tension_tag * tension_tag + a4 * tension_tag * tension_tag * tension_tag * tension_tag
 
 winding_head_pid.SP = tension_setpoint when TENSION_CONTROL_OK
 
@@ -52,20 +50,23 @@ tension_motor_cv = tension_motor_curr_override when constant_cv_out
 
 cv_to_electrocraft = tension_motor_cv
 
-# PENDING EDIT in Studio
-raw `CPT(current_command,cv_to_electrocraft*(current_command_high-current_command_low)/pid_cv_high_limit+current_command_low)`
+current_command = cv_to_electrocraft * (current_command_high - current_command_low) / pid_cv_high_limit + current_command_low
 
-# PENDING EDIT in Studio
-raw `CPT(neutral_cv,-current_command_low/((current_command_high-current_command_low)/(pid_cv_high_limit-pid_cv_low_limit)))`
+neutral_cv = -current_command_low / ((current_command_high - current_command_low) / (pid_cv_high_limit - pid_cv_low_limit))
 
-# PENDING EDIT in Studio
-raw `MOV(tension_stable_time,tension_stable_timer.PRE)CMP(ABS(tension-tension_setpoint)<tension_stable_tolerance)TON(tension_stable_timer,10,0)`
+tension_stable_timer.PRE = tension_stable_time
 
-# PENDING EDIT in Studio
-raw `GRT(tension,max_tolerable_tension)XIC(TENSION_ON_SWITCH)OTE(Local:3:O.Pt15.Data)TON(overtension_timer,25,0)`
+start_timer tension_stable_timer when abs(tension - tension_setpoint) < tension_stable_tolerance  # preset 10 ms
 
-# PENDING EDIT in Studio
-raw `XIC(overtension_timer.DN)OTE(MORE_STATS[2])CPT(ERROR_CODE,8002)CPT(NEXTSTATE,10)`
+Local:3:O.Pt15.Data = tension > max_tolerable_tension and TENSION_ON_SWITCH
+
+start_timer overtension_timer when tension > max_tolerable_tension and TENSION_ON_SWITCH  # preset 25 ms
+
+MORE_STATS[2] = overtension_timer.DN
+
+when overtension_timer.DN:
+    ERROR_CODE = 8002
+    NEXTSTATE = 10
 
 raw `XIC(tension_on_switch_delay_on_start.DN)XIC(wire_undertension_debounce.DN)NEQ(ERROR_CODE,8002)CPT(NEXTSTATE,10)CPT(ERROR_CODE,8001)OTL(wire_broken_state)`
 

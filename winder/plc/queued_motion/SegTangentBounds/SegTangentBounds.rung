@@ -3,209 +3,172 @@ routine queued_motion/SegTangentBounds
 uses SegQueue  # controller scope
 uses BOOLS, DINTS, idx_0, idx_1, idx_2, REALS  # program scope
 
-# PENDING EDIT in Studio
-raw `NEQ(SegQueue[idx_2].SegType,1)JMP(lbl_else_30)`
+JMP(lbl_else_30) when SegQueue[idx_2].SegType != 1
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[24],SegQueue[idx_2].XY[0]-REALS[20])`
+REALS[24] = SegQueue[idx_2].XY[0] - REALS[20]
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[25],SegQueue[idx_2].XY[1]-REALS[21])`
+REALS[25] = SegQueue[idx_2].XY[1] - REALS[21]
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[26],SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25]))`
+REALS[26] = sqr(REALS[24] * REALS[24] + REALS[25] * REALS[25])
 
-# PENDING EDIT in Studio
-raw `GRT(REALS[26],0.000000001)JMP(lbl_else_32)`
+JMP(lbl_else_32) when REALS[26] > 0.000000001
 
-# PENDING EDIT in Studio
-raw `MOV(0.0,REALS[22])`
+REALS[22] = 0.0
 
-# PENDING EDIT in Studio
-raw `MOV(0.0,REALS[23])`
+REALS[23] = 0.0
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_SegTangentBounds_end)`
+JMP(lbl_SegTangentBounds_end)
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_32)CPT(REALS[22],ABS(REALS[24]/REALS[26]))`
+label lbl_else_32
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[23],ABS(REALS[25]/REALS[26]))`
+REALS[22] = abs(REALS[24] / REALS[26])
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_SegTangentBounds_end)`
+REALS[23] = abs(REALS[25] / REALS[26])
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_30)NEQ(SegQueue[idx_2].SegType,2)JMP(lbl_else_34)`
+JMP(lbl_SegTangentBounds_end)
 
-# PENDING EDIT in Studio
-raw `MOV(idx_2,idx_0)`
+label lbl_else_30
 
-# PENDING EDIT in Studio
-raw `MOV(idx_2,idx_1)`
+JMP(lbl_else_34) when SegQueue[idx_2].SegType != 2
 
-# PENDING EDIT in Studio
-raw `JSR(CircleCenterForSeg,0)`
+idx_0 = idx_2
 
-# PENDING EDIT in Studio
-raw `NEQ(REALS[28],0)JMP(lbl_else_36)`
+idx_1 = idx_2
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[31],SQR(REALS[20]-REALS[29]*REALS[20]-REALS[29]+REALS[21]-REALS[30]*REALS[21]-REALS[30]))`
+call CircleCenterForSeg
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[32],SQR(SegQueue[idx_2].XY[0]-REALS[29]*SegQueue[idx_2].XY[0]-REALS[29]+SegQueue[idx_2].XY[1]-REALS[30]*SegQueue[idx_2].XY[1]-REALS[30]))`
+JMP(lbl_else_36) when REALS[28] != 0
 
-# PENDING EDIT in Studio
-raw `[LEQ(REALS[31],0.000000001),LEQ(REALS[32],0.000000001)]OTL(BOOLS[900])`
+REALS[31] = sqr(REALS[20] - REALS[29] * REALS[20] - REALS[29] + REALS[21] - REALS[30] * REALS[21] - REALS[30])
 
-# PENDING EDIT in Studio
-raw `XIC(BOOLS[900])JMP(lbl_else_38)`
+REALS[32] = sqr(SegQueue[idx_2].XY[0] - REALS[29] * SegQueue[idx_2].XY[0] - REALS[29] + SegQueue[idx_2].XY[1] - REALS[30] * SegQueue[idx_2].XY[1] - REALS[30])
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[912],REALS[21]-REALS[30])`
+latch BOOLS[900] when REALS[31] <= 0.000000001 or REALS[32] <= 0.000000001
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[913],REALS[20]-REALS[29])`
+JMP(lbl_else_38) when BOOLS[900]
 
-# PENDING EDIT in Studio
-raw `GRT(REALS[913],0.0)CPT(REALS[33],ATN(REALS[912]/REALS[913]))JMP(lbl_atan2_done_40)`
+REALS[912] = REALS[21] - REALS[30]
 
-# PENDING EDIT in Studio
-raw `LES(REALS[913],0.0)GEQ(REALS[912],0.0)CPT(REALS[33],ATN(REALS[912]/REALS[913])+3.14159265358979)JMP(lbl_atan2_done_40)`
+REALS[913] = REALS[20] - REALS[29]
 
-# PENDING EDIT in Studio
-raw `LES(REALS[913],0.0)LES(REALS[912],0.0)CPT(REALS[33],ATN(REALS[912]/REALS[913])-3.14159265358979)JMP(lbl_atan2_done_40)`
+when REALS[913] > 0.0:
+    REALS[33] = atn(REALS[912] / REALS[913])
+    JMP(lbl_atan2_done_40)
 
-# PENDING EDIT in Studio
-raw `EQU(REALS[913],0.0)GRT(REALS[912],0.0)MOV(1.5707963267949,REALS[33])JMP(lbl_atan2_done_40)`
+when REALS[913] < 0.0 and REALS[912] >= 0.0:
+    REALS[33] = atn(REALS[912] / REALS[913]) + 3.14159265358979
+    JMP(lbl_atan2_done_40)
 
-# PENDING EDIT in Studio
-raw `EQU(REALS[913],0.0)LES(REALS[912],0.0)MOV(-1.5707963267949,REALS[33])JMP(lbl_atan2_done_40)`
+when REALS[913] < 0.0 and REALS[912] < 0.0:
+    REALS[33] = atn(REALS[912] / REALS[913]) - 3.14159265358979
+    JMP(lbl_atan2_done_40)
 
-# PENDING EDIT in Studio
-raw `MOV(0.0,REALS[33])`
+when REALS[913] == 0.0 and REALS[912] > 0.0:
+    REALS[33] = 1.5707963267949
+    JMP(lbl_atan2_done_40)
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_atan2_done_40)CPT(REALS[914],SegQueue[idx_2].XY[1]-REALS[30])`
+when REALS[913] == 0.0 and REALS[912] < 0.0:
+    REALS[33] = -1.5707963267949
+    JMP(lbl_atan2_done_40)
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[915],SegQueue[idx_2].XY[0]-REALS[29])`
+REALS[33] = 0.0
 
-# PENDING EDIT in Studio
-raw `GRT(REALS[915],0.0)CPT(REALS[34],ATN(REALS[914]/REALS[915]))JMP(lbl_atan2_done_41)`
+label lbl_atan2_done_40
 
-# PENDING EDIT in Studio
-raw `LES(REALS[915],0.0)GEQ(REALS[914],0.0)CPT(REALS[34],ATN(REALS[914]/REALS[915])+3.14159265358979)JMP(lbl_atan2_done_41)`
+REALS[914] = SegQueue[idx_2].XY[1] - REALS[30]
 
-# PENDING EDIT in Studio
-raw `LES(REALS[915],0.0)LES(REALS[914],0.0)CPT(REALS[34],ATN(REALS[914]/REALS[915])-3.14159265358979)JMP(lbl_atan2_done_41)`
+REALS[915] = SegQueue[idx_2].XY[0] - REALS[29]
 
-# PENDING EDIT in Studio
-raw `EQU(REALS[915],0.0)GRT(REALS[914],0.0)MOV(1.5707963267949,REALS[34])JMP(lbl_atan2_done_41)`
+when REALS[915] > 0.0:
+    REALS[34] = atn(REALS[914] / REALS[915])
+    JMP(lbl_atan2_done_41)
 
-# PENDING EDIT in Studio
-raw `EQU(REALS[915],0.0)LES(REALS[914],0.0)MOV(-1.5707963267949,REALS[34])JMP(lbl_atan2_done_41)`
+when REALS[915] < 0.0 and REALS[914] >= 0.0:
+    REALS[34] = atn(REALS[914] / REALS[915]) + 3.14159265358979
+    JMP(lbl_atan2_done_41)
 
-# PENDING EDIT in Studio
-raw `MOV(0.0,REALS[34])`
+when REALS[915] < 0.0 and REALS[914] < 0.0:
+    REALS[34] = atn(REALS[914] / REALS[915]) - 3.14159265358979
+    JMP(lbl_atan2_done_41)
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_atan2_done_41)MOV(REALS[33],REALS[14])`
+when REALS[915] == 0.0 and REALS[914] > 0.0:
+    REALS[34] = 1.5707963267949
+    JMP(lbl_atan2_done_41)
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[34],REALS[15])`
+when REALS[915] == 0.0 and REALS[914] < 0.0:
+    REALS[34] = -1.5707963267949
+    JMP(lbl_atan2_done_41)
 
-# PENDING EDIT in Studio
-raw `MOV(SegQueue[idx_2].Direction,DINTS[4])`
+REALS[34] = 0.0
 
-# PENDING EDIT in Studio
-raw `JSR(ArcSweepRad,0)`
+label lbl_atan2_done_41
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[16],REALS[35])`
+REALS[14] = REALS[33]
 
-# PENDING EDIT in Studio
-raw `XIC(BOOLS[3])OTL(BOOLS[6])`
+REALS[15] = REALS[34]
 
-# PENDING EDIT in Studio
-raw `XIO(BOOLS[3])OTU(BOOLS[6])`
+DINTS[4] = SegQueue[idx_2].Direction
 
-# PENDING EDIT in Studio
-raw `XIO(BOOLS[6])JMP(lbl_else_42)`
+call ArcSweepRad
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[33],REALS[0])`
+REALS[35] = REALS[16]
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[35],REALS[1])`
+latch BOOLS[6] when BOOLS[3]
 
-# PENDING EDIT in Studio
-raw `JSR(MaxAbsSinSweep,0)`
+unlatch BOOLS[6] when not BOOLS[3]
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[2],REALS[36])`
+JMP(lbl_else_42) when not BOOLS[6]
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[33],REALS[7])`
+REALS[0] = REALS[33]
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[35],REALS[8])`
+REALS[1] = REALS[35]
 
-# PENDING EDIT in Studio
-raw `JSR(MaxAbsCosSweep,0)`
+call MaxAbsSinSweep
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[9],REALS[37])`
+REALS[36] = REALS[2]
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[36],REALS[22])`
+REALS[7] = REALS[33]
 
-# PENDING EDIT in Studio
-raw `MOV(REALS[37],REALS[23])`
+REALS[8] = REALS[35]
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_SegTangentBounds_end)`
+call MaxAbsCosSweep
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_42)NOP()`
+REALS[37] = REALS[9]
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_38)NOP()`
+REALS[22] = REALS[36]
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_36)NOP()`
+REALS[23] = REALS[37]
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_34)CPT(REALS[24],SegQueue[idx_2].XY[0]-REALS[20])`
+JMP(lbl_SegTangentBounds_end)
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[25],SegQueue[idx_2].XY[1]-REALS[21])`
+label lbl_else_42
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[26],SQR(REALS[24]*REALS[24]+REALS[25]*REALS[25]))`
+label lbl_else_38
 
-# PENDING EDIT in Studio
-raw `GRT(REALS[26],0.000000001)JMP(lbl_else_44)`
+label lbl_else_36
 
-# PENDING EDIT in Studio
-raw `MOV(0.0,REALS[22])`
+label lbl_else_34
 
-# PENDING EDIT in Studio
-raw `MOV(0.0,REALS[23])`
+REALS[24] = SegQueue[idx_2].XY[0] - REALS[20]
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_SegTangentBounds_end)`
+REALS[25] = SegQueue[idx_2].XY[1] - REALS[21]
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_else_44)CPT(REALS[22],ABS(REALS[24]/REALS[26]))`
+REALS[26] = sqr(REALS[24] * REALS[24] + REALS[25] * REALS[25])
 
-# PENDING EDIT in Studio
-raw `CPT(REALS[23],ABS(REALS[25]/REALS[26]))`
+JMP(lbl_else_44) when REALS[26] > 0.000000001
 
-# PENDING EDIT in Studio
-raw `JMP(lbl_SegTangentBounds_end)`
+REALS[22] = 0.0
 
-# PENDING EDIT in Studio
-raw `LBL(lbl_SegTangentBounds_end)NOP()`
+REALS[23] = 0.0
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_else_44
+
+REALS[22] = abs(REALS[24] / REALS[26])
+
+REALS[23] = abs(REALS[25] / REALS[26])
+
+JMP(lbl_SegTangentBounds_end)
+
+label lbl_SegTangentBounds_end

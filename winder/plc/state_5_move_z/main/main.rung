@@ -10,55 +10,73 @@ uses Z_axis, Z_DECELLERATION, Z_FIXED_LATCHED, Z_POSITION, Z_SPEED  # controller
 uses eot_stop, oneshotob, STATE5_IND, z_accel_jerk, z_axis_fast_move, z_axis_main_move  # program scope
 uses z_axis_mso, z_decel_jerk, z_move_success  # program scope
 
-# PENDING EDIT in Studio
-raw `[XIC(Z_FIXED_LATCHED)EQU(ACTUATOR_POS,2),XIO(Z_FIXED_LATCHED)]OTE(no_latch_collision)`
+no_latch_collision = Z_FIXED_LATCHED and ACTUATOR_POS == 2 or not Z_FIXED_LATCHED
 
-# PENDING EDIT in Studio
-raw `[XIC(X_XFER_OK),XIC(Y_XFER_OK)]OTE(no_apa_collision)`
+no_apa_collision = X_XFER_OK or Y_XFER_OK
 
-# PENDING EDIT in Studio
-raw `[XIC(X_XFER_OK)[LIM(400,X_axis.ActualPosition,500)[XIC(support_collision_window_bttm)XIO(FRAME_LOC_HD_BTM),XIC(support_collision_window_mid)XIO(FRAME_LOC_HD_MID),XIC(support_collision_window_top)XIO(FRAME_LOC_HD_TOP)],LIM(7100,X_axis.ActualPosition,7200)[XIC(support_collision_window_bttm)XIO(FRAME_LOC_FT_BTM),XIC(support_collision_window_mid)XIO(FRAME_LOC_FT_MID),XIC(support_collision_window_top)XIO(FRAME_LOC_FT_TOP)],XIO(support_collision_window_bttm)XIO(support_collision_window_mid)XIO(support_collision_window_top)],XIC(Y_XFER_OK)]OTE(no_supports_collision)`
+no_supports_collision = X_XFER_OK and (LIM(400, X_axis.ActualPosition, 500) and (support_collision_window_bttm and not FRAME_LOC_HD_BTM or support_collision_window_mid and not FRAME_LOC_HD_MID or support_collision_window_top and not FRAME_LOC_HD_TOP) or LIM(7100, X_axis.ActualPosition, 7200) and (support_collision_window_bttm and not FRAME_LOC_FT_BTM or support_collision_window_mid and not FRAME_LOC_FT_MID or support_collision_window_top and not FRAME_LOC_FT_TOP) or not support_collision_window_bttm and not support_collision_window_mid and not support_collision_window_top) or Y_XFER_OK
 
-# PENDING EDIT in Studio
-raw `XIC(no_latch_collision)XIC(no_supports_collision)XIC(no_apa_collision)OTE(MASTER_Z_GO)`
+MASTER_Z_GO = no_latch_collision and no_supports_collision and no_apa_collision
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=4)MOV(1,NEXTSTATE)`
+NEXTSTATE = 1 when STATE == 4
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=5)XIC(Z_FIXED_LATCHED)XIC(LATCH_ACTUATOR_HOMED)CMP(ACTUATOR_POS<>2)CPT(ERROR_CODE,5004)CPT(NEXTSTATE,10)`
+when STATE == 5 and Z_FIXED_LATCHED and LATCH_ACTUATOR_HOMED and ACTUATOR_POS != 2:
+    ERROR_CODE = 5004
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=5)XIC(Z_axis.PhysicalAxisFault)CPT(ERROR_CODE,5002)CPT(NEXTSTATE,10)`
+when STATE == 5 and Z_axis.PhysicalAxisFault:
+    ERROR_CODE = 5002
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=5)XIO(MASTER_Z_GO)CPT(ERROR_CODE,5001)CPT(NEXTSTATE,10)`
+when STATE == 5 and not MASTER_Z_GO:
+    ERROR_CODE = 5001
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(MASTER_Z_GO)CMP(ERROR_CODE=5001)CPT(ERROR_CODE,0)`
+ERROR_CODE = 0 when MASTER_Z_GO and ERROR_CODE == 5001
 
 STATE5_IND = STATE == 5 and MASTER_Z_GO and (tension_stable_timer.DN or not check_tension_stable or not TENSION_ON_SWITCH or Z_FIXED_LATCHED)
 
-# PENDING EDIT in Studio
-raw `XIC(STATE5_IND)XIO(Z_axis.DriveEnableStatus)MSO(Z_axis,z_axis_mso)`
+servo_on Z_axis using z_axis_mso when STATE5_IND and not Z_axis.DriveEnableStatus
 
-# PENDING EDIT in Studio
-raw `XIC(STATE5_IND)XIC(Z_axis.DriveEnableStatus)XIO(Z_FIXED_LATCHED)MAM(Z_axis,z_axis_main_move,0,Z_POSITION,Z_SPEED,Units per sec,Z_ACCELERATION,Units per sec2,Z_DECELLERATION,Units per sec2,S-Curve,z_accel_jerk,z_decel_jerk,Units per sec3,Disabled,Programmed,0,None,0,0)`
+when STATE5_IND and Z_axis.DriveEnableStatus and not Z_FIXED_LATCHED:
+    move_axis Z_axis using z_axis_main_move:
+        type           = absolute
+        position       = Z_POSITION
+        speed          = Z_SPEED units/s
+        accel          = Z_ACCELERATION units/s2
+        decel          = Z_DECELLERATION units/s2
+        profile        = s-curve
+        accel_jerk     = z_accel_jerk
+        decel_jerk     = z_decel_jerk
+        merge          = Disabled
+        merge_speed    = Programmed
+        lock_direction = None
 
-# PENDING EDIT in Studio
-raw `XIC(STATE5_IND)XIC(Z_axis.DriveEnableStatus)XIC(Z_FIXED_LATCHED)MAM(Z_axis,z_axis_fast_move,0,Z_POSITION,2000,Units per sec,10000,Units per sec2,10000,Units per sec2,S-Curve,10000,10000,Units per sec3,Disabled,Programmed,0,None,0,0)`
+when STATE5_IND and Z_axis.DriveEnableStatus and Z_FIXED_LATCHED:
+    move_axis Z_axis using z_axis_fast_move:
+        type           = absolute
+        position       = Z_POSITION
+        speed          = 2000 units/s
+        accel          = 10000 units/s2
+        decel          = 10000 units/s2
+        profile        = s-curve
+        jerk           = 10000
+        merge          = Disabled
+        merge_speed    = Programmed
+        lock_direction = None
 
-# PENDING EDIT in Studio
-raw `XIC(Z_axis.MoveStatus)CMP(STATE_REQUEST=14)CPT(NEXTSTATE,14)`
+NEXTSTATE = 14 when Z_axis.MoveStatus and STATE_REQUEST == 14
 
-# PENDING EDIT in Studio
-raw `XIO(ALL_EOT_GOOD)XIC(Z_axis.MoveStatus)MAS(Z_axis,eot_stop,Jog,Yes,2000,Units per sec2,No,100,% of Time)`
+MAS(Z_axis, eot_stop, Jog, Yes, 2000, "Units per sec2", No, 100, "% of Time") when not ALL_EOT_GOOD and Z_axis.MoveStatus
 
-# PENDING EDIT in Studio
-raw `XIC(eot_stop.PC)CPT(ERROR_CODE,5005)CPT(NEXTSTATE,11)MOV(0,eot_stop.FLAGS)`
+when eot_stop.PC:
+    ERROR_CODE = 5005
+    NEXTSTATE = 11
+    eot_stop.FLAGS = 0
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=5)CMP(ABS(Z_axis.ActualPosition-Z_POSITION)<0.1)OSR(oneshotob[0],z_move_success)`
-
-# PENDING EDIT in Studio
-raw `XIC(z_move_success)CPT(STATE_REQUEST,0)CPT(MOVE_TYPE,0)CPT(NEXTSTATE,1)MOV(0,z_axis_main_move.FLAGS)MOV(0,z_axis_fast_move.FLAGS)`
+on rising STATE == 5 and abs(Z_axis.ActualPosition - Z_POSITION) < 0.1 using oneshotob[0], z_move_success:
+    STATE_REQUEST = 0
+    MOVE_TYPE = 0
+    NEXTSTATE = 1
+    z_axis_main_move.FLAGS = 0
+    z_axis_fast_move.FLAGS = 0

@@ -31,830 +31,648 @@ uses RotateONS_AtoB, RotateONS_BtoA, SegValid, SegValidArc, SegValidLine, StartC
 uses StartNextA_ONS, StartNextB_ONS, UseAasCurrent, WaitCurAxisOn, WaitNextAxisOn, x_axis_mso  # program scope
 uses y_axis_mso  # program scope
 
-# PENDING EDIT in Studio
-raw `EQU(QueueCtl.POS,0)OTE(QueueEmpty)`
+QueueEmpty = QueueCtl.POS == 0
 
-# PENDING EDIT in Studio
-raw `GEQ(QueueCtl.POS,32)OTE(QueueFull)`
+QueueFull = QueueCtl.POS >= 32
 
-# PENDING EDIT in Studio
-raw `MOV(QueueCtl.POS,QueueCount)`
+QueueCount = QueueCtl.POS
 
-# PENDING EDIT in Studio
-raw `CMP(MOVE_TYPE=11)OTL(AbortQueue)CPT(NEXTSTATE,14)`
+when MOVE_TYPE == 11:
+    latch AbortQueue
+    NEXTSTATE = 14
 
-# PENDING EDIT in Studio
-raw `XIC(QueueStopRequest)[XIC(CurIssued),XIC(NextIssued),XIC(X_Y.MovePendingStatus)]ONS(QueueStopReqONS)MCS(X_Y,gui_stop,All,Yes,2000,Units per sec2,Yes,1000,Units per sec3)`
+MCS(X_Y, gui_stop, All, Yes, 2000, "Units per sec2", Yes, 1000, "Units per sec3") when QueueStopRequest and (CurIssued or NextIssued or X_Y.MovePendingStatus) and ONS(QueueStopReqONS)
 
-# PENDING EDIT in Studio
-raw `XIC(QueueStopRequest)OTL(AbortQueue)`
+latch AbortQueue when QueueStopRequest
 
-# PENDING EDIT in Studio
-raw `[XIC(AbortQueue),XIO(ALL_EOT_GOOD)]OTE(AbortActive)`
+AbortActive = AbortQueue or not ALL_EOT_GOOD
 
-# PENDING EDIT in Studio
-raw `NEQ(IncomingSegReqID,LastIncomingSegReqID)OTL(EnqueueReq)`
+latch EnqueueReq when IncomingSegReqID != LastIncomingSegReqID
 
-# PENDING EDIT in Studio
-raw `XIC(EnqueueReq)XIC(IncomingSeg.Valid)EQU(IncomingSeg.SegType,1)GRT(IncomingSeg.Speed,0.0)GRT(IncomingSeg.Accel,0.0)GRT(IncomingSeg.Decel,0.0)GEQ(IncomingSeg.TermType,0)LEQ(IncomingSeg.TermType,6)OTE(SegValidLine)`
+SegValidLine = EnqueueReq and IncomingSeg.Valid and IncomingSeg.SegType == 1 and IncomingSeg.Speed > 0.0 and IncomingSeg.Accel > 0.0 and IncomingSeg.Decel > 0.0 and IncomingSeg.TermType >= 0 and IncomingSeg.TermType <= 6
 
-# PENDING EDIT in Studio
-raw `XIC(EnqueueReq)XIC(IncomingSeg.Valid)EQU(IncomingSeg.SegType,2)GRT(IncomingSeg.Speed,0.0)GRT(IncomingSeg.Accel,0.0)GRT(IncomingSeg.Decel,0.0)GEQ(IncomingSeg.TermType,0)LEQ(IncomingSeg.TermType,6)GEQ(IncomingSeg.CircleType,0)LEQ(IncomingSeg.CircleType,3)GEQ(IncomingSeg.Direction,0)LEQ(IncomingSeg.Direction,3)OTE(SegValidArc)`
+SegValidArc = EnqueueReq and IncomingSeg.Valid and IncomingSeg.SegType == 2 and IncomingSeg.Speed > 0.0 and IncomingSeg.Accel > 0.0 and IncomingSeg.Decel > 0.0 and IncomingSeg.TermType >= 0 and IncomingSeg.TermType <= 6 and IncomingSeg.CircleType >= 0 and IncomingSeg.CircleType <= 3 and IncomingSeg.Direction >= 0 and IncomingSeg.Direction <= 3
 
-# PENDING EDIT in Studio
-raw `[XIC(SegValidLine),XIC(SegValidArc)]OTE(SegValid)`
+SegValid = SegValidLine or SegValidArc
 
-# PENDING EDIT in Studio
-raw `XIC(EnqueueReq)XIC(SegValid)XIO(QueueFull)FFL(IncomingSeg,SegQueue[0],QueueCtl,?,?)`
+FFL(IncomingSeg, SegQueue[0], QueueCtl, ?, ?) when EnqueueReq and SegValid and not QueueFull
 
-# PENDING EDIT in Studio
-raw `XIC(EnqueueReq)XIC(SegValid)XIO(QueueFull)MOV(IncomingSeg.Seq,IncomingSegAck)`
+IncomingSegAck = IncomingSeg.Seq when EnqueueReq and SegValid and not QueueFull
 
-# PENDING EDIT in Studio
-raw `XIC(EnqueueReq)XIC(SegValid)XIO(QueueFull)MOV(IncomingSegReqID,LastIncomingSegReqID)`
+LastIncomingSegReqID = IncomingSegReqID when EnqueueReq and SegValid and not QueueFull
 
-# PENDING EDIT in Studio
-raw `XIC(EnqueueReq)OTU(EnqueueReq)`
+unlatch EnqueueReq when EnqueueReq
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.ER)MOV(3,FaultCode)`
+FaultCode = 3 when MoveA.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.ER)OTL(QueueFault)`
+latch QueueFault when MoveA.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.ER)OTL(AbortQueue)`
+latch AbortQueue when MoveA.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.ER)OTU(MoveA.ER)`
+unlatch MoveA.ER when MoveA.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.ER)MOV(4,FaultCode)`
+FaultCode = 4 when MoveB.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.ER)OTL(QueueFault)`
+latch QueueFault when MoveB.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.ER)OTL(AbortQueue)`
+latch AbortQueue when MoveB.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.ER)OTU(MoveB.ER)`
+unlatch MoveB.ER when MoveB.ER
 
-# PENDING EDIT in Studio
-raw `[XIC(QueueFault),XIC(MoveA.ER),XIC(MoveB.ER)]OTE(MotionFault)`
+MotionFault = QueueFault or MoveA.ER or MoveB.ER
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIC(CurSeg.Valid)GRT(CurSeg.Seq,0)[EQU(CurSeg.SegType,1),EQU(CurSeg.SegType,2)]OTL(PrepCurMove)`
+latch PrepCurMove when CheckCurSeg and CurSeg.Valid and CurSeg.Seq > 0 and (CurSeg.SegType == 1 or CurSeg.SegType == 2)
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIO(CurSeg.Valid)MOV(1,FaultCode)`
+FaultCode = 1 when CheckCurSeg and not CurSeg.Valid
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIO(CurSeg.Valid)OTL(QueueFault)`
+latch QueueFault when CheckCurSeg and not CurSeg.Valid
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIC(CurSeg.Valid)LEQ(CurSeg.Seq,0)MOV(6,FaultCode)`
+FaultCode = 6 when CheckCurSeg and CurSeg.Valid and CurSeg.Seq <= 0
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIC(CurSeg.Valid)LEQ(CurSeg.Seq,0)OTL(QueueFault)`
+latch QueueFault when CheckCurSeg and CurSeg.Valid and CurSeg.Seq <= 0
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIC(CurSeg.Valid)GRT(CurSeg.Seq,0)[LES(CurSeg.SegType,1),GRT(CurSeg.SegType,2)]MOV(7,FaultCode)`
+FaultCode = 7 when CheckCurSeg and CurSeg.Valid and CurSeg.Seq > 0 and (CurSeg.SegType < 1 or CurSeg.SegType > 2)
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)XIC(CurSeg.Valid)GRT(CurSeg.Seq,0)[LES(CurSeg.SegType,1),GRT(CurSeg.SegType,2)]OTL(QueueFault)`
+latch QueueFault when CheckCurSeg and CurSeg.Valid and CurSeg.Seq > 0 and (CurSeg.SegType < 1 or CurSeg.SegType > 2)
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)OTU(CheckCurSeg)`
+unlatch CheckCurSeg when CheckCurSeg
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIC(NextSeg.Valid)GRT(NextSeg.Seq,0)[EQU(NextSeg.SegType,1),EQU(NextSeg.SegType,2)]OTL(PrepNextMove)`
+latch PrepNextMove when CheckNextSeg and NextSeg.Valid and NextSeg.Seq > 0 and (NextSeg.SegType == 1 or NextSeg.SegType == 2)
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIO(NextSeg.Valid)MOV(2,FaultCode)`
+FaultCode = 2 when CheckNextSeg and not NextSeg.Valid
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIO(NextSeg.Valid)OTL(QueueFault)`
+latch QueueFault when CheckNextSeg and not NextSeg.Valid
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIC(NextSeg.Valid)LEQ(NextSeg.Seq,0)MOV(5,FaultCode)`
+FaultCode = 5 when CheckNextSeg and NextSeg.Valid and NextSeg.Seq <= 0
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIC(NextSeg.Valid)LEQ(NextSeg.Seq,0)OTL(QueueFault)`
+latch QueueFault when CheckNextSeg and NextSeg.Valid and NextSeg.Seq <= 0
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIC(NextSeg.Valid)GRT(NextSeg.Seq,0)[LES(NextSeg.SegType,1),GRT(NextSeg.SegType,2)]MOV(8,FaultCode)`
+FaultCode = 8 when CheckNextSeg and NextSeg.Valid and NextSeg.Seq > 0 and (NextSeg.SegType < 1 or NextSeg.SegType > 2)
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)XIC(NextSeg.Valid)GRT(NextSeg.Seq,0)[LES(NextSeg.SegType,1),GRT(NextSeg.SegType,2)]OTL(QueueFault)`
+latch QueueFault when CheckNextSeg and NextSeg.Valid and NextSeg.Seq > 0 and (NextSeg.SegType < 1 or NextSeg.SegType > 2)
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)OTU(CheckNextSeg)`
+unlatch CheckNextSeg when CheckNextSeg
 
-# PENDING EDIT in Studio
-raw `XIO(CurIssued)XIO(NextIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)MOV(QueueCtl.POS,DINTS[5])`
+DINTS[5] = QueueCtl.POS when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
 
-# PENDING EDIT in Studio
-raw `[XIC(CurIssued),XIC(NextIssued),XIC(QueueFault),LEQ(QueueCtl.POS,0)]MOV(0,DINTS[5])`
+DINTS[5] = 0 when CurIssued or NextIssued or QueueFault or QueueCtl.POS <= 0
 
-# PENDING EDIT in Studio
-raw `XIO(CurIssued)XIO(NextIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)MOV(v_x_max,REALS[38])`
+REALS[38] = v_x_max when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
 
-# PENDING EDIT in Studio
-raw `XIO(CurIssued)XIO(NextIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)MOV(v_y_max,REALS[39])`
+REALS[39] = v_y_max when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
 
-# PENDING EDIT in Studio
-raw `XIO(CurIssued)XIO(NextIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)MOV(X_axis.ActualPosition,REALS[40])`
+REALS[40] = X_axis.ActualPosition when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
 
-# PENDING EDIT in Studio
-raw `XIO(CurIssued)XIO(NextIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)MOV(Y_axis.ActualPosition,REALS[41])`
+REALS[41] = Y_axis.ActualPosition when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
 
-# PENDING EDIT in Studio
-raw `XIO(CurIssued)XIO(NextIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)OTL(BOOLS[7])`
+latch BOOLS[7] when not CurIssued and not NextIssued and not QueueFault and QueueCtl.POS >= 1
 
-# PENDING EDIT in Studio
-raw `JSR(CapSegSpeed,0)`
+call CapSegSpeed
 
-# PENDING EDIT in Studio
-raw `XIC(StartQueuedPath)[[XIO(Z_RETRACTED),GEQ(Z_axis.ActualPosition,MAX_TOLERABLE_Z)]CPT(ERROR_CODE,3001)CPT(NEXTSTATE,10),XIC(Z_RETRACTED)XIO(APA_IS_VERTICAL)CPT(ERROR_CODE,3005)CPT(NEXTSTATE,10)]OTE(AbortQueue)OTU(StartQueuedPath)`
+when StartQueuedPath and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z):
+    ERROR_CODE = 3001
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(StartQueuedPath)XIO(CurIssued)XIO(QueueFault)GEQ(QueueCtl.POS,1)ONS(StartCurONS)OTL(LoadCurReq)`
+when StartQueuedPath and Z_RETRACTED and not APA_IS_VERTICAL:
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(LoadCurReq)OTU(StartQueuedPath)`
+AbortQueue = StartQueuedPath and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z or Z_RETRACTED and not APA_IS_VERTICAL)
 
-# PENDING EDIT in Studio
-raw `XIC(LoadCurReq)FFU(SegQueue[0],CurSeg,QueueCtl,?,?)`
+unlatch StartQueuedPath when StartQueuedPath and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z or Z_RETRACTED and not APA_IS_VERTICAL)
 
-# PENDING EDIT in Studio
-raw `XIC(LoadCurReq)OTL(CheckCurSeg)`
+latch LoadCurReq when StartQueuedPath and not CurIssued and not QueueFault and QueueCtl.POS >= 1 and ONS(StartCurONS)
 
-# PENDING EDIT in Studio
-raw `XIC(LoadCurReq)OTU(LoadCurReq)`
+unlatch StartQueuedPath when LoadCurReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)COP(CurSeg.XY[0],CmdA_XY[0],2)`
+FFU(SegQueue[0], CurSeg, QueueCtl, ?, ?) when LoadCurReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.Speed,CmdA_Speed)`
+latch CheckCurSeg when LoadCurReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.Accel,CmdA_Accel)`
+unlatch LoadCurReq when LoadCurReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.Decel,CmdA_Decel)`
+COP(CurSeg.XY[0], CmdA_XY[0], 2) when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.JerkAccel,CmdA_JerkAccel)`
+CmdA_Speed = CurSeg.Speed when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.JerkDecel,CmdA_JerkDecel)`
+CmdA_Accel = CurSeg.Accel when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.TermType,CmdA_TermType)`
+CmdA_Decel = CurSeg.Decel when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.SegType,CmdA_SegType)`
+CmdA_JerkAccel = CurSeg.JerkAccel when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.CircleType,CmdA_CircleType)`
+CmdA_JerkDecel = CurSeg.JerkDecel when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)COP(CurSeg.ViaCenter[0],CmdA_ViaCenter[0],2)`
+CmdA_TermType = CurSeg.TermType when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.Direction,CmdA_Direction)`
+CmdA_SegType = CurSeg.SegType when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(UseAasCurrent)MOV(CurSeg.Seq,ActiveSeq)`
+CmdA_CircleType = CurSeg.CircleType when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)COP(CurSeg.XY[0],CmdB_XY[0],2)`
+COP(CurSeg.ViaCenter[0], CmdA_ViaCenter[0], 2) when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.Speed,CmdB_Speed)`
+CmdA_Direction = CurSeg.Direction when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.Accel,CmdB_Accel)`
+ActiveSeq = CurSeg.Seq when PrepCurMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.Decel,CmdB_Decel)`
+COP(CurSeg.XY[0], CmdB_XY[0], 2) when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.JerkAccel,CmdB_JerkAccel)`
+CmdB_Speed = CurSeg.Speed when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.JerkDecel,CmdB_JerkDecel)`
+CmdB_Accel = CurSeg.Accel when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.TermType,CmdB_TermType)`
+CmdB_Decel = CurSeg.Decel when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.SegType,CmdB_SegType)`
+CmdB_JerkAccel = CurSeg.JerkAccel when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.CircleType,CmdB_CircleType)`
+CmdB_JerkDecel = CurSeg.JerkDecel when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)COP(CurSeg.ViaCenter[0],CmdB_ViaCenter[0],2)`
+CmdB_TermType = CurSeg.TermType when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.Direction,CmdB_Direction)`
+CmdB_SegType = CurSeg.SegType when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(UseAasCurrent)MOV(CurSeg.Seq,ActiveSeq)`
+CmdB_CircleType = CurSeg.CircleType when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIO(APA_IS_VERTICAL)MOV(3005,FaultCode)CPT(ERROR_CODE,3005)CPT(NEXTSTATE,10)OTL(QueueFault)`
+COP(CurSeg.ViaCenter[0], CmdB_ViaCenter[0], 2) when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(APA_IS_VERTICAL)XIC(X_Y.PhysicalAxisFault)MOV(3002,FaultCode)CPT(ERROR_CODE,3002)CPT(NEXTSTATE,10)OTL(QueueFault)`
+CmdB_Direction = CurSeg.Direction when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)XIC(X_axis.DriveEnableStatus)XIC(Y_axis.DriveEnableStatus)OTL(IssueCurPulse)`
+ActiveSeq = CurSeg.Seq when PrepCurMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)[XIO(X_axis.DriveEnableStatus),XIO(Y_axis.DriveEnableStatus)]OTL(WaitCurAxisOn)`
+when PrepCurMove and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)OTU(PrepCurMove)`
+when PrepCurMove and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
 
-# PENDING EDIT in Studio
-raw `XIC(WaitCurAxisOn)XIO(APA_IS_VERTICAL)MOV(3005,FaultCode)CPT(ERROR_CODE,3005)CPT(NEXTSTATE,10)OTL(QueueFault)OTU(WaitCurAxisOn)`
+latch IssueCurPulse when PrepCurMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and X_axis.DriveEnableStatus and Y_axis.DriveEnableStatus
 
-# PENDING EDIT in Studio
-raw `XIC(WaitCurAxisOn)XIC(APA_IS_VERTICAL)XIC(X_Y.PhysicalAxisFault)MOV(3002,FaultCode)CPT(ERROR_CODE,3002)CPT(NEXTSTATE,10)OTL(QueueFault)OTU(WaitCurAxisOn)`
+latch WaitCurAxisOn when PrepCurMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and (not X_axis.DriveEnableStatus or not Y_axis.DriveEnableStatus)
 
-# PENDING EDIT in Studio
-raw `XIC(WaitCurAxisOn)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)MSO(X_axis,x_axis_mso)MSO(Y_axis,y_axis_mso)`
+unlatch PrepCurMove when PrepCurMove
 
-# PENDING EDIT in Studio
-raw `XIC(WaitCurAxisOn)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)XIC(x_axis_mso.DN)XIC(y_axis_mso.DN)OTL(IssueCurPulse)`
+when WaitCurAxisOn and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitCurAxisOn
 
-# PENDING EDIT in Studio
-raw `XIC(WaitCurAxisOn)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)XIC(x_axis_mso.DN)XIC(y_axis_mso.DN)OTU(WaitCurAxisOn)`
+when WaitCurAxisOn and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitCurAxisOn
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)OTU(PrepCurMove)`
+when WaitCurAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault:
+    servo_on X_axis using x_axis_mso
+    servo_on Y_axis using y_axis_mso
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)XIC(UseAasCurrent)EQU(CmdA_SegType,1)MCLM(X_Y,MoveA,0,CmdA_XY[0],CmdA_Speed,Units per sec,CmdA_Accel,Units per sec2,CmdA_Decel,Units per sec2,S-Curve,CmdA_JerkAccel,CmdA_JerkDecel,Units per sec3,CmdA_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+latch IssueCurPulse when WaitCurAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)XIC(UseAasCurrent)EQU(CmdA_SegType,2)MCCM(X_Y,MoveA,0,CmdA_XY[0],CmdA_CircleType,CmdA_ViaCenter[0],CmdA_Direction,CmdA_Speed,Units per sec,CmdA_Accel,Units per sec2,CmdA_Decel,Units per sec2,S-Curve,CmdA_JerkAccel,CmdA_JerkDecel,Units per sec3,CmdA_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+unlatch WaitCurAxisOn when WaitCurAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)XIO(UseAasCurrent)EQU(CmdB_SegType,1)MCLM(X_Y,MoveB,0,CmdB_XY[0],CmdB_Speed,Units per sec,CmdB_Accel,Units per sec2,CmdB_Decel,Units per sec2,S-Curve,CmdB_JerkAccel,CmdB_JerkDecel,Units per sec3,CmdB_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+unlatch PrepCurMove when PrepCurMove
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)XIO(UseAasCurrent)EQU(CmdB_SegType,2)MCCM(X_Y,MoveB,0,CmdB_XY[0],CmdB_CircleType,CmdB_ViaCenter[0],CmdB_Direction,CmdB_Speed,Units per sec,CmdB_Accel,Units per sec2,CmdB_Decel,Units per sec2,S-Curve,CmdB_JerkAccel,CmdB_JerkDecel,Units per sec3,CmdB_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+when IssueCurPulse and UseAasCurrent and CmdA_SegType == 1:
+    coordinated_move X_Y using MoveA:
+        type              = absolute
+        target            = CmdA_XY[0]
+        speed             = CmdA_Speed units/s
+        accel             = CmdA_Accel units/s2
+        decel             = CmdA_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdA_JerkAccel
+        decel_jerk        = CmdA_JerkDecel
+        merge             = CmdA_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)OTL(CurIssued)`
+MCCM(X_Y, MoveA, 0, CmdA_XY[0], CmdA_CircleType, CmdA_ViaCenter[0], CmdA_Direction, CmdA_Speed, "Units per sec", CmdA_Accel, "Units per sec2", CmdA_Decel, "Units per sec2", S-Curve, CmdA_JerkAccel, CmdA_JerkDecel, "Units per sec3", CmdA_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueCurPulse and UseAasCurrent and CmdA_SegType == 2
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)OTU(IssueCurPulse)`
+when IssueCurPulse and not UseAasCurrent and CmdB_SegType == 1:
+    coordinated_move X_Y using MoveB:
+        type              = absolute
+        target            = CmdB_XY[0]
+        speed             = CmdB_Speed units/s
+        accel             = CmdB_Accel units/s2
+        decel             = CmdB_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdB_JerkAccel
+        decel_jerk        = CmdB_JerkDecel
+        merge             = CmdB_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
 
-# PENDING EDIT in Studio
-raw `XIC(CurIssued)XIC(UseAasCurrent)XIC(MoveA.IP)XIO(X_Y.MovePendingStatus)XIO(NextIssued)XIO(QueueEmpty)XIO(QueueFault)ONS(StartNextA_ONS)OTL(LoadNextReq)`
+MCCM(X_Y, MoveB, 0, CmdB_XY[0], CmdB_CircleType, CmdB_ViaCenter[0], CmdB_Direction, CmdB_Speed, "Units per sec", CmdB_Accel, "Units per sec2", CmdB_Decel, "Units per sec2", S-Curve, CmdB_JerkAccel, CmdB_JerkDecel, "Units per sec3", CmdB_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueCurPulse and not UseAasCurrent and CmdB_SegType == 2
 
-# PENDING EDIT in Studio
-raw `XIC(CurIssued)XIO(UseAasCurrent)XIC(MoveB.IP)XIO(X_Y.MovePendingStatus)XIO(NextIssued)XIO(QueueEmpty)XIO(QueueFault)ONS(StartNextB_ONS)OTL(LoadNextReq)`
+latch CurIssued when IssueCurPulse
 
-# PENDING EDIT in Studio
-raw `XIC(LoadNextReq)FFU(SegQueue[0],NextSeg,QueueCtl,?,?)`
+unlatch IssueCurPulse when IssueCurPulse
 
-# PENDING EDIT in Studio
-raw `XIC(LoadNextReq)OTL(CheckNextSeg)`
+latch LoadNextReq when CurIssued and UseAasCurrent and MoveA.IP and not X_Y.MovePendingStatus and not NextIssued and not QueueEmpty and not QueueFault and ONS(StartNextA_ONS)
 
-# PENDING EDIT in Studio
-raw `XIC(LoadNextReq)OTU(LoadNextReq)`
+latch LoadNextReq when CurIssued and not UseAasCurrent and MoveB.IP and not X_Y.MovePendingStatus and not NextIssued and not QueueEmpty and not QueueFault and ONS(StartNextB_ONS)
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)COP(NextSeg.XY[0],CmdB_XY[0],2)`
+FFU(SegQueue[0], NextSeg, QueueCtl, ?, ?) when LoadNextReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.Speed,CmdB_Speed)`
+latch CheckNextSeg when LoadNextReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.Accel,CmdB_Accel)`
+unlatch LoadNextReq when LoadNextReq
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.Decel,CmdB_Decel)`
+COP(NextSeg.XY[0], CmdB_XY[0], 2) when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.JerkAccel,CmdB_JerkAccel)`
+CmdB_Speed = NextSeg.Speed when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.JerkDecel,CmdB_JerkDecel)`
+CmdB_Accel = NextSeg.Accel when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.TermType,CmdB_TermType)`
+CmdB_Decel = NextSeg.Decel when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.SegType,CmdB_SegType)`
+CmdB_JerkAccel = NextSeg.JerkAccel when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.CircleType,CmdB_CircleType)`
+CmdB_JerkDecel = NextSeg.JerkDecel when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)COP(NextSeg.ViaCenter[0],CmdB_ViaCenter[0],2)`
+CmdB_TermType = NextSeg.TermType when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.Direction,CmdB_Direction)`
+CmdB_SegType = NextSeg.SegType when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(UseAasCurrent)MOV(NextSeg.Seq,PendingSeq)`
+CmdB_CircleType = NextSeg.CircleType when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)COP(NextSeg.XY[0],CmdA_XY[0],2)`
+COP(NextSeg.ViaCenter[0], CmdB_ViaCenter[0], 2) when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.Speed,CmdA_Speed)`
+CmdB_Direction = NextSeg.Direction when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.Accel,CmdA_Accel)`
+PendingSeq = NextSeg.Seq when PrepNextMove and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.Decel,CmdA_Decel)`
+COP(NextSeg.XY[0], CmdA_XY[0], 2) when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.JerkAccel,CmdA_JerkAccel)`
+CmdA_Speed = NextSeg.Speed when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.JerkDecel,CmdA_JerkDecel)`
+CmdA_Accel = NextSeg.Accel when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.TermType,CmdA_TermType)`
+CmdA_Decel = NextSeg.Decel when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.SegType,CmdA_SegType)`
+CmdA_JerkAccel = NextSeg.JerkAccel when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.CircleType,CmdA_CircleType)`
+CmdA_JerkDecel = NextSeg.JerkDecel when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)COP(NextSeg.ViaCenter[0],CmdA_ViaCenter[0],2)`
+CmdA_TermType = NextSeg.TermType when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.Direction,CmdA_Direction)`
+CmdA_SegType = NextSeg.SegType when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(UseAasCurrent)MOV(NextSeg.Seq,PendingSeq)`
+CmdA_CircleType = NextSeg.CircleType when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIO(APA_IS_VERTICAL)MOV(3005,FaultCode)CPT(ERROR_CODE,3005)CPT(NEXTSTATE,10)OTL(QueueFault)`
+COP(NextSeg.ViaCenter[0], CmdA_ViaCenter[0], 2) when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(APA_IS_VERTICAL)XIC(X_Y.PhysicalAxisFault)MOV(3002,FaultCode)CPT(ERROR_CODE,3002)CPT(NEXTSTATE,10)OTL(QueueFault)`
+CmdA_Direction = NextSeg.Direction when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)XIC(X_axis.DriveEnableStatus)XIC(Y_axis.DriveEnableStatus)OTL(IssueNextPulse)`
+PendingSeq = NextSeg.Seq when PrepNextMove and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)[XIO(X_axis.DriveEnableStatus),XIO(Y_axis.DriveEnableStatus)]OTL(WaitNextAxisOn)`
+when PrepNextMove and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)OTU(PrepNextMove)`
+latch IssueNextPulse when PrepNextMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and X_axis.DriveEnableStatus and Y_axis.DriveEnableStatus
 
-# PENDING EDIT in Studio
-raw `XIC(WaitNextAxisOn)XIO(APA_IS_VERTICAL)MOV(3005,FaultCode)CPT(ERROR_CODE,3005)CPT(NEXTSTATE,10)OTL(QueueFault)OTU(WaitNextAxisOn)`
+latch WaitNextAxisOn when PrepNextMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and (not X_axis.DriveEnableStatus or not Y_axis.DriveEnableStatus)
 
-# PENDING EDIT in Studio
-raw `XIC(WaitNextAxisOn)XIC(APA_IS_VERTICAL)XIC(X_Y.PhysicalAxisFault)MOV(3002,FaultCode)CPT(ERROR_CODE,3002)CPT(NEXTSTATE,10)OTL(QueueFault)OTU(WaitNextAxisOn)`
+unlatch PrepNextMove when PrepNextMove
 
-# PENDING EDIT in Studio
-raw `XIC(WaitNextAxisOn)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)MSO(X_axis,x_axis_mso)MSO(Y_axis,y_axis_mso)`
+when WaitNextAxisOn and not APA_IS_VERTICAL:
+    FaultCode = 3005
+    ERROR_CODE = 3005
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitNextAxisOn
 
-# PENDING EDIT in Studio
-raw `XIC(WaitNextAxisOn)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)XIC(x_axis_mso.DN)XIC(y_axis_mso.DN)OTL(IssueNextPulse)`
+when WaitNextAxisOn and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
+    FaultCode = 3002
+    ERROR_CODE = 3002
+    NEXTSTATE = 10
+    latch QueueFault
+    unlatch WaitNextAxisOn
 
-# PENDING EDIT in Studio
-raw `XIC(WaitNextAxisOn)XIC(APA_IS_VERTICAL)XIO(X_Y.PhysicalAxisFault)XIC(x_axis_mso.DN)XIC(y_axis_mso.DN)OTU(WaitNextAxisOn)`
+when WaitNextAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault:
+    servo_on X_axis using x_axis_mso
+    servo_on Y_axis using y_axis_mso
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)OTU(PrepNextMove)`
+latch IssueNextPulse when WaitNextAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)XIC(UseAasCurrent)EQU(CmdB_SegType,1)MCLM(X_Y,MoveB,0,CmdB_XY[0],CmdB_Speed,Units per sec,CmdB_Accel,Units per sec2,CmdB_Decel,Units per sec2,S-Curve,CmdB_JerkAccel,CmdB_JerkDecel,Units per sec3,CmdB_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+unlatch WaitNextAxisOn when WaitNextAxisOn and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and x_axis_mso.DN and y_axis_mso.DN
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)XIC(UseAasCurrent)EQU(CmdB_SegType,2)MCCM(X_Y,MoveB,0,CmdB_XY[0],CmdB_CircleType,CmdB_ViaCenter[0],CmdB_Direction,CmdB_Speed,Units per sec,CmdB_Accel,Units per sec2,CmdB_Decel,Units per sec2,S-Curve,CmdB_JerkAccel,CmdB_JerkDecel,Units per sec3,CmdB_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+unlatch PrepNextMove when PrepNextMove
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)XIO(UseAasCurrent)EQU(CmdA_SegType,1)MCLM(X_Y,MoveA,0,CmdA_XY[0],CmdA_Speed,Units per sec,CmdA_Accel,Units per sec2,CmdA_Decel,Units per sec2,S-Curve,CmdA_JerkAccel,CmdA_JerkDecel,Units per sec3,CmdA_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+when IssueNextPulse and UseAasCurrent and CmdB_SegType == 1:
+    coordinated_move X_Y using MoveB:
+        type              = absolute
+        target            = CmdB_XY[0]
+        speed             = CmdB_Speed units/s
+        accel             = CmdB_Accel units/s2
+        decel             = CmdB_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdB_JerkAccel
+        decel_jerk        = CmdB_JerkDecel
+        merge             = CmdB_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)XIO(UseAasCurrent)EQU(CmdA_SegType,2)MCCM(X_Y,MoveA,0,CmdA_XY[0],CmdA_CircleType,CmdA_ViaCenter[0],CmdA_Direction,CmdA_Speed,Units per sec,CmdA_Accel,Units per sec2,CmdA_Decel,Units per sec2,S-Curve,CmdA_JerkAccel,CmdA_JerkDecel,Units per sec3,CmdA_TermType,Disabled,Programmed,CmdTolerance,0,None,0,0)`
+MCCM(X_Y, MoveB, 0, CmdB_XY[0], CmdB_CircleType, CmdB_ViaCenter[0], CmdB_Direction, CmdB_Speed, "Units per sec", CmdB_Accel, "Units per sec2", CmdB_Decel, "Units per sec2", S-Curve, CmdB_JerkAccel, CmdB_JerkDecel, "Units per sec3", CmdB_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueNextPulse and UseAasCurrent and CmdB_SegType == 2
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)OTL(NextIssued)`
+when IssueNextPulse and not UseAasCurrent and CmdA_SegType == 1:
+    coordinated_move X_Y using MoveA:
+        type              = absolute
+        target            = CmdA_XY[0]
+        speed             = CmdA_Speed units/s
+        accel             = CmdA_Accel units/s2
+        decel             = CmdA_Decel units/s2
+        profile           = s-curve
+        accel_jerk        = CmdA_JerkAccel
+        decel_jerk        = CmdA_JerkDecel
+        merge             = CmdA_TermType
+        termination       = programmed
+        command_tolerance = CmdTolerance
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)OTU(IssueNextPulse)`
+MCCM(X_Y, MoveA, 0, CmdA_XY[0], CmdA_CircleType, CmdA_ViaCenter[0], CmdA_Direction, CmdA_Speed, "Units per sec", CmdA_Accel, "Units per sec2", CmdA_Decel, "Units per sec2", S-Curve, CmdA_JerkAccel, CmdA_JerkDecel, "Units per sec3", CmdA_TermType, Disabled, Programmed, CmdTolerance, 0, None, 0, 0) when IssueNextPulse and not UseAasCurrent and CmdA_SegType == 2
 
-# PENDING EDIT in Studio
-raw `XIC(CurIssued)XIC(NextIssued)XIC(UseAasCurrent)XIO(X_Y.MovePendingStatus)XIC(MoveB.IP)ONS(RotateONS_AtoB)OTL(RotateMoves)`
+latch NextIssued when IssueNextPulse
 
-# PENDING EDIT in Studio
-raw `XIC(CurIssued)XIC(NextIssued)XIO(UseAasCurrent)XIO(X_Y.MovePendingStatus)XIC(MoveA.IP)ONS(RotateONS_BtoA)OTL(RotateMoves)`
+unlatch IssueNextPulse when IssueNextPulse
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)COP(NextSeg,CurSeg,1)`
+latch RotateMoves when CurIssued and NextIssued and UseAasCurrent and not X_Y.MovePendingStatus and MoveB.IP and ONS(RotateONS_AtoB)
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)XIC(UseAasCurrent)OTL(FlipToB)`
+latch RotateMoves when CurIssued and NextIssued and not UseAasCurrent and not X_Y.MovePendingStatus and MoveA.IP and ONS(RotateONS_BtoA)
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)XIO(UseAasCurrent)OTL(FlipToA)`
+COP(NextSeg, CurSeg, 1) when RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIC(FlipToB)OTU(UseAasCurrent)`
+latch FlipToB when RotateMoves and UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(FlipToA)OTL(UseAasCurrent)`
+latch FlipToA when RotateMoves and not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)OTU(NextIssued)`
+unlatch UseAasCurrent when FlipToB
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)MOV(PendingSeq,ActiveSeq)`
+latch UseAasCurrent when FlipToA
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)MOV(0,PendingSeq)`
+unlatch NextIssued when RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)OTU(RotateMoves)`
+ActiveSeq = PendingSeq when RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIC(FlipToA)OTU(FlipToA)`
+PendingSeq = 0 when RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIC(FlipToB)OTU(FlipToB)`
+unlatch RotateMoves when RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIC(CurIssued)XIO(NextIssued)XIC(UseAasCurrent)XIO(X_Y.MovePendingStatus)XIC(MoveA.PC)ONS(DoneONS_A)OTU(CurIssued)`
+unlatch FlipToA when FlipToA
 
-# PENDING EDIT in Studio
-raw `XIC(CurIssued)XIO(NextIssued)XIO(UseAasCurrent)XIO(X_Y.MovePendingStatus)XIC(MoveB.PC)ONS(DoneONS_B)OTU(CurIssued)`
+unlatch FlipToB when FlipToB
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)RES(CurIssueAckTON)`
+unlatch CurIssued when CurIssued and not NextIssued and UseAasCurrent and not X_Y.MovePendingStatus and MoveA.PC and ONS(DoneONS_A)
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)RES(NextIssueAckTON)`
+unlatch CurIssued when CurIssued and not NextIssued and not UseAasCurrent and not X_Y.MovePendingStatus and MoveB.PC and ONS(DoneONS_B)
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)RES(QueueCtl)`
+reset CurIssueAckTON when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(CurIssued)`
+reset NextIssueAckTON when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(NextIssued)`
+reset QueueCtl when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(LoadCurReq)`
+unlatch CurIssued when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(LoadNextReq)`
+unlatch NextIssued when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(PrepCurMove)`
+unlatch LoadCurReq when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(PrepNextMove)`
+unlatch LoadNextReq when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(IssueCurPulse)`
+unlatch PrepCurMove when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(IssueNextPulse)`
+unlatch PrepNextMove when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(WaitCurAxisOn)`
+unlatch IssueCurPulse when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(WaitNextAxisOn)`
+unlatch IssueNextPulse when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(QueueStopRequest)`
+unlatch WaitCurAxisOn when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(AbortQueue)`
+unlatch WaitNextAxisOn when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(EnqueueReq)`
+unlatch QueueStopRequest when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(RotateMoves)`
+unlatch AbortQueue when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(FlipToA)`
+unlatch EnqueueReq when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(FlipToB)`
+unlatch RotateMoves when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTL(UseAasCurrent)`
+unlatch FlipToA when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(StartQueuedPath)`
+unlatch FlipToB when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)MOV(0,FaultCode)`
+latch UseAasCurrent when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(QueueFault)`
+unlatch StartQueuedPath when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(CheckCurSeg)`
+FaultCode = 0 when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(CheckNextSeg)`
+unlatch QueueFault when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(CurSeg.Valid)`
+unlatch CheckCurSeg when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)MOV(0,CurSeg.Seq)`
+unlatch CheckNextSeg when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTU(NextSeg.Valid)`
+unlatch CurSeg.Valid when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)MOV(0,NextSeg.Seq)`
+CurSeg.Seq = 0 when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)MOV(IncomingSegReqID,LastIncomingSegReqID)`
+unlatch NextSeg.Valid when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)MOV(0,ActiveSeq)`
+NextSeg.Seq = 0 when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)MOV(0,PendingSeq)`
+LastIncomingSegReqID = IncomingSegReqID when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)FLL(0,SegQueue[0],32)`
+ActiveSeq = 0 when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(UseAasCurrent)OTL(QueueDiag_UseAasCurrent)`
+PendingSeq = 0 when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIO(UseAasCurrent)OTU(QueueDiag_UseAasCurrent)`
+FLL(0, SegQueue[0], 32) when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(LoadCurReq)OTL(QueueDiag_LoadCurReq)`
+latch QueueDiag_UseAasCurrent when UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIO(LoadCurReq)OTU(QueueDiag_LoadCurReq)`
+unlatch QueueDiag_UseAasCurrent when not UseAasCurrent
 
-# PENDING EDIT in Studio
-raw `XIC(LoadNextReq)OTL(QueueDiag_LoadNextReq)`
+latch QueueDiag_LoadCurReq when LoadCurReq
 
-# PENDING EDIT in Studio
-raw `XIO(LoadNextReq)OTU(QueueDiag_LoadNextReq)`
+unlatch QueueDiag_LoadCurReq when not LoadCurReq
 
-# PENDING EDIT in Studio
-raw `XIC(CheckCurSeg)OTL(QueueDiag_CheckCurSeg)`
+latch QueueDiag_LoadNextReq when LoadNextReq
 
-# PENDING EDIT in Studio
-raw `XIO(CheckCurSeg)OTU(QueueDiag_CheckCurSeg)`
+unlatch QueueDiag_LoadNextReq when not LoadNextReq
 
-# PENDING EDIT in Studio
-raw `XIC(CheckNextSeg)OTL(QueueDiag_CheckNextSeg)`
+latch QueueDiag_CheckCurSeg when CheckCurSeg
 
-# PENDING EDIT in Studio
-raw `XIO(CheckNextSeg)OTU(QueueDiag_CheckNextSeg)`
+unlatch QueueDiag_CheckCurSeg when not CheckCurSeg
 
-# PENDING EDIT in Studio
-raw `XIC(PrepCurMove)OTL(QueueDiag_PrepCurMove)`
+latch QueueDiag_CheckNextSeg when CheckNextSeg
 
-# PENDING EDIT in Studio
-raw `XIO(PrepCurMove)OTU(QueueDiag_PrepCurMove)`
+unlatch QueueDiag_CheckNextSeg when not CheckNextSeg
 
-# PENDING EDIT in Studio
-raw `XIC(PrepNextMove)OTL(QueueDiag_PrepNextMove)`
+latch QueueDiag_PrepCurMove when PrepCurMove
 
-# PENDING EDIT in Studio
-raw `XIO(PrepNextMove)OTU(QueueDiag_PrepNextMove)`
+unlatch QueueDiag_PrepCurMove when not PrepCurMove
 
-# PENDING EDIT in Studio
-raw `XIC(IssueCurPulse)OTL(QueueDiag_IssueCurPulse)`
+latch QueueDiag_PrepNextMove when PrepNextMove
 
-# PENDING EDIT in Studio
-raw `XIO(IssueCurPulse)OTU(QueueDiag_IssueCurPulse)`
+unlatch QueueDiag_PrepNextMove when not PrepNextMove
 
-# PENDING EDIT in Studio
-raw `XIC(IssueNextPulse)OTL(QueueDiag_IssueNextPulse)`
+latch QueueDiag_IssueCurPulse when IssueCurPulse
 
-# PENDING EDIT in Studio
-raw `XIO(IssueNextPulse)OTU(QueueDiag_IssueNextPulse)`
+unlatch QueueDiag_IssueCurPulse when not IssueCurPulse
 
-# PENDING EDIT in Studio
-raw `XIC(WaitCurAxisOn)OTL(QueueDiag_WaitCurAxisOn)`
+latch QueueDiag_IssueNextPulse when IssueNextPulse
 
-# PENDING EDIT in Studio
-raw `XIO(WaitCurAxisOn)OTU(QueueDiag_WaitCurAxisOn)`
+unlatch QueueDiag_IssueNextPulse when not IssueNextPulse
 
-# PENDING EDIT in Studio
-raw `XIC(WaitNextAxisOn)OTL(QueueDiag_WaitNextAxisOn)`
+latch QueueDiag_WaitCurAxisOn when WaitCurAxisOn
 
-# PENDING EDIT in Studio
-raw `XIO(WaitNextAxisOn)OTU(QueueDiag_WaitNextAxisOn)`
+unlatch QueueDiag_WaitCurAxisOn when not WaitCurAxisOn
 
-# PENDING EDIT in Studio
-raw `XIC(RotateMoves)OTL(QueueDiag_RotateMoves)`
+latch QueueDiag_WaitNextAxisOn when WaitNextAxisOn
 
-# PENDING EDIT in Studio
-raw `XIO(RotateMoves)OTU(QueueDiag_RotateMoves)`
+unlatch QueueDiag_WaitNextAxisOn when not WaitNextAxisOn
 
-# PENDING EDIT in Studio
-raw `XIC(FlipToA)OTL(QueueDiag_FlipToA)`
+latch QueueDiag_RotateMoves when RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIO(FlipToA)OTU(QueueDiag_FlipToA)`
+unlatch QueueDiag_RotateMoves when not RotateMoves
 
-# PENDING EDIT in Studio
-raw `XIC(FlipToB)OTL(QueueDiag_FlipToB)`
+latch QueueDiag_FlipToA when FlipToA
 
-# PENDING EDIT in Studio
-raw `XIO(FlipToB)OTU(QueueDiag_FlipToB)`
+unlatch QueueDiag_FlipToA when not FlipToA
 
-# PENDING EDIT in Studio
-raw `XIC(AbortActive)OTL(QueueDiag_AbortActive)`
+latch QueueDiag_FlipToB when FlipToB
 
-# PENDING EDIT in Studio
-raw `XIO(AbortActive)OTU(QueueDiag_AbortActive)`
+unlatch QueueDiag_FlipToB when not FlipToB
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.IP)OTL(QueueDiag_MoveA_IP)`
+latch QueueDiag_AbortActive when AbortActive
 
-# PENDING EDIT in Studio
-raw `XIO(MoveA.IP)OTU(QueueDiag_MoveA_IP)`
+unlatch QueueDiag_AbortActive when not AbortActive
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.PC)OTL(QueueDiag_MoveA_PC)`
+latch QueueDiag_MoveA_IP when MoveA.IP
 
-# PENDING EDIT in Studio
-raw `XIO(MoveA.PC)OTU(QueueDiag_MoveA_PC)`
+unlatch QueueDiag_MoveA_IP when not MoveA.IP
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.DN)OTL(QueueDiag_MoveA_DN)`
+latch QueueDiag_MoveA_PC when MoveA.PC
 
-# PENDING EDIT in Studio
-raw `XIO(MoveA.DN)OTU(QueueDiag_MoveA_DN)`
+unlatch QueueDiag_MoveA_PC when not MoveA.PC
 
-# PENDING EDIT in Studio
-raw `XIC(MoveA.ER)OTL(QueueDiag_MoveA_ER)`
+latch QueueDiag_MoveA_DN when MoveA.DN
 
-# PENDING EDIT in Studio
-raw `XIO(MoveA.ER)OTU(QueueDiag_MoveA_ER)`
+unlatch QueueDiag_MoveA_DN when not MoveA.DN
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.IP)OTL(QueueDiag_MoveB_IP)`
+latch QueueDiag_MoveA_ER when MoveA.ER
 
-# PENDING EDIT in Studio
-raw `XIO(MoveB.IP)OTU(QueueDiag_MoveB_IP)`
+unlatch QueueDiag_MoveA_ER when not MoveA.ER
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.PC)OTL(QueueDiag_MoveB_PC)`
+latch QueueDiag_MoveB_IP when MoveB.IP
 
-# PENDING EDIT in Studio
-raw `XIO(MoveB.PC)OTU(QueueDiag_MoveB_PC)`
+unlatch QueueDiag_MoveB_IP when not MoveB.IP
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.DN)OTL(QueueDiag_MoveB_DN)`
+latch QueueDiag_MoveB_PC when MoveB.PC
 
-# PENDING EDIT in Studio
-raw `XIO(MoveB.DN)OTU(QueueDiag_MoveB_DN)`
+unlatch QueueDiag_MoveB_PC when not MoveB.PC
 
-# PENDING EDIT in Studio
-raw `XIC(MoveB.ER)OTL(QueueDiag_MoveB_ER)`
+latch QueueDiag_MoveB_DN when MoveB.DN
 
-# PENDING EDIT in Studio
-raw `XIO(MoveB.ER)OTU(QueueDiag_MoveB_ER)`
+unlatch QueueDiag_MoveB_DN when not MoveB.DN
 
-# PENDING EDIT in Studio
-raw `XIC(CurSeg.Valid)OTL(QueueDiag_CurSeg_Valid)`
+latch QueueDiag_MoveB_ER when MoveB.ER
 
-# PENDING EDIT in Studio
-raw `XIO(CurSeg.Valid)OTU(QueueDiag_CurSeg_Valid)`
+unlatch QueueDiag_MoveB_ER when not MoveB.ER
 
-# PENDING EDIT in Studio
-raw `XIC(NextSeg.Valid)OTL(QueueDiag_NextSeg_Valid)`
+latch QueueDiag_CurSeg_Valid when CurSeg.Valid
 
-# PENDING EDIT in Studio
-raw `XIO(NextSeg.Valid)OTU(QueueDiag_NextSeg_Valid)`
+unlatch QueueDiag_CurSeg_Valid when not CurSeg.Valid
 
-# PENDING EDIT in Studio
-raw `MOV(CurSeg.Seq,QueueDiag_CurSeg_Seq)`
+latch QueueDiag_NextSeg_Valid when NextSeg.Valid
 
-# PENDING EDIT in Studio
-raw `MOV(CurSeg.SegType,QueueDiag_CurSeg_SegType)`
+unlatch QueueDiag_NextSeg_Valid when not NextSeg.Valid
 
-# PENDING EDIT in Studio
-raw `MOV(CurSeg.TermType,QueueDiag_CurSeg_TermType)`
+QueueDiag_CurSeg_Seq = CurSeg.Seq
 
-# PENDING EDIT in Studio
-raw `MOV(CurSeg.Speed,QueueDiag_CurSeg_Speed)`
+QueueDiag_CurSeg_SegType = CurSeg.SegType
 
-# PENDING EDIT in Studio
-raw `MOV(CurSeg.XY[0],QueueDiag_CurSeg_X)`
+QueueDiag_CurSeg_TermType = CurSeg.TermType
 
-# PENDING EDIT in Studio
-raw `MOV(CurSeg.XY[1],QueueDiag_CurSeg_Y)`
+QueueDiag_CurSeg_Speed = CurSeg.Speed
 
-# PENDING EDIT in Studio
-raw `MOV(NextSeg.Seq,QueueDiag_NextSeg_Seq)`
+QueueDiag_CurSeg_X = CurSeg.XY[0]
 
-# PENDING EDIT in Studio
-raw `MOV(NextSeg.SegType,QueueDiag_NextSeg_SegType)`
+QueueDiag_CurSeg_Y = CurSeg.XY[1]
 
-# PENDING EDIT in Studio
-raw `MOV(NextSeg.TermType,QueueDiag_NextSeg_TermType)`
+QueueDiag_NextSeg_Seq = NextSeg.Seq
 
-# PENDING EDIT in Studio
-raw `MOV(NextSeg.Speed,QueueDiag_NextSeg_Speed)`
+QueueDiag_NextSeg_SegType = NextSeg.SegType
 
-# PENDING EDIT in Studio
-raw `MOV(NextSeg.XY[0],QueueDiag_NextSeg_X)`
+QueueDiag_NextSeg_TermType = NextSeg.TermType
 
-# PENDING EDIT in Studio
-raw `MOV(NextSeg.XY[1],QueueDiag_NextSeg_Y)`
+QueueDiag_NextSeg_Speed = NextSeg.Speed
 
-# PENDING EDIT in Studio
-raw `MOV(CmdA_SegType,QueueDiag_CmdA_SegType)`
+QueueDiag_NextSeg_X = NextSeg.XY[0]
 
-# PENDING EDIT in Studio
-raw `MOV(CmdB_SegType,QueueDiag_CmdB_SegType)`
+QueueDiag_NextSeg_Y = NextSeg.XY[1]
 
-# PENDING EDIT in Studio
-raw `MOV(ActiveSeq,QueueDiag_ActiveSeq)`
+QueueDiag_CmdA_SegType = CmdA_SegType
 
-# PENDING EDIT in Studio
-raw `MOV(PendingSeq,QueueDiag_PendingSeq)`
+QueueDiag_CmdB_SegType = CmdB_SegType
 
-# PENDING EDIT in Studio
-raw `MOV(FaultCode,QueueDiag_FaultCode)`
+QueueDiag_ActiveSeq = ActiveSeq
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.EN)OTL(QueueDiag_QueueCtl_EN)`
+QueueDiag_PendingSeq = PendingSeq
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.EN)OTU(QueueDiag_QueueCtl_EN)`
+QueueDiag_FaultCode = FaultCode
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.DN)OTL(QueueDiag_QueueCtl_DN)`
+latch QueueDiag_QueueCtl_EN when QueueCtl.EN
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.DN)OTU(QueueDiag_QueueCtl_DN)`
+unlatch QueueDiag_QueueCtl_EN when not QueueCtl.EN
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.EM)OTL(QueueDiag_QueueCtl_EM)`
+latch QueueDiag_QueueCtl_DN when QueueCtl.DN
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.EM)OTU(QueueDiag_QueueCtl_EM)`
+unlatch QueueDiag_QueueCtl_DN when not QueueCtl.DN
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.ER)OTL(QueueDiag_QueueCtl_ER)`
+latch QueueDiag_QueueCtl_EM when QueueCtl.EM
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.ER)OTU(QueueDiag_QueueCtl_ER)`
+unlatch QueueDiag_QueueCtl_EM when not QueueCtl.EM
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.EU)OTL(QueueDiag_QueueCtl_EU)`
+latch QueueDiag_QueueCtl_ER when QueueCtl.ER
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.EU)OTU(QueueDiag_QueueCtl_EU)`
+unlatch QueueDiag_QueueCtl_ER when not QueueCtl.ER
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.UL)OTL(QueueDiag_QueueCtl_UL)`
+latch QueueDiag_QueueCtl_EU when QueueCtl.EU
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.UL)OTU(QueueDiag_QueueCtl_UL)`
+unlatch QueueDiag_QueueCtl_EU when not QueueCtl.EU
 
-# PENDING EDIT in Studio
-raw `XIC(QueueCtl.IN)OTL(QueueDiag_QueueCtl_IN)`
+latch QueueDiag_QueueCtl_UL when QueueCtl.UL
 
-# PENDING EDIT in Studio
-raw `XIO(QueueCtl.IN)OTU(QueueDiag_QueueCtl_IN)`
+unlatch QueueDiag_QueueCtl_UL when not QueueCtl.UL
 
-# PENDING EDIT in Studio
-raw `MOV(QueueCtl.POS,QueueDiag_QueueCtl_POS)`
+latch QueueDiag_QueueCtl_IN when QueueCtl.IN
 
-# PENDING EDIT in Studio
-raw `MOV(QueueCtl.LEN,QueueDiag_QueueCtl_LEN)`
+unlatch QueueDiag_QueueCtl_IN when not QueueCtl.IN
 
-# PENDING EDIT in Studio
-raw `MOV(MoveA.ERR,QueueDiag_MoveA_ERRID)`
+QueueDiag_QueueCtl_POS = QueueCtl.POS
 
-# PENDING EDIT in Studio
-raw `MOV(MoveA.EXERR,QueueDiag_MoveA_EXERR)`
+QueueDiag_QueueCtl_LEN = QueueCtl.LEN
 
-# PENDING EDIT in Studio
-raw `MOV(MoveB.ERR,QueueDiag_MoveB_ERRID)`
+QueueDiag_MoveA_ERRID = MoveA.ERR
 
-# PENDING EDIT in Studio
-raw `MOV(MoveB.EXERR,QueueDiag_MoveB_EXERR)`
+QueueDiag_MoveA_EXERR = MoveA.EXERR
+
+QueueDiag_MoveB_ERRID = MoveB.ERR
+
+QueueDiag_MoveB_EXERR = MoveB.EXERR

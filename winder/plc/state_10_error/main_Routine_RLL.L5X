@@ -1,82 +1,82 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-25 15:19:14.538" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-27 12:49:26.146" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="state_10_error" Class="Standard">
 <Routines Use="Context">
 <Routine Use="Target" Name="main" Type="RLL">
 <RLLContent>
-<Rung Number="0" Type="e">
+<Rung Number="0" Type="N">
 <Text>
 <![CDATA[XIC(INIT_DONE)CMP(STATE=10)OTE(STATE10_IND);]]>
 </Text>
 </Rung>
-<Rung Number="1" Type="e">
+<Rung Number="1" Type="N">
 <Text>
 <![CDATA[XIC(STATE10_IND)OSR(error_entry_sb,error_entry_ob);]]>
 </Text>
 </Rung>
-<Rung Number="2" Type="e">
+<Rung Number="2" Type="N">
 <Text>
 <![CDATA[XIC(error_entry_ob)MOV(-1,STATE_REQUEST);]]>
 </Text>
 </Rung>
-<Rung Number="3" Type="e">
+<Rung Number="3" Type="N">
 <Text>
 <![CDATA[XIC(error_entry_ob)MCS(X_Y,xy_error_stop_control,All,Yes,1000,Units per sec2,Yes,1000,Units per sec3);]]>
 </Text>
 </Rung>
-<Rung Number="4" Type="e">
+<Rung Number="4" Type="N">
 <Text>
 <![CDATA[XIC(error_entry_ob)MAS(Z_axis,z_axis_error_stop_control,All,Yes,1000,Units per sec2,No,10000,% of Time);]]>
 </Text>
 </Rung>
-<Rung Number="5" Type="e">
+<Rung Number="5" Type="N">
 <Text>
 <![CDATA[XIC(xy_error_stop_control.PC)XIC(z_axis_error_stop_control.PC)OSR(error_axes_stopped_sb,error_axes_stopped_ob);]]>
 </Text>
 </Rung>
-<Rung Number="6" Type="e">
+<Rung Number="6" Type="N">
 <Text>
 <![CDATA[XIC(error_axes_stopped_ob)XIC(error_servo_off)MSF(X_axis,x_axis_msf);]]>
 </Text>
 </Rung>
-<Rung Number="7" Type="e">
+<Rung Number="7" Type="N">
 <Text>
 <![CDATA[XIC(error_axes_stopped_ob)XIC(error_servo_off)MSF(Y_axis,y_axis_msf);]]>
 </Text>
 </Rung>
-<Rung Number="8" Type="e">
+<Rung Number="8" Type="N">
 <Text>
 <![CDATA[XIC(error_axes_stopped_ob)XIC(error_servo_off)MSF(Z_axis,z_axis_msf);]]>
 </Text>
 </Rung>
-<Rung Number="9" Type="e">
+<Rung Number="9" Type="N">
 <Text>
 <![CDATA[XIC(x_axis_msf.DN)XIC(y_axis_msf.DN)XIC(z_axis_msf.DN)CMP(STATE_REQUEST=0)OSR(error_servoed_off_sb,error_servoed_off_ob);]]>
 </Text>
 </Rung>
-<Rung Number="10" Type="e">
+<Rung Number="10" Type="N">
 <Text>
 <![CDATA[XIC(error_servoed_off_ob)MAFR(Z_axis,z_axis_mafr);]]>
 </Text>
 </Rung>
-<Rung Number="11" Type="e">
+<Rung Number="11" Type="N">
 <Text>
 <![CDATA[XIC(z_axis_mafr.DN)MAFR(Y_axis,y_axis_mafr);]]>
 </Text>
 </Rung>
-<Rung Number="12" Type="e">
+<Rung Number="12" Type="N">
 <Text>
 <![CDATA[XIC(y_axis_mafr.DN)MAFR(X_axis,x_axis_mafr);]]>
 </Text>
 </Rung>
-<Rung Number="13" Type="e">
+<Rung Number="13" Type="N">
 <Text>
 <![CDATA[XIC(z_axis_msf.DN)XIC(y_axis_msf.DN)XIC(x_axis_msf.DN)CMP(STATE_REQUEST=0)CMP(STATE=10)CPT(ERROR_CODE,0)CPT(NEXTSTATE,1);]]>
 </Text>
 </Rung>
-<Rung Number="14" Type="e">
+<Rung Number="14" Type="N">
 <Text>
 <![CDATA[CMP(STATE=10)CMP(STATE_REQUEST=0)CPT(ERROR_CODE,0)CPT(NEXTSTATE,1);]]>
 </Text>

@@ -8,53 +8,61 @@ uses yz_position_target, yz_speed, Z_axis  # controller scope
 uses STATE13_IND, xy_stop, yz_main_move, yz_stop, yz_target_collision_bttm  # program scope
 uses yz_target_collision_mid, yz_target_collision_top, yz_target_support_collision  # program scope
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=13)OTE(STATE13_IND)`
+STATE13_IND = STATE == 13
 
-# PENDING EDIT in Studio
-raw `LIM(btm_support_collision_ymin,yz_position_target[0],btm_support_collision_ymax)OTE(yz_target_collision_bttm)`
+yz_target_collision_bttm = LIM(btm_support_collision_ymin, yz_position_target[0], btm_support_collision_ymax)
 
-# PENDING EDIT in Studio
-raw `LIM(mid_support_collision_ymin,yz_position_target[0],mid_support_collision_ymax)OTE(yz_target_collision_mid)`
+yz_target_collision_mid = LIM(mid_support_collision_ymin, yz_position_target[0], mid_support_collision_ymax)
 
-# PENDING EDIT in Studio
-raw `LIM(top_support_collision_ymin,yz_position_target[0],top_support_collision_ymax)OTE(yz_target_collision_top)`
+yz_target_collision_top = LIM(top_support_collision_ymin, yz_position_target[0], top_support_collision_ymax)
 
-# PENDING EDIT in Studio
-raw `OTU(yz_target_support_collision)`
+unlatch yz_target_support_collision
 
-# PENDING EDIT in Studio
-raw `XIC(yz_target_collision_bttm)XIC(FRAME_LOC_HD_BTM)OTL(yz_target_support_collision)`
+latch yz_target_support_collision when yz_target_collision_bttm and FRAME_LOC_HD_BTM
 
-# PENDING EDIT in Studio
-raw `XIC(yz_target_collision_bttm)XIC(FRAME_LOC_FT_BTM)OTL(yz_target_support_collision)`
+latch yz_target_support_collision when yz_target_collision_bttm and FRAME_LOC_FT_BTM
 
-# PENDING EDIT in Studio
-raw `XIC(yz_target_collision_mid)XIC(FRAME_LOC_HD_MID)OTL(yz_target_support_collision)`
+latch yz_target_support_collision when yz_target_collision_mid and FRAME_LOC_HD_MID
 
-# PENDING EDIT in Studio
-raw `XIC(yz_target_collision_mid)XIC(FRAME_LOC_FT_MID)OTL(yz_target_support_collision)`
+latch yz_target_support_collision when yz_target_collision_mid and FRAME_LOC_FT_MID
 
-# PENDING EDIT in Studio
-raw `XIC(yz_target_collision_top)XIC(FRAME_LOC_HD_TOP)OTL(yz_target_support_collision)`
+latch yz_target_support_collision when yz_target_collision_top and FRAME_LOC_HD_TOP
 
-# PENDING EDIT in Studio
-raw `XIC(yz_target_collision_top)XIC(FRAME_LOC_FT_TOP)OTL(yz_target_support_collision)`
+latch yz_target_support_collision when yz_target_collision_top and FRAME_LOC_FT_TOP
 
-# PENDING EDIT in Studio
-raw `XIC(STATE13_IND)XIO(X_XFER_OK)CPT(ERROR_CODE,5003)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,10)`
+when STATE13_IND and not X_XFER_OK:
+    ERROR_CODE = 5003
+    STATE_REQUEST = 0
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE13_IND)XIC(yz_target_support_collision)[GRT(yz_position_target[1],1),GRT(Z_axis.ActualPosition,1)]CPT(ERROR_CODE,5003)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,10)`
+when STATE13_IND and yz_target_support_collision and (yz_position_target[1] > 1 or Z_axis.ActualPosition > 1):
+    ERROR_CODE = 5003
+    STATE_REQUEST = 0
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE13_IND)XIC(X_XFER_OK)XIO(yz_main_move.IP)MCLM(yz,yz_main_move,0,yz_position_target,yz_speed,Units per sec,1000,Units per sec2,1000,Units per sec2,S-Curve,1000,1000,Units per sec3,0,Disabled,Programmed,50,0,None,0,0)`
+when STATE13_IND and X_XFER_OK and not yz_main_move.IP:
+    coordinated_move yz using yz_main_move:
+        type        = absolute
+        target      = yz_position_target
+        speed       = yz_speed units/s
+        accel       = 1000 units/s2
+        decel       = 1000 units/s2
+        profile     = s-curve
+        jerk        = 1000
+        termination = programmed
 
-# PENDING EDIT in Studio
-raw `XIO(X_XFER_OK)XIC(yz_main_move.IP)MCS(X_Y,xy_stop,All,Yes,4000,Units per sec2,Yes,2000,Units per sec3)MCS(yz,yz_stop,All,Yes,4000,Units per sec2,Yes,200,Units per sec3)MOV(0,STATE_REQUEST)CPT(ERROR_CODE,5003)CPT(NEXTSTATE,10)`
+when not X_XFER_OK and yz_main_move.IP:
+    MCS(X_Y, xy_stop, All, Yes, 4000, "Units per sec2", Yes, 2000, "Units per sec3")
+    MCS(yz, yz_stop, All, Yes, 4000, "Units per sec2", Yes, 200, "Units per sec3")
+    STATE_REQUEST = 0
+    ERROR_CODE = 5003
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE13_IND)XIC(yz_main_move.ER)MOV(0,STATE_REQUEST)CPT(ERROR_CODE,5003)CPT(NEXTSTATE,10)`
+when STATE13_IND and yz_main_move.ER:
+    STATE_REQUEST = 0
+    ERROR_CODE = 5003
+    NEXTSTATE = 10
 
-# PENDING EDIT in Studio
-raw `XIC(STATE13_IND)CMP(ABS(Y_axis.ActualPosition-yz_position_target[0])<0.1)CMP(ABS(Z_axis.ActualPosition-yz_position_target[1])<0.1)MOV(0,STATE_REQUEST)CPT(NEXTSTATE,1)`
+when STATE13_IND and abs(Y_axis.ActualPosition - yz_position_target[0]) < 0.1 and abs(Z_axis.ActualPosition - yz_position_target[1]) < 0.1:
+    STATE_REQUEST = 0
+    NEXTSTATE = 1

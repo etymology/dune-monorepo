@@ -9,110 +9,80 @@ uses X_axis_Cam_F_Pos, X_axis_Cam_F_Position, x_pos, x_pos_next, Y_axis_Cam_F_Po
 uses Y_axis_Cam_F_Position, y_pos, y_pos_next  # program scope
 uses DUNE2CAM1:I, DUNE2CAM1:O  # module I/O
 
-# PENDING EDIT in Studio
-raw `XIC(CAM_F_EN)OTE(DUNE2CAM1:O.Control.TriggerEnable)`
+DUNE2CAM1:O.Control.TriggerEnable = CAM_F_EN
 
-# PENDING EDIT in Studio
-raw `XIC(CAM_F_TRIGGER)OSR(triggerOneShotSB,triggerOneShotOB)`
+OSR(triggerOneShotSB, triggerOneShotOB) when CAM_F_TRIGGER
 
-# PENDING EDIT in Studio
-raw `XIC(CAM_F_TRIGGER)XIC(triggerOneShotSB)XIO(TriggerResetTimer2.TT)TON(TriggerResetTimer1,100,5)`
+start_timer TriggerResetTimer1 when CAM_F_TRIGGER and triggerOneShotSB and not TriggerResetTimer2.TT  # preset 100 ms
 
-# PENDING EDIT in Studio
-raw `XIC(CAM_F_TRIGGER)XIC(triggerOneShotSB)XIO(TriggerResetTimer1.TT)TON(TriggerResetTimer2,100,0)`
+start_timer TriggerResetTimer2 when CAM_F_TRIGGER and triggerOneShotSB and not TriggerResetTimer1.TT  # preset 100 ms
 
-# PENDING EDIT in Studio
-raw `[XIC(TriggerResetTimer1.TT),XIC(LightRing.TT)]OTE(DUNE2CAM1:O.Control.Trigger)`
+DUNE2CAM1:O.Control.Trigger = TriggerResetTimer1.TT or LightRing.TT
 
-# PENDING EDIT in Studio
-raw `[XIC(TriggerResetTimer1.TT),XIC(LightRing.TT)]MAR(Y_axis,RegistrationData[1],Negative_Edge,Disabled,0,0,2)`
+MAR(Y_axis, RegistrationData[1], Negative_Edge, Disabled, 0, 0, 2) when TriggerResetTimer1.TT or LightRing.TT
 
-# PENDING EDIT in Studio
-raw `[XIC(TriggerResetTimer1.TT),XIC(LightRing.TT)]MAR(X_axis,RegistrationData[0],Negative_Edge,Disabled,0,0,2)`
+MAR(X_axis, RegistrationData[0], Negative_Edge, Disabled, 0, 0, 2) when TriggerResetTimer1.TT or LightRing.TT
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[0].PC)CPT(X_axis_Cam_F_Position,X_axis.Registration2NegativeEdgePosition)`
+X_axis_Cam_F_Position = X_axis.Registration2NegativeEdgePosition when RegistrationData[0].PC
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[1].PC)CPT(Y_axis_Cam_F_Position,Y_axis.Registration2NegativeEdgePosition)`
+Y_axis_Cam_F_Position = Y_axis.Registration2NegativeEdgePosition when RegistrationData[1].PC
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[0].PC)FFL(X_axis_Cam_F_Position,X_axis_Cam_F_Pos[0],FIFO_CTRL[0],?,?)`
+FFL(X_axis_Cam_F_Position, X_axis_Cam_F_Pos[0], FIFO_CTRL[0], ?, ?) when RegistrationData[0].PC
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[1].PC)FFL(Y_axis_Cam_F_Position,Y_axis_Cam_F_Pos[0],FIFO_CTRL[1],?,?)`
+FFL(Y_axis_Cam_F_Position, Y_axis_Cam_F_Pos[0], FIFO_CTRL[1], ?, ?) when RegistrationData[1].PC
 
-# PENDING EDIT in Studio
-raw `XIC(DUNE2CAM1:I.Status.InspectionCompleted)OSR(ossb[3],osob[3])`
+OSR(ossb[3], osob[3]) when DUNE2CAM1:I.Status.InspectionCompleted
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[0],Cam_F_InspectionRes_0[0],FIFO_CTRL[2],?,?)`
+FFL(DUNE2CAM1:I.InspectionResults[0], Cam_F_InspectionRes_0[0], FIFO_CTRL[2], ?, ?) when RegistrationData[1].PC
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[1],Cam_F_InspectionRes_1[0],FIFO_CTRL[3],?,?)`
+FFL(DUNE2CAM1:I.InspectionResults[1], Cam_F_InspectionRes_1[0], FIFO_CTRL[3], ?, ?) when RegistrationData[1].PC
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[2],Cam_F_InspectionRes_2[0],FIFO_CTRL[4],?,?)`
+FFL(DUNE2CAM1:I.InspectionResults[2], Cam_F_InspectionRes_2[0], FIFO_CTRL[4], ?, ?) when RegistrationData[1].PC
 
-# PENDING EDIT in Studio
-raw `XIC(RegistrationData[1].PC)FFL(DUNE2CAM1:I.InspectionResults[3],Cam_F_InspectionRes_3[0],FIFO_CTRL[5],?,?)`
+FFL(DUNE2CAM1:I.InspectionResults[3], Cam_F_InspectionRes_3[0], FIFO_CTRL[5], ?, ?) when RegistrationData[1].PC
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[5].DN)OTL(READ_FIFOS)`
+latch READ_FIFOS when FIFO_CTRL[5].DN
 
-# PENDING EDIT in Studio
-raw `XIC(READ_FIFOS)FFU(X_axis_Cam_F_Pos[0],FIFO_Data[0],FIFO_CTRL[0],?,?)`
+FFU(X_axis_Cam_F_Pos[0], FIFO_Data[0], FIFO_CTRL[0], ?, ?) when READ_FIFOS
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[0].EU)FFU(Y_axis_Cam_F_Pos[0],FIFO_Data[1],FIFO_CTRL[1],?,?)`
+FFU(Y_axis_Cam_F_Pos[0], FIFO_Data[1], FIFO_CTRL[1], ?, ?) when FIFO_CTRL[0].EU
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[1].EU)FFU(Cam_F_InspectionRes_0[0],FIFO_Data[2],FIFO_CTRL[2],?,?)`
+FFU(Cam_F_InspectionRes_0[0], FIFO_Data[2], FIFO_CTRL[2], ?, ?) when FIFO_CTRL[1].EU
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[2].EU)FFU(Cam_F_InspectionRes_1[0],FIFO_Data[3],FIFO_CTRL[3],?,?)`
+FFU(Cam_F_InspectionRes_1[0], FIFO_Data[3], FIFO_CTRL[3], ?, ?) when FIFO_CTRL[2].EU
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[3].EU)FFU(Cam_F_InspectionRes_2[0],FIFO_Data[4],FIFO_CTRL[4],?,?)`
+FFU(Cam_F_InspectionRes_2[0], FIFO_Data[4], FIFO_CTRL[4], ?, ?) when FIFO_CTRL[3].EU
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[4].EU)FFU(Cam_F_InspectionRes_3[0],FIFO_Data[5],FIFO_CTRL[5],?,?)`
+FFU(Cam_F_InspectionRes_3[0], FIFO_Data[5], FIFO_CTRL[5], ?, ?) when FIFO_CTRL[4].EU
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_CTRL[5].EU)OTU(READ_FIFOS)`
+unlatch READ_FIFOS when FIFO_CTRL[5].EU
 
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)OSR(ossb[1],osob[1])`
+on rising EN_POS_TRIGGERS using ossb[1], osob[1]:
+    x_pos = X_axis.ActualPosition
+    y_pos = Y_axis.ActualPosition
+    latch Pos_trigger
 
-# PENDING EDIT in Studio
-raw `XIC(osob[1])CPT(x_pos,X_axis.ActualPosition)`
+latch foundIt when EN_POS_TRIGGERS and Pos_trigger and (X_DELTA < 0 and X_axis.ActualPosition < x_pos + X_DELTA or X_DELTA > 0 and X_axis.ActualPosition > x_pos + X_DELTA or Y_DELTA < 0 and Y_axis.ActualPosition < y_pos + Y_DELTA or Y_DELTA > 0 and Y_axis.ActualPosition > y_pos + Y_DELTA)
 
-# PENDING EDIT in Studio
-raw `XIC(osob[1])CPT(y_pos,Y_axis.ActualPosition)`
+when EN_POS_TRIGGERS and (foundIt or Manual_Trig):
+    OSR(ossb[0], osob[0])
+    unlatch Pos_trigger
 
-# PENDING EDIT in Studio
-raw `XIC(osob[1])OTL(Pos_trigger)`
+x_pos_next = x_pos + X_DELTA when EN_POS_TRIGGERS and osob[0]
 
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)XIC(Pos_trigger)[[CMP(X_DELTA<0)CMP(X_axis.ActualPosition<(x_pos+X_DELTA)),CMP(X_DELTA>0)CMP(X_axis.ActualPosition>(x_pos+X_DELTA))],[CMP(Y_DELTA<0)CMP(Y_axis.ActualPosition<(y_pos+Y_DELTA)),CMP(Y_DELTA>0)CMP(Y_axis.ActualPosition>(y_pos+Y_DELTA))]]OTL(foundIt)`
+y_pos_next = y_pos + Y_DELTA when EN_POS_TRIGGERS and osob[0]
 
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)[XIC(foundIt),XIC(Manual_Trig)]OSR(ossb[0],osob[0])OTU(Pos_trigger)`
+start_timer LightRing when EN_POS_TRIGGERS and ossb[0]  # preset 100 ms
 
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)XIC(osob[0])CPT(x_pos_next,x_pos+X_DELTA)`
+unlatch foundIt when EN_POS_TRIGGERS and LightRing.DN
 
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)XIC(osob[0])CPT(y_pos_next,y_pos+Y_DELTA)`
-
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)XIC(ossb[0])TON(LightRing,100,0)`
-
-# PENDING EDIT in Studio
-raw `XIC(EN_POS_TRIGGERS)XIC(LightRing.DN)OTU(foundIt)`
-
-# PENDING EDIT in Studio
 raw `XIC(EN_POS_TRIGGERS)XIC(LightRing.DN)[CMP(x_pos_next<>x_pos),CMP(y_pos_next<>y_pos)]CPT(x_pos,x_pos_next)CPT(y_pos,y_pos_next)OTL(Pos_trigger)`
 
-# PENDING EDIT in Studio
-raw `XIC(FIFO_FLUSH)MOV(0,FIFO_CTRL[0].POS)MOV(0,FIFO_CTRL[1].POS)MOV(0,FIFO_CTRL[2].POS)MOV(0,FIFO_CTRL[3].POS)MOV(0,FIFO_CTRL[4].POS)MOV(0,FIFO_CTRL[5].POS)OTU(FIFO_FLUSH)`
+when FIFO_FLUSH:
+    FIFO_CTRL[0].POS = 0
+    FIFO_CTRL[1].POS = 0
+    FIFO_CTRL[2].POS = 0
+    FIFO_CTRL[3].POS = 0
+    FIFO_CTRL[4].POS = 0
+    FIFO_CTRL[5].POS = 0
+    unlatch FIFO_FLUSH

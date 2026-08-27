@@ -5,32 +5,17 @@ uses xz, Y_axis, Z_axis  # controller scope
 uses hmi_stop_entry_ob, hmi_stop_entry_sb, hmi_x_axis_stop, hmi_xy_stop, hmi_xz_stop  # program scope
 uses hmi_y_axis_stop, hmi_z_axis_stop, STATE14_IND  # program scope
 
-# PENDING EDIT in Studio
-raw `CMP(STATE=14)OTE(STATE14_IND)`
+STATE14_IND = STATE == 14
 
-# PENDING EDIT in Studio
-raw `XIC(STATE14_IND)OSR(hmi_stop_entry_sb,hmi_stop_entry_ob)`
+on rising STATE14_IND using hmi_stop_entry_sb, hmi_stop_entry_ob:
+    MCS(X_Y, hmi_xy_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
+    MCS(xz, hmi_xz_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
+    MAS(X_axis, hmi_x_axis_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
+    MAS(Y_axis, hmi_y_axis_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
+    MAS(Z_axis, hmi_z_axis_stop, All, Yes, 1200, "Units per sec2", Yes, 1200, "Units per sec3")
 
-# PENDING EDIT in Studio
-raw `XIC(hmi_stop_entry_ob)MCS(X_Y,hmi_xy_stop,All,Yes,1200,Units per sec2,Yes,1200,Units per sec3)`
+AbortQueue = STATE14_IND
 
-# PENDING EDIT in Studio
-raw `XIC(hmi_stop_entry_ob)MCS(xz,hmi_xz_stop,All,Yes,1200,Units per sec2,Yes,1200,Units per sec3)`
+STATE_REQUEST = 0 when STATE14_IND
 
-# PENDING EDIT in Studio
-raw `XIC(hmi_stop_entry_ob)MAS(X_axis,hmi_x_axis_stop,All,Yes,1200,Units per sec2,Yes,1200,Units per sec3)`
-
-# PENDING EDIT in Studio
-raw `XIC(hmi_stop_entry_ob)MAS(Y_axis,hmi_y_axis_stop,All,Yes,1200,Units per sec2,Yes,1200,Units per sec3)`
-
-# PENDING EDIT in Studio
-raw `XIC(hmi_stop_entry_ob)MAS(Z_axis,hmi_z_axis_stop,All,Yes,1200,Units per sec2,Yes,1200,Units per sec3)`
-
-# PENDING EDIT in Studio
-raw `XIC(STATE14_IND)OTE(AbortQueue)`
-
-# PENDING EDIT in Studio
-raw `XIC(STATE14_IND)MOV(0,STATE_REQUEST)`
-
-# PENDING EDIT in Studio
-raw `XIC(STATE14_IND)XIC(hmi_xy_stop.DN)XIC(hmi_xz_stop.DN)XIC(hmi_x_axis_stop.DN)XIC(hmi_y_axis_stop.DN)XIC(hmi_z_axis_stop.DN)XIO(CurIssued)XIO(NextIssued)XIO(X_Y.MovePendingStatus)LEQ(QueueCount,0)CPT(NEXTSTATE,1)`
+NEXTSTATE = 1 when STATE14_IND and hmi_xy_stop.DN and hmi_xz_stop.DN and hmi_x_axis_stop.DN and hmi_y_axis_stop.DN and hmi_z_axis_stop.DN and not CurIssued and not NextIssued and not X_Y.MovePendingStatus and QueueCount <= 0
