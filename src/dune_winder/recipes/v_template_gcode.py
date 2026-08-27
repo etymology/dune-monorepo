@@ -292,7 +292,7 @@ V_ANCHOR_SECTIONS = compile_anchor_script_sections(
         "emit ${increment(0, Y_PULL_IN)}",
         "if near_comb(bh + n): emit ${increment(COMB_PULL, 0)}",
         "emit ${anchor(b_pin(bh + n), b_pin(tf + 399 - n), offset=offset_xy(0))} (Top B corner - foot end)",
-        "emit ${anchor(b_pin(tf + 399 - n), a_from_b(tf + 399 - n), offset=offset_xy(1), in_two_moves=True)} (Top A corner - foot end)",
+        "emit ${anchor(b_pin(tf + 399 - n), a_from_b(tf + 399 - n), offset=offset_xy(1), in_two_moves=True, jerk='gentle')} (Top A corner - foot end)",
         "emit ${increment(0, -Y_PULL_IN)}",
         "if near_comb(tf + 399 - n): emit ${increment(COMB_PULL, 0)}",
         "emit ${anchor(a_from_b(tf + 399 - n), a_from_b(fb + n), offset=offset_xy(2))} (Foot A corner)",
@@ -305,7 +305,7 @@ V_ANCHOR_SECTIONS = compile_anchor_script_sections(
         "emit ${anchor(a_from_b(bf - n), a_from_b(th - 399 + n), offset=offset_xy(6))} (Top A corner - head end)",
     ),
     wrap_tail=(
-        "emit ${anchor(a_from_b(th - 399 + n), b_pin(th - 399 + n), offset=offset_xy(7), in_two_moves=True)} (Top B corner - head end)",
+        "emit ${anchor(a_from_b(th - 399 + n), b_pin(th - 399 + n), offset=offset_xy(7), in_two_moves=True, jerk='gentle')} (Top B corner - head end)",
         "emit ${increment(0, -Y_PULL_IN)}",
         "if near_comb(wrap_pin(th - 399 + n)): emit ${increment(-COMB_PULL, 0)}",
         "emit ${anchor(b_pin(th - 399 + n), b_pin(hb - n), offset=offset_xy(8))} (Head B corner)",
@@ -318,7 +318,7 @@ V_ANCHOR_SECTIONS = compile_anchor_script_sections(
     # line_offset_overrides.  The labels are not in LABEL_TO_OFFSET_ID; jog
     # calibration ignores them, but they are still parsed, so keep them exact.
     final_wrap_tail=(
-        "emit ${anchor(a_from_b(th - 399 + n), b_pin(2398), offset=(-10, 0))} (Wrap 400 tail A400 to B2398)",
+        "emit ${anchor(a_from_b(th - 399 + n), b_pin(2398), offset=(-10, 0), jerk='gentle')} (Wrap 400 tail A400 to B2398)",
         "emit ${increment(0, -Y_PULL_IN)}",
         "emit ${anchor(b_pin(2398), b_pin(1))} (Wrap 400 tail B2398 to B1)",
         "emit ${anchor(b_pin(1), a_from_b(1))} (Wrap 400 tail B1 to A399)",
