@@ -369,7 +369,7 @@ class Head:
         state = self._readTransferStateNow()
         now = self._clock()
 
-        if self._isG206LatchTargetReached(state):
+        if self._isG206LatchTargetReached(state) and self._plcLogic.isReady():
             self._g206SettleStartedAt = None
             self._g206TransitionStartedAt = None
             if self._commandZMove(
