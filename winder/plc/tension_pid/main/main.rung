@@ -30,7 +30,7 @@ TENSION_CONTROL_OK = tension_on_switch_delay_on_start.TT or not wire_undertensio
 
 Enable_tension_motor = (TENSION_CONTROL_OK or tension_off_ramp_timer.TT or constant_cv_out) and not Safety_Tripped_S and disable_motor and not wire_broken_state
 
-start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 1 ms
+start_timer PID_LOOP_TIMER when not PID_LOOP_TIMER.DN  # preset 3 ms
 
 tension = a0 + a1 * tension_tag + a2 * tension_tag * tension_tag + a3 * tension_tag * tension_tag * tension_tag + a4 * tension_tag * tension_tag * tension_tag * tension_tag
 

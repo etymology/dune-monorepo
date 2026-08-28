@@ -225,7 +225,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3730.34912109375
+      "value": 0.002099999925121665
     },
     {
       "name": "dy",
@@ -239,7 +239,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2566.84521484375
+      "value": 9.999999747378752e-05
     },
     {
       "name": "d_raw",
@@ -281,7 +281,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.2211589217185974
+      "value": 392857.15625
     },
     {
       "name": "main_xy_move",
@@ -440,7 +440,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1000.0
+      "value": 825.934814453125
     },
     {
       "name": "regulator_loop_timer",
@@ -517,7 +517,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 3001.873046875
+      "value": -0.002099999925121665
     },
     {
       "name": "starting_y",
@@ -531,7 +531,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 116.15470123291016
+      "value": 9.999999747378752e-05
     },
     {
       "name": "STATE3_IND",
@@ -560,7 +560,7 @@
       "array_dimensions": 0,
       "program": "state_3_move_xy",
       "description": "Calculate the distance required to perform a jerk-limited stop at the gurrent jerk, acceleration, and speed",
-      "value": 842.62841796875
+      "value": 0.0008432739414274693
     },
     {
       "name": "stopping_ratio",
@@ -574,7 +574,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 4.2138813114434015e-06
+      "value": 16.20067596435547
     },
     {
       "name": "trigger_xy_move",
@@ -602,7 +602,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1001.442138671875
+      "value": 825.934814453125
     },
     {
       "name": "xy_accel_jerk",
@@ -686,7 +686,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1433.9940185546875
+      "value": 1.7538710832595825
     },
     {
       "name": "xy_dt",
@@ -773,7 +773,7 @@
       "program": "state_3_move_xy",
       "value": {
         "PRE": 50,
-        "ACC": 47,
+        "ACC": 11,
         "EN": true,
         "TT": true,
         "DN": false
@@ -823,7 +823,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.4418439865112305
+      "value": 7.00454568862915
     },
     {
       "name": "xy_error_prev",
@@ -837,7 +837,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2.618325710296631
+      "value": 7.00454568862915
     },
     {
       "name": "xy_i_term",
@@ -851,7 +851,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 1000.0
+      "value": 825.9866943359375
     },
     {
       "name": "xy_kd",
@@ -977,7 +977,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 2000
+      "value": 1500
     },
     {
       "name": "x_axis_mso",
@@ -1023,7 +1023,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -1178.03466796875
+      "value": 0.052000001072883606
     },
     {
       "name": "x_time",
@@ -1037,7 +1037,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.2211589217185974
+      "value": 392857.15625
     },
     {
       "name": "y_axis_mso",
@@ -1083,7 +1083,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": -808.3470458984375
+      "value": -1.753100037574768
     },
     {
       "name": "y_time",
@@ -1097,7 +1097,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_3_move_xy",
-      "value": 0.23374997079372406
+      "value": 6000000.0
     },
     {
       "name": "z_axis_mso",
@@ -1164,5 +1164,5 @@
       }
     }
   ],
-  "values_generated_at": "2026-08-27T17:49:42.872500+00:00"
+  "values_generated_at": "2026-08-28T16:37:30.973863+00:00"
 }

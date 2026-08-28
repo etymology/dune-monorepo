@@ -316,7 +316,7 @@
 <![CDATA[XIC(INIT_DONE)OTE(test_tag);]]>
 </Text>
 </Rung>
-<Rung Number="62" Type="N">
+<Rung Number="62" Type="e">
 <Text>
 <![CDATA[OTE(pending_rung_test);]]>
 </Text>

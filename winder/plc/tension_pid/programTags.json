@@ -160,7 +160,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": 0.992677628993988
+      "value": 2.5
     },
     {
       "name": "disable_motor",
@@ -188,7 +188,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": true
+      "value": false
     },
     {
       "name": "oneshotsb",
@@ -202,7 +202,7 @@
       ],
       "array_dimensions": 1,
       "program": "tension_pid",
-      "value": true
+      "value": false
     },
     {
       "name": "ramp_start_cv",
@@ -216,7 +216,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": 2.5
+      "value": 5.337189674377441
     },
     {
       "name": "tension_off_ramp_timer",
@@ -233,10 +233,10 @@
       "program": "tension_pid",
       "value": {
         "PRE": 500,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 500,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     },
     {
@@ -324,12 +324,12 @@
       "program": "tension_pid",
       "value": {
         "PRE": 20,
-        "ACC": 0,
-        "EN": false,
+        "ACC": 20,
+        "EN": true,
         "TT": false,
-        "DN": false
+        "DN": true
       }
     }
   ],
-  "values_generated_at": "2026-08-27T17:49:42.872500+00:00"
+  "values_generated_at": "2026-08-28T16:37:30.973863+00:00"
 }

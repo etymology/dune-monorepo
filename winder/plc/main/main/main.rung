@@ -193,4 +193,5 @@ HEAD_POS = -1 when not Z_STAGE_LATCHED and not Z_FIXED_LATCHED
 
 test_tag = INIT_DONE
 
-pending_rung_test = on
+# PENDING EDIT in Studio
+raw `OTE(pending_rung_test)`

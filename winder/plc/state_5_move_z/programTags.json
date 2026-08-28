@@ -223,7 +223,7 @@
       ],
       "array_dimensions": 0,
       "program": "state_5_move_z",
-      "value": 1000
+      "value": 800
     },
     {
       "name": "z_axis_fast_move",
@@ -271,15 +271,15 @@
       "udt_name": "MOTION_INSTRUCTION",
       "program": "state_5_move_z",
       "value": {
-        "FLAGS": 603979778,
+        "FLAGS": 0,
         "EN": false,
-        "DN": true,
+        "DN": false,
         "ER": false,
         "PC": false,
-        "IP": true,
+        "IP": false,
         "AC": false,
         "ACCEL": false,
-        "DECEL": true,
+        "DECEL": false,
         "TrackingMaster": false,
         "CalculatedDataAvailable": false,
         "ERR": 0,
@@ -350,5 +350,5 @@
       "value": false
     }
   ],
-  "values_generated_at": "2026-08-27T17:49:42.872500+00:00"
+  "values_generated_at": "2026-08-28T16:37:30.973863+00:00"
 }
