@@ -2,9 +2,9 @@ routine state_3_move_xy/main
 
 uses accel_xy, ALL_EOT_GOOD, APA_IS_VERTICAL, check_tension_stable, ERROR_CODE, gamma, J  # controller scope
 uses MAX_TOLERABLE_Z, MCCD_X_Y_Axis1, MOVE_TYPE, NEXTSTATE, speed_regulator_switch, STATE  # controller scope
-uses STATE_REQUEST, TENSION_CONTROL_OK, tension_stable_timer, v_0, v_x_max, v_xyz, v_y_max  # controller scope
-uses X_axis, X_POSITION, X_Y, XY_ACCELERATION, XY_DECELERATION, XY_SPEED, XY_SPEED_REQ, Y_axis  # controller scope
-uses Y_POSITION, Z_axis, Z_RETRACTED  # controller scope
+uses STATE_REQUEST, TENSION_CONTROL_OK, TENSION_ON_SWITCH, tension_stable_timer, v_0, v_x_max  # controller scope
+uses v_xyz, v_y_max, X_axis, X_POSITION, X_Y, XY_ACCELERATION, XY_DECELERATION, XY_SPEED  # controller scope
+uses XY_SPEED_REQ, Y_axis, Y_POSITION, Z_axis, Z_RETRACTED  # controller scope
 uses auto_edge_0_sb, dx, dy, eot_triggered, k, main_xy_move, main_xy_move_completed  # program scope
 uses main_xy_move_completed_sb, move_xy_entry_ob, move_xy_entry_sb, near_ending  # program scope
 uses speed_regulator_off_ob, speed_regulator_off_sb, starting_x, starting_y, STATE3_IND  # program scope
@@ -16,7 +16,7 @@ uses z_axis_pre_xy_retract  # program scope
 
 NEXTSTATE = 1 when STATE == 2
 
-xy_pre_move = not main_xy_move.IP and STATE == 3 and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK)
+xy_pre_move = not main_xy_move.IP and STATE == 3 and (tension_stable_timer.DN or not check_tension_stable or not TENSION_ON_SWITCH)
 
 when xy_pre_move and (not Z_RETRACTED or Z_axis.ActualPosition >= MAX_TOLERABLE_Z):
     ERROR_CODE = 3001

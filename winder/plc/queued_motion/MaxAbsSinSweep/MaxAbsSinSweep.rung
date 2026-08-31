@@ -10,6 +10,10 @@ always:
     REALS[4] = REALS[3]
     JMP(lbl_min_end_1)
 
+label lbl_min_a_0
+
+REALS[4] = REALS[0]
+
 label lbl_min_end_1
 
 JMP(lbl_max_a_2) when REALS[0] > REALS[3]

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="CapSegSpeed" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="CapSegSpeed" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-27 12:49:26.146" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="queued_motion" Class="Standard">
@@ -298,6 +298,8 @@
 </Rung>
 </RLLContent>
 </Routine>
+<Routine Use="Reference" Name="SegTangentBounds">
+</Routine>
 <Routine Use="Reference" Name="MaxAbsCosSweep">
 </Routine>
 <Routine Use="Reference" Name="MaxAbsSinSweep">
@@ -307,8 +309,6 @@
 <Routine Use="Reference" Name="main">
 </Routine>
 <Routine Use="Reference" Name="ArcSweepRad">
-</Routine>
-<Routine Use="Reference" Name="SegTangentBounds">
 </Routine>
 </Routines>
 </Program>

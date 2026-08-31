@@ -10,7 +10,7 @@ uses support_collision_window_mid, support_collision_window_top, T01, TENSION_ON
 uses top_support_collision_ymax, top_support_collision_ymin, v_xy, v_xyz, X_axis, X_PARKED  # controller scope
 uses X_XFER_OK, Y_axis, Y_MOUNT_XFER_OK, Y_XFER_OK, Z_axis, Z_EOT, z_eot_bypass, Z_EXTENDED  # controller scope
 uses Z_FIXED_LATCHED, Z_FIXED_PRESENT, Z_RETRACTED, Z_STAGE_LATCHED, Z_STAGE_PRESENT  # controller scope
-uses test_tag, Z_RETRACTED_1A, Z_RETRACTED_1B, Z_RETRACTED_2A, Z_RETRACTED_2B  # program scope
+uses pending_rung_test, test_tag, Z_RETRACTED_1A, Z_RETRACTED_1B, Z_RETRACTED_2A, Z_RETRACTED_2B  # program scope
 uses DUNEW2PLC2:1:I, Local:1:I, Local:2:I, Local:3:O, Local:6:I  # module I/O
 
 MACHINE_SW_STAT[1] = Local:1:I.Pt00.Data
@@ -192,3 +192,6 @@ HEAD_POS = 3 when Z_FIXED_LATCHED and ACTUATOR_POS == 2
 HEAD_POS = -1 when not Z_STAGE_LATCHED and not Z_FIXED_LATCHED
 
 test_tag = INIT_DONE
+
+# PENDING EDIT in Studio
+raw `OTE(pending_rung_test)`

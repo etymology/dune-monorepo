@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-07-17 13:42:32.663" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="main" TargetType="Routine" TargetSubType="RLL" TargetClass="Standard" ContainsContext="true" ExportDate="2026-08-27 12:49:26.146" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="DUNEW2PLC1">
 <Programs Use="Context">
 <Program Use="Context" Name="state_5_move_z" Class="Standard">
@@ -53,7 +53,7 @@
 </Rung>
 <Rung Number="9" Type="N">
 <Text>
-<![CDATA[CMP(STATE=5)XIC(MASTER_Z_GO)[XIC(tension_stable_timer.DN) ,XIO(check_tension_stable) ,XIO(TENSION_CONTROL_OK) ,XIC(Z_FIXED_LATCHED) ]OTE(STATE5_IND);]]>
+<![CDATA[CMP(STATE=5)XIC(MASTER_Z_GO)[XIC(tension_stable_timer.DN) ,XIO(check_tension_stable) ,XIO(TENSION_ON_SWITCH) ,XIC(Z_FIXED_LATCHED) ]OTE(STATE5_IND);]]>
 </Text>
 </Rung>
 <Rung Number="10" Type="N">

@@ -68,9 +68,18 @@ DEFAULT_ACD = PLC_ROOT / "ACD" / "DUNEW2PLC1_py3.ACD"
 DEFAULT_PLC_PATH = "192.168.140.13"
 INDEX_NAME = "acd_index.json"
 
-#: region_map.seq_no value marking a pending-edit rung (Studio shows these
-#: as rung Type="e"; finalized rungs are Type="N").
-PENDING_EDIT_SEQ = 0xFFFFFFFF
+# region_map.seq_no — NOT a pending-edit indicator.
+# 0xFFFFFFFF is the default for rungs that have never been downloaded with
+# PLC version-tracking (offline-edited routines).  Sequential values (0, 1,
+# 2, …) appear only in routines whose rungs the controller has confirmed.
+# Neither value reliably maps to Studio's "pending edit" (Type="e") concept.
+#
+# TRUE pending-edit detection: a rung whose object_id does NOT appear in
+# CanonicalSize.Dat is an online pending edit (Type="e").  CanonicalSize.Dat
+# contains one entry per rung that has been compiled and downloaded to the
+# controller; rungs edited online but not yet downloaded have no entry there.
+# Verified 2026-08-27: correctly identifies OTE(pending_rung_test) rung 62 of
+# main/main as pending while all other 840 rungs are finalized.
 
 EXPORT_OPTIONS = (
     "References NoRawData L5KData DecoratedData Context Dependencies "
@@ -239,8 +248,18 @@ def _build_database(acd_file: Path, temp_dir: str):
             Unzip(self.input_filename).write_files(self._temp_dir)
 
             comps_db = DbExtract(str(Path(self._temp_dir) / "Comps.Dat")).read()
+            # Two-pass load: FdfdComps (65021) first, FafaComps (64250) last.
+            # Studio 5000 can write duplicate Region Map records with the same
+            # object_id in both formats; since CompsRecord does DELETE-then-INSERT,
+            # whichever format appears last in the file wins.  populate_region_map()
+            # needs the FafaComps record_buffer (fixed binary layout), so FafaComps
+            # must always overwrite any earlier FdfdComps entry for the same id.
             for record in comps_db.records.record:
-                CompsRecord(self._cur, record)
+                if record.identifier == 65021:
+                    CompsRecord(self._cur, record)
+            for record in comps_db.records.record:
+                if record.identifier == 64250:
+                    CompsRecord(self._cur, record)
             self._db.commit()
 
             self.populate_region_map()
@@ -303,14 +322,36 @@ def _routine_type(cur: Cursor, routine_id: int, has_rungs: bool) -> str:
     return parsed
 
 
-def _read_routine(cur: Cursor, routine_id: int, name: str) -> Routine:
+def _pending_rung_oids(temp_dir: str, cur: Cursor) -> set[int]:
+    """Return the set of rung object_ids that are pending online edits.
+
+    A rung whose object_id is absent from CanonicalSize.Dat has not been
+    compiled and downloaded to the controller — it is a pending online edit
+    (Studio shows it as yellow crosshatch, L5X Type="e").
+    """
+    cs_path = Path(temp_dir) / "CanonicalSize.Dat"
+    if not cs_path.exists():
+        return set()
+    cs_raw = cs_path.read_bytes()
+    # Build a byte-level lookup: every 4-byte window in the file.
+    cs_patterns: set[bytes] = {cs_raw[i : i + 4] for i in range(len(cs_raw) - 3)}
+    pending: set[int] = set()
+    for (oid,) in cur.execute("SELECT object_id FROM region_map"):
+        if struct.pack("<I", oid & 0xFFFFFFFF) not in cs_patterns:
+            pending.add(oid)
+    return pending
+
+
+def _read_routine(
+    cur: Cursor, routine_id: int, name: str, pending_oids: set[int]
+) -> Routine:
     entries = cur.execute(
-        "SELECT object_id, unknown, seq_no FROM region_map"
+        "SELECT object_id, unknown FROM region_map"
         " WHERE parent_id=? ORDER BY unknown",
         (routine_id,),
     ).fetchall()
     rungs: list[Rung] = []
-    for object_id, number, seq_no in entries:
+    for object_id, number in entries:
         row = cur.execute(
             "SELECT rung FROM rungs WHERE object_id=?", (object_id,)
         ).fetchone()
@@ -318,12 +359,12 @@ def _read_routine(cur: Cursor, routine_id: int, name: str) -> Routine:
             raise ValueError(
                 f"routine {name}: rung object {object_id:#x} missing from SbRegion"
             )
-        rung_type = "e" if seq_no == PENDING_EDIT_SEQ else "N"
+        rung_type = "e" if object_id in pending_oids else "N"
         rungs.append(Rung(number, rung_type, _resolve_module_refs(cur, row[0])))
     return Routine(name, _routine_type(cur, routine_id, bool(rungs)), rungs)
 
 
-def read_project(cur: Cursor, software_revision: str) -> AcdProject:
+def read_project(cur: Cursor, software_revision: str, temp_dir: str) -> AcdProject:
     controller = cur.execute(
         "SELECT object_id, comp_name FROM comps WHERE parent_id=0 AND record_type=256"
     ).fetchone()
@@ -336,6 +377,8 @@ def read_project(cur: Cursor, software_revision: str) -> AcdProject:
         " WHERE parent_id=? AND comp_name='RxProgramCollection'",
         (controller_id,),
     ).fetchone()[0]
+
+    pending_oids = _pending_rung_oids(temp_dir, cur)
 
     programs: list[Program] = []
     for program_id, program_name in cur.execute(
@@ -355,7 +398,7 @@ def read_project(cur: Cursor, software_revision: str) -> AcdProject:
                 " ORDER BY seq_number",
                 (routine_collection[0],),
             ).fetchall():
-                routines.append(_read_routine(cur, routine_id, routine_name))
+                routines.append(_read_routine(cur, routine_id, routine_name, pending_oids))
         programs.append(Program(program_name, routines))
     return AcdProject(controller_name, software_revision, programs)
 
@@ -760,7 +803,7 @@ def main(argv: list[str] | None = None) -> int:
     ) as temp_dir:
         exporter = _build_database(args.acd_file, temp_dir)
         try:
-            project = read_project(exporter._cur, _software_revision(temp_dir))
+            project = read_project(exporter._cur, _software_revision(temp_dir), temp_dir)
         finally:
             exporter._db.close()
         tag_info = parse_tag_info(temp_dir)

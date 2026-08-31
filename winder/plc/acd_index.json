@@ -3,45 +3,45 @@
   "software_revision": "33.00",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "010c14ff9031689cc05f652e0f9c8b37fdefdf0b816c741ab309a3e4cf740925",
-    "size": 4488632,
-    "last_saved": "2026-07-17 13:42:32.663",
+    "sha256": "4efd992220cfa896e647b689a4312a85ea3e11df9286b4f7bc39d412e2be407c",
+    "size": 4603826,
+    "last_saved": "2026-08-27 12:49:26.146",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 152
+    "save_log_entries": 295
   },
   "data_types": 272,
-  "controller_tags": 302,
+  "controller_tags": 254,
   "programs": {
-    "state_9_unservo": {
-      "tags": 15,
+    "state_12_move_xz": {
+      "tags": 5,
       "main_routine": "main",
       "routines": {
         "main": {
           "type": "RLL",
-          "rungs": 12,
+          "rungs": 7,
           "pending_edit_rungs": 0
         }
       }
     },
     "tension_pid": {
-      "tags": 22,
+      "tags": 18,
       "main_routine": "main",
       "routines": {
         "main": {
           "type": "RLL",
-          "rungs": 18,
+          "rungs": 25,
           "pending_edit_rungs": 0
         }
       }
     },
     "main": {
-      "tags": 6,
+      "tags": 7,
       "main_routine": "main",
       "routines": {
         "main": {
           "type": "RLL",
           "rungs": 62,
-          "pending_edit_rungs": 0
+          "pending_edit_rungs": 1
         }
       }
     },
@@ -73,28 +73,28 @@
       }
     },
     "state_3_move_xy": {
-      "tags": 62,
+      "tags": 60,
       "main_routine": "main",
       "routines": {
-        "main": {
-          "type": "RLL",
-          "rungs": 37,
-          "pending_edit_rungs": 0
-        },
         "xy_speed_regulator": {
           "type": "RLL",
           "rungs": 9,
           "pending_edit_rungs": 0
+        },
+        "main": {
+          "type": "RLL",
+          "rungs": 37,
+          "pending_edit_rungs": 0
         }
       }
     },
-    "state_12_move_xz": {
-      "tags": 5,
+    "state_11_eot_trip": {
+      "tags": 77,
       "main_routine": "main",
       "routines": {
         "main": {
           "type": "RLL",
-          "rungs": 7,
+          "rungs": 67,
           "pending_edit_rungs": 0
         }
       }
@@ -106,28 +106,6 @@
         "main": {
           "type": "RLL",
           "rungs": 15,
-          "pending_edit_rungs": 0
-        }
-      }
-    },
-    "state_11_eot_trip": {
-      "tags": 94,
-      "main_routine": "main",
-      "routines": {
-        "main": {
-          "type": "RLL",
-          "rungs": 67,
-          "pending_edit_rungs": 0
-        }
-      }
-    },
-    "state_5_move_z": {
-      "tags": 9,
-      "main_routine": "main",
-      "routines": {
-        "main": {
-          "type": "RLL",
-          "rungs": 18,
           "pending_edit_rungs": 0
         }
       }
@@ -147,19 +125,24 @@
       "tags": 66,
       "main_routine": "main",
       "routines": {
+        "SegTangentBounds": {
+          "type": "RLL",
+          "rungs": 69,
+          "pending_edit_rungs": 0
+        },
         "MaxAbsCosSweep": {
           "type": "RLL",
           "rungs": 26,
           "pending_edit_rungs": 0
         },
-        "MaxAbsSinSweep": {
-          "type": "RLL",
-          "rungs": 25,
-          "pending_edit_rungs": 0
-        },
         "CapSegSpeed": {
           "type": "RLL",
           "rungs": 58,
+          "pending_edit_rungs": 0
+        },
+        "MaxAbsSinSweep": {
+          "type": "RLL",
+          "rungs": 26,
           "pending_edit_rungs": 0
         },
         "CircleCenterForSeg": {
@@ -169,17 +152,12 @@
         },
         "main": {
           "type": "RLL",
-          "rungs": 276,
+          "rungs": 275,
           "pending_edit_rungs": 0
         },
         "ArcSweepRad": {
           "type": "RLL",
           "rungs": 20,
-          "pending_edit_rungs": 0
-        },
-        "SegTangentBounds": {
-          "type": "RLL",
-          "rungs": 69,
           "pending_edit_rungs": 0
         }
       }
@@ -206,6 +184,28 @@
         }
       }
     },
+    "state_9_unservo": {
+      "tags": 15,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 12,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
+    "state_5_move_z": {
+      "tags": 9,
+      "main_routine": "main",
+      "routines": {
+        "main": {
+          "type": "RLL",
+          "rungs": 18,
+          "pending_edit_rungs": 0
+        }
+      }
+    },
     "state_6_latch": {
       "tags": 12,
       "main_routine": "main",
@@ -216,72 +216,96 @@
           "pending_edit_rungs": 0
         }
       }
+    },
+    "Latch_UnLatch_State_6_7_8": {
+      "tags": 0,
+      "main_routine": null,
+      "routines": {}
+    },
+    "Error_State_10": {
+      "tags": 0,
+      "main_routine": null,
+      "routines": {}
+    },
+    "PID_Tension_Servo": {
+      "tags": 0,
+      "main_routine": null,
+      "routines": {}
+    },
+    "MoveZ_State_4_5": {
+      "tags": 0,
+      "main_routine": null,
+      "routines": {}
     }
   },
   "files": {
     "Camera/CameraControl/CameraControl.rung": "98eddda3f28d4f90504ebe6310917fad35e9aa679670423fea8b81d7e73a8768",
-    "Camera/CameraControl_Routine_RLL.L5X": "25bb140a1ca8171d35be02c77fcca8a4f1ee4ff70e5ab82aa54f3b6b4af9b5c3",
+    "Camera/CameraControl_Routine_RLL.L5X": "f5cb415d83da0f1b5c1271727166a1f1ae4c6d5d608e3ed9860bafecfbefe52b",
     "Camera/main/main.rung": "dd3d8998ded439a47e2b1556993091ea1c4b0570e0a6f3edd6abb04e5ccd4737",
-    "Camera/main_Routine_RLL.L5X": "d7a7db0e4e74aeb1ad3f04cfafb8830eb2b15241c477d4b88b371f7c3b1fa90b",
-    "Camera/programTags.json": "43ac4975c51a672a07733809d10061f4c402a77025da2e3395ef516596b4de3e",
-    "controller_level_tags.json": "afad31300942b1f672b40afc8131fc297574591514544f5ce799ebfe403aee3e",
+    "Camera/main_Routine_RLL.L5X": "253e55047f2248037b93807cde30485f0b567c5ab6dab880eeecd7129cc59151",
+    "Camera/programTags.json": "631dcec6d301a76372e53bfffa05fd264c1404509668429d32aa4931de6b4a76",
+    "controller_level_tags.json": "fcc8587d9a70b3837ee7e7e0760745cd42563a0249e26c2643fe0305d708dd80",
+    "Error_State_10/programTags.json": "a57a56129ecc8f2d030c634c83c06143ebcaa860ce06061cc001359d5514469b",
     "init/main/main.rung": "bee1530f77076c17c667f12f66609b37fee53a119feef8a87096ea911a34f2cb",
-    "main/main/main.rung": "b801592db415fb266708a67b5908adab89a2f9725ad2001e2ff8aa70fcb19869",
-    "main/main_Routine_RLL.L5X": "2157dddc4c095d7bb76548a47a746cb5d5a6ae9c1338d137e805bd4cb6005655",
-    "main/programTags.json": "783ff95e7e401de740f07f5d2eb1e932c586eef92dd477bf378d7ee135549da0",
+    "Latch_UnLatch_State_6_7_8/programTags.json": "ee1921ca4854b5efbd1c8d7eb33d418bbb2f3b6ab34e2fff1b054872fa6fe244",
+    "main/main/main.rung": "3613cfacc65f2cacc75133a3428009a21fd122b8759241842d1f6e9c455f1d43",
+    "main/main_Routine_RLL.L5X": "c49a52632aefd16d33b9d7271337dcbeb361124eafe00a4f9000abd32c5c5f5f",
+    "main/programTags.json": "f9948723834dfaa03de34e2371f7b8d801775840f42d4485973c895a42a1c245",
+    "MoveZ_State_4_5/programTags.json": "c84340eb9465b7e96112ec5b8691106e25951ced52a4fab36f87009b0928caff",
+    "PID_Tension_Servo/programTags.json": "b00c572e6383478f2e4e46e977ba6a32ed77c28b1cc6aecf07e9af26feabf6ae",
     "queued_motion/ArcSweepRad/ArcSweepRad.rung": "9e6fc5b11991964f58b1f0b2eb43692a130b4ee85a939da7a081d5e256585b5b",
-    "queued_motion/ArcSweepRad_Routine_RLL.L5X": "51ca6c4c6b476c85c5af9913d3bee261b8a894594a45abfc7a4bdc4bba7f34e4",
+    "queued_motion/ArcSweepRad_Routine_RLL.L5X": "b504b26dd1d458bfae4f7986949ce88fec4cc0f3afe47cd9f9d11e9d1ee1278d",
     "queued_motion/CapSegSpeed/CapSegSpeed.rung": "9903378139eaf31ea8eaf26062087a97bd80b38895169f491c5db5f512d5a903",
-    "queued_motion/CapSegSpeed_Routine_RLL.L5X": "1a1a6137ba3f6d78470c09baffb7a0895314619de1e1b1bcfb3c8aa0afbcebe0",
+    "queued_motion/CapSegSpeed_Routine_RLL.L5X": "eafff90a0eb5cc4b0afc65fea463eeb1d491625deac56a90c4119953014d4a48",
     "queued_motion/CircleCenterForSeg/CircleCenterForSeg.rung": "1bb0ce1e6c0133028cf5589c1b7b499f458792a9304ff7b71c4b5714ae8a8d23",
-    "queued_motion/CircleCenterForSeg_Routine_RLL.L5X": "b773ef8512199e71909afa7f9eaf8b323a5013f0f73c46a5e253d28445c362fd",
-    "queued_motion/main/main.rung": "885e64e211839ce8836e2c2bf4b66ed6686849d84f8ec917c9ab6c1e9d9b0316",
-    "queued_motion/main_Routine_RLL.L5X": "e2361e04f00b4bd6f427ef849a02c0761e0b1c6e87a49349df460b22db17c0b6",
+    "queued_motion/CircleCenterForSeg_Routine_RLL.L5X": "fb2241ac6ab29d0b5427e370dacf40e738465bdde000915bd9bc4f5535759623",
+    "queued_motion/main/main.rung": "c0938286ea085e473a91036574eb2878bc5277251df388d4b749a082c1d5c796",
+    "queued_motion/main_Routine_RLL.L5X": "199513b03d21a34ff0df97ea1881b7d08076f5e81f1c84f1e0e467425fa565ea",
     "queued_motion/MaxAbsCosSweep/MaxAbsCosSweep.rung": "da8997919b03b49c96bec19fa9ea98a0099186277191ebf8a2863cd7f7afbe72",
-    "queued_motion/MaxAbsCosSweep_Routine_RLL.L5X": "2dcbb2cd5ed6e0421e0a8212688a4680705487e75a297c00d239ee7faf949485",
-    "queued_motion/MaxAbsSinSweep/MaxAbsSinSweep.rung": "1b437b3144de7b1bb081d47b2280e64bdd9760258fc6b5371f960e9ffa50ab93",
-    "queued_motion/MaxAbsSinSweep_Routine_RLL.L5X": "42a73cb77b3ac809a851304b74038b098e54a752f3ef12c4d2bf7a228cc14411",
-    "queued_motion/programTags.json": "d47be31998732274d4e3fe93155cf15f70dbe5b046f7961c2bd3464521c11058",
+    "queued_motion/MaxAbsCosSweep_Routine_RLL.L5X": "279343d48eb7c47af60b7041dab4ad62d157c2e74634763c4c764b63680db23b",
+    "queued_motion/MaxAbsSinSweep/MaxAbsSinSweep.rung": "82c14d50303a967fb246b38cef0bc364a93df59ac3f273a65a43f8d93762b0e4",
+    "queued_motion/MaxAbsSinSweep_Routine_RLL.L5X": "1d05b2f0277202a2cbad705470f4942ac030fea3e1537275e581bd256a415d4a",
+    "queued_motion/programTags.json": "06df3ff08891a052f612cbcf7661365f020573a53c1c636ad42c0ad2b0304986",
     "queued_motion/SegTangentBounds/SegTangentBounds.rung": "7bc4df137e0c58bc37bd62565e87f9a378e0d167023cc2e6b1f2f2bef84a29ec",
-    "queued_motion/SegTangentBounds_Routine_RLL.L5X": "4565ddaccac7c448312c7b4fe5d8643148fc0410e5f62d7a8015179d30dca638",
+    "queued_motion/SegTangentBounds_Routine_RLL.L5X": "7cb0fa52b6ccd5cfb1c4aa946d81649714836b287e547b10bf832708b0f949d1",
     "Safety/main/Safety.rung": "450a90e0297449058a4e6e4def0476f28fc6a7efef9f70a91972f4ce476c7df8",
-    "Safety/programTags.json": "4b98465bcc18ed2146107ba8b4afc5c9bb796997406322c2e6ab3fa8bc3f94d1",
-    "Safety/Safety_Routine_RLL.L5X": "927bdaef0bf1b76692a7643f29a42a6fa4001aee3c13eec025677c3ed3f9c255",
+    "Safety/programTags.json": "58ddff59be1a3c820f086e9cccd478c802641b64edfcee08708d206429bcbbb3",
+    "Safety/Safety_Routine_RLL.L5X": "9ff1628db33773dfcaeba9606a23cde7a05c63bc1808590a2ca1c641487c7e66",
     "state_10_error/main/main.rung": "1e3bfa4fcdd1782ae269bb3fd11c2c90665f06150ca6561f2d77f3d7c08c13a6",
-    "state_10_error/main_Routine_RLL.L5X": "464e3080ee74c56d5c111dfa2ea19b640a8e31b0eb1b77aa98e7ae465a3bbb3f",
-    "state_10_error/programTags.json": "a1f0e75aa7d5e3b445de7d738f24e3915be287f8c810197d5058d4278d1f7b05",
+    "state_10_error/main_Routine_RLL.L5X": "8c0d32f6e463e9e50a4503423c6477074d7a561b38ff8e668e54650773030a9a",
+    "state_10_error/programTags.json": "f45e8b0b6066406b79a39d165f9b372773221ac75f1f5fe9fafa39cbdb4f4b59",
     "state_11_eot_trip/main/main.rung": "621d755a0e739f129101e6d8e4fa0a57d038af69e706c124dd06d920a62b9ea4",
-    "state_11_eot_trip/main_Routine_RLL.L5X": "ad07ac5a5d0db016d9058370cb5d0b6122d29ed347d898dcd91d1d69a0edd1d4",
-    "state_11_eot_trip/programTags.json": "e1113eabb9afaa29be85b1aeb6eb0bbb3afc6f2a451904906df9ef41ee2167e2",
+    "state_11_eot_trip/main_Routine_RLL.L5X": "9adf41b758973fb734343687ac3982fcc9f98eedfe2911ed726757f7e5a5b1df",
+    "state_11_eot_trip/programTags.json": "a6f6661b6f8b4b4779636771845d1238859db4ce5d6734daa7acc3f2fb6e48b0",
     "state_12_move_xz/main/main.rung": "05dd39ad0fb871a42757da35bfb613f8efdad6b3144be2a020025d3aba173a7a",
-    "state_12_move_xz/main_Routine_RLL.L5X": "38674ba2e27bee45dddf7c82aa61f5b92fe38992895caeb67691920f65f4d93b",
-    "state_12_move_xz/programTags.json": "2c40e1fff8b70d26dac6893b02f1b16d7869839b5d0e203cd743838864437995",
+    "state_12_move_xz/main_Routine_RLL.L5X": "2842f0f0dd109342f50efac1935b09c642c2c0f1f53c7ec4f86fc223008841bc",
+    "state_12_move_xz/programTags.json": "d799ba573c5634635d5c9f27fba6f8d3f611b1123e1ccad1d7a4f3971513550a",
     "state_13_move_yz/main/main.rung": "886d39594af0186ec4f3a749227344f09c35eca6efa38c674f14e94b42b4992c",
-    "state_13_move_yz/main_Routine_RLL.L5X": "ebddface4f5c3fbb86de331f67920a9376734dcd40730205bc8449295123d878",
-    "state_13_move_yz/programTags.json": "d69d1066ecd97ec302eaab3841238b38bdec144feab58b8c92fadb0a076aeb08",
+    "state_13_move_yz/main_Routine_RLL.L5X": "4b0053e626e28061b1f1242a964acdc79fda2666521e144ec410f095e27ca01e",
+    "state_13_move_yz/programTags.json": "9e91364d33a493795ab07cd4c91d1a04edc89c7232f23800bc942728f17f740b",
     "state_14_hmi_stop/main/main.rung": "79a2d84e931852022ee3842257f8b7b4e3a6e37ec5fb534ccf3d9a883a4630e1",
-    "state_14_hmi_stop/main_Routine_RLL.L5X": "99fcd7b9bdd65a87beae6293a01c920bc0fe98afb7a4500474c0e2710106e394",
-    "state_14_hmi_stop/programTags.json": "3e368524eb965f90892789f8d820e7bdc38ad173ba418e9fdd7c5697e9b49da6",
+    "state_14_hmi_stop/main_Routine_RLL.L5X": "516f96364832e3c0f3e1a21a8b16fc04f1aeac500fac4e99452595c491a89472",
+    "state_14_hmi_stop/programTags.json": "5aa9ed35546bab5e88ab5c2731d13b8e1a608d0258ae839a6451a729ab1c9155",
     "state_1_ready/main/main.rung": "5f95f0b9e0c26afa7e0ee727d106a32e9e0099a4aa3690c0fb520dd73e8f7eb8",
-    "state_1_ready/main_Routine_RLL.L5X": "f66ca2d36b9ce026d4eda80c47b431ae8cb86039675e33dbd4ecba855a2f71b2",
-    "state_1_ready/programTags.json": "f44a1f6f40874316f5da09ae7af9a0eb4aed7cc3df968cf35279f1d5c87c20d2",
-    "state_3_move_xy/main/main.rung": "a55c6308c044d3fbe986bef44e70fdfe9c2a5afa27e170a9a1ce32ca86401500",
-    "state_3_move_xy/main_Routine_RLL.L5X": "df12563d4aa999dd9c320fc84513358482a1ebef2bbfaf1e7190d04d5622f8f2",
-    "state_3_move_xy/programTags.json": "09379de0ec27e83e443ba0394f561fcb6c3e9fc4651a5447b622840da2b08db5",
+    "state_1_ready/main_Routine_RLL.L5X": "e99ca80fb2dc1a959c55e718d48c2d9921bcb7acb55115e080b60623b7f47d3f",
+    "state_1_ready/programTags.json": "ca3d5327a1cdd9248c15e5687a27e38d18021cf877e7b2ecac0f64e5b7f47e2b",
+    "state_3_move_xy/main/main.rung": "a8a82dd3e06d77463d7f9ca4ecc4d531b75e98ce2afd524dcf234ea2915e67f5",
+    "state_3_move_xy/main_Routine_RLL.L5X": "a0fb2a9411d5536a64f4251d098c9c6b176e4405567ce7bceffc4b700608d5ab",
+    "state_3_move_xy/programTags.json": "a3b4a1f9c4ec917c7426d0138c6c2d2f918b7c04f1dfa08811cdd052faa44ea4",
     "state_3_move_xy/xy_speed_regulator/xy_speed_regulator.rung": "6c5c7132c284bc4a11734d79bd168f807d46185afd71c6685695c53120f75b95",
-    "state_3_move_xy/xy_speed_regulator_Routine_RLL.L5X": "c6198976fa1b8f8ded82357837f6bf5fbe9c4e6caed75863fb33c5d88fcf8552",
-    "state_5_move_z/main/main.rung": "16a842321cc4c8fc723c23d276807eda6355cf1d8c6ce179f5c307173bca1bf1",
-    "state_5_move_z/main_Routine_RLL.L5X": "a41bb2358eb0ef000d720141e5d8d7890bea5bb9217573a848e9cbcf18e96205",
-    "state_5_move_z/programTags.json": "4696b67b588823f2e4775e536e97fc039679fe4c76ac418f6afdaef1bfc853d4",
-    "state_6_latch/main/main.rung": "109f22fb1802c78558292f59764b79d8990ced820cf673b6875257fe30e49025",
-    "state_6_latch/main_Routine_RLL.L5X": "044f9a6addf1f213048fcee969250039fb75a312bec32c033faaf937f357a36f",
-    "state_6_latch/programTags.json": "3bf24584ecaf02ac4a03475bb2ef3652c385780116ecca431cb02d726f066ffe",
+    "state_3_move_xy/xy_speed_regulator_Routine_RLL.L5X": "bae857bb0e9c6fd6a383a9053ebd7ee259264b52f870dfd32a92fa8f144a3869",
+    "state_5_move_z/main/main.rung": "9ef3a33f0de602a4cd64427ba3b7a5920da3a5c6dd27efdb0a47bcf483ef3e36",
+    "state_5_move_z/main_Routine_RLL.L5X": "9a2bc85aa13b6fbb9987726155cea8fd04d9f991e6759785adabe3d1a93c3435",
+    "state_5_move_z/programTags.json": "46e2e6c1faa8d5bf280843bec5fb7db054309aba6f035d418bab04457867ccdc",
+    "state_6_latch/main/main.rung": "c18b1f55fbfa5b2da869c15842353eaa89bd2972e90315b4efe9c38a96fea646",
+    "state_6_latch/main_Routine_RLL.L5X": "0992d0e421f931a246f5b8e23bb19e2a675cdfef6bf559007e5c595ec7a0128c",
+    "state_6_latch/programTags.json": "e68380e2c81432bc685a2de8be5a864e4c02382667b8c2970252aed23a739442",
     "state_9_unservo/main/main.rung": "af9678a8c99825604d3be87a5d05fdf912410e51d0db9a0bde8dd623d57c74d5",
-    "state_9_unservo/main_Routine_RLL.L5X": "55453058364c41949d000aeca5193dde9bf5f26d5beb04b006544dfb04176457",
-    "state_9_unservo/programTags.json": "5fb63bca6a5176b7f55e9152c2e17dc88af376bb34a8a1226e6c004909c5b374",
-    "tension_pid/main/main.rung": "8ce1af6c519a7dd10d32d0244b3a3ad34399054549cbffed45ee74f0284a7f68",
-    "tension_pid/main_Routine_RLL.L5X": "12acad9e31972bea9c1f5e8a3c5382c9ab7e9b4547b821ece102e52acb323447",
-    "tension_pid/programTags.json": "897f8f3428cd5b7886cc7d709935d5a05a33171c24066a7cc36b4abd50d0462d",
+    "state_9_unservo/main_Routine_RLL.L5X": "ca7129b8fbec6188c914524510e59f062e7cec1586d47f6b4dc335da22653b7e",
+    "state_9_unservo/programTags.json": "d18bb8f588d81659c0d3e0a8f8d420cbd76e8f3cb3315ed276f29161106c7c3d",
+    "tension_pid/main/main.rung": "d3ced836376c621fcd331b88643ecf4d8274db04d32830fdaae37423d40c62cc",
+    "tension_pid/main_Routine_RLL.L5X": "19f995c84d09df67b7e6fd51e24d323c38ba7e7a9b0564b1c5478cca7d228f11",
+    "tension_pid/programTags.json": "92c4d7e090125dfb98f96745ecfa5f979f8ee9dcc09df87ff906068add67088f",
     "transfer/main/main.rung": "3b74db2c85c18ec4eab548bc5e234240763bddc79880abb8fcc850a6ea4c644a"
   }
 }

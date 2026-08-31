@@ -341,12 +341,6 @@ when PrepNextMove and not APA_IS_VERTICAL:
     NEXTSTATE = 10
     latch QueueFault
 
-when PrepNextMove and APA_IS_VERTICAL and X_Y.PhysicalAxisFault:
-    FaultCode = 3002
-    ERROR_CODE = 3002
-    NEXTSTATE = 10
-    latch QueueFault
-
 latch IssueNextPulse when PrepNextMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and X_axis.DriveEnableStatus and Y_axis.DriveEnableStatus
 
 latch WaitNextAxisOn when PrepNextMove and APA_IS_VERTICAL and not X_Y.PhysicalAxisFault and (not X_axis.DriveEnableStatus or not Y_axis.DriveEnableStatus)

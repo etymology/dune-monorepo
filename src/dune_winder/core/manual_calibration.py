@@ -1683,13 +1683,15 @@ class ManualCalibration:
                     ):
                         reference["offsetX"] = sharedX
                         reference["offsetY"] = sharedY
+                        # GX wireX/wireY are stored in camera-space (no
+                        # camera-wire offset); generateRecipeFile applies the
+                        # offset at generation time.
                         reference["wireX"] = (
                             self._process._xBacklash.getEffectiveX(
                                 reference["rawCameraX"]
                             )
-                            + sharedX
                         )
-                        reference["wireY"] = reference["rawCameraY"] + sharedY
+                        reference["wireY"] = reference["rawCameraY"]
             else:
                 for pin, measurement in session.measuredPins.items():
                     if (
@@ -1735,15 +1737,15 @@ class ManualCalibration:
                         and reference.get("rawCameraX") is not None
                         and reference.get("rawCameraY") is not None
                     ):
+                        # GX wireX/wireY are stored in camera-space (no
+                        # camera-wire offset); generateRecipeFile applies the
+                        # offset at generation time.
                         reference["wireX"] = (
                             self._process._xBacklash.getEffectiveX(
                                 reference["rawCameraX"]
                             )
-                            + reference["offsetX"]
                         )
-                        reference["wireY"] = (
-                            reference["rawCameraY"] + reference["offsetY"]
-                        )
+                        reference["wireY"] = reference["rawCameraY"]
                 self._persistSession(session)
                 continue
 
@@ -2077,9 +2079,11 @@ class ManualCalibration:
         # References store camera-space positions (matching the UV-layer
         # convention).  The X/G recipe is written in wire-space coordinates,
         # so apply the camera-wire offset here before handing them to the
-        # template.
-        cameraOffsetX = float(session.cameraOffsetX or 0.0)
-        cameraOffsetY = float(session.cameraOffsetY or 0.0)
+        # template.  Always read the current machine-calibration value at
+        # generation time — the session's cached offset can be stale if the
+        # Machine Geometry calibration was updated while this session was
+        # already in memory.
+        cameraOffsetX, cameraOffsetY = self._sharedCameraOffset()
         wireSpaceReferences = {}
         for referenceId, reference in session.references.items():
             adjusted = dict(reference)

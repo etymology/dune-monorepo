@@ -885,6 +885,74 @@ class ManualCalibrationTests(unittest.TestCase):
             self.assertEqual(state["generated"]["wrapCount"], 480)
             self.assertIsNotNone(state["generated"]["hashValue"])
 
+    def test_xg_generate_uses_current_camera_offset_after_offset_change(self):
+        # Regression: _applySharedCameraOffset was baking the offset into
+        # reference["wireX"]/["wireY"], causing generateRecipeFile to apply it
+        # a second time.  Generate with initial offset (0,0) then change to
+        # (10,-5) — the output must match generating fresh with offset (10,-5).
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process = _create_process("X", rootDirectory)
+            process.workspace._recipeFile = "X-layer.gc"
+            service = ManualCalibration(process)
+
+            # Capture references with no offset, then change offset.
+            service.setCameraOffset(0.0, 0.0)
+            process._io.xAxis.position = 100.0
+            process._io.yAxis.position = 200.0
+            service.captureCurrentReference("head")
+            process._io.xAxis.position = 300.0
+            process._io.yAxis.position = 400.0
+            service.captureCurrentReference("foot")
+
+            service.setCameraOffset(10.0, -5.0)
+
+            service.setCornerOffset("headA", 1.0)
+            service.setCornerOffset("headB", 2.0)
+            service.setCornerOffset("footA", 3.0)
+            service.setCornerOffset("footB", 4.0)
+            service.setTransferPause(False)
+
+            generateResult = service.generateRecipeFile()
+            self.assertTrue(generateResult["ok"])
+
+            outputPath = os.path.join(process.workspace._recipeDirectory, "X-layer.gc")
+            with open(outputPath) as inputFile:
+                linesChangedOffset = inputFile.readlines()
+
+        # Now generate the baseline: fresh session with the offset already set
+        # before capture — should produce identical output.
+        with tempfile.TemporaryDirectory() as rootDirectory:
+            process2 = _create_process("X", rootDirectory)
+            process2.workspace._recipeFile = "X-layer.gc"
+            service2 = ManualCalibration(process2)
+
+            service2.setCameraOffset(10.0, -5.0)
+            process2._io.xAxis.position = 100.0
+            process2._io.yAxis.position = 200.0
+            service2.captureCurrentReference("head")
+            process2._io.xAxis.position = 300.0
+            process2._io.yAxis.position = 400.0
+            service2.captureCurrentReference("foot")
+
+            service2.setCornerOffset("headA", 1.0)
+            service2.setCornerOffset("headB", 2.0)
+            service2.setCornerOffset("footA", 3.0)
+            service2.setCornerOffset("footB", 4.0)
+            service2.setTransferPause(False)
+
+            generateResult2 = service2.generateRecipeFile()
+            self.assertTrue(generateResult2["ok"])
+
+            outputPath2 = os.path.join(process2.workspace._recipeDirectory, "X-layer.gc")
+            with open(outputPath2) as inputFile:
+                linesInitialOffset = inputFile.readlines()
+
+        self.assertEqual(
+            linesChangedOffset,
+            linesInitialOffset,
+            "GCode output must be identical whether camera offset was set before or after capture",
+        )
+
     def test_xg_draft_persists_without_writing_live_recipe(self):
         with tempfile.TemporaryDirectory() as rootDirectory:
             process = _create_process("G", rootDirectory)

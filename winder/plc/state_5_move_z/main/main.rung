@@ -5,7 +5,7 @@ uses FRAME_LOC_FT_MID, FRAME_LOC_FT_TOP, FRAME_LOC_HD_BTM, FRAME_LOC_HD_MID, FRA
 uses LATCH_ACTUATOR_HOMED, MASTER_Z_GO, MOVE_TYPE, NEXTSTATE, no_apa_collision  # controller scope
 uses no_latch_collision, no_supports_collision, STATE, STATE_REQUEST  # controller scope
 uses support_collision_window_bttm, support_collision_window_mid, support_collision_window_top  # controller scope
-uses TENSION_CONTROL_OK, tension_stable_timer, X_axis, X_XFER_OK, Y_XFER_OK, Z_ACCELERATION  # controller scope
+uses TENSION_ON_SWITCH, tension_stable_timer, X_axis, X_XFER_OK, Y_XFER_OK, Z_ACCELERATION  # controller scope
 uses Z_axis, Z_DECELLERATION, Z_FIXED_LATCHED, Z_POSITION, Z_SPEED  # controller scope
 uses eot_stop, oneshotob, STATE5_IND, z_accel_jerk, z_axis_fast_move, z_axis_main_move  # program scope
 uses z_axis_mso, z_decel_jerk, z_move_success  # program scope
@@ -34,7 +34,7 @@ when STATE == 5 and not MASTER_Z_GO:
 
 ERROR_CODE = 0 when MASTER_Z_GO and ERROR_CODE == 5001
 
-STATE5_IND = STATE == 5 and MASTER_Z_GO and (tension_stable_timer.DN or not check_tension_stable or not TENSION_CONTROL_OK or Z_FIXED_LATCHED)
+STATE5_IND = STATE == 5 and MASTER_Z_GO and (tension_stable_timer.DN or not check_tension_stable or not TENSION_ON_SWITCH or Z_FIXED_LATCHED)
 
 servo_on Z_axis using z_axis_mso when STATE5_IND and not Z_axis.DriveEnableStatus
 

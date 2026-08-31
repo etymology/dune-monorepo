@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "plc_path": "192.168.140.13",
+  "source_acd": {
+    "file": "DUNEW2PLC1_py3.ACD",
+    "sha256": "4efd992220cfa896e647b689a4312a85ea3e11df9286b4f7bc39d412e2be407c",
+    "size": 4603826,
+    "last_saved": "2026-08-27 12:49:26.146",
+    "studio_version": "V33.00.00/3805.000",
+    "save_log_entries": 295
+  },
+  "program_name": "Latch_UnLatch_State_6_7_8",
+  "main_routine_name": null,
+  "main_routine_name_source": "unresolved",
+  "routines": [],
+  "subroutines": [],
+  "udts": [],
+  "program_tags": [],
+  "values_generated_at": "2026-08-28T16:37:30.973863+00:00"
+}
