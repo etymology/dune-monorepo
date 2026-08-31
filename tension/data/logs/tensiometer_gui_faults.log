@@ -945,3 +945,19 @@ Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, nu
 [2026-08-24T13:21:57] starting fault capture pid=6011 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
 
 [2026-08-24T13:27:02] starting fault capture pid=7557 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T10:16:56] starting fault capture pid=4087 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T10:43:12] starting fault capture pid=12364 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T11:02:13] starting fault capture pid=15757 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T11:33:26] starting fault capture pid=22988 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T11:46:12] starting fault capture pid=25530 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T12:20:29] starting fault capture pid=34508 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T12:29:33] starting fault capture pid=35235 argv=/home/dune/dune-monorepo/src/dune_tension/main.py
+
+[2026-08-31T13:23:08] starting fault capture pid=45788 argv=/home/dune/dune-monorepo/src/dune_tension/main.py

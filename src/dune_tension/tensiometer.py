@@ -1135,15 +1135,6 @@ class Tensiometer:
             return measured_rms
         return measured_rms / reference_rms
 
-    def _is_audio_worth_analyzing(self, audio_sample: Any) -> bool:
-        """Return True if the sample has enough signal to justify NN analysis."""
-
-        measured_rms = self._sample_rms(audio_sample)
-        if self.noise_threshold > 0.0 and measured_rms < self.noise_threshold * 1.5:
-            return False
-
-        return True
-
     def _estimate_sample_pitch(
         self,
         audio_sample: Any,
@@ -1169,9 +1160,6 @@ class Tensiometer:
 
         self._last_pitch_triplet_accepted = None
         analysis = None
-
-        if not self._is_audio_worth_analyzing(audio_sample):
-            return None, 0.0, 0.0, False
 
         require_corroboration = False
         try:
