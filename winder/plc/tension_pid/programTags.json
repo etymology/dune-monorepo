@@ -3,11 +3,11 @@
   "plc_path": "192.168.140.13",
   "source_acd": {
     "file": "DUNEW2PLC1_py3.ACD",
-    "sha256": "4efd992220cfa896e647b689a4312a85ea3e11df9286b4f7bc39d412e2be407c",
-    "size": 4603826,
-    "last_saved": "2026-08-27 12:49:26.146",
+    "sha256": "e2a8d24df8bb645a908e841554f6e361b20eb8ca4cbf71e0fc7fef4821c218ea",
+    "size": 4606510,
+    "last_saved": "2026-09-10 12:20:20.692",
     "studio_version": "V33.00.00/3805.000",
-    "save_log_entries": 295
+    "save_log_entries": 297
   },
   "program_name": "tension_pid",
   "main_routine_name": "main",
@@ -160,7 +160,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": 2.5
+      "value": 5.599893093109131
     },
     {
       "name": "disable_motor",
@@ -188,7 +188,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": false
+      "value": true
     },
     {
       "name": "oneshotsb",
@@ -202,7 +202,7 @@
       ],
       "array_dimensions": 1,
       "program": "tension_pid",
-      "value": false
+      "value": true
     },
     {
       "name": "ramp_start_cv",
@@ -216,7 +216,7 @@
       ],
       "array_dimensions": 0,
       "program": "tension_pid",
-      "value": 5.337189674377441
+      "value": 7.974452972412109
     },
     {
       "name": "tension_off_ramp_timer",
@@ -233,10 +233,10 @@
       "program": "tension_pid",
       "value": {
         "PRE": 500,
-        "ACC": 500,
-        "EN": true,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     },
     {
@@ -323,13 +323,13 @@
       "udt_name": "TIMER",
       "program": "tension_pid",
       "value": {
-        "PRE": 20,
-        "ACC": 20,
-        "EN": true,
+        "PRE": 1,
+        "ACC": 0,
+        "EN": false,
         "TT": false,
-        "DN": true
+        "DN": false
       }
     }
   ],
-  "values_generated_at": "2026-08-28T16:37:30.973863+00:00"
+  "values_generated_at": "2026-09-10T17:20:39.140847+00:00"
 }
