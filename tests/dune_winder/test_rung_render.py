@@ -67,14 +67,18 @@ class TestRecognition:
 
     def test_on_rising_idiom_omits_derived_bits(self):
         # bits that match what lowering would invent stay implicit
-        text = body("XIC(a.DN)OSR(a_dn_osr_sb,a_dn_rising);   XIC(a_dn_rising)MAFR(X,f);")
+        text = body(
+            "XIC(a.DN)OSR(a_dn_osr_sb,a_dn_rising);   XIC(a_dn_rising)MAFR(X,f);"
+        )
         assert text.splitlines() == [
             "on rising a.DN:",
             "    fault_reset X using f",
         ]
 
     def test_on_rising_idiom_omits_auto_edge_fallback(self):
-        text = body("XIC(a.DN)OSR(auto_edge_0_sb,auto_edge_0_ob);   XIC(auto_edge_0_ob)MAFR(X,f);")
+        text = body(
+            "XIC(a.DN)OSR(auto_edge_0_sb,auto_edge_0_ob);   XIC(auto_edge_0_ob)MAFR(X,f);"
+        )
         assert text.splitlines() == [
             "on rising a.DN:",
             "    fault_reset X using f",

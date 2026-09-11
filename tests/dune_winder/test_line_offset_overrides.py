@@ -32,7 +32,8 @@ class LineOffsetOverridesTests(unittest.TestCase):
             normalize_line_text_fn=_identity,
         )
         self.assertEqual(
-            result, ["(1,1) ~anchorToTarget(B400,B1999,offset=(1.5,-2.25)) (Top B corner)"]
+            result,
+            ["(1,1) ~anchorToTarget(B400,B1999,offset=(1.5,-2.25)) (Top B corner)"],
         )
 
     def test_apply_anchor_combines_existing_offset(self):

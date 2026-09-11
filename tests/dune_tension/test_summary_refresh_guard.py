@@ -61,9 +61,7 @@ def test_save_plot_skips_on_lock_contention(monkeypatch, tmp_path) -> None:
         )
 
         start = time.monotonic()
-        wrote = summaries.save_plot(
-            [], [], "APA", "X", str(tmp_path), timeout=0.05
-        )
+        wrote = summaries.save_plot([], [], "APA", "X", str(tmp_path), timeout=0.05)
         elapsed = time.monotonic() - start
 
         assert wrote is False

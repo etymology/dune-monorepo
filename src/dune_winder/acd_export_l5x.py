@@ -314,7 +314,9 @@ def _routine_type(cur: Cursor, routine_id: int, has_rungs: bool) -> str:
     ).fetchone()
     try:
         generic = RxGeneric.from_bytes(row[0])
-        parsed = routine_type_enum(struct.unpack_from("<H", generic.record_buffer, 0x30)[0])
+        parsed = routine_type_enum(
+            struct.unpack_from("<H", generic.record_buffer, 0x30)[0]
+        )
     except Exception:
         parsed = "Typeless"
     if parsed in ("TypeLess", "Typeless") and has_rungs:
@@ -346,8 +348,7 @@ def _read_routine(
     cur: Cursor, routine_id: int, name: str, pending_oids: set[int]
 ) -> Routine:
     entries = cur.execute(
-        "SELECT object_id, unknown FROM region_map"
-        " WHERE parent_id=? ORDER BY unknown",
+        "SELECT object_id, unknown FROM region_map WHERE parent_id=? ORDER BY unknown",
         (routine_id,),
     ).fetchall()
     rungs: list[Rung] = []
@@ -382,8 +383,7 @@ def read_project(cur: Cursor, software_revision: str, temp_dir: str) -> AcdProje
 
     programs: list[Program] = []
     for program_id, program_name in cur.execute(
-        "SELECT object_id, comp_name FROM comps WHERE parent_id=?"
-        " ORDER BY seq_number",
+        "SELECT object_id, comp_name FROM comps WHERE parent_id=? ORDER BY seq_number",
         (program_collection,),
     ).fetchall():
         routine_collection = cur.execute(
@@ -398,7 +398,9 @@ def read_project(cur: Cursor, software_revision: str, temp_dir: str) -> AcdProje
                 " ORDER BY seq_number",
                 (routine_collection[0],),
             ).fetchall():
-                routines.append(_read_routine(cur, routine_id, routine_name, pending_oids))
+                routines.append(
+                    _read_routine(cur, routine_id, routine_name, pending_oids)
+                )
         programs.append(Program(program_name, routines))
     return AcdProject(controller_name, software_revision, programs)
 
@@ -535,7 +537,9 @@ def _legacy_udt(data_type: dict) -> dict:
     return {"name": data_type["name"], "fields": fields}
 
 
-def _carry_forward_values(entries: list[dict], previous: dict | None, key: str) -> str | None:
+def _carry_forward_values(
+    entries: list[dict], previous: dict | None, key: str
+) -> str | None:
     """Copy value/read_error from a previous export into fresh entries.
 
     Used in --offline runs so regeneration does not wipe the values the
@@ -543,9 +547,7 @@ def _carry_forward_values(entries: list[dict], previous: dict | None, key: str) 
     """
     if not previous:
         return None
-    by_name = {
-        tag.get("fully_qualified_name"): tag for tag in previous.get(key, [])
-    }
+    by_name = {tag.get("fully_qualified_name"): tag for tag in previous.get(key, [])}
     for entry in entries:
         old = by_name.get(entry["fully_qualified_name"])
         if old is None or "value" not in old:
@@ -615,7 +617,13 @@ def render_routine_l5x(
         if sibling.name != routine.name:
             lines.append(f'<Routine Use="Reference" Name="{sibling.name}">')
             lines.append("</Routine>")
-    lines += ["</Routines>", "</Program>", "</Programs>", "</Controller>", "</RSLogix5000Content>"]
+    lines += [
+        "</Routines>",
+        "</Program>",
+        "</Programs>",
+        "</Controller>",
+        "</RSLogix5000Content>",
+    ]
     return "\r\n".join(lines) + "\r\n"
 
 
@@ -663,9 +671,7 @@ def write_tree(
             for tag in tag_info.program_tags.get(program.name, [])
         ]
         referenced_udts = {
-            entry["udt_name"]
-            for entry in program_tag_entries
-            if entry.get("udt_name")
+            entry["udt_name"] for entry in program_tag_entries if entry.get("udt_name")
         }
         tags_path = program_dir / "programTags.json"
         previous_values_at = None
@@ -803,7 +809,9 @@ def main(argv: list[str] | None = None) -> int:
     ) as temp_dir:
         exporter = _build_database(args.acd_file, temp_dir)
         try:
-            project = read_project(exporter._cur, _software_revision(temp_dir), temp_dir)
+            project = read_project(
+                exporter._cur, _software_revision(temp_dir), temp_dir
+            )
         finally:
             exporter._db.close()
         tag_info = parse_tag_info(temp_dir)

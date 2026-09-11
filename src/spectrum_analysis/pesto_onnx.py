@@ -373,9 +373,7 @@ class ONNXPestoModel:
                 else:
                     encoder_crop = cqt_output
                 # Squeeze batch dim: (1, T, H, F_cropped) → (T, H, F_cropped)
-                encoder_input = (
-                    encoder_crop.squeeze(0).cpu().numpy().astype(np.float32)
-                )
+                encoder_input = encoder_crop.squeeze(0).cpu().numpy().astype(np.float32)
 
             confidence_output = self.confidence_session.run(
                 ["confidence"], {"energy": confidence_input}

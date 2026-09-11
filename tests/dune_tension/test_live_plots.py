@@ -294,9 +294,7 @@ def test_waveform_render_continues_when_figure_lock_is_held(monkeypatch) -> None
         worker_unblocked = threading.Event()
 
         def caller() -> None:
-            manager.publish_waveform(
-                np.array([0.0, 0.1, 0.2], dtype=float), 8000, None
-            )
+            manager.publish_waveform(np.array([0.0, 0.1, 0.2], dtype=float), 8000, None)
             worker_unblocked.set()
 
         thread = threading.Thread(target=caller, daemon=True)

@@ -456,11 +456,7 @@ def _select_side_measurements(
     """
 
     df = get_dataframe(file_path)
-    mask = (
-        (df["apa_name"] == apa_name)
-        & (df["layer"] == layer)
-        & (df["side"] == side)
-    )
+    mask = (df["apa_name"] == apa_name) & (df["layer"] == layer) & (df["side"] == side)
     return latest_plausible_per_wire(df[mask])
 
 

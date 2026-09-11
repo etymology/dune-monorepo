@@ -114,9 +114,7 @@ def estimate_pitch_consensus(
         positions = np.arange(int(start), int(stop), dtype=np.intp)
         segment_frequencies = valid_frequencies[positions]
         segment_confidences = valid_confidences[positions]
-        center_log2 = _weighted_log2_average(
-            segment_frequencies, segment_confidences
-        )
+        center_log2 = _weighted_log2_average(segment_frequencies, segment_confidences)
         confidence_sum = float(np.sum(segment_confidences))
 
         best_area: _PitchArea | None = None
@@ -162,7 +160,9 @@ def estimate_pitch_consensus(
     if weight_sum <= 0.0:
         frequency = float(np.mean(selected_frequencies))
     else:
-        frequency = float(np.average(selected_frequencies, weights=selected_confidences))
+        frequency = float(
+            np.average(selected_frequencies, weights=selected_confidences)
+        )
 
     return PitchConsensus(
         frequency=frequency,

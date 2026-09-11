@@ -206,7 +206,13 @@ def _decompose_anchor_to_target(line: str):
         else:
             remaining.append(token)
 
-    return prefix, suffix, list(arguments[:2]), (current_offset_x, current_offset_y), remaining
+    return (
+        prefix,
+        suffix,
+        list(arguments[:2]),
+        (current_offset_x, current_offset_y),
+        remaining,
+    )
 
 
 def _rebuild_anchor_to_target(
@@ -250,7 +256,13 @@ def set_anchor_to_target_offset(
         return line
     prefix, suffix, pins, _current, remaining = decomposed
     return _rebuild_anchor_to_target(
-        prefix, suffix, pins, x, y, remaining, normalize_line_text_fn=normalize_line_text_fn
+        prefix,
+        suffix,
+        pins,
+        x,
+        y,
+        remaining,
+        normalize_line_text_fn=normalize_line_text_fn,
     )
 
 

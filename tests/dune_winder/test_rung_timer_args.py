@@ -1,6 +1,8 @@
 import json
 
-from dune_winder.plc_rung_transform import resolve_timer_counter_args as resolve_paste_timer_args
+from dune_winder.plc_rung_transform import (
+    resolve_timer_counter_args as resolve_paste_timer_args,
+)
 from dune_winder.plc_ladder.metadata import load_plc_metadata
 from dune_winder.rung_lang.cli import main_compile
 from dune_winder.rung_lang.context import build_import_l5x

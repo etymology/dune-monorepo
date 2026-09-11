@@ -259,9 +259,17 @@ def test_most_recent_per_corner_keeps_newest_and_dedupes():
     # samples whose corner cannot be resolved are always retained.  Original
     # order is preserved.
     measurements = [
-        {"id": "a-old", "siteLabel": "Top A corner - head end", "timestamp": "2026-06-05 20:00:00"},
+        {
+            "id": "a-old",
+            "siteLabel": "Top A corner - head end",
+            "timestamp": "2026-06-05 20:00:00",
+        },
         {"id": "b", "siteLabel": "Foot B corner", "timestamp": "2026-06-05 20:05:00"},
-        {"id": "a-new", "siteLabel": "Top A corner - head end", "timestamp": "2026-06-05 21:00:00"},
+        {
+            "id": "a-new",
+            "siteLabel": "Top A corner - head end",
+            "timestamp": "2026-06-05 21:00:00",
+        },
         {"id": "unlabeled-1", "timestamp": "2026-06-05 20:01:00"},
         {"id": "unlabeled-2", "timestamp": "2026-06-05 20:02:00"},
     ]
@@ -274,7 +282,9 @@ def test_most_recent_per_corner_keeps_newest_and_dedupes():
     assert "b" in kept_ids
     assert "unlabeled-1" in kept_ids and "unlabeled-2" in kept_ids
     # Surviving measurements stay in their original relative order.
-    assert kept_ids == sorted(kept_ids, key=lambda i: [m["id"] for m in measurements].index(i))
+    assert kept_ids == sorted(
+        kept_ids, key=lambda i: [m["id"] for m in measurements].index(i)
+    )
 
 
 def test_machine_xy_solver_is_deterministic(monkeypatch, tmp_path):
@@ -1887,9 +1897,7 @@ def test_apply_machine_xy_writes_per_corner_offsets(monkeypatch, tmp_path):
     # per-line override store is left untouched; the recipe regenerates once.
     assert template.replace_calls == 0
     assert template.generate_calls == 1
-    assert {
-        offset_id: (x, y) for offset_id, x, y in template.set_calls
-    } == {
+    assert {offset_id: (x, y) for offset_id, x, y in template.set_calls} == {
         "top_b_head_end": (7.0, -2.0),
         "foot_a_corner": (0.0, 10.0),
     }
@@ -2096,17 +2104,13 @@ def test_machine_xy_solver_rejects_excessive_change_from_live_override(
         },
     )
 
-    fake_template_state = {
-        "lineOffsetOverrides": {"(1,16)": {"x": 100.0, "y": 0.0}}
-    }
+    fake_template_state = {"lineOffsetOverrides": {"(1,16)": {"x": 100.0, "y": 0.0}}}
 
     class _FakeTemplate:
         def getState(self):
             return fake_template_state
 
-    monkeypatch.setattr(
-        service, "_templateService", lambda layer: _FakeTemplate()
-    )
+    monkeypatch.setattr(service, "_templateService", lambda layer: _FakeTemplate())
     # The active sanity check would otherwise re-project against a real
     # layer calibration that doesn't carry this fixture's synthetic
     # pins; stub it so the test stays focused on the bound check.

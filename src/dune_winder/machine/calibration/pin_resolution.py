@@ -33,7 +33,9 @@ def wire_space_pin_location(
     )
 
 
-def wire_space_translate(layer_calibration, machine_calibration, location: Location) -> Location:
+def wire_space_translate(
+    layer_calibration, machine_calibration, location: Location
+) -> Location:
     """Add the layer offset and machine camera-wire offset to an arbitrary raw location."""
     layer_offset = layer_calibration.offset
     cam_x, cam_y = _camera_wire_offset(machine_calibration)

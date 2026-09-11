@@ -74,7 +74,9 @@ def _cached_all_wire_space_pins(
     machine_calibration_path: str | None = None,
 ) -> tuple[tuple[str, float, float, float], ...]:
     """Cached version - returns tuple of (pin_name, x, y, z) for hashability."""
-    layer_cal = _load_layer_calibration(None, layer_calibration_path, machine_calibration_path)
+    layer_cal = _load_layer_calibration(
+        None, layer_calibration_path, machine_calibration_path
+    )
     machine_cal = _load_machine_calibration(machine_calibration_path)
     return tuple(
         (pin_name,) + (float(loc.x), float(loc.y), float(loc.z))

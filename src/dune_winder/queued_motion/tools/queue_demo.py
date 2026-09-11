@@ -502,7 +502,9 @@ def main() -> None:
         raise ValueError("Specify both --start-x and --start-y together.")
 
     if args.gui:
-        from dune_winder.queued_motion.tools.waypoint_planner_gui import WaypointPlannerApp
+        from dune_winder.queued_motion.tools.waypoint_planner_gui import (
+            WaypointPlannerApp,
+        )
 
         app = WaypointPlannerApp(
             plc_path=PLC_PATH,

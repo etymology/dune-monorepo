@@ -44,8 +44,7 @@ class ActionNotEditableError(UploadError):
         self.status = status
         self.reason = reason
         super().__init__(
-            f"Action {action_id} is not editable "
-            f"(server returned {status} {reason})."
+            f"Action {action_id} is not editable (server returned {status} {reason})."
         )
 
 
@@ -121,9 +120,7 @@ def _missing_wires(df: pd.DataFrame, layer: str) -> Dict[str, List[int]]:
         if side in df.columns:
             column = df[side]
             measured = {
-                int(wire)
-                for wire in wire_range
-                if pd.notna(column.get(wire, nan))
+                int(wire) for wire in wire_range if pd.notna(column.get(wire, nan))
             }
         else:
             measured = set()

@@ -153,7 +153,9 @@ class RelayController:
                     "Unable to open the USB relay serial port because access was denied. "
                     "Check OS serial-port permissions."
                 ) from permission_error
-            raise RuntimeError("Unable to open the USB relay serial port.") from last_error
+            raise RuntimeError(
+                "Unable to open the USB relay serial port."
+            ) from last_error
         self._lock = threading.Lock()
         self._channel_state: dict[int, bool] = {1: False, 2: False}
         self._sensor_refcount: int = 0

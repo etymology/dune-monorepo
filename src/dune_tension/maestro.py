@@ -268,7 +268,9 @@ class Controller:
             try:
                 return self.usb.read() != chr(0)
             except (serial.SerialException, OSError) as exc:
-                LOGGER.warning("Maestro moving-state read failed (%s); reconnecting.", exc)
+                LOGGER.warning(
+                    "Maestro moving-state read failed (%s); reconnecting.", exc
+                )
                 self._reconnect()
                 return False
 

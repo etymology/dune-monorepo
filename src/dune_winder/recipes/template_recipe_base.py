@@ -28,9 +28,7 @@ from dune_winder.core.process_context import ProcessContext
 
 _OFFSET_AXES = ("x", "y")
 _TRAILING_LABEL_RE = re.compile(r"\(([^()]*)\)\s*$")
-_ANCHOR_OFFSET_RE = re.compile(
-    r"offset=\(\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)\s*\)"
-)
+_ANCHOR_OFFSET_RE = re.compile(r"offset=\(\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)\s*\)")
 
 
 def _parse_rendered_anchor_offset(line_text):
@@ -618,7 +616,11 @@ class TemplateRecipeBase:
         self._dirty = True
         self._persistState()
         return self._okResult(
-            {"layer": layer, "offsetId": offsetId, "value": dict(self._offsets[offsetId])}
+            {
+                "layer": layer,
+                "offsetId": offsetId,
+                "value": dict(self._offsets[offsetId]),
+            }
         )
 
     # -------------------------------------------------------------------
@@ -934,9 +936,7 @@ class TemplateRecipeBase:
             }
 
         label = _parse_trailing_label(line_text)
-        offset_id = (
-            self.LABEL_TO_OFFSET_ID.get(label) if label is not None else None
-        )
+        offset_id = self.LABEL_TO_OFFSET_ID.get(label) if label is not None else None
         try:
             line_key = extract_line_key(line_text)
         except Exception:
@@ -955,9 +955,7 @@ class TemplateRecipeBase:
                 "available": False,
                 "reason": (
                     "Anchor line has neither a recognized corner label nor a "
-                    "(wrap,line) identifier (label="
-                    + repr(label)
-                    + ")."
+                    "(wrap,line) identifier (label=" + repr(label) + ")."
                 ),
                 "layer": layer,
                 "lineText": line_text,
@@ -1084,9 +1082,7 @@ class TemplateRecipeBase:
             else False
         )
         if is_gcode_active:
-            raise ValueError(
-                "Stop G-code execution before applying jog calibration."
-            )
+            raise ValueError("Stop G-code execution before applying jog calibration.")
 
         snapshot = self._collectJogCalibrationSnapshot()
         if not snapshot.get("available"):
@@ -1181,9 +1177,7 @@ class TemplateRecipeBase:
             else False
         )
         if is_gcode_active:
-            raise ValueError(
-                "Stop G-code execution before resetting jog calibration."
-            )
+            raise ValueError("Stop G-code execution before resetting jog calibration.")
 
         snapshot = self._collectJogCalibrationSnapshot()
         if not snapshot.get("available"):
@@ -1245,9 +1239,7 @@ class TemplateRecipeBase:
 
         bare_line = _strip_anchor_offset(str(snapshot["lineText"]))
         if not bare_line.strip():
-            raise ValueError(
-                "Could not derive a bare g-code line from the last trace."
-            )
+            raise ValueError("Could not derive a bare g-code line from the last trace.")
 
         process = self._process
         csm = getattr(process, "controlStateMachine", None)

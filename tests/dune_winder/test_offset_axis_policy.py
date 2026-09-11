@@ -73,12 +73,12 @@ class EnforceNaturalAxisInLinesTests(unittest.TestCase):
         # A1 is on the head face (Y-natural): the X-only offset collapses to zero
         # and the offset keyword is removed rather than rendered as offset=(0,0).
         (out,) = enforce_offset_natural_axis([line], layer="V")
-        self.assertEqual(
-            out, "N18 (1,16) ~anchorToTarget(B399,A1) (Head A corner)"
-        )
+        self.assertEqual(out, "N18 (1,16) ~anchorToTarget(B399,A1) (Head A corner)")
 
     def test_on_axis_value_is_quantised(self):
-        line = "N1 ~anchorToTarget(A1,A2398,offset=(4.73765,0)) (Top B corner - foot end)"
+        line = (
+            "N1 ~anchorToTarget(A1,A2398,offset=(4.73765,0)) (Top B corner - foot end)"
+        )
         (out,) = enforce_offset_natural_axis([line], layer="V")
         self.assertIn("offset=(4.7,0)", out)
 

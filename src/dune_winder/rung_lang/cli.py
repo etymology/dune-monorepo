@@ -67,8 +67,10 @@ def iter_tree_routines(plc_root: Path, meta=None):
     for l5x_path in sorted(plc_root.glob("*/*_Routine_RLL.L5X")):
         program = l5x_path.parent.name
         routine = l5x_path.name[: -len("_Routine_RLL.L5X")]
-        rdir = plc_root / program / (
-            "main" if routine == meta.main_routine.get(program) else routine
+        rdir = (
+            plc_root
+            / program
+            / ("main" if routine == meta.main_routine.get(program) else routine)
         )
         ir = load_routine_ir(plc_root, program, routine)
         ir = resolve_timer_counter_args(ir, meta)

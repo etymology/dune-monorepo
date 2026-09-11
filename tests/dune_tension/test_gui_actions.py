@@ -128,7 +128,9 @@ def _load_actions_module(monkeypatch):
     streaming = cast(Any, types.ModuleType("dune_tension.streaming"))
     monkeypatch.setitem(sys.modules, "dune_tension.streaming", streaming)
     streaming_pose = cast(Any, types.ModuleType("dune_tension.streaming.pose"))
-    streaming_pose.focus_side_sign = lambda side: 1.0 if str(side).upper() == "A" else -1.0
+    streaming_pose.focus_side_sign = lambda side: (
+        1.0 if str(side).upper() == "A" else -1.0
+    )
     monkeypatch.setitem(sys.modules, "dune_tension.streaming.pose", streaming_pose)
 
     return load_module_from_path(monkeypatch, "gui_actions_under_test", MODULE_PATH)

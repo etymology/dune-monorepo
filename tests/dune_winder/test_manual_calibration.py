@@ -943,7 +943,9 @@ class ManualCalibrationTests(unittest.TestCase):
             generateResult2 = service2.generateRecipeFile()
             self.assertTrue(generateResult2["ok"])
 
-            outputPath2 = os.path.join(process2.workspace._recipeDirectory, "X-layer.gc")
+            outputPath2 = os.path.join(
+                process2.workspace._recipeDirectory, "X-layer.gc"
+            )
             with open(outputPath2) as inputFile:
                 linesInitialOffset = inputFile.readlines()
 
