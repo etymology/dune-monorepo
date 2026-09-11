@@ -381,7 +381,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         plot_audio=inputs.plot_audio,
         use_harmonic_comb_trigger=bool(
-            getattr(inputs, "use_harmonic_comb_trigger", False)
+            getattr(inputs, "use_harmonic_comb_trigger", True)
         ),
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,

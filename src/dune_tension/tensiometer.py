@@ -307,7 +307,7 @@ def build_tensiometer(
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
     audio_store: AudioStore | None = None,
-    use_harmonic_comb_trigger: bool = False,
+    use_harmonic_comb_trigger: bool = True,
 ) -> "Tensiometer":
     config = make_config(
         apa_name=apa_name,
@@ -520,7 +520,7 @@ class Tensiometer:
         datetime_provider: Callable[[], datetime] | None = None,
         gauss_func: Callable[[float, float], float] | None = None,
         audio_store: AudioStore | None = None,
-        use_harmonic_comb_trigger: bool = False,
+        use_harmonic_comb_trigger: bool = True,
     ) -> None:
         self.config = config or make_config(
             apa_name=apa_name,

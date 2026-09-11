@@ -443,7 +443,7 @@ def _create_widgets(
         "Neural Net",
         "Signal Amplitude",
     ).grid(row=1, column=1, sticky="w")
-    use_harmonic_comb_trigger_var = tk.BooleanVar(value=False)
+    use_harmonic_comb_trigger_var = tk.BooleanVar(value=True)
     tk.Checkbutton(
         measure_frame,
         text="Harmonic Comb Trigger",
