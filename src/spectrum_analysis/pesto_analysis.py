@@ -114,6 +114,18 @@ class PestoAnalysisResult:
     activation_freq_axis: np.ndarray | None = None
 
 
+def _audio_has_signal(audio: Any) -> bool:
+    """Return True when ``audio`` holds at least one finite, non-zero sample."""
+
+    array = np.asarray(audio, dtype=np.float32).reshape(-1)
+    if array.size == 0:
+        return False
+    finite = array[np.isfinite(array)]
+    if finite.size == 0:
+        return False
+    return float(np.max(np.abs(finite))) > 0.0
+
+
 def _to_numpy(value: Any) -> np.ndarray:
     if torch is not None and isinstance(value, torch.Tensor):
         return value.detach().cpu().numpy()
@@ -373,11 +385,12 @@ def analyze_audio_with_pesto(
         raise ValueError("sample_rate must be positive.")
 
     if not use_pytorch_backend():
+        onnx_result = None
         try:
             from spectrum_analysis import pesto_onnx
 
             LOGGER.debug("Using ONNX backend for PESTO inference")
-            return _coerce_analysis_result(
+            onnx_result = _coerce_analysis_result(
                 pesto_onnx.analyze_audio_with_onnx(
                     audio,
                     sample_rate,
@@ -386,7 +399,23 @@ def analyze_audio_with_pesto(
                 )
             )
         except Exception as exc:
-            LOGGER.warning("ONNX backend failed, falling back to PyTorch: %s", exc)
+            LOGGER.warning("ONNX backend raised, falling back to PyTorch: %s", exc)
+
+        if onnx_result is not None:
+            if onnx_result.frame_confidences.size > 0:
+                return onnx_result
+            # analyze_audio_with_onnx signals failure by *returning* an all-NaN
+            # result rather than raising, so the except branch above never sees
+            # it. Returning that result hands the caller a NaN pitch with no
+            # error anywhere, which is how a broken ONNX model can masquerade as
+            # audio that simply had no detectable pitch. Only treat an empty
+            # track as a real answer when the input was genuinely silent.
+            if not _audio_has_signal(audio):
+                return onnx_result
+            LOGGER.warning(
+                "ONNX backend produced no pitch frames for audio that has "
+                "signal; falling back to PyTorch."
+            )
 
     if not _ensure_runtime_dependencies():
         LOGGER.warning("pesto-pitch is unavailable; cannot estimate pitch.")

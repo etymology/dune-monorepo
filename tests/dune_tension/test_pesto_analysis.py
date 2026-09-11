@@ -539,3 +539,66 @@ def test_model_cache_is_bounded_and_lru(monkeypatch):
     # Re-loading an evicted key produces a fresh object, not the stale one.
     assert pesto_analysis._load_pesto_model_cached("m", 5.0, 100_000) is not m_a
     assert m_b is not None
+
+
+def test_onnx_result_without_frames_falls_back_to_pytorch(monkeypatch, caplog):
+    """A frameless ONNX result must not surface as a NaN pitch.
+
+    ``analyze_audio_with_onnx`` reports failure by returning an all-NaN result
+    instead of raising, so without an explicit check a broken ONNX model is
+    indistinguishable from audio that genuinely had no detectable pitch.
+    """
+
+    monkeypatch.setenv("PESTO_BACKEND", "onnx")
+
+    def fake_onnx(*_args, **_kwargs):
+        return pesto_analysis._empty_analysis_result()
+
+    def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
+        def fake_model(audio_tensor, sr, convert_to_freq, return_activations):
+            return (
+                _FakeTensor([[660.0, 660.0]]),
+                _FakeTensor([[0.9, 0.9]]),
+                _FakeTensor([[0.0, 0.0]]),
+            )
+
+        return fake_model
+
+    monkeypatch.setattr(pesto_onnx, "analyze_audio_with_onnx", fake_onnx)
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", fake_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+    monkeypatch.setattr(pesto_analysis, "_resolve_step_size_ms", lambda *_args: 5.0)
+
+    audio = np.full(16, 0.25, dtype=np.float32)
+    with caplog.at_level("WARNING"):
+        result = pesto_analysis.analyze_audio_with_pesto(audio, 16000)
+
+    assert result.frame_confidences.size > 0
+    assert np.isfinite(result.frequency)
+    assert "falling back to PyTorch" in caplog.text
+
+
+def test_onnx_empty_result_is_kept_for_silent_audio(monkeypatch):
+    """Silent audio legitimately has no pitch, so don't retry on PyTorch."""
+
+    monkeypatch.setenv("PESTO_BACKEND", "onnx")
+
+    def fake_onnx(*_args, **_kwargs):
+        return pesto_analysis._empty_analysis_result()
+
+    def unexpected_load_model(*_args, **_kwargs):
+        raise AssertionError("PyTorch fallback must not run for silent audio")
+
+    monkeypatch.setattr(pesto_onnx, "analyze_audio_with_onnx", fake_onnx)
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", unexpected_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+
+    result = pesto_analysis.analyze_audio_with_pesto(
+        np.zeros(16, dtype=np.float32), 16000
+    )
+
+    assert result.frame_confidences.size == 0
