@@ -1067,10 +1067,13 @@ def _parse_zone_spec(text: str) -> set[int]:
     """Parse zone specification like ``"3"``, ``"1-3"``, ``"2,4"`` into a set of zone ints.
 
     Valid zones are 1–5 (``GEOMETRY_CONFIG.zone_count``). Invalid tokens and
-    out-of-range values are skipped with a warning.
+    out-of-range values are skipped; out-of-range values are reported as a
+    single warning per call rather than one per value, since pasting a wire
+    range into the zone field otherwise emits hundreds of identical lines.
     """
     max_zone = GEOMETRY_CONFIG.zone_count  # 5
     zones: set[int] = set()
+    out_of_range: list[int] = []
     for part in text.split(","):
         part = part.strip()
         if not part:
@@ -1089,9 +1092,7 @@ def _parse_zone_spec(text: str) -> set[int]:
                 if 1 <= z <= max_zone:
                     zones.add(z)
                 else:
-                    LOGGER.warning(
-                        "Zone %d out of range [1, %d], skipping", z, max_zone
-                    )
+                    out_of_range.append(z)
         else:
             try:
                 z = int(part)
@@ -1101,7 +1102,16 @@ def _parse_zone_spec(text: str) -> set[int]:
             if 1 <= z <= max_zone:
                 zones.add(z)
             else:
-                LOGGER.warning("Zone %d out of range [1, %d], skipping", z, max_zone)
+                out_of_range.append(z)
+    if out_of_range:
+        LOGGER.warning(
+            "Zone spec %r: %d value(s) out of range [1, %d], skipping (%s%s)",
+            text,
+            len(out_of_range),
+            max_zone,
+            ", ".join(str(z) for z in out_of_range[:5]),
+            ", ..." if len(out_of_range) > 5 else "",
+        )
     return zones
 
 
@@ -2029,7 +2039,7 @@ def monitor_tension_logs(ctx: GUIContext) -> None:
 
                 update_tension_logs(cfg, plot_timeout=MONITOR_PLOT_TIMEOUT_S)
                 _request_live_summary_refresh(ctx, cfg)
-                LOGGER.info(
+                LOGGER.debug(
                     "Updated tension logs for %s layer %s",
                     cfg.apa_name,
                     cfg.layer,

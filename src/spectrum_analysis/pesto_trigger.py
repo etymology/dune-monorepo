@@ -87,7 +87,7 @@ def record_with_pesto_trigger(
 
     source = MicSource(sample_rate, hop)
     source.start()
-    LOGGER.info("Listening for audio events (PESTO confidence trigger)...")
+    LOGGER.debug("Listening for audio events (PESTO confidence trigger)...")
 
     collected: list[np.ndarray] = []
     max_samples = int(max_record_seconds * sample_rate)
@@ -106,7 +106,7 @@ def record_with_pesto_trigger(
     try:
         while collected_samples < max_samples:
             if stop_event is not None and stop_event.is_set():
-                LOGGER.info("Audio acquisition interrupted (PESTO trigger).")
+                LOGGER.debug("Audio acquisition interrupted (PESTO trigger).")
                 break
             chunk = source.read()
             if chunk.size == 0:
@@ -147,7 +147,7 @@ def record_with_pesto_trigger(
                         pre_audio = np.concatenate(list(recent_chunks))
                         collected.append(pre_audio)
                         collected_samples += pre_audio.size
-                        LOGGER.info("Recording started (PESTO trigger).")
+                        LOGGER.debug("Recording started (PESTO trigger).")
                         if recording_started_callback is not None:
                             recording_started_callback()
                 else:
@@ -165,11 +165,11 @@ def record_with_pesto_trigger(
                     )
 
                 if triggered and off_counter >= off_windows:
-                    LOGGER.info("Recording stopped (PESTO trigger released).")
+                    LOGGER.debug("Recording stopped (PESTO trigger released).")
                     break
 
             if collected_samples >= max_samples:
-                LOGGER.warning("Max recording length reached.")
+                LOGGER.debug("Max recording length reached.")
                 break
             if time.time() > start_time + timeout_seconds:
                 LOGGER.warning("Recording timed out.")

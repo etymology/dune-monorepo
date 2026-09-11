@@ -315,7 +315,7 @@ def record_with_harmonic_comb(
 
     source = MicSource(sample_rate, hop)
     source.start()
-    LOGGER.info("Listening for audio events (harmonic comb trigger)...")
+    LOGGER.debug("Listening for audio events (harmonic comb trigger)...")
 
     collected: list[np.ndarray] = []
     max_samples = int(max_record_seconds * sample_rate)
@@ -332,7 +332,7 @@ def record_with_harmonic_comb(
     try:
         while collected_samples < max_samples:
             if stop_event is not None and stop_event.is_set():
-                LOGGER.info("Audio acquisition interrupted (harmonic comb trigger).")
+                LOGGER.debug("Audio acquisition interrupted (harmonic comb trigger).")
                 break
             chunk = source.read()
             if chunk.size == 0:
@@ -396,7 +396,7 @@ def record_with_harmonic_comb(
                             collected_samples += pre_audio.size
                         recent_chunks.clear()
                         recent_samples = 0
-                        LOGGER.info("Recording started (harmonic comb trigger).")
+                        LOGGER.debug("Recording started (harmonic comb trigger).")
                         if recording_started_callback is not None:
                             recording_started_callback()
                         if collected_samples >= max_samples:
@@ -408,7 +408,7 @@ def record_with_harmonic_comb(
                         if off_counter >= off_frames:
                             triggered = False
                             stop_recording = True
-                            LOGGER.info("Recording stopped (comb trigger released).")
+                            LOGGER.debug("Recording stopped (comb trigger released).")
                             break
                     else:
                         off_counter = 0
@@ -418,7 +418,7 @@ def record_with_harmonic_comb(
                 collected_samples += len(chunk)
 
             if collected_samples >= max_samples:
-                LOGGER.warning("Max recording length reached.")
+                LOGGER.debug("Max recording length reached.")
                 break
             if time.time() > start_time + timeout_seconds:
                 LOGGER.warning("Recording timed out.")
@@ -427,7 +427,7 @@ def record_with_harmonic_comb(
             if stop_recording:
                 break
         else:
-            LOGGER.warning("Max recording length reached.")
+            LOGGER.debug("Max recording length reached.")
     finally:
         source.stop()
 

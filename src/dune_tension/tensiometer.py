@@ -1915,7 +1915,7 @@ class Tensiometer:
                                 wire_result.tension
                             )
                             if not condition_ok and legacy_tension_condition_active:
-                                LOGGER.info(
+                                LOGGER.debug(
                                     "Sample of wire %s tension %.2f did not satisfy legacy tension condition %r; continuing.",
                                     wire_number,
                                     wire_result.tension,
@@ -1964,7 +1964,7 @@ class Tensiometer:
 
                         condition_ok = _legacy_tension_condition_ok(wire_result.tension)
                         if not condition_ok and legacy_tension_condition_active:
-                            LOGGER.info(
+                            LOGGER.debug(
                                 "Sample of wire %s tension %.2f did not satisfy legacy tension condition %r; continuing.",
                                 wire_number,
                                 wire_result.tension,
@@ -1985,7 +1985,7 @@ class Tensiometer:
                             if accepted:
                                 break
                 else:
-                    LOGGER.info("Sample of wire %s: no audio detected.", wire_number)
+                    LOGGER.warning("Sample of wire %s: no audio detected.", wire_number)
                 if (self._time() - start_time) >= measuring_timeout:
                     break
 
@@ -1994,7 +1994,7 @@ class Tensiometer:
                     continue
 
                 target_x, target_y, target_focus = _next_pose()
-                LOGGER.info(
+                LOGGER.debug(
                     "Optimizer next pose: x=%s y=%s focus=%s",
                     target_x,
                     target_y,
