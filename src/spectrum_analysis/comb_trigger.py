@@ -10,6 +10,7 @@ import threading
 import time
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 from spectrum_analysis.audio_sources import MicSource, sd
 
@@ -183,12 +184,51 @@ def _blend(current: float, target: float, rate: float) -> float:
     return float(current + ((target - current) * rate))
 
 
+_PROMINENCE_HALF_WIDTH_BINS = 3
+
+
 def _spectral_flatness(magnitude: np.ndarray) -> float:
     eps = 1e-12
     magnitude = np.maximum(magnitude, eps)
     geom_mean = np.exp(np.mean(np.log(magnitude)))
     arith_mean = np.mean(magnitude)
     return float(geom_mean / (arith_mean + eps))
+
+
+def _local_median_floor_db(magnitude_db: np.ndarray) -> np.ndarray:
+    """Per-bin median of ``magnitude_db`` over a +/-3 bin window.
+
+    Equal to ``median(magnitude_db[max(i - 3, 0) : min(i + 3, n - 1) + 1])`` for
+    every bin ``i``, but the interior is one strided median instead of one small
+    median per harmonic. The candidate scan used to take a median per
+    (candidate, harmonic) pair -- 360 of them per frame at the default config,
+    which was about three quarters of the trigger's cost.
+    """
+
+    size = magnitude_db.size
+    if size == 0:
+        return np.zeros(0, dtype=np.float64)
+
+    half = _PROMINENCE_HALF_WIDTH_BINS
+    width = 2 * half + 1
+    floor_db = np.empty(size, dtype=np.float64)
+
+    if size >= width:
+        floor_db[half : size - half] = np.median(
+            sliding_window_view(magnitude_db, width), axis=-1
+        )
+        # The outermost bins see a clipped, shorter window. Keep that behaviour
+        # rather than padding the spectrum, which would change their medians.
+        edge_indices = [*range(half), *range(size - half, size)]
+    else:
+        edge_indices = list(range(size))
+
+    for index in edge_indices:
+        low = max(index - half, 0)
+        high = min(index + half, size - 1)
+        floor_db[index] = np.median(magnitude_db[low : high + 1])
+
+    return floor_db
 
 
 def harmonic_comb_response(
@@ -210,59 +250,62 @@ def harmonic_comb_response(
     nyquist = sample_rate / 2.0
     bin_width = freq_bins[1] - freq_bins[0] if freq_bins.size > 1 else nyquist
 
-    best_r = 0.0
-    found = False
+    candidate_values = np.asarray(candidates, dtype=np.float64).reshape(-1)
+    if candidate_values.size == 0:
+        return 0.0, sfm, False
+    harmonic_weights = np.asarray(weights, dtype=np.float64).reshape(-1)
 
-    for candidate in candidates:
-        if not np.isfinite(candidate) or candidate <= 0.0:
-            continue
+    # One row per candidate f0, one column per harmonic. Harmonics above
+    # Nyquist are masked out rather than dropped, so every row keeps the same
+    # width and the whole scan stays a single set of array operations.
+    harmonics = candidate_values[:, None] * np.arange(
+        1, harmonic_weights.size + 1, dtype=np.float64
+    )
+    in_band = harmonics <= nyquist
+    in_band_count = in_band.sum(axis=1)
 
-        harmonics = candidate * np.arange(1, weights.size + 1, dtype=np.float64)
-        valid_mask = harmonics <= nyquist
-        if not np.any(valid_mask):
-            continue
+    sampled = np.where(
+        in_band,
+        np.interp(harmonics, freq_bins, magnitude, left=0.0, right=0.0),
+        0.0,
+    )
+    amps_db = 20.0 * np.log10(np.maximum(sampled, 1e-12))
+    # Non-finite candidates are rejected by ``usable`` below, but they still
+    # flow through this cast, and casting NaN to int is undefined. Zero them
+    # first so the bin lookup stays in range without relying on the clip.
+    finite_harmonics = np.where(np.isfinite(harmonics), harmonics, 0.0)
+    harmonic_bins = np.clip(
+        np.round(finite_harmonics / max(bin_width, 1e-12)).astype(int),
+        0,
+        magnitude_db.size - 1,
+    )
+    floor_db = _local_median_floor_db(magnitude_db)
+    prominent = ((amps_db - floor_db[harmonic_bins]) >= 8.0) & in_band
 
-        harmonics = harmonics[valid_mask]
-        local_weights = weights[: harmonics.size]
+    usable = (
+        np.isfinite(candidate_values)
+        & (candidate_values > 0.0)
+        & (in_band_count > 0)
+        & (in_band_count >= min_harmonics)
+        & (prominent.sum(axis=1) >= min_harmonics)
+    )
 
-        sampled = np.interp(harmonics, freq_bins, magnitude, left=0.0, right=0.0)
-        if sampled.size < min_harmonics:
-            continue
+    masked_weights = np.where(in_band, harmonic_weights[None, :], 0.0)
+    weight_sums = masked_weights.sum(axis=1)
+    weighted_sums = (masked_weights * sampled).sum(axis=1)
+    denominators = weight_sums * max_mag
+    responses = np.divide(
+        weighted_sums,
+        denominators,
+        out=np.zeros_like(weighted_sums),
+        where=denominators > 0.0,
+    )
+    responses = np.where(usable, responses, 0.0)
 
-        amps_db = 20.0 * np.log10(np.maximum(sampled, 1e-12))
-        idx = np.clip(
-            np.round(harmonics / max(bin_width, 1e-12)).astype(int),
-            0,
-            magnitude_db.size - 1,
-        )
-        prominences = []
-        for bin_idx in idx:
-            lo = max(bin_idx - 3, 0)
-            hi = min(bin_idx + 3, magnitude_db.size - 1)
-            prominences.append(magnitude_db[lo : hi + 1])
-        if prominences:
-            floor_db = np.array([float(np.median(p)) for p in prominences])
-        else:
-            floor_db = np.zeros(0, dtype=np.float64)
-
-        if floor_db.size < sampled.size:
-            floor_db = np.pad(floor_db, (0, sampled.size - floor_db.size), mode="edge")
-
-        if np.count_nonzero(amps_db - floor_db >= 8.0) < min_harmonics:
-            continue
-
-        local_weight_sum = float(np.sum(local_weights))
-        weighted_sum = float(np.sum(local_weights * sampled))
-        if local_weight_sum > 0.0:
-            r_value = weighted_sum / (local_weight_sum * max_mag)
-        else:
-            r_value = 0.0
-
-        if r_value > best_r:
-            best_r = r_value
-            found = True
-
-    return best_r, sfm, found
+    best_r = float(responses.max())
+    # The scalar loop only set ``found`` when a candidate beat the running best,
+    # which, starting from 0.0, is the same as any candidate scoring above zero.
+    return best_r, sfm, bool(best_r > 0.0)
 
 
 # Backward-compatible alias for older callers.
