@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import logging
 import re
 import sys
 import threading
@@ -77,6 +78,8 @@ from dune_tension.hardware.serial_discovery import (
     build_candidate_ports,
     is_serial_permission_error,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 # Exact byte sequences from the vendor protocol table.  Keyed by (channel, on).
 _RELAY_COMMANDS: dict[tuple[int, bool], bytes] = {
@@ -160,6 +163,38 @@ class RelayController:
         self._channel_state: dict[int, bool] = {1: False, 2: False}
         self._sensor_refcount: int = 0
 
+    def _reconnect(self) -> bool:
+        """Close the stale handle and try to reopen the serial port.
+
+        Must be called with ``self._lock`` already held.
+        """
+        if self._serial is not None:
+            try:
+                self._serial.close()
+            except Exception:
+                pass
+            self._serial = None
+        candidate_ports = build_candidate_ports(
+            preferred_port=None,
+            name_substrings=self._config.device_name_substrings,
+            vendor_id=self._config.vendor_id,
+            product_id=self._config.product_id,
+        )
+        for candidate_port in candidate_ports:
+            try:
+                self._serial = Serial(
+                    candidate_port,
+                    self._config.baud_rate,
+                    timeout=self._config.serial_timeout,
+                    write_timeout=self._config.serial_timeout,
+                )
+                LOGGER.info("USB relay reconnected on %s", candidate_port)
+                return True
+            except serial.SerialException:
+                continue
+        LOGGER.warning("USB relay reconnect failed: device not found on any candidate port.")
+        return False
+
     def pulse(self, duration: float, *, channel: int = 1) -> None:
         """Energize *channel* immediately and de-energize it after *duration* seconds.
 
@@ -173,11 +208,27 @@ class RelayController:
         on_cmd = _RELAY_COMMANDS[(channel, True)]
         off_cmd = _RELAY_COMMANDS[(channel, False)]
         n_pad = ceil(duration * self._config.baud_rate / 10)  # 8N1
-        padding = b"\x00" * n_pad
+        payload = on_cmd + b"\x00" * n_pad + off_cmd
         with self._lock:
             serial_port = self._require_serial()
-            serial_port.write(on_cmd + padding + off_cmd)
-            serial_port.flush()
+            try:
+                serial_port.write(payload)
+                serial_port.flush()
+            except (serial.SerialException, OSError) as exc:
+                LOGGER.warning(
+                    "USB relay write failed (%s); reconnecting and retrying.", exc
+                )
+                if not self._reconnect():
+                    return
+                serial_port = self._require_serial()
+                try:
+                    serial_port.write(payload)
+                    serial_port.flush()
+                except (serial.SerialException, OSError) as retry_exc:
+                    LOGGER.warning(
+                        "USB relay write failed after reconnect: %s", retry_exc
+                    )
+                    return
             self._channel_state[channel] = False
 
     def set_channel(self, channel: int, on: bool) -> None:
@@ -185,8 +236,24 @@ class RelayController:
         command = _RELAY_COMMANDS[(channel, on)]
         with self._lock:
             serial_port = self._require_serial()
-            serial_port.write(command)
-            serial_port.flush()
+            try:
+                serial_port.write(command)
+                serial_port.flush()
+            except (serial.SerialException, OSError) as exc:
+                LOGGER.warning(
+                    "USB relay write failed (%s); reconnecting and retrying.", exc
+                )
+                if not self._reconnect():
+                    return
+                serial_port = self._require_serial()
+                try:
+                    serial_port.write(command)
+                    serial_port.flush()
+                except (serial.SerialException, OSError) as retry_exc:
+                    LOGGER.warning(
+                        "USB relay write failed after reconnect: %s", retry_exc
+                    )
+                    return
             self._channel_state[channel] = on
 
     def sensor_power_on(self) -> None:
