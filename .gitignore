@@ -44,3 +44,6 @@ winder/plc/ACD/*.BAK*.acd
 winder/plc/**/*_import.L5X
 winder/plc/**/*.rllscrap.out
 winder/plc/ACD/DUNEW2PLC1_py3.ACD.Recovery
+
+# Tensiometer GUI logs (rotated, written from multiple machines)
+tension/data/logs/
