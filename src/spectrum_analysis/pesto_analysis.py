@@ -18,6 +18,15 @@ _MODEL_CACHE: dict[tuple[str, float, int], Any] = {}
 DEFAULT_PESTO_MODEL_NAME = "mir-1k_g7"
 DEFAULT_PESTO_STEP_SIZE_MS = 5.0
 DEFAULT_PESTO_IDEAL_PITCH_HZ = 600.0
+
+# Resolution of the sample-rate augment factor, in steps per octave. The
+# augmentation only has to move the wire pitch into PESTO's sensitive range --
+# PESTO resolves the true pitch afterwards -- so a coarse factor is enough, and
+# a coarse factor is what lets wires share a cached model. At 3 steps/octave the
+# recorded corpus collapses from ~735 distinct factors to ~16, at the cost of at
+# most ~12% pre-scaling error.
+PESTO_SR_AUGMENT_STEPS_PER_OCTAVE = 3
+
 LOGGER = logging.getLogger(__name__)
 
 _ONNX_BACKEND_AVAILABLE = False
@@ -26,12 +35,15 @@ _ONNX_BACKEND_AVAILABLE = False
 def _pesto_model_cache_maxsize() -> int:
     """Max distinct PESTO models kept resident.
 
-    Each model is keyed by (name, step, augmented_sample_rate); the augmented
-    rate is ``sample_rate * 600 / expected_frequency``, so every distinct wire
-    frequency loads a *separate* model of several hundred MB. Without a bound
-    the cache grows once per frequency until the process is OOM-killed (the
-    measurement loop only ever needs the current wire's model). Keep a small
-    LRU window so wire-to-wire switches stay fast without unbounded growth.
+    Each model is keyed by (name, step, augmented_sample_rate) and costs several
+    hundred MB. The augmented rate derives from the sample-rate augment factor,
+    which :func:`_sr_augment_factor` snaps to
+    ``PESTO_SR_AUGMENT_STEPS_PER_OCTAVE`` steps per octave so that neighbouring
+    wires land on the same key and reuse one resident model; without that
+    snapping every distinct wire frequency loaded its own model and the cache
+    churned once per wire. A small LRU window is still wanted as a bound, since
+    the measurement loop only ever needs the current wire's model, and keeping
+    it small is what holds the resident footprint down.
     """
 
     try:
@@ -221,6 +233,14 @@ def _activation_frequency_axis(model: Any, num_bins: int) -> np.ndarray:
 
 
 def _sr_augment_factor(expected_frequency: Optional[float]) -> float:
+    """Return the sample-rate augment factor for ``expected_frequency``.
+
+    The factor is snapped to ``PESTO_SR_AUGMENT_STEPS_PER_OCTAVE`` steps per
+    octave. It reaches the model cache key through the augmented sample rate,
+    so an unsnapped factor loads a fresh several-hundred-MB model for every
+    distinct wire frequency; snapping lets neighbouring wires share one.
+    """
+
     if expected_frequency is None:
         return 1.0
 
@@ -232,7 +252,15 @@ def _sr_augment_factor(expected_frequency: Optional[float]) -> float:
     if not np.isfinite(expected) or expected <= 0.0:
         return 1.0
 
-    return DEFAULT_PESTO_IDEAL_PITCH_HZ / expected
+    raw_factor = DEFAULT_PESTO_IDEAL_PITCH_HZ / expected
+    if not np.isfinite(raw_factor) or raw_factor <= 0.0:
+        return 1.0
+
+    steps = max(int(PESTO_SR_AUGMENT_STEPS_PER_OCTAVE), 1)
+    snapped = 2.0 ** (round(float(np.log2(raw_factor)) * steps) / steps)
+    if not np.isfinite(snapped) or snapped <= 0.0:
+        return 1.0
+    return float(snapped)
 
 
 def _reverse_sr_augment(

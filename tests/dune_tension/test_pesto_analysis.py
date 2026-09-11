@@ -78,17 +78,48 @@ def test_estimate_pitch_from_audio_uses_expected_frequency_mask(monkeypatch):
         expected_frequency=100.0,
     )
 
+    # The augmented rate is derived rather than hard-coded: _sr_augment_factor
+    # snaps the factor to a coarse grid so neighbouring wires share a model, so
+    # pinning a literal here would just re-break when that grid changes.
+    expected_rate = int(round(16000 * pesto_analysis._sr_augment_factor(100.0)))
+
     assert captured["model_name"] == "mir-1k_g7"
     assert captured["step_size"] == 5.0
-    assert captured["sampling_rate"] == 96000
+    assert captured["sampling_rate"] == expected_rate
     assert captured["streaming"] is False
     assert captured["max_batch_size"] == 1
     assert captured["audio_shape"] == (1, 16)
-    assert captured["sr"] == 96000
+    assert captured["sr"] == expected_rate
     assert captured["convert_to_freq"] is True
     assert captured["return_activations"] is False
-    assert np.isclose(frequency, 110.0)
+
+    # The fake model reports 660 Hz and 2520 Hz in augmented space; only the
+    # first survives the <= 1.5 * expected mask once de-augmented, so its
+    # confidence is the one that comes back.
+    de_augmented = 660.0 / pesto_analysis._sr_augment_factor(100.0)
+    assert np.isclose(frequency, de_augmented)
     assert np.isclose(confidence, 0.7)
+
+
+def test_sr_augment_factor_snaps_neighbouring_frequencies_to_one_model():
+    """Nearby wire pitches must share an augment factor.
+
+    The factor reaches the PESTO model cache key through the augmented sample
+    rate, so distinct factors mean a several-hundred-MB model reload per wire.
+    """
+
+    factor = pesto_analysis._sr_augment_factor
+    assert factor(55.0) == factor(61.4)
+    assert factor(55.0) != factor(158.0)
+
+    # Snapping must still land the pitch near PESTO's ideal; a third-octave
+    # grid bounds the error at 2**(1/6), i.e. about 12%.
+    for f0 in (49.8, 61.4, 80.0, 158.0, 600.0, 2185.0):
+        ratio = (f0 * factor(f0)) / pesto_analysis.DEFAULT_PESTO_IDEAL_PITCH_HZ
+        assert 0.88 <= ratio <= 1.14, (f0, ratio)
+
+    for degenerate in (None, 0.0, -5.0, float("nan"), float("inf")):
+        assert factor(degenerate) == 1.0
 
 
 def test_estimate_pitch_from_audio_returns_nan_without_pesto(monkeypatch):
