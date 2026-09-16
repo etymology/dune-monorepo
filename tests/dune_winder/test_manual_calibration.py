@@ -7,8 +7,10 @@ from dune_winder.core.manual_calibration import (
     BOOTSTRAP_RECALIBRATE_BOUND_MM,
     LAYER_METADATA,
     ManualCalibration,
-    _apply_transform,
     build_nominal_calibration,
+)
+from dune_winder.core.calibration_transform import (
+    _apply_transform,
     build_transform,
 )
 from dune_winder.core.anode_plane_array import AnodePlaneArray
