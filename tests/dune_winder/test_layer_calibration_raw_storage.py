@@ -18,7 +18,9 @@ from dune_winder.machine.calibration.machine import MachineCalibration
 from dune_winder.machine.calibration.pin_resolution import wire_space_pin_location
 
 
-def _build_machine_calibration(*, cam_x: float = 65.0, cam_y: float = -108.2) -> MachineCalibration:
+def _build_machine_calibration(
+    *, cam_x: float = 65.0, cam_y: float = -108.2
+) -> MachineCalibration:
     machine = MachineCalibration()
     machine.cameraWireOffsetX = cam_x
     machine.cameraWireOffsetY = cam_y
@@ -83,9 +85,7 @@ def test_legacy_file_without_coordinate_system_is_migrated_to_raw() -> None:
             json.dump(legacy_data, handle)
 
         machine = _build_machine_calibration(cam_x=cam_x, cam_y=cam_y)
-        cal = LayerCalibration(
-            "V", archivePath=os.path.join(tmp, "Archive")
-        )
+        cal = LayerCalibration("V", archivePath=os.path.join(tmp, "Archive"))
         cal.load(
             tmp,
             "V_Calibration.json",

@@ -7,6 +7,7 @@ without the hardware present.
 
 Disable by setting ``DUNE_TENSION_RECORD_AUDIO=0`` in the environment.
 """
+
 from __future__ import annotations
 
 import logging
@@ -178,7 +179,9 @@ class AudioStore:
                     int(meta.wire_number),
                     float(meta.x_mm),
                     float(meta.y_mm),
-                    int(meta.focus_position) if meta.focus_position is not None else None,
+                    int(meta.focus_position)
+                    if meta.focus_position is not None
+                    else None,
                     int(meta.zone) if meta.zone is not None else None,
                     float(meta.wire_length_m),
                     int(sample_rate),

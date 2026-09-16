@@ -381,7 +381,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         plot_audio=inputs.plot_audio,
         use_harmonic_comb_trigger=bool(
-            getattr(inputs, "use_harmonic_comb_trigger", False)
+            getattr(inputs, "use_harmonic_comb_trigger", True)
         ),
         strum=ctx.strum,
         focus_wiggle=ctx.servo_controller.nudge_focus,
@@ -1067,10 +1067,13 @@ def _parse_zone_spec(text: str) -> set[int]:
     """Parse zone specification like ``"3"``, ``"1-3"``, ``"2,4"`` into a set of zone ints.
 
     Valid zones are 1–5 (``GEOMETRY_CONFIG.zone_count``). Invalid tokens and
-    out-of-range values are skipped with a warning.
+    out-of-range values are skipped; out-of-range values are reported as a
+    single warning per call rather than one per value, since pasting a wire
+    range into the zone field otherwise emits hundreds of identical lines.
     """
     max_zone = GEOMETRY_CONFIG.zone_count  # 5
     zones: set[int] = set()
+    out_of_range: list[int] = []
     for part in text.split(","):
         part = part.strip()
         if not part:
@@ -1089,9 +1092,7 @@ def _parse_zone_spec(text: str) -> set[int]:
                 if 1 <= z <= max_zone:
                     zones.add(z)
                 else:
-                    LOGGER.warning(
-                        "Zone %d out of range [1, %d], skipping", z, max_zone
-                    )
+                    out_of_range.append(z)
         else:
             try:
                 z = int(part)
@@ -1101,7 +1102,16 @@ def _parse_zone_spec(text: str) -> set[int]:
             if 1 <= z <= max_zone:
                 zones.add(z)
             else:
-                LOGGER.warning("Zone %d out of range [1, %d], skipping", z, max_zone)
+                out_of_range.append(z)
+    if out_of_range:
+        LOGGER.warning(
+            "Zone spec %r: %d value(s) out of range [1, %d], skipping (%s%s)",
+            text,
+            len(out_of_range),
+            max_zone,
+            ", ".join(str(z) for z in out_of_range[:5]),
+            ", ..." if len(out_of_range) > 5 else "",
+        )
     return zones
 
 
@@ -1968,6 +1978,32 @@ def _check_connections(ctx: GUIContext) -> dict[str, bool]:
     return connections
 
 
+def _try_reconnect_relay(ctx: GUIContext) -> None:
+    """Try to create a fresh RelayController and update the context."""
+    try:
+        from dune_tension.hardware.usb_relay import RelayController
+    except Exception:
+        return
+    try:
+        relay = RelayController()
+    except Exception as exc:
+        LOGGER.debug("USB relay reconnect attempt failed: %s", exc)
+        return
+    ctx.relay_controller = relay
+    ctx.strum = lambda: _strum_relay(relay)
+    ctx.runtime.relay_controller = relay
+    ctx.runtime.strum = ctx.strum
+    ctx.runtime.sensor_power_session = relay.sensor_power_session
+    LOGGER.info("USB relay reconnected and context updated.")
+
+
+def _strum_relay(relay: Any) -> None:
+    try:
+        relay.pulse(0.002)
+    except Exception as exc:
+        LOGGER.warning("Valve pulse failed: %s", exc)
+
+
 def refresh_connections(ctx: GUIContext) -> None:
     """Refresh controller connections, retrying until all are available."""
 
@@ -1977,6 +2013,9 @@ def refresh_connections(ctx: GUIContext) -> None:
         retry_interval_ms = 1000
 
         for attempt in range(1, max_retries + 1):
+            if ctx.relay_controller is None:
+                _try_reconnect_relay(ctx)
+
             connections = _check_connections(ctx)
             all_connected = all(connections.values())
 
@@ -2029,7 +2068,7 @@ def monitor_tension_logs(ctx: GUIContext) -> None:
 
                 update_tension_logs(cfg, plot_timeout=MONITOR_PLOT_TIMEOUT_S)
                 _request_live_summary_refresh(ctx, cfg)
-                LOGGER.info(
+                LOGGER.debug(
                     "Updated tension logs for %s layer %s",
                     cfg.apa_name,
                     cfg.layer,

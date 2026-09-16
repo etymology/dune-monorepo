@@ -404,7 +404,7 @@ def _acquire_audio_snr(
     _, hop = determine_window_and_hop(cfg)
     source = MicSource(cfg.sample_rate, hop)
     source.start()
-    LOGGER.info("Listening for audio events (RMS trigger)...")
+    LOGGER.debug("Listening for audio events (RMS trigger)...")
     snr_threshold = 10 ** (cfg.snr_threshold_db / 20.0)
     stop_event = getattr(cfg, "stop_event", None)
     collected: list[np.ndarray] = []
@@ -419,14 +419,14 @@ def _acquire_audio_snr(
     try:
         while collected_samples < max_samples:
             if stop_event is not None and stop_event.is_set():
-                LOGGER.info("Audio acquisition interrupted (RMS trigger).")
+                LOGGER.debug("Audio acquisition interrupted (RMS trigger).")
                 break
             if (
                 deadline is not None
                 and time.time() >= deadline
                 and not recording_started
             ):
-                LOGGER.info("Timeout reached while waiting for audio event.")
+                LOGGER.debug("Timeout reached while waiting for audio event.")
                 break
             chunk = source.read()
             if chunk.size == 0:
@@ -437,7 +437,7 @@ def _acquire_audio_snr(
 
             if ratio >= snr_threshold:
                 if not recording_started:
-                    LOGGER.info("Recording started.")
+                    LOGGER.debug("Recording started.")
                     recording_started = True
                     callback = getattr(cfg, "recording_started_callback", None)
                     if callback is not None:
@@ -451,10 +451,10 @@ def _acquire_audio_snr(
                 collected.append(chunk)
                 collected_samples += len(chunk)
                 if idle_samples >= idle_limit:
-                    LOGGER.info("Recording stopped (signal below threshold).")
+                    LOGGER.debug("Recording stopped (signal below threshold).")
                     break
         else:
-            LOGGER.warning("Max recording length reached.")
+            LOGGER.debug("Max recording length reached.")
     finally:
         source.stop()
 

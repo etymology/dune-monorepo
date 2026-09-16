@@ -478,6 +478,9 @@ def test_collect_samples_uses_amplitude_capture(monkeypatch):
         record_duration=1.0,
         measuring_duration=0.01,
         time_provider=lambda: next(times),
+        # Requested explicitly: the harmonic comb trigger is the default now,
+        # so the SNR path has to be opted into to stay covered here.
+        use_harmonic_comb_trigger=False,
     )
     tensiometer.strum_func = lambda: None
 

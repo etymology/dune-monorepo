@@ -4,6 +4,7 @@ from datetime import datetime
 import math
 import sqlite3
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -225,6 +226,93 @@ def test_harmonic_comb_response_detects_harmonic_signal() -> None:
     assert valid is True
     assert comb_score > 0.1
     assert sfm < 0.6
+
+
+def test_local_median_floor_db_matches_clipped_window_reference() -> None:
+    """The strided median must reproduce the per-bin clipped windows exactly.
+
+    ``harmonic_comb_response`` scores harmonics against a median taken over
+    +/-3 bins, clipped at the spectrum edges. The interior is computed as one
+    strided median, so the edges are the part worth pinning.
+    """
+
+    half = comb_trigger_module._PROMINENCE_HALF_WIDTH_BINS
+    rng = np.random.default_rng(1234)
+
+    for size in (1, 2, 3, 6, 7, 8, 33, 1025):
+        magnitude_db = rng.normal(scale=20.0, size=size)
+        expected = np.array(
+            [
+                np.median(magnitude_db[max(i - half, 0) : min(i + half, size - 1) + 1])
+                for i in range(size)
+            ]
+        )
+
+        actual = comb_trigger_module._local_median_floor_db(magnitude_db)
+
+        assert actual.shape == expected.shape
+        np.testing.assert_array_equal(actual, expected)
+
+    assert comb_trigger_module._local_median_floor_db(np.zeros(0)).size == 0
+
+
+def test_harmonic_comb_response_rejects_degenerate_candidates() -> None:
+    """Unusable candidates must score zero rather than poison the scan.
+
+    The candidate scan is vectorised, so non-finite and out-of-band candidates
+    are masked out instead of being skipped by an early ``continue``. They must
+    still contribute nothing, and must not emit numpy warnings.
+    """
+
+    sample_rate = 16000
+    frame_size = 2048
+    rng = np.random.default_rng(99)
+    frame = rng.normal(size=frame_size)
+    window = np.hanning(frame_size)
+    freq_bins = np.fft.rfftfreq(frame_size, d=1.0 / sample_rate)
+    weights = 1.0 / np.arange(1, 8, dtype=np.float64)
+
+    def response(candidates: np.ndarray, min_harmonics: int = 1):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            return harmonic_comb_response(
+                frame,
+                sample_rate,
+                window,
+                freq_bins,
+                candidates,
+                weights,
+                min_harmonics,
+            )
+
+    empty_score, _, empty_valid = response(np.zeros(0))
+    assert empty_score == 0.0
+    assert empty_valid is False
+
+    for candidates in (
+        np.array([np.nan, np.inf, -np.inf]),
+        np.array([-5.0, 0.0]),
+        np.array([float(sample_rate)]),  # every harmonic lands above Nyquist
+    ):
+        score, _, valid = response(candidates)
+        assert score == 0.0
+        assert valid is False
+
+    # A real candidate still scores, and mixing in degenerate ones is harmless.
+    good = np.geomspace(180.0, 260.0, num=24)
+    good_score, _, good_valid = response(good)
+    assert good_valid is True
+    assert good_score > 0.0
+
+    mixed_score, _, mixed_valid = response(
+        np.concatenate([np.array([np.nan, -1.0, 0.0]), good])
+    )
+    assert mixed_valid is True
+    assert mixed_score == pytest.approx(good_score)
+
+    # Demanding more harmonics than the weights provide rejects everything.
+    assert response(good, min_harmonics=weights.size + 1)[0] == 0.0
+    assert response(good, min_harmonics=weights.size + 1)[2] is False
 
 
 def test_harmonic_comb_config_defaults_start_permissive() -> None:

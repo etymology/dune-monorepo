@@ -147,7 +147,8 @@ def test_load_state_falls_back_for_invalid_focus_target(monkeypatch, tmp_path):
     assert widgets.focus_slider.get() == 4000
     assert ctx.focus_command_var.get() == "4000"
     assert widgets.confidence_source_var.get() == "Neural Net"
-    assert widgets.use_harmonic_comb_trigger_var.get() is False
+    # Omitted from the state file above, so this is the load-time default.
+    assert widgets.use_harmonic_comb_trigger_var.get() is True
     assert widgets.entry_legacy_tension_condition.get() == "4<t"
     assert widgets.disable_x_compensation_var.get() is False
     assert widgets.laser_offset_pin_var.get() == ""

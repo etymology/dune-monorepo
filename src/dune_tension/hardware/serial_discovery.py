@@ -54,9 +54,7 @@ def build_candidate_ports(
         interface_priority = 0
         if prefer_interface_number is not None:
             interface_number = _port_interface_number(port)
-            interface_priority = (
-                0 if interface_number == prefer_interface_number else 1
-            )
+            interface_priority = 0 if interface_number == prefer_interface_number else 1
 
         if name_match:
             matched_by_name.append((interface_priority, index, device))

@@ -452,9 +452,7 @@ def test_find_outliers_uses_nearest_calculable_average_for_end_wires(tmp_path) -
         tension = 5.0
         if wire_number in {1, 30}:
             tension = 8.5  # plausible, but far from the ~5.0 neighbours
-        append_dataframe_row(
-            str(db_path), _make_outlier_row(wire_number, tension)
-        )
+        append_dataframe_row(str(db_path), _make_outlier_row(wire_number, tension))
 
     outliers = find_outliers(
         str(db_path),

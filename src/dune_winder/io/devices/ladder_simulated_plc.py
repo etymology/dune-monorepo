@@ -464,9 +464,8 @@ class LadderSimulatedPLC(SimulatedPLC):
             return
 
         if resolvedProgramName == "init" and routineName == "main":
-            if (
-                int(self._ctx.get_value("STATE")) != self.STATE_INIT
-                and bool(self._ctx.get_value("INIT_DONE"))
+            if int(self._ctx.get_value("STATE")) != self.STATE_INIT and bool(
+                self._ctx.get_value("INIT_DONE")
             ):
                 return
         routine = self._routines.get((resolvedProgramName, routineName))

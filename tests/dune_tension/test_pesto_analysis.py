@@ -78,17 +78,48 @@ def test_estimate_pitch_from_audio_uses_expected_frequency_mask(monkeypatch):
         expected_frequency=100.0,
     )
 
+    # The augmented rate is derived rather than hard-coded: _sr_augment_factor
+    # snaps the factor to a coarse grid so neighbouring wires share a model, so
+    # pinning a literal here would just re-break when that grid changes.
+    expected_rate = int(round(16000 * pesto_analysis._sr_augment_factor(100.0)))
+
     assert captured["model_name"] == "mir-1k_g7"
     assert captured["step_size"] == 5.0
-    assert captured["sampling_rate"] == 96000
+    assert captured["sampling_rate"] == expected_rate
     assert captured["streaming"] is False
     assert captured["max_batch_size"] == 1
     assert captured["audio_shape"] == (1, 16)
-    assert captured["sr"] == 96000
+    assert captured["sr"] == expected_rate
     assert captured["convert_to_freq"] is True
     assert captured["return_activations"] is False
-    assert np.isclose(frequency, 110.0)
+
+    # The fake model reports 660 Hz and 2520 Hz in augmented space; only the
+    # first survives the <= 1.5 * expected mask once de-augmented, so its
+    # confidence is the one that comes back.
+    de_augmented = 660.0 / pesto_analysis._sr_augment_factor(100.0)
+    assert np.isclose(frequency, de_augmented)
     assert np.isclose(confidence, 0.7)
+
+
+def test_sr_augment_factor_snaps_neighbouring_frequencies_to_one_model():
+    """Nearby wire pitches must share an augment factor.
+
+    The factor reaches the PESTO model cache key through the augmented sample
+    rate, so distinct factors mean a several-hundred-MB model reload per wire.
+    """
+
+    factor = pesto_analysis._sr_augment_factor
+    assert factor(55.0) == factor(61.4)
+    assert factor(55.0) != factor(158.0)
+
+    # Snapping must still land the pitch near PESTO's ideal; a third-octave
+    # grid bounds the error at 2**(1/6), i.e. about 12%.
+    for f0 in (49.8, 61.4, 80.0, 158.0, 600.0, 2185.0):
+        ratio = (f0 * factor(f0)) / pesto_analysis.DEFAULT_PESTO_IDEAL_PITCH_HZ
+        assert 0.88 <= ratio <= 1.14, (f0, ratio)
+
+    for degenerate in (None, 0.0, -5.0, float("nan"), float("inf")):
+        assert factor(degenerate) == 1.0
 
 
 def test_estimate_pitch_from_audio_returns_nan_without_pesto(monkeypatch):
@@ -508,3 +539,66 @@ def test_model_cache_is_bounded_and_lru(monkeypatch):
     # Re-loading an evicted key produces a fresh object, not the stale one.
     assert pesto_analysis._load_pesto_model_cached("m", 5.0, 100_000) is not m_a
     assert m_b is not None
+
+
+def test_onnx_result_without_frames_falls_back_to_pytorch(monkeypatch, caplog):
+    """A frameless ONNX result must not surface as a NaN pitch.
+
+    ``analyze_audio_with_onnx`` reports failure by returning an all-NaN result
+    instead of raising, so without an explicit check a broken ONNX model is
+    indistinguishable from audio that genuinely had no detectable pitch.
+    """
+
+    monkeypatch.setenv("PESTO_BACKEND", "onnx")
+
+    def fake_onnx(*_args, **_kwargs):
+        return pesto_analysis._empty_analysis_result()
+
+    def fake_load_model(name, step_size, sampling_rate, streaming, max_batch_size):
+        def fake_model(audio_tensor, sr, convert_to_freq, return_activations):
+            return (
+                _FakeTensor([[660.0, 660.0]]),
+                _FakeTensor([[0.9, 0.9]]),
+                _FakeTensor([[0.0, 0.0]]),
+            )
+
+        return fake_model
+
+    monkeypatch.setattr(pesto_onnx, "analyze_audio_with_onnx", fake_onnx)
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", fake_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+    monkeypatch.setattr(pesto_analysis, "_resolve_step_size_ms", lambda *_args: 5.0)
+
+    audio = np.full(16, 0.25, dtype=np.float32)
+    with caplog.at_level("WARNING"):
+        result = pesto_analysis.analyze_audio_with_pesto(audio, 16000)
+
+    assert result.frame_confidences.size > 0
+    assert np.isfinite(result.frequency)
+    assert "falling back to PyTorch" in caplog.text
+
+
+def test_onnx_empty_result_is_kept_for_silent_audio(monkeypatch):
+    """Silent audio legitimately has no pitch, so don't retry on PyTorch."""
+
+    monkeypatch.setenv("PESTO_BACKEND", "onnx")
+
+    def fake_onnx(*_args, **_kwargs):
+        return pesto_analysis._empty_analysis_result()
+
+    def unexpected_load_model(*_args, **_kwargs):
+        raise AssertionError("PyTorch fallback must not run for silent audio")
+
+    monkeypatch.setattr(pesto_onnx, "analyze_audio_with_onnx", fake_onnx)
+    monkeypatch.setattr(pesto_analysis, "torch", _FakeTorch)
+    monkeypatch.setattr(pesto_analysis, "load_model", unexpected_load_model)
+    monkeypatch.setattr(pesto_analysis, "_RUNTIME_DEPS_LOADED", True)
+    monkeypatch.setattr(pesto_analysis, "_MODEL_CACHE", {})
+
+    result = pesto_analysis.analyze_audio_with_pesto(
+        np.zeros(16, dtype=np.float32), 16000
+    )
+
+    assert result.frame_confidences.size == 0

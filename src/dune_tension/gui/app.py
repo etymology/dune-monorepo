@@ -443,7 +443,7 @@ def _create_widgets(
         "Neural Net",
         "Signal Amplitude",
     ).grid(row=1, column=1, sticky="w")
-    use_harmonic_comb_trigger_var = tk.BooleanVar(value=False)
+    use_harmonic_comb_trigger_var = tk.BooleanVar(value=True)
     tk.Checkbutton(
         measure_frame,
         text="Harmonic Comb Trigger",
@@ -535,9 +535,7 @@ def _create_widgets(
     )
 
     btn_measure_outliers = tk.Button(measure_frame, text="Measure Residual Outliers")
-    btn_measure_outliers.grid(
-        row=14, column=1, columnspan=2, padx=(3, 0), sticky="ew"
-    )
+    btn_measure_outliers.grid(row=14, column=1, columnspan=2, padx=(3, 0), sticky="ew")
 
     btn_measure_distribution_outliers = tk.Button(
         measure_frame, text="Measure Bulk Outliers"

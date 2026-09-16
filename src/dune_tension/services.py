@@ -259,7 +259,7 @@ class RuntimeOptions:
     spoof_valve: bool = False
 
 
-@dataclass(frozen=True)
+@dataclass
 class RuntimeBundle:
     motion: MotionService
     audio: AudioCaptureService

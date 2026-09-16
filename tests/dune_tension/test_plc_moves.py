@@ -170,9 +170,7 @@ def test_goto_xy_clears_state_request_when_xy_seek_times_out_without_motion(
     monkeypatch.setattr(plc, "get_state_request", lambda: next(state_request_reads))
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
-    monkeypatch.setattr(
-        plc, "get_xy", lambda: (2000.0, _Y_LOW)
-    )
+    monkeypatch.setattr(plc, "get_xy", lambda: (2000.0, _Y_LOW))
     monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
     monkeypatch.setattr(plc.time, "monotonic", lambda: next(monotonic_values))
     plc._TRUE_XY = [2000.0, _Y_LOW]
@@ -203,9 +201,7 @@ def test_goto_xy_does_not_clear_state_request_when_xy_seek_times_out_after_motio
     monkeypatch.setattr(plc, "get_state_request", lambda: next(state_request_reads))
     monkeypatch.setattr(plc, "get_plc_io_mode", lambda: "server")
     monkeypatch.setattr(plc, "set_speed", lambda speed: True)
-    monkeypatch.setattr(
-        plc, "get_xy", lambda: (2000.5, _Y_LOW)
-    )
+    monkeypatch.setattr(plc, "get_xy", lambda: (2000.5, _Y_LOW))
     monkeypatch.setattr(plc.time, "sleep", lambda _s: None)
     monkeypatch.setattr(plc.time, "monotonic", lambda: next(monotonic_values))
     plc._TRUE_XY = [2000.0, _Y_LOW]

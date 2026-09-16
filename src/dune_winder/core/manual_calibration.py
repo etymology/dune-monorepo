@@ -1686,10 +1686,8 @@ class ManualCalibration:
                         # GX wireX/wireY are stored in camera-space (no
                         # camera-wire offset); generateRecipeFile applies the
                         # offset at generation time.
-                        reference["wireX"] = (
-                            self._process._xBacklash.getEffectiveX(
-                                reference["rawCameraX"]
-                            )
+                        reference["wireX"] = self._process._xBacklash.getEffectiveX(
+                            reference["rawCameraX"]
                         )
                         reference["wireY"] = reference["rawCameraY"]
             else:
@@ -1740,10 +1738,8 @@ class ManualCalibration:
                         # GX wireX/wireY are stored in camera-space (no
                         # camera-wire offset); generateRecipeFile applies the
                         # offset at generation time.
-                        reference["wireX"] = (
-                            self._process._xBacklash.getEffectiveX(
-                                reference["rawCameraX"]
-                            )
+                        reference["wireX"] = self._process._xBacklash.getEffectiveX(
+                            reference["rawCameraX"]
                         )
                         reference["wireY"] = reference["rawCameraY"]
                 self._persistSession(session)

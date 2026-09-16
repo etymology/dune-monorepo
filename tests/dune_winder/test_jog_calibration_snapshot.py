@@ -178,8 +178,7 @@ class JogCalibrationSnapshotTests(unittest.TestCase):
             # Final-wrap tail line: real anchorToTarget call but its label is
             # not in LABEL_TO_OFFSET_ID.
             trace = _trace(
-                "N99 (400,8) ~anchorToTarget(A400,B2398) "
-                "(Wrap 400 tail A400 to B2398)",
+                "N99 (400,8) ~anchorToTarget(A400,B2398) (Wrap 400 tail A400 to B2398)",
                 x=50.0,
                 y=60.0,
             )
@@ -255,8 +254,12 @@ class PinDeltaScalingTests(unittest.TestCase):
 
             self.assertTrue(snapshot["available"])
             self.assertEqual(snapshot["pinDeltaRatio"]["plane"], "xy")
-            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], 5.0 / 85.0, places=6)
-            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], 5.0 / 85.0, places=6)
+            self.assertAlmostEqual(
+                snapshot["pinDeltaRatio"]["rx"], 5.0 / 85.0, places=6
+            )
+            self.assertAlmostEqual(
+                snapshot["pinDeltaRatio"]["ry"], 5.0 / 85.0, places=6
+            )
             self.assertAlmostEqual(snapshot["newOffset"]["x"], 0.0, places=6)
             self.assertAlmostEqual(snapshot["newOffset"]["y"], 5.0 / 85.0, places=6)
             self.assertAlmostEqual(snapshot["delta"]["y"], 1.0, places=6)
@@ -287,11 +290,10 @@ class PinDeltaScalingTests(unittest.TestCase):
 
             self.assertTrue(snapshot["available"])
             self.assertEqual(snapshot["pinDeltaRatio"]["plane"], "xz")
-            expected_rx = (
-                ((20.0 ** 2 + 120.0 ** 2) ** 0.5)
-                / ((20.0 ** 2 + 268.0 ** 2) ** 0.5)
+            expected_rx = ((20.0**2 + 120.0**2) ** 0.5) / ((20.0**2 + 268.0**2) ** 0.5)
+            self.assertAlmostEqual(
+                snapshot["pinDeltaRatio"]["rx"], expected_rx, places=6
             )
-            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], expected_rx, places=6)
             self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], 1.0, places=6)
             self.assertAlmostEqual(snapshot["newOffset"]["x"], expected_rx, places=6)
             self.assertAlmostEqual(snapshot["newOffset"]["y"], 1.0, places=6)
@@ -321,12 +323,11 @@ class PinDeltaScalingTests(unittest.TestCase):
 
             self.assertTrue(snapshot["available"])
             self.assertEqual(snapshot["pinDeltaRatio"]["plane"], "yz")
-            expected_ry = (
-                ((20.0 ** 2 + 120.0 ** 2) ** 0.5)
-                / ((20.0 ** 2 + 268.0 ** 2) ** 0.5)
-            )
+            expected_ry = ((20.0**2 + 120.0**2) ** 0.5) / ((20.0**2 + 268.0**2) ** 0.5)
             self.assertAlmostEqual(snapshot["pinDeltaRatio"]["rx"], 1.0, places=6)
-            self.assertAlmostEqual(snapshot["pinDeltaRatio"]["ry"], expected_ry, places=6)
+            self.assertAlmostEqual(
+                snapshot["pinDeltaRatio"]["ry"], expected_ry, places=6
+            )
             self.assertAlmostEqual(snapshot["newOffset"]["x"], 1.0, places=6)
             self.assertAlmostEqual(snapshot["newOffset"]["y"], expected_ry, places=6)
 

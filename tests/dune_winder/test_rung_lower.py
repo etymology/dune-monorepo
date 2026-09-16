@@ -131,8 +131,7 @@ class TestStatementLowering:
     def test_on_rising_explicit_using_clause_is_honoured(self):
         # an explicit clause pins the bits and does not synthesize new tags
         lowered = lower(
-            "on rising a.DN using ons_store[1], a_dn_edge:\n"
-            "    fault_reset X using f\n"
+            "on rising a.DN using ons_store[1], a_dn_edge:\n    fault_reset X using f\n"
         )
         texts = [rung_text(r) for r in lowered.routine.rungs]
         assert texts == [
@@ -154,12 +153,7 @@ class TestStatementLowering:
     def test_on_block_packs_same_opcode_actions_into_one_rung(self):
         # consecutive actions of one opcode behind the same edge collapse
         # into a single gated rung (series outputs), not one rung per action
-        lowered = lower(
-            "on rising trip:\n"
-            "    reset t1\n"
-            "    reset t2\n"
-            "    reset t3\n"
-        )
+        lowered = lower("on rising trip:\n    reset t1\n    reset t2\n    reset t3\n")
         texts = [rung_text(r) for r in lowered.routine.rungs]
         assert texts == [
             "XIC(trip)OSR(trip_osr_sb,trip_rising);",

@@ -307,7 +307,7 @@ def build_tensiometer(
     runtime_bundle: RuntimeBundle | None = None,
     wire_position_provider: WirePositionProvider | None = None,
     audio_store: AudioStore | None = None,
-    use_harmonic_comb_trigger: bool = False,
+    use_harmonic_comb_trigger: bool = True,
 ) -> "Tensiometer":
     config = make_config(
         apa_name=apa_name,
@@ -520,7 +520,7 @@ class Tensiometer:
         datetime_provider: Callable[[], datetime] | None = None,
         gauss_func: Callable[[float, float], float] | None = None,
         audio_store: AudioStore | None = None,
-        use_harmonic_comb_trigger: bool = False,
+        use_harmonic_comb_trigger: bool = True,
     ) -> None:
         self.config = config or make_config(
             apa_name=apa_name,
@@ -1915,7 +1915,7 @@ class Tensiometer:
                                 wire_result.tension
                             )
                             if not condition_ok and legacy_tension_condition_active:
-                                LOGGER.info(
+                                LOGGER.debug(
                                     "Sample of wire %s tension %.2f did not satisfy legacy tension condition %r; continuing.",
                                     wire_number,
                                     wire_result.tension,
@@ -1964,7 +1964,7 @@ class Tensiometer:
 
                         condition_ok = _legacy_tension_condition_ok(wire_result.tension)
                         if not condition_ok and legacy_tension_condition_active:
-                            LOGGER.info(
+                            LOGGER.debug(
                                 "Sample of wire %s tension %.2f did not satisfy legacy tension condition %r; continuing.",
                                 wire_number,
                                 wire_result.tension,
@@ -1985,7 +1985,7 @@ class Tensiometer:
                             if accepted:
                                 break
                 else:
-                    LOGGER.info("Sample of wire %s: no audio detected.", wire_number)
+                    LOGGER.warning("Sample of wire %s: no audio detected.", wire_number)
                 if (self._time() - start_time) >= measuring_timeout:
                     break
 
@@ -1994,7 +1994,7 @@ class Tensiometer:
                     continue
 
                 target_x, target_y, target_focus = _next_pose()
-                LOGGER.info(
+                LOGGER.debug(
                     "Optimizer next pose: x=%s y=%s focus=%s",
                     target_x,
                     target_y,

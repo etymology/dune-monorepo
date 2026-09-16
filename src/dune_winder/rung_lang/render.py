@@ -459,7 +459,11 @@ def _is_auto_edge_fallback(storage: str, edge: str) -> bool:
     them."""
     ms, me = _AUTO_EDGE_RE.match(storage), _AUTO_EDGE_RE.match(edge)
     return bool(
-        ms and me and ms.group(1) == me.group(1) and ms.group(2) == "sb" and me.group(2) == "ob"
+        ms
+        and me
+        and ms.group(1) == me.group(1)
+        and ms.group(2) == "sb"
+        and me.group(2) == "ob"
     )
 
 

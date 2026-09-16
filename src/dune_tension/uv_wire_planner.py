@@ -106,16 +106,16 @@ def wire_segment_to_pin_pair(layer: str, wire_number: int) -> tuple[str, str]:
 def _wire_pin_pair(layer: str, side: str, wire_number: int) -> tuple[str, str]:
     requested_side = _normalize_side(side)
     requested_layer = _normalize_layer(layer)
-    
+
     # We always start from the canonical B-side endpoints.
     pin_a_b, pin_b_b = _layout_for_layer(requested_layer).wire_segment_endpoints(
         int(wire_number),
         family="B",
     )
-    
+
     if requested_side == "B":
         return pin_a_b, pin_b_b
-        
+
     # For A-side tension measurement, the convention is to use the same pin numbers
     # as the B-side segment, but with the A prefix. This is distinct from the
     # winder's physical wrap-layout translation.
@@ -428,6 +428,7 @@ def _plan_uv_wire_geometry_cached(inputs: _UVPlanGeometryInputs) -> _UVPlanGeome
         for candidate in candidate_segments
         if candidate[6] == best_orientation_score
     ]
+
     # Selection preference: first prefer a segment whose midpoint y is below
     # _MEASUREMENT_Y_THRESHOLD; among those, prefer the longest segment. If no
     # segment is below the threshold, fall back to the segment with the lowest

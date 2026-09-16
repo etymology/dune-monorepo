@@ -169,7 +169,7 @@ def load_state(ctx: GUIContext) -> None:
         _confidence_source_label(data.get("confidence_source", "Neural Net"))
     )
     w.use_harmonic_comb_trigger_var.set(
-        bool(data.get("use_harmonic_comb_trigger", False))
+        bool(data.get("use_harmonic_comb_trigger", True))
     )
     w.plot_audio_var.set(bool(data.get("plot_audio", False)))
     w.suppress_wire_preview_var.set(bool(data.get("suppress_wire_preview", False)))

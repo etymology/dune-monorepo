@@ -188,12 +188,10 @@ def _reduce_activations_alwa(
     window = np.arange(1, 2 * bps, dtype=np.int32) - bps
     indices = np.clip(center_bin + window, 0, num_bins - 1)
 
-    batch_size = activations.shape[0]
-    expanded_indices = np.broadcast_to(indices, (batch_size, *indices.shape))
-    cropped_activations = np.take_along_axis(activations, expanded_indices, axis=-1)
+    cropped_activations = np.take_along_axis(activations, indices, axis=-1)
 
-    expanded_pitches = np.broadcast_to(all_pitches, (batch_size, *all_pitches.shape))
-    cropped_pitches = np.take_along_axis(expanded_pitches, expanded_indices, axis=-1)
+    expanded_pitches = np.broadcast_to(all_pitches, activations.shape)
+    cropped_pitches = np.take_along_axis(expanded_pitches, indices, axis=-1)
 
     weighted_sum = (cropped_activations * cropped_pitches).sum(axis=-1)
     activation_sum = cropped_activations.sum(axis=-1)
@@ -346,20 +344,41 @@ class ONNXPestoModel:
 
             with torch_module.no_grad():
                 cqt_output = preprocessor(audio_tensor, sr=sample_rate)
+                # cqt_output shape: (1, T, H, F) — batch, time, harmonics, freq
 
-                energy = (cqt_output * (np.log(10) / 10.0)).exp().squeeze(1)
-                vol = energy.sum(dim=-1)
+                linear_cqt = (cqt_output * (np.log(10) / 10.0)).exp()
 
-                confidence_input = energy.cpu().numpy().astype(np.float32)
-                confidence_output = self.confidence_session.run(
-                    ["confidence"], {"energy": confidence_input}
-                )[0]
-                confidence = confidence_output.squeeze(-1).astype(np.float32)
+                # Per-frame volume: sum over harmonics and freq → (T,)
+                vol = (
+                    linear_cqt.sum(dim=(2, 3))
+                    .squeeze(0)
+                    .cpu()
+                    .numpy()
+                    .astype(np.float32)
+                )
 
-                encoder_tensor = cqt_output[
-                    ..., self.crop_max_steps : self.crop_min_steps
-                ]
-                encoder_input = encoder_tensor.cpu().numpy().astype(np.float32)
+                # Confidence model expects (T, F): squeeze batch + harmonics dims.
+                confidence_input = (
+                    linear_cqt.squeeze(0).squeeze(1).cpu().numpy().astype(np.float32)
+                )
+
+                # Encoder model expects (T, H, F_cropped).
+                # Crop along the frequency axis (last dim).
+                if self.crop_min_steps < 0:
+                    encoder_crop = cqt_output[
+                        ..., self.crop_max_steps : self.crop_min_steps
+                    ]
+                elif self.crop_max_steps > 0:
+                    encoder_crop = cqt_output[..., self.crop_max_steps :]
+                else:
+                    encoder_crop = cqt_output
+                # Squeeze batch dim: (1, T, H, F_cropped) → (T, H, F_cropped)
+                encoder_input = encoder_crop.squeeze(0).cpu().numpy().astype(np.float32)
+
+            confidence_output = self.confidence_session.run(
+                ["confidence"], {"energy": confidence_input}
+            )[0]
+            confidence = confidence_output.reshape(-1).astype(np.float32)
 
             activations_output = self.encoder_session.run(
                 ["activations"], {"hcqt_features": encoder_input}
@@ -379,12 +398,12 @@ class ONNXPestoModel:
             predictions = 440.0 * np.power(2.0, (predictions - 69.0) / 12.0)
 
         if not return_activations:
-            return predictions, confidence, vol.cpu().numpy().astype(np.float32), None
+            return predictions, confidence, vol, None
 
         return (
             predictions,
             confidence,
-            vol.cpu().numpy().astype(np.float32),
+            vol,
             activations,
         )
 

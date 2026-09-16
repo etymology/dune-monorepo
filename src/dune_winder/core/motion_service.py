@@ -364,7 +364,14 @@ class MotionService:
                 LOG_NAME,
                 "JOG",
                 "Manual move XZ ignored.",
-                [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, error],
+                [
+                    xPositionRaw,
+                    yPositionRaw,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    error,
+                ],
             )
             return True
 
@@ -379,7 +386,14 @@ class MotionService:
             + ") at "
             + str(velocity)
             + ".",
-            [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, currentZ],
+            [
+                xPositionRaw,
+                yPositionRaw,
+                velocity,
+                acceleration,
+                deceleration,
+                currentZ,
+            ],
         )
         self._controlStateMachine.dispatch(
             ManualModeEvent(
@@ -433,7 +447,14 @@ class MotionService:
                 LOG_NAME,
                 "JOG",
                 "Manual move YZ ignored.",
-                [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, error],
+                [
+                    xPositionRaw,
+                    yPositionRaw,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    error,
+                ],
             )
             return True
 
@@ -448,7 +469,14 @@ class MotionService:
             + ") at "
             + str(velocity)
             + ".",
-            [xPositionRaw, yPositionRaw, velocity, acceleration, deceleration, currentZ],
+            [
+                xPositionRaw,
+                yPositionRaw,
+                velocity,
+                acceleration,
+                deceleration,
+                currentZ,
+            ],
         )
         self._controlStateMachine.dispatch(
             ManualModeEvent(
@@ -633,13 +661,17 @@ class MotionService:
 
     def setAnchorPoint(self, pinA, pinB=None):
         calibration = self._gCodeHandler.getLayerCalibration()
-        machineCalibration = getattr(self._headCompensation, "_machineCalibration", None)
+        machineCalibration = getattr(
+            self._headCompensation, "_machineCalibration", None
+        )
 
         isError = True
 
         if calibration:
             try:
-                pinA_loc = wire_space_pin_location(calibration, machineCalibration, pinA)
+                pinA_loc = wire_space_pin_location(
+                    calibration, machineCalibration, pinA
+                )
             except KeyError:
                 pinA_loc = None
 

@@ -1155,9 +1155,7 @@ class WaypointPlannerApp(tk.Tk):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "GUI waypoint planner/executor for queue_demo waypoint_path flow."
-        )
+        description=("GUI waypoint planner/executor for queue_demo waypoint_path flow.")
     )
     parser.add_argument(
         "--plc-path",
