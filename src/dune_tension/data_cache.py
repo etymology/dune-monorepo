@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -13,8 +14,27 @@ from dune_tension.tension_calculation import tension_plausible
 TABLE_TENSION_DATA = "tension_data"
 TABLE_TENSION_SAMPLES = "tension_samples"
 
+
+@dataclass
+class _CachedTable:
+    """A materialised table plus the sqlite state it was read from.
+
+    ``row_count`` and ``max_rowid`` let a read tell a plain append apart from a
+    rewrite, so appends can be folded into ``frame`` instead of forcing the
+    whole table to be read again. ``anchor_row`` is the row that sat at
+    ``max_rowid``: sqlite reuses a freed maximum rowid, so deleting the last row
+    and inserting another leaves the count and the rowid range unchanged, and
+    only the row contents give it away.
+    """
+
+    frame: pd.DataFrame
+    row_count: int
+    max_rowid: int
+    anchor_row: tuple[Any, ...] | None
+
+
 # In-process DataFrame cache.
-_dataframe_cache: dict[str, pd.DataFrame] = {}
+_dataframe_cache: dict[str, _CachedTable] = {}
 
 
 def _table_columns_sql() -> str:
@@ -69,8 +89,91 @@ def _cache_key(file_path: str, table: str) -> str:
     return f"{file_path}::{table}"
 
 
-def _invalidate_cached_table(file_path: str, table: str) -> None:
-    _dataframe_cache.pop(_cache_key(file_path, table), None)
+def _table_state(
+    conn: sqlite3.Connection, table: str
+) -> tuple[int, int, tuple[Any, ...] | None]:
+    """Return ``(row_count, max_rowid, anchor_row)`` for ``table``."""
+
+    row = conn.execute(
+        f"SELECT COUNT(*), COALESCE(MAX(rowid), 0) FROM {table}"
+    ).fetchone()
+    row_count, max_rowid = int(row[0]), int(row[1])
+    anchor_row = None
+    if row_count:
+        anchor = conn.execute(
+            f"SELECT * FROM {table} WHERE rowid = ?", (max_rowid,)
+        ).fetchone()
+        anchor_row = tuple(anchor) if anchor is not None else None
+    return row_count, max_rowid, anchor_row
+
+
+def _store_cached_table(
+    file_path: str, table: str, frame: pd.DataFrame, conn: sqlite3.Connection
+) -> None:
+    row_count, max_rowid, anchor_row = _table_state(conn, table)
+    _dataframe_cache[_cache_key(file_path, table)] = _CachedTable(
+        frame, row_count, max_rowid, anchor_row
+    )
+
+
+def _refresh_cached_table(
+    conn: sqlite3.Connection, table: str, cached: _CachedTable
+) -> _CachedTable | None:
+    """Bring ``cached`` up to date cheaply, or return None to force a re-read.
+
+    Appending is the only mutation that leaves the cache behind -- every other
+    writer replaces the cached frame outright -- so the usual case is that rows
+    were added at the end. Those rows are read back out of sqlite rather than
+    reconstructed from the values that were inserted, which keeps column
+    affinity and dtype inference identical to a full re-read.
+
+    Anything that is not a clean append (deletions, a replaced table, a row
+    count that disagrees with the rowid range, a rewritten anchor row) returns
+    None so the caller falls back to reading the whole table.
+    """
+
+    if not _table_exists(conn, table):
+        return None
+
+    row_count, max_rowid, anchor_row = _table_state(conn, table)
+    if row_count == cached.row_count and max_rowid == cached.max_rowid:
+        # Same shape, but the anchor catches a freed-and-reused maximum rowid.
+        return cached if anchor_row == cached.anchor_row else None
+    if row_count < cached.row_count or max_rowid < cached.max_rowid:
+        return None
+
+    previous_anchor = conn.execute(
+        f"SELECT * FROM {table} WHERE rowid = ?", (cached.max_rowid,)
+    ).fetchone()
+    if cached.anchor_row is not None and (
+        previous_anchor is None or tuple(previous_anchor) != cached.anchor_row
+    ):
+        return None
+
+    appended = pd.read_sql_query(
+        f"SELECT * FROM {table} WHERE rowid > ?",
+        conn,
+        params=(cached.max_rowid,),
+    )
+    if len(appended) != row_count - cached.row_count:
+        return None
+
+    normalized = _normalize_dataframe_columns(appended)
+    # Reading a couple of rows can infer different column types than reading
+    # the whole table does -- an all-NULL column in one new row comes back as
+    # object where the full table reads as str -- so line the new rows up with
+    # the cached frame before concatenating.
+    try:
+        normalized = normalized.astype(cached.frame.dtypes.to_dict())
+    except (TypeError, ValueError):
+        return None
+
+    frame = pd.concat([cached.frame, normalized], ignore_index=True)
+    if list(frame.dtypes) != list(cached.frame.dtypes):
+        # Reading the whole table would have inferred different column types;
+        # don't let the incremental path drift away from that.
+        return None
+    return _CachedTable(frame, row_count, max_rowid, anchor_row)
 
 
 def connect_write_database(file_path: str) -> sqlite3.Connection:
@@ -85,18 +188,34 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
 
 def _get_table_dataframe(file_path: str, table: str) -> pd.DataFrame:
     key = _cache_key(file_path, table)
-    if key in _dataframe_cache:
-        return _dataframe_cache[key]
 
     if not Path(file_path).exists():
         df = pd.DataFrame(columns=EXPECTED_COLUMNS)
-        _dataframe_cache[key] = df
+        _dataframe_cache[key] = _CachedTable(df, 0, 0, None)
         return df
 
+    cached = _dataframe_cache.get(key)
     with sqlite3.connect(file_path) as conn:
         _ensure_tables(conn)
-        df = _read_table(conn, table)
-    _dataframe_cache[key] = df
+        if cached is not None:
+            refreshed = _refresh_cached_table(conn, table, cached)
+            if refreshed is not None:
+                _dataframe_cache[key] = refreshed
+                return refreshed.frame
+
+        # Take the frame and the state it corresponds to from one read
+        # snapshot, so a concurrent writer cannot leave them disagreeing.
+        conn.execute("BEGIN")
+        try:
+            df = _read_table(conn, table)
+            state = (
+                _table_state(conn, table)
+                if _table_exists(conn, table)
+                else (0, 0, None)
+            )
+        finally:
+            conn.rollback()
+    _dataframe_cache[key] = _CachedTable(df, *state)
     return df
 
 
@@ -178,7 +297,9 @@ def _append_rows(
         if owns_connection:
             active_conn.close()
 
-    _invalidate_cached_table(file_path, table)
+    # Deliberately leave the cache in place: _get_table_dataframe notices the
+    # new rows and folds them in, which is what avoids rebuilding the whole
+    # table once per appended measurement.
 
 
 def _append_row(file_path: str, table: str, row: dict[str, Any]) -> None:
@@ -213,11 +334,10 @@ def update_dataframe(file_path: str, df: pd.DataFrame) -> None:
     """Replace ``tension_data`` with ``df`` and refresh cache."""
 
     normalized_df = _normalize_dataframe_columns(df)
-    key = _cache_key(file_path, TABLE_TENSION_DATA)
-    _dataframe_cache[key] = normalized_df.copy()
     with connect_write_database(file_path) as conn:
         _ensure_tables(conn)
         normalized_df.to_sql(TABLE_TENSION_DATA, conn, if_exists="replace", index=False)
+        _store_cached_table(file_path, TABLE_TENSION_DATA, normalized_df.copy(), conn)
 
 
 def append_dataframe_row(file_path: str, row: dict[str, Any]) -> None:
@@ -284,12 +404,13 @@ def update_results_dataframe(file_path: str, df: pd.DataFrame) -> None:
     """Replace ``tension_samples`` with ``df`` and refresh cache."""
 
     normalized_df = _normalize_dataframe_columns(df)
-    key = _cache_key(file_path, TABLE_TENSION_SAMPLES)
-    _dataframe_cache[key] = normalized_df.copy()
     with connect_write_database(file_path) as conn:
         _ensure_tables(conn)
         normalized_df.to_sql(
             TABLE_TENSION_SAMPLES, conn, if_exists="replace", index=False
+        )
+        _store_cached_table(
+            file_path, TABLE_TENSION_SAMPLES, normalized_df.copy(), conn
         )
 
 
