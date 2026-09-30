@@ -785,6 +785,21 @@ def _create_widgets(
         "monitor_photodiode_chk": chk_monitor_photodiode,
     }
 
+    # The canvas reqwidth reflects Tk's default (~300px), not the content width.
+    # Measure the inner frame's natural width and resize the canvas so that
+    # configure_root_minimum_size picks up the correct left-column minimum.
+    if hasattr(root, "update_idletasks"):
+        try:
+            root.update_idletasks()
+        except Exception:
+            pass
+    try:
+        content_width = int(bottom_frame.winfo_reqwidth())
+        if content_width > 0:
+            canvas.configure(width=content_width)
+    except Exception:
+        pass
+
     configure_root_minimum_size(root, main_frame, plots_frame, log_container_frame)
     configure_initial_size(root)
     freeze_frame_sizes(root, summary_plot_frame, waveform_plot_frame)
