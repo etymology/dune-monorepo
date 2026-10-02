@@ -489,17 +489,6 @@ def _create_widgets(
     btn_interrupt = tk.Button(measure_frame, text="Interrupt")
     btn_interrupt.grid(row=7, column=1, sticky="ew")
 
-    plot_audio_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(measure_frame, text="Plot Audio", variable=plot_audio_var).grid(
-        row=8, column=1, sticky="w"
-    )
-    suppress_wire_preview_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(
-        measure_frame,
-        text="Suppress Wire Preview",
-        variable=suppress_wire_preview_var,
-    ).grid(row=9, column=1, sticky="w")
-
     # Range and Conditions
     tk.Label(measure_frame, text="Clear Range:").grid(row=10, column=0, sticky="e")
     entry_clear_range = tk.Entry(measure_frame)
@@ -731,8 +720,6 @@ def _create_widgets(
         entry_sweeping_wiggle_span_mm=entry_sweeping_wiggle_span_mm,
         entry_focus_wiggle_sigma=entry_focus_wiggle_sigma,
         use_manual_focus_var=use_manual_focus_var,
-        plot_audio_var=plot_audio_var,
-        suppress_wire_preview_var=suppress_wire_preview_var,
         skip_measured_var=skip_measured_var,
         entry_wire_zone=entry_wire_zone,
         skip_measured_zone_var=skip_measured_zone_var,

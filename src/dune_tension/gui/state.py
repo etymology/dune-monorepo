@@ -31,8 +31,6 @@ class _PersistedState:
     confidence_threshold: float
     confidence_source: str
     use_harmonic_comb_trigger: bool
-    plot_audio: bool
-    suppress_wire_preview: bool
     skip_measured: bool
     focus_target: int
     condition: str
@@ -86,8 +84,6 @@ def save_state(ctx: GUIContext) -> None:
         confidence_threshold=conf,
         confidence_source=str(w.confidence_source_var.get()),
         use_harmonic_comb_trigger=bool(w.use_harmonic_comb_trigger_var.get()),
-        plot_audio=bool(w.plot_audio_var.get()),
-        suppress_wire_preview=bool(w.suppress_wire_preview_var.get()),
         skip_measured=bool(w.skip_measured_var.get()),
         focus_target=_safe_int(w.focus_slider.get(), 4000),
         condition=w.entry_condition.get(),
@@ -171,8 +167,6 @@ def load_state(ctx: GUIContext) -> None:
     w.use_harmonic_comb_trigger_var.set(
         bool(data.get("use_harmonic_comb_trigger", True))
     )
-    w.plot_audio_var.set(bool(data.get("plot_audio", False)))
-    w.suppress_wire_preview_var.set(bool(data.get("suppress_wire_preview", False)))
     w.skip_measured_var.set(bool(data.get("skip_measured", False)))
     w.focus_slider.set(_safe_int(data.get("focus_target", 4000), 4000))
     _set_entry(w.entry_condition, data.get("condition", ""))

@@ -114,10 +114,6 @@ def run_simple_app(
         _configure_commands(ctx, buttons, extras)
 
         load_state(ctx)
-        # load_state restores suppress_wire_preview from the saved state file,
-        # which would re-enable the preview (it defaults to False when absent).
-        # The simplified app always suppresses the wire preview, so re-assert it.
-        ctx.widgets.suppress_wire_preview_var.set(True)
         refresh_uv_laser_offset_controls(ctx)
         if ctx.live_plot_manager is not None:
             ctx.live_plot_manager.request_summary_refresh(
@@ -426,8 +422,6 @@ def _create_widgets(
         0, str(MEASUREMENT_WIGGLE_CONFIG.focus_sigma_quarter_us)
     )
 
-    plot_audio_var = tk.BooleanVar(value=False)
-    suppress_wire_preview_var = tk.BooleanVar(value=True)
     skip_measured_zone_var = tk.BooleanVar(value=True)
     disable_x_compensation_var = tk.BooleanVar(value=False)
 
@@ -469,8 +463,6 @@ def _create_widgets(
         entry_sweeping_wiggle_span_mm=entry_sweeping_wiggle_span_mm,
         entry_focus_wiggle_sigma=entry_focus_wiggle_sigma,
         use_manual_focus_var=use_manual_focus_var,
-        plot_audio_var=plot_audio_var,
-        suppress_wire_preview_var=suppress_wire_preview_var,
         skip_measured_var=skip_measured_var,
         entry_wire_zone=entry_wire_zone,
         skip_measured_zone_var=skip_measured_zone_var,
