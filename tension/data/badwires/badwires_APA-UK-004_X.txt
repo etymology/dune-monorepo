@@ -1,0 +1,5 @@
+APA-UK-004 - Layer X, Side A:
+  Missing wire_numbers: 452, 480
+APA-UK-004 - Layer X, Side B:
+  All wires measured
+
