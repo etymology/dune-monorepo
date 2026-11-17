@@ -1,7 +1,7 @@
 {
   "fixIntercept": false,
   "maxDegree": 1,
-  "nextId": 52,
+  "nextId": 57,
   "samples": [
     {
       "id": 43,
@@ -44,6 +44,34 @@
       "tensionTag": 0.9108186066150665,
       "createdAt": 1786046758.6996515,
       "selected": false
+    },
+    {
+      "id": 52,
+      "grams": 660.0,
+      "tensionTag": 6.172229146957397,
+      "createdAt": 1794589034.1629064,
+      "selected": true
+    },
+    {
+      "id": 53,
+      "grams": 550.0,
+      "tensionTag": 5.094117593765259,
+      "createdAt": 1794589063.6056736,
+      "selected": true
+    },
+    {
+      "id": 54,
+      "grams": 350.0,
+      "tensionTag": 2.9510517835617067,
+      "createdAt": 1794589124.3446422,
+      "selected": true
+    },
+    {
+      "id": 56,
+      "grams": 850.0,
+      "tensionTag": 8.281701946258545,
+      "createdAt": 1794589273.428048,
+      "selected": true
     }
   ]
 }
