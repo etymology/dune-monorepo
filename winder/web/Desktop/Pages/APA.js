@@ -1029,19 +1029,9 @@ function APA(modules) {
     return " (" + recipePeriod + ")";
   };
 
-  var _calculateForecastFromLogs = function (
-    rows,
-    targetWrap,
-    targetLine,
-    recipePeriod,
-  ) {
-    // targetLine is the last labeled wind-log line for this wrap; without it
-    // there is nothing to project to.
-    if (null === targetLine || !isFinite(targetLine)) return null;
-    if (!recipePeriod || recipePeriod < 1) return null;
-
-    var points = _getLatestWindRunPoints(rows);
-    var prepared = _preparePoints(points);
+  // Predict the epoch seconds at which the wind log reaches targetLine.
+  // Returns {seconds, method, numbers, lastNumber} or null.
+  var _predictSecondsForLine = function (prepared, targetLine, recipePeriod) {
     var numbers = prepared.numbers;
     var seconds = prepared.seconds;
 
@@ -1082,10 +1072,95 @@ function APA(modules) {
 
     if (!isFinite(predictedSeconds)) return null;
 
+    return { seconds: predictedSeconds, method: predictionMethod };
+  };
+
+  var _calculateForecastFromLogs = function (
+    rows,
+    targetWrap,
+    targetLine,
+    recipePeriod,
+  ) {
+    // targetLine is the last labeled wind-log line for this wrap; without it
+    // there is nothing to project to.
+    if (null === targetLine || !isFinite(targetLine)) return null;
+    if (!recipePeriod || recipePeriod < 1) return null;
+
+    var prepared = _preparePoints(_getLatestWindRunPoints(rows));
+    var prediction = _predictSecondsForLine(prepared, targetLine, recipePeriod);
+    if (!prediction) return null;
+
     return {
       wrap: targetWrap,
-      time: _formatTime(new Date(Math.round(predictedSeconds * 1000.0))),
-      isSeasonal: predictionMethod === "seasonal",
+      time: _formatTime(new Date(Math.round(prediction.seconds * 1000.0))),
+      isSeasonal: prediction.method === "seasonal",
+    };
+  };
+
+  // Inverse forecast: which wrap will the winder be on at 17:00 local today?
+  // Bisects on wind-log line using the same predictor as the wrap forecasts,
+  // then converts line -> wrap by linear interpolation between the two target
+  // wraps' last labeled lines.
+  var FORECAST_CLOCK_HOUR = 17;
+
+  var _calculateWrapAtClock = function (rows, targetWraps, recipePeriod) {
+    if (targetWraps.length < 2) return null;
+    if (!recipePeriod || recipePeriod < 1) return null;
+
+    var wrapA = targetWraps[0];
+    var wrapB = targetWraps[targetWraps.length - 1];
+    if (!forecastTargetLines.hasOwnProperty(wrapA)) return null;
+    if (!forecastTargetLines.hasOwnProperty(wrapB)) return null;
+    var lineA = forecastTargetLines[wrapA];
+    var lineB = forecastTargetLines[wrapB];
+    if (!isFinite(lineA) || !isFinite(lineB) || lineB <= lineA) return null;
+
+    var prepared = _preparePoints(_getLatestWindRunPoints(rows));
+    if (prepared.numbers.length < 2) return null;
+
+    var when = new Date();
+    when.setHours(FORECAST_CLOCK_HOUR, 0, 0, 0);
+    var targetSeconds = when.getTime() / 1000.0;
+
+    var secondsAt = function (line) {
+      var p = _predictSecondsForLine(prepared, line, recipePeriod);
+      return p ? p.seconds : null;
+    };
+
+    var lo = prepared.numbers[0];
+    var hi = lineB;
+    var loSeconds = secondsAt(lo);
+    var hiSeconds = secondsAt(hi);
+    if (null === loSeconds || null === hiSeconds) return null;
+
+    // White only when the projection to the final wrap is seasonal, matching
+    // the per-wrap items.
+    var finalPrediction = _predictSecondsForLine(prepared, hi, recipePeriod);
+    var isSeasonal = !!finalPrediction && finalPrediction.method === "seasonal";
+
+    var finished = false;
+    var line;
+    if (targetSeconds <= loSeconds) {
+      line = lo;
+    } else if (targetSeconds >= hiSeconds) {
+      line = hi;
+      finished = true;
+    } else {
+      for (var i = 0; i < 40; i += 1) {
+        var mid = (lo + hi) / 2;
+        var midSeconds = secondsAt(mid);
+        if (null === midSeconds) return null;
+        if (midSeconds < targetSeconds) lo = mid;
+        else hi = mid;
+      }
+      line = (lo + hi) / 2;
+    }
+
+    var wrap = wrapA + ((line - lineA) * (wrapB - wrapA)) / (lineB - lineA);
+    return {
+      wrap: finished ? wrapB : Math.max(1, Math.floor(wrap)),
+      finished: finished,
+      isSeasonal: isSeasonal,
     };
   };
 
@@ -1142,6 +1217,28 @@ function APA(modules) {
         );
       }
     }
+
+    var clockLabel = FORECAST_CLOCK_HOUR + ":00";
+    var atClock = _calculateWrapAtClock(
+      forecastRecentRows,
+      targetWraps,
+      forecastRecipePeriod,
+    );
+    lines.push(
+      '<span class="' +
+        (atClock && atClock.isSeasonal
+          ? "forecastItem forecastSeasonal"
+          : "forecastItem forecastFallback") +
+        '">At ' +
+        clockLabel +
+        ": " +
+        (atClock
+          ? atClock.finished
+            ? "done (Wrap " + atClock.wrap + ")"
+            : "Wrap " + atClock.wrap
+          : "-") +
+        "</span>",
+    );
 
     if (lines.length > 0) {
       $("#forecastWrapText").html(lines.join(""));
