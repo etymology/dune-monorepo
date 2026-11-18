@@ -231,8 +231,6 @@ class WorkerInputs:
     sweeping_wiggle_span_mm: float
     focus_wiggle_sigma_quarter_us: float
     use_manual_focus: bool
-    plot_audio: bool
-    suppress_wire_preview: bool
     skip_measured: bool
     wire_number: str
     wire_list: str
@@ -310,10 +308,6 @@ def _capture_worker_inputs(ctx: GUIContext) -> WorkerInputs:
         sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
         use_manual_focus=bool(w.use_manual_focus_var.get()),
-        plot_audio=bool(w.plot_audio_var.get()),
-        suppress_wire_preview=bool(
-            getattr(w.suppress_wire_preview_var, "get", lambda: False)()
-        ),
         skip_measured=bool(w.skip_measured_var.get()),
         wire_number=w.entry_wire.get(),
         wire_list=w.entry_wire_list.get(),
@@ -379,7 +373,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
         sweeping_wiggle=bool(getattr(inputs, "sweeping_wiggle_enabled", False)),
         sweeping_wiggle_span_mm=sweeping_wiggle_span_mm,
         focus_wiggle_sigma_quarter_us=focus_wiggle_sigma_quarter_us,
-        plot_audio=inputs.plot_audio,
+        plot_audio=False,
         use_harmonic_comb_trigger=bool(
             getattr(inputs, "use_harmonic_comb_trigger", True)
         ),
@@ -404,25 +398,7 @@ def create_tensiometer(ctx: GUIContext, inputs: WorkerInputs) -> "Tensiometer":
             ctx,
             config,
         ),
-        wire_preview_callback=(
-            (lambda *_args: None)
-            if bool(getattr(inputs, "suppress_wire_preview", False))
-            else lambda wire_number, wire_x, wire_y: _request_uv_wire_preview(
-                ctx,
-                str(inputs.layer).upper(),
-                (
-                    {"A": "B", "B": "A"}[str(inputs.side).upper()]
-                    if inputs.flipped
-                    else str(inputs.side).upper()
-                ),
-                int(wire_number),
-                float(wire_x),
-                float(wire_y),
-                bool(inputs.a_taped)
-                if str(inputs.side).upper() == "A"
-                else bool(inputs.b_taped),
-            )
-        ),
+        wire_preview_callback=lambda *_args: None,
         runtime_bundle=ctx.runtime,
     )
 
@@ -2265,7 +2241,7 @@ def _make_config_from_widgets(ctx: GUIContext):
         flipped=w.flipped_var.get(),
         samples_per_wire=1,
         confidence_threshold=conf,
-        plot_audio=w.plot_audio_var.get(),
+        plot_audio=False,
     )
 
 
@@ -2277,7 +2253,7 @@ def _make_config_from_inputs(inputs: WorkerInputs):
         flipped=inputs.flipped,
         samples_per_wire=1,
         confidence_threshold=inputs.confidence,
-        plot_audio=inputs.plot_audio,
+        plot_audio=False,
     )
 
 

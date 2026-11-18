@@ -320,3 +320,62 @@ def test_controller_logs_permission_denied_distinctly(monkeypatch, caplog):
 
     assert controller.faulted is True
     assert "access was denied" in caplog.text
+
+
+def test_controller_opens_port_with_bounded_timeouts(monkeypatch):
+    """The command port must never be opened in unbounded-blocking mode.
+
+    pyserial defaults to ``timeout=None``/``write_timeout=None``. A Maestro
+    whose USB handle has gone stale then wedges ``write`` inside ``select``
+    for minutes, which hangs the GUI's startup before it reaches the Tk
+    mainloop.
+    """
+    serial_stub = types.ModuleType("serial")
+    serial_tools_stub = types.ModuleType("serial.tools")
+    list_ports_stub = types.ModuleType("serial.tools.list_ports")
+    open_kwargs = []
+
+    class SerialException(Exception):
+        pass
+
+    class FakePort:
+        def __init__(self, device, description):
+            self.device = device
+            self.description = description
+
+    class FakeSerial:
+        def __init__(self, port, *_, **kwargs):
+            open_kwargs.append(kwargs)
+            self.port = port
+
+        def close(self):
+            pass
+
+        def write(self, _payload):
+            pass
+
+        def read(self):
+            return b"\x00"
+
+    def fake_comports():
+        return [FakePort("/dev/ttyACM0", "Pololu Maestro Command Port")]
+
+    setattr(serial_stub, "Serial", FakeSerial)
+    setattr(serial_stub, "SerialException", SerialException)
+    setattr(list_ports_stub, "comports", fake_comports)
+    setattr(serial_tools_stub, "list_ports", list_ports_stub)
+    monkeypatch.setitem(sys.modules, "serial", serial_stub)
+    monkeypatch.setitem(sys.modules, "serial.tools", serial_tools_stub)
+    monkeypatch.setitem(sys.modules, "serial.tools.list_ports", list_ports_stub)
+    sys.modules.pop("dune_tension.hardware.serial_discovery", None)
+    sys.modules.pop("dune_tension.maestro", None)
+
+    maestro = importlib.import_module("dune_tension.maestro")
+    maestro = importlib.reload(maestro)
+
+    maestro.Controller()
+
+    assert open_kwargs, "the controller never opened a port"
+    for kwargs in open_kwargs:
+        assert 0 < kwargs["timeout"] < 30
+        assert 0 < kwargs["write_timeout"] < 30

@@ -16,6 +16,14 @@ LOGGER = logging.getLogger(__name__)
 
 PY2 = version_info[0] == 2  # Running Python 2.x?
 
+# Bound every serial operation. A Maestro whose USB handle has gone stale
+# (device suspended, re-enumerated, or unplugged) leaves the CDC-ACM port open
+# but unwritable: an unbounded write blocks in select() for minutes before the
+# kernel surfaces EIO. That happens on the Tk main thread during startup, so
+# the GUI never reaches its mainloop and looks frozen.
+SERIAL_READ_TIMEOUT = 1.0
+SERIAL_WRITE_TIMEOUT = 1.0
+
 #
 # ---------------------------
 # Maestro Servo Controller
@@ -73,7 +81,11 @@ class Controller:
         permission_error = None
         for candidate_port in candidate_ports:
             try:
-                usb = serial.Serial(candidate_port)
+                usb = serial.Serial(
+                    candidate_port,
+                    timeout=SERIAL_READ_TIMEOUT,
+                    write_timeout=SERIAL_WRITE_TIMEOUT,
+                )
             except serial.SerialException as exc:
                 last_error = exc
                 if is_serial_permission_error(exc):

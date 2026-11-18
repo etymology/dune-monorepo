@@ -36,8 +36,6 @@ class GUIWidgets:
     entry_sweeping_wiggle_span_mm: tk.Entry
     entry_focus_wiggle_sigma: tk.Entry
     use_manual_focus_var: tk.BooleanVar
-    plot_audio_var: tk.BooleanVar
-    suppress_wire_preview_var: tk.BooleanVar
     skip_measured_var: tk.BooleanVar
     entry_wire_zone: tk.Entry
     skip_measured_zone_var: tk.BooleanVar
